@@ -325,27 +325,18 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
     * @see [[Expressions.Require]]
     */
   def withPath(expr: Expr, path: Path): Expr = {
-    def unwrap(e: Expr): Lambda = e match {
-      case Let(i, e, b) =>
-        val Lambda(args, body) = unwrap(b)
-        Lambda(args, Let(i, e, body)).copiedFrom(e)
-      case l: Lambda => l
-      case _ => scala.sys.error("Should never happen!")
-    }
-
-    def spec(cond: Expr, es: Seq[Expr]): Expr = es match {
-      case Seq(e) => Require(cond, e).copiedFrom(cond)
-      case Seq(e, pre) => Require(And(cond, pre).copiedFrom(cond), e).copiedFrom(cond)
-      case Seq(e, pre, post) => Ensuring(Require(and(cond, pre), e).copiedFrom(cond), unwrap(post)).copiedFrom(cond)
-      case _ => scala.sys.error("Should never happen!")
-    }
-
-    expr match {
-      case Require(pre, b) => withShared(path, Seq(b, pre), spec, expr.getPos)
-      case Ensuring(Require(pre, b), post) => withShared(path, Seq(b, pre, post), spec, expr.getPos)
-      case Ensuring(b, post) => withShared(path, Seq(b, BooleanLiteral(true).copiedFrom(expr), post), spec, expr.getPos)
-      case b => withShared(path, Seq(b), spec, expr.getPos)
-    }
+    withShared(path, Seq(expr), { case (cond, Seq(e)) =>
+      val specced = BodyWithSpecs(e)
+      val speccedWithPre =
+        specced.withSpec(
+          specced.getSpec(PreconditionKind).map(pre =>
+            Precondition(And(pre.expr, cond).setPos(pre.expr))
+          ).getOrElse(
+            Precondition(cond)
+          )
+        )
+      speccedWithPre.reconstructed
+    }, expr.getPos)
   }
 
   /** Make a String representation for a table of Symbols `s`, only keeping
