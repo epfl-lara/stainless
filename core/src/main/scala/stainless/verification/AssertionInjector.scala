@@ -193,8 +193,6 @@ trait AssertionInjector extends transformers.TreeTransformer {
       // Ensure the operation doesn't shift more bits than there are.
       t.Assert(range, Some("Shift semantics"), newE).copiedFrom(e)
 
-    case e: s.Ensuring => super.transform(e.toAssert)
-
     case _ => super.transform(e)
   }
 
@@ -247,19 +245,12 @@ object AssertionInjector {
       t.NoSymbols
         .withFunctions(syms.functions.values.toSeq.map { fd =>
           injector.wrapping(fd.flags.contains(s.Wrapping)) {
-            val (specs, body) = s.exprOps.deconstructSpecs(fd.fullBody)(syms)
-            val newSpecs = specs.map(_.map(injector.transform(_)))
-            val newBody = body map injector.transform
-
-            val resultType = injector.transform(fd.returnType)
-            val fullBody = t.exprOps.reconstructSpecs(newSpecs, newBody, resultType).copiedFrom(fd.fullBody)
-
             new t.FunDef(
               fd.id,
               fd.tparams map injector.transform,
               fd.params map injector.transform,
-              resultType,
-              fullBody,
+              injector.transform(fd.returnType),
+              injector.transform(fd.fullBody),
               fd.flags map injector.transform
             ).copiedFrom(fd)
           }
