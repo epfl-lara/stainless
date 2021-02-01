@@ -70,9 +70,8 @@ object TypeCheckerContext {
       if (vds.size != es.size)
         ctx.reporter.internalError("Function `freshBindWithValues` expects sequences with the same size")
       vds.zip(es).foldLeft((this, new Freshener(Map()))) {
-        case((tcAcc, freshener), (vd,e)) =>
-          val freshVd = freshener.transform(vd)
-          val (newTc, newId) = tcAcc.freshBindWithValue(freshVd, e)
+        case ((tcAcc, freshener), (vd, e)) =>
+          val (newTc, newId) = tcAcc.freshBindWithValue(freshener.transform(vd), freshener.transform(e))
           if (freshener.contains(vd.id)) {
             ctx.reporter.internalError(s"Substitution should not contain ${vd.id.asString}")
           }
