@@ -330,7 +330,7 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
       val speccedWithPre =
         specced.withSpec(
           specced.getSpec(PreconditionKind).map(pre =>
-            Precondition(And(pre.expr, cond).setPos(pre.expr))
+            Precondition(And(cond, pre.expr).setPos(pre.expr))
           ).getOrElse(
             Precondition(cond)
           )
