@@ -731,29 +731,37 @@ trait TypeChecker {
 
         val fiS = shortString(e.asString, 40)
 
+        import exprOps._
+
+        val specced = BodyWithSpecs(calleeTfd.fullBody)
+        val pre = specced.getSpec(PreconditionKind)
+        val letsVDs = specced.lets.map(_._1)
+        val letsExprs = specced.lets.map(_._2)
+
         val trPre = {
-          if (calleeTfd.precondition.isDefined) {
+          if (pre.isDefined) {
             val kind = VCKind.Info(VCKind.Precondition, s"call $fiS")
-            val pre = calleeTfd.precondition.get
-            val (tc2, freshener) = tc.freshBindWithValues(calleeTfd.params, args)
-            buildVC(tc2.withVCKind(kind).setPos(e), freshener.transform(pre))
+            val (tc2, freshener2) = tc.freshBindWithValues(calleeTfd.params, args)
+            val (tc3, freshener3) = tc2.freshBindWithValues(letsVDs.map(freshener2.transform), letsExprs.map(freshener2.transform))
+            buildVC(tc3.withVCKind(kind).setPos(e), freshener2.andThen(freshener3).transform(pre.get.expr))
           } else {
             TyperResult.valid
           }
         }
 
         val isRecursive = tc.currentFid.exists(fid => dependencies(id).contains(fid))
-        val hasMeasure = calleeTfd.measure.isDefined
+
+        val calleeMeasureOpt = specced.getSpec(MeasureKind)
+        val hasMeasure = calleeMeasureOpt.isDefined
 
         val trSize = {
           if (checkMeasures.isTrue && isRecursive && hasMeasure) {
             assert(tc.measureType.isDefined)
             assert(tc.currentMeasure.isDefined)
             val currentMeasure = tc.currentMeasure.get
-            val calleeMeasureOpt = calleeTfd.measure
             assert(calleeMeasureOpt.isDefined, s"${calleeTfd.id.asString} must have a measure")
-            val calleeMeasure = calleeMeasureOpt.get
-            val calleeMeasureValue = freshLets(calleeTfd.params, args, calleeMeasure)
+            val calleeMeasure = calleeMeasureOpt.get.expr
+            val calleeMeasureValue = freshLets(calleeTfd.params ++ letsVDs, args ++ letsExprs, calleeMeasure)
             buildVC(
               tc.withVCKind(VCKind.MeasureDecreases).setPos(e),
               lessThan(tc.measureType.get, calleeMeasureValue, currentMeasure)
@@ -926,7 +934,7 @@ trait TypeChecker {
         (RefinementType(vd, pred), trPred ++ trVC)
 
       case _ =>
-        reporter.fatalError(e.getPos, s"Could not infer type for: ${e.asString} (${e.getClass})\nin context:\n${tc.asString()}")
+        reporter.fatalError(e.getPos, s"Unsupported expression (${e.getClass}):\n${e.asString} \nin context:\n${tc.asString()}")
     }
 
     reporter.debug(s"\n${tc0.indent}Inferred type: ${t.asString} for ${e.asString}")
@@ -1227,6 +1235,8 @@ trait TypeChecker {
   }
 
   def checkType(id: Identifier): (Option[Type], TyperResult) = {
+    import exprOps._
+
     val fd = getFunction(id)
     val deps = dependencies(id)
     val mutuallyRecursiveDeps = deps.filter { id2 => dependencies(id2).contains(id) }
@@ -1246,6 +1256,8 @@ trait TypeChecker {
 
     val freshener = Freshener(toFreshen.map(id => id -> id.freshen).toMap)
 
+    val specced = BodyWithSpecs(fd.fullBody)
+
     // The type of the arguments, the specifications, and the return type
     // need to be well-formed without the mutually recursive dependencies
     val nonMutuallyRecursiveContext =
@@ -1255,11 +1267,11 @@ trait TypeChecker {
         inFunction(id).
         setPos(fd)
 
-    // `tc` is `nonMutuallyRecursiveContext` to which we add variables for the
+    // `tc0` is `nonMutuallyRecursiveContext` to which we add variables for the
     // arguments of the function
     // `trArgs` are the verification conditions for ensuring that the type of
     // the arguments are well-formed
-    val (tc, trArgs) = fd.params.foldLeft(nonMutuallyRecursiveContext, TyperResult.valid) {
+    val (tc0, trArgs) = fd.params.foldLeft(nonMutuallyRecursiveContext, TyperResult.valid) {
       case ((tcAcc, trAcc), vd) =>
         val freshVd = freshener.transform(vd)
         (
@@ -1268,9 +1280,14 @@ trait TypeChecker {
         )
     }
 
-    val measureOpt = fd.measure.map(e => freshener.transform(e))
+    // `tc` is `tc0` to which we add the lets shared between the body and the specifications
+    val vds = specced.lets.map(_._1).map(freshener.transform)
+    val es = specced.lets.map(_._2).map(freshener.transform)
+    val tc = tc0.bindWithValues(vds, es)
 
-    val preOpt = fd.precondition.map(e => freshener.transform(e))
+    val measureOpt = specced.getSpec(MeasureKind).map(measure => freshener.transform(measure.expr))
+
+    val preOpt = specced.getSpec(PreconditionKind).map(pre => freshener.transform(pre.expr))
     val tcWithPre = preOpt.map(pre => tc.withTruth(pre)).getOrElse(tc)
 
     val (measureType, trMeasure): (Option[Type], TyperResult) =
@@ -1287,14 +1304,14 @@ trait TypeChecker {
         (None, TyperResult.valid)
       }
 
-    val postOpt = fd.postcondition.map(e => freshener.transform(e))
+    val postOpt = specced.getSpec(PostconditionKind).map(post => freshener.transform(post.expr))
 
     // We check that the precondition is a boolean
     val trPre = preOpt.map(pre => checkType(tc, pre, BooleanType())).getOrElse(TyperResult.valid)
 
     val freshenedReturnType = freshener.transform(fd.returnType)
 
-    val bodyOpt = exprOps.withoutSpecs(fd.fullBody).map(e => freshener.transform(e))
+    val bodyOpt = specced.bodyOpt.map(e => freshener.transform(e))
 
     // The TypingContext for the body contains all dependencies, and the measure
     val tcBody = tcWithPre.withIdentifiers(deps).withMeasureType(measureType).withMeasure(measureOpt)
