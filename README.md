@@ -24,6 +24,7 @@ Or documentation chapters, such as:
   
 ## Development
 
+
 To build the project, run `sbt universal:stage`. If all goes well, a binary gets generated: `frontends/scalac/target/universal/stage/bin/stainless-scalac`. More information is available in the documentation links.
 
 ## Other Links
