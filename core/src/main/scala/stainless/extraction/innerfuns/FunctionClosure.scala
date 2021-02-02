@@ -68,8 +68,6 @@ trait FunctionClosure
       val oldBody = withPath(fullBody, reqPC)
 
       object bodyTransformer extends SelfTreeTransformer {
-        override val s: self.s.type = self.s
-
         override def transform(e: Expr): Expr = e match {
           case v: Variable if freeMap.contains(v.toVal) =>
             freeMap(v.toVal).toVariable.copiedFrom(v)
