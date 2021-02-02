@@ -45,7 +45,8 @@ trait ImperativeCodeElimination
     //that should be introduced as such in the returned scope (the val already refers to the new names)
     def toFunction(expr: Expr)(implicit state: State): (Expr, Expr => Expr, Map[Variable, Variable]) = {
       import state._
-      expr match {
+
+      val (res, scope, fun): (Expr, Expr => Expr, Map[Variable, Variable]) = expr match {
         case LetVar(vd, e, b) =>
           val newVd = vd.freshen
           val (rhsVal, rhsScope, rhsFun) = toFunction(e)
@@ -400,8 +401,10 @@ trait ImperativeCodeElimination
             (argVal +: accArgs, newScope, argFun ++ accFun)
           }
 
-          (recons(recArgs).copiedFrom(n), scope, fun)
+          (recons(recArgs), scope, fun)
       }
+
+      (res.copiedFrom(expr), scope, fun)
     }
 
     /* Extract functional result value. Useful to remove side effect from conditions when moving it to post-condition */
