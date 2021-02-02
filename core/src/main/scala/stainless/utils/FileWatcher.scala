@@ -8,6 +8,9 @@ import java.util.concurrent.TimeUnit
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.{ Map => MutableMap }
+import scala.io.{Source, BufferedSource}
+import scala.concurrent.Future
+
 
 /**
  * Facility to run an [[action]] whenever any of the given [[files]] are updated.
@@ -27,6 +30,16 @@ class FileWatcher(ctx: inox.Context, files: Set[File], action: () => Unit) {
     dirs foreach { _.register(watcher, StandardWatchEventKinds.ENTRY_MODIFY) }
 
     ctx.reporter.info(s"\n\nWaiting for source changes...\n\n")
+
+    val kbd_In: BufferedSource = Source.stdin
+    var keyPressed = false
+
+    Future {
+      while (true) {
+        kbd_In.next()
+        keyPressed = true
+      }
+    }(stainless.executionContext(ctx))
 
     var loop = true
 
@@ -60,14 +73,18 @@ class FileWatcher(ctx: inox.Context, files: Set[File], action: () => Unit) {
           times(f) = f.lastModified
         }
 
-        if (proceed) {
-          ctx.reporter.info(s"Detecting some file modifications...: ${modified mkString ", "}")
+        if (proceed || keyPressed) {
+          keyPressed = false
+          if (proceed)
+            ctx.reporter.info(s"Detected file modifications: ${modified mkString ", "}")
+          else
+            ctx.reporter.info(s"Detected Enter key press")
           // Wait a little bit to avoid reading incomplete files from disk
           Thread.sleep(100)
           ctx.interruptManager.unregisterForInterrupts(interruptible)
           action()
           ctx.interruptManager.registerForInterrupts(interruptible)
-          ctx.reporter.info(s"\n\nWaiting for source changes...\n\n")
+          ctx.reporter.info(s"\n\nWaiting for source changes... (or press Enter to reload)\n\n")
         }
 
         val valid = key.reset()
