@@ -144,7 +144,7 @@ package object stainless {
 
   private lazy val multiThreadedExecutor: java.util.concurrent.ExecutorService =
     nParallel.map(Executors.newFixedThreadPool(_)).getOrElse(ForkJoinTasks.defaultForkJoinPool)
-  private lazy val multiThreadedExecutionContext: ExecutionContext =
+  lazy val multiThreadedExecutionContext: ExecutionContext =
     ExecutionContext.fromExecutor(multiThreadedExecutor)
 
   implicit def executionContext(implicit ctx: inox.Context): ExecutionContext =
