@@ -29,7 +29,7 @@ class FileWatcher(ctx: inox.Context, files: Set[File], action: () => Unit) {
     val dirs: Set[Path] = files map { _.getParentFile.toPath }
     dirs foreach { _.register(watcher, StandardWatchEventKinds.ENTRY_MODIFY) }
 
-    ctx.reporter.info(s"\n\nWaiting for source changes...\n\n")
+    ctx.reporter.info(s"\n\nWaiting for source changes... (or press Enter to reload)\n\n")
 
     val kbd_In: BufferedSource = Source.stdin
     var keyPressed = false
@@ -39,7 +39,7 @@ class FileWatcher(ctx: inox.Context, files: Set[File], action: () => Unit) {
         kbd_In.next()
         keyPressed = true
       }
-    }(stainless.executionContext(ctx))
+    }(stainless.multiThreadedExecutionContext)
 
     var loop = true
 
