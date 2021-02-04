@@ -30,24 +30,8 @@ trait FunctionClosure
       tparamsMap: Map[TypeParameter, TypeParameter]
     )
 
-    def filterByIds(path: Path, ids: Set[Identifier]): Path = {
-      def containsIds(e: Expr): Boolean = exprOps.exists {
-        case Variable(id, _, _) => ids contains id
-        case _ => false
-      }(e)
-
-      import Path._
-      path.elements.foldLeft(Path.empty) {
-        case (pc, CloseBound(vd, e)) if (ids contains vd.id) || containsIds(e) => pc withBinding (vd -> e)
-        case (pc, Condition(cond)) if containsIds(cond) => pc withCond cond
-        case (pc, _) => pc
-      }
-    }
-
     def closeFd(inner: LocalFunDef, outer: FunDef, pc: Path, free: Seq[ValDef]): FunSubst = {
       val LocalFunDef(id, tparams, params, returnType, fullBody, flags) = inner
-
-      val reqPC = filterByIds(pc, free.map(_.id).toSet)
 
       val tpFresh = outer.tparams map { _.freshen }
       val tparamsMap = outer.typeArgs.zip(tpFresh map {_.tp}).toMap
@@ -63,9 +47,9 @@ trait FunctionClosure
         }
 
       val freeMap = freshVals.toMap
-      val freshParams = freshVals.filterNot(p => reqPC.bindings exists (_._1.id == p._1.id)).map(_._2)
+      val freshParams = freshVals.filterNot(p => pc.bindings exists (_._1.id == p._1.id)).map(_._2)
 
-      val oldBody = withPath(fullBody, reqPC)
+      val oldBody = withPath(fullBody, pc)
 
       object bodyTransformer extends SelfTreeTransformer {
         override def transform(e: Expr): Expr = e match {
@@ -143,8 +127,7 @@ trait FunctionClosure
         def step(current: Map[Identifier, Set[Variable]]): Map[Identifier, Set[Variable]] = {
           nestedFuns.map { fd =>
             val transFreeVars = (callGraph(fd.id) + fd.id).flatMap(current)
-            val reqPath = filterByIds(nestedWithPaths(fd), transFreeVars.map(_.id))
-            (fd.id, transFreeVars ++ fd.freeVariables ++ reqPath.freeVariables)
+            (fd.id, transFreeVars ++ fd.freeVariables ++ nestedWithPaths(fd).freeVariables)
           }.toMap
         }
 
