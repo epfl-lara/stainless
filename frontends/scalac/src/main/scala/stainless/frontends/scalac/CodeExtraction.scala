@@ -190,7 +190,7 @@ trait CodeExtraction extends ASTExtractors {
     Seq[xt.Import],
     Seq[Identifier], // classes
     Seq[Identifier], // functions
-    Seq[Identifier], // typedefs
+    Seq[Identifier], // typeDefs
     Seq[xt.ModuleDef],
     Seq[xt.ClassDef],
     Seq[xt.FunDef],

@@ -8,50 +8,119 @@ import CPrinterHelpers._
 import ir.PrimitiveTypes._
 import ir.Literals._
 
-class CPrinter(val sb: StringBuffer = new StringBuffer) {
-  override def toString = sb.toString
-
+class CPrinter(
+  hFileName: String,
+  // `printC` is true when we print the *.c file, false when we print the *.h file
+  printC: Boolean,
+  headerDependencies: Set[Type],
+  val sb: StringBuffer = new StringBuffer,
+) {
   def print(tree: Tree) = pp(tree)(PrinterContext(indent = 0, printer = this, previous = None, current = tree))
 
   private[genc] def pp(tree: Tree)(implicit ctx: PrinterContext): Unit = tree match {
-    case Prog(includes, typedefs0, enums0, types, functions0) =>
+    case Prog(includes, typeDefs0, enums0, types, functions0) =>
       // We need to convert Set to Seq in order to use nary.
-      val typedefs = typedefs0.toSeq
+      val typeDefs = typeDefs0.toSeq
       val enums = enums0.toSeq.sortBy(_.id.name)
       val functions = functions0.toSeq.sortBy(_.id.name)
 
-      c"""|/* ------------------------------------ includes ----- */
-          |
-          |${nary(buildIncludes(includes), sep = "\n")}
-          |
-          |/* -------------------------------- type aliases ----- */
-          |
-          |${nary(typedefs map TypedefDecl, sep = "\n")}
-          |
-          |/* --------------------------------------- enums ----- */
-          |
-          |${nary(enums map EnumDef, sep = "\n\n")}
-          |
-          |/* ----------------------- data type definitions ----- */
-          |
-          |${nary(types map TypeDef, sep = "\n\n")}
-          |
-          |/* ----------------------- function declarations ----- */
-          |
-          |${nary(functions map FunDecl, sep = "\n")}
-          |
-          |/* ------------------------ function definitions ----- */
-          |
-          |${nary(functions, sep = "\n\n")}
-          |"""
+      def separator(s: String) = {
+        "/* " + "-" * (43 - s.length) + " " + s + " " + "----- */\n\n"
+      }
+
+      if (printC) {
+        c"""|/* --------------------------- GenC requirements ----- */
+            |
+            |#include <limits.h>
+            |#if (__STDC_VERSION__ < 199901L) || (CHAR_BIT != 8)
+            |#error "Your compiler does not meet the minimum requirements of GenC. Please see"
+            |#error "https://epfl-lara.github.io/stainless/genc.html#requirements for more details."
+            |#endif
+            |
+            |/* ---------------------------- include header ------- */
+            |
+            |#include "${hFileName}"
+            |
+            |${nary(
+              typeDefs.filter(!headerDependencies.contains(_)) map TypeDefDecl,
+              opening = separator("type aliases"),
+              closing = "\n\n",
+              sep = "\n")
+             }
+            |${nary(
+              enums.filter(!headerDependencies.contains(_)) map EnumDef,
+              closing = "\n\n",
+              opening = separator("enums"),
+              sep = "\n\n")
+             }
+            |${nary(
+              types.filter(!headerDependencies.contains(_)) map DataTypeDecl,
+              opening = separator("data type definitions"),
+              closing = "\n\n",
+              sep = "\n\n")
+             }
+            |${nary(
+              functions.filter(!_.export) map FunDecl,
+              opening = separator("function declarations"),
+              closing = "\n\n",
+              sep = "\n")
+             }
+            |${nary(
+              functions,
+              opening = separator("function definitions"),
+              sep = "\n\n")
+             }
+            |"""
+      } else {
+        val capitalized = hFileName.toUpperCase.map { c =>
+          if (c.isLetterOrDigit) c
+          else "_"
+        }.mkString
+
+        c"""|#ifndef __${capitalized}__
+            |#define __${capitalized}__
+            |
+            |${nary(
+              buildIncludes(includes),
+              opening = separator("includes"),
+              closing = "\n\n",
+              sep = "\n")
+            }
+            |${nary(
+              typeDefs.filter(headerDependencies.contains) map TypeDefDecl,
+              opening = separator("type aliases"),
+              closing = "\n\n",
+              sep = "\n")
+             }
+            |${nary(
+              enums.filter(headerDependencies.contains) map EnumDef,
+              closing = "\n\n",
+              opening = separator("enums"),
+              sep = "\n\n")
+             }
+            |${nary(
+              types.filter(headerDependencies.contains) map DataTypeDecl,
+              opening = separator("data type definitions"),
+              closing = "\n\n",
+              sep = "\n\n")
+             }
+            |${nary(
+              functions.filter(_.export) map FunDecl,
+              opening = separator("function declarations"),
+              sep = "\n")
+             }
+            |
+            |#endif
+            |"""
+      }
 
     // Manually defined function
-    case Fun(id, _, _, Right(function)) =>
+    case Fun(id, _, _, Right(function), _) =>
       val fun = function.replaceAllLiterally("__FUNCTION__", id.name)
       c"$fun"
 
     // Auto-generated function
-    case fun @ Fun(_, _, _, Left(body)) =>
+    case fun @ Fun(_, _, _, Left(body), _) =>
       c"""|${FunSign(fun)} {
           |    $body
           |}"""
@@ -60,7 +129,7 @@ class CPrinter(val sb: StringBuffer = new StringBuffer) {
 
     case Var(id, typ) => c"${TypeId(typ, id)}"
 
-    case Typedef(orig, _) => c"$orig"
+    case TypeDef(orig, _) => c"$orig"
 
     case Primitive(pt) => pt match {
       case CharType => c"char"
@@ -187,30 +256,30 @@ class CPrinter(val sb: StringBuffer = new StringBuffer) {
 
   private[genc] def pp(wt: WrapperTree)(implicit ctx: PrinterContext): Unit = wt match {
     case StaticStorage(id) if id.name == "main" => /* Nothing */
-    case StaticStorage(_) => c"static"
+    case StaticStorage(_) => c"static "
 
     case TypeId(FunType(ret, params), id) => c"$ret (*$id)($params)"
     case TypeId(typ, id) => c"$typ $id"
 
-    case FunSign(Fun(id, FunType(retret, retparamTypes), params, _)) =>
-      c"${StaticStorage(id)} $retret (*$id(${FunSignParams(params)}))(${FunSignParams(retparamTypes)})"
+    case FunSign(Fun(id, FunType(retret, retparamTypes), params, _, _)) =>
+      c"${StaticStorage(id)}$retret (*$id(${FunSignParams(params)}))(${FunSignParams(retparamTypes)})"
 
-    case FunSign(Fun(id, returnType, params, _)) =>
-      c"${StaticStorage(id)} $returnType $id(${FunSignParams(params)})"
+    case FunSign(Fun(id, returnType, params, _, _)) =>
+      c"${StaticStorage(id)}$returnType $id(${FunSignParams(params)})"
 
     case FunSignParams(Seq()) => c"void"
     case FunSignParams(params) => c"${nary(params)}"
 
     case FunDecl(f) => c"${FunSign(f)};"
 
-    case TypedefDecl(Typedef(original, alias)) => c"typedef $alias $original;"
+    case TypeDefDecl(TypeDef(original, alias)) => c"typedef $alias $original;"
 
     case EnumDef(Enum(id, literals)) =>
       c"""|typedef enum {
           |  ${nary(literals, sep = ",\n")}
           |} $id;"""
 
-    case TypeDef(t: DataType) =>
+    case DataTypeDecl(t: DataType) =>
       val kind = t match {
         case _: Struct => "struct"
         case _: Union => "union"
@@ -240,9 +309,9 @@ class CPrinter(val sb: StringBuffer = new StringBuffer) {
   private case class FunSignParams(params: Seq[Tree]) extends WrapperTree
 
   private case class FunDecl(f: Fun) extends WrapperTree
-  private case class TypedefDecl(td: Typedef) extends WrapperTree
+  private case class TypeDefDecl(td: TypeDef) extends WrapperTree
   private case class EnumDef(u: Enum) extends WrapperTree
-  private case class TypeDef(t: DataType) extends WrapperTree // This is not Typedef!!!
+  private case class DataTypeDecl(t: DataType) extends WrapperTree
   private case class FieldInit(id: Id, value: Expr) extends WrapperTree
 
 

@@ -11,7 +11,7 @@ import ir.{ Normaliser }
  * Normalise the program by adding explicit execution points and making sure
  * argument-like expressions are "simple" expressions (and not e.g. blocks).
  */
-private[genc] object NormalisationPhase extends LeonPipeline[CIR.ProgDef, NIR.ProgDef] {
+private[genc] object NormalisationPhase extends LeonPipeline[CIR.Prog, NIR.Prog] {
   val name = "Normaliser"
   val description = "Normalise IR to match the C execution model"
 
@@ -19,7 +19,7 @@ private[genc] object NormalisationPhase extends LeonPipeline[CIR.ProgDef, NIR.Pr
 
   def getTimer(ctx: inox.Context) = ctx.timers.genc.get("CIR -> NIR")
 
-  def run(ctx: inox.Context, cprog: CIR.ProgDef): NIR.ProgDef = {
+  def run(ctx: inox.Context, cprog: CIR.Prog): NIR.Prog = {
 
     val normaliser = new Normaliser(ctx)
     val nprog = normaliser(cprog)

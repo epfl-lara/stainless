@@ -12,23 +12,16 @@ object CFileOutputPhase extends UnitPhase[CAST.Prog] {
   val name = "C File Output"
   val description = "Output converted C program to the specified file (default leon.c)"
 
-  // val optOutputFile = new LeonOptionDef[String] {
-  //   val name = "o"
-  //   val description = "Output file"
-  //   val default = "leon.c"
-  //   val usageRhs = "file"
-  //   val parser = OptionParsers.stringParser
-  // }
-
-  // override val definedOptions: Set[LeonOptionDef[Any]] = Set(optOutputFile)
-
   def apply(ctx: inox.Context, program: CAST.Prog) {
     val timer = ctx.timers.genc.print.start()
 
     // Get the output file name from command line options, or use default
-    // val outputFile = new File(ctx.findOptionOrDefault(optOutputFile))
-    val outputFile = new File("stainless.c")
-    val parent = outputFile.getParentFile()
+    val cFileName = ctx.options.findOptionOrDefault(optOutputFile)
+    val cOutputFile = new File(cFileName)
+    val hFileName = cFileName.stripSuffix(".c") + ".h"
+    val hOutputFile = new File(hFileName)
+
+    val parent = cOutputFile.getParentFile()
     try {
       if (parent != null) {
         parent.mkdirs()
@@ -39,18 +32,24 @@ object CFileOutputPhase extends UnitPhase[CAST.Prog] {
 
     // Output C code to the file
     try {
-      val fstream = new FileWriter(outputFile)
-      val out = new BufferedWriter(fstream)
+      val cout = new BufferedWriter(new FileWriter(cOutputFile))
+      val hout = new BufferedWriter(new FileWriter(hOutputFile))
 
-      val p = new CPrinter
-      p.print(program)
+      val headerDependencies = CASTDependencies.headerDependencies(program)(ctx)
 
-      out.write(p.toString)
-      out.close()
+      val ph = new CPrinter(hFileName, false, headerDependencies)
+      ph.print(program)
+      hout.write(ph.sb.toString)
+      hout.close()
 
-      ctx.reporter.info(s"Output written to $outputFile")
+      val pc = new CPrinter(hFileName, true, headerDependencies)
+      pc.print(program)
+      cout.write(pc.sb.toString)
+      cout.close()
+
+      ctx.reporter.info(s"Output written to $hOutputFile and $cOutputFile")
     } catch {
-      case _ : java.io.IOException => ctx.reporter.fatalError("Could not write on " + outputFile)
+      case _ : java.io.IOException => ctx.reporter.fatalError("Could not write C ouptut on " + cOutputFile)
     }
 
     timer.stop()

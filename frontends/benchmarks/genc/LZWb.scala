@@ -761,8 +761,7 @@ object LZWb {
     statusCode(if (r1) decodeFile() else r1)
   }
 
-  @extern
-  def main(args: Array[String]): Unit = _main()
+  @export
+  def main(): Unit = _main()
 
 }
-

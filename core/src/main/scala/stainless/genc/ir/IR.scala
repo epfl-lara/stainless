@@ -39,11 +39,7 @@ private[genc] sealed trait IR { ir =>
    ****************************************************************************************************/
   sealed abstract class Def extends Tree
 
-  case class ProgDef(entryPoint: FunDef) extends Def {
-    require(
-      entryPoint.id == "_main"
-    )
-  }
+  case class Prog(functions: Seq[FunDef], classes: Seq[ClassDef])
 
   // Define a function body as either a regular AST or a manually defined
   // function using @cCode.function
@@ -51,7 +47,7 @@ private[genc] sealed trait IR { ir =>
   case class FunBodyAST(body: Expr) extends FunBody
   case class FunBodyManual(includes: Seq[String], body: String) extends FunBody // NOTE `body` is actually the whole function!
 
-  case class FunDef(id: Id, returnType: Type, ctx: Seq[ValDef], params: Seq[ValDef], var body: FunBody) extends Def {
+  case class FunDef(id: Id, returnType: Type, ctx: Seq[ValDef], params: Seq[ValDef], var body: FunBody, export: Boolean) extends Def {
     // Ignore body in equality/hash code; actually, use only the identifier. This is to prevent infinite recursion...
     override def equals(that: Any): Boolean = that match {
       case fd: FunDef => fd.id == id
@@ -344,8 +340,8 @@ private[genc] sealed trait IR { ir =>
       case ArrayType(_) => true
       case ReferenceType(t) => t.containsArray
 
-      // We assume typedefs don't contain arrays
-      case TypedefType(_, _, _) => false
+      // We assume typeDefs don't contain arrays
+      case TypeDefType(_, _, _) => false
 
       case DroppedType => false
 
@@ -362,7 +358,7 @@ private[genc] sealed trait IR { ir =>
 
       case ArrayType(_) => true
       case ReferenceType(_) => true
-      case TypedefType(_, _, _) => false // This is our assumption
+      case TypeDefType(_, _, _) => false // This is our assumption
       case DroppedType => false
       case NoType => false
     }
@@ -406,7 +402,7 @@ private[genc] sealed trait IR { ir =>
   case class ReferenceType(t: Type) extends Type
 
   // For @cCode.typedef
-  case class TypedefType(original: Id, alias: Id, include: Option[String]) extends Type
+  case class TypeDefType(original: Id, alias: Id, include: Option[String]) extends Type
 
   // For @cCode.drop
   // TODO Drop them completely, and reject input program if one dropped type is actually used!
@@ -442,7 +438,7 @@ private[genc] sealed trait IR { ir =>
     case ClassType(clazz) => clazz.id
     case ArrayType(base) => "array_" + repId(base)
     case ReferenceType(t) => "ref_" + repId(t)
-    case TypedefType(original, _, _) => original
+    case TypeDefType(original, _, _) => original
     case DroppedType => ??? // Building an id on dropped type is illegal!
     case NoType => ??? // Idem for NoType
   }

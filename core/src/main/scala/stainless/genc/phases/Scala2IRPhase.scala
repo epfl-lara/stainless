@@ -24,7 +24,7 @@ import scala.collection.mutable.{ Map => MutableMap }
  *      the >> operator, some forms of membership tests, the unapply pattern matching construct,
  *      and more.
  */
-private[genc] object Scala2IRPhase extends LeonPipeline[(Dependencies, FunCtxDB), CIR.ProgDef] {
+private[genc] object Scala2IRPhase extends LeonPipeline[(Dependencies, FunCtxDB), CIR.Prog] {
   val name = "Scala to IR converter"
   val description = "Convert the Scala AST into GenC's IR"
 
@@ -32,25 +32,21 @@ private[genc] object Scala2IRPhase extends LeonPipeline[(Dependencies, FunCtxDB)
 
   def getTimer(ctx: inox.Context) = ctx.timers.genc.get("Scala -> CIR")
 
-  def run(ctx: inox.Context, input: (Dependencies, FunCtxDB)): CIR.ProgDef = {
+  def run(ctx: inox.Context, input: (Dependencies, FunCtxDB)): CIR.Prog = {
     val (deps, ctxDB) = input
     implicit val syms = deps.syms
-    val entryPoint = getEntryPoint(deps.deps)
 
     val impl = new S2IRImpl(ctx, ctxDB, deps)
-    val ir = CIR.ProgDef(impl(entryPoint))
+    impl.run()
+
+    val ir = CIR.Prog(
+      impl.funCache.values.toSeq,
+      impl.classCache.values.toSeq
+    )
 
     ctx.reporter.debug("RESULTING CIR:\n" + ir.toString())
 
     ir
-  }
-
-  private def getEntryPoint(deps: Set[Definition]): FunDef = {
-    val opt = deps collectFirst {
-      case fd: FunDef if fd.id.name == "_main" => fd
-    }
-
-    opt.get // If not defined, the previous phase did something wrong.
   }
 
 }
@@ -65,7 +61,18 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
   /****************************************************************************************************
    *                                                       Entry point of conversion                  *
    ****************************************************************************************************/
-  def apply(entryPoint: FunDef): CIR.FunDef = rec(Outer(entryPoint), entryPoint.tparams.map(_.tp))(Map.empty, (Map.empty, Map.empty))
+
+  def run(): Unit = {
+    for (df <- deps.deps) {
+      df match {
+        case fd: FunDef if fd.isExported =>
+          rec(Outer(fd), Seq())(Map.empty, (Map.empty, Map.empty))
+        case _ =>
+      }
+    }
+  }
+
+  // def apply(entryPoint: FunDef): CIR.FunDef = rec(Outer(entryPoint), entryPoint.tparams.map(_.tp))(Map.empty, (Map.empty, Map.empty))
 
   /****************************************************************************************************
    *                                                       Caches                                     *
@@ -74,9 +81,9 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
   // For functions, we associate each TypedFunDef to a CIR.FunDef for each "type context" (TypeMapping).
   // This is very important for (non-generic) functions nested in a generic function because for N
   // instantiation of the outer function we have only one TypedFunDef for the inner function.
-  private val funCache = MutableMap[(FunAbstraction, Seq[Type], TypeMapping), CIR.FunDef]()
+  val funCache = MutableMap[(FunAbstraction, Seq[Type], TypeMapping), CIR.FunDef]()
 
-  private val classCache = MutableMap[ClassType, CIR.ClassDef]()
+  val classCache = MutableMap[ClassType, CIR.ClassDef]()
 
 
 
@@ -94,7 +101,7 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
   private def instantiate(typ: Type, tm: TypeMapping): Type =
     typeOps.instantiateType(typ, tm)
 
-  // Here, when context are translated, there might remain some generic types. We use `tm` to make them disapear.
+  // Here, when contexts are translated, there might remain some generic types. We use `tm` to make them disapear.
   private def convertVarInfoToArg(vi: VarInfo)(implicit tm: TypeMapping) = CIR.ValDef(rec(vi.vd), rec(vi.typ), vi.isVar)
   private def convertVarInfoToParam(vi: VarInfo)(implicit tm: TypeMapping) = CIR.Binding(convertVarInfoToArg(vi))
 
@@ -243,33 +250,6 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
 
   private def castNotSupported(ct: ClassType): Boolean =
     ct.tcd.cd.isAbstract && ct.tcd.parents.nonEmpty
-
-  // // Freshen the identifiers of new variable definitions and keeps free variables as is.
-  // private def freshen(e: Expr): Expr = {
-  //   val freshIds = MutableMap[Identifier, Identifier]()
-
-  //   val transformer = new SelfTreeTransformer {
-  //     override def transform(id: Identifier) = freshIds.getOrElse(id, id)
-
-  //     override def transform(e: Expr)(implicit bindings: Map[Identifier, Identifier]): Expr = e match {
-  //       case Let(x, v, b) =>
-  //         val y = x.freshen
-  //         freshIds += x -> y
-  //         super.transform(Let(y, v, b))
-
-  //       case LetVar(x, v, b) =>
-  //         val y = x.freshen
-  //         freshIds += x -> y
-  //         super.transform(LetVar(y, v, b))
-
-  //       case e => super.transform(e)
-  //     }
-  //   }
-
-  //   transformer.transform(e)(Map.empty)
-  // }
-
-
 
   /****************************************************************************************************
    *                                                       Pattern Matching helper functions          *
@@ -441,13 +421,12 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
    *                                                       Recursive conversion                       *
    ****************************************************************************************************/
   private def rec(id: Identifier): CIR.Id = {
-    if (id.name == "_main") "_main"
+    if (id.name == "main") "main"
     else id.uniqueNameDelimited("_")
   }
 
   private def rec(vd: ValDef): CIR.Id = {
-    if (vd.id.name == "_main") "_main"
-    else vd.id.uniqueNameDelimited("_")
+    vd.id.uniqueNameDelimited("_")
   }
 
   // Try first to fetch the function from cache to handle recursive funcitons.
@@ -457,9 +436,14 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
 
     val id = buildId(fa, tps)(tm0)
 
-    def ctxDBAbs(fa: FunAbstraction) = fa match {
+    val ctxDBAbs = fa match {
       case Outer(_) => Seq()
       case Inner(lfd) => ctxDB(lfd)
+    }
+
+    val export = fa match {
+      case Outer(fd) if fd.isExported => true
+      case _ => false
     }
 
     val tpSubst: TypeMapping = (fa.tparams.map(_.tp) zip tps).toMap.filter(tt => tt._1 != tt._2)
@@ -482,15 +466,14 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
 
     // Extract the context for the function definition, taking care of the remaining generic types in the context.
 
-    val varInfos = ctxDBAbs(fa)
-    val funCtx = varInfos map { c => convertVarInfoToArg(c)(tm1) }
+    val funCtx = ctxDBAbs map { c => convertVarInfoToArg(c)(tm1) }
 
     val returnType = rec(fa.returnType)(tm1)
     if (returnType.containsArray)
       ctx.reporter.fatalError(fa.getPos, "Returning arrays from function is not supported")
 
     // Build a partial function without body in order to support recursive functions
-    val fun = CIR.FunDef(id, returnType, funCtx, params, null)
+    val fun = CIR.FunDef(id, returnType, funCtx, params, null, export)
     funCache.update(cacheKey, fun) // Register with the callee TypeMapping, *not* the newer
 
     // Now proceed with the body
@@ -500,7 +483,7 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
         CIR.FunBodyManual(impl.includes, impl.code)
       } else {
         // Build the new environment from context and parameters
-        val ctxKeys: Seq[(ValDef, Type)] = ctxDBAbs(fa) map { c => c.vd -> instantiate(c.typ, tm1) }
+        val ctxKeys: Seq[(ValDef, Type)] = ctxDBAbs map { c => c.vd -> instantiate(c.typ, tm1) }
         val ctxEnv: Seq[((ValDef, Type), CIR.ValDef)] = ctxKeys zip funCtx
 
         val paramKeys: Seq[(ValDef, Type)] = fa.params map { p => p -> instantiate(p.getType, tm1) }
@@ -543,8 +526,8 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
       if (cd.isDropped) {
         CIR.DroppedType
       } else if (cd.isManuallyTyped) {
-        val typedef = cd.getManualType
-        CIR.TypedefType(cd.id.name, typedef.alias, typedef.include)
+        val typeDef = cd.getManualType
+        CIR.TypeDefType(cd.id.name, typeDef.alias, typeDef.include)
       } else {
         CIR.ClassType(rec(ct))
       }
