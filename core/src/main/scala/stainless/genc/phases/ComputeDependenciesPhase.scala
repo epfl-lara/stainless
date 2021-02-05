@@ -16,10 +16,9 @@ import ExtraOps._
 import collection.mutable.{Set => MutableSet}
 
 /*
- * Compute the dependencies of the main function and its mandatory "_main" sibling.
- *
- * The list of dependencies includes "_main" but not "main" as the later is
- * annoted with @extern (cf. ExtractEntryPointPhase).
+ * Compute the dependencies of the @export functions
+ * Generic functions cannot be marked @export (only specialized versions that are
+ * used by exported functions are exported to C).
  *
  * Moreover, the list of dependencies only contains top level functions. For nested
  * functions, we need to compute their "context" (i.e. capture free variable) to
@@ -27,7 +26,7 @@ import collection.mutable.{Set => MutableSet}
  * some type T, then T (and all its class hierarchy if T is a class) will be included
  * in the dependency set.
  *
- * This phase also make sure @cCode.drop function are not used. The same is *NOT*
+ * This phase also make sures @cCode.drop functions are not used. The same is *NOT*
  * done for dropped types as they might still be present in function signature. They
  * should be removed in a later (transformation) phase. Additionally, this phase
  * ensures that the annotation set on class and function is sane.
@@ -38,7 +37,7 @@ import collection.mutable.{Set => MutableSet}
  *     of it here based on a TreeTraverser.
  */
 private[genc] object ComputeDependenciesPhase
-    extends LeonPipeline[(Symbols, Definition), Dependencies] {
+    extends LeonPipeline[Symbols, Dependencies] {
   val name = "Dependency computer"
   val description = "Compute the dependencies of a given definition"
 
@@ -46,9 +45,8 @@ private[genc] object ComputeDependenciesPhase
 
   var warned = false
 
-  def run(ctx: inox.Context, input: (Symbols, Definition)): Dependencies = {
-    implicit val (syms, entryPoint) = input
-
+  def run(ctx: inox.Context, syms: Symbols): Dependencies = {
+    implicit val symbols = syms
     implicit val printerOpts = PrinterOptions.fromContext(ctx)
 
     def validateClassAnnotations(cd: ClassDef): Unit = {
@@ -100,6 +98,12 @@ private[genc] object ComputeDependenciesPhase
           s"Functions (${fd.id.asString}) cannot be both a generic function and manually defined"
         )
 
+      if (fd.isGeneric && fd.isExported)
+        ctx.reporter.fatalError(
+          pos,
+          s"Generic functions (${fd.id.asString}) cannot be exported"
+        )
+
       // This last test is specific to dependencies.
       if (fd.isDropped)
         ctx.reporter.fatalError(
@@ -109,7 +113,8 @@ private[genc] object ComputeDependenciesPhase
     }
 
     val finder = new ComputeDependenciesImpl(ctx)
-    val deps = finder(entryPoint)
+    val exportedFuns: Seq[Definition] = syms.functions.values.toSeq.filter(_.isExported)
+    val deps = finder(exportedFuns)
 
     // Ensure all annotations are sane on all dependencies, including nested functions.
     deps foreach {
@@ -132,16 +137,15 @@ private final class ComputeDependenciesImpl(val ctx: inox.Context)(implicit
   private val dependencies = MutableSet[Definition]()
 
   // Compute the dependencies of `entry`, which includes itself.
-  def apply(entry: Definition): Set[Definition] = {
-    entry match {
-      case e: FunDef => traverse(e)
-      case _ =>
-        ctx.reporter.fatalError(
-          s"unexpected type of entry point: ${entry.getClass}"
-        )
-    }
-
+  def apply(exported: Seq[Definition]): Set[Definition] = {
+    exported.foreach(traverseDef)
     dependencies.toSet
+  }
+
+  private def traverseDef(df: Definition): Unit = df match {
+    case fd: FunDef => traverse(fd)
+    case cd: ClassDef => traverse(cd)
+    case _ => ctx.reporter.fatalError(s"ComputeDependenciesPhase cannot traverse ${df.id} (${df.getClass})")
   }
 
   override def traverse(id: Identifier): Unit = {

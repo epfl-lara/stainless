@@ -15,13 +15,13 @@ import RIR._
 
 import collection.mutable.{ Map => MutableMap, Set => MutableSet }
 
-private[genc] object IR2CPhase extends LeonPipeline[RIR.ProgDef, CAST.Prog] {
+private[genc] object IR2CPhase extends LeonPipeline[RIR.Prog, CAST.Prog] {
   val name = "CASTer"
   val description = "Translate the IR tree into the final C AST"
 
   def getTimer(ctx: inox.Context) = ctx.timers.genc.get("RIR -> CAST")
 
-  def run(ctx: inox.Context, ir: RIR.ProgDef): CAST.Prog = new IR2CImpl(ctx)(ir)
+  def run(ctx: inox.Context, ir: RIR.Prog): CAST.Prog = new IR2CImpl(ctx)(ir)
 }
 
 // This implementation is basically a Transformer that produce something which isn't an IR tree.
@@ -30,7 +30,7 @@ private[genc] object IR2CPhase extends LeonPipeline[RIR.ProgDef, CAST.Prog] {
 // Function conversion is pretty straighforward at this point of the pipeline. Expression conversion
 // require little care. But class conversion is harder; see detailed procedure below.
 private class IR2CImpl(val ctx: inox.Context) {
-  def apply(ir: ProgDef): C.Prog = rec(ir)
+  def apply(ir: Prog): C.Prog = rec(ir)
 
   // We use a cache to keep track of the C function, struct, ...
   private val funCache = MutableMap[FunDef, C.Fun]()
@@ -39,7 +39,7 @@ private class IR2CImpl(val ctx: inox.Context) {
   private val enumCache = MutableMap[ClassDef, C.Enum]() // For top hierarchy classes only!
   private val arrayCache = MutableMap[ArrayType, C.Struct]()
   private val includes = MutableSet[C.Include]()
-  private val typdefs = MutableSet[C.Typedef]()
+  private val typdefs = MutableSet[C.TypeDef]()
 
   private var dataTypes = Seq[C.DataType]() // For struct & union, keeps track of definition order!
 
@@ -53,26 +53,21 @@ private class IR2CImpl(val ctx: inox.Context) {
     includes += i
   }
 
-  private def register(td: C.Typedef) {
+  private def register(td: C.TypeDef) {
     typdefs += td
   }
 
   private def rec(id: Id) = C.Id(id)
 
-  private def rec(prog: ProgDef): C.Prog = {
-    // Convert all the functions and types of the input program
-    val finder = new ir.DependencyFinder(RIR)
-    finder(prog)
+  private def rec(prog: Prog): C.Prog = {
 
-    finder.getFunctions foreach rec
-    finder.getClasses foreach rec
-
-    val main = C.generateMain(prog.entryPoint.returnType == PrimitiveType(Int32Type))
+    prog.functions foreach rec
+    prog.classes foreach rec
 
     val enums = enumCache.values.toSet
-    val functions = funCache.values.toSet + main
+    val functions = funCache.values.toSet
 
-    // Remove "mutability" on includes & typedefs
+    // Remove "mutability" on includes & typeDefs
     C.Prog(includes.toSet, typdefs.toSet, enums, dataTypes, functions)
   }
 
@@ -82,7 +77,7 @@ private class IR2CImpl(val ctx: inox.Context) {
     val params = (fd.ctx ++ fd.params) map rec
     val body = rec(fd.body)
 
-    C.Fun(id, returnType, params, body)
+    C.Fun(id, returnType, params, body, fd.export)
   })
 
   private def rec(fb: FunBody): Either[C.Block, String] = fb match {
@@ -111,9 +106,9 @@ private class IR2CImpl(val ctx: inox.Context) {
     case array @ ArrayType(_) => array2Struct(array)
     case ReferenceType(t) => C.Pointer(rec(t))
 
-    case TypedefType(original, alias, include) =>
+    case TypeDefType(original, alias, include) =>
       include foreach { i => register(C.Include(i)) }
-      val td = C.Typedef(rec(original), rec(alias))
+      val td = C.TypeDef(rec(original), rec(alias))
       register(td)
       td
 
@@ -525,7 +520,7 @@ private class IR2CImpl(val ctx: inox.Context) {
         case typ => ctx.reporter.fatalError(s"Unexpected type $typ in CmpFactory!")
       }
 
-      FunDef(id, retTyp, Seq(), params, body)
+      FunDef(id, retTyp, Seq(), params, body, false)
     }
 
     private def buildStringCmpBody() = FunBodyManual(

@@ -36,7 +36,7 @@ abstract class Transformer[From <: IR, To <: IR](final val from: From, final val
   val Ø: Env // empty env
 
   // Entry point of the transformation
-  final def apply(prog: ProgDef): to.ProgDef = rec(prog)(Ø)
+  final def apply(prog: Prog): to.Prog = rec(prog)(Ø)
   final def apply(vd: ValDef): to.ValDef = rec(vd)(Ø)
   final def apply(e: Expr): to.Expr = rec(e)(Ø)
   final def apply(typ: Type): to.Type = rec(typ)(Ø)
@@ -49,13 +49,16 @@ abstract class Transformer[From <: IR, To <: IR](final val from: From, final val
     funCache.update(older, newer)
   }
 
-  protected def rec(prog: ProgDef)(implicit env: Env): to.ProgDef =
-    to.ProgDef(rec(prog.entryPoint))
+  protected def rec(prog: Prog)(implicit env: Env): to.Prog =
+    to.Prog(
+      prog.functions.map(rec),
+      prog.classes.map(rec)
+    )
 
   protected final def rec(fd: FunDef)(implicit env: Env): to.FunDef = funCache.getOrElse(fd, recImpl(fd))
 
   protected def recImpl(fd: FunDef)(implicit env: Env): to.FunDef = {
-    val newer = to.FunDef(fd.id, rec(fd.returnType), fd.ctx map rec, fd.params map rec, null)
+    val newer = to.FunDef(fd.id, rec(fd.returnType), fd.ctx map rec, fd.params map rec, null, fd.export)
     registerFunction(fd, newer)
     newer.body = rec(fd.body)
     newer
@@ -153,7 +156,7 @@ abstract class Transformer[From <: IR, To <: IR](final val from: From, final val
     case ClassType(clazz) => to.ClassType(rec(clazz))
     case ArrayType(base) => to.ArrayType(rec(base))
     case ReferenceType(t) => to.ReferenceType(rec(t))
-    case TypedefType(original, alias, include) => to.TypedefType(original, alias, include)
+    case TypeDefType(original, alias, include) => to.TypeDefType(original, alias, include)
     case DroppedType => to.DroppedType
     case NoType => to.NoType
   }

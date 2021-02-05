@@ -53,7 +53,7 @@ object cCode {
   ) extends StaticAnnotation
 
   /*
-   * Allows the user to define a type (e.g. case class) as a typedef to an
+   * Allows the user to define a type (e.g. case class) as a typeDef to an
    * existing type with an optional include file.
    *
    * Example:

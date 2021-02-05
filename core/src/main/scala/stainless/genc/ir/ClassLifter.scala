@@ -36,7 +36,7 @@ final class ClassLifter(val ctx: inox.Context) extends Transformer(NIR, LIR) {
     val params = fd.params map lift
 
     // Handle recursive functions
-    val newer = to.FunDef(id, returnType, ctx, params, null)
+    val newer = to.FunDef(id, returnType, ctx, params, null, fd.export)
     registerFunction(fd, newer)
 
     newer.body = rec(fd.body)(lift)

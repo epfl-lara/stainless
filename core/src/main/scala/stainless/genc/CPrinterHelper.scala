@@ -22,7 +22,7 @@ object CPrinterHelpers {
   implicit class PrinterHelper(val sc: StringContext) extends AnyVal {
     def c(args: Any*)(implicit ctx: PrinterContext): Unit = {
       val printer = ctx.printer
-      val sb      = printer.sb
+      val sb = printer.sb
 
       import printer.WrapperTree
 

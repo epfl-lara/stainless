@@ -21,7 +21,7 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
 
   // Inject return in functions that need it
   override def recImpl(fd: FunDef)(implicit env: Env): to.FunDef = super.recImpl(fd) match {
-    case fd @ to.FunDef(_, returnType, _, _, to.FunBodyAST(body)) if !isUnitType(returnType) =>
+    case fd @ to.FunDef(_, returnType, _, _, to.FunBodyAST(body), _) if !isUnitType(returnType) =>
       val newBody = to.FunBodyAST(inject({ e => to.Return(e) })(body))
 
       fd.body = newBody

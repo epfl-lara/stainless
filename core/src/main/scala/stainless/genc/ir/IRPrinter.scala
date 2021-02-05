@@ -18,10 +18,9 @@ final class IRPrinter[S <: IR](val ir: S) {
   }
 
   // Entry point for pretty printing
-  final def apply(prog: ProgDef): String = rec(prog)(Context(0))
+  final def apply(prog: Prog): String = rec(prog)(Context(0))
 
   final def apply(tree: Tree)(implicit ptx: Context): String = tree match {
-    case t: ProgDef => rec(t)
     case t: FunDef => rec(t)
     case t: ClassDef => rec(t)
     case t: ValDef => rec(t)
@@ -31,12 +30,9 @@ final class IRPrinter[S <: IR](val ir: S) {
     case _ => ???
   }
 
-  private def rec(prog: ProgDef)(implicit ptx: Context): String = {
-    val deps = new DependencyFinder(ir)
-    deps(prog.asInstanceOf[deps.ir.ProgDef]) // Hugly cast we have to live with...
-
-    val funs = deps.getFunctions map { _.asInstanceOf[FunDef] } map rec
-    val classes = deps.getClasses map { _.asInstanceOf[ClassDef] } map rec
+  private def rec(prog: Prog)(implicit ptx: Context): String = {
+    val funs = prog.functions.map(rec)
+    val classes = prog.classes.map(rec)
 
     (funs mkString ptx.newLine) + ptx.newLine + (classes mkString ptx.newLine)
   }
@@ -124,7 +120,7 @@ final class IRPrinter[S <: IR](val ir: S) {
     case ClassType(clazz) => clazz.id
     case ArrayType(base) => "Array[" + rec(base) + "]"
     case ReferenceType(t) => "Ref[" + rec(t) + "]"
-    case TypedefType(original, alias, _) => "typedef " + original + " -> " + alias
+    case TypeDefType(original, alias, _) => "typedef " + original + " -> " + alias
     case DroppedType => "DROPPED"
     case NoType => "NO-TYPE"
   }

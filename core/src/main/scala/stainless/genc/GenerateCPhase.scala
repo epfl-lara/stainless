@@ -16,7 +16,6 @@ object GenerateCPhase extends LeonPipeline[Symbols, CAST.Prog] {
   val description = "Preprocess and convert Stainless's AST to C"
 
   val pipeline =
-    NamedLeonPhase("ExtractEntryPointPhase", LeonPipeline.both(NoopPhase[Symbols], ExtractEntryPointPhase)) andThen
     NamedLeonPhase("ComputeDependencies", ComputeDependenciesPhase) andThen
     NamedLeonPhase("ComputeFunCtxPhase", LeonPipeline.both(NoopPhase[Dependencies], ComputeFunCtxPhase)) andThen
     NamedLeonPhase("Scala2IRPhase", Scala2IRPhase) andThen

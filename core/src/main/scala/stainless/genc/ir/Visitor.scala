@@ -19,10 +19,10 @@ abstract class Visitor[S <: IR](final val ir: S) {
   import ir._
 
   // Entry point for the visit
-  final def apply(prog: ProgDef): Unit = rec(prog)
+  final def apply(prog: Prog): Unit = rec(prog)
   final def apply(e: Expr): Unit = rec(e)
 
-  protected def visit(prog: ProgDef): Unit = ()
+  protected def visit(prog: Prog): Unit = ()
   protected def visit(fd: FunDef): Unit = ()
   protected def visit(cd: ClassDef): Unit = ()
   protected def visit(vd: ValDef): Unit = ()
@@ -31,12 +31,10 @@ abstract class Visitor[S <: IR](final val ir: S) {
   protected def visit(e: Expr): Unit = ()
   protected def visit(typ: Type): Unit = ()
 
-
   private val funCache = MutableSet[FunDef]()
 
-
-  private def rec(prog: ProgDef): Unit = {
-    rec(prog.entryPoint)
+  private def rec(prog: Prog): Unit = {
+    prog.functions.foreach(rec)
     visit(prog)
   }
 
@@ -129,7 +127,7 @@ abstract class Visitor[S <: IR](final val ir: S) {
       case ClassType(clazz) => rec(clazz)
       case ArrayType(base) => rec(base)
       case ReferenceType(t) => rec(t)
-      case TypedefType(original, alias, include) => ()
+      case TypeDefType(original, alias, include) => ()
       case DroppedType => ()
       case NoType => ()
     }

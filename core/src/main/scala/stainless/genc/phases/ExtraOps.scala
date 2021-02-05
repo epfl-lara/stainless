@@ -47,6 +47,7 @@ private[genc] object ExtraOps {
 
     def isExtern          = fd.flags contains Extern
     def isDropped         = hasAnnotation("cCode.drop")
+    def isExported        = hasAnnotation("export")
     def isManuallyDefined = hasAnnotation(manualDefAnnotation)
 
     def extAnnotations: Map[String, Seq[Any]] = fd.flags.collect {
@@ -68,7 +69,7 @@ private[genc] object ExtraOps {
 
     def isGeneric = fd.tparams.length > 0
 
-    private def hasAnnotation(annot: String) = annotations contains annot
+    def hasAnnotation(annot: String) = annotations contains annot
   }
 
   // Extra tools on ClassDef, especially for annotations, inheritance & generics
@@ -153,7 +154,7 @@ private[genc] object ExtraOps {
     // Check whether the class has some fields or not
     def isEmpty = cd.fields.isEmpty
 
-    private def hasAnnotation(annot: String) = cd.annotations contains annot
+    def hasAnnotation(annot: String) = cd.annotations contains annot
     private val manualTypeAnnotation = "cCode.typedef"
     private val droppedAnnotation = "cCode.drop"
   }

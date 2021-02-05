@@ -313,11 +313,6 @@ object ImageProcessing {
 
     val (b1, b2) = destructWord(word)
 
-    StdOut.print("\nwb1: ")
-    printAsInt(b1)
-    StdOut.print("wb2: ")
-    printAsInt(b2)
-
     // From big endian to little endian
     fos.write(b2) && fos.write(b1)
   }
@@ -379,15 +374,6 @@ object ImageProcessing {
     val b3 = (dword >>> 16).toByte
     val b2 = (dword >>> 8).toByte
     val b1 = dword.toByte
-
-    StdOut.print("\ndb1: ")
-    printAsInt(b1)
-    StdOut.print("db2: ")
-    printAsInt(b2)
-    StdOut.print("db3: ")
-    printAsInt(b2)
-    StdOut.print("b3: ")
-    printAsInt(b2)
 
     // Big endian to little endian conversion
     fos.write(b1) && fos.write(b2) && fos.write(b3) && fos.write(b4)
@@ -508,6 +494,7 @@ object ImageProcessing {
     status
   }
 
+  @export
   def saveImage(fos: FOS, image: Image): Status = {
     require(fos.isOpen)
 
@@ -686,8 +673,8 @@ object ImageProcessing {
    *                                                   Main Program     *
    **********************************************************************/
 
-  @extern
-  def main(args: Array[String]): Unit = _main()
+  @export
+  def main(): Unit = _main()
 
   def printBool(b: Boolean): Unit = {
     if (b) StdOut.println("true")
@@ -709,6 +696,7 @@ object ImageProcessing {
     statusCode(status)
   }
 
+  @export
   def process(fis: FIS, fos: FOS)(implicit state: stainless.io.State): Status = {
     require(fis.isOpen && fos.isOpen)
 
@@ -756,7 +744,6 @@ object ImageProcessing {
       1, 1, 1, 1, 1
     ))
 
-
     def processImage(src: Image): Status = {
       // Compute the processing time, without I/Os
       val t1 = TimePoint.now()
@@ -797,10 +784,6 @@ object ImageProcessing {
         val toSkip  = fh.offset - (14 + 18) // some bytes were already eaten
         val success = skipBytes(fis, toSkip)
 
-        log("toSkip", toSkip)
-        StdOut.print("success: ")
-        printBool(success)
-
         // Break test of size so we avoid overflows.
         if (!success)                                       CorruptedDataError()
         else if (bh.width > MaxSize || bh.height > MaxSize) ImageTooBigError()
@@ -808,7 +791,6 @@ object ImageProcessing {
         else {
           val image  = createImage(bh.width, bh.height)
           val status = loadImageData(fis, image)
-          log("status here", statusCode(status))
           if (status.isSuccess) processImage(image)
           else                  status
         }

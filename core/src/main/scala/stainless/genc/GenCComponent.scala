@@ -22,8 +22,8 @@ import scala.concurrent.Future
 
 import scala.language.existentials
 
+import ExtraOps._
 import GenCReport._
-
 
 object GenCComponent extends Component { self =>
   override val name = "genc"
@@ -87,8 +87,10 @@ class GenCRun(override val pipeline: extraction.StainlessPipeline) // pipeline i
       override val results = ids.flatMap { id =>
         val fd = symbols.getFunction(id)
         val pos = fd.getPos.toString
-        if (fd.flags.contains(Library)) None
-        else Some(GenCRun.Result(fd, Compiled, 0))
+        if (fd.flags.exists(_.name == "export"))
+          Some(GenCRun.Result(fd, Compiled, 0))
+        else
+          None
       }
     })
   } catch {
@@ -120,7 +122,7 @@ object GenCReport {
   }
 
   private def descriptionOf(status: Status): String = status match {
-    case Compiled => "compiled"
+    case Compiled => "exported"
     case CompilationError => "error during compilation"
   }
 

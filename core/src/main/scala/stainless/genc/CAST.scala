@@ -38,7 +38,7 @@ object CAST { // C Abstract Syntax Tree
 
   case class Prog(
     includes: Set[Include],
-    typedefs: Set[Typedef],
+    typeDefs: Set[TypeDef],
     enums: Set[Enum],
     types: Seq[DataType], // Both structs and unions, order IS important! See NOTE above.
     functions: Set[Fun]
@@ -48,7 +48,7 @@ object CAST { // C Abstract Syntax Tree
 
   // Manually defined function through the cCode.function annotation have a string
   // for signature+body instead of the usual Stmt AST exclusively for the body
-  case class Fun(id: Id, returnType: Type, params: Seq[Var], body: Either[Block, String]) extends Def
+  case class Fun(id: Id, returnType: Type, params: Seq[Var], body: Either[Block, String], export: Boolean) extends Def
 
   case class Id(name: String) extends Def {
     // TODO add check on name's domain for conformance
@@ -71,7 +71,7 @@ object CAST { // C Abstract Syntax Tree
     val fields: Seq[Var]
   }
 
-  case class Typedef(orig: Id, alias: Id) extends Type
+  case class TypeDef(orig: Id, alias: Id) extends Type
   case class Primitive(pt: PrimitiveType) extends Type
   case class Pointer(base: Type) extends Type
 
@@ -227,25 +227,6 @@ object CAST { // C Abstract Syntax Tree
   }
 
   def buildBlock(expr: Expr): Block = buildBlock(Seq(expr))
-
-  def generateMain(returnInt: Boolean): Fun = {
-      val id = Id("main")
-      val retType = Primitive(Int32Type)
-      val argc = Var(Id("argc"), Primitive(Int32Type))
-      val argv = Var(Id("argv"), Pointer(Pointer(Primitive(CharType))))
-      val params = argc :: argv :: Nil
-
-      val _mainId = Binding(Id("_main"))
-
-      val body = buildBlock(
-        if (returnInt) Return(Call(_mainId, Nil)) :: Nil
-        else Call(_mainId, Nil) :: Return(Lit(Int32Lit(0))) :: Nil
-      )
-
-      val main = Fun(id, retType, params, Left(body))
-
-      main
-  }
 
   object FreshId {
     private val counter = new utils.UniqueCounter[String]()

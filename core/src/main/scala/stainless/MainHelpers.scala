@@ -48,6 +48,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
       "  - verification: each proof attempt takes at most n seconds\n" +
       "  - termination: each solver call takes at most n / 100 seconds"),
     optJson -> Description(General, "Output verification and termination reports to a JSON file"),
+    genc.optOutputFile -> Description(General, "File name for GenC output"),
     optWatch -> Description(General, "Re-run stainless upon file changes"),
     optCompact -> Description(General, "Print only invalid elements of summaries"),
     optNoColors -> Description(General, "Disable colored output"),
@@ -83,6 +84,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
     frontend.DebugSectionStack,
     frontend.DebugSectionRecovery,
     frontend.DebugSectionExtraDeps,
+    genc.DebugSectionGenC,
   )
 
   override protected def displayVersion(reporter: inox.Reporter): Unit = {
