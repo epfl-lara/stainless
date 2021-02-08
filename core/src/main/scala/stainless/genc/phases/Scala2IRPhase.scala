@@ -312,7 +312,7 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
       case _: FunctionInvocation | _: ADT | _: LetVar | _: Let | _: Tuple | _: IfExpr =>
         withTmp(scrutinee0.getType, scrutinee0, env)
 
-      case e => ctx.reporter.fatalError(s"scrutinee = $e of type ${e.getClass} is not supported")
+      case e => ctx.reporter.fatalError(s"scrutinee = $e of type ${e.getClass} is not supported by GenC")
     }
 
     val (scrutinee, preOpt, newEnv) = scrutRec(scrutinee0)
@@ -407,7 +407,7 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
         buildBinOp(scrutinee, O.Equals, lit)(pat.getPos)
 
       case UnapplyPattern(_, _, _, _, _) =>
-        ctx.reporter.fatalError(pat.getPos, s"Unapply Pattern, a.k.a. Extractor Objects, is not supported")
+        ctx.reporter.fatalError(pat.getPos, s"Unapply Pattern, a.k.a. Extractor Objects, is not supported by GenC")
     }
 
     val cond = ccRec(caze.pattern, initialScrutinee)
@@ -470,7 +470,7 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
 
     val returnType = rec(fa.returnType)(tm1)
     if (returnType.containsArray)
-      ctx.reporter.fatalError(fa.getPos, "Returning arrays from function is not supported")
+      ctx.reporter.fatalError(fa.getPos, "Returning arrays from function is not supported by GenC")
 
     // Build a partial function without body in order to support recursive functions
     val fun = CIR.FunDef(id, returnType, funCtx, params, null, export)
@@ -583,6 +583,7 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
 
     /* Ignore static assertions */
     case Require(_, body) => rec(body)
+    case Decreases(_, body) => rec(body)
     case Ensuring(body, _) => rec(body)
     case Assert(_, _, body) => rec(body)
     case Assume(_, body) => rec(body)
@@ -666,7 +667,7 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
         val strA = argsA.mkString("[", ", ", "]")
         val strB = argsB.mkString("[", ", ", "]")
         ctx.reporter.debug(s"This is a capturing lambda because: $strA != $strB")
-        ctx.reporter.fatalError(e.getPos, s"Capturing lambda are not supported")
+        ctx.reporter.fatalError(e.getPos, s"Capturing lambda are not supported by GenC")
       }
 
       val fun = rec(Outer(fd), tps)
@@ -774,7 +775,7 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
     case BVOr(lhs, rhs)           => buildBinOp(lhs, O.BOr, rhs)(e.getPos)
     case BVXor(lhs, rhs)          => buildBinOp(lhs, O.BXor, rhs)(e.getPos)
     case BVShiftLeft(lhs, rhs)    => buildBinOp(lhs, O.BLeftShift, rhs)(e.getPos)
-    case BVAShiftRight(lhs, rhs)  => ctx.reporter.fatalError(e.getPos, "Operator >> is not supported")
+    case BVAShiftRight(lhs, rhs)  => ctx.reporter.fatalError(e.getPos, "Operator >> is not supported by GenC")
     case BVLShiftRight(lhs, rhs)  => buildBinOp(lhs, O.BRightShift, rhs)(e.getPos)
 
     case BVWideningCast(e, t)  => buildCast(e, t)
@@ -783,17 +784,17 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
     case MatchExpr(scrutinee, cases) => convertPatMap(scrutinee, cases)
 
     case IsInstanceOf(expr, ct: ClassType) if castNotSupported(ct) =>
-      ctx.reporter.fatalError(e.getPos, s"Membership tests on abstract classes are not supported")
+      ctx.reporter.fatalError(e.getPos, s"Membership tests on abstract classes are not supported by GenC")
 
     case IsInstanceOf(expr, ct: ClassType) => CIR.IsA(rec(expr), CIR.ClassType(rec(ct)))
 
     case AsInstanceOf(expr, ct: ClassType) if castNotSupported(ct) =>
-      ctx.reporter.fatalError(e.getPos, s"Cast to abstract classes are not supported")
+      ctx.reporter.fatalError(e.getPos, s"Cast to abstract classes are not supported by GenC")
 
     case AsInstanceOf(expr, ct: ClassType) => CIR.AsA(rec(expr), CIR.ClassType(rec(ct)))
 
     case e =>
-      ctx.reporter.fatalError(e.getPos, s"Expression `$e` of type ${e.getClass} not handled by GenC component")
+      ctx.reporter.fatalError(e.getPos, s"Expression `$e` (${e.getClass}) not handled by GenC component")
   }
 
 }
