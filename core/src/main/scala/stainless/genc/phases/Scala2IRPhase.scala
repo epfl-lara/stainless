@@ -460,8 +460,9 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
     implicit val tm1: TypeMapping = tm0 ++ tpSubst
 
     // Make sure to get the id from the function definition, not the typed one, as they don't always match.
-    val paramTypes = fa.params map { p => rec(p.getType)(tm1) }
-    val paramIds = fa.params map { p => rec(p.id) }
+    val nonGhostParams = fa.params.filter(!_.flags.contains(Ghost))
+    val paramTypes = nonGhostParams map { p => rec(p.getType)(tm1) }
+    val paramIds = nonGhostParams map { p => rec(p.id) }
     val params = (paramIds zip paramTypes) map { case (id, typ) => CIR.ValDef(id, typ, isVar = false) }
 
     // Extract the context for the function definition, taking care of the remaining generic types in the context.
@@ -486,7 +487,7 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
         val ctxKeys: Seq[(ValDef, Type)] = ctxDBAbs map { c => c.vd -> instantiate(c.typ, tm1) }
         val ctxEnv: Seq[((ValDef, Type), CIR.ValDef)] = ctxKeys zip funCtx
 
-        val paramKeys: Seq[(ValDef, Type)] = fa.params map { p => p -> instantiate(p.getType, tm1) }
+        val paramKeys: Seq[(ValDef, Type)] = nonGhostParams map { p => p -> instantiate(p.getType, tm1) }
         val paramEnv: Seq[((ValDef, Type), CIR.ValDef)] = paramKeys zip params
 
         val newValDefEnv = env._1 ++ ctxEnv ++ paramEnv
@@ -560,8 +561,9 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
       assert(!cd.isCaseObject)
 
       // Use the class definition id, not the typed one as they might not match.
-      val fieldTypes = tcd.fields.map(_.tpe) map rec
-      val fields = (tcd.fields zip fieldTypes) map { case (vd, typ) => CIR.ValDef(rec(vd), typ, vd.flags.contains(IsVar)) }
+      val nonGhostFields = tcd.fields.filter(!_.flags.contains(Ghost))
+      val fieldTypes = nonGhostFields.map(_.tpe) map rec
+      val fields = (nonGhostFields zip fieldTypes) map { case (vd, typ) => CIR.ValDef(rec(vd), typ, vd.flags.contains(IsVar)) }
 
       val clazz = CIR.ClassDef(id, parent, fields, cd.isAbstract)
 
@@ -608,6 +610,7 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
 
     case v: Variable => buildBinding(v.toVal)
 
+    case Let(x, e, body) if x.flags.contains(Ghost) => rec(body)
     case Let(x, e, body) => buildLet(x, e, body, isVar = false)
     case LetVar(x, e, body) => buildLet(x, e, body, isVar = true)
 
@@ -635,7 +638,8 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
       val tfd = fd.typed(tps)
       val fun = rec(Outer(fd), tps)
       implicit val tm1 = tm0 ++ tfd.tpSubst
-      val args2 = args map { a0 => rec(a0)(env, tm1) }
+      val nonGhostArgs = args.zip(fd.params).filter(!_._2.flags.contains(Ghost)).map(_._1)
+      val args2 = nonGhostArgs map { a0 => rec(a0)(env, tm1) }
       CIR.App(fun.toVal, Seq(), args2)
 
     case ApplyLetRec(id, tparams, tpe, tps, args) =>
@@ -644,7 +648,8 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
       val tpSubst: TypeMapping = (lfd.tparams.map(_.tp) zip tps).toMap.filter(tt => tt._1 != tt._2)
       implicit val tm1 = tm0 ++ tpSubst
       val extra = ctxDB(lfd) map { c => convertVarInfoToParam(c)(tm1) }
-      val args2 = args map { a0 => rec(a0)(env, tm1) }
+      val nonGhostArgs = args.zip(lfd.params).filter(!_._2.flags.contains(Ghost)).map(_._1)
+      val args2 = nonGhostArgs map { a0 => rec(a0)(env, tm1) }
       CIR.App(fun.toVal, extra, args2)
 
     case Application(fun0, args0) =>
@@ -685,9 +690,12 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
       ctx.reporter.fatalError(e.getPos, s"Lambdas that don't directly invoke a function are not (yet) supported")
 
     case ClassConstructor(ct, args) =>
+      val cd = syms.getClass(ct.id)
       val ct2 = rec(ct)
-      val args2 = args map rec
-      val positions = args map { _.getPos }
+      val nonGhostArgs = args.zip(cd.fields).filter(!_._2.flags.contains(Ghost)).map(_._1)
+
+      val args2 = nonGhostArgs map rec
+      val positions = nonGhostArgs map { _.getPos }
 
       checkConstructArgs(args2 zip positions)
 
