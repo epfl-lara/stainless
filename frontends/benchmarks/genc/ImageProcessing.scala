@@ -494,7 +494,6 @@ object ImageProcessing {
     status
   }
 
-  @export
   def saveImage(fos: FOS, image: Image): Status = {
     require(fos.isOpen)
 
@@ -696,7 +695,6 @@ object ImageProcessing {
     statusCode(status)
   }
 
-  @export
   def process(fis: FIS, fos: FOS)(implicit state: stainless.io.State): Status = {
     require(fis.isOpen && fos.isOpen)
 
