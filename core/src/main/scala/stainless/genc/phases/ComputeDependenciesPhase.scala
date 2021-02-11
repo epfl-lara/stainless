@@ -133,8 +133,13 @@ private[genc] object ComputeDependenciesPhase
 // class definition.
 private final class ComputeDependenciesImpl(val ctx: inox.Context)(implicit
     val syms: Symbols
-) extends SelfTreeTraverser {
+) extends SelfTraverser {
   private val dependencies = MutableSet[Definition]()
+
+  case class Env(m: Map[Identifier, LocalFunDef]) {
+    def withLocals(fds: Seq[LocalFunDef]): Env =
+      Env(m ++ fds.map(fd => fd.id -> fd))
+  }
 
   // Compute the dependencies of `entry`, which includes itself.
   def apply(exported: Seq[Definition]): Set[Definition] = {
@@ -143,46 +148,80 @@ private final class ComputeDependenciesImpl(val ctx: inox.Context)(implicit
   }
 
   private def traverseDef(df: Definition): Unit = df match {
-    case fd: FunDef => traverse(fd)
-    case cd: ClassDef => traverse(cd)
+    case fd: FunDef => traverse(fd, Env(Map()))
+    case cd: ClassDef => traverse(cd, Env(Map()))
     case _ => ctx.reporter.fatalError(s"ComputeDependenciesPhase cannot traverse ${df.id} (${df.getClass})")
   }
 
-  override def traverse(id: Identifier): Unit = {
-    syms.lookupClass(id).foreach(traverse)
-    syms.lookupFunction(id).foreach(traverse)
+  override def traverse(id: Identifier, env: Env): Unit = {
+    syms.lookupClass(id).foreach(traverse(_, env))
+    syms.lookupFunction(id).foreach(traverse(_, env))
   }
 
-  override def traverse(e: Expr): Unit = e match {
+  override def traverse(e: Expr, env: Env): Unit = e match {
     // Don't traverse the local function definitions if they're manually defined
     case LetRec(lfds, body) if lfds.forall(Inner(_).isManuallyDefined) =>
-      traverse(body)
-    case _ => super.traverse(e)
+      val newEnv = env.withLocals(lfds)
+      traverse(body, newEnv)
+
+    // Don't traverse the local function definitions if they're manually defined
+    case LetRec(lfds, body) =>
+      val newEnv = env.withLocals(lfds)
+      super.traverse(e, newEnv)
+
+    // Don't traverse ghost function arguments
+    case FunctionInvocation(id, tps, args) =>
+      traverse(id, env)
+      tps.foreach(traverse(_, env))
+      val fd = syms.getFunction(id)
+      val nonGhostArgs = args.zip(fd.params).filter(!_._2.flags.contains(Ghost)).map(_._1)
+      nonGhostArgs.foreach(traverse(_, env))
+
+    // Don't traverse ghost function arguments
+    case ApplyLetRec(id, tparams, tpe, tps, args) =>
+      traverse(id, env)
+      tparams.foreach(traverse(_, env))
+      traverse(tpe, env)
+      tps.foreach(traverse(_, env))
+      val lfd = env.m(id)
+      val nonGhostArgs = args.zip(lfd.params).filter(!_._2.flags.contains(Ghost)).map(_._1)
+      nonGhostArgs.foreach(traverse(_, env))
+
+    // Don't traverse ghost class fields
+    case ClassConstructor(ct, args) =>
+      val cd = syms.getClass(ct.id)
+      val nonGhostArgs = args.zip(cd.fields).filter(!_._2.flags.contains(Ghost)).map(_._1)
+      traverse(ct, env)
+      nonGhostArgs.foreach(traverse(_, env))
+
+    case _ =>
+      super.traverse(e, env)
   }
 
-  override def traverse(cd: ClassDef): Unit = if (!dependencies(cd)) {
+  def traverse(cd: ClassDef, env: Env): Unit = if (!dependencies(cd)) {
     dependencies += cd
 
     if (!cd.isManuallyTyped) {
       // Visit the whole class hierarchy with their fields, recursiverly
-      cd.fields.foreach(traverse)
+      cd.fields.filter(!_.flags.contains(Ghost)).foreach(traverse(_, env))
       for (tcd <- cd.ancestors) {
-        traverse(tcd.cd)
+        traverse(tcd.cd, env)
         for (tcd2 <- tcd.descendants)
-          traverse(tcd2.cd)
+          traverse(tcd2.cd, env)
       }
-      super.traverse(cd)
     }
   }
 
-  override def traverse(fd: FunDef): Unit = if (!dependencies(fd)) {
+  def traverse(fd: FunDef, env: Env): Unit = if (!dependencies(fd)) {
     dependencies += fd
 
     if (!fd.isManuallyDefined) {
-      // Visite return type, body & arguments
-      traverse(fd.returnType)
-      traverse(fd.fullBody)
-      fd.params foreach { vd => traverse(vd.id) }
+      // Visite return type, body & non-ghost arguments
+      traverse(fd.returnType, env)
+      traverse(fd.fullBody, env)
+      fd.params.filter(!_.flags.contains(Ghost)) foreach { vd =>
+        traverse(vd, env)
+      }
     }
   }
 
