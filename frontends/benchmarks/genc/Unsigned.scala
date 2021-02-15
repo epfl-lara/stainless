@@ -5,10 +5,8 @@ import stainless.io._
 
 object Unsigned {
 
-  @extern
-  def main(args: Array[String]): Unit = _main()
-
-  def _main(): Int = {
+  @export
+  def main(): Unit = {
     val a = fa(16, 84)
     val b = fb(84, 14)
     val c = fc(5, 7)
@@ -21,7 +19,6 @@ object Unsigned {
     StdOut.printlnU32(b)
     StdOut.printlnU16(c)
     StdOut.printlnU8(d)
-    0
   }
 
   def fa(x: UInt64, y: UInt64) = {

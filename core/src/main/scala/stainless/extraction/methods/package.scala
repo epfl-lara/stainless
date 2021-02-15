@@ -25,12 +25,12 @@ package object methods {
     def apply(tree: inox.ast.Trees#Tree, msg: String) = new MethodsException(tree, msg)
   }
 
-  def extractor(implicit ctx: inox.Context) = {
-    val lowering = ExtractionPipeline(new CheckingTransformer {
-      override val s: trees.type = trees
-      override val t: throwing.trees.type = throwing.trees
-    })
+  def lowering(implicit ctx: inox.Context) = ExtractionPipeline(new CheckingTransformer {
+    override val s: trees.type = trees
+    override val t: throwing.trees.type = throwing.trees
+  })
 
+  def extractor(implicit ctx: inox.Context) = {
     utils.DebugPipeline("Laws",            Laws(trees))            andThen
     utils.DebugPipeline("SuperInvariants", SuperInvariants(trees))      andThen
     utils.DebugPipeline("SuperCalls",      SuperCalls(trees))      andThen

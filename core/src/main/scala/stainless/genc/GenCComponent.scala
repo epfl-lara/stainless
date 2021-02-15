@@ -62,11 +62,20 @@ class GenCRun(override val pipeline: extraction.StainlessPipeline) // pipeline i
 
   private[this] final val extractionFilter2 = createFilter
 
-  // We only keep one part of the pipeline for genc
+  // We only keep some parts of the standard verification pipeline for genc
   val pipelineBegin: ExtractionPipeline{val s: xt.type; val t: tt.type} =
     xlang.extractor        andThen
     innerclasses.extractor andThen
-    methods.extractor      andThen
+    utils.DebugPipeline("Laws",            methods.Laws(methods.trees))            andThen
+    utils.DebugPipeline("SuperInvariants", methods.SuperInvariants(methods.trees)) andThen
+    utils.DebugPipeline("SuperCalls",      methods.SuperCalls(methods.trees))      andThen
+    // No Sealing with GenC
+    // utils.DebugPipeline("Sealing",         methods.Sealing(methods.trees))         andThen
+    utils.DebugPipeline("MethodLifting",   methods.MethodLifting(methods.trees))   andThen
+    utils.DebugPipeline("MergeInvariants", methods.MergeInvariants(methods.trees)) andThen
+    utils.DebugPipeline("FieldAccessors",  methods.FieldAccessors(methods.trees))  andThen
+    utils.DebugPipeline("ValueClasses",    methods.ValueClasses(methods.trees))    andThen
+    methods.lowering andThen
     utils.DebugPipeline("LeonInlining", LeonInlining(tt, tt))
 
   override def apply(ids: Seq[Identifier], symbols: Symbols, filterSymbols: Boolean = false): Future[GenCComponent.Analysis] = try {

@@ -66,10 +66,10 @@ object TypeCheckerContext {
       )
     }
 
-    def freshBindWithValues(vds: Seq[ValDef], es: Seq[Expr])(implicit opts: PrinterOptions, ctx: inox.Context): (TypingContext, Freshener) = {
+    def freshBindWithValues(vds: Seq[ValDef], es: Seq[Expr])(implicit opts: PrinterOptions, ctx: inox.Context): (TypingContext, Substituter) = {
       if (vds.size != es.size)
         ctx.reporter.internalError("Function `freshBindWithValues` expects sequences with the same size")
-      vds.zip(es).foldLeft((this, new Freshener(Map()))) {
+      vds.zip(es).foldLeft((this, new Substituter(Map()))) {
         case ((tcAcc, freshener), (vd, e)) =>
           val (newTc, newId) = tcAcc.freshBindWithValue(freshener.transform(vd), freshener.transform(e))
           if (freshener.contains(vd.id)) {

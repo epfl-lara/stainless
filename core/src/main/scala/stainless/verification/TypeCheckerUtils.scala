@@ -135,7 +135,7 @@ object TypeCheckerUtils {
   // }
 
   def freshLets(vds: Seq[ValDef], es: Seq[Expr], expr: Expr)(implicit opts: PrinterOptions, ctx: inox.Context): Expr = {
-    vds.zip(es).foldRight(expr, new Freshener(Map())) {
+    vds.zip(es).foldRight(expr, new Substituter(Map())) {
       case ((vd, e), (acc, freshener)) =>
         val substVd = freshener.transform(vd)
         val freshVd = substVd.freshen
@@ -223,16 +223,16 @@ object TypeCheckerUtils {
       ctx.reporter.fatalError(e.getPos, s"Type ${tpe.asString} is not supported for measures")
   }).setPos(e)
 
-  case class Freshener(subst: Map[Identifier, Identifier]) extends SelfTreeTransformer {
+  case class Substituter(subst: Map[Identifier, Identifier]) extends SelfTreeTransformer {
     override def transform(id: Identifier) = subst.getOrElse(id, id)
     def transformTp(tp: TypeParameter): TypeParameter = transform(tp).asInstanceOf[TypeParameter]
-    def enrich(id1: Identifier, id2: Identifier): Freshener = {
+    def enrich(id1: Identifier, id2: Identifier): Substituter = {
       require(!subst.contains(id1))
-      Freshener(subst + (id1 -> id2))
+      Substituter(subst + (id1 -> id2))
     }
-    def enrich(m: Map[Identifier, Identifier]): Freshener = {
+    def enrich(m: Map[Identifier, Identifier]): Substituter = {
       require(m.forall { case (id,_) => !subst.contains(id) })
-      Freshener(subst ++ m)
+      Substituter(subst ++ m)
     }
     def contains(id: Identifier) = subst.contains(id)
   }

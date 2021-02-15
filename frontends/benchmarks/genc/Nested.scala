@@ -4,10 +4,8 @@ import stainless.io._
 
 object Nested {
 
-  @extern
-  def main(args: Array[String]): Unit = _main()
-
-  def _main(): Int = {
+  @export
+  def main(): Int = {
     f(100)
   }
 

@@ -672,15 +672,13 @@ object ImageProcessing {
    *                                                   Main Program     *
    **********************************************************************/
 
-  @export
-  def main(): Unit = _main()
-
   def printBool(b: Boolean): Unit = {
     if (b) StdOut.println("true")
     else StdOut.println("false")
   }
 
-  def _main(): Int = {
+  @export
+  def main(): Int = {
     implicit val state = stainless.io.newState
     val input  = FIS.open("input.bmp")
     val output = FOS.open("output.bmp")
