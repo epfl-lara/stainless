@@ -288,7 +288,7 @@ trait TypeChecker {
   }
 
   def areDependentTypes(tc: TypingContext, types: Seq[ValDef]): TyperResult = {
-    types.foldLeft((tc, new Freshener(immutable.Map()), TyperResult.valid)) {
+    types.foldLeft((tc, new Substituter(immutable.Map()), TyperResult.valid)) {
       case ((tcAcc, freshener, tr), vd) =>
         val freshVd = freshener.transform(vd)
         val (newTc, newId) = tcAcc.freshBind(freshVd)
@@ -299,7 +299,7 @@ trait TypeChecker {
   }
 
   def checkDependentTypes(tc: TypingContext, exprs: Seq[Expr], types: Seq[ValDef]): TyperResult = {
-    exprs.zip(types).foldLeft((tc, new Freshener(immutable.Map()), TyperResult.valid)) {
+    exprs.zip(types).foldLeft((tc, new Substituter(immutable.Map()), TyperResult.valid)) {
       case ((tcAcc, freshener, tr), (e, vd)) =>
         val freshVd = freshener.transform(vd)
         val (newTc, newId) = tcAcc.freshBindWithValue(freshVd, e)
@@ -309,9 +309,9 @@ trait TypeChecker {
     }._3
   }
 
-  def areSubtypes(tc: TypingContext, types1: Seq[ValDef], types2: Seq[ValDef]): (TypingContext, Freshener, TyperResult) = {
+  def areSubtypes(tc: TypingContext, types1: Seq[ValDef], types2: Seq[ValDef]): (TypingContext, Substituter, TyperResult) = {
     assert(types1.length == types2.length, "Function `areSubtypes` expects sequences of the same size")
-    types1.zip(types2).foldLeft((tc, new Freshener(immutable.Map()), TyperResult.valid)) {
+    types1.zip(types2).foldLeft((tc, new Substituter(immutable.Map()), TyperResult.valid)) {
       case ((tcAcc, freshener, tr), (vd1, vd2)) =>
         val freshVd1 = freshener.transform(vd1)
         val freshVd2 = freshener.transform(vd2)
@@ -361,7 +361,7 @@ trait TypeChecker {
       case AnnotatedType(tpe, _) => isType(tc, tpe)
       case RefinementType(vd, prop) =>
         val (tc2, id2) = tc.freshBind(vd)
-        val freshProp: Expr = Freshener(immutable.Map(vd.id -> id2)).transform(prop)
+        val freshProp: Expr = Substituter(immutable.Map(vd.id -> id2)).transform(prop)
         isType(tc, vd.tpe) ++ checkType(tc2, freshProp, BooleanType())
 
       case FunctionType(ts, returnType) =>
@@ -701,7 +701,7 @@ trait TypeChecker {
       case Let(vd, value, body) =>
         val trValue = checkType(tc.setPos(value).withVCKind(VCKind.CheckType), value, vd.tpe)
         val (tc2, id2) = tc.freshBindWithValue(vd, value)
-        val freshBody: Expr = Freshener(immutable.Map(vd.id -> id2)).transform(body)
+        val freshBody: Expr = Substituter(immutable.Map(vd.id -> id2)).transform(body)
         val (tpe, trBody) = inferType(tc2.setPos(body), freshBody)
         (insertFreshLets(Seq(vd), Seq(value), tpe), trValue ++ trBody)
 
@@ -1066,12 +1066,12 @@ trait TypeChecker {
 
       case (Lambda(params1, body), PiType(params2, to)) =>
         // val vds = params1.zip(params2).map { case (vd, tp) => vd.copy(tpe = tp) }
-        val freshener = Freshener(params1.map(_.id).zip(params2.map(_.id)).toMap)
+        val freshener = Substituter(params1.map(_.id).zip(params2.map(_.id)).toMap)
         checkType(tc.bind(params2), freshener.transform(body), to)
 
       case (Let(vd, value, body), _) =>
         val (tc2, id2) = tc.freshBindWithValue(vd, value)
-        val freshBody: Expr = Freshener(immutable.Map(vd.id -> id2)).transform(body)
+        val freshBody: Expr = Substituter(immutable.Map(vd.id -> id2)).transform(body)
         checkType(tc.setPos(value).withVCKind(VCKind.CheckType), value, vd.tpe) ++
         checkType(tc2.setPos(body), freshBody, tpe)
 
@@ -1254,7 +1254,7 @@ trait TypeChecker {
 
     val toFreshen = fd.tparams.map(tpd => tpd.tp.id) ++ fd.params.map(vd => vd.id)
 
-    val freshener = Freshener(toFreshen.map(id => id -> id.freshen).toMap)
+    val freshener = Substituter(toFreshen.map(id => id -> id.freshen).toMap)
 
     val specced = BodyWithSpecs(fd.fullBody)
 

@@ -715,7 +715,8 @@ object LZWb {
     case _ => false
   }
 
-  def _main() = {
+  @export
+  def main() = {
     implicit val state = stainless.io.newState
 
     def statusCode(s: Status): Int = s match {
@@ -760,8 +761,5 @@ object LZWb {
     val r1 = encodeFile()
     statusCode(if (r1) decodeFile() else r1)
   }
-
-  @export
-  def main(): Unit = _main()
 
 }

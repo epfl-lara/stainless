@@ -46,7 +46,7 @@ private[genc] object ExtraOps {
     def isMain = fd.id.name == "main"
 
     def isExtern          = fd.flags contains Extern
-    def isDropped         = hasAnnotation("cCode.drop")
+    def isDropped         = hasAnnotation("cCode.drop") || fd.flags.contains(Ghost)
     def isExported        = hasAnnotation("export")
     def isManuallyDefined = hasAnnotation(manualDefAnnotation)
 
