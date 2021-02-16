@@ -348,7 +348,10 @@ trait ImperativeCodeElimination
 
         //TODO: no support for true mutual recursion
         case LetRec(fds, b) =>
-          toFunction(LetRec(Seq(fds.head), LetRec(fds.tail, b)))
+          if (fds.isEmpty)
+            toFunction(b)
+          else
+            toFunction(LetRec(Seq(fds.head), LetRec(fds.tail, b)))
 
         //TODO: handle vars in scope, just like LetRec
         case ld @ Lambda(params, body) =>
