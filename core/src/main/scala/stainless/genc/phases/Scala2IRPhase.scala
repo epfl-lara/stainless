@@ -119,7 +119,7 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
         env._1.collectFirst {
           case ((eid, etype), evd) if eid.id.name == vd.id.name && etype == typ => evd
         } getOrElse {
-           ctx.reporter.fatalError(s"Couldn't find a ValDef for ${vd.id} in the environment:\n$env")
+           ctx.reporter.fatalError(vd.getPos, s"Couldn't find a ValDef for ${vd.id} in the environment:\n$env")
         }
     }
     CIR.Binding(newVD)
@@ -172,7 +172,7 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
       case _: O.FromPairOfT => check(isPairOfT)
       case _: O.FromLogical => check(isLogical)
       case _: O.FromIntegral => check(isIntegral)
-      case _ => ctx.reporter.fatalError(s"Unhandled check of operator $op")
+      case _ => ctx.reporter.fatalError(pos, s"Unhandled check of operator $op")
     }
   }
 
@@ -219,8 +219,8 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
   private def buildMultiOp(op: O.BinaryOperator, exprs: Seq[Expr])
                           (pos: Position)
                           (implicit env: Env, tm: TypeMapping): CIR.BinOp = exprs.toList match {
-    case Nil => ctx.reporter.fatalError("no operands")
-    case a :: Nil => ctx.reporter.fatalError("at least two operands required")
+    case Nil => ctx.reporter.fatalError(pos, "no operands")
+    case a :: Nil => ctx.reporter.fatalError(pos, "at least two operands required")
     case a :: b :: Nil => buildBinOp(a, op, b)(pos)
     case a :: xs => CIR.BinOp(op, rec(a), buildMultiOp(op, xs)(pos))
   }
@@ -233,14 +233,14 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
       val id = "Tuple" + buildIdPostfix(bases)
       CIR.ClassDef(id, None, fields, isAbstract = false)
 
-    case _ => ctx.reporter.fatalError("Unexpected ${typ.getClass} instead of TupleType")
+    case _ => ctx.reporter.fatalError(typ.getPos, s"Unexpected ${typ.getClass} instead of TupleType")
   }
 
   private def buildCast(e0: Expr, newType0: BVType)(implicit env: Env, tm: TypeMapping): CIR.IntegralCast = {
     val newType = newType0.size match {
       case 8 => PT.Int8Type
       case 32 => PT.Int32Type
-      case s => ctx.reporter.fatalError("Unsupported integral cast to $s-bit integer")
+      case s => ctx.reporter.fatalError(e0.getPos, s"Unsupported integral cast to $s-bit integer")
     }
 
     val e = rec(e0)
@@ -304,7 +304,7 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
         (newSelect, preOpt, newEnv)
 
       case select @ ArraySelect(a, i) =>
-        ctx.reporter.fatalError(s"array select $a[$i] is not supported; ${a.getClass} - ${i.getClass}")
+        ctx.reporter.fatalError(scrutinee0.getPos, s"array select $a[$i] is not supported by GenC (${a.getClass}, ${i.getClass})")
 
       case Assert(_, _, body) => scrutRec(body)
       case Assume(_, body) => scrutRec(body)
@@ -312,7 +312,7 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
       case _: FunctionInvocation | _: ADT | _: LetVar | _: Let | _: Tuple | _: IfExpr =>
         withTmp(scrutinee0.getType, scrutinee0, env)
 
-      case e => ctx.reporter.fatalError(s"scrutinee = $e of type ${e.getClass} is not supported by GenC")
+      case e => ctx.reporter.fatalError(e.getPos, s"scrutinee ${e.asString} (${e.getClass}) is not supported by GenC")
     }
 
     val (scrutinee, preOpt, newEnv) = scrutRec(scrutinee0)
@@ -541,7 +541,7 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
 
     case tp: TypeParameter => rec(instantiate(tp, tm))
 
-    case t => ctx.reporter.fatalError(s"Type tree ${t.asString} (${t.getClass}) not handled by GenC component")
+    case t => ctx.reporter.fatalError(t.getPos, s"Type tree ${t.asString} (${t.getClass}) not handled by GenC component")
   }
 
   private def rec(ct: ClassType)(implicit tm: TypeMapping): CIR.ClassDef = {
@@ -555,7 +555,7 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
       val tcd = ct.tcd
       val cd = tcd.cd
       if (cd.isDropped || cd.isManuallyTyped)
-        ctx.reporter.fatalError(s"${ct.id} is not convertible to ClassDef!")
+        ctx.reporter.fatalError(ct.getPos, s"${ct.id} is not convertible to ClassDef in GenC")
 
       val id = buildId(ct)
       assert(!cd.isCaseObject)
@@ -623,9 +623,9 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
         case ct: ClassType =>
           val fields = ct.tcd.fields
           val optFieldId = fields collectFirst { case field if field.id.name == fieldId0.name => field.id }
-          optFieldId getOrElse { ctx.reporter.fatalError(s"No corresponding field for $fieldId0 in class $ct") }
+          optFieldId getOrElse { ctx.reporter.fatalError(e.getPos, s"No corresponding field for $fieldId0 in class $ct") }
 
-        case typ => ctx.reporter.fatalError(s"Unexpected type $typ. Only class type are expected to update fields")
+        case typ => ctx.reporter.fatalError(e.getPos, s"Unexpected type $typ. Only class type are expected to update fields")
       }
       CIR.Assign(CIR.FieldAccess(rec(obj), rec(fieldId)), rec(expr))
 
