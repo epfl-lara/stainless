@@ -38,7 +38,7 @@ trait FunctionClosure
 
       val inst = new typeOps.TypeInstantiator(tparamsMap)
 
-      val (paramSubst, freshVals) = (params ++ free)
+      val (paramSubst, freshVals) = (free ++ params)
         .foldLeft((Map[ValDef, Expr](), Seq[(ValDef, ValDef)]())) { case ((paramSubst, params), vdOld) =>
           val vd = vdOld.copy(tpe = typeOps.instantiateType(vdOld.tpe, tparamsMap))
           val ntpe = typeOps.replaceFromSymbols(paramSubst, vd.tpe)
@@ -48,7 +48,6 @@ trait FunctionClosure
 
       val freeMap = freshVals.toMap
       val freshParams = freshVals.filterNot(p => pc.bindings exists (_._1.id == p._1.id)).map(_._2)
-
       val oldBody = withPath(fullBody, pc)
 
       object bodyTransformer extends SelfTreeTransformer {
@@ -61,7 +60,7 @@ trait FunctionClosure
 
           case app @ ApplyLetRec(id, tparams, tpe, tps, args) if id == inner.id =>
             val ntps = tps.map(transform) ++ tpFresh.map(_.tp)
-            val nargs = args.map(transform) ++ freshParams.drop(args.length).map(_.toVariable)
+            val nargs = freshParams.dropRight(args.length).map(_.toVariable) ++ args.map(transform)
             FunctionInvocation(id, ntps, nargs).copiedFrom(app)
 
           case _ => super.transform(e)
@@ -167,14 +166,14 @@ trait FunctionClosure
             val tparamsMap = (newCallee.tparams.map(_.tp).drop(tparams.size) zip tFinalExtra).toMap
 
             val mapReverse = calleeMap map { _.swap }
-            val extraArgs = newCallee.params.drop(args.size).map { vd =>
+            val extraArgs = newCallee.params.dropRight(args.size).map { vd =>
               typeOps.instantiateType(callerMap(mapReverse(vd)).toVariable, tparamsMap)
             }
 
             t.FunctionInvocation(
               newCallee.id,
               tps.map(transform) ++ tFinalExtra.map(transform),
-              args.map(transform) ++ extraArgs.map(transform)
+              extraArgs.map(transform) ++ args.map(transform)
             ).copiedFrom(app)
 
           case _ => super.transform(e)
