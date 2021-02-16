@@ -1182,6 +1182,16 @@ trait TypeChecker {
       case (SetType(base1), SetType(base2)) =>
         areEqualTypes(tc, base1, base2)
 
+      case (BagType(base1), BagType(base2)) =>
+        areEqualTypes(tc, base1, base2)
+
+      case (MapType(from1, to1), MapType(from2, to2)) =>
+        areEqualTypes(tc, from1, from2) ++
+        areEqualTypes(tc, to1, to2)
+
+      case (ArrayType(base1), ArrayType(base2)) =>
+        areEqualTypes(tc, base1, base2)
+
       case (_, _) =>
         reporter.fatalError(tc.getPos, s"Could not check that ${tp1.asString} is a subtype of ${tp2.asString}")
     }
