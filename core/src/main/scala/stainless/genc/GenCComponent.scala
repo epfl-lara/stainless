@@ -131,8 +131,8 @@ object GenCReport {
   }
 
   private def descriptionOf(status: Status): String = status match {
-    case Compiled => "exported"
-    case CompilationError => "error during compilation"
+    case Compiled => "exported C"
+    case CompilationError => "error during C compilation"
   }
 
   implicit val recordDecoder: Decoder[Record] = deriveDecoder

@@ -382,4 +382,25 @@ trait ExprOps extends oo.ExprOps {
 
     rec(expr)
   }
+
+
+  /* =============================
+   * Freshening of local variables
+   * ============================= */
+
+  class Freshener(freshenChooses: Boolean)
+    extends super.Freshener(freshenChooses) {
+
+    override def transform(e: Expr, env: Env): Expr = e match {
+      case LetVar(vd, v, b) =>
+        val freshVd = vd.freshen
+        LetVar(transform(freshVd, env), transform(v, env), transform(b, env.updated(vd.id, freshVd.id))).copiedFrom(e)
+
+      case _ => super.transform(e, env)
+    }
+  }
+
+  override val freshenerNoChooses = new Freshener(false)
+  override val freshenerWithChooses = new Freshener(true)
+
 }

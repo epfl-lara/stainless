@@ -350,4 +350,77 @@ trait ExprOps extends inox.ast.ExprOps {
     case AnnotatedType(tpe, _) => stripAnnotations(tpe)
     case _ => tpe
   }
+
+  /* =============================
+   * Freshening of local variables
+   * ============================= */
+
+  class Freshener(freshenChooses: Boolean)
+    extends super.Freshener(freshenChooses)
+    with transformers.Transformer {
+
+    override def transform(pat: Pattern, env: Env): Pattern = {
+      transformAndGetEnv(pat, env)._1
+    }
+
+    def transformAndGetEnv(pat: Pattern, env: Env): (Pattern, Env) = pat match {
+      case WildcardPattern(vdOpt) =>
+        val freshVdOpt = vdOpt.map(vd => transform(vd.freshen, env))
+        val newEnv = env ++ freshVdOpt.map(freshVd => vdOpt.get.id -> freshVd.id)
+        (WildcardPattern(freshVdOpt), newEnv)
+
+      case ADTPattern(vdOpt, id, tps, subPatterns) =>
+        val freshVdOpt = vdOpt.map(vd => transform(vd.freshen, env))
+        val newPatterns = subPatterns.map(transformAndGetEnv(_, env))
+        (
+          ADTPattern(
+            freshVdOpt,
+            transform(id, env),
+            tps.map(transform(_, env)),
+            newPatterns.map(_._1)
+          ),
+          newPatterns.map(_._2).fold
+            (env ++ freshVdOpt.map(freshVd => vdOpt.get.id -> freshVd.id))
+            (_ ++ _)
+        )
+
+      case TuplePattern(vdOpt, subPatterns) =>
+        val freshVdOpt = vdOpt.map(vd => transform(vd.freshen, env))
+        val newPatterns = subPatterns.map(transformAndGetEnv(_, env))
+        (
+          TuplePattern(freshVdOpt, newPatterns.map(_._1)),
+          newPatterns.map(_._2).fold
+            (env ++ freshVdOpt.map(freshVd => vdOpt.get.id -> freshVd.id))
+            (_ ++ _)
+        )
+
+      case LiteralPattern(vdOpt, lit) =>
+        val freshVdOpt = vdOpt.map(vd => transform(vd.freshen, env))
+        val newEnv = env ++ freshVdOpt.map(freshVd => vdOpt.get.id -> freshVd.id)
+        (LiteralPattern(freshVdOpt, lit), newEnv)
+
+      case UnapplyPattern(vdOpt, recs, id, tps, subPatterns) =>
+        val freshVdOpt = vdOpt.map(vd => transform(vd.freshen, env))
+        val newRecs = recs.map(transform(_, env))
+        val newPatterns = subPatterns.map(transformAndGetEnv(_, env))
+        (
+          UnapplyPattern(
+            freshVdOpt,
+            newRecs,
+            transform(id, env),
+            tps.map(transform(_, env)),
+            newPatterns.map(_._1)
+          ),
+          newPatterns.map(_._2).fold
+            (env ++ freshVdOpt.map(freshVd => vdOpt.get.id -> freshVd.id))
+            (_ ++ _)
+        )
+
+      case _ => (super.transform(pat, env), env)
+    }
+  }
+
+  override val freshenerNoChooses = new Freshener(false)
+  override val freshenerWithChooses = new Freshener(true)
+
 }

@@ -141,6 +141,7 @@ trait ExprOps extends imperative.ExprOps {
     case Exceptions(pred) => Throwing(body, pred).setPos(spec.getPos)
     case _ => super.applySpec(spec, body)
   }
+
 }
 
 trait TreeDeconstructor extends imperative.TreeDeconstructor {
