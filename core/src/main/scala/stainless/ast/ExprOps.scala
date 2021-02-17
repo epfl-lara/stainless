@@ -359,6 +359,14 @@ trait ExprOps extends inox.ast.ExprOps {
     extends super.Freshener(freshenChooses)
     with transformers.Transformer {
 
+    override def transformCase(cse: MatchCase, env: Env): MatchCase = {
+      val MatchCase(pat, guard, rhs) = cse
+      val (newPat, newEnv) = transformAndGetEnv(pat, env)
+      val newGuard = guard.map(transform(_, newEnv))
+      val newRhs = transform(rhs, newEnv)
+      MatchCase(newPat, newGuard, newRhs).copiedFrom(cse)
+    }
+
     override def transform(pat: Pattern, env: Env): Pattern = {
       transformAndGetEnv(pat, env)._1
     }
