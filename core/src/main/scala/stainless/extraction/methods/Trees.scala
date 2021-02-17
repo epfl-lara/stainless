@@ -337,6 +337,7 @@ trait Trees extends throwing.Trees { self =>
 
 trait ExprOps extends throwing.ExprOps {
   protected val trees: Trees
+
 }
 
 trait Printer extends throwing.Printer {
