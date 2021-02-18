@@ -421,7 +421,7 @@ trait ExprOps extends innerfuns.ExprOps {
    * Freshening of local variables
    * ============================= */
 
-  class Freshener(freshenChooses: Boolean)
+  protected class Freshener(freshenChooses: Boolean)
     extends super.Freshener(freshenChooses) {
 
       override def transformAndGetEnv(pat: Pattern, env: Env): (Pattern, Env) = pat match {
@@ -449,9 +449,9 @@ trait ExprOps extends innerfuns.ExprOps {
       }
   }
 
-  override val freshenerNoChooses = new Freshener(false)
-  override val freshenerWithChooses = new Freshener(true)
-
+  override def freshenLocals(expr: Expr, freshenChooses: Boolean = false): Expr = {
+    new Freshener(freshenChooses).transform(expr, Map.empty[Identifier, Identifier])
+  }
 }
 
 trait TreeDeconstructor extends innerfuns.TreeDeconstructor {
