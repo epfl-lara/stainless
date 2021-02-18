@@ -326,7 +326,7 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
     }
 
     // Combine all cases, using a foldRight
-    val patmat = (cases.init :\ last) { case (caze, acc) =>
+    val patmat = cases.init.foldRight(last) { case (caze, acc) =>
       CIR.IfElse(caze.fullCondition, caze.body, acc)
     }
 
@@ -571,7 +571,7 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
 
       // Recurse down
       val children = cd.children map { _.typed(ct.tps) }
-      (newAcc /: children) { case (currentAcc, child) => recTopDown(child.toType, Some(clazz), currentAcc) }
+      children.foldLeft(newAcc) { case (currentAcc, child) => recTopDown(child.toType, Some(clazz), currentAcc) }
     }
 
     val translation = recTopDown(syms.getClass(root(ct.id)).typed(ct.tps).toType, None, Map.empty)

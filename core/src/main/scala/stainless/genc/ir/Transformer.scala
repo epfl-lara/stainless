@@ -80,7 +80,7 @@ abstract class Transformer[From <: IR, To <: IR](final val from: From, final val
       val acc2 = acc + (current -> transformed)
       val subs = current.getDirectChildren
 
-      (acc2 /: subs) { case (acc3, sub) => topDown(Some(transformed), sub, acc3) }
+      subs.foldLeft(acc2) { case (acc3, sub) => topDown(Some(transformed), sub, acc3) }
     }
 
     val top = cd.hierarchyTop

@@ -305,7 +305,7 @@ private[genc] sealed trait IR { ir =>
   def buildBlock(exprs: Seq[Expr]): Block = {
     require(exprs.nonEmpty)
 
-    val block = (Seq[Expr]() /: exprs) {
+    val block = exprs.foldLeft(Seq[Expr]()) {
       case (acc, e) => e match {
         case Block(exprs) => acc ++ exprs
         case expr => acc :+ expr

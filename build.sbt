@@ -31,7 +31,7 @@ lazy val nParallel = {
   }
 }
 
-val SupportedScalaVersions = Seq("2.12.9")
+val SupportedScalaVersions = Seq("2.12.13")
 
 lazy val frontendClass = settingKey[String]("The name of the compiler wrapper used to extract stainless trees")
 
@@ -83,13 +83,8 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
     "-feature"
   ),
 
-  // unmanagedJars in Runtime += {
-  //   root.base / "unmanaged" / s"scalaz3-$osName-$osArch-${scalaBinaryVersion.value}.jar"
-  // },
-
   resolvers ++= Seq(
-    Resolver.sonatypeRepo("releases"),
-    Resolver.bintrayRepo("epfl-lara", "maven"),
+    Resolver.sonatypeRepo("releases").withAllowInsecureProtocol(true),
     ("uuverifiers" at "http://logicrunch.research.it.uu.se/maven").withAllowInsecureProtocol(true),
   ),
 
