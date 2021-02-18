@@ -216,7 +216,7 @@ object CAST { // C Abstract Syntax Tree
   /* ---------------------------------------------------------- Helpers ----- */
   // Flatten blocks together and remove `()` literals
   def buildBlock(exprs: Seq[Expr]): Block = {
-    val block = (Seq[Expr]() /: (exprs filterNot isUnitLit)) {
+    val block = (exprs filterNot isUnitLit).foldLeft(Seq.empty[Expr]) {
       case (acc, e) => e match {
         case Block(exprs) => acc ++ exprs
         case expr => acc :+ expr
