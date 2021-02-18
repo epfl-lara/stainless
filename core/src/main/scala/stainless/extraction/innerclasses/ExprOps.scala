@@ -45,7 +45,7 @@ trait ExprOps extends methods.ExprOps {
    * Freshening of local variables
    * ============================= */
 
-  class Freshener(freshenChooses: Boolean)
+  protected class Freshener(freshenChooses: Boolean)
     extends super.Freshener(freshenChooses) {
 
       def transform(lmd: LocalMethodDef, env: Env, methodsEnv: Env): LocalMethodDef = {
@@ -105,8 +105,8 @@ trait ExprOps extends methods.ExprOps {
       }
   }
 
-  override val freshenerNoChooses = new Freshener(false)
-  override val freshenerWithChooses = new Freshener(true)
-
+  override def freshenLocals(expr: Expr, freshenChooses: Boolean = false): Expr = {
+    new Freshener(freshenChooses).transform(expr, Map.empty[Identifier, Identifier])
+  }
 
 }
