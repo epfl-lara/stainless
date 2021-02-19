@@ -2,7 +2,6 @@
 
 package stainless.lang
 
-import scala.language.implicitConversions
 import scala.collection.immutable.{Map => ScalaMap}
 
 import StaticChecks._

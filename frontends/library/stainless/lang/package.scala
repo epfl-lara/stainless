@@ -5,10 +5,7 @@ package stainless
 import stainless.annotation._
 import stainless.lang.StaticChecks._
 
-import scala.language.implicitConversions
-
 package object lang {
-  import stainless.proof._
 
   @library
   def ghost[A](@ghost value: A): Unit = ()
