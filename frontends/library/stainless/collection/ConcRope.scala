@@ -2,7 +2,6 @@
 
 package stainless.collection
 
-import stainless.collection._
 import stainless.lang._
 import stainless.proof._
 import stainless.lang.StaticChecks._
@@ -68,7 +67,6 @@ object ConcRope {
 
   @library
   sealed abstract class Conc[T] {
-    import Conc._
 
     def isEmpty: Boolean = {
       this == Empty[T]()

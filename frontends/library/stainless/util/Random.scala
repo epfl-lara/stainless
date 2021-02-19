@@ -2,8 +2,6 @@
 
 package stainless.util
 
-import scala.language.implicitConversions
-
 import stainless.annotation._
 import stainless.lang.StaticChecks._
 import stainless.io._

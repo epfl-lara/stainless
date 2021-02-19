@@ -4,13 +4,8 @@ package stainless
 package math
 
 import stainless.annotation._
-import stainless.lang._
-import stainless.lang.StaticChecks._
 import scala.collection.immutable.BitSet
-
-import scala.language.higherKinds
 import scala.language.implicitConversions
-
 
 // TODO: write the Scala implementation
 

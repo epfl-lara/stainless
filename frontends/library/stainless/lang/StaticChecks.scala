@@ -1,7 +1,6 @@
 package stainless.lang
 
 import stainless.annotation._
-import scala.language.implicitConversions
 
 object StaticChecks {
 
