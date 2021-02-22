@@ -554,11 +554,13 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
     def recTopDown(ct: ClassType, parent: Option[CIR.ClassDef], acc: Translation): Translation = {
       val tcd = ct.tcd
       val cd = tcd.cd
-      if (cd.isDropped || cd.isManuallyTyped)
-        ctx.reporter.fatalError(ct.getPos, s"${ct.id} is not convertible to ClassDef in GenC")
-
       val id = buildId(ct)
-      assert(!cd.isCaseObject)
+
+      if (cd.isDropped || cd.isManuallyTyped)
+        ctx.reporter.fatalError(ct.getPos, s"${ct.id.asString} is not convertible to ClassDef in GenC")
+
+      if (cd.isCaseObject)
+        ctx.reporter.fatalError(ct.getPos, s"Case objects (${ct.id.asString}) are not convertible to ClassDef in GenC")
 
       // Use the class definition id, not the typed one as they might not match.
       val nonGhostFields = tcd.fields.filter(!_.flags.contains(Ghost))
