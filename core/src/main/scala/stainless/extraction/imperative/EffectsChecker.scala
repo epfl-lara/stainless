@@ -23,7 +23,7 @@ trait EffectsChecker { self: EffectsAnalyzer =>
       fd.flags.contains(Synthetic) &&
       !isAccessor(Outer(fd)) &&
       fd.params.exists(vd => isMutableType(vd.tpe)) &&
-      !exprOps.withoutSpecs(fd.fullBody).forall(isExpressionFresh)
+      !exprOps.BodyWithSpecs(fd.fullBody).bodyOpt.forall(isExpressionFresh)
     }
 
     def isAccessor(fd: FunAbstraction): Boolean = {
@@ -41,18 +41,13 @@ trait EffectsChecker { self: EffectsAnalyzer =>
       checkEffectsLocations(fd)
       checkPurity(fd)
 
-      exprOps.withoutSpecs(fd.fullBody).foreach { bd =>
+      exprOps.BodyWithSpecs(fd.fullBody).bodyOpt.foreach { bd =>
 
         object traverser extends SelfTreeTraverser {
           override def traverse(e: Expr): Unit = e match {
             case l @ Let(vd, e, b) =>
-              if (!isExpressionFresh(e) && isMutableType(vd.tpe)) try {
-                // Check if a precise effect can be computed
-                getEffects(e)
-              } catch {
-                case _: MalformedStainlessCode =>
-                  throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
-              }
+              if (!isExpressionFresh(e) && isMutableType(vd.tpe))
+                throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
 
               super.traverse(l)
 
@@ -244,7 +239,11 @@ trait EffectsChecker { self: EffectsAnalyzer =>
         // rejected later in `ImperativeCleanup`.
         case Old(_) => true
 
-        //function invocation always return a fresh expression, by hypothesis (global assumption)
+        //function invocation from accessors are not fresh
+        case FunctionInvocation(id, _, _)
+          if symbols.getFunction(id).flags.exists(_.name == "accessor") => false
+
+        //other function invocation always return a fresh expression, by hypothesis (global assumption)
         case (_: FunctionInvocation | _: ApplyLetRec | _: Application) => true
 
         //ArrayUpdated returns a mutable array, which by definition is a clone of the original
