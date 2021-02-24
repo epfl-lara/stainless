@@ -102,7 +102,7 @@ export PATH="$BASE_DIR/frontends/scalac/target/universal/stage/bin:$PATH"
 
 echo "Publishing Stainless..."
 
-STAINLESS_VERSION=$(sbt publishLocal | $SED -n -r 's#^.*stainless-scalac-plugin_2.12.9/([^/]+)/poms.*$#\1#p' | head -n1)
+STAINLESS_VERSION=$(sbt publishLocal | $SED -n -r 's#^.*stainless-scalac-plugin_2.12.13/([^/]+)/poms.*$#\1#p' | head -n1)
 
 echo "Published Stainless version is: $STAINLESS_VERSION"
 
