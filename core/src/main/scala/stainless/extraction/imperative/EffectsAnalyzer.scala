@@ -86,7 +86,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     implicit val symbols: s.Symbols
 
     private[this] def functionEffects(fd: FunAbstraction, current: Result): Set[Effect] =
-      exprOps.withoutSpecs(fd.fullBody) match {
+      BodyWithSpecs(fd.fullBody).bodyOpt match {
         case Some(body) =>
           expressionEffects(body, current)
         case None if !fd.flags.contains(IsPure) =>
@@ -315,14 +315,14 @@ trait EffectsAnalyzer extends oo.CachingPhase {
         case ADTFieldAccessor(fid) +: rest =>
           rec(args(symbols.getConstructor(id).fields.indexWhere(_.id == fid)), rest)
         case _ =>
-          throw MalformedStainlessCode(expr, s"Couldn't compute effect targets in: $expr")
+          throw MalformedStainlessCode(expr, s"Couldn't compute effect targets in ADT: ${expr.asString}")
       }
 
       case ClassConstructor(ct, args) => path match {
         case ClassFieldAccessor(fid) +: rest =>
           rec(args(ct.tcd.fields.indexWhere(_.id == fid)), rest)
         case _ =>
-          throw MalformedStainlessCode(expr, s"Couldn't compute effect targets in: $expr")
+          throw MalformedStainlessCode(expr, s"Couldn't compute effect targets in class constructor: ${expr.asString}")
       }
 
       case Assert(_, _, e) => rec(e, path)
@@ -346,7 +346,8 @@ trait EffectsAnalyzer extends oo.CachingPhase {
         } yield target
 
       case fi: FunctionInvocation if !symbols.isRecursive(fi.id) =>
-        exprOps.withoutSpecs(symbols.simplifyLets(fi.inlined))
+        BodyWithSpecs(symbols.simplifyLets(fi.inlined))
+          .bodyOpt
           .map(rec(_, path))
           .getOrElse(Set.empty)
 
@@ -368,12 +369,12 @@ trait EffectsAnalyzer extends oo.CachingPhase {
         }
 
         if (res.isEmpty)
-          throw MalformedStainlessCode(expr, s"Couldn't compute effect targets in: $expr")
+          throw MalformedStainlessCode(expr, s"Couldn't compute effect targets in `val`: ${expr.asString}")
 
         res
 
       case _ =>
-        throw MalformedStainlessCode(expr, s"Couldn't compute effect targets in: $expr")
+        throw MalformedStainlessCode(expr, s"Couldn't compute effect targets in (${expr.getClass}): ${expr.asString}")
     }
 
     rec(expr, Seq.empty)
@@ -381,7 +382,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
 
   def getExactEffects(expr: Expr)(implicit symbols: Symbols): Set[Target] = getEffects(expr) match {
     case effects if effects.nonEmpty => effects
-    case _ => throw MalformedStainlessCode(expr, s"Couldn't compute exact effect targets in: $expr")
+    case _ => throw MalformedStainlessCode(expr, s"Couldn't compute exact effect targets in: ${expr.asString}")
   }
 
   def getKnownEffects(expr: Expr)(implicit symbols: Symbols): Set[Target] = try {
