@@ -249,11 +249,17 @@ trait EffectsChecker { self: EffectsAnalyzer =>
         //ArrayUpdated returns a mutable array, which by definition is a clone of the original
         case ArrayUpdated(IsTyped(_, ArrayType(base)), _, _) => !isMutableType(base)
 
+        //MutableMapDuplicate returns a fresh duplicate by definition
+        case MutableMapDuplicate(IsTyped(_, MutableMapType(from, to))) =>
+          !isMutableType(from) && !isMutableType(to)
+
         // These cases cover some limitations due to dotty inlining
         case Let(vd, e, b) => rec(e, bindings) && rec(b, bindings + vd)
         case LetVar(vd, e, b) => rec(e, bindings) && rec(b, bindings + vd)
 
         case Block(_, e) => rec(e, bindings)
+
+        case Snapshot(e) => true
 
         //any other expression is conservately assumed to be non-fresh if
         //any sub-expression is non-fresh (i.e. an if-then-else with a reference in one branch)
