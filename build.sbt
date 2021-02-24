@@ -138,6 +138,12 @@ lazy val assemblySettings: Seq[Setting[_]] = {
       // hence the following merge strategy picks the standalone BuildInfo over the usual one.
       case "stainless/BuildInfo.class" => MergeStrategy.first
       case "stainless/BuildInfo$.class" => MergeStrategy.first
+      case PathList("META-INF", xs @ _*) => MergeStrategy.discard
+      case PathList("scala", "collection", "compat", _*) => MergeStrategy.first
+      case PathList("scala", "annotation", _*) => MergeStrategy.first
+      case PathList("scala", "util", _*) => MergeStrategy.first
+      case path if path.endsWith("scala-collection-compat.properties") => MergeStrategy.first
+      case "reflect.properties" => MergeStrategy.first
       case file if isNativeLib(file) => MergeStrategy.first
       case x =>
         val oldStrategy = (assembly / assemblyMergeStrategy).value
