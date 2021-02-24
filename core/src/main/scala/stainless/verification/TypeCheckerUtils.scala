@@ -53,23 +53,7 @@ object TypeCheckerUtils {
       case _ => None
     }
 
-    def unapply(v: Variable): Option[Expr] = v.tpe match {
-      case RefinementType(vd, e) if vd.tpe == UnitType() => Some(e)
-      case _ => None
-    }
-  }
-
-  // The type { u: Unit | e1 == e2 }
-  object Equality {
-    def apply(e1: Expr, e2: Expr) = {
-      val vd = ValDef.fresh("__u", UnitType())
-      RefinementType(vd, Equals(e1,e2))
-    }
-
-    def unapply(t: Type): Option[(Expr, Expr)] = t match {
-      case RefinementType(vd, Equals(e1,e2)) if vd.tpe == UnitType() => Some((e1,e2))
-      case _ => None
-    }
+    def unapply(v: Variable): Option[Expr] = unapply(v.tpe)
   }
 
   // The type { letWitness: Unit | e1 == e2 }
@@ -84,12 +68,7 @@ object TypeCheckerUtils {
       case _ => None
     }
 
-    def unapply(v: Variable): Option[(Variable, Expr)] = {
-      v.tpe match {
-        case RefinementType(vd, Equals(e1: Variable,e2)) if vd.tpe == UnitType() && v.id.name == letWitness => Some((e1, e2))
-        case _ => None
-      }
-    }
+    def unapply(v: Variable): Option[(Variable, Expr)] = unapply(v.tpe)
   }
 
   def renameVar(e: Expr, id1: Identifier, id2: Identifier): Expr = {
