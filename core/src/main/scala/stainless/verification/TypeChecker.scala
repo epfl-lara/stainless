@@ -950,7 +950,7 @@ trait TypeChecker {
         case Truth(t) =>
           implies(t, acc)
         case RefinementType(vd, pred) =>
-          implies(renameVar(pred, vd.id, v.id), acc)
+          implies(substVar(pred, vd.id, v), acc)
         case _ =>
           acc
       }
@@ -1144,7 +1144,10 @@ trait TypeChecker {
         tr ++ isSubtype(tc2, freshener.transform(to1), freshener.transform(to2))
 
       case (RefinementType(vd1, prop1), RefinementType(vd2, prop2)) if (vd1.tpe == vd2.tpe) =>
-        buildVC(tc.bind(vd1).withTruth(prop1).withVCKind(VCKind.RefinementSubtype), renameVar(prop2, vd2.id, vd1.id))
+        buildVC(
+          tc.bind(vd1).withTruth(prop1).withVCKind(VCKind.RefinementSubtype),
+          substVar(prop2, vd2.id, vd1.toVariable)
+        )
 
       case (_, RefinementType(vd, prop)) =>
         isSubtype(tc, tp1, vd.tpe) ++ buildVC(tc.withVCKind(VCKind.RefinementSubtype), prop)
