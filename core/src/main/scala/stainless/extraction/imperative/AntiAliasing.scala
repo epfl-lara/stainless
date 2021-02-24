@@ -265,6 +265,9 @@ trait AntiAliasing
         }
 
         override def transform(e: Expr, env: Env): Expr = (e match {
+          case v: Variable if env.rewritings.contains(v.toVal) =>
+            env.rewritings(v.toVal)
+
           case l @ Let(vd, e, b) if isMutableType(vd.tpe) =>
             val newExpr = transform(e, env)
             if (getKnownEffects(newExpr).nonEmpty) {
@@ -424,18 +427,6 @@ trait AntiAliasing
             } else {
               Application(transform(callee, env), args.map(transform(_, env))).copiedFrom(app)
             }
-
-          case cs @ ClassSelector(obj, sel) =>
-            ClassSelector(
-              transform(exprOps.replaceFromSymbols(env.rewritings, obj), env),
-              sel
-            ).copiedFrom(cs)
-
-          case as @ ADTSelector(adt, sel) =>
-            ADTSelector(
-              transform(exprOps.replaceFromSymbols(env.rewritings, adt), env),
-              sel
-            ).copiedFrom(as)
 
           case Operator(es, recons) => recons(es.map(transform(_, env)))
         }).copiedFrom(e)
