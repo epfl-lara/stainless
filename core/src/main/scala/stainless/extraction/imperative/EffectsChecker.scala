@@ -23,7 +23,7 @@ trait EffectsChecker { self: EffectsAnalyzer =>
       fd.flags.contains(Synthetic) &&
       !isAccessor(Outer(fd)) &&
       fd.params.exists(vd => isMutableType(vd.tpe)) &&
-      !exprOps.withoutSpecs(fd.fullBody).forall(isExpressionFresh)
+      !exprOps.BodyWithSpecs(fd.fullBody).bodyOpt.forall(isExpressionFresh)
     }
 
     def isAccessor(fd: FunAbstraction): Boolean = {
@@ -41,7 +41,7 @@ trait EffectsChecker { self: EffectsAnalyzer =>
       checkEffectsLocations(fd)
       checkPurity(fd)
 
-      exprOps.withoutSpecs(fd.fullBody).foreach { bd =>
+      exprOps.BodyWithSpecs(fd.fullBody).bodyOpt.foreach { bd =>
 
         object traverser extends SelfTreeTraverser {
           override def traverse(e: Expr): Unit = e match {
@@ -244,11 +244,22 @@ trait EffectsChecker { self: EffectsAnalyzer =>
         // rejected later in `ImperativeCleanup`.
         case Old(_) => true
 
-        //function invocation always return a fresh expression, by hypothesis (global assumption)
+        //function invocation from accessors are not fresh
+        case FunctionInvocation(id, _, _)
+          if symbols.getFunction(id).flags.exists(_.name == "accessor") => false
+
+        //other function invocations always return a fresh expression, by hypothesis (global assumption)
         case (_: FunctionInvocation | _: ApplyLetRec | _: Application) => true
 
         //ArrayUpdated returns a mutable array, which by definition is a clone of the original
         case ArrayUpdated(IsTyped(_, ArrayType(base)), _, _) => !isMutableType(base)
+
+        //MutableMapDuplicate returns a fresh duplicate by definition
+        case MutableMapDuplicate(IsTyped(_, MutableMapType(from, to))) =>
+          !isMutableType(from) && !isMutableType(to)
+
+        // snapshots are fresh
+        case Snapshot(e) => true
 
         // These cases cover some limitations due to dotty inlining
         case Let(vd, e, b) => rec(e, bindings) && rec(b, bindings + vd)
