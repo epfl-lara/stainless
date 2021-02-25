@@ -10,6 +10,14 @@ trait Trees extends oo.Trees with Definitions { self =>
 
   /* XLang imperative trees to desugar */
 
+  /** Return an [[ast.Expressions.Expr]].
+    *
+    * @param expr The expression to return
+    */
+  sealed case class Return(expr: Expr) extends Expr with CachingTyped {
+    override protected def computeType(implicit s: Symbols): Type = NothingType()
+  }
+
   /** $encodingof `{ expr1; expr2; ...; exprn; last }` */
   case class Block(exprs: Seq[Expr], last: Expr) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type = if (exprs.forall(_.isTyped)) last.getType else Untyped
@@ -193,6 +201,9 @@ trait Printer extends oo.Printer {
     case Block(exprs, last) =>
       p"${nary(exprs :+ last, "\n")}"
 
+    case Return(e) =>
+      p"return $e"
+
     case LetVar(vd, value, expr) =>
       p"""|var $vd = $value
           |$expr"""
@@ -259,7 +270,13 @@ trait Printer extends oo.Printer {
 
   override protected def noBracesSub(e: Tree): Seq[Expr] = e match {
     case LetVar(_, _, bd) => Seq(bd)
+    case Return(e) => Seq(e)
     case _ => super.noBracesSub(e)
+  }
+
+  override protected def requiresParentheses(ex: Tree, within: Option[Tree]): Boolean = (ex, within) match {
+    case (_, Some(_: Return)) => false
+    case _ => super.requiresParentheses(ex, within)
   }
 
   override protected def requiresBraces(ex: Tree, within: Option[Tree]): Boolean = (ex, within) match {
@@ -305,6 +322,9 @@ trait TreeDeconstructor extends oo.TreeDeconstructor {
 
     case s.Old(e) =>
       (Seq(), Seq(), Seq(e), Seq(), Seq(), (_, _, es, _, _) => t.Old(es.head))
+
+    case s.Return(e) =>
+      (Seq(), Seq(), Seq(e), Seq(), Seq(), (_, _, es, _, _) => t.Return(es(0)))
 
     case s.MutableMapWithDefault(from, to, default) =>
       (Seq(), Seq(), Seq(default), Seq(from, to), Seq(), (_, _, es, tps, _) => t.MutableMapWithDefault(tps(0), tps(1), es(0)))
