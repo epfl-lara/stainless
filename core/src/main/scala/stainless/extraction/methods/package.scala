@@ -39,7 +39,7 @@ package object methods {
     utils.DebugPipeline("MergeInvariants", MergeInvariants(trees)) andThen
     utils.DebugPipeline("FieldAccessors",  FieldAccessors(trees))  andThen
     utils.DebugPipeline("ValueClasses",    ValueClasses(trees))    andThen
-    lowering
+    utils.DebugPipeline("MethodsLowering", lowering)
   }
 
   def fullExtractor(implicit ctx: inox.Context) = extractor andThen nextExtractor
