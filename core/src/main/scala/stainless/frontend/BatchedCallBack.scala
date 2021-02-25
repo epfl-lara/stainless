@@ -72,7 +72,8 @@ class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Con
     val keepGroups = context.options.findOptionOrDefault(optKeep)
 
     def hasKeepFlag(flags: Seq[xt.Flag]) =
-      keepGroups.exists(g => flags.contains(xt.Annotation("keep", Seq(xt.StringLiteral(g)))))
+      flags.exists(_.name == "keep") ||
+      keepGroups.exists(g => flags.contains(xt.Annotation("keepFor", Seq(xt.StringLiteral(g)))))
 
     def keepDefinition(defn: xt.Definition): Boolean =
       hasKeepFlag(defn.flags) || userDependencies.contains(defn.id)

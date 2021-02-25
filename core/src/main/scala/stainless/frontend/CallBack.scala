@@ -5,7 +5,7 @@ package frontend
 
 import extraction.xlang.{ trees => xt }
 
-// Always keep library objects marked by @keep(g) for some g in g1,...,gn
+// Keep library objects marked by @keepFor(g) for some g in g1,...,gn
 object optKeep extends inox.OptionDef[Seq[String]] {
   val name = "keep"
   val default = Seq[String]()
