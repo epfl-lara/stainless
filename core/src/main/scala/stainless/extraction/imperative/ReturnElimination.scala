@@ -60,7 +60,7 @@ trait ReturnElimination
   protected def extractFunction(tc: TransformerContext, fd: FunDef): FunDef = {
     implicit val symboms = tc.symbols
 
-    if (tc.funHasReturn(fd.id)) {
+    if (tc.funHasReturn(fd.id) || tc.funHasWhile(fd.id)) {
       val specced = BodyWithSpecs(fd.fullBody)
       val retType = fd.returnType
 
@@ -159,15 +159,24 @@ trait ReturnElimination
 
           case _ if !tc.exprHasReturn(expr) => expr
 
+          case Assert(e, err, rest) if !tc.exprHasReturn(e) =>
+            Assert(e, err, transform(rest, currentType)).setPos(expr)
+
+          case Assume(e, rest) if !tc.exprHasReturn(e) =>
+            Assume(e, transform(rest, currentType)).setPos(expr)
+
           case Return(e) if !tc.exprHasReturn(e) => ControlFlowSort.ret(retType, currentType, e)
 
           case IfExpr(cond, e1, e2) if !tc.exprHasReturn(cond) =>
-            IfExpr(cond, proceedOrTransform(e1, currentType), proceedOrTransform(e2, currentType))
+            IfExpr(cond,
+              proceedOrTransform(e1, currentType),
+              proceedOrTransform(e2, currentType)
+            ).setPos(expr)
 
           case MatchExpr(scrut, cases) if !tc.exprHasReturn(scrut) =>
             MatchExpr(scrut,
               cases.map(proceedOrTransform(_, currentType))
-            )
+            ).setPos(expr)
 
           case Let(vd, e, body) if tc.exprHasReturn(e) =>
             val firstType = vd.tpe
@@ -186,7 +195,7 @@ trait ReturnElimination
             ).setPos(expr)
 
           case Let(vd, e, body) =>
-            Let(vd, e, transform(body, currentType))
+            Let(vd, e, transform(body, currentType)).setPos(expr)
 
           case LetVar(vd, e, body) if tc.exprHasReturn(e) =>
             val firstType = vd.tpe
@@ -205,7 +214,7 @@ trait ReturnElimination
             ).setPos(expr)
 
           case LetVar(vd, e, body) =>
-            LetVar(vd, e, transform(body, currentType))
+            LetVar(vd, e, transform(body, currentType)).setPos(expr)
 
           case Block(es, last) =>
             def processBlockExpressions(es: Seq[Expr]): Expr = es match {
@@ -243,7 +252,7 @@ trait ReturnElimination
 
               case e +: rest =>
                 val unusedVal = ValDef.fresh("unused", e.getType)
-                Let(unusedVal, e, processBlockExpressions(rest))
+                Let(unusedVal, e, processBlockExpressions(rest)).setPos(expr)
             }
             processBlockExpressions(es :+ last)
 
