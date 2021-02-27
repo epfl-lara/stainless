@@ -140,8 +140,10 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
   //   rec(tfd.fd.id) + (if (tfd.tps.nonEmpty) buildIdPostfix(tfd.tps) else buildIdFromTypeMapping(tm))
 
   // Include the "nesting path" in case of generic functions to avoid ambiguity
-  private def buildId(fa: FunAbstraction, tps: Seq[Type])(implicit tm: TypeMapping): CIR.Id =
-    rec(fa.id) + (if (tps.nonEmpty) buildIdPostfix(tps) else buildIdFromTypeMapping(tm))
+  private def buildId(fa: FunAbstraction, tps: Seq[Type])(implicit tm: TypeMapping): CIR.Id = {
+    val exported = fa.isInstanceOf[Outer] && fa.asInstanceOf[Outer].fd.isExported
+    rec(fa.id, withUnique = !exported) + (if (tps.nonEmpty) buildIdPostfix(tps) else buildIdFromTypeMapping(tm))
+  }
 
   private def buildId(ct: ClassType)(implicit tm: TypeMapping): CIR.Id =
     rec(ct.tcd.id) + buildIdPostfix(ct.tps)
@@ -420,9 +422,9 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
   /****************************************************************************************************
    *                                                       Recursive conversion                       *
    ****************************************************************************************************/
-  private def rec(id: Identifier): CIR.Id = {
-    if (id.name == "main") "main"
-    else id.uniqueNameDelimited("_")
+  private def rec(id: Identifier, withUnique: Boolean = true): CIR.Id = {
+    if (withUnique) id.uniqueNameDelimited("_")
+    else id.name
   }
 
   private def rec(vd: ValDef): CIR.Id = {
