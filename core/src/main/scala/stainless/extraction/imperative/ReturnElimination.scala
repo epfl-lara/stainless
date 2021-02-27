@@ -17,12 +17,13 @@ trait ReturnElimination
   val t: s.type
 
   import s._
+  import exprOps._
 
   protected class TransformerContext(val symbols: Symbols) {
     // we precompute the set of expressions that contain a return
     val exprHasReturn = collection.mutable.Set[Expr]()
     for (fd <- symbols.functions.values) {
-      exprOps.postTraversal {
+      postTraversal {
         case e @ Return(_) => exprHasReturn += e
         case e @ Operator(es, _) if (es.exists(exprHasReturn)) => exprHasReturn += e
         case _ => ()
@@ -32,7 +33,27 @@ trait ReturnElimination
     val funHasReturn: Set[Identifier] = symbols.functions.values.collect {
       case fd if exprHasReturn(fd.fullBody) => fd.id
     }.toSet
+
+    // and the set of expressions that contain a while
+    val exprHasWhile = collection.mutable.Set[Expr]()
+    for (fd <- symbols.functions.values) {
+      postTraversal {
+        case e @ While(_, _, _) => exprHasWhile += e
+        case e @ Operator(es, _) if (es.exists(exprHasWhile)) => exprHasWhile += e
+        case _ => ()
+      }(fd.fullBody)
+    }
+
+    val funHasWhile: Set[Identifier] = symbols.functions.values.collect {
+      case fd if exprHasWhile(fd.fullBody) => fd.id
+    }.toSet
   }
+
+  /* Extract functional result value. Useful to remove side effect from conditions when moving it to post-condition */
+  def getFunctionalResult(expr: Expr): Expr = postMap {
+    case Block(_, res) => Some(res)
+    case _ => None
+  }(expr)
 
   override protected def getContext(symbols: Symbols) = new TransformerContext(symbols)
 
@@ -40,7 +61,7 @@ trait ReturnElimination
     implicit val symboms = tc.symbols
 
     if (tc.funHasReturn(fd.id)) {
-      val specced = exprOps.BodyWithSpecs(fd.fullBody)
+      val specced = BodyWithSpecs(fd.fullBody)
       val retType = fd.returnType
 
       object ReturnTransformer extends TransformerWithType {
@@ -59,6 +80,83 @@ trait ReturnElimination
         }
 
         override def transform(expr: Expr, currentType: Type): Expr = expr match {
+          case wh @ While(cond, body, optInv) if !tc.exprHasReturn(cond) =>
+            val returnInBody = tc.exprHasReturn(body)
+            val id = FreshIdentifier(fd.id.name + "While")
+            val loopType =
+              if (returnInBody) ControlFlowSort.controlFlow(retType, UnitType())
+              else UnitType()
+            val tpe = FunctionType(Seq(), loopType.copiedFrom(wh)).copiedFrom(wh)
+
+            val specced = BodyWithSpecs(body)
+            val measure = specced.getSpec(MeasureKind).map(_.expr)
+
+            val elseBranch = if (returnInBody)
+              ControlFlowSort.proceed(retType, UnitType(), UnitLiteral())
+            else
+              UnitLiteral()
+
+            val ite =
+              IfExpr(
+                cond,
+                ApplyLetRec(id, Seq(), tpe, Seq(), Seq()).copiedFrom(wh),
+                elseBranch.copiedFrom(wh)
+              ).copiedFrom(wh)
+
+            val newBody =
+              if (returnInBody)
+                ControlFlowSort.andThen(retType, UnitType(), UnitType(),
+                  transform(specced.body, UnitType()),
+                  _ => ite,
+                  wh.getPos
+                )
+              else
+                Block(
+                  Seq(proceedOrTransform(specced.body, UnitType())),
+                  ite
+                ).copiedFrom(wh)
+
+            val newPost =
+              if (returnInBody) {
+                val cfWhileVal = ValDef.fresh("cfWhile", loopType.copiedFrom(wh)).copiedFrom(wh)
+                Lambda(
+                  Seq(cfWhileVal),
+                  ControlFlowSort.buildMatch(retType, UnitType(), cfWhileVal.toVariable,
+                    _ => optInv.getOrElse(BooleanLiteral(true).copiedFrom(wh)),
+                    _ => and(
+                      Not(getFunctionalResult(cond).copiedFrom(cond)).copiedFrom(cond),
+                      optInv.getOrElse(BooleanLiteral(true).copiedFrom(wh))
+                    ),
+                    wh.getPos
+                  )
+                ).copiedFrom(wh)
+              }
+              else
+                Lambda(
+                  Seq(ValDef.fresh("_unused", UnitType().copiedFrom(wh)).copiedFrom(wh)),
+                  and(
+                    Not(getFunctionalResult(cond).copiedFrom(cond)).copiedFrom(cond),
+                    optInv.getOrElse(BooleanLiteral(true).copiedFrom(wh))
+                  ).copiedFrom(wh)
+                ).copiedFrom(wh)
+
+            val fullBody = withPostcondition(
+              withPrecondition(
+                withMeasure(newBody, measure).copiedFrom(wh),
+                Some(andJoin(optInv.toSeq :+ getFunctionalResult(cond)))
+              ).copiedFrom(wh),
+              Some(newPost)
+            ).copiedFrom(wh)
+
+            LetRec(
+              Seq(LocalFunDef(id, Seq(), Seq(), loopType.copiedFrom(wh), fullBody, Seq()).copiedFrom(wh)),
+              IfExpr(
+                cond,
+                ApplyLetRec(id, Seq(), tpe, Seq(), Seq()).copiedFrom(wh),
+                elseBranch.copiedFrom(wh)
+              ).copiedFrom(wh)
+            ).copiedFrom(wh)
+
           case _ if !tc.exprHasReturn(expr) => expr
 
           case Return(e) if !tc.exprHasReturn(e) => ControlFlowSort.ret(retType, currentType, e)
@@ -82,13 +180,32 @@ trait ReturnElimination
               ControlFlowSort.andThen(
                 retType, firstType, currentType,
                 controlFlowVal.toVariable,
-                v => exprOps.replaceFromSymbols(Map(vd -> v), proceedOrTransform(body, currentType)),
+                v => replaceFromSymbols(Map(vd -> v), proceedOrTransform(body, currentType)),
                 body.getPos
               )
             ).setPos(expr)
 
           case Let(vd, e, body) =>
             Let(vd, e, transform(body, currentType))
+
+          case LetVar(vd, e, body) if tc.exprHasReturn(e) =>
+            val firstType = vd.tpe
+            val controlFlowVal =
+              ValDef.fresh("cf", ControlFlowSort.controlFlow(retType, firstType)).setPos(e)
+
+            LetVar(
+              controlFlowVal,
+              transform(e, firstType),
+              ControlFlowSort.andThen(
+                retType, firstType, currentType,
+                controlFlowVal.toVariable,
+                v => replaceFromSymbols(Map(vd -> v), proceedOrTransform(body, currentType)),
+                body.getPos
+              )
+            ).setPos(expr)
+
+          case LetVar(vd, e, body) =>
+            LetVar(vd, e, transform(body, currentType))
 
           case Block(es, last) =>
             def processBlockExpressions(es: Seq[Expr]): Expr = es match {
@@ -131,7 +248,9 @@ trait ReturnElimination
             processBlockExpressions(es :+ last)
 
           case _ =>
-            context.reporter.fatalError(expr.getPos, s"Keyword `return` is not supported in expression ${expr.asString}")
+            context.reporter.fatalError(expr.getPos,
+              s"Keyword `return` is not supported in expression (${expr.getClass}):\n${expr.asString}"
+            )
         }
       }
 
