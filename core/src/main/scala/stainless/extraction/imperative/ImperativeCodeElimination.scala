@@ -134,48 +134,6 @@ trait ImperativeCodeElimination
 
           (res.toVariable, scope, scrutFun ++ (modifiedVars zip freshVars))
 
-        case wh @ While(cond, body, optInv) =>
-          val id = FreshIdentifier(parent.id.name + "While")
-          val tpe = FunctionType(Seq(), UnitType().copiedFrom(wh)).copiedFrom(wh)
-
-          val (specs, without) = deconstructSpecs(body)
-          val (measures, otherSpecs) = specs.partition { case Measure(_) => true case _ => false }
-          val measure = measures.headOption.map { case Measure(m) => m }
-
-          val newBody = Block(
-            Seq(reconstructSpecs(otherSpecs, without, body.getType)),
-            IfExpr(
-              cond,
-              ApplyLetRec(id, Seq(), tpe, Seq(), Seq()).copiedFrom(wh),
-              UnitLiteral().copiedFrom(wh)
-            ).copiedFrom(wh)
-          ).copiedFrom(wh)
-
-          val newPost = Lambda(
-            Seq(ValDef.fresh("bodyRes", UnitType().copiedFrom(wh)).copiedFrom(wh)),
-            and(
-              Not(getFunctionalResult(cond).copiedFrom(cond)).copiedFrom(cond),
-              optInv.getOrElse(BooleanLiteral(true).copiedFrom(wh))
-            ).copiedFrom(wh)
-          ).copiedFrom(wh)
-
-          val fullBody = withPostcondition(
-            withPrecondition(
-              withMeasure(newBody, measure).copiedFrom(wh),
-              Some(andJoin(optInv.toSeq :+ getFunctionalResult(cond)))
-            ).copiedFrom(wh),
-            Some(newPost)
-          ).copiedFrom(wh)
-
-          toFunction(LetRec(
-            Seq(LocalFunDef(id, Seq(), Seq(), UnitType().copiedFrom(wh), fullBody, Seq()).copiedFrom(wh)),
-            IfExpr(
-              cond,
-              ApplyLetRec(id, Seq(), tpe, Seq(), Seq()).copiedFrom(wh),
-              UnitLiteral().copiedFrom(wh)
-            ).copiedFrom(wh)
-          ).copiedFrom(wh))
-
         case Block(Seq(), expr) =>
           toFunction(expr)
 
@@ -410,16 +368,9 @@ trait ImperativeCodeElimination
       (res.copiedFrom(expr), scope, fun)
     }
 
-    /* Extract functional result value. Useful to remove side effect from conditions when moving it to post-condition */
-    def getFunctionalResult(expr: Expr): Expr = postMap {
-      case Block(_, res) => Some(res)
-      case _ => None
-    }(expr)
-
     def requireRewriting(expr: Expr) = expr match {
       case (e: Block) => true
       case (e: Assignment) => true
-      case (e: While) => true
       case (e: LetVar) => true
       case (e: Old) => true
       case (e: Snapshot) => true
