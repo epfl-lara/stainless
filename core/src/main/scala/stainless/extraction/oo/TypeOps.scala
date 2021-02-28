@@ -304,32 +304,35 @@ trait TypeOps extends innerfuns.TypeOps {
     case InstanceOfPattern(_, tpe) => tpe.getType
   }
 
-  override def patternIsTyped(in: Type, pat: Pattern): Boolean = (in, pat) match {
-    case (_, _) if !isSubtypeOf(patternInType(pat), in) =>
-      pat.binder.forall(vd => isSubtypeOf(in, vd.getType)) &&
-      patternIsTyped(patternInType(pat), pat)
-
-    case (_, ClassPattern(ob, ct, subs)) => in match {
-      case ct2 @ ClassType(id, tps) if isSubtypeOf(ct, ct2) =>
-        lookupClass(ct.id).exists { cls =>
-          cls.fields.size == subs.size &&
-          cls.tparams.size == ct.tps.size &&
-          (cls.typed(ct.tps).fields zip subs).forall { case (vd, sub) => patternIsTyped(vd.getType, sub) }
-        }
-      case _ => patternIsTyped(patternInType(pat), pat)
-    }
-
-    case (_, InstanceOfPattern(ob, tpe)) =>
-      ob.forall(vd => isSubtypeOf(tpe.getType, vd.getType))
-
-    case (AnyType(), _) =>
-      if (patternInType(pat) == AnyType()) {
-        pat.binders.forall(vd => isSubtypeOf(AnyType(), vd.getType))
-      } else {
+  override def patternIsTyped(in: Type, pat: Pattern): Boolean = {
+    require(in != Untyped)
+    (in, pat) match {
+      case (_, _) if !isSubtypeOf(patternInType(pat), in) =>
+        pat.binder.forall(vd => isSubtypeOf(in, vd.getType)) &&
         patternIsTyped(patternInType(pat), pat)
+
+      case (_, ClassPattern(ob, ct, subs)) => in match {
+        case ct2 @ ClassType(id, tps) if isSubtypeOf(ct, ct2) =>
+          lookupClass(ct.id).exists { cls =>
+            cls.fields.size == subs.size &&
+            cls.tparams.size == ct.tps.size &&
+            (cls.typed(ct.tps).fields zip subs).forall { case (vd, sub) => patternIsTyped(vd.getType, sub) }
+          }
+        case _ => patternIsTyped(patternInType(pat), pat)
       }
 
-    case _ => super.patternIsTyped(in, pat)
+      case (_, InstanceOfPattern(ob, tpe)) =>
+        ob.forall(vd => isSubtypeOf(tpe.getType, vd.getType))
+
+      case (AnyType(), _) =>
+        if (patternInType(pat) == AnyType()) {
+          pat.binders.forall(vd => isSubtypeOf(AnyType(), vd.getType))
+        } else {
+          patternIsTyped(patternInType(pat), pat)
+        }
+
+      case _ => super.patternIsTyped(in, pat)
+    }
   }
 }
 
