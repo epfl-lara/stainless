@@ -33,20 +33,6 @@ trait ReturnElimination
     val funHasReturn: Set[Identifier] = symbols.functions.values.collect {
       case fd if exprHasReturn(fd.fullBody) => fd.id
     }.toSet
-
-    // and the set of expressions that contain a while
-    val exprHasWhile = collection.mutable.Set[Expr]()
-    for (fd <- symbols.functions.values) {
-      postTraversal {
-        case e @ While(_, _, _) => exprHasWhile += e
-        case e @ Operator(es, _) if (es.exists(exprHasWhile)) => exprHasWhile += e
-        case _ => ()
-      }(fd.fullBody)
-    }
-
-    val funHasWhile: Set[Identifier] = symbols.functions.values.collect {
-      case fd if exprHasWhile(fd.fullBody) => fd.id
-    }.toSet
   }
 
   /* Extract functional result value. Useful to remove side effect from conditions when moving it to post-condition */
@@ -60,7 +46,7 @@ trait ReturnElimination
   protected def extractFunction(tc: TransformerContext, fd: FunDef): FunDef = {
     implicit val symboms = tc.symbols
 
-    if (tc.funHasReturn(fd.id) || tc.funHasWhile(fd.id)) {
+    if (tc.funHasReturn(fd.id)) {
       val specced = BodyWithSpecs(fd.fullBody)
       val retType = fd.returnType
 
@@ -80,65 +66,47 @@ trait ReturnElimination
         }
 
         override def transform(expr: Expr, currentType: Type): Expr = expr match {
-          case wh @ While(cond, body, optInv) if !tc.exprHasReturn(cond) =>
-            val returnInBody = tc.exprHasReturn(body)
+          case wh @ While(cond, body, optInv)
+            if !tc.exprHasReturn(cond) && optInv.forall(inv => !tc.exprHasReturn(inv)) =>
+
+            assert(tc.exprHasReturn(body),
+              "While loops without `return` must transformed in the `SimpleWhileElimination` phase"
+            )
+
             val id = FreshIdentifier(fd.id.name + "While")
-            val loopType =
-              if (returnInBody) ControlFlowSort.controlFlow(retType, UnitType())
-              else UnitType()
+            val loopType = ControlFlowSort.controlFlow(retType, UnitType())
             val tpe = FunctionType(Seq(), loopType.copiedFrom(wh)).copiedFrom(wh)
 
             val specced = BodyWithSpecs(body)
             val measure = specced.getSpec(MeasureKind).map(_.expr)
 
-            val elseBranch = if (returnInBody)
-              ControlFlowSort.proceed(retType, UnitType(), UnitLiteral())
-            else
-              UnitLiteral()
-
             val ite =
               IfExpr(
                 cond,
                 ApplyLetRec(id, Seq(), tpe, Seq(), Seq()).copiedFrom(wh),
-                elseBranch.copiedFrom(wh)
+                ControlFlowSort.proceed(retType, UnitType(), UnitLiteral()).copiedFrom(wh)
               ).copiedFrom(wh)
 
             val newBody =
-              if (returnInBody)
-                ControlFlowSort.andThen(retType, UnitType(), UnitType(),
-                  transform(specced.body, UnitType()),
-                  _ => ite,
-                  wh.getPos
-                )
-              else
-                Block(
-                  Seq(proceedOrTransform(specced.body, UnitType())),
-                  ite
-                ).copiedFrom(wh)
+              ControlFlowSort.andThen(retType, UnitType(), UnitType(),
+                transform(specced.body, UnitType()),
+                _ => ite,
+                wh.getPos
+              )
 
+            val cfWhileVal = ValDef.fresh("cfWhile", loopType.copiedFrom(wh)).copiedFrom(wh)
             val newPost =
-              if (returnInBody) {
-                val cfWhileVal = ValDef.fresh("cfWhile", loopType.copiedFrom(wh)).copiedFrom(wh)
-                Lambda(
-                  Seq(cfWhileVal),
-                  ControlFlowSort.buildMatch(retType, UnitType(), cfWhileVal.toVariable,
-                    _ => optInv.getOrElse(BooleanLiteral(true).copiedFrom(wh)),
-                    _ => and(
-                      Not(getFunctionalResult(cond).copiedFrom(cond)).copiedFrom(cond),
-                      optInv.getOrElse(BooleanLiteral(true).copiedFrom(wh))
-                    ),
-                    wh.getPos
-                  )
-                ).copiedFrom(wh)
-              }
-              else
-                Lambda(
-                  Seq(ValDef.fresh("_unused", UnitType().copiedFrom(wh)).copiedFrom(wh)),
-                  and(
+              Lambda(
+                Seq(cfWhileVal),
+                ControlFlowSort.buildMatch(retType, UnitType(), cfWhileVal.toVariable,
+                  _ => optInv.getOrElse(BooleanLiteral(true).copiedFrom(wh)),
+                  _ => and(
                     Not(getFunctionalResult(cond).copiedFrom(cond)).copiedFrom(cond),
                     optInv.getOrElse(BooleanLiteral(true).copiedFrom(wh))
-                  ).copiedFrom(wh)
-                ).copiedFrom(wh)
+                  ),
+                  wh.getPos
+                )
+              ).copiedFrom(wh)
 
             val fullBody = withPostcondition(
               withPrecondition(
@@ -153,7 +121,7 @@ trait ReturnElimination
               IfExpr(
                 cond,
                 ApplyLetRec(id, Seq(), tpe, Seq(), Seq()).copiedFrom(wh),
-                elseBranch.copiedFrom(wh)
+                ControlFlowSort.proceed(retType, UnitType(), UnitLiteral()).copiedFrom(wh)
               ).copiedFrom(wh)
             ).copiedFrom(wh)
 
@@ -263,16 +231,21 @@ trait ReturnElimination
         }
       }
 
-      val newBody = specced.bodyOpt.map { body =>
-        val topLevelCF = ValDef.fresh("topLevelCF", ControlFlowSort.controlFlow(retType, retType)).setPos(fd.fullBody)
-        Let(topLevelCF, ReturnTransformer.transform(body),
-          ControlFlowSort.buildMatch(retType, retType, topLevelCF.toVariable,
-            v => v,
-            v => v,
-            body.getPos
-          )
-        ).setPos(body)
-      }
+      val newBody =
+        if (tc.funHasReturn(fd.id))
+          specced.bodyOpt.map { body =>
+            val topLevelCF = ValDef.fresh("topLevelCF", ControlFlowSort.controlFlow(retType, retType)).setPos(fd.fullBody)
+            Let(topLevelCF, ReturnTransformer.transform(body),
+              ControlFlowSort.buildMatch(retType, retType, topLevelCF.toVariable,
+                v => v,
+                v => v,
+                body.getPos
+              )
+            ).setPos(body)
+          }
+        else
+          specced.bodyOpt.map(ReturnTransformer.transform)
+
       fd.copy(fullBody = specced.withBody(newBody, retType).reconstructed).setPos(fd)
     }
     else fd
