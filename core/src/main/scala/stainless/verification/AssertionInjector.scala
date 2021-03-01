@@ -61,14 +61,11 @@ trait AssertionInjector extends transformers.TreeTransformer {
         ).copiedFrom(e)
       ).copiedFrom(e)).copiedFrom(e)).copiedFrom(e)
 
-    case sel @ ADTSelector(adt, sid) =>
-      val adtVal = ValDef.fresh("adt", adt.getType).setPos(adt)
-      Let(adtVal, transform(adt),
-        Assert(
-          IsConstructor(adtVal.toVariable, sel.constructor.id).copiedFrom(e),
-          Some("Cast error"),
-          ADTSelector(adtVal.toVariable, sid).copiedFrom(sel)
-        ).copiedFrom(e)
+    case sel @ ADTSelector(expr, _) =>
+      Assert(
+        IsConstructor(transform(expr), sel.constructor.id).copiedFrom(e),
+        Some("Cast error"),
+        e
       ).copiedFrom(e)
 
     case BVTyped(true, size, e0 @ Plus(lhs0, rhs0)) if checkOverflow =>
