@@ -28,6 +28,15 @@ object SimpleReturn {
     x
   }
 
+  def example6(x: Int): Int = {
+    require(x < 100)
+    var y = x
+    y += 1
+    if (x == 50) { y += 1; return y }
+    else y += 2
+    y
+  }
+
   def tests() = {
     assert(example0 == 11)
     assert(example1 == 0)
@@ -38,5 +47,7 @@ object SimpleReturn {
     assert(!example4)
     assert(example5(true) == 100)
     assert(example5(false) == 5)
+    assert(example6(50) == 52)
+    assert(example6(42) == 45)
   }
 }
