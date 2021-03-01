@@ -14,18 +14,15 @@ trait ReturnElimination
     with utils.SyntheticSorts { self =>
 
   val s: Trees
-  val t: s.type
+  val t: Trees
 
-  import s._
-  import exprOps._
-
-  protected class TransformerContext(val symbols: Symbols) {
+  protected class TransformerContext(val symbols: s.Symbols) {
     // we precompute the set of expressions that contain a return
-    val exprHasReturn = collection.mutable.Set[Expr]()
+    val exprHasReturn = collection.mutable.Set[s.Expr]()
     for (fd <- symbols.functions.values) {
-      postTraversal {
-        case e @ Return(_) => exprHasReturn += e
-        case e @ Operator(es, _) if (es.exists(exprHasReturn)) => exprHasReturn += e
+      s.exprOps.postTraversal {
+        case e @ s.Return(_) => exprHasReturn += e
+        case e @ s.Operator(es, _) if (es.exists(exprHasReturn)) => exprHasReturn += e
         case _ => ()
       }(fd.fullBody)
     }
@@ -36,37 +33,54 @@ trait ReturnElimination
   }
 
   /* Extract functional result value. Useful to remove side effect from conditions when moving it to post-condition */
-  def getFunctionalResult(expr: Expr): Expr = postMap {
-    case Block(_, res) => Some(res)
+  def getFunctionalResult(expr: t.Expr): t.Expr = t.exprOps.postMap {
+    case t.Block(_, res) => Some(res)
     case _ => None
   }(expr)
 
-  override protected def getContext(symbols: Symbols) = new TransformerContext(symbols)
+  override protected def getContext(symbols: s.Symbols) = new TransformerContext(symbols)
 
-  protected def extractFunction(tc: TransformerContext, fd: FunDef): FunDef = {
+  object NoReturnCheck extends transformers.TreeTransformer {
+    override val s: self.s.type = self.s
+    override val t: self.t.type = self.t
+
+    override def transform(e: s.Expr): t.Expr = e match {
+      case s.Return(_) =>
+        context.reporter.fatalError(e.getPos, "Keyword `return` is not allowed here")
+      case _ => super.transform(e)
+    }
+  }
+
+  protected def extractFunction(tc: TransformerContext, fd: s.FunDef): t.FunDef = {
     implicit val symboms = tc.symbols
 
     if (tc.funHasReturn(fd.id)) {
-      val specced = BodyWithSpecs(fd.fullBody)
+      val specced = s.exprOps.BodyWithSpecs(fd.fullBody)
       val retType = fd.returnType
+      val retTypeChecked = NoReturnCheck.transform(retType)
 
       object ReturnTransformer extends TransformerWithType {
         override val s: self.s.type = self.s
-        override val t: self.s.type = self.s
+        override val t: self.t.type = self.t
         override val symbols: s.Symbols = tc.symbols
 
-        private def proceedOrTransform(expr: Expr, currentType: Type): Expr = {
+        private def proceedOrTransform(expr: s.Expr, currentType: s.Type): t.Expr = {
+          val currentTypeChecked = NoReturnCheck.transform(currentType)
           if (tc.exprHasReturn(expr)) transform(expr, currentType)
-          else ControlFlowSort.proceed(retType, currentType, expr)
+          else ControlFlowSort.proceed(retTypeChecked, currentTypeChecked, NoReturnCheck.transform(expr))
         }
 
-        private def proceedOrTransform(mc: MatchCase, currentType: Type): MatchCase = {
-          val MatchCase(pattern, optGuard, rhs) = mc
-          MatchCase(pattern, optGuard, proceedOrTransform(rhs, currentType))
+        private def proceedOrTransform(mc: s.MatchCase, currentType: s.Type): t.MatchCase = {
+          val s.MatchCase(pattern, optGuard, rhs) = mc
+          t.MatchCase(
+            NoReturnCheck.transform(pattern),
+            optGuard.map(NoReturnCheck.transform),
+            proceedOrTransform(rhs, currentType)
+          ).setPos(mc)
         }
 
-        override def transform(expr: Expr, currentType: Type): Expr = expr match {
-          case wh @ While(cond, body, optInv)
+        override def transform(expr: s.Expr, currentType: s.Type): t.Expr = expr match {
+          case wh @ s.While(cond, body, optInv)
             if !tc.exprHasReturn(cond) && optInv.forall(inv => !tc.exprHasReturn(inv)) =>
 
             assert(tc.exprHasReturn(body),
@@ -74,153 +88,186 @@ trait ReturnElimination
             )
 
             val id = FreshIdentifier(fd.id.name + "While")
-            val loopType = ControlFlowSort.controlFlow(retType, UnitType())
-            val tpe = FunctionType(Seq(), loopType.copiedFrom(wh)).copiedFrom(wh)
+            val loopType = ControlFlowSort.controlFlow(NoReturnCheck.transform(retType), t.UnitType())
+            val tpe = t.FunctionType(Seq(), loopType.copiedFrom(wh)).copiedFrom(wh)
 
-            val specced = BodyWithSpecs(body)
-            val measure = specced.getSpec(MeasureKind).map(_.expr)
+            val specced = s.exprOps.BodyWithSpecs(body)
+            val measure = specced.getSpec(s.exprOps.MeasureKind).map(spec =>
+              NoReturnCheck.transform(spec.expr)
+            )
 
             val ite =
-              IfExpr(
-                cond,
-                ApplyLetRec(id, Seq(), tpe, Seq(), Seq()).copiedFrom(wh),
-                ControlFlowSort.proceed(retType, UnitType(), UnitLiteral()).copiedFrom(wh)
+              t.IfExpr(
+                NoReturnCheck.transform(cond),
+                t.ApplyLetRec(id, Seq(), tpe, Seq(), Seq()).copiedFrom(wh),
+                ControlFlowSort.proceed(retTypeChecked, t.UnitType(), t.UnitLiteral()).copiedFrom(wh)
               ).copiedFrom(wh)
 
             val newBody =
-              ControlFlowSort.andThen(retType, UnitType(), UnitType(),
-                transform(specced.body, UnitType()),
+              ControlFlowSort.andThen(retTypeChecked, t.UnitType(), t.UnitType(),
+                transform(specced.body, s.UnitType()),
                 _ => ite,
                 wh.getPos
               )
 
-            val cfWhileVal = ValDef.fresh("cfWhile", loopType.copiedFrom(wh)).copiedFrom(wh)
+            val optInvChecked = optInv.map(NoReturnCheck.transform)
+            val condChecked = NoReturnCheck.transform(cond)
+
+            val cfWhileVal = t.ValDef.fresh("cfWhile", loopType.copiedFrom(wh)).copiedFrom(wh)
             val newPost =
-              Lambda(
+              t.Lambda(
                 Seq(cfWhileVal),
-                ControlFlowSort.buildMatch(retType, UnitType(), cfWhileVal.toVariable,
-                  _ => optInv.getOrElse(BooleanLiteral(true).copiedFrom(wh)),
-                  _ => and(
-                    Not(getFunctionalResult(cond).copiedFrom(cond)).copiedFrom(cond),
-                    optInv.getOrElse(BooleanLiteral(true).copiedFrom(wh))
+                ControlFlowSort.buildMatch(retTypeChecked, t.UnitType(), cfWhileVal.toVariable,
+                  _ => optInvChecked.getOrElse(t.BooleanLiteral(true).copiedFrom(wh)),
+                  _ => t.and(
+                    t.Not(getFunctionalResult(condChecked).copiedFrom(cond)).copiedFrom(cond),
+                    optInvChecked.getOrElse(t.BooleanLiteral(true).copiedFrom(wh))
                   ),
                   wh.getPos
                 )
               ).copiedFrom(wh)
 
-            val fullBody = withPostcondition(
-              withPrecondition(
-                withMeasure(newBody, measure).copiedFrom(wh),
-                Some(andJoin(optInv.toSeq :+ getFunctionalResult(cond)))
+            val fullBody = t.exprOps.withPostcondition(
+              t.exprOps.withPrecondition(
+                t.exprOps.withMeasure(newBody, measure).copiedFrom(wh),
+                Some(t.andJoin(optInvChecked.toSeq :+ getFunctionalResult(condChecked)))
               ).copiedFrom(wh),
               Some(newPost)
             ).copiedFrom(wh)
 
-            LetRec(
-              Seq(LocalFunDef(id, Seq(), Seq(), loopType.copiedFrom(wh), fullBody, Seq()).copiedFrom(wh)),
-              IfExpr(
-                cond,
-                ApplyLetRec(id, Seq(), tpe, Seq(), Seq()).copiedFrom(wh),
-                ControlFlowSort.proceed(retType, UnitType(), UnitLiteral()).copiedFrom(wh)
+            t.LetRec(
+              Seq(t.LocalFunDef(id, Seq(), Seq(), loopType.copiedFrom(wh), fullBody, Seq()).copiedFrom(wh)),
+              t.IfExpr(
+                condChecked,
+                t.ApplyLetRec(id, Seq(), tpe, Seq(), Seq()).copiedFrom(wh),
+                ControlFlowSort.proceed(retTypeChecked, t.UnitType(), t.UnitLiteral()).copiedFrom(wh)
               ).copiedFrom(wh)
             ).copiedFrom(wh)
 
-          case _ if !tc.exprHasReturn(expr) => expr
+          case _ if !tc.exprHasReturn(expr) => NoReturnCheck.transform(expr)
 
-          case Assert(e, err, rest) if !tc.exprHasReturn(e) =>
-            Assert(e, err, transform(rest, currentType)).setPos(expr)
+          case s.Assert(e, err, rest) if !tc.exprHasReturn(e) =>
+            t.Assert(NoReturnCheck.transform(e), err, transform(rest, currentType)).setPos(expr)
 
-          case Assume(e, rest) if !tc.exprHasReturn(e) =>
-            Assume(e, transform(rest, currentType)).setPos(expr)
+          case s.Assume(e, rest) if !tc.exprHasReturn(e) =>
+            t.Assume(NoReturnCheck.transform(e), transform(rest, currentType)).setPos(expr)
 
-          case Return(e) if !tc.exprHasReturn(e) => ControlFlowSort.ret(retType, currentType, e)
+          case s.Return(e) if !tc.exprHasReturn(e) =>
+            ControlFlowSort.ret(
+              retTypeChecked,
+              NoReturnCheck.transform(currentType),
+              NoReturnCheck.transform(e)
+            )
 
-          case IfExpr(cond, e1, e2) if !tc.exprHasReturn(cond) =>
-            IfExpr(cond,
+          case s.IfExpr(cond, e1, e2) if !tc.exprHasReturn(cond) =>
+            t.IfExpr(NoReturnCheck.transform(cond),
               proceedOrTransform(e1, currentType),
               proceedOrTransform(e2, currentType)
             ).setPos(expr)
 
-          case MatchExpr(scrut, cases) if !tc.exprHasReturn(scrut) =>
-            MatchExpr(scrut,
+          case s.MatchExpr(scrut, cases) if !tc.exprHasReturn(scrut) =>
+            t.MatchExpr(NoReturnCheck.transform(scrut),
               cases.map(proceedOrTransform(_, currentType))
             ).setPos(expr)
 
-          case Let(vd, e, body) if tc.exprHasReturn(e) =>
+          case s.Let(vd, e, body) if tc.exprHasReturn(e) =>
             val firstType = vd.tpe
+            val firstTypeChecked = NoReturnCheck.transform(firstType)
             val controlFlowVal =
-              ValDef.fresh("cf", ControlFlowSort.controlFlow(retType, firstType)).setPos(e)
+              t.ValDef.fresh("cf",
+                ControlFlowSort.controlFlow(retTypeChecked, firstTypeChecked)
+              ).setPos(e)
+            val vdChecked: t.ValDef = NoReturnCheck.transform(vd)
 
-            Let(
+            t.Let(
               controlFlowVal,
               transform(e, firstType),
               ControlFlowSort.andThen(
-                retType, firstType, currentType,
+                retTypeChecked, firstTypeChecked, NoReturnCheck.transform(currentType),
                 controlFlowVal.toVariable,
-                v => replaceFromSymbols(Map(vd -> v), proceedOrTransform(body, currentType)),
+                (v: t.Variable) =>
+                  t.exprOps.replaceFromSymbols(
+                    Map(vdChecked -> v),
+                    proceedOrTransform(body, currentType)
+                  )(t.convertToVal),
                 body.getPos
               )
             ).setPos(expr)
 
-          case Let(vd, e, body) =>
-            Let(vd, e, transform(body, currentType)).setPos(expr)
+          case s.Let(vd, e, body) =>
+            t.Let(
+              NoReturnCheck.transform(vd),
+              NoReturnCheck.transform(e),
+              transform(body, currentType)
+            ).setPos(expr)
 
-          case LetVar(vd, e, body) if tc.exprHasReturn(e) =>
+          case s.LetVar(vd, e, body) if tc.exprHasReturn(e) =>
             val firstType = vd.tpe
+            val firstTypeChecked = NoReturnCheck.transform(firstType)
             val controlFlowVal =
-              ValDef.fresh("cf", ControlFlowSort.controlFlow(retType, firstType)).setPos(e)
+              t.ValDef.fresh("cf",
+                ControlFlowSort.controlFlow(retTypeChecked, firstTypeChecked)
+              ).setPos(e)
+            val vdChecked: t.ValDef = NoReturnCheck.transform(vd)
 
-            LetVar(
+            t.LetVar(
               controlFlowVal,
               transform(e, firstType),
               ControlFlowSort.andThen(
-                retType, firstType, currentType,
+                retTypeChecked, firstTypeChecked, NoReturnCheck.transform(currentType),
                 controlFlowVal.toVariable,
-                v => replaceFromSymbols(Map(vd -> v), proceedOrTransform(body, currentType)),
+                (v: t.Variable) =>
+                  t.exprOps.replaceFromSymbols(
+                    Map(vdChecked -> v),
+                    proceedOrTransform(body, currentType)
+                  )(t.convertToVal),
                 body.getPos
               )
             ).setPos(expr)
 
-          case LetVar(vd, e, body) =>
-            LetVar(vd, e, transform(body, currentType)).setPos(expr)
+          case s.LetVar(vd, e, body) =>
+            t.LetVar(
+              NoReturnCheck.transform(vd),
+              NoReturnCheck.transform(e),
+              transform(body, currentType)
+            ).setPos(expr)
 
-          case Block(es, last) =>
-            def processBlockExpressions(es: Seq[Expr]): Expr = es match {
+          case s.Block(es, last) =>
+            val currentTypeChecked = NoReturnCheck.transform(currentType)
+
+            def processBlockExpressions(es: Seq[s.Expr]): t.Expr = es match {
               case Seq(e) => transform(e, currentType)
 
-              case e +: rest if (tc.exprHasReturn(e)) =>
+              case e +: rest if tc.exprHasReturn(e) =>
                 val firstType = e.getType
+                val firstTypeChecked = NoReturnCheck.transform(e.getType)
                 val controlFlowVal =
-                  ValDef.fresh("cf", ControlFlowSort.controlFlow(retType, firstType)).setPos(e)
+                  t.ValDef.fresh("cf",
+                    ControlFlowSort.controlFlow(retTypeChecked, firstTypeChecked)
+                  ).setPos(e)
                 val transformedRest = processBlockExpressions(rest)
 
-                if (rest.exists(tc.exprHasReturn)) {
-                  Let(
-                    controlFlowVal,
-                    transform(e, firstType),
-                    ControlFlowSort.andThen(
-                      retType, firstType, currentType,
-                      controlFlowVal.toVariable,
-                      _ => transformedRest,
-                      rest.head.getPos
-                    )
-                  ).setPos(e)
-                } else {
-                  Let(
-                    controlFlowVal,
-                    transform(e, firstType),
-                    ControlFlowSort.andThen(
-                      retType, firstType, currentType,
-                      controlFlowVal.toVariable,
-                      _ => ControlFlowSort.proceed(retType, currentType, transformedRest),
-                      rest.head.getPos
-                    )
-                  ).setPos(e)
-                }
+                t.Let(
+                  controlFlowVal,
+                  transform(e, firstType),
+                  ControlFlowSort.andThen(
+                    retTypeChecked, firstTypeChecked, currentTypeChecked,
+                    controlFlowVal.toVariable,
+                    _ => if (rest.exists(tc.exprHasReturn))
+                        transformedRest
+                      else
+                        ControlFlowSort.proceed(retTypeChecked, currentTypeChecked, transformedRest),
+                    rest.head.getPos
+                  )
+                ).setPos(e)
 
-              case e +: rest =>
-                val unusedVal = ValDef.fresh("unused", e.getType)
-                Let(unusedVal, e, processBlockExpressions(rest)).setPos(expr)
+              case es =>
+                val nonReturnEs = es.takeWhile(e => !tc.exprHasReturn(e)).map(NoReturnCheck.transform)
+                val others = es.drop(nonReturnEs.size)
+                if (others.isEmpty)
+                  t.Block(nonReturnEs.init, nonReturnEs.last).copiedFrom(expr)
+                else
+                  t.Block(nonReturnEs, processBlockExpressions(others)).copiedFrom(expr)
             }
             processBlockExpressions(es :+ last)
 
@@ -234,9 +281,12 @@ trait ReturnElimination
       val newBody =
         if (tc.funHasReturn(fd.id))
           specced.bodyOpt.map { body =>
-            val topLevelCF = ValDef.fresh("topLevelCF", ControlFlowSort.controlFlow(retType, retType)).setPos(fd.fullBody)
-            Let(topLevelCF, ReturnTransformer.transform(body),
-              ControlFlowSort.buildMatch(retType, retType, topLevelCF.toVariable,
+            val topLevelCF =
+              t.ValDef.fresh("topLevelCF",
+                ControlFlowSort.controlFlow(retTypeChecked, retTypeChecked)
+              ).setPos(fd.fullBody)
+            t.Let(topLevelCF, ReturnTransformer.transform(body, retType),
+              ControlFlowSort.buildMatch(retTypeChecked, retTypeChecked, topLevelCF.toVariable,
                 v => v,
                 v => v,
                 body.getPos
@@ -246,9 +296,27 @@ trait ReturnElimination
         else
           specced.bodyOpt.map(ReturnTransformer.transform)
 
-      fd.copy(fullBody = specced.withBody(newBody, retType).reconstructed).setPos(fd)
+      val newBodyWithSpecs = t.exprOps.BodyWithSpecs(
+        specced.lets.map {
+          case (vd0, e0, pos0) =>
+            (NoReturnCheck.transform(vd0), NoReturnCheck.transform(e0), pos0)
+        },
+        specced.specs.map(spec => spec.map(t)(NoReturnCheck.transform)),
+        t.UnitLiteral() // replaced with the `withBody` call below
+      ).withBody(newBody, retTypeChecked).reconstructed
+
+
+      new t.FunDef(
+        fd.id,
+        fd.tparams.map(NoReturnCheck.transform),
+        fd.params.map(NoReturnCheck.transform),
+        NoReturnCheck.transform(fd.returnType),
+        newBodyWithSpecs,
+        fd.flags.map(NoReturnCheck.transform)
+      ).setPos(fd)
     }
-    else fd
+    else
+      NoReturnCheck.transform(fd)
   }
 
   override protected def extractSymbols(context: TransformerContext, symbols: s.Symbols): t.Symbols = {

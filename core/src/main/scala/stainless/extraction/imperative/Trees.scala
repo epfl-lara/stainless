@@ -15,7 +15,8 @@ trait Trees extends oo.Trees with Definitions { self =>
     * @param expr The expression to return
     */
   sealed case class Return(expr: Expr) extends Expr with CachingTyped {
-    override protected def computeType(implicit s: Symbols): Type = NothingType()
+    override protected def computeType(implicit s: Symbols): Type =
+      if (expr.isTyped) NothingType() else Untyped
   }
 
   /** $encodingof `{ expr1; expr2; ...; exprn; last }` */
