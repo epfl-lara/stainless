@@ -14,18 +14,15 @@ trait SimpleWhileElimination
     with utils.SyntheticSorts { self =>
 
   val s: Trees
-  val t: s.type
+  val t: Trees
 
-  import s._
-  import exprOps._
-
-  protected class TransformerContext(val symbols: Symbols) {
+  protected class TransformerContext(val symbols: s.Symbols) {
     // we precompute the set of expressions that contain a return
-    val exprHasReturn = collection.mutable.Set[Expr]()
+    val exprHasReturn = collection.mutable.Set[s.Expr]()
     for (fd <- symbols.functions.values) {
-      postTraversal {
-        case e @ Return(_) => exprHasReturn += e
-        case e @ Operator(es, _) if (es.exists(exprHasReturn)) => exprHasReturn += e
+      s.exprOps.postTraversal {
+        case e @ s.Return(_) => exprHasReturn += e
+        case e @ s.Operator(es, _) if (es.exists(exprHasReturn)) => exprHasReturn += e
         case _ => ()
       }(fd.fullBody)
     }
@@ -35,11 +32,11 @@ trait SimpleWhileElimination
     }.toSet
 
     // and the set of expressions that contain a while
-    val exprHasWhile = collection.mutable.Set[Expr]()
+    val exprHasWhile = collection.mutable.Set[s.Expr]()
     for (fd <- symbols.functions.values) {
-      postTraversal {
-        case e @ While(_, _, _) => exprHasWhile += e
-        case e @ Operator(es, _) if (es.exists(exprHasWhile)) => exprHasWhile += e
+      s.exprOps.postTraversal {
+        case e @ s.While(_, _, _) => exprHasWhile += e
+        case e @ s.Operator(es, _) if (es.exists(exprHasWhile)) => exprHasWhile += e
         case _ => ()
       }(fd.fullBody)
     }
@@ -50,26 +47,29 @@ trait SimpleWhileElimination
   }
 
   /* Extract functional result value. Useful to remove side effect from conditions when moving it to post-condition */
-  def getFunctionalResult(expr: Expr): Expr = postMap {
-    case Block(_, res) => Some(res)
+  def getFunctionalResult(expr: t.Expr): t.Expr = t.exprOps.postMap {
+    case t.Block(_, res) => Some(res)
     case _ => None
   }(expr)
 
-  override protected def getContext(symbols: Symbols) = new TransformerContext(symbols)
+  override protected def getContext(symbols: s.Symbols) = new TransformerContext(symbols)
 
-  protected def extractFunction(tc: TransformerContext, fd: FunDef): FunDef = {
+  protected def extractFunction(tc: TransformerContext, fd: s.FunDef): t.FunDef = {
     implicit val symboms = tc.symbols
 
     // we transform `fd` if the function contains a "simple" `While` loop with no return inside
-    val transform = exists {
-      case wh @ While(_, _, _) => !tc.exprHasReturn(wh)
+    val transform = s.exprOps.exists {
+      case wh @ s.While(_, _, _) => !tc.exprHasReturn(wh)
       case _ => false
     } (fd.fullBody)
 
     if (transform) {
-      object WhileTransformer extends SelfTreeTransformer {
-        override def transform(expr: Expr): Expr = expr match {
-          case wh @ While(cond, body, optInv)
+      object WhileTransformer extends transformers.TreeTransformer {
+        override val s: self.s.type = self.s
+        override val t: self.t.type = self.t
+
+        override def transform(expr: s.Expr): t.Expr = expr match {
+          case wh @ s.While(cond, body, optInv)
             if !tc.exprHasReturn(cond) && !tc.exprHasReturn(body) && optInv.forall(inv => !tc.exprHasReturn(inv)) =>
 
             val transformedCond = transform(cond)
@@ -77,47 +77,47 @@ trait SimpleWhileElimination
             val transformedInv = optInv.map(transform)
 
             val id = FreshIdentifier(fd.id.name + "While")
-            val tpe = FunctionType(Seq(), UnitType().copiedFrom(wh)).copiedFrom(wh)
+            val tpe = t.FunctionType(Seq(), t.UnitType().copiedFrom(wh)).copiedFrom(wh)
 
-            val specced = BodyWithSpecs(transformedBody)
-            val measure = specced.getSpec(MeasureKind).map(_.expr)
+            val specced = t.exprOps.BodyWithSpecs(transformedBody)
+            val measure = specced.getSpec(t.exprOps.MeasureKind).map(_.expr)
 
             val ite =
-              IfExpr(
+              t.IfExpr(
                 transformedCond,
-                ApplyLetRec(id, Seq(), tpe, Seq(), Seq()).copiedFrom(wh),
-                UnitLiteral().copiedFrom(wh)
+                t.ApplyLetRec(id, Seq(), tpe, Seq(), Seq()).copiedFrom(wh),
+                t.UnitLiteral().copiedFrom(wh)
               ).copiedFrom(wh)
 
             val newBody =
-              Block(
+              t.Block(
                 Seq(specced.body),
                 ite
               ).copiedFrom(wh)
 
             val newPost =
-              Lambda(
-                Seq(ValDef.fresh("_unused", UnitType().copiedFrom(wh)).copiedFrom(wh)),
-                and(
-                  Not(getFunctionalResult(cond).copiedFrom(cond)).copiedFrom(cond),
-                  transformedInv.getOrElse(BooleanLiteral(true).copiedFrom(wh))
+              t.Lambda(
+                Seq(t.ValDef.fresh("_unused", t.UnitType().copiedFrom(wh)).copiedFrom(wh)),
+                t.and(
+                  t.Not(getFunctionalResult(transformedCond).copiedFrom(cond)).copiedFrom(cond),
+                  transformedInv.getOrElse(t.BooleanLiteral(true).copiedFrom(wh))
                 ).copiedFrom(wh)
               ).copiedFrom(wh)
 
-            val fullBody = withPostcondition(
-              withPrecondition(
-                withMeasure(newBody, measure).copiedFrom(wh),
-                Some(andJoin(transformedInv.toSeq :+ getFunctionalResult(cond)))
+            val fullBody = t.exprOps.withPostcondition(
+              t.exprOps.withPrecondition(
+                t.exprOps.withMeasure(newBody, measure).copiedFrom(wh),
+                Some(t.andJoin(transformedInv.toSeq :+ getFunctionalResult(transformedCond)))
               ).copiedFrom(wh),
               Some(newPost)
             ).copiedFrom(wh)
 
-            LetRec(
-              Seq(LocalFunDef(id, Seq(), Seq(), UnitType().copiedFrom(wh), fullBody, Seq()).copiedFrom(wh)),
-              IfExpr(
+            t.LetRec(
+              Seq(t.LocalFunDef(id, Seq(), Seq(), t.UnitType().copiedFrom(wh), fullBody, Seq()).copiedFrom(wh)),
+              t.IfExpr(
                 transformedCond,
-                ApplyLetRec(id, Seq(), tpe, Seq(), Seq()).copiedFrom(wh),
-                UnitLiteral().copiedFrom(wh)
+                t.ApplyLetRec(id, Seq(), tpe, Seq(), Seq()).copiedFrom(wh),
+                t.UnitLiteral().copiedFrom(wh)
               ).copiedFrom(wh)
             ).copiedFrom(wh)
 
@@ -125,9 +125,21 @@ trait SimpleWhileElimination
         }
       }
 
-      fd.copy(fullBody = WhileTransformer.transform(fd.fullBody)).setPos(fd)
+      new t.FunDef(
+        fd.id,
+        fd.tparams.map(WhileTransformer.transform),
+        fd.params.map(WhileTransformer.transform),
+        WhileTransformer.transform(fd.returnType),
+        WhileTransformer.transform(fd.fullBody),
+        fd.flags.map(WhileTransformer.transform)
+      ).setPos(fd)
     }
-    else fd
+    else {
+      new CheckingTransformer {
+        override val s: self.s.type = self.s
+        override val t: self.t.type = self.t
+      }.transform(fd)
+    }
   }
 }
 

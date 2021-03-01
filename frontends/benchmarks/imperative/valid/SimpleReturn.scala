@@ -1,4 +1,8 @@
 object SimpleReturn {
+  def example0: Int = {
+    return 11
+  }
+
   def example1: Int = {
     return 0
     1
@@ -25,6 +29,7 @@ object SimpleReturn {
   }
 
   def tests() = {
+    assert(example0 == 11)
     assert(example1 == 0)
     assert(example2(10) == 1)
     assert(example2(-10) == 3)

@@ -101,7 +101,7 @@ trait SyntheticSorts extends ExtractionCaches { self: CachingPhase =>
 
 
   // ControlFlowSort represents the following class:
-  // sealed abstract class ControlFlow[Ret, Cur] {
+  // sealed abstract class ControlFlow[Ret, Cur]
   // case class Return[Ret, Cur](value: Ret)  extends ControlFlow[Ret, Cur]
   // case class Proceed[Ret, Cur](value: Cur) extends ControlFlow[Ret, Cur]
   protected object ControlFlowSort {
