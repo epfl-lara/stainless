@@ -91,7 +91,7 @@ trait SimpleWhileElimination
 
             val newBody =
               Block(
-                Seq(transformedBody),
+                Seq(specced.body),
                 ite
               ).copiedFrom(wh)
 
