@@ -44,6 +44,18 @@ trait ReturnElimination
     override val s: self.s.type = self.s
     override val t: self.t.type = self.t
 
+    def transform(lfd: s.LocalFunDef): t.LocalFunDef = {
+      val s.LocalFunDef(id, tparams, params, retType, fullBody, flags) = lfd
+      t.LocalFunDef(
+        id,
+        tparams.map(transform),
+        params.map(transform),
+        transform(retType),
+        transform(fullBody),
+        flags.map(transform)
+      ).setPos(lfd)
+    }
+
     override def transform(e: s.Expr): t.Expr = e match {
       case s.Return(_) =>
         context.reporter.fatalError(e.getPos, "Keyword `return` is not allowed here")
@@ -245,6 +257,9 @@ trait ReturnElimination
               NoReturnCheck.transform(e),
               transform(body, currentType)
             ).setPos(expr)
+
+          case s.LetRec(fds, rest) => 
+            t.LetRec(fds.map(NoReturnCheck.transform), transform(rest, currentType)).setPos(expr)
 
           case s.Block(es, last) =>
             val currentTypeChecked = NoReturnCheck.transform(currentType)
