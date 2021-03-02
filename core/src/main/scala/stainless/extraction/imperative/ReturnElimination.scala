@@ -292,20 +292,29 @@ trait ReturnElimination
         }
       }
 
+      // when cf: ControlFlow[A, A]
+      // optimisation for `cf match { case Return(retValue) => retValue case Proceed(value) => value }`
+      def unwrap(expr: t.Expr): t.Expr = expr match {
+        case ControlFlowSort.Return(e) => e
+        case ControlFlowSort.Proceed(e) => e
+        case t.Let(vd, e, body) => t.Let(vd, e, unwrap(body)).setPos(expr)
+        case t.LetVar(vd, e, body) => t.LetVar(vd, e, unwrap(body)).setPos(expr)
+        case t.LetRec(fds, rest) => t.LetRec(fds, unwrap(rest)).setPos(expr)
+        case t.Assert(cond, err, body) => t.Assert(cond, err, unwrap(body)).setPos(expr)
+        case t.Assume(cond, body) => t.Assume(cond, unwrap(body)).setPos(expr)
+        case t.IfExpr(cond, e1, e2) => t.IfExpr(cond, unwrap(e1), unwrap(e2)).setPos(expr)
+        case t.MatchExpr(scrut, cases) => t.MatchExpr(scrut, cases.map {
+          case mc @ t.MatchCase(pat, optGuard, rhs) =>
+          t.MatchCase(pat, optGuard, unwrap(rhs)).copiedFrom(mc)
+        }).setPos(expr)
+        case t.Block(es, last) => t.Block(es, unwrap(last)).setPos(expr)
+        case _ => expr
+      }
+
       val newBody =
         if (tc.funHasReturn(fd.id))
           specced.bodyOpt.map { body =>
-            val topLevelCF =
-              t.ValDef.fresh("topLevelCF",
-                ControlFlowSort.controlFlow(retTypeChecked, retTypeChecked)
-              ).setPos(fd.fullBody)
-            t.Let(topLevelCF, ReturnTransformer.transform(body, retType),
-              ControlFlowSort.buildMatch(retTypeChecked, retTypeChecked, topLevelCF.toVariable,
-                v => v,
-                v => v,
-                body.getPos
-              )
-            ).setPos(body)
+            unwrap(ReturnTransformer.transform(body, retType)).setPos(body)
           }
         else
           specced.bodyOpt.map(ReturnTransformer.transform)

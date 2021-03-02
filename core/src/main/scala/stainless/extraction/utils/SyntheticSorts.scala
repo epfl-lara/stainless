@@ -125,6 +125,20 @@ trait SyntheticSorts extends ExtractionCaches { self: CachingPhase =>
     val retId: Identifier = syntheticControlFlow.constructors.find(_.id.name == "Return").get.id
     val proceedId: Identifier = syntheticControlFlow.constructors.find(_.id.name == "Proceed").get.id
 
+    object Return {
+      def unapply(e: Expr): Option[Expr] = e match {
+        case ADT(`retId`, Seq(_, _), Seq(arg)) => Some(arg)
+        case _ => None
+      }
+    }
+
+    object Proceed {
+      def unapply(e: Expr): Option[Expr] = e match {
+        case ADT(`proceedId`, Seq(_, _), Seq(arg)) => Some(arg)
+        case _ => None
+      }
+    }
+
     def controlFlow(retT: Type, curT: Type): Type = ADTType(controlFlowId, Seq(retT, curT))
     def ret(retT: Type, curT: Type, e: Expr) = ADT(retId, Seq(retT, curT), Seq(e)).setPos(e)
     def proceed(retT: Type, curT: Type, e: Expr) = ADT(proceedId, Seq(retT, curT), Seq(e)).setPos(e)
