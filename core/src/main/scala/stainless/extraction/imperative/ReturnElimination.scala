@@ -58,6 +58,7 @@ trait ReturnElimination
       val specced = s.exprOps.BodyWithSpecs(fd.fullBody)
       val retType = fd.returnType
       val retTypeChecked = NoReturnCheck.transform(retType)
+      val topLevelPost = specced.getSpec(s.exprOps.PostconditionKind)
 
       object ReturnTransformer extends TransformerWithType {
         override val s: self.s.type = self.s
@@ -113,12 +114,25 @@ trait ReturnElimination
             val optInvChecked = optInv.map(NoReturnCheck.transform)
             val condChecked = NoReturnCheck.transform(cond)
 
+
             val cfWhileVal = t.ValDef.fresh("cfWhile", loopType.copiedFrom(wh)).copiedFrom(wh)
             val newPost =
               t.Lambda(
                 Seq(cfWhileVal),
                 ControlFlowSort.buildMatch(retTypeChecked, t.UnitType(), cfWhileVal.toVariable,
-                  _ => optInvChecked.getOrElse(t.BooleanLiteral(true).copiedFrom(wh)),
+                  // when the while loop returns, we check that the while loop invariant and the
+                  // postcondition of the top-level function hold
+                  v => t.and(
+                    topLevelPost.map { case s.exprOps.Postcondition(s.Lambda(Seq(postVd), postBody)) =>
+                      t.exprOps.replaceFromSymbols(
+                        Map(NoReturnCheck.transform(postVd) -> v),
+                        NoReturnCheck.transform(postBody)
+                      )(t.convertToVal)
+                    }.getOrElse(t.BooleanLiteral(true)),
+                    optInvChecked.getOrElse(t.BooleanLiteral(true).copiedFrom(wh)),
+                  ),
+                  // when the while loop terminates without returning, we check the loop condition
+                  // is false and that the invariant is true
                   _ => t.and(
                     t.Not(getFunctionalResult(condChecked).copiedFrom(cond)).copiedFrom(cond),
                     optInvChecked.getOrElse(t.BooleanLiteral(true).copiedFrom(wh))
