@@ -9,6 +9,7 @@ import frontend.{ CallBack, Recovery, RecoveryResult }
 import utils.CheckFilter
 
 import scala.collection.mutable.ListBuffer
+import scala.language.existentials
 
 import java.io.{ File, BufferedWriter, FileWriter }
 
@@ -34,6 +35,8 @@ trait InputUtils {
   /** Compile and extract the given files (& the library). */
   def loadFiles(files: Seq[String], filterOpt: Option[Filter] = None, sanitize: Boolean = true)
                (implicit ctx: inox.Context): (Seq[xt.UnitDef], Program { val trees: xt.type }) = {
+
+    val preprocess = extraction.utils.DebugPipeline("Preprocessing", stainless.frontend.Preprocessing())
 
     // Use the callback to collect the trees.
     val units = ListBuffer[xt.UnitDef]()
@@ -72,7 +75,7 @@ trait InputUtils {
 
       override def endExtractions(): Unit = {
         done = true
-        syms = Recovery.recover(syms)
+        syms = preprocess.extract(syms)
       }
     }
 

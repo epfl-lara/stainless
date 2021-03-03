@@ -3,12 +3,12 @@ trait B { var a: A }
 
 object Test {
   def test(b: B): Unit = {
-    val a = b.a
-    val old = a.x
-    a.x += 1
+    // val a = b.a
+    val old = b.a.x
+    // a.x += 1
     b.a.x += 1
-    assert(b.a.x == old + 2)
-    assert(a.x == old + 2)
-    assert(a == b.a)
+    // assert(b.a.x == old + 2)
+    assert(b.a.x == old + 1)
+    // assert(a == b.a)
   }
 }

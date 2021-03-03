@@ -6,6 +6,8 @@ package imperative
 
 import inox.FatalError
 
+import scala.util.Try
+
 trait AntiAliasing
   extends oo.CachingPhase
      with SimpleSorts
@@ -270,12 +272,17 @@ trait AntiAliasing
 
           case l @ Let(vd, e, b) if isMutableType(vd.tpe) =>
             val newExpr = transform(e, env)
-            if (getKnownEffects(newExpr).nonEmpty) {
-              val newBody = transform(b, env withRewritings Map(vd -> newExpr))
-              Let(vd, newExpr, newBody).copiedFrom(l)
-            } else {
+
+            // see https://github.com/epfl-lara/stainless/pull/920 for discussion
+            if (Try(getTargets(e)).toOption == Some(Set.empty)) {
+              // If we are sure `e` has no aliasing, we can use `withBinding` and allow mutation of `vd`
               val newBody = transform(b, env withBinding vd)
               LetVar(vd, newExpr, newBody).copiedFrom(l)
+            } else {
+              // Otherwise, we stay conservative and use rewritings,
+              // which means we'll check target resolution at mutation points
+              val newBody = transform(b, env withRewritings Map(vd -> newExpr))
+              Let(vd, newExpr, newBody).copiedFrom(l)
             }
 
           case l @ LetVar(vd, e, b) if isMutableType(vd.tpe) =>
@@ -313,40 +320,40 @@ trait AntiAliasing
 
           case up @ ArrayUpdate(a, i, v) =>
             val ra = exprOps.replaceFromSymbols(env.rewritings, a)
-            val effects = getExactEffects(ra)
+            val targets = getTargets(ra)
 
-            if (effects.exists(eff => !env.bindings.contains(eff.receiver.toVal)))
+            if (targets.exists(target => !env.bindings.contains(target.receiver.toVal)))
               throw MalformedStainlessCode(up, "Unsupported form of array update")
 
-            Block(effects.toSeq map { effect =>
-              val applied = applyEffect(effect + ArrayAccessor(i), v)
-              transform(Assignment(effect.receiver, applied).copiedFrom(up), env)
+            Block(targets.toSeq map { target =>
+              val applied = applyEffect(target + ArrayAccessor(i), v)
+              transform(Assignment(target.receiver, applied).copiedFrom(up), env)
             }, UnitLiteral().copiedFrom(up)).copiedFrom(up)
 
           case up @ MutableMapUpdate(map, k, v) =>
             val rmap = exprOps.replaceFromSymbols(env.rewritings, map)
-            val effects = getExactEffects(rmap)
+            val targets = getTargets(rmap)
 
-            if (effects.exists(eff => !env.bindings.contains(eff.receiver.toVal)))
+            if (targets.exists(target => !env.bindings.contains(target.receiver.toVal)))
               throw MalformedStainlessCode(up, "Unsupported form of map update")
 
-            Block(effects.toSeq map { effect =>
-              val applied = applyEffect(effect + MutableMapAccessor(k), v)
-              transform(Assignment(effect.receiver, applied).copiedFrom(up), env)
+            Block(targets.toSeq map { target =>
+              val applied = applyEffect(target + MutableMapAccessor(k), v)
+              transform(Assignment(target.receiver, applied).copiedFrom(up), env)
             }, UnitLiteral().copiedFrom(up)).copiedFrom(up)
 
           case as @ FieldAssignment(o, id, v) =>
             val so = exprOps.replaceFromSymbols(env.rewritings, o)
-            val effects = getExactEffects(so)
+            val targets = getTargets(so)
 
-            if (effects.exists(eff => !env.bindings.contains(eff.receiver.toVal)))
+            if (targets.exists(target => !env.bindings.contains(target.receiver.toVal)))
               throw MalformedStainlessCode(as, "Unsupported form of field assignment")
 
             val accessor = typeToAccessor(o.getType, id)
 
-            Block(effects.toSeq map { effect =>
-              val applied = applyEffect(effect + accessor, v)
-              transform(Assignment(effect.receiver, applied).copiedFrom(as), env)
+            Block(targets.toSeq map { target =>
+              val applied = applyEffect(target + accessor, v)
+              transform(Assignment(target.receiver, applied).copiedFrom(as), env)
             }, UnitLiteral().copiedFrom(as)).copiedFrom(as)
 
           // we need to replace local fundef by the new updated fun defs.

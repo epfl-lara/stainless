@@ -22,18 +22,22 @@ object Unsigned {
   }
 
   def fa(x: UInt64, y: UInt64) = {
+    require(0 <= x && x < 200 && 0 <= y && y < 200)
     x + y
   }
 
   def fb(x: UInt32, y: UInt32) = {
+    require(0 <= y && y <= x && x < 200)
     x - y
   }
 
   def fc(x: UInt16, y: UInt16) = {
+    require(0 <= x && x < 200 && 0 <= y && y < 200)
     x * y
   }
 
   def fd(x: UInt8, y: UInt8) = {
+    require(0 <= x && x < 200 && 0 < y && y < 200)
     x / y
   }
 
