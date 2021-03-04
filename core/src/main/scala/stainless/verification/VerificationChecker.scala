@@ -144,12 +144,12 @@ trait VerificationChecker { self =>
    *  - rewrite the invariant's invocation to be applied to this new variable instead.
    *  - evaluate the resulting condition under the new model.
    */
-  protected def checkAdtInvariantModel(vc: VC, invId: Identifier, model: Model): VCStatus = {
+  protected def checkAdtInvariantModel(vc: VC, invId: Identifier, originalCondition: Expr, model: Model): VCStatus = {
     import inox.evaluators.EvaluationResults._
 
-    val Seq((inv, adt, path)) = collectWithPC(vc.condition) {
-      case (inv @ FunctionInvocation(`invId`, _, Seq(adt: ADT)), path) => (inv, adt, path)
-    }
+    val condition = simplifyExpr(
+      simplifyLets(simplifyAssertions(originalCondition))
+    )(PurityOptions.assumeChecked)
 
     def success: VCStatus = {
       reporter.debug("- Model validated.")
@@ -159,6 +159,10 @@ trait VerificationChecker { self =>
     def failure(reason: String): VCStatus = {
       reporter.warning(reason)
       VCStatus.Unknown
+    }
+
+    val Seq((inv, adt, path)) = collectWithPC(condition) {
+      case (inv @ FunctionInvocation(`invId`, _, Seq(adt: ADT)), path) => (inv, adt, path)
     }
 
     evaluator.eval(path.toClause, model) match {
@@ -184,7 +188,7 @@ trait VerificationChecker { self =>
     val adtVar = Variable(FreshIdentifier("adt"), adt.getType(symbols), Seq())
     val newInv = FunctionInvocation(invId, inv.tps, Seq(adtVar))
     val newModel = inox.Model(program)(model.vars + (adtVar.toVal -> newAdt), model.chooses)
-    val newCondition = exprOps.replace(Map(inv -> newInv), vc.condition)
+    val newCondition = exprOps.replace(Map(inv -> newInv), condition)
 
     evaluator.eval(newCondition, newModel) match {
       case Successful(BooleanLiteral(false)) => success
@@ -252,8 +256,8 @@ trait VerificationChecker { self =>
             VCResult(VCStatus.Valid, s.getResultSolver, Some(time))
 
           case SatWithModel(model) if checkModels && vc.kind.isInstanceOf[VCKind.AdtInvariant] =>
-            val VCKind.AdtInvariant(invId) = vc.kind
-            val status = checkAdtInvariantModel(vc, invId, model)
+            val VCKind.AdtInvariant(invId, expr: Expr) = vc.kind
+            val status = checkAdtInvariantModel(vc, invId, expr, model)
             VCResult(status, s.getResultSolver, Some(time))
 
           case SatWithModel(model) if !vc.satisfiability =>
