@@ -983,10 +983,6 @@ trait TypeChecker {
     }
     val e2 = andJoin(toCheck).copiedFrom(e)
 
-    if (tc.vcKind.toString.toLowerCase.contains("cast")) {
-      return TyperResult.valid
-    }
-
     val condition = vcFromContext(tc.termVariables, e2)
 
     val vc: StainlessVC = VC(
