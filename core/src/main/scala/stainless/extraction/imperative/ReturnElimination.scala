@@ -415,6 +415,9 @@ trait ReturnElimination
           }
           processBlockExpressions(es :+ last)
 
+        case (_: s.Lambda | _: s.Forall | _: s.Old | _: s.Snapshot | _: s.Choose) =>
+          SimpleWhileTransformer.transform(expr)
+
         case _ if exprHasReturn(expr) =>
           val (ids, vs, es, tps, flags, recons) = deconstructor.deconstruct(expr)
           val tvs = vs.map(SimpleWhileTransformer.transform).map(_.asInstanceOf[t.Variable])
