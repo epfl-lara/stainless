@@ -43,12 +43,15 @@ trait ReturnElimination
         case s.LetRec(lfds, rest) =>
           lfds.foreach(lfd => traverse(lfd.fullBody, lfd.id))
           traverse(rest, currentId)
+          if (exprHasReturn.contains(currentId) && exprHasReturn(currentId)(rest))
+            addExpression(currentId, expr)
 
         case s.Return(e) =>
           addExpression(currentId, expr)
 
         case s.Operator(es, _) =>
-          super.traverse(expr, currentId)
+          es.map(traverse(_, currentId))
+
           if (exprHasReturn.contains(currentId) && es.exists(exprHasReturn(currentId)))
             addExpression(currentId, expr)
       }
@@ -154,6 +157,9 @@ trait ReturnElimination
               t.UnitLiteral().copiedFrom(wh)
             ).copiedFrom(wh)
           ).copiedFrom(wh)
+
+        case s.Block(es, last) =>
+          super.transform(e)
 
         case _ => super.transform(e)
       }
