@@ -223,7 +223,7 @@ trait ReturnElimination
       }
 
       override def transform(expr: s.Expr, currentType: s.Type): t.Expr = expr match {
-        case wh @ s.While(cond, body, optInv) if exprHasReturn(body) =>
+        case wh @ s.While(cond, body, optInv) if exprHasReturn(expr) =>
 
           val id = FreshIdentifier(fd.id.name + "While")
           val loopType = ControlFlowSort.controlFlow(SimpleWhileTransformer.transform(retType), t.UnitType())
@@ -307,39 +307,15 @@ trait ReturnElimination
             SimpleWhileTransformer.transform(e)
           )
 
-        case s.IfExpr(cond, e1, e2)
-          if exprHasReturn(e1) || exprHasReturn(e2) =>
-
+        case s.IfExpr(cond, e1, e2) if exprHasReturn(expr) =>
           t.IfExpr(SimpleWhileTransformer.transform(cond),
             proceedOrTransform(e1, currentType),
             proceedOrTransform(e2, currentType)
           ).setPos(expr)
 
-        case s.IfExpr(cond, e1, e2) =>
-          t.IfExpr(SimpleWhileTransformer.transform(cond),
-            transform(e1, currentType),
-            transform(e2, currentType)
-          ).setPos(expr)
-
-        case s.MatchExpr(scrut, cases)
-          if cases.exists {
-            case s.MatchCase(_, _, rhs) => exprHasReturn(rhs)
-          } =>
-
+        case s.MatchExpr(scrut, cases) if exprHasReturn(expr) =>
           t.MatchExpr(SimpleWhileTransformer.transform(scrut),
             cases.map(proceedOrTransform(_, currentType))
-          ).setPos(expr)
-
-        case s.MatchExpr(scrut, cases) =>
-          t.MatchExpr(SimpleWhileTransformer.transform(scrut),
-            cases.map {
-              case mc @ s.MatchCase(pat, optGuard, rhs) =>
-                t.MatchCase(
-                  SimpleWhileTransformer.transform(pat),
-                  optGuard.map(SimpleWhileTransformer.transform),
-                  transform(rhs, currentType)
-                ).setPos(mc)
-            }
           ).setPos(expr)
 
         case s.Let(vd, e, body) if exprHasReturn(e) =>
@@ -366,12 +342,7 @@ trait ReturnElimination
             )
           ).setPos(expr)
 
-        case s.Let(vd, e, body) =>
-          t.Let(
-            SimpleWhileTransformer.transform(vd),
-            SimpleWhileTransformer.transform(e),
-            transform(body, currentType)
-          ).setPos(expr)
+        case s.Let(vd, e, body) => super.transform(expr, currentType)
 
         case s.LetVar(vd, e, body) if exprHasReturn(e) =>
           val firstType = vd.tpe
@@ -397,12 +368,7 @@ trait ReturnElimination
             )
           ).setPos(expr)
 
-        case s.LetVar(vd, e, body) =>
-          t.LetVar(
-            SimpleWhileTransformer.transform(vd),
-            SimpleWhileTransformer.transform(e),
-            transform(body, currentType)
-          ).setPos(expr)
+        case s.LetVar(vd, e, body) => super.transform(expr, currentType)
 
         case s.LetRec(lfds, rest) =>
           t.LetRec(
@@ -449,7 +415,7 @@ trait ReturnElimination
           }
           processBlockExpressions(es :+ last)
 
-        case _ =>
+        case _ if exprHasReturn(expr) =>
           val (ids, vs, es, tps, flags, recons) = deconstructor.deconstruct(expr)
           val tvs = vs.map(SimpleWhileTransformer.transform).map(_.asInstanceOf[t.Variable])
           val ttps = tps.map(SimpleWhileTransformer.transform)
@@ -480,6 +446,8 @@ trait ReturnElimination
           }
 
           rec(es, Seq.empty)
+
+        case _ => SimpleWhileTransformer.transform(expr)
       }
     }
 
