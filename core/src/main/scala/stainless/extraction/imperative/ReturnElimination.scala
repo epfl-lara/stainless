@@ -50,7 +50,7 @@ trait ReturnElimination
           addExpression(currentId, expr)
 
         case s.Operator(es, _) =>
-          es.map(traverse(_, currentId))
+          super.traverse(expr, currentId)
 
           if (exprHasReturn.contains(currentId) && es.exists(exprHasReturn(currentId)))
             addExpression(currentId, expr)
