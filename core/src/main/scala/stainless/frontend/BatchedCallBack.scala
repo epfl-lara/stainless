@@ -5,6 +5,7 @@ package frontend
 
 import stainless.extraction.xlang.{trees => xt, TreeSanitizer}
 import stainless.utils.LibraryFilter
+import stainless.extraction.trace.Trace
 
 import scala.util.{Try, Success, Failure}
 import scala.concurrent.Await
@@ -102,13 +103,35 @@ class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Con
         reportError(defn.getPos, e.getMessage, symbols)
     }
 
-    val reports = runs map { run =>
+    var reports = runs map { run =>
       val ids = symbols.functions.keys.toSeq
       val analysis = Await.result(run(ids, symbols, filterSymbols = true), Duration.Inf)
       RunReport(run)(analysis.toReport)
     }
 
     report = Report(reports)
+
+    if (report.isError(Trace.getTrace.get)) Trace.reportError
+    else if (report.isUnknown(Trace.getTrace.get)) Trace.reportUnknown
+    else Trace.reportValid
+
+    while (!Trace.isDone) {
+      report.emit(context)
+
+      reports = runs map { run =>
+        val ids = symbols.functions.keys.toSeq
+        val analysis = Await.result(run(ids, symbols, filterSymbols = true), Duration.Inf)
+        RunReport(run)(analysis.toReport)
+      }
+
+      report = Report(reports)
+
+      if (report.isError(Trace.getTrace.get)) Trace.reportError
+      else if (report.isUnknown(Trace.getTrace.get)) Trace.reportUnknown
+      else Trace.reportValid
+    }
+
+    extraction.trace.Trace.printEverything
   }
 
   def stop(): Unit = {

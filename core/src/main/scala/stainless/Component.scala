@@ -31,6 +31,20 @@ object optFunctions extends inox.OptionDef[Seq[String]] {
   val usageRhs = "f1,f2,..."
 }
 
+object optCompareFuns extends inox.OptionDef[Seq[String]] {
+  val name = "comparefuns"
+  val default = Seq[String]()
+  val parser = inox.OptionParsers.seqParser(inox.OptionParsers.stringParser)
+  val usageRhs = "f1,f2,..."
+}
+
+object optModels extends inox.OptionDef[Seq[String]] {
+  val name = "models"
+  val default = Seq[String]()
+  val parser = inox.OptionParsers.seqParser(inox.OptionParsers.stringParser)
+  val usageRhs = "f1,f2,..."
+}
+
 trait ComponentRun { self =>
   val component: Component
   val trees: ast.Trees
