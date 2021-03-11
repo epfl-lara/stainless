@@ -104,7 +104,7 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
     val res = for {
       RecordRow(id, pos, level, extra, time) <- annotatedRows
       if(level == Level.Error && id == identifier)
-    }yield (id, level)
+    } yield (id, level)
     !res.isEmpty
   }
 
@@ -112,7 +112,7 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
     val res = for {
       RecordRow(id, pos, level, extra, time) <- annotatedRows
       if(level == Level.Warning && id == identifier)
-    }yield (id, level)
+    } yield (id, level)
     !res.isEmpty
   }
 

@@ -4,6 +4,8 @@ package stainless
 package extraction
 package trace
 
+import stainless.utils.CheckFilter
+
 trait Trace extends CachingPhase with SimpleFunctions with IdentitySorts { self =>
   val s: Trees
   val t: termination.Trees
@@ -28,14 +30,14 @@ trait Trace extends CachingPhase with SimpleFunctions with IdentitySorts { self 
     import symbols._
     import trees._
 
-    val models = symbols.functions.values.toList.filter(elem => isModel(elem.id)).map(elem => elem.id)
-    val functions = symbols.functions.values.toList.filter(elem => shouldBeChecked(elem.id)).map(elem => elem.id)
-   
     if (Trace.getModels.isEmpty) {
+      val models = symbols.functions.values.toList.filter(elem => isModel(elem.id)).map(elem => elem.id)
       Trace.setModels(models)
       Trace.nextModel
     }
+
     if (Trace.getFunctions.isEmpty) {
+      val functions = symbols.functions.values.toList.filter(elem => shouldBeChecked(elem.id)).map(elem => elem.id)
       Trace.setFunctions(functions)
       Trace.nextFunction
     }
@@ -44,10 +46,9 @@ trait Trace extends CachingPhase with SimpleFunctions with IdentitySorts { self 
 
     def freshId(a: Identifier, b: Identifier): Identifier = {
       localCounter = localCounter + 1
-      new Identifier(fixedFullName(a)+"$"+fixedFullName(b),localCounter,localCounter)
+      new Identifier(CheckFilter.fixedFullName(a)+"$"+CheckFilter.fixedFullName(b),localCounter,localCounter)
     }
 
-    //if (fd1 != fd2) && (fd1.params.size == fd2.params.size)
     def checkPair(fd1: s.FunDef, fd2: s.FunDef): s.FunDef = {
 
       val newParams = fd1.params.map{param => param.freshen}
@@ -68,6 +69,7 @@ trait Trace extends CachingPhase with SimpleFunctions with IdentitySorts { self 
       case (Some(model), Some(function)) => {
         val m = symbols.functions.filter(elem => elem._2.id == model).head._2
         val f = symbols.functions.filter(elem => elem._2.id == function).head._2
+        //if (fd1 != fd2) && (fd1.params.size == fd2.params.size)
         val newFun = checkPair(m, f)
         Trace.setTrace(newFun.id)
         List(newFun)
@@ -204,28 +206,10 @@ trait Trace extends CachingPhase with SimpleFunctions with IdentitySorts { self 
 
   }
 
-//from CheckFilter.scala
   type Path = Seq[String]
-  private def fullNameToPath(fullName: String): Path = (fullName split '.').toSeq
-
-  // TODO this is probably done somewhere else in a cleaner fasion...
-  private def fixedFullName(id: Identifier): String = id.fullName
-    .replaceAllLiterally("$bar", "|")
-    .replaceAllLiterally("$up", "^")
-    .replaceAllLiterally("$eq", "=")
-    .replaceAllLiterally("$plus", "+")
-    .replaceAllLiterally("$minus", "-")
-    .replaceAllLiterally("$times", "*")
-    .replaceAllLiterally("$div", "/")
-    .replaceAllLiterally("$less", "<")
-    .replaceAllLiterally("$geater", ">")
-    .replaceAllLiterally("$colon", ":")
-    .replaceAllLiterally("$amp", "&")
-    .replaceAllLiterally("$tilde", "~")
-
 
   private lazy val pathsOpt: Option[Seq[Path]] = context.options.findOption(optCompareFuns) map { functions =>
-    functions map fullNameToPath
+    functions map CheckFilter.fullNameToPath
   }
 
   private def shouldBeChecked(fid: Identifier): Boolean = pathsOpt match {
@@ -234,7 +218,7 @@ trait Trace extends CachingPhase with SimpleFunctions with IdentitySorts { self 
     case Some(paths) =>
       // Support wildcard `_` as specified in the documentation.
       // A leading wildcard is always assumes.
-      val path: Path = fullNameToPath(fixedFullName(fid))
+      val path: Path = CheckFilter.fullNameToPath(CheckFilter.fixedFullName(fid))
       paths exists { p =>
         if (p endsWith Seq("_")) path containsSlice p.init
         else path endsWith p
@@ -242,7 +226,7 @@ trait Trace extends CachingPhase with SimpleFunctions with IdentitySorts { self 
   }
 
   private lazy val pathsOptModels: Option[Seq[Path]] = context.options.findOption(optModels) map { functions =>
-    functions map fullNameToPath
+    functions map CheckFilter.fullNameToPath
   }
 
   private def isModel(fid: Identifier): Boolean = pathsOptModels match {
@@ -251,7 +235,7 @@ trait Trace extends CachingPhase with SimpleFunctions with IdentitySorts { self 
     case Some(paths) =>
       // Support wildcard `_` as specified in the documentation.
       // A leading wildcard is always assumes.
-      val path: Path = fullNameToPath(fixedFullName(fid))
+      val path: Path = CheckFilter.fullNameToPath(CheckFilter.fixedFullName(fid))
       paths exists { p =>
         if (p endsWith Seq("_")) path containsSlice p.init
         else path endsWith p
@@ -260,19 +244,20 @@ trait Trace extends CachingPhase with SimpleFunctions with IdentitySorts { self 
 
 }
 
-
 object Trace {
-  var boxes: Map[Identifier, List[Identifier]] = Map()
+  var clusters: Map[Identifier, List[Identifier]] = Map()
   var errors: List[Identifier] = List()
   var unknowns: List[Identifier] = List()
 
   def printEverything() = {
-    System.out.println("boxes")   
-    System.out.println(boxes)
-    System.out.println("errors")
-    System.out.println(errors)
-    System.out.println("unknowns")
-    System.out.println(unknowns)
+    if(!clusters.isEmpty || !errors.isEmpty || !unknowns.isEmpty) {
+      System.out.println("clusters")   
+      System.out.println(clusters)
+      System.out.println("errors")
+      System.out.println(errors)
+      System.out.println("unknowns")
+      System.out.println(unknowns)
+    }
   }
 
   var allModels: List[Identifier] = List()
@@ -297,7 +282,7 @@ object Trace {
   def setModels(m: List[Identifier]) = {
     allModels = m
     tmpModels = m
-    boxes = (m zip m.map(_ => Nil)).toMap
+    clusters = (m zip m.map(_ => Nil)).toMap
   }
 
   def setFunctions(f: List[Identifier]) = {
@@ -308,7 +293,6 @@ object Trace {
   def getModels = allModels
 
   def getFunctions = allFunctions
-
 
   //model for the current iteration
   def getModel = model
@@ -360,23 +344,33 @@ object Trace {
     }
   }
 
-  def isDone = function == None
+  def nextIteration[T <: AbstractReport[T]](report: AbstractReport[T])(implicit context: inox.Context): Boolean = trace match {
+    case Some(t) => {
+      if (report.isError(t)) reportError
+      else if (report.isUnknown(t)) reportUnknown
+      else reportValid
+      !isDone
+    }
+    case None => false
+  }
 
-  def reportError = {
+  private def isDone = function == None
+
+  private def reportError = {
     errors = function.get::errors
     nextFunction
   }
 
-  def reportUnknown = {
+  private def reportUnknown = {
     nextModel
-    if(model == None){
+    if (model == None) {
       unknowns = function.get::unknowns
       nextFunction
     }
   }
 
-  def reportValid = {
-    boxes = boxes + (model.get -> (function.get::boxes(model.get)))
+  private def reportValid = {
+    clusters = clusters + (model.get -> (function.get::clusters(model.get)))
     nextFunction
   }
 }

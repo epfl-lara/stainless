@@ -103,35 +103,22 @@ class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Con
         reportError(defn.getPos, e.getMessage, symbols)
     }
 
-    var reports = runs map { run =>
-      val ids = symbols.functions.keys.toSeq
-      val analysis = Await.result(run(ids, symbols, filterSymbols = true), Duration.Inf)
-      RunReport(run)(analysis.toReport)
-    }
+    var rerunPipeline = true
 
-    report = Report(reports)
-
-    if (report.isError(Trace.getTrace.get)) Trace.reportError
-    else if (report.isUnknown(Trace.getTrace.get)) Trace.reportUnknown
-    else Trace.reportValid
-
-    while (!Trace.isDone) {
-      report.emit(context)
-
-      reports = runs map { run =>
+    while (rerunPipeline) {
+      val reports = runs map { run =>
         val ids = symbols.functions.keys.toSeq
         val analysis = Await.result(run(ids, symbols, filterSymbols = true), Duration.Inf)
         RunReport(run)(analysis.toReport)
       }
 
       report = Report(reports)
+      rerunPipeline = Trace.nextIteration(report)
 
-      if (report.isError(Trace.getTrace.get)) Trace.reportError
-      else if (report.isUnknown(Trace.getTrace.get)) Trace.reportUnknown
-      else Trace.reportValid
+      if (rerunPipeline) report.emit(context)
+      else Trace.printEverything
     }
-
-    extraction.trace.Trace.printEverything
+    
   }
 
   def stop(): Unit = {
