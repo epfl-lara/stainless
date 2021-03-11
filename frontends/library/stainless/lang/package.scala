@@ -145,4 +145,14 @@ package object lang {
 
   @library
   def specialize[T](call: T): T = call
+
+  @ignore @library
+  implicit class ArrayUpdating[T](a: Array[T]) {
+    def updated(index: Int, value: T): Array[T] = {
+      val res = a.clone
+      res(index) = value
+      res
+    }
+  }
+
 }
