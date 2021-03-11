@@ -1,12 +1,12 @@
 /* Copyright 2009-2021 EPFL, Lausanne */
 
+// use `.updated` from Stainless library
 import stainless.lang._
 
-object Arrays {
+// unimport implicit conversions for `.updated`
+import scala.Predef.{ genericArrayOps => _, genericWrapArray => _, _ }
 
-  def len[T](a: Array[T]): Boolean = {
-    a.length == a.size
-  }.holds
+object Arrays {
 
   def update[T](a: Array[T], i: Int, t: T) = {
     require(i >= 0 && i < a.length)
@@ -17,24 +17,11 @@ object Arrays {
     a.update(i, t)
   }
 
+  def updated[T](a: Array[T], i: Int, t: T): Array[T] = {
+    require(i >= 0 && i < a.length)
 
-  // ArraySeq not supported.
-  /*
-   * import scala.collection.mutable.ArraySeq
-   * def updated[T](a: Array[T], i: Int, t: T): ArraySeq[T] = {
-   *   require(i >= 0 && i < a.length)
-   *   a.updated(i, t)
-   * }
-   */
-
-  // ClassTag not supported.
-  /*
-   * import scala.reflect.ClassTag
-   * def updated[T](a: Array[T], i: Int, u: T)(implicit m: ClassTag[T]): Array[T] = {
-   *   require(i >= 0 && i < a.length)
-   *   a.updated(i, u)
-   * }
-   */
+    a.updated(i, t)
+  }
 
   def updated(a: Array[Int], i: Int, v: Int): Array[Int] = {
     require(i >= 0 && i < a.length)
