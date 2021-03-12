@@ -22,7 +22,7 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
   // Inject return in functions that need it
   override def recImpl(fd: FunDef)(implicit env: Env): to.FunDef = super.recImpl(fd) match {
     case fd @ to.FunDef(_, returnType, _, _, to.FunBodyAST(body), _) if !isUnitType(returnType) =>
-      val newBody = to.FunBodyAST(inject({ e => to.Return(e) })(body))
+      val newBody = to.FunBodyAST(inject({ e => to.Return(e) }, e => !e.isInstanceOf[to.Return])(body))
 
       fd.body = newBody
 
@@ -199,6 +199,15 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
 
       loop -> env
 
+    case Return(expr0) =>
+      val (preExpr, expr) = flatten(expr0, allowTopLevelApp = true)
+      val res = preExpr match {
+        case Seq() => to.Return(expr)
+        case _ => to.buildBlock(preExpr :+ to.Return(expr))
+      }
+
+      res -> env
+
     case IsA(expr0, ct0) =>
       val ct = recCT(ct0)
       val (preExpr, expr) = flatten(expr0)
@@ -273,7 +282,7 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
       val norm = freshNormVal(fi0.getType, isVar = true)
       val decl = to.Decl(norm)
       val binding = to.Binding(norm)
-      val fi = inject({ e => to.Assign(binding, e) })(fi0)
+      val fi = inject({ e => to.Assign(binding, e) }, _ => true)(fi0)
 
       (pre :+ decl :+ fi, binding)
 
@@ -320,21 +329,23 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
   }
 
   // Apply `action` on the AST leaf expressions.
-  private def inject(action: to.Expr => to.Expr)(e: to.Expr): to.Expr = {
+  private def inject(action: to.Expr => to.Expr, pre: to.Expr => Boolean)(e: to.Expr): to.Expr = {
     val injecter = new Transformer(to, to) with NoEnv { injecter =>
       import injecter.from._
 
       override def recImpl(e: Expr)(implicit env: Env): (Expr, Env) = e match {
+        case _ if !pre(e) => (e, Ø)
+
         case Decl(_) | DeclInit(_, _) | Assign(_, _) | While(_, _) =>
           ctx.reporter.fatalError(s"Injecting into unexpected expression: $e")
 
-        case Block(es) => buildBlock(es.init :+ rec(es.last)) -> Ø
+        case Block(es) => (buildBlock(es.init :+ rec(es.last)), Ø)
 
-        case If(cond, thenn) => If(cond, rec(thenn)) -> Ø
+        case If(cond, thenn) => (If(cond, rec(thenn)), Ø)
 
-        case IfElse(cond, thenn, elze) => IfElse(cond, rec(thenn), rec(elze)) -> Ø
+        case IfElse(cond, thenn, elze) => (IfElse(cond, rec(thenn), rec(elze)), Ø)
 
-        case e => action(e) -> Ø // no more recursion here
+        case e => (action(e), Ø) // no more recursion here
       }
     }
 
