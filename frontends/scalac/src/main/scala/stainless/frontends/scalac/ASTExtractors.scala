@@ -844,18 +844,6 @@ trait ASTExtractors {
              if (arrayOps.toString endsWith "ArrayOps") && (update.toString == "updated")
              => Some((array, index, value))
 
-        case Apply(
-          Select(
-            Apply(
-              TypeApply(ExSelected("stainless", "lang", "package", "ArrayUpdating"), tpe :: Nil),
-              array :: Nil
-            ),
-            ExNamed("updated")
-          ),
-          index :: value :: Nil) =>
-
-          Some((array, index, value))
-
         // There's no `updated` method in the Array class itself, only though implicit conversion.
         case _ => None
       }
