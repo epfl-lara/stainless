@@ -810,6 +810,8 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
 
     case AsInstanceOf(expr, ct: ClassType) => CIR.AsA(rec(expr), CIR.ClassType(rec(ct)))
 
+    case Return(expr) => CIR.Return(rec(expr))
+
     case e =>
       ctx.reporter.fatalError(e.getPos, s"Expression `${e.asString}` (${e.getClass}) not handled by GenC component")
   }
