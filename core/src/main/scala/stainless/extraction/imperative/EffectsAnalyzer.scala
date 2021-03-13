@@ -315,12 +315,8 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     override def toString: String = asString
   }
 
-  def getTargets(expr: Expr, path: Seq[Accessor])(implicit symbols: Symbols): Set[Target] = {
-    // println("getTargets", expr)
-    expr } match {
-    case _ if variablesOf(expr).forall(v => !symbols.isMutableType(v.tpe)) =>
-      // println("easy mode", expr)
-      Set.empty
+  def getTargets(expr: Expr, path: Seq[Accessor])(implicit symbols: Symbols): Set[Target] = expr match {
+    case _ if variablesOf(expr).forall(v => !symbols.isMutableType(v.tpe)) => Set.empty
     case v: Variable => Set(Target(v, None, Path(path)))
     case ADTSelector(e, id) => getTargets(e, ADTFieldAccessor(id) +: path)
     case ClassSelector(e, id) => getTargets(e, ClassFieldAccessor(id) +: path)
