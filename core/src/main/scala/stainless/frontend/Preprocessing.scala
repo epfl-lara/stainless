@@ -21,31 +21,7 @@ trait Preprocessing extends oo.CachingPhase
   override protected def getContext(symbols: s.Symbols) = symbols
 
   override def extractSymbols(ctx: TransformerContext, symbols: s.Symbols): t.Symbols = {
-    val initialSymbols = strictBVCleaner.transform(LibraryFilter.removeLibraryFlag(symbols))
-
-    def notUserFlag(f: xt.Flag) = f.name == "library" || f == xt.Synthetic
-
-    val userIds =
-      initialSymbols.classes.values.filterNot(cd => cd.flags.exists(notUserFlag)).map(_.id) ++
-      initialSymbols.functions.values.filterNot(fd => fd.flags.exists(notUserFlag)).map(_.id) ++
-      initialSymbols.typeDefs.values.filterNot(td => td.flags.exists(notUserFlag)).map(_.id)
-
-    val userDependencies = (userIds.flatMap(initialSymbols.dependencies) ++ userIds).toSeq
-    val keepGroups = context.options.findOptionOrDefault(optKeep)
-
-    def hasKeepFlag(flags: Seq[xt.Flag]) =
-      flags.exists(_.name == "keep") ||
-      keepGroups.exists(g => flags.contains(xt.Annotation("keepFor", Seq(xt.StringLiteral(g)))))
-
-    def keepDefinition(defn: xt.Definition): Boolean =
-      hasKeepFlag(defn.flags) || userDependencies.contains(defn.id)
-
-    val preSymbols =
-      xt.NoSymbols.withClasses(initialSymbols.classes.values.filter(keepDefinition).toSeq)
-                  .withFunctions(initialSymbols.functions.values.filter(keepDefinition).toSeq)
-                  .withTypeDefs(initialSymbols.typeDefs.values.filter(keepDefinition).toSeq)
-
-    Recovery.recover(preSymbols)
+    Recovery.recover(strictBVCleaner.transform(LibraryFilter.removeLibraryFlag(symbols)))
   }
 
 }
