@@ -41,6 +41,10 @@ trait EffectsChecker { self: EffectsAnalyzer =>
       checkEffectsLocations(fd)
       checkPurity(fd)
 
+      // Recursive functions must return fresh results so that no aliasing is possible
+      if (symbols.isRecursive(fd.id) && !exprOps.withoutSpecs(fd.fullBody).forall(isExpressionFresh))
+        throw ImperativeEliminationException(fd, "Illegal recursive functions returning non-fresh result")
+
       exprOps.withoutSpecs(fd.fullBody).foreach { bd =>
 
         object traverser extends SelfTreeTraverser {

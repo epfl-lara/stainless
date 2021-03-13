@@ -350,7 +350,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
           .map(rec(_, path))
           .getOrElse(Set.empty)
 
-      case fi: FunctionInvocation => throw MalformedStainlessCode(expr, s"Couldn't compute effect targets in: $expr")
+      case fi: FunctionInvocation => Set.empty
       case (_: ApplyLetRec | _: Application) => Set.empty
       case (_: FiniteArray | _: LargeArray | _: ArrayUpdated | _: MutableMapUpdated) => Set.empty
       case IsInstanceOf(e, _) => rec(e, path)
