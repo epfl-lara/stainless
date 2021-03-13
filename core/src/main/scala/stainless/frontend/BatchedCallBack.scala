@@ -23,7 +23,10 @@ class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Con
 
   private var report: AbstractReport[Report] = _
 
-  private val preprocess = extraction.utils.DebugPipeline("Preprocessing", Preprocessing())
+  private val preprocess =
+    extraction.utils.DebugPipeline("Preprocessing", Preprocessing()) andThen
+    extraction.utils.DebugPipeline("UserFiltering", UserFiltering())
+
   protected val pipeline: extraction.StainlessPipeline = extraction.pipeline
   private[this] val runs = components.map(_.run(pipeline))
 
