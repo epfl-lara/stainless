@@ -4,6 +4,7 @@ package stainless
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
+import scala.language.existentials
 
 import stainless.utils.YesNoOnly
 
