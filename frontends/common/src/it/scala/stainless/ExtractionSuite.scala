@@ -4,6 +4,7 @@ package stainless
 
 import org.scalatest._
 import scala.util.{Success, Failure, Try}
+import scala.language.existentials
 
 /** Subclass are only meant to call [[testExtractAll]] and [[testRejectAll]] on
  *  the relevant directories. */
@@ -31,16 +32,17 @@ abstract class ExtractionSuite extends FunSpec with inox.ResourceUtils with Inpu
 
       if (tryProgram.isSuccess) {
         val program = tryProgram.get
+        val programSymbols: program.trees.Symbols = frontend.UserFiltering().extract(program.symbols)
 
         it("should typecheck") {
-          program.symbols.ensureWellFormed
-          for (fd <- program.symbols.functions.values.toSeq) {
-            import program.symbols._
+          programSymbols.ensureWellFormed
+          for (fd <- programSymbols.functions.values.toSeq) {
+            import programSymbols._
             assert(isSubtypeOf(fd.fullBody.getType, fd.getType))
           }
         }
 
-        val tryExSymbols: Try[extraction.trees.Symbols] = Try(extraction.pipeline extract program.symbols)
+        val tryExSymbols: Try[extraction.trees.Symbols] = Try(extraction.pipeline extract programSymbols)
         describe("and transformation") {
           it("should be successful") { tryExSymbols.get }
 
@@ -80,7 +82,8 @@ abstract class ExtractionSuite extends FunSpec with inox.ResourceUtils with Inpu
         f -> Try {
           implicit val testCtx = TestContext.empty
           val program = loadFiles(List(f))._2
-          extraction.pipeline extract program.symbols
+          val programSymbols = frontend.UserFiltering().extract(program.symbols)
+          extraction.pipeline extract programSymbols
           testCtx.reporter.errorCount
         }
       }
