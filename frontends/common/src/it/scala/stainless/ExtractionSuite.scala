@@ -2,6 +2,9 @@
 
 package stainless
 
+import stainless.extraction.xlang.{ trees => xt }
+import stainless.extraction.utils.DebugSymbols
+
 import org.scalatest._
 import scala.util.{Success, Failure, Try}
 import scala.language.existentials
@@ -25,6 +28,13 @@ abstract class ExtractionSuite extends FunSpec with inox.ResourceUtils with Inpu
     val files = allFiles.filter(f => !excludes.exists(f.endsWith))
     import ctx.reporter
 
+    val userFiltering = new DebugSymbols {
+      val name = "UserFiltering"
+      val context = ctx
+      val s: xt.type = xt
+      val t: xt.type = xt
+    }
+
     describe(s"Program extraction in $dir") {
       val tryProgram = scala.util.Try(loadFiles(files)._2)
 
@@ -32,7 +42,8 @@ abstract class ExtractionSuite extends FunSpec with inox.ResourceUtils with Inpu
 
       if (tryProgram.isSuccess) {
         val program = tryProgram.get
-        val programSymbols: program.trees.Symbols = frontend.UserFiltering().extract(program.symbols)
+        val programSymbols: program.trees.Symbols =
+          userFiltering.debug(frontend.UserFiltering().transform)(program.symbols)
 
         it("should typecheck") {
           programSymbols.ensureWellFormed
@@ -77,12 +88,19 @@ abstract class ExtractionSuite extends FunSpec with inox.ResourceUtils with Inpu
     val files = allfiles.filter(f => !excludes.exists(f.endsWith))
     import ctx.reporter
 
+    val userFiltering = new DebugSymbols {
+      val name = "UserFiltering"
+      val context = ctx
+      val s: xt.type = xt
+      val t: xt.type = xt
+    }
+
     describe(s"Programs extraction in $dir") {
       val tryPrograms = files map { f =>
         f -> Try {
           implicit val testCtx = TestContext.empty
           val program = loadFiles(List(f))._2
-          val programSymbols = frontend.UserFiltering().extract(program.symbols)
+          val programSymbols = userFiltering.debug(frontend.UserFiltering().transform)(program.symbols)
           extraction.pipeline extract programSymbols
           testCtx.reporter.errorCount
         }
