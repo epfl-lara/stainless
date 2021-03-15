@@ -9,6 +9,7 @@ import scala.language.existentials
 import stainless.utils.YesNoOnly
 
 import extraction.xlang.{ TreeSanitizer, trees => xt }
+import extraction.utils.DebugSymbols
 
 trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with InputUtils { self =>
 
@@ -53,7 +54,14 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
         val (structure, program) = loadFiles(Seq(path))
         assert((structure count { _.isMain }) == 1, "Expecting only one main unit")
 
-        val programSymbols = frontend.UserFiltering().extract(program.symbols)
+        val userFiltering = new DebugSymbols {
+          val name = "UserFiltering"
+          val context = ctx
+          val s: xt.type = xt
+          val t: xt.type = xt
+        }
+
+        val programSymbols = userFiltering.debug(frontend.UserFiltering().transform)(program.symbols)
         programSymbols.ensureWellFormed
         val errors = TreeSanitizer(xt).enforce(programSymbols)
         if (!errors.isEmpty) {
@@ -86,8 +94,16 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
     } else {
       implicit val ctx = inox.TestContext.empty
       val (structure, program) = loadFiles(fs.map(_.getPath))
-      program.symbols.ensureWellFormed
-      val programSymbols = frontend.UserFiltering().extract(program.symbols)
+
+      val userFiltering = new DebugSymbols {
+        val name = "UserFiltering"
+        val context = ctx
+        val s: xt.type = xt
+        val t: xt.type = xt
+      }
+
+      val programSymbols = userFiltering.debug(frontend.UserFiltering().transform)(program.symbols)
+      programSymbols.ensureWellFormed
 
       // We use a shared run during extraction to ensure caching of extraction results is enabled.
 

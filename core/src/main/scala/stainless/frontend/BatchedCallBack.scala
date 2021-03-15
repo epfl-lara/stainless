@@ -4,6 +4,7 @@ package stainless
 package frontend
 
 import stainless.extraction.xlang.{trees => xt, TreeSanitizer}
+import stainless.extraction.utils.DebugSymbols
 import stainless.utils.LibraryFilter
 
 import scala.util.{Try, Success, Failure}
@@ -12,7 +13,7 @@ import scala.concurrent.duration._
 
 import scala.language.existentials
 
-class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Context) extends CallBack with StainlessReports {
+class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Context) extends CallBack with StainlessReports { self =>
   import context.reporter
 
   private implicit val debugSection = DebugSectionFrontend
@@ -23,9 +24,19 @@ class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Con
 
   private var report: AbstractReport[Report] = _
 
-  private val preprocess =
-    extraction.utils.DebugPipeline("Preprocessing", Preprocessing()) andThen
-    extraction.utils.DebugPipeline("UserFiltering", UserFiltering())
+  private[this] val preprocessing = new DebugSymbols {
+    val name = "Preprocessing"
+    val context = self.context
+    val s: xt.type = xt
+    val t: xt.type = xt
+  }
+
+  private[this] val userFiltering = new DebugSymbols {
+    val name = "UserFiltering"
+    val context = self.context
+    val s: xt.type = xt
+    val t: xt.type = xt
+  }
 
   protected val pipeline: extraction.StainlessPipeline = extraction.pipeline
   private[this] val runs = components.map(_.run(pipeline))
@@ -65,7 +76,12 @@ class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Con
       .withFunctions(currentFunctions)
       .withTypeDefs(currentTypeDefs)
 
-    val symbols = preprocess.extract(allSymbols)
+    val symbols =
+      preprocessing.debug(Preprocessing().transform)(
+        userFiltering.debug(UserFiltering().transform)(
+          allSymbols
+        )
+      )
 
     val errors = TreeSanitizer(xt).enforce(symbols)
     if (!errors.isEmpty) {

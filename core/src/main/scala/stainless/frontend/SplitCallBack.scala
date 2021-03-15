@@ -9,6 +9,7 @@ import scala.language.existentials
 
 import extraction.xlang.{ TreeSanitizer, trees => xt }
 import extraction.utils.ConcurrentCache
+import extraction.utils.DebugSymbols
 import utils.{ CheckFilter, JsonUtils }
 
 import scala.collection.mutable.{ ListBuffer, Set => MutableSet }
@@ -26,7 +27,14 @@ class SplitCallBack(components: Seq[Component])(override implicit val context: i
   extends CallBack with CheckFilter with StainlessReports { self =>
 
   protected final override val trees = extraction.xlang.trees
-  private val preprocess = extraction.utils.DebugPipeline("Preprocessing", Preprocessing())
+
+  private[this] val preprocessing = new DebugSymbols {
+    val name = "Preprocessing"
+    val context = self.context
+    val s: xt.type = xt
+    val t: xt.type = xt
+  }
+
   protected val pipeline: extraction.StainlessPipeline = extraction.pipeline
 
   import context.reporter
@@ -159,7 +167,7 @@ class SplitCallBack(components: Seq[Component])(override implicit val context: i
     val funDeps = syms.functions.values.filter(fd => deps(fd.id)).toSeq
     val typeDeps = syms.typeDefs.values.filter(td => deps(td.id)).toSeq
     val preSyms = xt.NoSymbols.withClasses(clsDeps).withFunctions(funDeps ++ funs).withTypeDefs(typeDeps)
-    val funSyms = preprocess.extract(preSyms)
+    val funSyms = preprocessing.debug(Preprocessing().transform)(preSyms)
 
     val cf = serialize(funs)(funSyms)
 
