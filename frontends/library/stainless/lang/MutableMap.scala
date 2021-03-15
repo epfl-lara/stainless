@@ -3,7 +3,6 @@
 package stainless.lang
 
 import stainless.annotation._
-import stainless.lang.StaticChecks._
 
 object MutableMap {
   @extern @library

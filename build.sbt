@@ -31,7 +31,7 @@ lazy val nParallel = {
   }
 }
 
-val SupportedScalaVersions = Seq("2.12.9")
+val SupportedScalaVersions = Seq("2.12.13")
 
 lazy val frontendClass = settingKey[String]("The name of the compiler wrapper used to extract stainless trees")
 
@@ -83,13 +83,8 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
     "-feature"
   ),
 
-  // unmanagedJars in Runtime += {
-  //   root.base / "unmanaged" / s"scalaz3-$osName-$osArch-${scalaBinaryVersion.value}.jar"
-  // },
-
   resolvers ++= Seq(
-    Resolver.sonatypeRepo("releases"),
-    Resolver.bintrayRepo("epfl-lara", "maven"),
+    Resolver.sonatypeRepo("releases").withAllowInsecureProtocol(true),
     ("uuverifiers" at "http://logicrunch.research.it.uu.se/maven").withAllowInsecureProtocol(true),
   ),
 
@@ -143,6 +138,12 @@ lazy val assemblySettings: Seq[Setting[_]] = {
       // hence the following merge strategy picks the standalone BuildInfo over the usual one.
       case "stainless/BuildInfo.class" => MergeStrategy.first
       case "stainless/BuildInfo$.class" => MergeStrategy.first
+      case PathList("META-INF", xs @ _*) => MergeStrategy.discard
+      case PathList("scala", "collection", "compat", _*) => MergeStrategy.first
+      case PathList("scala", "annotation", _*) => MergeStrategy.first
+      case PathList("scala", "util", _*) => MergeStrategy.first
+      case path if path.endsWith("scala-collection-compat.properties") => MergeStrategy.first
+      case "reflect.properties" => MergeStrategy.first
       case file if isNativeLib(file) => MergeStrategy.first
       case x =>
         val oldStrategy = (assembly / assemblyMergeStrategy).value

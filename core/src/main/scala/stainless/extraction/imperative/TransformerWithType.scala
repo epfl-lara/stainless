@@ -4,7 +4,6 @@ package stainless
 package extraction
 package imperative
 
-// FIXME: @romac
 trait TransformerWithType extends oo.TransformerWithType {
   val s: Trees
   val t: Trees

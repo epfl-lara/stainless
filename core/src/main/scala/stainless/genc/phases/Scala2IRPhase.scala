@@ -140,8 +140,10 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
   //   rec(tfd.fd.id) + (if (tfd.tps.nonEmpty) buildIdPostfix(tfd.tps) else buildIdFromTypeMapping(tm))
 
   // Include the "nesting path" in case of generic functions to avoid ambiguity
-  private def buildId(fa: FunAbstraction, tps: Seq[Type])(implicit tm: TypeMapping): CIR.Id =
-    rec(fa.id) + (if (tps.nonEmpty) buildIdPostfix(tps) else buildIdFromTypeMapping(tm))
+  private def buildId(fa: FunAbstraction, tps: Seq[Type])(implicit tm: TypeMapping): CIR.Id = {
+    val exported = fa.isInstanceOf[Outer] && fa.asInstanceOf[Outer].fd.isExported
+    rec(fa.id, withUnique = !exported) + (if (tps.nonEmpty) buildIdPostfix(tps) else buildIdFromTypeMapping(tm))
+  }
 
   private def buildId(ct: ClassType)(implicit tm: TypeMapping): CIR.Id =
     rec(ct.tcd.id) + buildIdPostfix(ct.tps)
@@ -326,7 +328,7 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
     }
 
     // Combine all cases, using a foldRight
-    val patmat = (cases.init :\ last) { case (caze, acc) =>
+    val patmat = cases.init.foldRight(last) { case (caze, acc) =>
       CIR.IfElse(caze.fullCondition, caze.body, acc)
     }
 
@@ -420,9 +422,9 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
   /****************************************************************************************************
    *                                                       Recursive conversion                       *
    ****************************************************************************************************/
-  private def rec(id: Identifier): CIR.Id = {
-    if (id.name == "main") "main"
-    else id.uniqueNameDelimited("_")
+  private def rec(id: Identifier, withUnique: Boolean = true): CIR.Id = {
+    if (withUnique) id.uniqueNameDelimited("_")
+    else id.name
   }
 
   private def rec(vd: ValDef): CIR.Id = {
@@ -554,11 +556,13 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
     def recTopDown(ct: ClassType, parent: Option[CIR.ClassDef], acc: Translation): Translation = {
       val tcd = ct.tcd
       val cd = tcd.cd
-      if (cd.isDropped || cd.isManuallyTyped)
-        ctx.reporter.fatalError(ct.getPos, s"${ct.id} is not convertible to ClassDef in GenC")
-
       val id = buildId(ct)
-      assert(!cd.isCaseObject)
+
+      if (cd.isDropped || cd.isManuallyTyped)
+        ctx.reporter.fatalError(ct.getPos, s"${ct.id.asString} is not convertible to ClassDef in GenC")
+
+      if (cd.isCaseObject)
+        ctx.reporter.fatalError(ct.getPos, s"Case objects (${ct.id.asString}) are not convertible to ClassDef in GenC")
 
       // Use the class definition id, not the typed one as they might not match.
       val nonGhostFields = tcd.fields.filter(!_.flags.contains(Ghost))
@@ -571,7 +575,7 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
 
       // Recurse down
       val children = cd.children map { _.typed(ct.tps) }
-      (newAcc /: children) { case (currentAcc, child) => recTopDown(child.toType, Some(clazz), currentAcc) }
+      children.foldLeft(newAcc) { case (currentAcc, child) => recTopDown(child.toType, Some(clazz), currentAcc) }
     }
 
     val translation = recTopDown(syms.getClass(root(ct.id)).typed(ct.tps).toType, None, Map.empty)

@@ -53,23 +53,7 @@ object TypeCheckerUtils {
       case _ => None
     }
 
-    def unapply(v: Variable): Option[Expr] = v.tpe match {
-      case RefinementType(vd, e) if vd.tpe == UnitType() => Some(e)
-      case _ => None
-    }
-  }
-
-  // The type { u: Unit | e1 == e2 }
-  object Equality {
-    def apply(e1: Expr, e2: Expr) = {
-      val vd = ValDef.fresh("__u", UnitType())
-      RefinementType(vd, Equals(e1,e2))
-    }
-
-    def unapply(t: Type): Option[(Expr, Expr)] = t match {
-      case RefinementType(vd, Equals(e1,e2)) if vd.tpe == UnitType() => Some((e1,e2))
-      case _ => None
-    }
+    def unapply(v: Variable): Option[Expr] = unapply(v.tpe)
   }
 
   // The type { letWitness: Unit | e1 == e2 }
@@ -84,21 +68,16 @@ object TypeCheckerUtils {
       case _ => None
     }
 
-    def unapply(v: Variable): Option[(Variable, Expr)] = {
-      v.tpe match {
-        case RefinementType(vd, Equals(e1: Variable,e2)) if vd.tpe == UnitType() && v.id.name == letWitness => Some((e1, e2))
-        case _ => None
-      }
-    }
+    def unapply(v: Variable): Option[(Variable, Expr)] = unapply(v.tpe)
   }
 
-  def renameVar(e: Expr, id1: Identifier, id2: Identifier): Expr = {
+  def substVar(expr: Expr, id: Identifier, replacement: Expr): Expr = {
     new SelfTreeTransformer {
       override def transform(e: Expr) = e match {
-        case Variable(id, tpe, flags) if id == id1 => Variable(id2, transform(tpe), flags.map(transform))
+        case Variable(id2, _, _) if id2 == id => replacement
         case _ => super.transform(e)
       }
-    }.transform(e)
+    }.transform(expr)
   }
 
   // TODO: implement ite for more types (PiType, SigmaType, etc.)
@@ -108,8 +87,8 @@ object TypeCheckerUtils {
     case (RefinementType(vd1, prop1), RefinementType(vd2, prop2)) =>
       val newType = ite(b, vd1.tpe, vd2.tpe)
       val vd = ValDef.fresh(vd1.id.name, newType)
-      val newProp1 = renameVar(prop1, vd1.id, vd.id)
-      val newProp2 = renameVar(prop2, vd2.id, vd.id)
+      val newProp1 = substVar(prop1, vd1.id, vd.toVariable)
+      val newProp2 = substVar(prop2, vd2.id, vd.toVariable)
       RefinementType(vd, IfExpr(b, newProp1, newProp2))
 
     case (RefinementType(vd1, prop1), _) if (vd1.tpe == t2) =>

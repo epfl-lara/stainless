@@ -1,5 +1,20 @@
 # Release Notes
 
+## Version 0.8.0 (2021-02-24)
+
+### Features
+
+- Support for Scala 2.12.13 (#913)
+- Support for ghost fields in GenC (#904, #907)
+- Initial support for unsigned integers in GenC (#888)
+
+### Bug fixes
+
+- Fix issues watch mode (and add support for Enter key to reload) (#906)
+- Better support for refinement types in type-checker
+- Various bug fixes in extraction phases
+
+
 ## Version 0.7.6 (2021-01-18)
 
 ### Features

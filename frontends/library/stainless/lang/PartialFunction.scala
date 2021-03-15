@@ -3,8 +3,6 @@
 package stainless
 package lang
 
-import scala.language.implicitConversions
-
 import annotation._
 import stainless.lang.StaticChecks._
 

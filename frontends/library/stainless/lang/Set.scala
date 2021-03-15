@@ -6,7 +6,6 @@ import StaticChecks._
 import stainless.annotation._
 import stainless.collection.{List, ListOps}
 
-import scala.language.implicitConversions
 import scala.collection.immutable.{Set => ScalaSet}
 
 object Set {

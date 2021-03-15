@@ -47,7 +47,7 @@ trait ChooseInjector extends inox.transformers.SymbolTransformer {
           }
 
           specced.getSpec(PreconditionKind).map(s => s.expr) match {
-            case Some(pre) => Require(pre, Choose(vd, post))
+            case Some(pre) => specced.wrapLets(Require(pre, Choose(vd, post)))
             case None => Choose(vd, post)
           }
         } else {

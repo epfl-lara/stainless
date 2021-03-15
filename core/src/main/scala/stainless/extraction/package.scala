@@ -38,6 +38,7 @@ package object extraction {
     "ValueClasses"              -> "Erase value classes",
     "FieldAccessors"            -> "Inline field accessors of concrete classes",
     "AntiAliasing"              -> "Rewrite field and array mutations",
+    "ReturnElimination"         -> "Eliminate `return` expressions",
     "ImperativeCodeElimination" -> "Eliminate while loops and assignments",
     "ImperativeCleanup"         -> "Cleanup after imperative transformations",
     "AdtSpecialization"         -> "Specialize classes into ADTs (when possible)",

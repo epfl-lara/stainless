@@ -246,7 +246,7 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
   //  - the arguments themselves
   private def flattenAll(args0: Expr*)(implicit env: Env): (Seq[Seq[to.Expr]], Seq[to.Expr]) = {
     val empty = (Seq[Seq[to.Expr]](), Seq[to.Expr]()) // initSS + lastS
-    val (initss1, args1) = (empty /: args0) { case ((initss, lasts), e) =>
+    val (initss1, args1) = args0.foldLeft(empty) { case ((initss, lasts), e) =>
       val (init, last) = flatten(e)
       (initss :+ init, lasts :+ last)
     }

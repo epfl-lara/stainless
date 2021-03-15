@@ -9,14 +9,14 @@ import org.scalatest._
 import stainless.frontends.scalac.StainlessPlugin
 
 class GhostRewriteSuite extends FunSpec {
-  val reporter = new StoreReporter
+  val settings = new Settings()
+  settings.stopAfter.value = List("refchecks")
+  settings.usejavacp.value = false
+  settings.classpath.value = Main.extraClasspath
+
+  val reporter = new StoreReporter(settings)
 
   def newCompiler: CheckingGlobal = {
-    val settings = new Settings()
-    settings.stopAfter.value = List("refchecks")
-    settings.usejavacp.value = false
-    settings.classpath.value = Main.extraClasspath
-
     new CheckingGlobal(settings)
   }
 
@@ -51,7 +51,7 @@ class GhostRewriteSuite extends FunSpec {
     }
   }
 
-  def ignoreError(i: reporter.Info) = {
+  def ignoreError(i: StoreReporter.Info) = {
     val s = i.toString
 
     s.contains("The Z3 native interface is not available") ||
