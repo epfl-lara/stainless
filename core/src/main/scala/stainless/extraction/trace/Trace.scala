@@ -42,14 +42,8 @@ trait Trace extends CachingPhase with SimpleFunctions with IdentitySorts { self 
       Trace.nextFunction
     }
 
-    var localCounter = 0
-
-    def freshId(a: Identifier, b: Identifier): Identifier = {
-      localCounter = localCounter + 1
-      new Identifier(CheckFilter.fixedFullName(a)+"$"+CheckFilter.fixedFullName(b),localCounter,localCounter)
-    }
-
     def checkPair(fd1: s.FunDef, fd2: s.FunDef): s.FunDef = {
+      val name = CheckFilter.fixedFullName(fd1.id)+"$"+CheckFilter.fixedFullName(fd2.id)
 
       val newParams = fd1.params.map{param => param.freshen}
       val newParamVars = newParams.map{param => param.toVariable}
@@ -62,48 +56,24 @@ trait Trace extends CachingPhase with SimpleFunctions with IdentitySorts { self 
       val body = s.Ensuring(s.Equals(s.FunctionInvocation(fd1.id, newParamTps, newParamVars), s.FunctionInvocation(fd2.id, newParamTps, newParamVars)), post)
       val flags: Seq[s.Flag] = Seq(s.Derived(fd1.id), s.Annotation("traceInduct",List(StringLiteral(fd1.id.name))))
 
-      new s.FunDef(freshId(fd1.id, fd2.id), newParamTypes, newParams, s.BooleanType(), body, flags)
+      new s.FunDef(FreshIdentifier(name), newParamTypes, newParams, s.BooleanType(), body, flags)
     }
 
     def newFuns: List[s.FunDef] = (Trace.getModel, Trace.getFunction) match {
       case (Some(model), Some(function)) => {
-        val m = symbols.functions.filter(elem => elem._2.id == model).head._2
-        val f = symbols.functions.filter(elem => elem._2.id == function).head._2
-        //if (fd1 != fd2) && (fd1.params.size == fd2.params.size)
-        val newFun = checkPair(m, f)
-        Trace.setTrace(newFun.id)
-        List(newFun)
+        val m = symbols.functions(model)
+        val f = symbols.functions(function)
+        if (m != f && m.params.size == f.params.size) {
+          val newFun = checkPair(m, f)
+          Trace.setTrace(newFun.id)
+          List(newFun)
+        }
+        else Nil
       }
       case _ => Nil
     }
 
-/*
-    def newFuns: List[s.FunDef] = Trace.nextModel match {
-      case Some(model) => toCheck.map(f => checkPair(
-
-        symbols.functions.filter(elem => elem._2.id == model).head._2
-
-    , f))
-      case None => check(toCheck, toCheck, Nil)
-    }
-
-    def check(funs1: List[s.FunDef], funs2: List[s.FunDef], acc: List[s.FunDef]): List[s.FunDef] = {
-      funs1 match {
-        case Nil => acc
-        case fd1::xs1 => {
-          funs2 match {
-            case Nil => check(xs1, toCheck, acc)
-              //todo: check if both funs have same arg list
-            case fd2::xs2 if (fd1 != fd2) && (fd1.params.size == fd2.params.size) =>
-              check(funs1, xs2, checkPair(fd1, fd2)::acc)
-            case _ => check(funs1, funs2.tail, acc)
-          }
-        }
-      }
-    }
-*/
     val extracted = super.extractSymbols(context, symbols)
-    //newFuns(toCheck, toCheck, Nil).map(f => extractFunction(symbols, f))
     registerFunctions(extracted, newFuns.map(f => extractFunction(symbols, f)))
   }
 
@@ -132,7 +102,6 @@ trait Trace extends CachingPhase with SimpleFunctions with IdentitySorts { self 
       case None => fd
       case Some(finv) => createTactFun(symbols, fd, finv)
     })
-
 
     identity.transform(result.copy(flags = result.flags filterNot (f => f == TraceInduct)))    
   }
@@ -346,8 +315,8 @@ object Trace {
 
   def nextIteration[T <: AbstractReport[T]](report: AbstractReport[T])(implicit context: inox.Context): Boolean = trace match {
     case Some(t) => {
-      if (report.isError(t)) reportError
-      else if (report.isUnknown(t)) reportUnknown
+      if (report.hasError(t)) reportError
+      else if (report.hasUnknown(t)) reportUnknown
       else reportValid
       !isDone
     }
