@@ -246,7 +246,7 @@ trait AntiAliasing
                 // We only overwrite the receiver when it is an actual mutable type.
                 // This is necessary to handle immutable types being upcasted to `Any`, which is mutable.
                 val assignment = if (isMutableType(effect.receiver.getType)) {
-                  val newValue = applyEffect(effect.toTarget, Annotated(result, Seq(Unchecked)).setPos(pos))
+                  val newValue = updatedTarget(effect.toTarget, Annotated(result, Seq(Unchecked)).setPos(pos))
                   val castedValue = Annotated(AsInstanceOf(newValue, effect.receiver.getType), Seq(Unchecked))
                   Assignment(effect.receiver, castedValue).setPos(args(index))
                 } else UnitLiteral().setPos(pos)
@@ -271,18 +271,53 @@ trait AntiAliasing
             env.rewritings(v.toVal)
 
           case l @ Let(vd, e, b) if isMutableType(vd.tpe) =>
-            val newExpr = transform(e, env)
-
             // see https://github.com/epfl-lara/stainless/pull/920 for discussion
-            if (Try(getTargets(e)).toOption == Some(Set.empty)) {
-              // If we are sure `e` has no aliasing, we can use `withBinding` and allow mutation of `vd`
-              val newBody = transform(b, env withBinding vd)
+
+            val newExpr = transform(e, env)
+            val targets = Try(getTargets(newExpr))
+
+            if (targets.isSuccess) {
+              // This branch handles all cases when targets can be precisely computed, namely when
+              // 1. newExpr is a fresh expression
+              // 2. newExpr is a precise alias to an existing variable
+              val rewriting = targets.get.foldRight(vd.toVariable : Expr) {
+                case (Target(r, Some(cond), path), rewriting) =>
+                  val wrapped = path.wrap(r).getOrElse(
+                    throw MalformedStainlessCode(l, "Unsupported `val` in AntiAliasing (conditional target)")
+                  )
+                  IfExpr(cond, wrapped, rewriting)
+                case (Target(r, None, path), rewriting) =>
+                  path.wrap(r).getOrElse(
+                    throw MalformedStainlessCode(l, "Unsupported `val` in AntiAliasing (unconditional target)")
+                  )
+              }
+
+              val newBody = transform(b, env withRewritings Map(vd -> rewriting) withBinding vd)
               LetVar(vd, newExpr, newBody).copiedFrom(l)
+
+            } else if ((exprOps.variablesOf(e) & exprOps.variablesOf(b)).forall(v => !isMutableType(v.tpe))) {
+              val newBody = transform(b, env withBinding vd)
+
+              // for all effects of `b` whose receiver is `vd`
+              val copyEffects = effects(b).filter(_.receiver == vd.toVariable).flatMap { eff =>
+                // we go to the corresponding target modified in the bound expression (after transformation)
+                getTargets(newExpr, eff.path.toSeq).map { case Target(receiver, _, path) =>
+                  // and we update it
+                  eff.wrap match {
+                    case None => throw MalformedStainlessCode(l, "Unsupported `val` in AntiAliasing")
+                    case Some(expr) => Assignment(receiver, expr).copiedFrom(l)
+                  }
+                }
+              }
+
+              val resVd = ValDef.fresh("res", b.getType).copiedFrom(b)
+              LetVar(
+                vd, newExpr,
+                Let(resVd, newBody, Block(copyEffects.toSeq, resVd.toVariable).copiedFrom(l)).copiedFrom(l)
+              ).copiedFrom(l)
+
             } else {
-              // Otherwise, we stay conservative and use rewritings,
-              // which means we'll check target resolution at mutation points
-              val newBody = transform(b, env withRewritings Map(vd -> newExpr))
-              Let(vd, newExpr, newBody).copiedFrom(l)
+              throw MalformedStainlessCode(l, "Unexpected `val` in AntiAliasing (couldn't compute targets and there are mutable variables shared between the binding and the body)")
             }
 
           case l @ LetVar(vd, e, b) if isMutableType(vd.tpe) =>
@@ -326,7 +361,7 @@ trait AntiAliasing
               throw MalformedStainlessCode(up, "Unsupported form of array update")
 
             Block(targets.toSeq map { target =>
-              val applied = applyEffect(target + ArrayAccessor(i), v)
+              val applied = updatedTarget(target + ArrayAccessor(i), v)
               transform(Assignment(target.receiver, applied).copiedFrom(up), env)
             }, UnitLiteral().copiedFrom(up)).copiedFrom(up)
 
@@ -338,7 +373,7 @@ trait AntiAliasing
               throw MalformedStainlessCode(up, "Unsupported form of map update")
 
             Block(targets.toSeq map { target =>
-              val applied = applyEffect(target + MutableMapAccessor(k), v)
+              val applied = updatedTarget(target + MutableMapAccessor(k), v)
               transform(Assignment(target.receiver, applied).copiedFrom(up), env)
             }, UnitLiteral().copiedFrom(up)).copiedFrom(up)
 
@@ -352,7 +387,7 @@ trait AntiAliasing
             val accessor = typeToAccessor(o.getType, id)
 
             Block(targets.toSeq map { target =>
-              val applied = applyEffect(target + accessor, v)
+              val applied = updatedTarget(target + accessor, v)
               transform(Assignment(target.receiver, applied).copiedFrom(as), env)
             }, UnitLiteral().copiedFrom(as)).copiedFrom(as)
 
@@ -453,7 +488,7 @@ trait AntiAliasing
     // Given a receiver object (mutable class, array or map, usually as a reference id),
     // and a path of field/index access, build a copy of the original object, with
     // properly updated values
-    def applyEffect(effect: Target, newValue: Expr): Expr = {
+    def updatedTarget(target: Target, newValue: Expr): Expr = {
       def rec(receiver: Expr, path: Seq[Accessor]): Expr = path match {
         case ADTFieldAccessor(id) :: fs =>
           val adt @ ADTType(_, tps) = receiver.getType
@@ -494,7 +529,7 @@ trait AntiAliasing
         case Nil => newValue
       }
 
-      effect match {
+      target match {
         case Target(receiver, None, path) =>
           rec(receiver, path.toSeq)
 
@@ -508,8 +543,8 @@ trait AntiAliasing
               ).copiedFrom(newValue),
               receiver.getType
             ).copiedFrom(newValue),
-          Seq(Unchecked)
-        ).copiedFrom(newValue)
+            Seq(Unchecked)
+          ).copiedFrom(newValue)
       }
     }
 
