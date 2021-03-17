@@ -184,35 +184,10 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     def +:(elem: Accessor): Path = Path(elem +: path)
     def ++(that: Path): Path = Path(this.path ++ that.path)
 
+    def wrap(expr: Expr)(implicit symbols: Symbols) = Path.wrap(expr, path)
+
     def on(that: Expr)(implicit symbols: Symbols): Set[Target] = {
-      def rec(expr: Expr, path: Seq[Accessor]): Option[Expr] = path match {
-        case ADTFieldAccessor(id) +: xs =>
-          rec(ADTSelector(expr, id), xs)
-
-        case ClassFieldAccessor(id) +: xs =>
-          def asClassType(tpe: Type): Option[ClassType] = tpe match {
-            case ct: ClassType => Some(ct)
-            case ta: TypeApply if !ta.isAbstract => asClassType(ta.resolve)
-            case other => None
-          }
-
-          for {
-            ct  <- asClassType(expr.getType)
-            tcd <- symbols.classForField(ct, id)
-            res <- rec(ClassSelector(AsInstanceOf(expr, tcd.toType), id), xs)
-          } yield res
-
-        case ArrayAccessor(idx) +: xs =>
-          rec(ArraySelect(expr, idx), xs)
-
-        case MutableMapAccessor(idx) +: xs =>
-          rec(MutableMapApply(expr, idx), xs)
-
-        case Seq() =>
-          Some(expr)
-      }
-
-      rec(that, path).toSet.flatMap(getTargets)
+      wrap(that).toSet.flatMap(getTargets)
     }
 
     def prefixOf(that: Path): Boolean = {
@@ -248,6 +223,34 @@ trait EffectsAnalyzer extends oo.CachingPhase {
 
   object Path {
     def empty: Path = Path(Seq.empty)
+
+    def wrap(expr: Expr, path: Seq[Accessor])(implicit symbols: Symbols): Option[Expr] = path match {
+      case ADTFieldAccessor(id) +: xs =>
+        wrap(ADTSelector(expr, id), xs)
+
+      case ClassFieldAccessor(id) +: xs =>
+        def asClassType(tpe: Type): Option[ClassType] = tpe match {
+          case ct: ClassType => Some(ct)
+          case ta: TypeApply if !ta.isAbstract => asClassType(ta.resolve)
+          case other => None
+        }
+
+        for {
+          ct  <- asClassType(expr.getType)
+          tcd <- symbols.classForField(ct, id)
+          res <- wrap(ClassSelector(AsInstanceOf(expr, tcd.toType), id), xs)
+        } yield res
+
+      case ArrayAccessor(idx) +: xs =>
+        wrap(ArraySelect(expr, idx), xs)
+
+      case MutableMapAccessor(idx) +: xs =>
+        wrap(MutableMapApply(expr, idx), xs)
+
+      case Seq() =>
+        Some(expr)
+    }
+
   }
 
   case class Target(receiver: Variable, condition: Option[Expr], path: Path) {
@@ -305,6 +308,8 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       receiver == that.receiver && (path prefixOf that.path)
 
     def toTarget: Target = Target(receiver, None, path)
+
+    def wrap(implicit symbols: Symbols): Option[Expr] = path.wrap(receiver)
 
     def targetString(implicit printerOpts: PrinterOptions): String =
       s"${receiver.asString}${path.asString}"
