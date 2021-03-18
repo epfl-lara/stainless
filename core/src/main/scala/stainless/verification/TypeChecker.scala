@@ -482,8 +482,9 @@ trait TypeChecker {
       case GreaterThan(lhs, rhs) => inferOperationType(">", e, tc, isComparableType, Some(BooleanType()), lhs, rhs)
       case LessThan(lhs, rhs) => inferOperationType("<", e, tc, isComparableType, Some(BooleanType()), lhs, rhs)
 
+      case BVNot(e2) => inferOperationType("bvnot (~)", e, tc, _.isInstanceOf[BVType], None, e2)
       case BVAnd(lhs, rhs) => inferOperationType("bvand (&)", e, tc, _.isInstanceOf[BVType], None, lhs, rhs)
-      case BVOr(lhs, rhs) => inferOperationType("bvand (|)", e, tc, _.isInstanceOf[BVType], None, lhs, rhs)
+      case BVOr(lhs, rhs) => inferOperationType("bvor (|)", e, tc, _.isInstanceOf[BVType], None, lhs, rhs)
       case BVXor(lhs, rhs) => inferOperationType("bvxor", e, tc, _.isInstanceOf[BVType], None, lhs, rhs)
       case BVShiftLeft(lhs, rhs) => inferOperationType("bvshiftleft", e, tc, _.isInstanceOf[BVType], None, lhs, rhs)
       case BVAShiftRight(lhs, rhs) => inferOperationType("bvshiftright", e, tc, _.isInstanceOf[BVType], None, lhs, rhs)
