@@ -2,7 +2,7 @@ import stainless.annotation._
 
 object ContainerTest {
   case class Box(var value: BigInt)
-  case class Container[T](t: T)
+  case class Container[@mutable T](t: T)
 
   @extern
   def f2(b: Container[Box]): Unit = ???
