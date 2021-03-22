@@ -41,99 +41,119 @@ trait EffectsChecker { self: EffectsAnalyzer =>
       checkEffectsLocations(fd)
       checkPurity(fd)
 
-      exprOps.withoutSpecs(fd.fullBody).foreach { bd =>
+      object traverser extends SelfTreeTraverser {
+        override def traverse(tpe: Type): Unit = tpe match {
+          case at @ ADTType(id, tps) =>
+            (at.getSort.definition.tparams zip tps).foreach { case (tdef, instanceType) =>
+              if (isMutableType(instanceType) && !(tdef.flags contains IsMutable))
+                throw ImperativeEliminationException(tpe,
+                  s"Cannot instantiate a non-mutable ADT type parameter ${tdef.asString} with a mutable type ${instanceType.asString}")
+            }
 
-        object traverser extends SelfTreeTraverser {
-          override def traverse(e: Expr): Unit = e match {
-            case l @ Let(vd, e, b) =>
-              if (!isExpressionFresh(e) && isMutableType(vd.tpe)) try {
-                // Check if a precise effect can be computed
-                getEffects(e)
-              } catch {
-                case _: MalformedStainlessCode =>
-                  throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
-              }
+            super.traverse(at)
 
-              super.traverse(l)
+          case ct @ ClassType(id, tps) =>
+            (ct.tcd.cd.tparams zip tps).foreach { case (tdef, instanceType) =>
+              if (isMutableType(instanceType) && !(tdef.flags contains IsMutable))
+                throw ImperativeEliminationException(tpe,
+                  s"Cannot instantiate a non-mutable class type parameter ${tdef.asString} with a mutable type ${instanceType.asString}")
+            }
 
-            case l @ LetVar(vd, e, b) =>
-              if (!isExpressionFresh(e) && isMutableType(vd.tpe))
-                throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
+            super.traverse(ct)
 
-              super.traverse(l)
-
-            case au @ ArrayUpdate(a, i, e) =>
-              if (!isExpressionFresh(e) && isMutableType(e.getType))
-                throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
-
-              super.traverse(au)
-
-            case mu @ MapUpdated(m, k, e) =>
-              if (!isExpressionFresh(e) && isMutableType(e.getType))
-                throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
-
-              super.traverse(mu)
-
-            case fa @ FieldAssignment(o, sel, e) =>
-              if (!isExpressionFresh(e) && isMutableType(fa.getField.get.getType))
-                throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
-
-              super.traverse(fa)
-
-            case l @ LetRec(fds, body) =>
-              fds.foreach(fd => check(Inner(fd)))
-              traverse(body)
-
-            case l @ Lambda(args, body) =>
-              if (isMutableType(body.getType) && !isExpressionFresh(body))
-                throw ImperativeEliminationException(l, "Illegal aliasing in lambda body")
-              if (effects(body).exists(e => !args.contains(e.receiver.toVal)))
-                throw ImperativeEliminationException(l, "Illegal effects in lambda body")
-              super.traverse(l)
-
-            case fi: FunctionInvocation if isMutableSynthetic(fi.id) =>
-              throw ImperativeEliminationException(fi, s"Cannot call '${fi.id.asString}' on a class with mutable fields")
-
-            case fi @ FunctionInvocation(id, tps, args) =>
-              val fd = symbols.getFunction(id)
-              for ((tpe, tp) <- tps zip fd.tparams if (isMutableType(tpe) && !tp.flags.contains(IsMutable))) {
-                throw ImperativeEliminationException(e,
-                  s"Cannot instantiate a non-mutable type parameter ${tp.asString} in $fd with the mutable type ${tpe.asString}")
-              }
-
-              super.traverse(fi)
-
-            case adt @ ADT(id, tps, args) =>
-              (adt.getConstructor.sort.definition.tparams zip tps).foreach { case (tdef, instanceType) =>
-                if (isMutableType(instanceType) && !(tdef.flags contains IsMutable))
-                  throw ImperativeEliminationException(e,
-                    s"Cannot instantiate a non-mutable type parameter ${tdef.asString} with a mutable type ${instanceType.asString}")
-              }
-
-              super.traverse(adt)
-
-            case MutableMapUpdated(m, k, v) =>
-              m.getType match {
-                case MutableMapType(_, to) if !isMutableType(to) => ()
-                case _ =>
-                  throw ImperativeEliminationException(e,
-                    s"Cannot use `updated` on a MutableMap whose range is a mutable type (${m.getType}).")
-              }
-
-            case MutableMapDuplicate(m) =>
-              m.getType match {
-                case MutableMapType(_, to) if !isMutableType(to) => ()
-                case _ =>
-                  throw ImperativeEliminationException(e,
-                    s"Cannot use `duplicate` on a MutableMap whose range is a mutable type (${m.getType}).")
-              }
-
-            case _ => super.traverse(e)
-          }
+          case _ => super.traverse(tpe)
         }
 
-        traverser.traverse(bd)
+        override def traverse(e: Expr): Unit = e match {
+          case l @ Let(vd, e, b) =>
+            if (!isExpressionFresh(e) && isMutableType(vd.tpe)) try {
+              // Check if a precise effect can be computed
+              getEffects(e)
+            } catch {
+              case _: MalformedStainlessCode =>
+                throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
+            }
+
+            super.traverse(l)
+
+          case l @ LetVar(vd, e, b) =>
+            if (!isExpressionFresh(e) && isMutableType(vd.tpe))
+              throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
+
+            super.traverse(l)
+
+          case au @ ArrayUpdate(a, i, e) =>
+            if (!isExpressionFresh(e) && isMutableType(e.getType))
+              throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
+
+            super.traverse(au)
+
+          case mu @ MapUpdated(m, k, e) =>
+            if (!isExpressionFresh(e) && isMutableType(e.getType))
+              throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
+
+            super.traverse(mu)
+
+          case fa @ FieldAssignment(o, sel, e) =>
+            if (!isExpressionFresh(e) && isMutableType(fa.getField.get.getType))
+              throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
+
+            super.traverse(fa)
+
+          case l @ LetRec(fds, body) =>
+            fds.foreach(fd => check(Inner(fd)))
+            traverse(body)
+
+          case l @ Lambda(args, body) =>
+            if (isMutableType(body.getType) && !isExpressionFresh(body))
+              throw ImperativeEliminationException(l, "Illegal aliasing in lambda body")
+            if (effects(body).exists(e => !args.contains(e.receiver.toVal)))
+              throw ImperativeEliminationException(l, "Illegal effects in lambda body")
+            super.traverse(l)
+
+          case fi: FunctionInvocation if isMutableSynthetic(fi.id) =>
+            throw ImperativeEliminationException(fi, s"Cannot call '${fi.id.asString}' on a class with mutable fields")
+
+          case fi @ FunctionInvocation(id, tps, args) =>
+            val fd = symbols.getFunction(id)
+            for ((tpe, tp) <- tps zip fd.tparams if (isMutableType(tpe) && !tp.flags.contains(IsMutable))) {
+              throw ImperativeEliminationException(e,
+                s"Cannot instantiate a non-mutable function type parameter ${tp.asString} in $fd with the mutable type ${tpe.asString}")
+            }
+
+            super.traverse(fi)
+
+          case adt @ ADT(id, tps, args) =>
+            (adt.getConstructor.sort.definition.tparams zip tps).foreach { case (tdef, instanceType) =>
+              if (isMutableType(instanceType) && !(tdef.flags contains IsMutable))
+                throw ImperativeEliminationException(e,
+                  s"Cannot instantiate a non-mutable ADT constructor type parameter ${tdef.asString} with a mutable type ${instanceType.asString}")
+            }
+
+            super.traverse(adt)
+
+          case MutableMapUpdated(m, k, v) =>
+            m.getType match {
+              case MutableMapType(_, to) if !isMutableType(to) => ()
+              case _ =>
+                throw ImperativeEliminationException(e,
+                  s"Cannot use `updated` on a MutableMap whose range is a mutable type (${m.getType}).")
+            }
+
+          case MutableMapDuplicate(m) =>
+            m.getType match {
+              case MutableMapType(_, to) if !isMutableType(to) => ()
+              case _ =>
+                throw ImperativeEliminationException(e,
+                  s"Cannot use `duplicate` on a MutableMap whose range is a mutable type (${m.getType}).")
+            }
+
+          case _ => super.traverse(e)
+        }
       }
+
+      traverser.traverse(fd.fullBody)
+      for (param <- fd.params) traverser.traverse(param.tpe)
     }
 
     def checkMutableField(fd: FunAbstraction): Unit = {
