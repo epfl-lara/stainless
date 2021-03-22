@@ -160,7 +160,7 @@ object CovariantList {
         case h :: Nil => h
         case _ :: t => t.last
       }
-    } ensuring { this.contains _ }
+    } ensuring { (res: T) => this.contains(res) }
 
     def lastOption: Option[T] = { this match {
       case h :: t =>
