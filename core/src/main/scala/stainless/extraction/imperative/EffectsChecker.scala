@@ -118,7 +118,7 @@ trait EffectsChecker { self: EffectsAnalyzer =>
             val fd = symbols.getFunction(id)
             for ((tpe, tp) <- tps zip fd.tparams if (isMutableType(tpe) && !tp.flags.contains(IsMutable))) {
               throw ImperativeEliminationException(e,
-                s"Cannot instantiate a non-mutable function type parameter ${tp.asString} in $fd with the mutable type ${tpe.asString}")
+                s"Cannot instantiate a non-mutable function type parameter ${tp.asString} in ${fi.asString} with the mutable type ${tpe.asString}")
             }
 
             super.traverse(fi)
@@ -127,7 +127,7 @@ trait EffectsChecker { self: EffectsAnalyzer =>
             (adt.getConstructor.sort.definition.tparams zip tps).foreach { case (tdef, instanceType) =>
               if (isMutableType(instanceType) && !(tdef.flags contains IsMutable))
                 throw ImperativeEliminationException(e,
-                  s"Cannot instantiate a non-mutable ADT constructor type parameter ${tdef.asString} with a mutable type ${instanceType.asString}")
+                  s"Cannot instantiate a non-mutable ADT constructor type parameter ${tdef.asString} in ${adt.asString} with a mutable type ${instanceType.asString}")
             }
 
             super.traverse(adt)
