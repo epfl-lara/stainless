@@ -1,6 +1,8 @@
 import stainless.annotation._
+import stainless.lang._
+import stainless.lang.StaticChecks._
 
-object ContainerTest {
+object ContainerTest2 {
   case class Box(var value: BigInt)
   case class Container[@mutable T](t: T)
 
@@ -8,8 +10,8 @@ object ContainerTest {
   def f2(b: Container[Box]): Unit = ???
 
   def g2(b: Container[Box]) = {
-    val v = b.t.value
+    @ghost val b0 = snapshot(b)
     f2(b)
-    assert(b.t.value == v)
+    assert(b == b0)
   }
 }
