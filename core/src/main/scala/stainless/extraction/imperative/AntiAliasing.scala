@@ -121,7 +121,7 @@ trait AntiAliasing
       val newFd = fd.copy(returnType = analysis.getReturnType(fd))
 
       if (aliasedParams.isEmpty) {
-        newFd.copy(fullBody = makeSideEffectsExplicit(fd.fullBody, fd, env))
+        newFd.copy(fullBody = makeSideEffectsExplicit(fd.fullBody, fd, env, Seq.empty))
       } else {
         val (specs, body) = exprOps.deconstructSpecs(fd.fullBody)
         val freshLocals: Seq[ValDef] = aliasedParams.map(v => v.freshen)
@@ -129,7 +129,7 @@ trait AntiAliasing
 
         val newBody = body.map { body =>
           val freshBody = exprOps.replaceFromSymbols(freshSubst, body)
-          val explicitBody = makeSideEffectsExplicit(freshBody, fd, env withBindings freshLocals)
+          val explicitBody = makeSideEffectsExplicit(freshBody, fd, env withBindings freshLocals, freshLocals.map(_.toVariable))
 
           //WARNING: only works if side effects in Tuples are extracted from left to right,
           //         in the ImperativeTransformation phase.
@@ -148,7 +148,7 @@ trait AntiAliasing
               aliasedParams.zipWithIndex.map { case (vd, i) =>
                 (vd.toVariable, TupleSelect(newRes.toVariable, i+2).copiedFrom(vd)): (Expr, Expr)
               }.toMap + (res.toVariable -> TupleSelect(newRes.toVariable, 1).copiedFrom(res)),
-              makeSideEffectsExplicit(postBody, fd, env)
+              makeSideEffectsExplicit(postBody, fd, env, Seq.empty)
             )
 
             exprOps.Postcondition(Lambda(Seq(newRes), newBody).copiedFrom(post))
@@ -165,7 +165,8 @@ trait AntiAliasing
     def makeSideEffectsExplicit(
       body: Expr,
       originalFd: FunAbstraction,
-      env: Environment
+      env: Environment,
+      freshLocals: Seq[Variable]
     ): Expr = {
 
       object transformer extends inox.transformers.Transformer {
@@ -269,6 +270,11 @@ trait AntiAliasing
         override def transform(e: Expr, env: Env): Expr = (e match {
           case v: Variable if env.rewritings.contains(v.toVal) =>
             env.rewritings(v.toVal)
+
+          case ret @ Return(_) if freshLocals.isEmpty => super.transform(e, env)
+
+          case ret @ Return(retExpr) =>
+            Return(Tuple(transform(retExpr, env) +: freshLocals.map(_.setPos(ret))).setPos(ret)).setPos(ret)
 
           case l @ Let(vd, e, b) if isMutableType(vd.tpe) =>
             // see https://github.com/epfl-lara/stainless/pull/920 for discussion
