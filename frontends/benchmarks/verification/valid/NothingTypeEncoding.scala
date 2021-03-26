@@ -1,5 +1,7 @@
 import stainless._
 import stainless.lang._
+import stainless.annotation._
+import stainless.io.StdOut
 
 object NothingTypeEncoding {
   sealed abstract class List[T]
@@ -18,10 +20,27 @@ object NothingTypeEncoding {
     }
   }
 
-  /* Commented out because this will fail (not crash) verification.
   def bar: Nothing = ???
-  // This is transformed to: error[T]
-  def foo[T]: T = bar
-   */
+
+  def eternal: Nothing = {
+    while (true) {
+      StdOut.println("never stop")
+    }
+    def boom: Nothing = error[Nothing]("boom")
+    boom
+  }
+
+  def foo[T](t: T, arg: Int): T = {
+    require(arg > 0)
+    if (arg == 0) {
+      def boom2: Nothing = error[Nothing]("boom indeed")
+      boom2
+    }
+    else if (arg < 0) bar
+    else t
+  }
+
+
+
 }
 
