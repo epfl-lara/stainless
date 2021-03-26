@@ -22,25 +22,14 @@ object NothingTypeEncoding {
 
   def bar: Nothing = ???
 
-  def eternal: Nothing = {
-    while (true) {
-      StdOut.println("never stop")
-    }
-    def boom: Nothing = error[Nothing]("boom")
-    boom
-  }
-
   def foo[T](t: T, arg: Int): T = {
     require(arg > 0)
     if (arg == 0) {
-      def boom2: Nothing = error[Nothing]("boom indeed")
-      boom2
+      def boom: Nothing = error[Nothing]("boom indeed")
+      boom
     }
     else if (arg < 0) bar
     else t
   }
-
-
-
 }
 
