@@ -34,8 +34,6 @@ object Set {
     @extern @pure
     def map[B](f: A => B): Set[B] = {
       new Set(set.theSet.map(f))
-    } ensuring { res =>
-      forall((a: A) => set.contains(a) == res.contains(f(a)))
     }
 
     @extern @pure
