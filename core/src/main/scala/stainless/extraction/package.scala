@@ -52,7 +52,6 @@ package object extraction {
     "Trace"                     -> "Apply the traceInduct tactic during verification of the annotated function.",
     "SizedADTExtraction"        -> "Transforms calls to 'indexedAt' to the 'SizedADT' tree",
     "InductElimination"         -> "Replace @induct annotation by explicit recursion",
-    "SizeInjection"             -> "Injects a size function for each ADT",
     "MeasureInference"          -> "Infer and inject measures in recursive functions",
     "PartialEvaluation"         -> "Partially evaluate marked function calls",
     "AssertionInjector"         -> "Insert assertions which verify array accesses, casts, division by zero, etc.",
