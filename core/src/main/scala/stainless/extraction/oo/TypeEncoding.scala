@@ -165,7 +165,7 @@ trait TypeEncoding
       case (e, s.NothingType(), t2) if !isObject(t2) =>
         t.Error(scope.transform(t2), e match {
           case t.Error(_, descr) => descr
-          case _ => s"Expression of type Nothing: ${e.asString}"
+          case _ => s"Expression of type Nothing: ${e.toString}"
         })
 
       case (_, t1, t2) if isObject(t1) && !isObject(t2) => unwrap(e, t2)
