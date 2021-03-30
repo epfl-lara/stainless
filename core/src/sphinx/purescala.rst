@@ -779,12 +779,30 @@ These examples are taken from `BitVectors3.scala
   assert(x7 == 120)
 
   // and cast to smaller signed types.
-  // This corresponds to extracting the low-end of the bit representation
+  // This corresponds to extracting the least significant bits of the representation
   // (see `extract` here http://smtlib.cs.uiowa.edu/logics-all.shtml).
   val x8: Int4 = x6.narrow[Int4]
   assert(x8 == -8)
 
-  // The BitVectors library also provide constants for maximum and minimum values.
+  // The library also provide constants for maximum and minimum values.
   assert(max[Int8] == 127)
   assert(min[Int8] == -128)
 
+
+Bitvector types can be understood as finite intervals of integers
+(two's complement representation). For ``X`` an integer larger than ``1``
+(and at most ``256`` in Stainless):
+
+* ``UIntX`` is the interval :math:`[0, 2^X - 1]`,
+* ``IntX`` is the interval :math:`[-2^{X-1}, 2^{X-1} - 1]`.
+
+Conversions between these types can be interpreted as operations on the
+array of bits of the bitvectors, or as operations on the integers they
+represent.
+
+* ``widen`` from ``UIntX`` to ``UIntY`` with :math:`Y > X` adds :math:`Y-X` (most significant) 0-bits, and corresponds to the identity transformation on integers.
+* ``widen`` from ``IntX`` to ``IntY`` with :math:`Y > X` copies :math:`Y-X` times the sign bit, and corresponds to the identity transformation on integers.
+* ``narrow`` from ``UIntX`` to ``UIntY`` with :math:`Y < X` removes the :math:`X-Y` most significant bits, and corresponds to taking the number modulo :math:`2^Y`.
+* ``narrow`` from ``IntX`` to ``IntY`` with :math:`Y < X` removes the :math:`X-Y` most significant bits (including the sign bit), and corresponds to the identity for integers in the interval :math:`[-2^{Y-1}, 2^{Y-1} - 1]`. Outside this range, the operation is tedious to represent on integers.
+* ``toSigned`` from ``UIntX`` to ``IntX`` does not change the bitvector, and behaves as the identity for integers smaller than :math:`2^{X-1}-1`, and subtracts :math:`2^{X}` for integers in the interval :math:`[2^{X-1}, 2^{X} - 1]`.
+* ``toUnsigned`` from ``IntX`` to ``UIntX`` does not change the bitvector, and behaves as the identity for non-negative integers, and adds :math:`2^{X}` for negative integers (in the interval :math:`[-2^{X-1}, 0[`).
