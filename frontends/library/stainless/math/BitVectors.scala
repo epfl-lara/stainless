@@ -1049,6 +1049,11 @@ object BitVectors {
   def min[X <: BV[_ <: BVKind with Singleton]]: X = ???
   def max[X <: BV[_ <: BVKind with Singleton]]: X = ???
 
+  def fromByte(n: Byte): Int8 = ???
+  def fromShort(n: Short): Int16 = ???
+  def fromInt(n: Int): Int32 = ???
+  def fromLong(n: Long): Int64 = ???
+
   case class BV[T <: BVKind with Singleton](underlying: BitSet) {
 
     def unary_- :           BV[T]   = { ??? }
@@ -1071,6 +1076,13 @@ object BitVectors {
 
     def widen [X <: BV[_ <: BVKind with Singleton]]: X = { ??? }
     def narrow[X <: BV[_ <: BVKind with Singleton]]: X = { ??? }
+    def toSigned[X <: BV[_ <: BVKind with Singleton]]: X = { ??? }
+    def toUnsigned[X <: BV[_ <: BVKind with Singleton]]: X = { ??? }
+
+    def toByte: Byte = { ??? }
+    def toShort: Short = { ??? }
+    def toInt: Int = { ??? }
+    def toLong: Long = { ??? }
   }
 
 }

@@ -1552,6 +1552,38 @@ trait CodeExtraction extends ASTExtractors {
               else xt.BVNarrowingCast(extractTree(lhs), xt.BVType(signed2, size2))
           }
 
+          case (StrictBVType(signed, size), "toSigned",  Seq()) => tps match {
+            case Seq(FrontendBVType(signed2, size2)) =>
+              if (signed) outOfSubsetError(tr, "Method `toSigned` must be used on unsigned bitvectors")
+              else if (!signed2) outOfSubsetError(tr, "Method `toSigned` must be instantiated with a signed bitvector type")
+              else if (size != size2) outOfSubsetError(tr, "Method `toSigned` must be instantiated with a signed bitvector type of the same size as the original bitvector")
+              else xt.BVUnsignedToSigned(extractTree(lhs))
+            case _ =>
+              outOfSubsetError(tr, "Method `toSigned` must be instantiated with a signed bitvector type of the same size as the original bitvector")
+          }
+          case (StrictBVType(signed, size), "toUnsigned",  Seq()) => tps match {
+            case Seq(FrontendBVType(signed2, size2)) =>
+              if (!signed) outOfSubsetError(tr, "Method `toUnsigned` must be used on signed bitvectors")
+              else if (signed2) outOfSubsetError(tr, "Method `toUnsigned` must be instantiated with a unsigned bitvector type")
+              else if (size != size2) outOfSubsetError(tr, "Method `toUnsigned` must be instantiated with a unsigned bitvector type of the same size as the original bitvector")
+              else xt.BVSignedToUnsigned(extractTree(lhs))
+            case _ =>
+              outOfSubsetError(tr, "Method `toSigned` must be instantiated with a signed bitvector type of the same size as the original bitvector")
+          }
+
+          case (StrictBVType(signed, size), "toByte",  Seq()) =>
+            if (!signed || size != 8) outOfSubsetError(tr, "Method `toByte` can only be used on a Int8")
+            else extractTree(lhs)
+          case (StrictBVType(signed, size), "toShort",  Seq()) =>
+            if (!signed || size != 16) outOfSubsetError(tr, "Method `toShort` can only be used on a Int16")
+            else extractTree(lhs)
+          case (StrictBVType(signed, size), "toInt",  Seq()) =>
+            if (!signed || size != 32) outOfSubsetError(tr, "Method `toShort` can only be used on a Int32")
+            else extractTree(lhs)
+          case (StrictBVType(signed, size), "toLong",  Seq()) =>
+            if (!signed || size != 64) outOfSubsetError(tr, "Method `toShort` can only be used on a Int64")
+            else extractTree(lhs)
+
           case (_, "unary_+", Seq()) => injectCast(e => e)(lhs)
           case (_, "-",   Seq(rhs)) => injectCasts(xt.Minus)(lhs, rhs)
           case (_, "*",   Seq(rhs)) => injectCasts(xt.Times)(lhs, rhs)
