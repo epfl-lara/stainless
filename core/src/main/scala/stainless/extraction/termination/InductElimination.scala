@@ -163,7 +163,7 @@ trait InductElimination
     val typeCheckerEnabled = context.options.findOptionOrDefault(verification.optTypeChecker)
 
     val newSpecs =
-      if (inductionParams.isEmpty || !typeCheckerEnabled) specs
+      if (inductionParams.isEmpty) specs
       else specs.filterNot(_.isInstanceOf[Measure]) ++ newMeasure
 
     val fullBody = reconstructSpecs(newSpecs, inductionBody, fd.returnType)
