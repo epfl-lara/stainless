@@ -38,7 +38,7 @@ satisfy these extra conditions:
 
  - ``CHAR_BITS`` is defined to be 8;
 
- - The ``int8_t``, ``int16_t``, ``int32_t``, ``int64_t`` and ``uint8_t``, ``uint16_t``, ``uint32_t``, ``uint64_t`` types are available;
+ - The ``int8_t``, ``int16_t``, ``int32_t``, ``int64_t`` and ``uint8_t``, ``uint16_t``, ``uint32_t``, ``uint64_t`` types are available (see :doc:`Pure Scala <purescala>` for description);
 
  - Casting from unsigned to signed integer, and vice-versa, is not well supported at the moment.
 
@@ -67,13 +67,13 @@ The following raw types and their corresponding literals are supported:
     - ``void``
   * - ``Boolean``
     - ``bool``
-  * - ``Byte`` (8-bit integer)
+  * - ``Byte`` and ``Int8`` (8-bit integer)
     - ``int8_t``
-  * - ``Int16`` (16-bit integer)
+  * - ``Short`` and ``Int16`` (16-bit integer)
     - ``int16_t``
-  * - ``Int`` (32-bit integer)
+  * - ``Int`` and ``Int32`` (32-bit integer)
     - ``int32_t``
-  * - ``Long`` (64-bit integer)
+  * - ``Long`` and ``Int64`` (64-bit integer)
     - ``int64_t``
   * - ``UInt8`` (8-bit unsigned integer)
     - ``uint8_t``
