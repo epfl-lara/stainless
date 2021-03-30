@@ -34,30 +34,21 @@ object Set {
     @extern @pure
     def map[B](f: A => B): Set[B] = {
       new Set(set.theSet.map(f))
-    } ensuring { res =>
-      forall((a: A) => set.contains(a) == res.contains(f(a)))
     }
 
     @extern @pure
     def filter(p: A => Boolean): Set[A] = {
       new Set(set.theSet.filter(p))
-    } ensuring { res =>
-      forall((a: A) => if (set.contains(a) && p(a)) res.contains(a) else !res.contains(a))
     }
 
     @extern @pure
     def withFilter(p: A => Boolean): Set[A] = {
       new Set(set.theSet.filter(p))
-    } ensuring { res =>
-      forall((a: A) => if (set.contains(a) && p(a)) res.contains(a) else !res.contains(a))
     }
 
     @extern @pure
     def toList: List[A] = {
       List.fromScala(set.theSet.toList)
-    } ensuring { res =>
-      forall((a: A) => res.contains(a) == set.contains(a)) &&
-      ListOps.noDuplicate(res)
     }
 
     @extern @pure
