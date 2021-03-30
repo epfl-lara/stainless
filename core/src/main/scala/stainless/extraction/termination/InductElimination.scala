@@ -9,6 +9,7 @@ trait InductElimination
     with SimpleFunctions
     with SimplyCachedFunctions
     with IdentitySorts { self =>
+
   val s: Trees
   val t: s.type
 
@@ -113,6 +114,7 @@ trait InductElimination
                     ).setPos(oldBody)
                 }
               ).setPos(oldBody)
+
             case IntegerType() =>
               // FIXME: When fd.returnType is a dependent type, we must bind its variables with newParams
               val inductionVd = ValDef.fresh("inductVal", fd.returnType).setPos(oldBody)
@@ -129,8 +131,8 @@ trait InductElimination
                   currentBody
                 ).setPos(oldBody)
               ).setPos(oldBody)
-            case BVType(sign, size) =>
 
+            case BVType(sign, size) =>
               // FIXME: When fd.returnType is a dependent type, we must bind its variables with newParams
               val inductionVd = ValDef.fresh("inductVal", fd.returnType)
               val newParams = fd.params.map { param =>
@@ -146,6 +148,7 @@ trait InductElimination
                   currentBody
                 ).setPos(oldBody)
               )
+
             case tpe =>
               context.reporter.fatalError(vd.getPos, s"Induction on type ${tpe.asString} is not supported")
           }
@@ -163,18 +166,19 @@ trait InductElimination
       if (inductionParams.isEmpty || !typeCheckerEnabled) specs
       else specs.filterNot(_.isInstanceOf[Measure]) ++ newMeasure
 
-    val newBody = reconstructSpecs(newSpecs, inductionBody, fd.returnType)
+    val fullBody = reconstructSpecs(newSpecs, inductionBody, fd.returnType)
+
+    // Remove @induct flag from parameters and replace those in the body to ensure well-formedness.
+    val newParams = fd.params.map(vd => vd.copy(flags = vd.flags.filterNot(_ == Induct)).copiedFrom(vd))
+    val newBody = exprOps.replaceFromSymbols(fd.params.zip(newParams.map(_.toVariable)).toMap, fullBody)
 
     new FunDef(
       fd.id,
       fd.tparams,
-      fd.params,
-      // FIXME: fd.params should be
-      //        `fd.params.map(vd => vd.copy(flags = vd.flags.filterNot(_.name == "induct")).copiedFrom(vd))`,
-      //         but that creates a well-formedness exception
+      newParams,
       fd.returnType,
       newBody,
-      fd.flags
+      fd.flags.filterNot(_ == Induct),
     ).setPos(fd)
   }
 }
