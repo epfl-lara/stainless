@@ -35,7 +35,7 @@ trait InductElimination
 
     // @induct on the function refers to induction on the first parameter for which `canInductOn` returns true
     val firstInductionParam =
-      if (fd.flags.exists(_.name == "induct")) {
+      if (fd.flags.contains(Induct)) {
         fd.params.find(vd => canInductOn(vd.getType)) match {
           case Some(vd) => Seq(vd)
           case None =>
@@ -51,7 +51,7 @@ trait InductElimination
     val inductionParams =
       firstInductionParam ++
         fd.params.filter { vd =>
-          !firstInductionParam.contains(vd) && vd.flags.exists(_.name == "induct")
+          !firstInductionParam.contains(vd) && vd.flags.contains(Induct)
         }
 
     if (inductionParams.isEmpty) {
