@@ -238,18 +238,6 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
     case _ => ctx.reporter.fatalError(typ.getPos, s"Unexpected ${typ.getClass} instead of TupleType")
   }
 
-  private def buildCast(e0: Expr, newType0: BVType)(implicit env: Env, tm: TypeMapping): CIR.IntegralCast = {
-    val newType = newType0.size match {
-      case 8 => PT.Int8Type
-      case 32 => PT.Int32Type
-      case s => ctx.reporter.fatalError(e0.getPos, s"Unsupported integral cast to $s-bit integer")
-    }
-
-    val e = rec(e0)
-
-    CIR.IntegralCast(e, newType)
-  }
-
   private def castNotSupported(ct: ClassType): Boolean =
     ct.tcd.cd.isAbstract && ct.tcd.parents.nonEmpty
 
@@ -795,8 +783,8 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
     case BVAShiftRight(lhs, rhs)  => ctx.reporter.fatalError(e.getPos, "Operator >> is not supported by GenC")
     case BVLShiftRight(lhs, rhs)  => buildBinOp(lhs, O.BRightShift, rhs)(e.getPos)
 
-    case BVWideningCast(e, t)  => buildCast(e, t)
-    case BVNarrowingCast(e, t) => buildCast(e, t)
+    case BVWideningCast(e, t)  => CIR.IntegralCast(rec(e), rec(t).asInstanceOf[CIR.PrimitiveType].primitive.asInstanceOf[PT.IntegralPrimitiveType])
+    case BVNarrowingCast(e, t) => CIR.IntegralCast(rec(e), rec(t).asInstanceOf[CIR.PrimitiveType].primitive.asInstanceOf[PT.IntegralPrimitiveType])
 
     case MatchExpr(scrutinee, cases) => convertPatMap(scrutinee, cases)
 
