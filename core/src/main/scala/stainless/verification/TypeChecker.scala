@@ -514,7 +514,20 @@ trait TypeChecker {
         val (tpe, vcs) = inferType(tc, e2)
         stripRefinementsAndAnnotations(tpe) match {
           case BVType(s, from) if s == newType.signed && from > newType.size => (newType, vcs)
-          case _ => reporter.fatalError(e.getPos, s"Cannot widen boolean vector ${e2.asString} to ${newType.asString}")
+          case _ => reporter.fatalError(e.getPos, s"Cannot narrow boolean vector ${e2.asString} to ${newType.asString}")
+        }
+
+      case c@BVUnsignedToSigned(e2) =>
+        val (tpe, vcs) = inferType(tc, e2)
+        stripRefinementsAndAnnotations(tpe) match {
+          case BVType(false, size) => (BVType(true, size), vcs)
+          case _ => reporter.fatalError(e.getPos, s"Cannot use `toSigned` on ${e2.asString}")
+        }
+      case c@BVSignedToUnsigned(e2) =>
+        val (tpe, vcs) = inferType(tc, e2)
+        stripRefinementsAndAnnotations(tpe) match {
+          case BVType(true, size) => (BVType(false, size), vcs)
+          case _ => reporter.fatalError(e.getPos, s"Cannot use `toUnsigned` on ${e2.asString}")
         }
 
       case FiniteSet(elements, tpe) =>

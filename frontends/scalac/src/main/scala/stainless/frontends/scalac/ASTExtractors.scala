@@ -499,6 +499,58 @@ trait ASTExtractors {
       }
     }
 
+    /** `fromByte` extraction (Byte to Int8 identity conversion) */
+    object ExFromByte {
+      def unapply(tree: Tree): Option[Tree] = tree  match {
+        case Apply(
+          ExSelected("stainless", "math", "BitVectors", "fromByte"),
+          expr :: Nil
+        ) =>
+          Some(expr)
+        case _ =>
+          None
+      }
+    }
+
+    /** `fromShort` extraction (Short to Int16 identity conversion) */
+    object ExFromShort {
+      def unapply(tree: Tree): Option[Tree] = tree  match {
+        case Apply(
+          ExSelected("stainless", "math", "BitVectors", "fromShort"),
+          expr :: Nil
+        ) =>
+          Some(expr)
+        case _ =>
+          None
+      }
+    }
+
+    /** `fromInt` extraction (Int to Int32 identity conversion) */
+    object ExFromInt {
+      def unapply(tree: Tree): Option[Tree] = tree  match {
+        case Apply(
+          ExSelected("stainless", "math", "BitVectors", "fromInt"),
+          expr :: Nil
+        ) =>
+          Some(expr)
+        case _ =>
+          None
+      }
+    }
+
+    /** `fromLong` extraction (Long to Int64 identity conversion) */
+    object ExFromLong {
+      def unapply(tree: Tree): Option[Tree] = tree  match {
+        case Apply(
+          ExSelected("stainless", "math", "BitVectors", "fromLong"),
+          expr :: Nil
+        ) =>
+          Some(expr)
+        case _ =>
+          None
+      }
+    }
+
     /** `intToBV` extraction */
     object ExIntToBV {
       def unapply(tree: Tree): Option[(Boolean, Int, Tree)] = tree  match {
