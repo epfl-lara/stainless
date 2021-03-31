@@ -18,6 +18,7 @@ Contents:
    options
    verification
    laws
+   trace
    imperative
    ghost
    wrap
