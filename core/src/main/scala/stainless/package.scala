@@ -109,6 +109,11 @@ package object stainless {
   }
 
   def topLevelErrorHandler(e: Throwable)(implicit ctx: inox.Context): Nothing = {
+    e match {
+      case extraction.MalformedStainlessCode(tree, msg) => ctx.reporter.error(tree.getPos, msg)
+      case _ => ()
+    }
+
     ctx.reporter.error(s"Stainless terminated with an error.")
 
     val sw = new StringWriter
