@@ -3,7 +3,7 @@ import stainless.lang._
 import stainless.collection._
 import stainless.annotation._
 
-object SetAxioms {
+object Iterables {
 
   @extern @pure
   def setToListAxiom[A](set: Set[A], a: A): Unit = {
