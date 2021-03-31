@@ -267,6 +267,26 @@ trait AntiAliasing
           }
         }
 
+        // throws an exception if two arguments in the sequence share a target (or a non-empty target prefix)
+        private def checkAliasing(expr: Expr, args: Seq[Expr]): Unit = {
+          val argTargets: Seq[(Set[Target], Int)] =
+            args.map(arg => Try(getTargets(arg)).toOption
+              .getOrElse(
+                exprOps.variablesOf(arg)
+                  .filter(v => isMutableType(v.tpe))
+                  .map(v => Target(v, None, Path.empty))
+              )
+            ).zipWithIndex
+          if (argTargets.exists { case (targets, i) =>
+            val otherTargets: Seq[Target] = argTargets.filter(_._2 != i).map(_._1).flatten
+            targets.exists((target1: Target) => otherTargets.exists((target2: Target) =>
+              target1.toEffect.prefixOf(target2.toEffect) ||
+              target2.toEffect.prefixOf(target1.toEffect)
+            ))
+          })
+            throw MalformedStainlessCode(expr, "Illegal passing of aliased parameters")
+        }
+
         override def transform(e: Expr, env: Env): Expr = (e match {
           case v: Variable if env.rewritings.contains(v.toVal) =>
             env.rewritings(v.toVal)
@@ -432,28 +452,24 @@ trait AntiAliasing
 
           case fi @ FunctionInvocation(id, tps, args) =>
             val fd = Outer(fi.tfd.fd)
-            val vis: Set[Variable] = varsInScope(fd)
-
-            args.find { case v: Variable => vis.contains(v) case _ => false }
-              .foreach(aliasedArg => throw FatalError("Illegal passing of aliased parameter: " + aliasedArg))
+            val rewrittenArgs = args.map(exprOps.replaceFromSymbols(env.rewritings, _))
+            checkAliasing(fi, rewrittenArgs)
 
             val nfi = FunctionInvocation(
-              id, tps, args.map(arg => transform(exprOps.replaceFromSymbols(env.rewritings, arg), env))
+              id, tps, rewrittenArgs.map(transform(_, env))
             ).copiedFrom(fi)
 
             mapApplication(fd.params, args, nfi, fi.tfd.instantiate(analysis.getReturnType(fd)), effects(fd), env)
 
           case alr @ ApplyLetRec(id, tparams, tpe, tps, args) =>
             val fd = Inner(env.locals(id))
-            val vis: Set[Variable] = varsInScope(fd)
-
-            args.find { case v: Variable => vis.contains(v) case _ => false }
-              .foreach(aliasedArg => throw FatalError("Illegal passing of aliased parameter: " + aliasedArg))
+            val rewrittenArgs = args.map(exprOps.replaceFromSymbols(env.rewritings, _))
+            checkAliasing(alr, rewrittenArgs)
 
             val nfi = ApplyLetRec(
               id, tparams,
               FunctionType(fd.params.map(_.getType), analysis.getReturnType(fd)).copiedFrom(tpe), tps,
-              args.map(arg => transform(exprOps.replaceFromSymbols(env.rewritings, arg), env))
+              rewrittenArgs.map(transform(_, env))
             ).copiedFrom(alr)
 
             val resultType = typeOps.instantiateType(analysis.getReturnType(fd), (tparams zip tps).toMap)
