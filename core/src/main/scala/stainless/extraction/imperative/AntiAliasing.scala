@@ -453,7 +453,8 @@ trait AntiAliasing
           case fi @ FunctionInvocation(id, tps, args) =>
             val fd = Outer(fi.tfd.fd)
             val rewrittenArgs = args.map(exprOps.replaceFromSymbols(env.rewritings, _))
-            checkAliasing(fi, rewrittenArgs)
+            if (!fi.tfd.fd.flags.exists(_.name == "accessor"))
+              checkAliasing(fi, rewrittenArgs)
 
             val nfi = FunctionInvocation(
               id, tps, rewrittenArgs.map(transform(_, env))
