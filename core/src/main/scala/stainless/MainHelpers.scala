@@ -51,7 +51,6 @@ trait MainHelpers extends inox.MainHelpers { self =>
     genc.optOutputFile -> Description(General, "File name for GenC output"),
     optWatch -> Description(General, "Re-run stainless upon file changes"),
     optCompact -> Description(General, "Print only invalid elements of summaries"),
-    optNoColors -> Description(General, "Disable colored output"),
     frontend.optPersistentCache -> Description(General, "Enable caching of program extraction & analysis"),
     frontend.optBatchedProgram -> Description(General, "Process the whole program together, skip dependency analysis"),
     frontend.optKeep -> Description(General, "Keep library objects marked by @keepFor(g) for some g in g1,g2,... (implies --batched)"),
@@ -123,7 +122,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
   def getConfigContext(options: inox.Options)(implicit initReporter: inox.Reporter): inox.Context = {
     val ctx = super.processOptions(Seq.empty, getConfigOptions(options))
 
-    if (ctx.options.findOptionOrDefault(optNoColors)) {
+    if (ctx.options.findOptionOrDefault(inox.optNoColors)) {
       val reporter = new stainless.PlainTextReporter(ctx.reporter.debugSections)
       Context.withReporter(reporter)(ctx)
     } else ctx
@@ -143,7 +142,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
 
     val ctx = super.processOptions(files, options)
 
-    if (ctx.options.findOptionOrDefault(optNoColors)) {
+    if (ctx.options.findOptionOrDefault(inox.optNoColors)) {
       val reporter = new stainless.PlainTextReporter(ctx.reporter.debugSections)
       Context.withReporter(reporter)(ctx)
     } else ctx
@@ -219,8 +218,9 @@ trait MainHelpers extends inox.MainHelpers { self =>
         exportJson(compiler.getReport, output)
       }
 
+      val asciiOnly = ctx.options.findOptionOrDefault(inox.optNoColors)
       reporter.whenDebug(inox.utils.DebugSectionTimers) { debug =>
-        timers.outputTable(debug)
+        timers.outputTable(debug, asciiOnly)
       }
 
       // Shutdown the pool for a clean exit.

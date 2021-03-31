@@ -4,8 +4,6 @@ package stainless
 
 import inox.DebugSection
 
-object optNoColors extends inox.FlagOptionDef("no-colors", false)
-
 abstract class ReportMessage {
   def sbtPluginOnly: Boolean
   def title: String
