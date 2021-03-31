@@ -68,7 +68,10 @@ trait Trace extends CachingPhase with SimpleFunctions with IdentitySorts { self 
           Trace.setTrace(newFun.id)
           List(newFun)
         }
-        else Nil
+        else {
+          Trace.reportWrong
+          Nil
+        }
       }
       case _ => Nil
     }
@@ -172,7 +175,6 @@ trait Trace extends CachingPhase with SimpleFunctions with IdentitySorts { self 
     val bodyPre = exprOps.withPrecondition(body, precondition)
     val bodyPost = exprOps.withPostcondition(bodyPre,postcondition)
     function.copy(function.id, function.tparams, function.params, function.returnType, bodyPost, function.flags)  
-
   }
 
   type Path = Seq[String]
@@ -217,15 +219,24 @@ object Trace {
   var clusters: Map[Identifier, List[Identifier]] = Map()
   var errors: List[Identifier] = List()
   var unknowns: List[Identifier] = List()
+  var wrong: List[Identifier] = List()
 
-  def printEverything() = {
+  def optionsError(implicit ctx: inox.Context): Boolean = 
+    !ctx.options.findOptionOrDefault(frontend.optBatchedProgram) && 
+    (!ctx.options.findOptionOrDefault(optModels).isEmpty || !ctx.options.findOptionOrDefault(optCompareFuns).isEmpty)
+        
+  def printEverything(implicit ctx: inox.Context) = {
+    import ctx.{ reporter, timers }
     if(!clusters.isEmpty || !errors.isEmpty || !unknowns.isEmpty) {
-      System.out.println("clusters")   
-      System.out.println(clusters)
-      System.out.println("errors")
-      System.out.println(errors)
-      System.out.println("unknowns")
-      System.out.println(unknowns)
+      reporter.info(s"Printing equivalence checking results:")  
+      allModels.foreach(model => {
+        val l = clusters(model).mkString(", ")
+        reporter.info(s"List of functions that are equivalent to model $model: $l")
+      })
+      val errorneous = errors.mkString(", ")
+      reporter.info(s"List of erroneous functions: $errorneous")
+      val timeouts = unknowns.mkString(", ")
+      reporter.info(s"List of timed-out functions: $timeouts")
     }
   }
 
@@ -320,7 +331,10 @@ object Trace {
       else reportValid
       !isDone
     }
-    case None => false
+    case None => {
+      nextFunction
+      !isDone
+    }
   }
 
   private def isDone = function == None
@@ -341,5 +355,10 @@ object Trace {
   private def reportValid = {
     clusters = clusters + (model.get -> (function.get::clusters(model.get)))
     nextFunction
+  }
+
+  private def reportWrong = {
+    trace = None
+    wrong = function.get::wrong
   }
 }

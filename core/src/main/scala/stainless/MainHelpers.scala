@@ -168,7 +168,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
 
       import ctx.{ reporter, timers }
 
-      if(!ctx.options.findOptionOrDefault(frontend.optBatchedProgram) && (!ctx.options.findOptionOrDefault(optModels).isEmpty || !ctx.options.findOptionOrDefault(optCompareFuns).isEmpty)) {
+      if (extraction.trace.Trace.optionsError) {
         reporter.error(s"Equivalence checking for --comparefuns and --models only works in batched mode.")
         System.exit(1)
       }
