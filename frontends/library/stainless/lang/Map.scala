@@ -37,22 +37,16 @@ object Map {
     @extern @pure
     def keys: List[A] = {
       List.fromScala(map.theMap.keys.toList)
-    } ensuring { res =>
-      forall((a: A) => map.contains(a) == res.contains(a))
     }
 
     @extern @pure
     def values: List[B] = {
       List.fromScala(map.theMap.values.toList)
-    } ensuring { res =>
-      forall((a: A, b: B) => (map.contains(a) && map(a) == b) == res.contains(b))
     }
 
     @extern @pure
     def toList: List[(A, B)] = {
       List.fromScala(map.theMap.toList)
-    } ensuring { res =>
-      forall((a: A) => map.contains(a) == res.contains((a, map(a))))
     }
 
     @extern @pure
