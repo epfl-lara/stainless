@@ -55,10 +55,6 @@ class TerminationSuite extends ComponentTestSuite {
     case "verification/valid/MergeSort"          => Ignore
     case "verification/valid/MergeSort2"         => Ignore
 
-    // Fails due to a bug in ChainProcessor (https://github.com/epfl-lara/stainless/issues/726)
-    case "verification/valid/Nested14" => Ignore
-    case "verification/valid/Nested16" => Ignore
-
     case _ => super.filter(ctx, name)
   }
 
