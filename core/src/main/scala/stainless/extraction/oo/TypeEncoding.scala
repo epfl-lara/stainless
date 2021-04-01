@@ -161,6 +161,13 @@ trait TypeEncoding
     ((e, t1, t2) match {
       case (_, t1, t2) if erasedBy(t1) == erasedBy(t2) => e
       case (_, t1, t2) if isObject(t1) && isObject(t2) => e
+
+      case (e, s.NothingType(), t2) if !isObject(t2) =>
+        t.Error(scope.transform(t2), e match {
+          case t.Error(_, descr) => descr
+          case _ => s"Expression of type Nothing: ${e.toString}"
+        })
+
       case (_, t1, t2) if isObject(t1) && !isObject(t2) => unwrap(e, t2)
       case (_, t1, t2) if !isObject(t1) && isObject(t2) => wrap(e, t1)
 

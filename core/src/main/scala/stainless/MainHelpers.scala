@@ -186,6 +186,12 @@ trait MainHelpers extends inox.MainHelpers { self =>
       def watchRunCycle() = try {
         baseRunCycle()
       } catch {
+        case e @ extraction.MalformedStainlessCode(tree, msg) =>
+          reporter.debug(e)(frontend.DebugSectionStack)
+          ctx.reporter.error(tree.getPos, msg)
+          reporter.error("There was an error during the watch cycle")
+          reporter.reset()
+          compiler = newCompiler()
         case e: Throwable =>
           reporter.debug(e)(frontend.DebugSectionStack)
           reporter.error("There was an error during the watch cycle")
