@@ -76,16 +76,21 @@ trait StructuralSize { self: SolverProvider =>
 
     val sameSizeExprs = for ((arg1, arg2) <- s1 zip s2) yield Equals(sizeOfOneExpr(arg1), sizeOfOneExpr(arg2))
 
-    val lessBecauseLessAtFirstDifferentPos =
-      orJoin(for (firstDifferent <- 0 until scala.math.min(s1.length, s2.length)) yield and(
-          andJoin(sameSizeExprs.take(firstDifferent)),
-          LessThan(sizeOfOneExpr(s1(firstDifferent)), sizeOfOneExpr(s2(firstDifferent)))
-      ))
+    val lessBecauseLessAtFirstDifferentPos = {
+      orJoin(
+        for (firstDifferent <- 0 until scala.math.min(s1.length, s2.length)) yield {
+          val firstPartEqual = andJoin(sameSizeExprs.take(firstDifferent))
+          val lastDifferent  = LessThan(sizeOfOneExpr(s1(firstDifferent)), sizeOfOneExpr(s2(firstDifferent)))
+          and(firstPartEqual, lastDifferent)
+        }
+      )
+    }
 
-    if (s1.length > s2.length || (s1.length == s2.length && !strict)) {
-      or(andJoin(sameSizeExprs), lessBecauseLessAtFirstDifferentPos)
-    } else {
+    // Strict case applies when the first tuple is longer.
+    if(strict || s1.length > s2.length) {
       lessBecauseLessAtFirstDifferentPos
+    } else {
+      or(andJoin(sameSizeExprs), lessBecauseLessAtFirstDifferentPos)
     }
   }
 }
