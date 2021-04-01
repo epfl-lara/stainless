@@ -146,7 +146,7 @@ trait Strengthener { self: OrderingRelation =>
         v -> ((soft, hard))
       }
 
-      val formulaMap = allFormulas.view.groupBy(_._1).mapValues(_.map(_._2).unzip).toMap
+      val formulaMap = allFormulas.groupBy(_._1).mapValues(_.map(_._2).unzip).toMap
 
       val constraints = for ((v, (weakFormulas, strongFormulas)) <- formulaMap) yield v -> {
         if (api.solveVALID(andJoin(weakFormulas.toSeq)).contains(true)) {
