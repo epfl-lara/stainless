@@ -1294,10 +1294,12 @@ trait TypeChecker {
         )
     }
 
-    // `tc` is `tc0` to which we add the lets shared between the body and the specifications
     val vds = specced.lets.map(_._1).map(freshener.transform)
     val es = specced.lets.map(_._2).map(freshener.transform)
+    // `tc` is `tc0` to which we add the lets shared between the body and the specifications
     val tc = tc0.bindWithValues(vds, es)
+    // and `tr` is the `TyperResult` corresponding to type-checking those lets
+    val trLets = checkDependentTypes(tc0, es, vds)
 
     val measureOpt = specced.getSpec(MeasureKind).map(measure => freshener.transform(measure.expr))
 
@@ -1342,7 +1344,7 @@ trait TypeChecker {
         }
     }
 
-    (measureType, (trArgs ++ trPre ++ trMeasure ++ trBody).root(OKFunction(id)))
+    (measureType, (trLets ++ trArgs ++ trPre ++ trMeasure ++ trBody).root(OKFunction(id)))
   }
 
   def checkType(fids: Seq[Identifier]): Seq[StainlessVC] = {
