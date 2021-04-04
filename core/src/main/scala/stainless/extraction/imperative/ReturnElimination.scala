@@ -116,8 +116,7 @@ trait ReturnElimination
           val id = FreshIdentifier(fd.id.name + "While")
           val tpe = t.FunctionType(Seq(), t.UnitType().copiedFrom(wh)).copiedFrom(wh)
 
-          val specced = t.exprOps.BodyWithSpecs(transformedBody)
-          val measure = specced.getSpec(t.exprOps.MeasureKind).map(_.expr)
+          val (specs, bodyOpt) = t.exprOps.deconstructSpecs(transformedBody)
 
           val ite =
             t.IfExpr(
@@ -126,11 +125,12 @@ trait ReturnElimination
               t.UnitLiteral().copiedFrom(wh)
             ).copiedFrom(wh)
 
-          val newBody =
+          val newBody = bodyOpt.map { body =>
             t.Block(
-              Seq(specced.body),
+              Seq(body),
               ite
             ).copiedFrom(wh)
+          }
 
           val newPost =
             t.Lambda(
@@ -141,13 +141,15 @@ trait ReturnElimination
               ).copiedFrom(wh)
             ).copiedFrom(wh)
 
-          val fullBody = t.exprOps.withPostcondition(
-            t.exprOps.withPrecondition(
-              t.exprOps.withMeasure(newBody, measure).copiedFrom(wh),
-              Some(t.andJoin(transformedInv.toSeq :+ getFunctionalResult(transformedCond)))
-            ).copiedFrom(wh),
-            Some(newPost)
-          ).copiedFrom(wh)
+          assert(!specs.exists(_.kind == t.exprOps.PreconditionKind), "While loops cannot have `require`")
+          assert(!specs.exists(_.kind == t.exprOps.PostconditionKind), "While loops cannot have `ensuring`")
+
+          val newSpecs =
+            t.exprOps.Postcondition(newPost) +:
+            t.exprOps.Precondition(t.andJoin(transformedInv.toSeq :+ getFunctionalResult(transformedCond))).setPos(wh) +:
+            specs
+
+          val fullBody = t.exprOps.reconstructSpecs(newSpecs, newBody, t.UnitType()).copiedFrom(wh)
 
           t.LetRec(
             Seq(t.LocalFunDef(id, Seq(), Seq(), t.UnitType().copiedFrom(wh), fullBody, Seq()).copiedFrom(wh)),
@@ -189,11 +191,7 @@ trait ReturnElimination
           }
 
         val newBodyWithSpecs = t.exprOps.BodyWithSpecs(
-          specced.lets.map {
-            case (vd0, e0, pos0) =>
-              (SimpleWhileTransformer.transform(vd0), SimpleWhileTransformer.transform(e0), pos0)
-          },
-          specced.specs.map(spec => spec.map(t)(SimpleWhileTransformer.transform)),
+          specced.specs.map(_.transform(SimpleWhileTransformer)),
           t.UnitLiteral() // replaced with the `withBody` call below
         ).withBody(newBody, retTypeChecked).reconstructed
 
@@ -229,10 +227,7 @@ trait ReturnElimination
           val loopType = ControlFlowSort.controlFlow(SimpleWhileTransformer.transform(retType), t.UnitType())
           val tpe = t.FunctionType(Seq(), loopType.copiedFrom(wh)).copiedFrom(wh)
 
-          val specced = s.exprOps.BodyWithSpecs(body)
-          val measure = specced.getSpec(s.exprOps.MeasureKind).map(spec =>
-            SimpleWhileTransformer.transform(spec.expr)
-          )
+          val (specs, bodyOpt) = s.exprOps.deconstructSpecs(body)
 
           val ite =
             t.IfExpr(
@@ -241,12 +236,13 @@ trait ReturnElimination
               ControlFlowSort.proceed(retTypeChecked, t.UnitType(), t.UnitLiteral()).copiedFrom(wh)
             ).copiedFrom(wh)
 
-          val newBody =
+          val newBody = bodyOpt.map { body =>
             ControlFlowSort.andThen(retTypeChecked, t.UnitType(), t.UnitType(),
-              transform(specced.body, s.UnitType()),
+              transform(body, s.UnitType()),
               _ => ite,
               wh.getPos
             )
+          }
 
           val optInvChecked = optInv.map(SimpleWhileTransformer.transform)
           val condChecked = SimpleWhileTransformer.transform(cond)
@@ -277,13 +273,12 @@ trait ReturnElimination
               )
             ).copiedFrom(wh)
 
-          val fullBody = t.exprOps.withPostcondition(
-            t.exprOps.withPrecondition(
-              t.exprOps.withMeasure(newBody, measure).copiedFrom(wh),
-              Some(t.andJoin(optInvChecked.toSeq :+ getFunctionalResult(condChecked)))
-            ).copiedFrom(wh),
-            Some(newPost)
-          ).copiedFrom(wh)
+          val newSpecs =
+            t.exprOps.Postcondition(newPost) +:
+            t.exprOps.Precondition(t.andJoin(optInvChecked.toSeq :+ getFunctionalResult(condChecked))).setPos(wh) +:
+            specs.map(_.transform(SimpleWhileTransformer))
+
+          val fullBody = t.exprOps.reconstructSpecs(newSpecs, newBody, t.UnitType()).copiedFrom(wh)
 
           t.LetRec(
             Seq(t.LocalFunDef(id, Seq(), Seq(), loopType.copiedFrom(wh), fullBody, Seq()).copiedFrom(wh)),

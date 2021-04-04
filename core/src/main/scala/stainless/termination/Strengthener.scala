@@ -47,7 +47,8 @@ trait Strengthener { self: OrderingRelation =>
     // a stronger post existing for a single function within the SCC seems more probable
     // than having weird inter-dependencies between different functions in the SCC
     for (fd <- sortedCallees
-         if fd.body.isDefined && !strengthenedPost.isDefinedAt(fd.id) && checker
+         if fd.body.isDefined &&
+           !strengthenedPost.isDefinedAt(fd.id) && checker
            .terminates(fd)
            .isGuaranteed) {
 

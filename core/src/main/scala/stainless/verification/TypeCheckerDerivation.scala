@@ -123,7 +123,13 @@ object TypeCheckerDerivation {
   def prettyPrint(t: NodeTree[Judgment], depth: Int)(implicit opts: PrinterOptions): String = {
     val indentation = "  " * depth
     val childrenString = prettyPrint(t.children, depth + 1)
-    indentation + s"<li> <span class='node ${t.node.htmlClass}' title='${t.node.getPos.fullString}\n\n${t.node.tc.asString()}\n\n${t.node.asString(opts, raw = true)}}'> ${t.node.asString} </span>\n" +
+    indentation +
+      s"<li> <span class='node ${t.node.htmlClass}'>" +
+        s"${t.node.asString}" +
+        s"""<span class=full-context><pre><code class="language-scala">${t.node.getPos.fullString}""" +
+        s"\n\n${t.node.tc.asString()}\n\n" +
+        s"${t.node.asString(opts, raw = true)}" +
+      "</code></pre></span></span>\n" +
       childrenString +
     indentation + "</li>"
   }
@@ -138,6 +144,11 @@ object TypeCheckerDerivation {
     fw.write("<html lang=\"en\">")
     fw.write("<head>\n")
     fw.write("<meta charset=\"UTF-8\">\n")
+    fw.write("""<link rel="stylesheet"
+                |     href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/styles/default.min.css">
+                |<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/highlight.min.js"></script>""".stripMargin + "\n")
+    fw.write("""<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.1/languages/scala.min.js"></script>""" + "\n")
+    fw.write("<script>hljs.highlightAll();</script>\n")
     fw.write("""|<style>
                 |body {
                 |  font-family: "Fira Code", Menlo, Monaco, monospace;
@@ -213,6 +224,29 @@ object TypeCheckerDerivation {
                 |  list-style-type: none;
                 |  padding-left: 10px;
                 |}
+                |
+                |.node {
+                |  position: relative;
+                |}
+                |
+                |.node:hover > span.full-context {
+                |  position: absolute;
+                |  top: 10px;
+                |  left: 30px;
+                |  width: 70vw;
+                |  max-height: 70vh;
+                |  overflow-y: scroll;
+                |  background-color: #a4d5de;
+                |  word-wrap: break-word;
+                |  z-index: 999999;
+                |  display: block;
+                |}
+                |
+                |.node > span.full-context {
+                |  display: none;
+                |}
+                |
+                |
                 |</style>""".stripMargin)
     fw.write("</head>\n\n")
 

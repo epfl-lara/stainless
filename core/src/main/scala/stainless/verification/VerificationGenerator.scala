@@ -20,7 +20,7 @@ trait VerificationGenerator { self =>
       val fd = getFunction(id)
       val tactic = getTactic(fd)
 
-      if (fd.body.isDefined) {
+      if (exprOps.BodyWithSpecs(fd.fullBody).hasBody) {
         tactic.generateVCs(id)
       } else {
         Nil

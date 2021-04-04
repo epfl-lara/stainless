@@ -66,7 +66,7 @@ trait PartialEvaluator extends SimplifierWithPC { self =>
               ).copiedFrom(body)
           } .getOrElse(body)
 
-          val bodyPrePost = specced.getSpec(PreconditionKind).map { case Precondition(pre) =>
+          val bodyPrePost = exprOps.preconditionOf(tfd.fullBody).map { case pre =>
             Assert(pre, Some("Inlined precondition of " + tfd.id.name), bodyPost).copiedFrom(pre)
           } .getOrElse(bodyPost)
 
