@@ -101,7 +101,6 @@ trait CoqEncoder {
         CoqApplication(makeFresh(id), allArgs_and_hyp)
       else
         proj1_sig(CoqApplication(makeFresh(id), allArgs_and_hyp))
-
     case Application(t, ts) =>
       CoqApplication(transformTree(t), ts.map(transformTree))
     case FiniteSet(args,tpe) =>

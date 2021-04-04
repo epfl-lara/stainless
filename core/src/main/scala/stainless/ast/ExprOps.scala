@@ -6,8 +6,11 @@ package ast
 import scala.collection.mutable.{Map => MutableMap}
 
 import inox.utils.{NoPosition, Position, Positioned}
+import inox.transformers.Transformer
+import stainless.transformers.TreeTransformer
+import stainless.transformers.TreeTraverser
 
-trait ExprOps extends inox.ast.ExprOps {
+trait ExprOps extends inox.ast.ExprOps { self =>
   protected val trees: Trees
   import trees._
 
@@ -19,59 +22,93 @@ trait ExprOps extends inox.ast.ExprOps {
   object PreconditionKind extends SpecKind("pre") { type Spec = Precondition }
   object PostconditionKind extends SpecKind("post") { type Spec = Postcondition }
   object MeasureKind extends SpecKind("measure") { type Spec = Measure }
+  object LetKind extends SpecKind("let") { type Spec = LetInSpec }
 
   /** Abstraction over contracts and specifications. */
   abstract class Specification(val kind: SpecKind) extends Positioned {
-    val expr: Expr
-    def map(t: ast.Trees)(f: Expr => t.Expr): t.exprOps.Specification
+    def transform(tr: Transformer { val s: trees.type; val t: Trees })(env: tr.Env): tr.t.exprOps.Specification
+    def transform(tr: TreeTransformer { val s: trees.type; val t: Trees }): tr.t.exprOps.Specification
+    def traverse(tr: TreeTraverser { val trees: self.trees.type }): Unit
 
-    final def map(f: Expr => Expr): Specification = map(trees)(f).asInstanceOf[Specification]
+    final def transform(f: Expr => Expr): Specification = {
+      object tr extends TreeTransformer {
+        val s: trees.type = trees
+        val t: trees.type = trees
+        override def transform(e: Expr): Expr = f(e)
+      }
+      transform(tr).asInstanceOf[Specification]
+    }
 
-    final def foreach(f: Expr => Unit): Unit = f(expr)
+    final def traverse(f: Expr => Unit): Unit = {
+      object tr extends TreeTraverser {
+        val trees: self.trees.type = self.trees
+        override def traverse(e: Expr): Unit = f(e)
+      }
+      traverse(tr)
+    }
 
     // Whether the spec might as well be omitted
     def isTrivial: Boolean
-
-    // Close the specification under let bindings shared by all specs
-    def letWrapped(specced: BodyWithSpecs): Specification
   }
 
-  /** Precondition contract that corresponds to [[Expressions.Require]]. */
+  /** Binding that appear before a specification with a [[Expressions.Let]]'s. */
+  case class LetInSpec(vd: ValDef, expr: Expr) extends Specification(LetKind) {
+    def transform(tr: Transformer { val s: trees.type; val t: Trees })(env: tr.Env): tr.t.exprOps.Specification =
+      tr.t.exprOps.LetInSpec(tr.transform(vd, env), tr.transform(expr, env)).setPos(this)
+    def transform(tr: TreeTransformer { val s: trees.type; val t: Trees }): tr.t.exprOps.Specification =
+      tr.t.exprOps.LetInSpec(tr.transform(vd), tr.transform(expr)).setPos(this)
+    def traverse(tr: TreeTraverser { val trees: self.trees.type }): Unit = {
+      tr.traverse(vd)
+      tr.traverse(expr)
+    }
+
+    def isTrivial: Boolean = false
+  }
+
+
+  /** Precondition contract that corresponds to [[Expressions.Require]]'s. */
   case class Precondition(expr: Expr) extends Specification(PreconditionKind) {
-    def map(t: ast.Trees)(f: Expr => t.Expr): t.exprOps.Precondition =
-      t.exprOps.Precondition(f(expr)).setPos(this.getPos)
+    def transform(tr: Transformer { val s: trees.type; val t: Trees })(env: tr.Env): tr.t.exprOps.Specification =
+      tr.t.exprOps.Precondition(tr.transform(expr, env)).setPos(this)
+    def transform(tr: TreeTransformer { val s: trees.type; val t: Trees }): tr.t.exprOps.Specification =
+      tr.t.exprOps.Precondition(tr.transform(expr)).setPos(this)
+
+    def traverse(tr: TreeTraverser { val trees: self.trees.type }): Unit = {
+      tr.traverse(expr)
+    }
 
     def isTrivial: Boolean = expr == BooleanLiteral(true)
-
-    def letWrapped(specced: BodyWithSpecs): Precondition =
-      Precondition(specced.wrapLets(expr)).setPos(this.getPos)
   }
 
   /** Postcondition contract that corresponds to [[Expressions.Ensuring]]. */
   case class Postcondition(expr: Lambda) extends Specification(PostconditionKind) {
-    def map(t: ast.Trees)(f: Expr => t.Expr): t.exprOps.Postcondition =
-      t.exprOps.Postcondition(f(expr).asInstanceOf[t.Lambda])
-        .setPos(this.getPos)
+    def transform(tr: Transformer { val s: trees.type; val t: Trees })(env: tr.Env): tr.t.exprOps.Specification =
+      tr.t.exprOps.Postcondition(tr.transform(expr, env).asInstanceOf[tr.t.Lambda]).setPos(this)
+    def transform(tr: TreeTransformer { val s: trees.type; val t: Trees }): tr.t.exprOps.Specification =
+      tr.t.exprOps.Postcondition(tr.transform(expr).asInstanceOf[tr.t.Lambda]).setPos(this)
+
+    def traverse(tr: TreeTraverser { val trees: self.trees.type }): Unit = {
+      tr.traverse(expr)
+    }
 
     def isTrivial: Boolean = expr.body == BooleanLiteral(true)
-
-    def letWrapped(specced: BodyWithSpecs): Postcondition =
-      Postcondition(expr.copy(body = specced.wrapLets(expr.body)).copiedFrom(expr))
-        .setPos(this.getPos)
   }
 
+  /** Measure contract that corresponds to [[Expressions.Decreases]]. */
   case class Measure(expr: Expr) extends Specification(MeasureKind) {
-    def map(t: ast.Trees)(f: Expr => t.Expr): t.exprOps.Specification =
-      t.exprOps.Measure(f(expr)).setPos(this.getPos)
+    def transform(tr: Transformer { val s: trees.type; val t: Trees })(env: tr.Env): tr.t.exprOps.Specification =
+      tr.t.exprOps.Measure(tr.transform(expr, env)).setPos(this)
+    def transform(tr: TreeTransformer { val s: trees.type; val t: Trees }): tr.t.exprOps.Specification =
+      tr.t.exprOps.Measure(tr.transform(expr)).setPos(this)
+
+    def traverse(tr: TreeTraverser { val trees: self.trees.type }): Unit = {
+      tr.traverse(expr)
+    }
 
     def isTrivial: Boolean = false
-
-    def letWrapped(specced: BodyWithSpecs): Measure =
-      Measure(specced.wrapLets(expr)).setPos(this.getPos)
   }
 
   case class BodyWithSpecs(
-    lets: Seq[(ValDef, Expr, Position)],
     specs: Seq[Specification],
     body: Expr)
   {
@@ -81,9 +118,15 @@ trait ExprOps extends inox.ast.ExprOps {
 
     lazy val hasDuplicates: Boolean = specs.size != specs.map(_.kind).toSet.size
 
-    def getSpec(kind: SpecKind): Option[kind.Spec] = {
-      assert(!hasDuplicates, "Duplicate specs")
+    def getFirstSpec(kind: SpecKind): Option[kind.Spec] = {
       specs.find(_.kind == kind).asInstanceOf[Option[kind.Spec]]
+    }
+
+    def getSpec(kind: SpecKind): Option[kind.Spec] = {
+      val filtered = specs.filter(_.kind == kind)
+      if (filtered.isEmpty) None
+      else if (filtered.size >= 2) sys.error(s"`getSpec` must be called when there is at most one spec of kind $kind")
+      else Some(filtered.head.asInstanceOf[kind.Spec])
     }
 
     def withSpec(spec: Specification): BodyWithSpecs = {
@@ -108,7 +151,7 @@ trait ExprOps extends inox.ast.ExprOps {
 
     def withBody(bodyOpt: Option[Expr], resultType: Type): BodyWithSpecs =
       withBody(bodyOpt getOrElse {
-        val poss = specs.map(_.expr.getPos).filter(_ != NoPosition)
+        val poss = specs.map(_.getPos).filter(_ != NoPosition)
         val pos = if (poss.isEmpty) NoPosition
           else if (poss.size == 1) poss.head
           else Position.between(poss.min, poss.max)
@@ -116,68 +159,54 @@ trait ExprOps extends inox.ast.ExprOps {
       })
 
     def wrapLets(expr: Expr) =
-      lets.foldRight(expr) {
-        case ((vd, e, pos), b) => Let(vd, e, b).setPos(pos)
+      specs.filter(_.kind == LetKind).foldRight(expr) {
+        case (spec @ LetInSpec(vd, e), b) => Let(vd, e, b).setPos(spec)
+        case _ => sys.error("shouldn't happen thanks to the filtering above")
       }
 
-    def reconstructed: Expr =
-      wrapLets(specs.foldRight(body)(applySpec))
+    def reconstructed: Expr = specs.foldRight(body)(applySpec)
+
+    // add a post-condition spec if there aren't any
+    def addPost(implicit s: Symbols): BodyWithSpecs = {
+      if (specs.exists(_.kind == PostconditionKind)) this
+      else BodyWithSpecs(Postcondition(Lambda(
+        Seq(ValDef(FreshIdentifier("res"), body.getType).setPos(body)),
+        BooleanLiteral(true).setPos(body)
+      ).setPos(body)).setPos(body) +: specs, body)
+    }
   }
 
   object BodyWithSpecs {
     def apply(fullBody: Expr): BodyWithSpecs = {
       import scala.annotation.tailrec
 
-      // Gather the lets and duplicate-free prefix of specs around `expr`.
-      // Also handles lets interleaved with specs.
+      // Gather the lets and specs around `expr`.
+      // Also handles lets interleaved with specs
       type LetInfo = (ValDef, Expr, Position)
       @tailrec
       def gatherSpecs(
           expr: Expr,
-          letsCommitted: Seq[LetInfo],
           letsUncommitted: Seq[LetInfo],
           exprUncommitted: Option[Expr],
           specs: Seq[Specification]
-        ): Option[(Seq[LetInfo], Seq[Specification], Expr)] =
+        ): (Seq[Specification], Expr) =
       {
         peelSpec(expr) match {
-          case Some((spec, rest)) if !specs.exists(_.kind == spec.kind) =>
-            gatherSpecs(rest, letsUncommitted ++ letsCommitted, Seq.empty, None, spec +: specs)
-          case _ =>
-            expr match {
-              case Let(vd, e, b) =>
-                // A Let potentially wrapping a spec
-                val newLetsUncommitted = (vd, e, expr.getPos) +: letsUncommitted
-                val newExprUncommitted = exprUncommitted.orElse(Some(expr))
-                gatherSpecs(b, letsCommitted, newLetsUncommitted, newExprUncommitted, specs)
-              case _ =>
-                if (specs.isEmpty) {
-                  // Done (no specs at all)
-                  None
-                } else {
-                  // Done (found some specs)
-                  val body = exprUncommitted.getOrElse(expr)
-                  Some((letsCommitted.reverse, specs.reverse, body))
-                }
+          case Some((let: LetInSpec, rest)) =>
+            val newExprUncommitted = exprUncommitted.orElse(Some(expr))
+            gatherSpecs(rest, (let.vd, let.expr, let.getPos) +: letsUncommitted, newExprUncommitted, specs)
+          case Some((spec, rest)) =>
+            val lets = letsUncommitted.map { case (vd, expr, pos) =>
+              LetInSpec(vd, expr).setPos(pos)
             }
+            gatherSpecs(rest, Seq.empty, None, spec +: (lets ++ specs))
+          case None =>
+            (specs.reverse, exprUncommitted.getOrElse(expr))
         }
       }
 
-      def bodyMissing(expr: Expr): Boolean = expr match {
-        case NoTree(_) => true
-        case Let(_, _, rest) => bodyMissing(rest)
-        case _ => false
-      }
-
-      gatherSpecs(fullBody, Seq.empty, Seq.empty, None, Seq.empty) match {
-        case Some((lets, specs, body)) =>
-          assert(!body.isInstanceOf[Let] || !bodyMissing(body),
-            "Body is missing, but there are let bindings irrelevant to specs")
-          assert(lets.isEmpty || specs.nonEmpty)
-          BodyWithSpecs(lets, specs, body)
-        case None =>
-          BodyWithSpecs(Seq.empty, Seq.empty, fullBody)
-      }
+      val (specs, body) = gatherSpecs(fullBody, Seq.empty, None, Seq.empty)
+      BodyWithSpecs(specs, body)
     }
   }
 
@@ -187,6 +216,7 @@ trait ExprOps extends inox.ast.ExprOps {
     case Require(pred, body) => Some((Precondition(pred).setPos(expr), body))
     case Ensuring(body, pred) => Some((Postcondition(pred).setPos(expr), body))
     case Decreases(measure, body) => Some((Measure(measure).setPos(expr), body))
+    case Let(vd, e, body) => Some((LetInSpec(vd, e).setPos(expr), body))
     case _ => None
   }
 
@@ -194,6 +224,7 @@ trait ExprOps extends inox.ast.ExprOps {
     case Precondition(pred) => Require(pred, body)
     case Postcondition(pred) => Ensuring(body, pred)
     case Measure(measure) => Decreases(measure, body)
+    case LetInSpec(vd, expr) => Let(vd, expr, body)
   }).setPos(spec.getPos)
 
   // Adds or replaces a spec, when given a left. Removes the given spec kind, when given a right.
@@ -247,7 +278,8 @@ trait ExprOps extends inox.ast.ExprOps {
   /** Extracts the body without its specification
     *
     * [[Expressions.Expr]] trees contain its specifications as part of certain nodes.
-    * This function helps extracting only the body part of an expression
+    * This function helps extracting only the body part of an expression, wrapped with
+    * the lets that are shared with the specification
     *
     * @return An option type with the resulting expression if not [[Expressions.NoTree]]
     * @see [[Expressions.Ensuring]]
@@ -260,44 +292,54 @@ trait ExprOps extends inox.ast.ExprOps {
 
   /** Returns the precondition of an expression wrapped in Option */
   final def preconditionOf(expr: Expr): Option[Expr] = {
-    val specced = BodyWithSpecs(expr)
-    specced.getSpec(PreconditionKind).map(_.letWrapped(specced).expr)
+    val BodyWithSpecs(specs, _) = BodyWithSpecs(expr)
+    val (afterLastPrecondition, untilLastPrecondition) =
+      specs.reverse.span(_.kind != PreconditionKind)
+    val letsAndRequires = untilLastPrecondition.reverse.filter(spec => spec.kind == PreconditionKind || spec.kind == LetKind)
+    if (letsAndRequires.isEmpty) None
+    else Some(letsAndRequires.init.foldRight(letsAndRequires.last.asInstanceOf[Precondition].expr) {
+      case (spec @ LetInSpec(vd, e), acc) => Let(vd, e, acc).setPos(spec)
+      case (spec @ Precondition(pred), acc) => And(pred, acc).setPos(spec)
+      case _ => sys.error("shouldn't happen thanks to the filtering above")
+    })
   }
 
   /** Returns the postcondition of an expression wrapped in Option */
   final def postconditionOf(expr: Expr): Option[Lambda] = {
-    val specced = BodyWithSpecs(expr)
-    specced.getSpec(PostconditionKind).map(_.letWrapped(specced).expr)
+    val BodyWithSpecs(specs, _) = BodyWithSpecs(expr)
+    val (beforePost, postAndAfter) = specs.span(_.kind != PostconditionKind)
+    val lets = beforePost.filter(_.kind == LetKind)
+    if (postAndAfter.isEmpty) None
+    else {
+      val lambda @ Lambda(vd, postBody) = postAndAfter.head.asInstanceOf[Postcondition].expr
+      Some(Lambda(vd, lets.foldRight(postBody) {
+        case (spec @ LetInSpec(vd, e), acc) => Let(vd, e, acc).setPos(spec)
+        case _ => sys.error("shouldn't happen thanks to the filtering above")
+      }).setPos(lambda))
+    }
   }
 
+  /** Returns the measure of an expression wrapped in Option */
   final def measureOf(expr: Expr): Option[Expr] = {
-    val specced = BodyWithSpecs(expr)
-    specced.getSpec(MeasureKind).map(_.letWrapped(specced).expr)
+    val BodyWithSpecs(specs, _) = BodyWithSpecs(expr)
+    val (beforeMeasure, measureAndAfter) = specs.span(_.kind != MeasureKind)
+    val lets = beforeMeasure.filter(_.kind == LetKind)
+    if (measureAndAfter.isEmpty) None
+    else Some(lets.foldRight(measureAndAfter.head.asInstanceOf[Measure].expr) {
+      case (spec @ LetInSpec(vd, e), acc) => Let(vd, e, acc).setPos(spec)
+      case _ => sys.error("shouldn't happen thanks to the filtering above")
+    })
   }
 
   /** Deconstructs an expression into its [[Specification]] and body parts. */
-  final def deconstructSpecs(e: Expr)(implicit s: Symbols): (Seq[Specification], Option[Expr]) = {
+  final def deconstructSpecs(e: Expr): (Seq[Specification], Option[Expr]) = {
     val specced = BodyWithSpecs(e)
-
-    // NOTE: This behavior is replicated from `withoutBody` as used in the old `deconstructSpecs`.
-    //   Ideally we should not rewrap here to maintain the sharing of lets between specs and body.
-    val wrappedBodyOpt = specced.bodyOpt.map(specced.wrapLets)
-    var specs = specced.specs.map(_.letWrapped(specced))
-    if (specced.getSpec(PreconditionKind).isEmpty)
-      specs +:= Precondition(preconditionOf(e).getOrElse(BooleanLiteral(true).copiedFrom(e)))
-    if (specced.getSpec(PostconditionKind).isEmpty)
-      specs +:= Postcondition(postconditionOf(e).getOrElse(Lambda(
-        Seq(ValDef(FreshIdentifier("res"), e.getType).copiedFrom(e)),
-        BooleanLiteral(true).copiedFrom(e)
-      ).copiedFrom(e)))
-
-    (specs, wrappedBodyOpt)
+    (specced.specs, specced.bodyOpt)
   }
 
-  /** Reconstructs an expression given a set of specifications
-    * and a body, as obtained through [[deconstructSpecs]]. */
+  /** Reconstructs an expression given a set of specifications */
   final def reconstructSpecs(specs: Seq[Specification], body: Option[Expr], resultType: Type) =
-    BodyWithSpecs(Seq.empty, specs.filterNot(_.isTrivial), UnitLiteral())
+    BodyWithSpecs(specs.filterNot(_.isTrivial), UnitLiteral())
       .withBody(body, resultType)
       .reconstructed
 

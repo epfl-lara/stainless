@@ -77,8 +77,8 @@ class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Con
       .withTypeDefs(currentTypeDefs)
 
     val symbols =
-      preprocessing.debug(Preprocessing().transform)(
-        userFiltering.debug(UserFiltering().transform)(
+      userFiltering.debug(UserFiltering().transform)(
+        preprocessing.debug(Preprocessing().transform)(
           allSymbols
         )
       )

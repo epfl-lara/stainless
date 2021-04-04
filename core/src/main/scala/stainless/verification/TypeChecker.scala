@@ -734,17 +734,13 @@ trait TypeChecker {
 
         import exprOps._
 
-        val specced = BodyWithSpecs(calleeTfd.fullBody)
-        val pre = specced.getSpec(PreconditionKind)
-        val letsVDs = specced.lets.map(_._1)
-        val letsExprs = specced.lets.map(_._2)
+        val pre = preconditionOf(calleeTfd.fullBody).map(freshenLocals(_))
 
         val trPre = {
           if (pre.isDefined) {
             val kind = VCKind.Info(VCKind.Precondition, s"call $fiS")
             val (tc2, freshener2) = tc.freshBindWithValues(calleeTfd.params, args)
-            val (tc3, freshener3) = tc2.freshBindWithValues(letsVDs.map(freshener2.transform), letsExprs.map(freshener2.transform))
-            buildVC(tc3.withVCKind(kind).setPos(e), freshener2.andThen(freshener3).transform(pre.get.expr))
+            buildVC(tc2.withVCKind(kind).setPos(e), freshener2.transform(pre.get))
           } else {
             TyperResult.valid
           }
@@ -752,7 +748,7 @@ trait TypeChecker {
 
         val isRecursive = tc.currentFid.exists(fid => dependencies(id).contains(fid))
 
-        val calleeMeasureOpt = specced.getSpec(MeasureKind)
+        val calleeMeasureOpt = measureOf(calleeTfd.fullBody).map(freshenLocals(_))
         val hasMeasure = calleeMeasureOpt.isDefined
 
         val trSize = {
@@ -761,8 +757,8 @@ trait TypeChecker {
             assert(tc.currentMeasure.isDefined)
             val currentMeasure = tc.currentMeasure.get
             assert(calleeMeasureOpt.isDefined, s"${calleeTfd.id.asString} must have a measure")
-            val calleeMeasure = calleeMeasureOpt.get.expr
-            val calleeMeasureValue = freshLets(calleeTfd.params ++ letsVDs, args ++ letsExprs, calleeMeasure)
+            val calleeMeasure = calleeMeasureOpt.get
+            val calleeMeasureValue = freshLets(calleeTfd.params, args, calleeMeasure)
             buildVC(
               tc.withVCKind(VCKind.MeasureDecreases).setPos(e),
               lessThan(tc.measureType.get, calleeMeasureValue, currentMeasure)
@@ -1066,7 +1062,6 @@ trait TypeChecker {
         checkType(tc.bind(vds), body, to)
 
       case (Lambda(params1, body), PiType(params2, to)) =>
-        // val vds = params1.zip(params2).map { case (vd, tp) => vd.copy(tpe = tp) }
         val freshener = Substituter(params1.map(_.id).zip(params2.map(_.id)).toMap)
         checkType(tc.bind(params2), freshener.transform(body), to)
 
@@ -1294,17 +1289,20 @@ trait TypeChecker {
         )
     }
 
-    val vds = specced.lets.map(_._1).map(freshener.transform)
-    val es = specced.lets.map(_._2).map(freshener.transform)
-    // `tc` is `tc0` to which we add the lets shared between the body and the specifications
-    val tc = tc0.bindWithValues(vds, es)
-    // and `tr` is the `TyperResult` corresponding to type-checking those lets
-    val trLets = checkDependentTypes(tc0, es, vds)
+    // `tcWithPre` is `tc0` to which we add the preconditions and lets
+    // and `trPre` is the `TyperResult` corresponding to type-checking those
+    val (tcWithPre, trPre) = specced.specs.filter(spec => spec.kind == LetKind || spec.kind == PreconditionKind).foldLeft (tc0, TyperResult.valid) {
+      case ((tcAcc, trAcc), LetInSpec(vd, e)) =>
+        val e2 = freshener.transform(e)
+        val freshVd = freshener.transform(vd)
+        (tcAcc.bindWithValue(freshVd, e2), trAcc ++ checkType(tcAcc, e2, freshVd.tpe))
+      case ((tcAcc, trAcc), Precondition(cond)) =>
+        val cond2 = freshener.transform(cond)
+        (tcAcc.withTruth(cond2), trAcc ++ checkType(tcAcc, cond2, BooleanType()))
+      case _ => sys.error("shouldn't be possible because of the filtering above")
+    }
 
     val measureOpt = specced.getSpec(MeasureKind).map(measure => freshener.transform(measure.expr))
-
-    val preOpt = specced.getSpec(PreconditionKind).map(pre => freshener.transform(pre.expr))
-    val tcWithPre = preOpt.map(pre => tc.withTruth(pre)).getOrElse(tc)
 
     val (measureType, trMeasure): (Option[Type], TyperResult) =
       if (measureOpt.isDefined) {
@@ -1322,14 +1320,10 @@ trait TypeChecker {
 
     val postOpt = specced.getSpec(PostconditionKind).map(post => freshener.transform(post.expr))
 
-    // We check that the precondition is a boolean
-    val trPre = preOpt.map(pre => checkType(tc, pre, BooleanType())).getOrElse(TyperResult.valid)
-
     val freshenedReturnType = freshener.transform(fd.returnType)
+    val bodyOpt = specced.bodyOpt.map(freshener.transform)
 
-    val bodyOpt = specced.bodyOpt.map(e => freshener.transform(e))
-
-    // The TypingContext for the body contains all dependencies, and the measure
+    // The `TypingContext` for the body contains all dependencies, and the measure
     val tcBody = tcWithPre.withIdentifiers(deps).withMeasureType(measureType).withMeasure(measureOpt)
 
     // We check that the body of the function respects the return type and
@@ -1344,7 +1338,7 @@ trait TypeChecker {
         }
     }
 
-    (measureType, (trLets ++ trArgs ++ trPre ++ trMeasure ++ trBody).root(OKFunction(id)))
+    (measureType, (trArgs ++ trPre ++ trMeasure ++ trBody).root(OKFunction(id)))
   }
 
   def checkType(fids: Seq[Identifier]): Seq[StainlessVC] = {
@@ -1353,7 +1347,7 @@ trait TypeChecker {
     val vcs = (for ((id, (measureType, tr)) <- checkedFunctions) yield {
       val fd = getFunction(id)
 
-      if (fd.body.isDefined) {
+      if (exprOps.BodyWithSpecs(fd.fullBody).bodyOpt.isDefined) {
         val nm = needsMeasure(fd)
         if (nm && measureType.isEmpty) {
           Seq(VC(BooleanLiteral(false), id, VCKind.MeasureMissing, false).setPos(fd))
@@ -1388,7 +1382,6 @@ trait TypeChecker {
         Nil
       }
     }).flatten
-
     vcs.sortBy { vc =>
       (
         getFunction(vc.fd),

@@ -59,8 +59,10 @@ trait MeasureInference
       }
     }
 
-    def needsMeasure(fd: FunDef): Boolean =
-      symbols.isRecursive(fd.id) && fd.measure(symbols).isEmpty
+    def needsMeasure(fd: FunDef): Boolean = symbols.isRecursive(fd.id) && {
+      val specced = exprOps.BodyWithSpecs(fd.fullBody)
+      !specced.specs.exists(_.kind == exprOps.MeasureKind)
+    }
 
     def inferMeasure(original: FunDef): FunDef = measureCache.get(original) match {
       case Some(measure) =>

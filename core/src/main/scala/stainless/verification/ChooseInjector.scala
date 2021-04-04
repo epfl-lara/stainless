@@ -43,13 +43,11 @@ trait ChooseInjector extends inox.transformers.SymbolTransformer {
 
         val newBody = if ((fd.flags contains Extern) || (fd.flags contains Opaque)) {
           val Lambda(Seq(vd), post) = specced.getSpec(PostconditionKind).map(post => post.expr).getOrElse {
-            Lambda(Seq(ValDef.fresh("res", fd.returnType)), BooleanLiteral(true))
+            Lambda(Seq(ValDef.fresh("res", fd.returnType).setPos(fd.fullBody)), BooleanLiteral(true).setPos(fd.fullBody)).setPos(fd.fullBody)
           }
 
-          specced.getSpec(PreconditionKind).map(s => s.expr) match {
-            case Some(pre) => specced.wrapLets(Require(pre, Choose(vd, post)))
-            case None => Choose(vd, post)
-          }
+          specced.specs.filter(spec => spec.kind == PreconditionKind || spec.kind == LetKind)
+            .foldRight(Choose(vd, post).setPos(fd.fullBody) : Expr)(applySpec)
         } else {
           val newBody = injectChooses(specced.bodyOpt.getOrElse(NoTree(fd.returnType)))
           specced.withBody(newBody).reconstructed

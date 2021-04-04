@@ -44,6 +44,7 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
       }
 
       private def inlineFunctionInvocations(fi: FunctionInvocation): Expr = {
+        import exprOps._
         val (tfd, args) = (fi.tfd, fi.args)
 
         val isSynthetic = tfd.fd.flags contains Synthetic
@@ -54,23 +55,28 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
 
         if (!willInline) return fi
 
+        val specced = BodyWithSpecs(tfd.fullBody)
+
         // We need to keep the body as-is for `@synthetic` methods, such as
         // `copy` or implicit conversions for implicit classes, in order to
         // later on check that the class invariant is valid.
-        val body = exprOps.withoutSpecs(tfd.fullBody) match {
+        val body = specced.bodyOpt match {
           case Some(body) if isSynthetic => body
           case Some(body) => annotated(body, Unchecked).setPos(fi)
           case _ => NoTree(tfd.returnType).copiedFrom(tfd.fullBody)
         }
 
-        val pre = exprOps.preconditionOf(tfd.fullBody)
-        def addPreconditionAssertion(e: Expr): Expr = pre match {
-          case None => e
-          case Some(pre) => Assert(pre.setPos(fi), Some("Inlined precondition of " + tfd.id.name), e).copiedFrom(fi)
+        val pre = specced.specs.filter(spec => spec.kind == LetKind || spec.kind == PreconditionKind)
+        def addPreconditionAssertions(e: Expr): Expr = {
+          pre.foldRight(e) {
+            case (spec @ LetInSpec(vd, e0), acc) => Let(vd, e0, acc).setPos(fi)
+            case (spec @ Precondition(cond), acc) =>
+              Assert(cond.setPos(fi), Some("Inlined precondition of " + tfd.id.asString), acc).copiedFrom(fi)
+          }
         }
 
-        val post = exprOps.postconditionOf(tfd.fullBody)
-        def addPostconditionAssumption(e: Expr): Expr = post match {
+        val post = specced.getSpec(PostconditionKind)
+        def addPostconditionAssumption(e: Expr): Expr = post.map(_.expr) match {
           // We can't assume the post on @synthetic methods as it won't be checked anywhere.
           // It is thus inlined into an assertion here.
           case Some(Lambda(Seq(vd), post)) if isSynthetic =>
@@ -83,7 +89,7 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
 
 
         val res = ValDef.fresh("inlined", tfd.returnType)
-        val inlined = addPreconditionAssertion(addPostconditionAssumption(body))
+        val inlined = addPreconditionAssertions(addPostconditionAssumption(body))
 
         // We bind the inlined expression in a let to avoid propagating
         // the @unchecked annotation to postconditions, etc.
@@ -120,7 +126,7 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
         throw MalformedStainlessCode(fd, "Can't inline recursive function, use @inlineOnce instead")
       }
 
-      if (hasInlineFlag && exprOps.withoutSpecs(fd.fullBody).isEmpty) {
+      if (hasInlineFlag && exprOps.BodyWithSpecs(fd.fullBody).bodyOpt.isEmpty) {
         throw MalformedStainlessCode(fd, "Inlining function with empty body: not supported, use @inlineOnce instead")
       }
     }
