@@ -27,9 +27,14 @@ trait MeasureInference
     val trees: s.type = self.s
   } with SizeFunctions
 
-  override protected def getContext(symbols: s.Symbols) = TransformerContext(symbols, MutableMap.empty)
+  type Postconditions  = MutableMap[Identifier, Option[Lambda]]
+  type Applications    = MutableMap[(Identifier, Identifier, Identifier), Expr]
 
-  protected case class TransformerContext(symbols: Symbols, measureCache: MutableMap[FunDef, Expr]) {
+  override protected def getContext(symbols: s.Symbols) = TransformerContext(symbols, MutableMap.empty, MutableMap.empty)
+
+  protected case class TransformerContext(symbols: Symbols, 
+                                          measureCache: MutableMap[FunDef, Expr], 
+                                          annotationMap: MutableMap[FunDef, (Postconditions, Applications)]) {
     val program = inox.Program(s)(symbols)
 
     val pipeline = TerminationChecker(program, self.context)(sizes)
@@ -62,9 +67,50 @@ trait MeasureInference
     def needsMeasure(fd: FunDef): Boolean =
       symbols.isRecursive(fd.id) && fd.measure(symbols).isEmpty
 
+    def annotatePosts(original: FunDef, posts: Postconditions) = posts.get(original.id) match {
+      case Some(post) => original.copy(fullBody = exprOps.withPostcondition(original.fullBody, post))
+      case None       => original
+    }      
+
+    def annotateApps(original: FunDef, apps: Applications) = {
+      object injector extends inox.transformers.TreeTransformer {
+        val s: self.s.type = self.s
+        val t: self.s.type = self.s
+
+        override def transform(e: Expr): Expr = e match {
+          case fi @ FunctionInvocation(_, _, args) =>
+            fi.copy(args = (symbols.getFunction(fi.id).params.map(_.id) zip args).map {
+              case (id, l @ Lambda(largs, body)) if apps.isDefinedAt(original.id, fi.id,id) =>
+                val cnstr = apps(original.id, fi.id,id)
+                reporter.info(original.getPos, s"Adding assume ${cnstr}")
+                println("adding assume " + Lambda(largs, Assume(cnstr, body)))
+                Lambda(largs, Assume(cnstr, body))
+              case (_, arg) => transform(arg)
+            })            
+          case _ =>
+            super.transform(e)
+        }
+      }
+
+      injector.transform(original)
+    }
+
+    def annotate(original: FunDef) = annotationMap.get(original) match {
+      case Some((posts, apps)) => 
+        val fid = symbols.getFunction(original.id)
+        // annotate posts and apps
+        annotateApps(annotatePosts(original, posts),apps)
+      case None                => 
+        reporter.warning(original.getPos, s"No annotations found for function ${original.id.asString}")
+        original
+    }
+
     def inferMeasure(original: FunDef): FunDef = measureCache.get(original) match {
       case Some(measure) =>
-        original.copy(fullBody = exprOps.withMeasure(original.fullBody, Some(measure.setPos(original))))
+        val annotated = annotate(original)
+        println("annotated")
+        println(annotated)
+        annotated.copy(fullBody = exprOps.withMeasure(annotated.fullBody, Some(measure.setPos(original))))
 
       case None => try {
         val guarantee = timers.evaluators.termination.inference.run {
@@ -73,12 +119,16 @@ trait MeasureInference
         }
 
         val result = guarantee match {
-          case pipeline.Terminates(_, Some(measure)) =>
+          case pipeline.Terminates(_, Some(measure), Some(lemmas)) =>
             reporter.info(s" => Found measure for ${original.id.asString}.")
             measureCache ++= pipeline.measureCache.get
-            original.copy(fullBody = exprOps.withMeasure(original.fullBody, Some(measure.setPos(original))))
+            annotationMap += original -> lemmas
+            val annotated = annotate(original)
+            println("annotated")
+            println(annotated)
+            annotated.copy(fullBody = exprOps.withMeasure(annotated.fullBody, Some(measure.setPos(original))))
 
-          case pipeline.Terminates(_, None) =>
+          case pipeline.Terminates(_, None, _) =>
             reporter.info(s" => No measure needed for ${original.id.asString}.")
             original
 
@@ -108,15 +158,21 @@ trait MeasureInference
     }
 
     private def status(g: pipeline.TerminationGuarantee): TerminationReport.Status = g match {
-      case pipeline.NoGuarantee      => TerminationReport.Unknown
-      case pipeline.Terminates(_, _) => TerminationReport.Terminating
-      case _                         => TerminationReport.NonTerminating
+      case pipeline.NoGuarantee       => TerminationReport.Unknown
+      case pipeline.Terminates(_,_,_) => TerminationReport.Terminating
+      case _                          => TerminationReport.NonTerminating
     }
   }
 
   override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = {
     if (options.findOptionOrDefault(optInferMeasures) && context.needsMeasure(fd)) {
-      context.transformer.transform(context.inferMeasure(fd))
+      val res = context.inferMeasure(fd)
+      println("res")
+      println(res)
+      val res2 = context.transformer.transform(res)
+      println("res2")
+      println(res2)
+      res2
     } else {
       context.transformer.transform(fd)
     }

@@ -21,6 +21,8 @@ trait Strengthener { self: OrderingRelation =>
 
   private val strengthenedPost: MutableMap[Identifier, Option[Lambda]] = MutableMap.empty
 
+  def getPostconditions = strengthenedPost
+
   private lazy val ignorePosts = options.findOptionOrDefault(optIgnorePosts)
 
   private object postStrengthener extends IdentitySymbolTransformer {
