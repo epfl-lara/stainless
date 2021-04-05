@@ -59,7 +59,9 @@ trait ChainProcessor extends OrderingProcessor {
         Some(problem.funDefs.map { fd =>
           measureCache.get(fd) match {
             case Some(measure) =>
-              Cleared(fd, Some(measure))
+              val inductiveLemmas = 
+                Some((ordering.getPostconditions, ordering.insertedApps))              
+              Cleared(fd, Some(measure), inductiveLemmas)
             case None =>
               throw FailedMeasureInference(fd,
                 s"No measure annotated in function `${fd.id}` which was cleared in chain processor.")
