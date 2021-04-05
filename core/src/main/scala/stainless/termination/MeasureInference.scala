@@ -98,7 +98,7 @@ trait MeasureInference
                       termination (condition lid == original.id). Annotating in that 
                       case may make it difficult for the SMT solvers in some instances.
                     */
-                    Lambda(largs, body)                    
+                    l                   
                 }
                 
               case (_, arg) => transform(arg)
