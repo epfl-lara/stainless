@@ -72,7 +72,7 @@ trait RelationBuilder { self: Strengthener =>
             fi.copy(args = (getFunction(fi.id).params.map(_.id) zip args).map {
               case (id, l @ Lambda(largs, body)) if analysis.isApplied(l) =>
                 val cnstr = self.applicationConstraint(fi.id, id, largs, args)
-                insertedApps += ((funDef.id, fi.id, id) -> cnstr)
+                insertedApps += ((funDef.id, fi.id, id) -> (largs => self.applicationConstraint(fi.id, id, largs, args)))
                 val old = inLambda
                 inLambda = true
                 val res = Lambda(largs, transform(body, path withBounds largs withCond cnstr))
@@ -105,6 +105,6 @@ trait RelationBuilder { self: Strengthener =>
   }
 
   // Holds values of the form (fd.id, fi.id, param.id) -> lemma
-  val insertedApps: MutableMap[(Identifier, Identifier, Identifier), Expr] = 
+  val insertedApps: MutableMap[(Identifier, Identifier, Identifier), Seq[ValDef] => Expr] = 
     MutableMap.empty
 }
