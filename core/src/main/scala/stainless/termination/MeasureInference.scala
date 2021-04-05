@@ -4,6 +4,7 @@ package stainless
 package termination
 
 import scala.collection.mutable.{Map => MutableMap, HashSet => MutableSet, ListBuffer => MutableList}
+import scala.language.existentials
 
 trait MeasureInference
   extends extraction.CachingPhase
@@ -28,13 +29,14 @@ trait MeasureInference
   } with SizeFunctions
 
   type Postconditions  = MutableMap[Identifier, Option[Lambda]]
-  type Applications    = MutableMap[(Identifier, Identifier, Identifier), Expr]
+  type Applications    = MutableMap[(Identifier, Identifier, Identifier), Seq[ValDef] => Expr]
 
-  override protected def getContext(symbols: s.Symbols) = TransformerContext(symbols, MutableMap.empty, MutableMap.empty)
+  override protected def getContext(symbols: s.Symbols) = TransformerContext(symbols, MutableMap.empty, MutableMap.empty, MutableMap.empty)
 
   protected case class TransformerContext(symbols: Symbols, 
                                           measureCache: MutableMap[FunDef, Expr], 
-                                          annotationMap: MutableMap[FunDef, (Postconditions, Applications)]) {
+                                          postconditionCache: Postconditions, 
+                                          applicationCache: Applications) {
     val program = inox.Program(s)(symbols)
 
     val pipeline = TerminationChecker(program, self.context)(sizes)
@@ -67,12 +69,12 @@ trait MeasureInference
     def needsMeasure(fd: FunDef): Boolean =
       symbols.isRecursive(fd.id) && fd.measure(symbols).isEmpty
 
-    def annotatePosts(original: FunDef, posts: Postconditions) = posts.get(original.id) match {
+    def annotatePosts(original: FunDef) = postconditionCache.get(original.id) match {
       case Some(post) => original.copy(fullBody = exprOps.withPostcondition(original.fullBody, post))
       case None       => original
     }      
 
-    def annotateApps(original: FunDef, apps: Applications) = {
+    def annotateApps(original: FunDef) = {
       object injector extends inox.transformers.TreeTransformer {
         val s: self.s.type = self.s
         val t: self.s.type = self.s
@@ -80,9 +82,9 @@ trait MeasureInference
         override def transform(e: Expr): Expr = e match {
           case fi @ FunctionInvocation(_, _, args) =>
             fi.copy(args = (symbols.getFunction(fi.id).params.map(_.id) zip args).map {
-              case (id, l @ Lambda(largs, body)) if apps.isDefinedAt(original.id, fi.id,id) =>
-                val cnstr = apps(original.id, fi.id,id)
-                Lambda(largs, Assume(cnstr, body))
+              case (id, l @ Lambda(largs, body)) if applicationCache.isDefinedAt(original.id, fi.id,id) =>
+                val cnstr = applicationCache(original.id, fi.id,id)
+                Lambda(largs, Assume(cnstr(largs), body))
               case (_, arg) => transform(arg)
             })            
           case _ =>
@@ -93,18 +95,12 @@ trait MeasureInference
       injector.transform(original)
     }
 
-    def annotate(original: FunDef) = annotationMap.get(original) match {
-      case Some((posts, apps)) => 
-        val fid = symbols.getFunction(original.id)
-        // annotate posts and apps
-        annotateApps(annotatePosts(original, posts),apps)
-      case None                => 
-        reporter.warning(original.getPos, s"No annotations found for function ${original.id.asString}")
-        original
-    }
+    def annotate(original: FunDef) = 
+      annotateApps(annotatePosts(original))
 
     def inferMeasure(original: FunDef): FunDef = measureCache.get(original) match {
       case Some(measure) =>
+        println("measure " + measure)
         val annotated = annotate(original)
         annotated.copy(fullBody = exprOps.withMeasure(annotated.fullBody, Some(measure.setPos(original))))
 
@@ -118,7 +114,8 @@ trait MeasureInference
           case pipeline.Terminates(_, Some(measure), Some(lemmas)) =>
             reporter.info(s" => Found measure for ${original.id.asString}.")
             measureCache ++= pipeline.measureCache.get
-            annotationMap += original -> lemmas
+            postconditionCache ++= lemmas._1
+            applicationCache ++= lemmas._2
             val annotated = annotate(original)
             annotated.copy(fullBody = exprOps.withMeasure(annotated.fullBody, Some(measure.setPos(original))))
 
@@ -159,7 +156,10 @@ trait MeasureInference
   }
 
   override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = {
+    println("queried function " + fd.id)
     if (options.findOptionOrDefault(optInferMeasures) && context.needsMeasure(fd)) {
+      println("measure inference for " + fd.id)
+      println(fd)
       val res = context.inferMeasure(fd)
       println("res")
       println(res)
@@ -173,9 +173,12 @@ trait MeasureInference
   }
 
   override protected def extractSymbols(context: TransformerContext, symbols: s.Symbols): t.Symbols = {
-    val extracted = super.extractSymbols(context, symbols)
-    val sizeFunctions = sizes.getFunctions(symbols).map(context.transformer.transform(_))
-    registerFunctions(extracted, sizeFunctions)
+    val sizeFunctions = sizes.getFunctions(symbols)
+    val newSymbols = s.NoSymbols
+                      .withSorts(symbols.sorts.values.toSeq)
+                      .withFunctions(symbols.functions.values.toSeq ++ sizeFunctions)
+    val newContext = getContext(newSymbols)
+    super.extractSymbols(newContext, newSymbols)
   }
 }
 
