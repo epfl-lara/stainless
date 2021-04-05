@@ -100,7 +100,6 @@ trait MeasureInference
 
     def inferMeasure(original: FunDef): FunDef = measureCache.get(original) match {
       case Some(measure) =>
-        println("measure " + measure)
         val annotated = annotate(original)
         annotated.copy(fullBody = exprOps.withMeasure(annotated.fullBody, Some(measure.setPos(original))))
 
@@ -156,17 +155,8 @@ trait MeasureInference
   }
 
   override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = {
-    println("queried function " + fd.id)
     if (options.findOptionOrDefault(optInferMeasures) && context.needsMeasure(fd)) {
-      println("measure inference for " + fd.id)
-      println(fd)
-      val res = context.inferMeasure(fd)
-      println("res")
-      println(res)
-      val res2 = context.transformer.transform(res)
-      println("res2")
-      println(res2)
-      res2
+      context.transformer.transform(context.inferMeasure(fd))
     } else {
       context.transformer.transform(fd)
     }
