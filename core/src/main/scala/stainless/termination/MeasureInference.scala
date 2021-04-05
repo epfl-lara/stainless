@@ -84,8 +84,6 @@ trait MeasureInference
             fi.copy(args = (symbols.getFunction(fi.id).params.map(_.id) zip args).map {
               case (id, l @ Lambda(largs, body)) if apps.isDefinedAt(original.id, fi.id,id) =>
                 val cnstr = apps(original.id, fi.id,id)
-                reporter.info(original.getPos, s"Adding assume ${cnstr}")
-                println("adding assume " + Lambda(largs, Assume(cnstr, body)))
                 Lambda(largs, Assume(cnstr, body))
               case (_, arg) => transform(arg)
             })            
@@ -110,8 +108,6 @@ trait MeasureInference
     def inferMeasure(original: FunDef): FunDef = measureCache.get(original) match {
       case Some(measure) =>
         val annotated = annotate(original)
-        println("annotated")
-        println(annotated)
         annotated.copy(fullBody = exprOps.withMeasure(annotated.fullBody, Some(measure.setPos(original))))
 
       case None => try {
@@ -126,8 +122,6 @@ trait MeasureInference
             measureCache ++= pipeline.measureCache.get
             annotationMap += original -> lemmas
             val annotated = annotate(original)
-            println("annotated")
-            println(annotated)
             annotated.copy(fullBody = exprOps.withMeasure(annotated.fullBody, Some(measure.setPos(original))))
 
           case pipeline.Terminates(_, None, _) =>
