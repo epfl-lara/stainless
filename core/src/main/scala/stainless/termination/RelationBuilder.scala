@@ -73,10 +73,14 @@ trait RelationBuilder { self: Strengthener =>
               case (id, l @ Lambda(largs, body)) if analysis.isApplied(l) =>
                 val cnstr = self.applicationConstraint(fi.id, id, largs, args)
 <<<<<<< HEAD
+<<<<<<< HEAD
                 insertedApps += ((funDef.id, fi.id, id) -> (largs => self.applicationConstraint(fi.id, id, largs, args)))
 =======
                 insertedApps += ((funDef.id, fi.id, id) -> cnstr)
 >>>>>>> application strengthening on trees
+=======
+                insertedApps += ((funDef.id, fi.id, id) -> (largs => self.applicationConstraint(fi.id, id, largs, args)))
+>>>>>>> fix induction lemma with parameters
                 val old = inLambda
                 inLambda = true
                 val res = Lambda(largs, transform(body, path withBounds largs withCond cnstr))

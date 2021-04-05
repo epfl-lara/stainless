@@ -118,6 +118,7 @@ trait MeasureInference
 
     def inferMeasure(original: FunDef): FunDef = measureCache.get(original) match {
       case Some(measure) =>
+        println("measure " + measure)
         val annotated = annotate(original)
         annotated.copy(fullBody = exprOps.withMeasure(annotated.fullBody, Some(measure.setPos(original))))
 
