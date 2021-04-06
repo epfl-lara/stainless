@@ -86,7 +86,19 @@ trait MeasureInference
             fi.copy(args = (symbols.getFunction(fi.id).params.map(_.id) zip args).map {
               case (id, l @ Lambda(largs, body)) if applicationCache.isDefinedAt(original.id, fi.id,id) =>
                 val cnstr = applicationCache(original.id, fi.id,id)
-                Lambda(largs, Assume(cnstr(largs), body))
+                body match {
+                  case BooleanLiteral(_) => 
+                    /*
+                      This avoids a problem detected in LawTypeArgsElim.scala.
+                      Annotating assume makes appear an undeclared variable in the
+                      assumption and type checking fails.
+                      It should be generalized to any literal expression.
+                    */
+                    Lambda(largs, body)
+                  case _                 => 
+                    Lambda(largs, Assume(cnstr(largs), body))
+                }
+                
               case (_, arg) => transform(arg)
             })            
           case _ =>
@@ -97,8 +109,11 @@ trait MeasureInference
       injector.transform(original)
     }
 
+    /* Annotation order matters, postconditions can 
+       introduce size functions which are yet unknown 
+       in the symbols */
     def annotate(original: FunDef) = 
-      annotateApps(annotatePosts(original))
+      annotatePosts(annotateApps(original))
 
     def inferMeasure(original: FunDef): FunDef = measureCache.get(original) match {
       case Some(measure) =>
@@ -165,12 +180,16 @@ trait MeasureInference
   }
 
   override protected def extractSymbols(context: TransformerContext, symbols: s.Symbols): t.Symbols = {
-    val sizeFunctions = sizes.getFunctions(symbols)
+    /* val sizeFunctions = sizes.getFunctions(symbols)
+    println(sizeFunctions)
     val newSymbols = s.NoSymbols
                       .withSorts(symbols.sorts.values.toSeq)
                       .withFunctions(symbols.functions.values.toSeq ++ sizeFunctions)
     val newContext = getContext(newSymbols)
-    super.extractSymbols(newContext, newSymbols)
+    super.extractSymbols(newContext, newSymbols) */
+    val extracted = super.extractSymbols(context, symbols)
+    val sizeFunctions = sizes.getFunctions(symbols).map(context.transformer.transform(_))
+    registerFunctions(extracted, sizeFunctions)
   }
 }
 
