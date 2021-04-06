@@ -344,14 +344,14 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       case ADTFieldAccessor(fid) +: rest =>
         getTargets(args(symbols.getConstructor(id).fields.indexWhere(_.id == fid)), rest)
       case _ =>
-        throw MalformedStainlessCode(expr, s"Couldn't compute effect targets in ADT: ${expr.asString}")
+        Set.empty
     }
 
     case ClassConstructor(ct, args) => path match {
       case ClassFieldAccessor(fid) +: rest =>
         getTargets(args(ct.tcd.fields.indexWhere(_.id == fid)), rest)
       case _ =>
-        throw MalformedStainlessCode(expr, s"Couldn't compute effect targets in class constructor: ${expr.asString}")
+        Set.empty
     }
 
     case Assert(_, _, e) => getTargets(e, path)
