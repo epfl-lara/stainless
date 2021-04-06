@@ -267,24 +267,29 @@ trait AntiAliasing
           }
         }
 
-        // throws an exception if two arguments in the sequence share a target (or a non-empty target prefix)
+        // throws an exception if two arguments in the sequence share a target prefix
         private def checkAliasing(expr: Expr, args: Seq[Expr]): Unit = {
-          val argTargets: Seq[(Set[Target], Int)] =
-            args.map(arg => Try(getTargets(arg)).toOption
+          val argTargets: Seq[((Expr, Set[Target]), Int)] =
+            args.map(arg => arg -> Try(getTargets(arg)).toOption
               .getOrElse(
                 exprOps.variablesOf(arg)
                   .filter(v => isMutableType(v.tpe))
                   .map(v => Target(v, None, Path.empty))
               )
             ).zipWithIndex
-          if (argTargets.exists { case (targets, i) =>
-            val otherTargets: Seq[Target] = argTargets.filter(_._2 != i).map(_._1).flatten
-            targets.exists((target1: Target) => otherTargets.exists((target2: Target) =>
-              target1.toEffect.prefixOf(target2.toEffect) ||
-              target2.toEffect.prefixOf(target1.toEffect)
-            ))
-          })
-            throw MalformedStainlessCode(expr, "Illegal passing of aliased parameters")
+
+          for (((arg1, targets1), i) <- argTargets) {
+            val otherTargets: Seq[(Expr, Set[Target])] = argTargets.filter(_._2 != i).map(_._1)
+            for (target1 <- targets1)
+              for ((arg2, targets2) <- otherTargets)
+                for (target2 <- targets2)
+                  if (target1.toEffect.prefixOf(target2.toEffect) ||
+                      target2.toEffect.prefixOf(target1.toEffect))
+                    throw MalformedStainlessCode(expr,
+                      s"Illegal passing of aliased parameters ${arg1.asString} (with target: ${target1.asString}) " +
+                      s"and ${arg2.asString} (with target: ${target2.asString}"
+                    )
+          }
         }
 
         override def transform(e: Expr, env: Env): Expr = (e match {
