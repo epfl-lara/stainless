@@ -112,7 +112,8 @@ TEST_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t "stainless-external-tests")
 
 mkdir -p "$TEST_DIR"
 
-"$BIN_DIR/stainless-actors-tests.sh" "$TEST_DIR" "$STAINLESS_VERSION"
+# Stainless Actors are currently disabled: https://github.com/epfl-lara/stainless/issues/970
+# "$BIN_DIR/stainless-actors-tests.sh" "$TEST_DIR" "$STAINLESS_VERSION"
 "$BIN_DIR/bolts-tests.sh" "$TEST_DIR"
 
 rm -rf "$TEST_DIR" || true
