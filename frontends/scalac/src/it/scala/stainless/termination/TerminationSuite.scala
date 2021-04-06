@@ -42,9 +42,6 @@ class TerminationSuite extends ComponentTestSuite {
     case "termination/looping/Queue"                    => Skip // Call to function looping_2$0 is not allowed here, because it
                                                                 // is mutually recursive with the current function looping_1$0
 
-    // Relation processor hangs when strengthening applications (https://github.com/epfl-lara/stainless/issues/724)
-    case "verification/valid/QuickSortFilter" => Ignore
-
     case _ => super.filter(ctx, name)
   }
 
