@@ -85,16 +85,15 @@ trait MeasureInference
               case (id, l @ Lambda(largs, body)) if applicationCache.isDefinedAt(original.id, fi.id,id) =>
                 val cnstr = applicationCache(original.id, fi.id,id)
                 body match {
-                  case BooleanLiteral(_) => 
+                  case FunctionInvocation(_,_,_) => 
+                    Lambda(largs, Assume(cnstr(largs), body))
+                  case _                         => 
                     /*
                       This avoids a problem detected in LawTypeArgsElim.scala.
                       Annotating assume makes appear an undeclared variable in the
                       assumption and type checking fails.
-                      It should be generalized to any literal expression.
                     */
-                    Lambda(largs, body)
-                  case _                 => 
-                    Lambda(largs, Assume(cnstr(largs), body))
+                    Lambda(largs, body)                    
                 }
                 
               case (_, arg) => transform(arg)
@@ -178,13 +177,6 @@ trait MeasureInference
   }
 
   override protected def extractSymbols(context: TransformerContext, symbols: s.Symbols): t.Symbols = {
-    /* val sizeFunctions = sizes.getFunctions(symbols)
-    println(sizeFunctions)
-    val newSymbols = s.NoSymbols
-                      .withSorts(symbols.sorts.values.toSeq)
-                      .withFunctions(symbols.functions.values.toSeq ++ sizeFunctions)
-    val newContext = getContext(newSymbols)
-    super.extractSymbols(newContext, newSymbols) */
     val extracted = super.extractSymbols(context, symbols)
     val sizeFunctions = sizes.getFunctions(symbols).map(context.transformer.transform(_))
     registerFunctions(extracted, sizeFunctions)
