@@ -191,9 +191,20 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     }
 
     def prefixOf(that: Path): Boolean = {
+      // TODO: more expressions can be added to be "provably different"
+      def provablyDifferent(index1: Expr, index2: Expr): Boolean = (index1, index2) match {
+        case (x1: Variable, Plus(x2: Variable, BVLiteral(_, _, size)))
+          if x1 == x2 && x1.tpe == BVType(true, 32) && size <= 32 => true
+        case (Plus(x2: Variable, BVLiteral(_, _, size)), x1: Variable)
+          if x1 == x2 && x1.tpe == BVType(true, 32) && size <= 32 => true
+        case (BVLiteral(signed1, value1, size1), BVLiteral(signed2, value2, size2))
+          if value1 != value2 => true
+        case _ => false
+      }
+
       def rec(p1: Seq[Accessor], p2: Seq[Accessor]): Boolean = (p1, p2) match {
         case (Seq(), _) => true
-        case (ArrayAccessor(_) +: xs1, ArrayAccessor(_) +: xs2) =>
+        case (ArrayAccessor(index1) +: xs1, ArrayAccessor(index2) +: xs2) if !provablyDifferent(index1, index2) =>
           rec(xs1, xs2)
         case (ADTFieldAccessor(id1) +: xs1, ADTFieldAccessor(id2) +: xs2) if id1 == id2 =>
           rec(xs1, xs2)
