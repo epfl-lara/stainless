@@ -17,6 +17,8 @@ object DebugSectionTypeChecker extends inox.DebugSection("type-checker")
 object DebugSectionTypeCheckerVCs extends inox.DebugSection("type-checker-vcs")
 object DebugSectionDerivation extends inox.DebugSection("derivation")
 
+import inox.utils.Position
+
 trait VCFilter { self =>
   def apply(vc: StainlessVC): Boolean
   def inverse: VCFilter = vc => !self.apply(vc)
@@ -735,7 +737,6 @@ trait TypeChecker {
         import exprOps._
 
         val pre = preconditionOf(calleeTfd.fullBody).map(freshenLocals(_))
-
         val trPre = {
           if (pre.isDefined) {
             val kind = VCKind.Info(VCKind.Precondition, s"call $fiS")
@@ -970,7 +971,31 @@ trait TypeChecker {
       return TyperResult.valid
     }
 
-    val TopLevelAnds(es) = e
+    object TopLevelLets {
+      def apply(lets: Seq[(ValDef, Expr, Position)], e: Expr): Expr =
+        lets.foldRight(e) { case ((vd, expr, pos), acc) =>
+          Let(vd, expr, acc).setPos(pos)
+        }
+
+      def unapply(e: Expr): Option[(Seq[(ValDef, Expr, Position)], Expr)] = e match {
+        case Let(vd, expr, body) =>
+          unapply(body).map { case (lets, rest) =>
+           ((vd, expr, e.getPos) +: lets, rest)
+          }
+        case e => Some(Seq(), e)
+      }
+    }
+
+    // this is variant from `TopLevelAnds` in Inox that doesn't duplicate the let bindings
+    object TopLevelAnds { // expr1 AND (expr2 AND (expr3 AND ..)) => List(expr1, expr2, expr3)
+      def unapply(e: Expr): Option[Seq[Expr]] = e match {
+        case And(exprs) => Some(exprs.flatMap(unapply).flatten)
+        case e => Some(Seq(e))
+      }
+    }
+
+    val TopLevelLets(lets, rest) = e
+    val TopLevelAnds(es) = rest
     val toCheck = es.filterNot {
       case Annotated(_, flags) => flags contains Unchecked
       case _ => false
@@ -978,7 +1003,7 @@ trait TypeChecker {
     if (toCheck.isEmpty) {
       return TyperResult.valid
     }
-    val e2 = andJoin(toCheck).copiedFrom(e)
+    val e2 = TopLevelLets(lets, andJoin(toCheck).copiedFrom(e))
 
     val condition = vcFromContext(tc.termVariables, e2)
 
@@ -1372,7 +1397,7 @@ trait TypeChecker {
           val TyperResult(vcs, trees) = tr
 
           if (reporter.debugSections.contains(DebugSectionDerivation)) {
-            makeHTMLFile(id + ".html", trees)
+            makeHTMLFile(id.uniqueName + ".html", trees)
           }
 
           vcs
@@ -1427,7 +1452,7 @@ trait TypeChecker {
     ).root(OKADT(id))
 
     if (reporter.debugSections.contains(DebugSectionDerivation)) {
-      makeHTMLFile(id + ".html", trees)
+      makeHTMLFile(id.uniqueName + ".html", trees)
     }
 
     vcs
