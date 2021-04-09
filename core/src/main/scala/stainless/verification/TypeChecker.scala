@@ -971,41 +971,24 @@ trait TypeChecker {
       return TyperResult.valid
     }
 
-    object TopLevelLets {
-      def apply(lets: Seq[(ValDef, Expr, Position)], e: Expr): Expr =
-        lets.foldRight(e) { case ((vd, expr, pos), acc) =>
-          Let(vd, expr, acc).setPos(pos)
-        }
-
-      def unapply(e: Expr): Option[(Seq[(ValDef, Expr, Position)], Expr)] = e match {
-        case Let(vd, expr, body) =>
-          unapply(body).map { case (lets, rest) =>
-           ((vd, expr, e.getPos) +: lets, rest)
-          }
-        case e => Some(Seq(), e)
-      }
+    def filterUnchecked(e: Expr): Option[Expr] = e match {
+      case Let(vd, expr, body) => filterUnchecked(body).map(Let(vd, expr, _).setPos(e))
+      case And(exprs) =>
+        val filteredExprs = exprs.flatMap(filterUnchecked)
+        if (filteredExprs.isEmpty) None
+        else if (filteredExprs.size == 1) Some(filteredExprs.head)
+        else Some(And(filteredExprs).setPos(e))
+      case Annotated(_, flags) if flags.contains(Unchecked) => None
+      case _ => Some(e)
     }
 
-    // this is variant from `TopLevelAnds` in Inox that doesn't duplicate the let bindings
-    object TopLevelAnds { // expr1 AND (expr2 AND (expr3 AND ..)) => List(expr1, expr2, expr3)
-      def unapply(e: Expr): Option[Seq[Expr]] = e match {
-        case And(exprs) => Some(exprs.flatMap(unapply).flatten)
-        case e => Some(Seq(e))
-      }
-    }
+    val filtered = filterUnchecked(e)
 
-    val TopLevelLets(lets, rest) = e
-    val TopLevelAnds(es) = rest
-    val toCheck = es.filterNot {
-      case Annotated(_, flags) => flags contains Unchecked
-      case _ => false
-    }
-    if (toCheck.isEmpty) {
+    if (filtered.isEmpty) {
       return TyperResult.valid
     }
-    val e2 = TopLevelLets(lets, andJoin(toCheck).copiedFrom(e))
 
-    val condition = vcFromContext(tc.termVariables, e2)
+    val condition = vcFromContext(tc.termVariables, filtered.get)
 
     val vc: StainlessVC = VC(
       condition,
@@ -1023,7 +1006,7 @@ trait TypeChecker {
       s"VC:\n${condition.asString}\n\n\n"
     )(DebugSectionTypeCheckerVCs)
 
-    TyperResult(Seq(vc), Seq(NodeTree(JVC(tc, e2), Seq())))
+    TyperResult(Seq(vc), Seq(NodeTree(JVC(tc, filtered.get), Seq())))
   }
 
   /** The `checkType` function checks that an expression `e` has type `tpe` by
