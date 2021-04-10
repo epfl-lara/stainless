@@ -33,11 +33,11 @@ package object proof {
   def by(proof: Boolean)(prop: Boolean): Boolean =
     proof && prop
 
-  @library // @ghost
-  def check(prop: Boolean): Boolean = {
+  @library @inline // @ghost
+  def check(prop: Boolean): Unit = {
     require(prop)
-    prop
-  }.holds
+    ()
+  }.ensuring(_ => prop)
 
   /**
    * Relational reasoning.
