@@ -6,7 +6,7 @@ import stainless.extraction.xlang.{trees => xt}
 object LibraryFilter {
 
   private def shouldRemoveLibraryFlag(fn: xt.FunDef, symbols: xt.Symbols): Boolean = {
-    if(fn.flags.contains(xt.Synthetic) || !fn.isLibrary || !fn.isLaw)
+    if (fn.flags.contains(xt.Synthetic) || !fn.isLibrary || !fn.isLaw)
       false
     else {
       val optClass = fn.getClassDef(symbols)

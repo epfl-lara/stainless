@@ -280,7 +280,7 @@ trait MethodLifting
       }
     }
 
-    val (specs, body) = exprOps.deconstructSpecs(fd.fullBody)(symbols)
+    val (specs, body) = exprOps.deconstructSpecs(fd.fullBody)
 
     val (conds, elze) = if (subCalls.isEmpty || notFullyOverriden) {
       val elze = body match {
@@ -293,7 +293,7 @@ trait MethodLifting
       (conds, elze)
     }
 
-    val newSpecs = specs.map(_.map(t)(transformer.transform(_)))
+    val newSpecs = specs.map(_.transform(transformer))
     val dispatchBody = conds.foldRight(elze) { case ((cond, res), elze) =>
       t.IfExpr(cond, res, elze).setPos(Position.between(cond.getPos, elze.getPos))
     }

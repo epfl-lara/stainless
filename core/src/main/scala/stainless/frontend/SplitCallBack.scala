@@ -9,6 +9,7 @@ import scala.language.existentials
 
 import extraction.xlang.{ TreeSanitizer, trees => xt }
 import extraction.utils.ConcurrentCache
+import extraction.utils.DebugSymbols
 import utils.{ CheckFilter, JsonUtils }
 
 import scala.collection.mutable.{ ListBuffer, Set => MutableSet }
@@ -21,10 +22,19 @@ import scala.util.{Try, Success, Failure}
 import scala.concurrent.{ Await, Future }
 import scala.concurrent.duration._
 
+
 class SplitCallBack(components: Seq[Component])(override implicit val context: inox.Context)
   extends CallBack with CheckFilter with StainlessReports { self =>
 
   protected final override val trees = extraction.xlang.trees
+
+  private[this] val preprocessing = new DebugSymbols {
+    val name = "Preprocessing"
+    val context = self.context
+    val s: xt.type = xt
+    val t: xt.type = xt
+  }
+
   protected val pipeline: extraction.StainlessPipeline = extraction.pipeline
 
   import context.reporter
@@ -66,8 +76,6 @@ class SplitCallBack(components: Seq[Component])(override implicit val context: i
 
   final override def endExtractions(): Unit = {
     reporter.terminateIfFatal()
-
-    symbols = strictBVCleaner.transform(LibraryFilter.removeLibraryFlag(symbols))
 
     processSymbols(symbols)
 
@@ -159,7 +167,7 @@ class SplitCallBack(components: Seq[Component])(override implicit val context: i
     val funDeps = syms.functions.values.filter(fd => deps(fd.id)).toSeq
     val typeDeps = syms.typeDefs.values.filter(td => deps(td.id)).toSeq
     val preSyms = xt.NoSymbols.withClasses(clsDeps).withFunctions(funDeps ++ funs).withTypeDefs(typeDeps)
-    val funSyms = Recovery.recover(preSyms)
+    val funSyms = preprocessing.debug(Preprocessing().transform)(preSyms)
 
     val cf = serialize(funs)(funSyms)
 

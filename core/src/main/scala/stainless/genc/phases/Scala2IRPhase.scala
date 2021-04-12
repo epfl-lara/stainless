@@ -587,6 +587,11 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
 
     case Annotated(body, _) => rec(body)
 
+    // Casts introduced by Stainless with an assumption
+    case Assume(IsInstanceOf(expr1, tpe1), Annotated(AsInstanceOf(expr2, tpe2), flags))
+      if flags.contains(Unchecked) && expr1 == expr2 && tpe1 == tpe2 =>
+      rec(expr1)
+
     /* Ignore static assertions */
     case Require(_, body) => rec(body)
     case Decreases(_, body) => rec(body)
@@ -804,6 +809,8 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
       ctx.reporter.fatalError(e.getPos, s"Cast to abstract classes are not supported by GenC")
 
     case AsInstanceOf(expr, ct: ClassType) => CIR.AsA(rec(expr), CIR.ClassType(rec(ct)))
+
+    case Return(expr) => CIR.Return(rec(expr))
 
     case e =>
       ctx.reporter.fatalError(e.getPos, s"Expression `${e.asString}` (${e.getClass}) not handled by GenC component")

@@ -26,6 +26,7 @@ import scala.language.existentials
 package object extraction {
 
   val phases: Seq[(String, String)] = Seq(
+    "Preprocessing"             -> "A preprocessing phase before the pipeline",
     "PartialFunctions"          -> "Lift partial function preconditions",
     "XlangLowering"             -> "Lowering phase at the end of xlang phases",
     "InnerClasses"              -> "Lift inner classes",
@@ -51,7 +52,6 @@ package object extraction {
     "Trace"                     -> "Apply the traceInduct tactic during verification of the annotated function.",
     "SizedADTExtraction"        -> "Transforms calls to 'indexedAt' to the 'SizedADT' tree",
     "InductElimination"         -> "Replace @induct annotation by explicit recursion",
-    "SizeInjection"             -> "Injects a size function for each ADT",
     "MeasureInference"          -> "Infer and inject measures in recursive functions",
     "PartialEvaluation"         -> "Partially evaluate marked function calls",
     "AssertionInjector"         -> "Insert assertions which verify array accesses, casts, division by zero, etc.",

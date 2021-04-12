@@ -116,13 +116,20 @@ package object stainless {
   }
 
   def topLevelErrorHandler(e: Throwable)(implicit ctx: inox.Context): Nothing = {
+    e match {
+      case extraction.MalformedStainlessCode(tree, msg) => ctx.reporter.error(tree.getPos, msg)
+      case _ => ()
+    }
+
     ctx.reporter.error(s"Stainless terminated with an error.")
 
     val sw = new StringWriter
     e.printStackTrace(new PrintWriter(sw))
     new PrintWriter("stainless-stack-trace.txt") { write(sw.toString); close }
 
-    ctx.reporter.error("Debug output is available in the file `stainless-stack-trace.txt`, you may report your issue on https://github.com/epfl-lara/stainless/issues")
+    ctx.reporter.error(
+      "Debug output is available in the file `stainless-stack-trace.txt`. " +
+      "If the crash is caused by Stainless, you may report your issue on https://github.com/epfl-lara/stainless/issues")
 
     if (ctx.reporter.debugSections.contains(frontend.DebugSectionStack))
       ctx.reporter.debug(sw.toString)(frontend.DebugSectionStack)

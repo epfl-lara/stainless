@@ -2,6 +2,7 @@
 
 import stainless.lang._
 import stainless.collection._
+import stainless.math.BitVectors._
 import stainless._
 
 object BVDivSemantics {
@@ -15,17 +16,18 @@ object BVDivSemantics {
     -(x / 2) == x / -2
   } ensuring(res => res)
 
-  //def identity4(x: Int, y: Int): Boolean = {
-  //  require(y > 0)
+  // FIXME: times out
+  // def identity4(x: Int, y: Int): Boolean = {
+  //  require(y > 0 && x > -2147483648)
   //  - (x % y) == (-x)%y
-  //} ensuring(res => res)
+  // } ensuring(res => res)
 
   def identity5(x: Int): Boolean = {
     x % 2 == x % -2
   } ensuring(res => res)
 
   def identity6(x: Int): Boolean = {
-    require(x != 0)
+    require(x != 0 && x > -2147483648)
     5 % x == 5 % -x
   } ensuring(res => res)
 
