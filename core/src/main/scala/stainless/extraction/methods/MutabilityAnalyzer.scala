@@ -43,7 +43,6 @@ trait MutabilityAnalyzer extends oo.ExtractionPipeline { self =>
         // We don't need to check for mutable fields here, as at this point every
         // field still has a getter
         case ClassType(cid, tps) =>
-          tps.exists(rec(_, seen)) ||
           symbols.getClass(cid).fields.exists { vd =>
             vd.flags.contains(IsVar) ||
             rec(vd.getType, seen + cid)

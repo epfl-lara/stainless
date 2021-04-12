@@ -93,11 +93,11 @@ trait ImperativeCleanup
   } (expr)
 
   override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = {
-    val (specs, body) = s.exprOps.deconstructSpecs(fd.fullBody)(context.symbols)
+    val (specs, body) = s.exprOps.deconstructSpecs(fd.fullBody)
 
     specs foreach {
-      case post: s.exprOps.Postcondition => post foreach checkValidOldUsage
-      case spec => spec foreach checkNoOld
+      case post: s.exprOps.Postcondition => post traverse (checkValidOldUsage _)
+      case spec => spec traverse (checkNoOld _)
     }
 
     body foreach checkNoOld

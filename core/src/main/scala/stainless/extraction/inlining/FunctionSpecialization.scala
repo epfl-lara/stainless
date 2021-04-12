@@ -128,7 +128,7 @@ trait FunctionSpecialization extends CachingPhase with IdentitySorts { self =>
 
     val speccedOuter = BodyWithSpecs(fd.fullBody)
 
-    if (speccedOuter.lets.nonEmpty) {
+    if (speccedOuter.specs.exists(_.kind == LetKind)) {
       check(fd.fullBody)
       return Some(fd)
     }

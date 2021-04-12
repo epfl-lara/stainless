@@ -637,8 +637,9 @@ trait CodeExtraction extends ASTExtractors {
     }
 
     val fullBody = if (fctx.isExtern) {
-      xt.exprOps.withoutSpecs(finalBody) foreach { KeywordChecker.traverse }
-      xt.exprOps.withBody(finalBody, xt.NoTree(returnType).setPos(body.pos))
+      val specced = xt.exprOps.BodyWithSpecs(finalBody)
+      specced.bodyOpt foreach { KeywordChecker.traverse }
+      specced.withBody(xt.NoTree(returnType)).reconstructed.setPos(body.pos)
     } else {
       finalBody
     }

@@ -17,6 +17,8 @@ object DebugSectionTypeChecker extends inox.DebugSection("type-checker")
 object DebugSectionTypeCheckerVCs extends inox.DebugSection("type-checker-vcs")
 object DebugSectionDerivation extends inox.DebugSection("derivation")
 
+import inox.utils.Position
+
 trait VCFilter { self =>
   def apply(vc: StainlessVC): Boolean
   def inverse: VCFilter = vc => !self.apply(vc)
@@ -482,9 +484,9 @@ trait TypeChecker {
       case GreaterThan(lhs, rhs) => inferOperationType(">", e, tc, isComparableType, Some(BooleanType()), lhs, rhs)
       case LessThan(lhs, rhs) => inferOperationType("<", e, tc, isComparableType, Some(BooleanType()), lhs, rhs)
 
-      case BVNot(e2) => inferOperationType("bvnot", e, tc, _.isInstanceOf[BVType], None, e2)
+      case BVNot(e2) => inferOperationType("bvnot (~)", e, tc, _.isInstanceOf[BVType], None, e2)
       case BVAnd(lhs, rhs) => inferOperationType("bvand (&)", e, tc, _.isInstanceOf[BVType], None, lhs, rhs)
-      case BVOr(lhs, rhs) => inferOperationType("bvand (|)", e, tc, _.isInstanceOf[BVType], None, lhs, rhs)
+      case BVOr(lhs, rhs) => inferOperationType("bvor (|)", e, tc, _.isInstanceOf[BVType], None, lhs, rhs)
       case BVXor(lhs, rhs) => inferOperationType("bvxor", e, tc, _.isInstanceOf[BVType], None, lhs, rhs)
       case BVShiftLeft(lhs, rhs) => inferOperationType("bvshiftleft", e, tc, _.isInstanceOf[BVType], None, lhs, rhs)
       case BVAShiftRight(lhs, rhs) => inferOperationType("bvshiftright", e, tc, _.isInstanceOf[BVType], None, lhs, rhs)
@@ -734,17 +736,12 @@ trait TypeChecker {
 
         import exprOps._
 
-        val specced = BodyWithSpecs(calleeTfd.fullBody)
-        val pre = specced.getSpec(PreconditionKind)
-        val letsVDs = specced.lets.map(_._1)
-        val letsExprs = specced.lets.map(_._2)
-
+        val pre = preconditionOf(calleeTfd.fullBody).map(freshenLocals(_))
         val trPre = {
           if (pre.isDefined) {
             val kind = VCKind.Info(VCKind.Precondition, s"call $fiS")
             val (tc2, freshener2) = tc.freshBindWithValues(calleeTfd.params, args)
-            val (tc3, freshener3) = tc2.freshBindWithValues(letsVDs.map(freshener2.transform), letsExprs.map(freshener2.transform))
-            buildVC(tc3.withVCKind(kind).setPos(e), freshener2.andThen(freshener3).transform(pre.get.expr))
+            buildVC(tc2.withVCKind(kind).setPos(e), freshener2.transform(pre.get))
           } else {
             TyperResult.valid
           }
@@ -752,7 +749,7 @@ trait TypeChecker {
 
         val isRecursive = tc.currentFid.exists(fid => dependencies(id).contains(fid))
 
-        val calleeMeasureOpt = specced.getSpec(MeasureKind)
+        val calleeMeasureOpt = measureOf(calleeTfd.fullBody).map(freshenLocals(_))
         val hasMeasure = calleeMeasureOpt.isDefined
 
         val trSize = {
@@ -761,8 +758,8 @@ trait TypeChecker {
             assert(tc.currentMeasure.isDefined)
             val currentMeasure = tc.currentMeasure.get
             assert(calleeMeasureOpt.isDefined, s"${calleeTfd.id.asString} must have a measure")
-            val calleeMeasure = calleeMeasureOpt.get.expr
-            val calleeMeasureValue = freshLets(calleeTfd.params ++ letsVDs, args ++ letsExprs, calleeMeasure)
+            val calleeMeasure = calleeMeasureOpt.get
+            val calleeMeasureValue = freshLets(calleeTfd.params, args, calleeMeasure)
             buildVC(
               tc.withVCKind(VCKind.MeasureDecreases).setPos(e),
               lessThan(tc.measureType.get, calleeMeasureValue, currentMeasure)
@@ -974,17 +971,24 @@ trait TypeChecker {
       return TyperResult.valid
     }
 
-    val TopLevelAnds(es) = e
-    val toCheck = es.filterNot {
-      case Annotated(_, flags) => flags contains Unchecked
-      case _ => false
+    def filterUnchecked(e: Expr): Option[Expr] = e match {
+      case Let(vd, expr, body) => filterUnchecked(body).map(Let(vd, expr, _).setPos(e))
+      case And(exprs) =>
+        val filteredExprs = exprs.flatMap(filterUnchecked)
+        if (filteredExprs.isEmpty) None
+        else if (filteredExprs.size == 1) Some(filteredExprs.head)
+        else Some(And(filteredExprs).setPos(e))
+      case Annotated(_, flags) if flags.contains(Unchecked) => None
+      case _ => Some(e)
     }
-    if (toCheck.isEmpty) {
+
+    val filtered = filterUnchecked(e)
+
+    if (filtered.isEmpty) {
       return TyperResult.valid
     }
-    val e2 = andJoin(toCheck).copiedFrom(e)
 
-    val condition = vcFromContext(tc.termVariables, e2)
+    val condition = vcFromContext(tc.termVariables, filtered.get)
 
     val vc: StainlessVC = VC(
       condition,
@@ -1002,7 +1006,7 @@ trait TypeChecker {
       s"VC:\n${condition.asString}\n\n\n"
     )(DebugSectionTypeCheckerVCs)
 
-    TyperResult(Seq(vc), Seq(NodeTree(JVC(tc, e2), Seq())))
+    TyperResult(Seq(vc), Seq(NodeTree(JVC(tc, filtered.get), Seq())))
   }
 
   /** The `checkType` function checks that an expression `e` has type `tpe` by
@@ -1066,7 +1070,6 @@ trait TypeChecker {
         checkType(tc.bind(vds), body, to)
 
       case (Lambda(params1, body), PiType(params2, to)) =>
-        // val vds = params1.zip(params2).map { case (vd, tp) => vd.copy(tpe = tp) }
         val freshener = Substituter(params1.map(_.id).zip(params2.map(_.id)).toMap)
         checkType(tc.bind(params2), freshener.transform(body), to)
 
@@ -1294,15 +1297,20 @@ trait TypeChecker {
         )
     }
 
-    // `tc` is `tc0` to which we add the lets shared between the body and the specifications
-    val vds = specced.lets.map(_._1).map(freshener.transform)
-    val es = specced.lets.map(_._2).map(freshener.transform)
-    val tc = tc0.bindWithValues(vds, es)
+    // `tcWithPre` is `tc0` to which we add the preconditions and lets
+    // and `trPre` is the `TyperResult` corresponding to type-checking those
+    val (tcWithPre, trPre) = specced.specs.filter(spec => spec.kind == LetKind || spec.kind == PreconditionKind).foldLeft (tc0, TyperResult.valid) {
+      case ((tcAcc, trAcc), LetInSpec(vd, e)) =>
+        val e2 = freshener.transform(e)
+        val freshVd = freshener.transform(vd)
+        (tcAcc.bindWithValue(freshVd, e2), trAcc ++ checkType(tcAcc, e2, freshVd.tpe))
+      case ((tcAcc, trAcc), Precondition(cond)) =>
+        val cond2 = freshener.transform(cond)
+        (tcAcc.withTruth(cond2), trAcc ++ checkType(tcAcc, cond2, BooleanType()))
+      case _ => sys.error("shouldn't be possible because of the filtering above")
+    }
 
     val measureOpt = specced.getSpec(MeasureKind).map(measure => freshener.transform(measure.expr))
-
-    val preOpt = specced.getSpec(PreconditionKind).map(pre => freshener.transform(pre.expr))
-    val tcWithPre = preOpt.map(pre => tc.withTruth(pre)).getOrElse(tc)
 
     val (measureType, trMeasure): (Option[Type], TyperResult) =
       if (measureOpt.isDefined) {
@@ -1320,14 +1328,10 @@ trait TypeChecker {
 
     val postOpt = specced.getSpec(PostconditionKind).map(post => freshener.transform(post.expr))
 
-    // We check that the precondition is a boolean
-    val trPre = preOpt.map(pre => checkType(tc, pre, BooleanType())).getOrElse(TyperResult.valid)
-
     val freshenedReturnType = freshener.transform(fd.returnType)
+    val bodyOpt = specced.bodyOpt.map(freshener.transform)
 
-    val bodyOpt = specced.bodyOpt.map(e => freshener.transform(e))
-
-    // The TypingContext for the body contains all dependencies, and the measure
+    // The `TypingContext` for the body contains all dependencies, and the measure
     val tcBody = tcWithPre.withIdentifiers(deps).withMeasureType(measureType).withMeasure(measureOpt)
 
     // We check that the body of the function respects the return type and
@@ -1351,7 +1355,7 @@ trait TypeChecker {
     val vcs = (for ((id, (measureType, tr)) <- checkedFunctions) yield {
       val fd = getFunction(id)
 
-      if (fd.body.isDefined) {
+      if (exprOps.BodyWithSpecs(fd.fullBody).bodyOpt.isDefined) {
         val nm = needsMeasure(fd)
         if (nm && measureType.isEmpty) {
           Seq(VC(BooleanLiteral(false), id, VCKind.MeasureMissing, false).setPos(fd))
@@ -1376,7 +1380,7 @@ trait TypeChecker {
           val TyperResult(vcs, trees) = tr
 
           if (reporter.debugSections.contains(DebugSectionDerivation)) {
-            makeHTMLFile(id + ".html", trees)
+            makeHTMLFile(id.uniqueName + ".html", trees)
           }
 
           vcs
@@ -1386,7 +1390,6 @@ trait TypeChecker {
         Nil
       }
     }).flatten
-
     vcs.sortBy { vc =>
       (
         getFunction(vc.fd),
@@ -1432,7 +1435,7 @@ trait TypeChecker {
     ).root(OKADT(id))
 
     if (reporter.debugSections.contains(DebugSectionDerivation)) {
-      makeHTMLFile(id + ".html", trees)
+      makeHTMLFile(id.uniqueName + ".html", trees)
     }
 
     vcs

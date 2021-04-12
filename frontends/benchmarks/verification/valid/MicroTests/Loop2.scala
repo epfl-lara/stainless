@@ -2,6 +2,7 @@
 
 import stainless.lang._
 import stainless.util._
+import stainless.io.State
 
 object Loop2 {
 

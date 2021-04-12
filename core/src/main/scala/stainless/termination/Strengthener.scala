@@ -47,7 +47,8 @@ trait Strengthener { self: OrderingRelation =>
     // a stronger post existing for a single function within the SCC seems more probable
     // than having weird inter-dependencies between different functions in the SCC
     for (fd <- sortedCallees
-         if fd.body.isDefined && !strengthenedPost.isDefinedAt(fd.id) && checker
+         if fd.body.isDefined &&
+           !strengthenedPost.isDefinedAt(fd.id) && checker
            .terminates(fd)
            .isGuaranteed) {
 
@@ -146,7 +147,7 @@ trait Strengthener { self: OrderingRelation =>
         v -> ((soft, hard))
       }
 
-      val formulaMap = allFormulas.view.groupBy(_._1).mapValues(_.map(_._2).unzip).toMap
+      val formulaMap = allFormulas.groupBy(_._1).mapValues(_.map(_._2).unzip).toMap
 
       val constraints = for ((v, (weakFormulas, strongFormulas)) <- formulaMap) yield v -> {
         if (api.solveVALID(andJoin(weakFormulas.toSeq)).contains(true)) {

@@ -131,7 +131,7 @@ trait TreeSanitizer { self =>
         if (specs.length > 1)
           errors += MalformedStainlessCode(fullBody, s"Duplicate `${kind.name}` specification.")
       }
-      specced.specs.foreach(s => traverse(s.expr))
+      specced.specs.foreach(s => s.traverse(this))
       specced.bodyOpt.foreach(traverse)
     }
 

@@ -4,6 +4,10 @@ package stainless
 package extraction
 package throwing
 
+import inox.transformers.Transformer
+import stainless.transformers.TreeTransformer
+import stainless.transformers.TreeTraverser
+
 trait Trees extends imperative.Trees { self =>
 
   protected def getExceptionType(implicit s: Symbols): Option[Type] =
@@ -112,24 +116,31 @@ trait Printer extends imperative.Printer {
   }
 }
 
-trait ExprOps extends imperative.ExprOps {
+trait ExprOps extends imperative.ExprOps { self =>
   protected val trees: Trees
   import trees._
 
   object ExceptionsKind extends SpecKind("exceptions") { type Spec = Exceptions }
 
   case class Exceptions(expr: Lambda) extends Specification(ExceptionsKind) {
-    def map(t: ast.Trees)(f: Expr => t.Expr): t.exprOps.Specification = t match {
+    def transform(tr: Transformer { val s: trees.type; val t: stainless.ast.Trees })(env: tr.Env): tr.t.exprOps.Specification = tr.t match {
       case tt: throwing.Trees =>
-        tt.exprOps.Exceptions(f(expr).asInstanceOf[tt.Lambda]).asInstanceOf[t.exprOps.Specification]
+        tt.exprOps.Exceptions(tr.transform(expr, env).asInstanceOf[tt.Lambda]).setPos(this).asInstanceOf[tr.t.exprOps.Specification]
       case _ =>
-        throw new java.lang.IllegalArgumentException("Can't map exceptions into non-throwing trees")
+        throw new java.lang.IllegalArgumentException("Can't transform exceptions into non-throwing trees")
+    }
+    def transform(tr: TreeTransformer { val s: trees.type; val t: stainless.ast.Trees }): tr.t.exprOps.Specification = tr.t match {
+      case tt: throwing.Trees =>
+        tt.exprOps.Exceptions(tr.transform(expr).asInstanceOf[tt.Lambda]).setPos(this).asInstanceOf[tr.t.exprOps.Specification]
+      case _ =>
+        throw new java.lang.IllegalArgumentException("Can't transform exceptions into non-throwing trees")
+    }
+
+    def traverse(tr: TreeTraverser { val trees: self.trees.type }): Unit = {
+      tr.traverse(expr)
     }
 
     def isTrivial: Boolean = false
-
-    def letWrapped(specced: BodyWithSpecs): Measure =
-      Measure(specced.wrapLets(expr)).setPos(this.getPos)
   }
 
   override def peelSpec(expr: Expr): Option[(Specification, Expr)] = expr match {

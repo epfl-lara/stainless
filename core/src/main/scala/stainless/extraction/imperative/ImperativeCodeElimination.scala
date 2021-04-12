@@ -283,7 +283,7 @@ trait ImperativeCodeElimination
                     val (r, scope, _) = toFunction(newBody)
                     Postcondition(Lambda(Seq(newRes), scope(r)).setPos(post))
 
-                  case spec => spec.map { cond =>
+                  case spec => spec.transform { cond =>
                     val fresh = replaceFromSymbols((modifiedVars zip freshVars).toMap, cond)
                     //still apply recursively to update all function invocation
                     val (res, scope, _) = toFunction(fresh)
@@ -391,7 +391,7 @@ trait ImperativeCodeElimination
           val (res, scope, _) = toFunction(newBody)(State(fd, Set(), Map()))
           Postcondition(Lambda(params, scope(res)).copiedFrom(ld))
 
-        case spec => spec.map { e =>
+        case spec => spec.transform { e =>
           val (res, scope, _) = toFunction(e)(State(fd, Set(), Map()))
           scope(res)
         }

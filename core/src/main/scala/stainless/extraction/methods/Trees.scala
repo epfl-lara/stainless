@@ -317,7 +317,7 @@ trait Trees extends throwing.Trees { self =>
       (!isExtern && !hasBody && !isSynthetic && fd.getClassDef.forall(_.isAbstract))
     }
 
-    def hasBody: Boolean = exprOps.withoutSpecs(fd.fullBody).isDefined
+    def hasBody: Boolean = exprOps.BodyWithSpecs(fd.fullBody).hasBody
 
     def isInvariant: Boolean = fd.flags contains IsInvariant
     def isExtern: Boolean = fd.flags contains Extern
