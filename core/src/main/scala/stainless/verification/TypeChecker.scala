@@ -736,16 +736,24 @@ trait TypeChecker {
 
         import exprOps._
 
-        val pre = preconditionOf(calleeTfd.fullBody).map(freshenLocals(_))
-        val trPre = {
-          if (pre.isDefined) {
-            val kind = VCKind.Info(VCKind.Precondition, s"call $fiS")
-            val (tc2, freshener2) = tc.freshBindWithValues(calleeTfd.params, args)
-            buildVC(tc2.withVCKind(kind).setPos(e), freshener2.transform(pre.get))
-          } else {
-            TyperResult.valid
-          }
-        }
+        val (tc2, freshener2) = tc.freshBindWithValues(calleeTfd.params, args)
+        val specced = BodyWithSpecs(freshener2.transform(freshenLocals(calleeTfd.fullBody)))
+        val trPre = specced.letsAndSpecs(PreconditionKind).foldLeft(
+          (tc2, TyperResult.valid, 0)
+        ) {
+          case ((tcAcc, trAcc, i), LetInSpec(vd0, e0)) => (tcAcc.bindWithValue(vd0, e0), trAcc, i)
+          case ((tcAcc, trAcc, i), Precondition(cond)) =>
+            val kind = if (i == 0)
+              VCKind.Info(VCKind.Precondition, s"call $fiS")
+            else
+              VCKind.Info(VCKind.Precondition, s"call $fiS (require ${i+1}")
+            (
+              tcAcc.withTruth(cond),
+              trAcc ++ buildVC(tcAcc.withVCKind(kind).setPos(e), cond),
+              i + 1
+            )
+          case _ => sys.error("not possible due to filtering")
+        }._2
 
         val isRecursive = tc.currentFid.exists(fid => dependencies(id).contains(fid))
 
