@@ -270,13 +270,14 @@ trait AntiAliasing
         // throws an exception if two arguments in the sequence share a target prefix
         private def checkAliasing(expr: Expr, args: Seq[Expr]): Unit = {
           val argTargets: Seq[((Expr, Set[Target]), Int)] =
-            args.map(arg => arg -> Try(getTargets(arg)).toOption
-              .getOrElse(
-                exprOps.variablesOf(arg)
-                  .filter(v => isMutableType(v.tpe))
-                  .map(v => Target(v, None, Path.empty))
-              )
-            ).zipWithIndex
+            args.filter(arg => isMutableType(arg.getType))
+              .map(arg => arg -> Try(getTargets(arg)).toOption
+                .getOrElse(
+                  exprOps.variablesOf(arg)
+                    .filter(v => isMutableType(v.tpe))
+                    .map(v => Target(v, None, Path.empty))
+                )
+              ).zipWithIndex
 
           for (((arg1, targets1), i) <- argTargets) {
             val otherTargets: Seq[(Expr, Set[Target])] = argTargets.filter(_._2 != i).map(_._1)
