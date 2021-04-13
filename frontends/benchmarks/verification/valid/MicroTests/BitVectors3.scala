@@ -53,6 +53,14 @@ object BitVectors3 {
     val x8: Int4 = x6.narrow[Int4]
     assert(x8 == -8)
 
+    // the `toByte`, `toShort`, `toInt`, and `toLong` methods described above
+    // can be used on any bitvector type. For signed integers, this corresponds
+    // to a narrowing or a widening operation dependending on the bitvector size.
+    // For unsigned integers, this corresponds to first doing a widering/narrowing
+    // operation, and then applying `toSigned`
+    val x9: UInt2 = 3
+    assert(x9.toInt == x9.widen[UInt32].toSigned[Int32].toInt)
+
     // the BitVectors library also provide constants for maximum and minimum values
     assert(max[Int8] == 127)
     assert(min[Int8] == -128)

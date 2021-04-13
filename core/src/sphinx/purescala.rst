@@ -784,6 +784,14 @@ These examples are taken from `BitVectors3.scala
   val x8: Int4 = x6.narrow[Int4]
   assert(x8 == -8)
 
+  // the `toByte`, `toShort`, `toInt`, and `toLong` methods described above
+  // can be used on any bitvector type. For signed integers, this corresponds
+  // to a narrowing or a widening operation dependending on the bitvector size.
+  // For unsigned integers, this corresponds to first doing a widering/narrowing
+  // operation, and then applying `toSigned`
+  val x9: UInt2 = 3
+  assert(x9.toInt == x9.widen[UInt32].toSigned[Int32].toInt)
+
   // The library also provide constants for maximum and minimum values.
   assert(max[Int8] == 127)
   assert(min[Int8] == -128)
@@ -797,12 +805,29 @@ Bitvector types can be understood as finite intervals of integers
 * ``IntX`` is the interval :math:`[-2^{X-1}, 2^{X-1} - 1]`.
 
 Conversions between these types can be interpreted as operations on the
-array of bits of the bitvectors, or as operations on the integers they
+arrays of bits of the bitvectors, or as operations on the integers they
 represent.
 
 * ``widen`` from ``UIntX`` to ``UIntY`` with :math:`Y > X` adds :math:`Y-X` (most significant) 0-bits, and corresponds to the identity transformation on integers.
-* ``widen`` from ``IntX`` to ``IntY`` with :math:`Y > X` copies :math:`Y-X` times the sign bit, and corresponds to the identity transformation on integers.
-* ``narrow`` from ``UIntX`` to ``UIntY`` with :math:`Y < X` removes the :math:`X-Y` most significant bits, and corresponds to taking the number modulo :math:`2^Y`.
-* ``narrow`` from ``IntX`` to ``IntY`` with :math:`Y < X` removes the :math:`X-Y` most significant bits (including the sign bit), and corresponds to the identity for integers in the interval :math:`[-2^{Y-1}, 2^{Y-1} - 1]`. Outside this range, the operation is tedious to represent on integers.
-* ``toSigned`` from ``UIntX`` to ``IntX`` does not change the bitvector, and behaves as the identity for integers smaller than :math:`2^{X-1}-1`, and subtracts :math:`2^{X}` for integers in the interval :math:`[2^{X-1}, 2^{X} - 1]`.
-* ``toUnsigned`` from ``IntX`` to ``UIntX`` does not change the bitvector, and behaves as the identity for non-negative integers, and adds :math:`2^{X}` for negative integers (in the interval :math:`[-2^{X-1}, 0[`).
+
+* ``widen`` from ``IntX`` to ``IntY`` with :math:`Y > X` copies :math:`Y-X` times the sign bit (sign-extension), and corresponds to the identity transformation on integers.
+
+* ``narrow`` from ``UIntX`` to ``UIntY`` with :math:`Y < X` removes the :math:`X-Y` most significant bits,
+  and corresponds to taking the number modulo :math:`2^Y`.
+  When the ``strict-arithmetic`` option is enabled, narrowing a number ``n`` to ``UIntY`` generates
+  a check ``n < 2^Y``.
+
+* ``narrow`` from ``IntX`` to ``IntY`` with :math:`Y < X` removes the :math:`X-Y` most significant bits (including the sign bit),
+  and corresponds to the identity for integers in the interval :math:`[-2^{Y-1}, 2^{Y-1} - 1]`. Outside this range,
+  the narrowing operation on a number ``n`` can be described as: 1) (unsigning) adding ``2^X`` if ``n`` is negative,
+  2) (unsigned narrowing) taking the result modulo ``2^Y``, 3) (signing) removing ``2^Y`` if the result of (2) is
+  greater or equal than ``2^{Y-1}``.
+  In ``strict-arithmetic`` mode, narrowing a number ``n`` to ``IntY`` generates two checks: ``-2^{Y-1} <= n`` and ``n <= 2^{Y-1} - 1``.
+
+* ``toSigned`` from ``UIntX`` to ``IntX`` does not change the bitvector, and behaves as the identity for integers not larger than :math:`2^{X-1}-1`,
+  and subtracts :math:`2^{X}` for integers in the interval :math:`[2^{X-1}, 2^{X} - 1]`.
+  In ``strict-arithmetic`` mode, making a number ``n`` signed generates a check ``n <= 2^{X-1}-1``.
+
+* ``toUnsigned`` from ``IntX`` to ``UIntX`` does not change the bitvector, and behaves as the identity
+  for non-negative integers, and adds :math:`2^{X}` for negative integers (in the interval :math:`[-2^{X-1}, 0[`).
+  In ``strict-arithmetic`` mode, making a number ``n`` unsigned generates a check ``n >= 0``.
