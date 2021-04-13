@@ -32,32 +32,49 @@ trait AssertionInjector extends transformers.TreeTransformer {
     t.LessThan(i, e).copiedFrom(e)
   ).copiedFrom(i)
 
+  // small terms that can be duplicated without code or VCs explosion
+  private def canDuplicate(e: s.Expr): Boolean = e match {
+    case s.Annotated(body, flags) => canDuplicate(body)
+    case _: s.BVLiteral => true
+    case _: s.IntegerLiteral => true
+    case _: s.StringLiteral => true
+    case _: s.Variable => true
+    case s.Tuple(es) => es.forall(canDuplicate)
+    case _ => false
+  }
+
+  private def bindIfCannotDuplicate(e: s.Expr, name: String)(f: t.Expr => t.Expr): t.Expr = {
+    if (canDuplicate(e)) f(transform(e))
+    else {
+      val x = t.ValDef.fresh(name, transform(e.getType)).setPos(e)
+      t.Let(x, transform(e), f(x.toVariable)).setPos(e)
+    }
+  }
+
   override def transform(e: s.Expr): t.Expr = e match {
     case s.Annotated(body, flags) if flags contains s.Wrapping =>
       t.Annotated(wrapping(true)(transform(body)), flags map transform).copiedFrom(e)
 
     case s.ArraySelect(a, i) =>
-      val aVal = t.ValDef.fresh("a", transform(a.getType)).setPos(a)
-      val iVal = t.ValDef.fresh("i", transform(i.getType)).setPos(i)
-      t.Let(aVal, transform(a), t.Let(iVal, transform(i),
+      bindIfCannotDuplicate(a, "a") { ax =>
+      bindIfCannotDuplicate(i, "i") { ix =>
         t.Assert(
-          indexUpTo(iVal.toVariable, t.ArrayLength(aVal.toVariable).copiedFrom(a)),
+          indexUpTo(ix, t.ArrayLength(ax).copiedFrom(a)),
           Some("Array index out of range"),
-          t.ArraySelect(aVal.toVariable, iVal.toVariable).setPos(e)
+          t.ArraySelect(ax, ix).setPos(e)
         ).copiedFrom(e)
-      ).copiedFrom(e)).copiedFrom(e)
+      }}
 
     case s.ArrayUpdated(a, i, v) =>
-      val aVal = t.ValDef.fresh("a", transform(a.getType)).setPos(a)
-      val iVal = t.ValDef.fresh("i", transform(i.getType)).setPos(i)
-      val vVal = t.ValDef.fresh("v", transform(v.getType)).setPos(v)
-      t.Let(aVal, transform(a), t.Let(iVal, transform(i), t.Let(vVal, transform(v),
+      bindIfCannotDuplicate(a, "a") { ax =>
+      bindIfCannotDuplicate(i, "i") { ix =>
+      bindIfCannotDuplicate(v, "v") { vx =>
         t.Assert(
-          indexUpTo(iVal.toVariable, t.ArrayLength(aVal.toVariable).copiedFrom(a)),
+          indexUpTo(ix, t.ArrayLength(ax).copiedFrom(a)),
           Some("Array index out of range"),
-          t.ArrayUpdated(aVal.toVariable, iVal.toVariable, vVal.toVariable).copiedFrom(e)
+          t.ArrayUpdated(ax, ix, vx).copiedFrom(e)
         ).copiedFrom(e)
-      ).copiedFrom(e)).copiedFrom(e)).copiedFrom(e)
+      }}}
 
     case sel @ s.ADTSelector(expr, selector) =>
       val newExpr = transform(expr)
@@ -68,129 +85,122 @@ trait AssertionInjector extends transformers.TreeTransformer {
       ).copiedFrom(e)
 
     case BVTyped(true, size, e0 @ s.Plus(lhs0, rhs0)) if checkOverflow =>
-      val lhsVal = t.ValDef.fresh("lhs", t.BVType(true, size)).setPos(lhs0)
-      val rhsVal = t.ValDef.fresh("rhs", t.BVType(true, size)).setPos(rhs0)
-      t.Let(lhsVal, transform(lhs0), t.Let(rhsVal, transform(rhs0),
+      bindIfCannotDuplicate(lhs0, "lhs") { lhsx =>
+      bindIfCannotDuplicate(rhs0, "rhs") { rhsx =>
         t.Assert(
           t.Implies(
-            t.Equals(signBit(size, lhsVal.toVariable), signBit(size, rhsVal.toVariable)).copiedFrom(e),
+            t.Equals(signBit(size, lhsx), signBit(size, rhsx)).copiedFrom(e),
             t.Equals(
-              signBit(size, lhsVal.toVariable),
-              signBit(size, t.Plus(lhsVal.toVariable, rhsVal.toVariable).copiedFrom(e))
+              signBit(size, lhsx),
+              signBit(size, t.Plus(lhsx, rhsx).copiedFrom(e))
             ).copiedFrom(e)
           ).copiedFrom(e),
           Some("Addition overflow"),
-          t.Plus(lhsVal.toVariable, rhsVal.toVariable).copiedFrom(e)
+          t.Plus(lhsx, rhsx).copiedFrom(e)
         ).copiedFrom(e)
-      ).copiedFrom(e)).copiedFrom(e)
+      }}
 
     // Unsigned addition
     case BVTyped(false, size, e0 @ s.Plus(lhs0, rhs0)) if checkOverflow =>
-      val lhsVal = t.ValDef.fresh("lhs", t.BVType(false, size)).setPos(lhs0)
-      val rhsVal = t.ValDef.fresh("rhs", t.BVType(false, size)).setPos(rhs0)
-      t.Let(lhsVal, transform(lhs0), t.Let(rhsVal, transform(rhs0),
+      bindIfCannotDuplicate(lhs0, "lhs") { lhsx =>
+      bindIfCannotDuplicate(rhs0, "rhs") { rhsx =>
         t.Assert(
           // the result must be greater than the lhs
           t.GreaterEquals(
-            t.Plus(lhsVal.toVariable, rhsVal.toVariable).copiedFrom(e),
-            lhsVal.toVariable
+            t.Plus(lhsx, rhsx).copiedFrom(e),
+            lhsx
           ).copiedFrom(e),
           Some("Addition overflow"),
-          t.Plus(lhsVal.toVariable, rhsVal.toVariable).copiedFrom(e)
+          t.Plus(lhsx, rhsx).copiedFrom(e)
         ).copiedFrom(e)
-      ).copiedFrom(e)).copiedFrom(e)
+      }}
 
     case BVTyped(true, size, e0 @ s.Minus(lhs0, rhs0)) if checkOverflow =>
-      val lhsVal = t.ValDef.fresh("lhs", t.BVType(true, size)).setPos(lhs0)
-      val rhsVal = t.ValDef.fresh("rhs", t.BVType(true, size)).setPos(rhs0)
-      t.Let(lhsVal, transform(lhs0), t.Let(rhsVal, transform(rhs0),
+      bindIfCannotDuplicate(lhs0, "lhs") { lhsx =>
+      bindIfCannotDuplicate(rhs0, "rhs") { rhsx =>
         t.Assert(
           // If the operands have different sign, then the result must have the same sign as the lhs.
           t.Implies(
             t.Not(t.Equals(
-              signBit(size, lhsVal.toVariable),
-              signBit(size, rhsVal.toVariable)
+              signBit(size, lhsx),
+              signBit(size, rhsx)
             ).copiedFrom(e)).copiedFrom(e),
             t.Equals(
-              signBit(size, lhsVal.toVariable),
-              signBit(size, t.Minus(lhsVal.toVariable, rhsVal.toVariable).copiedFrom(e))
+              signBit(size, lhsx),
+              signBit(size, t.Minus(lhsx, rhsx).copiedFrom(e))
             ).copiedFrom(e)
           ).copiedFrom(e),
           Some("Subtraction overflow"),
-          t.Minus(lhsVal.toVariable, rhsVal.toVariable).copiedFrom(e)
+          t.Minus(lhsx, rhsx).copiedFrom(e)
         ).copiedFrom(e)
-      ).copiedFrom(e)).copiedFrom(e)
+      }}
 
     // Unsigned subtraction
     case BVTyped(false, size, e0 @ s.Minus(lhs0, rhs0)) if checkOverflow =>
-      val lhsVal = t.ValDef.fresh("lhs", t.BVType(false, size)).setPos(lhs0)
-      val rhsVal = t.ValDef.fresh("rhs", t.BVType(false, size)).setPos(rhs0)
-      t.Let(lhsVal, transform(lhs0), t.Let(rhsVal, transform(rhs0),
+      bindIfCannotDuplicate(lhs0, "lhs") { lhsx =>
+      bindIfCannotDuplicate(rhs0, "rhs") { rhsx =>
         t.Assert(
           // rhs must be smaller than lhs
-          t.LessEquals(rhsVal.toVariable, lhsVal.toVariable).copiedFrom(e),
+          t.LessEquals(rhsx, lhsx).copiedFrom(e),
           Some("Subtraction overflow"),
-          t.Minus(lhsVal.toVariable, rhsVal.toVariable).copiedFrom(e)
+          t.Minus(lhsx, rhsx).copiedFrom(e)
         ).copiedFrom(e)
-      ).copiedFrom(e)).copiedFrom(e)
+      }}
 
     case BVTyped(true, size, e0 @ s.UMinus(n0)) if checkOverflow =>
-      val innerVal = t.ValDef.fresh("inner", t.BVType(true, size))
-      t.Let(innerVal, transform(n0),
+      bindIfCannotDuplicate(n0, "inner") { innerx =>
         t.Assert(
           // -MinValue overflows
-          t.Not(t.Equals(innerVal.toVariable, minValue(size, e.getPos)).copiedFrom(e)).copiedFrom(e),
+          t.Not(t.Equals(innerx, minValue(size, e.getPos)).copiedFrom(e)).copiedFrom(e),
           Some("Negation overflow"),
-          t.UMinus(innerVal.toVariable)
+          t.UMinus(innerx)
         ).copiedFrom(e)
-      ).copiedFrom(e)
+      }
 
     case BVTyped(signed, size, e0 @ s.Times(lhs0, rhs0)) if checkOverflow =>
-      val lhsVal = t.ValDef.fresh("lhs", t.BVType(signed, size)).setPos(lhs0)
-      val rhsVal = t.ValDef.fresh("rhs", t.BVType(signed, size)).setPos(rhs0)
-      t.Let(lhsVal, transform(lhs0), t.Let(rhsVal, transform(rhs0),
+      bindIfCannotDuplicate(lhs0, "lhs") { lhsx =>
+      bindIfCannotDuplicate(rhs0, "rhs") { rhsx =>
         t.Assert(
           // when lhs is not null, rhs === (lhs * rhs) / lhs
           t.Or(
-            t.Equals(lhsVal.toVariable, zero(signed, size, e.getPos)).copiedFrom(e),
+            t.Equals(lhsx, zero(signed, size, e.getPos)).copiedFrom(e),
             t.Equals(
-              rhsVal.toVariable,
+              rhsx,
               t.Division(
-                t.Times(lhsVal.toVariable, rhsVal.toVariable).copiedFrom(e),
-                lhsVal.toVariable
+                t.Times(lhsx, rhsx).copiedFrom(e),
+                lhsx
               ).copiedFrom(e)
             ).copiedFrom(e)
           ).copiedFrom(e),
           Some("Multiplication overflow"),
-          t.Times(lhsVal.toVariable, rhsVal.toVariable).copiedFrom(e)
+          t.Times(lhsx, rhsx).copiedFrom(e)
         ).copiedFrom(e)
-      ).copiedFrom(e)).copiedFrom(e)
+      }}
 
     case s.Division(n, d) =>
       // Check division by zero, and if requested/meaningful, check for overflow
-      val nVal = t.ValDef.fresh("n", transform(n.getType)).setPos(n)
-      val dVal = t.ValDef.fresh("d", transform(d.getType)).setPos(d)
+      bindIfCannotDuplicate(n, "n") { nx =>
+      bindIfCannotDuplicate(d, "d") { dx =>
 
-      val rest = e.getType match {
-        case s.BVType(true, size) if checkOverflow =>
-          // Overflow happens for signed bitvectors with -MinValue / -1
-          t.Assert(
-            t.Not(t.And(
-              t.Equals(nVal.toVariable, minValue(size, n.getPos)).copiedFrom(n),
-              t.Equals(dVal.toVariable, t.BVLiteral(true, -1, size).copiedFrom(d))
-            ).copiedFrom(e)).copiedFrom(e),
-            Some("Division overflow"),
-            t.Division(nVal.toVariable, dVal.toVariable).copiedFrom(e)
-          ).copiedFrom(e)
+        val rest = e.getType match {
+          case s.BVType(true, size) if checkOverflow =>
+            // Overflow happens for signed bitvectors with -MinValue / -1
+            t.Assert(
+              t.Not(t.And(
+                t.Equals(nx, minValue(size, n.getPos)).copiedFrom(n),
+                t.Equals(dx, t.BVLiteral(true, -1, size).copiedFrom(d))
+              ).copiedFrom(e)).copiedFrom(e),
+              Some("Division overflow"),
+              t.Division(nx, dx).copiedFrom(e)
+            ).copiedFrom(e)
 
-        case _ =>
-          t.Division(nVal.toVariable, dVal.toVariable).copiedFrom(e)
+          case _ =>
+            t.Division(nx, dx).copiedFrom(e)
 
-      }
+        }
 
-      t.Let(nVal, transform(n), t.Let(dVal, transform(d),
         t.Assert(
-          t.Not(t.Equals(dVal.toVariable, d.getType match {
+          t.Not(t.Equals(dx, d.getType match {
             case s.IntegerType() => t.IntegerLiteral(0).copiedFrom(d)
             case s.BVType(signed, i) => t.BVLiteral(signed, 0, i).copiedFrom(d)
             case s.RealType() => t.FractionLiteral(0, 1).copiedFrom(d)
@@ -198,46 +208,90 @@ trait AssertionInjector extends transformers.TreeTransformer {
           Some("Division by zero"),
           rest
         ).copiedFrom(e)
-      ).copiedFrom(e)).copiedFrom(e)
+      }}
 
     case s.Remainder(n, d) =>
-      val nVal = t.ValDef.fresh("n", transform(n.getType)).setPos(n)
-      val dVal = t.ValDef.fresh("d", transform(d.getType)).setPos(d)
-      t.Let(nVal, transform(n), t.Let(dVal, transform(d),
+      bindIfCannotDuplicate(n, "n") { nx =>
+      bindIfCannotDuplicate(d, "d") { dx =>
         t.Assert(
-          t.Not(t.Equals(dVal.toVariable, d.getType match {
+          t.Not(t.Equals(dx, d.getType match {
             case s.IntegerType() => t.IntegerLiteral(0).copiedFrom(d)
             case s.BVType(signed, i) => t.BVLiteral(signed, 0, i).copiedFrom(d)
           }).copiedFrom(d)).copiedFrom(d),
           Some("Remainder by zero"),
-          t.Remainder(nVal.toVariable, dVal.toVariable).copiedFrom(e)
+          t.Remainder(nx, dx).copiedFrom(e)
         ).copiedFrom(e)
-      ).copiedFrom(e)).copiedFrom(e)
+      }}
 
     case s.Modulo(n, d) =>
-      val nVal = t.ValDef.fresh("n", transform(n.getType)).setPos(n)
-      val dVal = t.ValDef.fresh("d", transform(d.getType)).setPos(d)
-      t.Let(nVal, transform(n), t.Let(dVal, transform(d),
+      bindIfCannotDuplicate(n, "n") { nx =>
+      bindIfCannotDuplicate(d, "d") { dx =>
         t.Assert(
-          t.Not(t.Equals(dVal.toVariable, d.getType match {
+          t.Not(t.Equals(dx, d.getType match {
             case s.IntegerType() => t.IntegerLiteral(0).copiedFrom(d)
             case s.BVType(signed, i) => t.BVLiteral(signed, 0, i).copiedFrom(d)
           }).copiedFrom(d)).copiedFrom(d),
           Some("Modulo by zero"),
-          t.Modulo(nVal.toVariable, dVal.toVariable).copiedFrom(e)
+          t.Modulo(nx, dx).copiedFrom(e)
         ).copiedFrom(e)
-      ).copiedFrom(e)).copiedFrom(e)
+      }}
+
+    case s.BVUnsignedToSigned(BVTyped(signed, size, bv)) if checkOverflow =>
+      assert(!signed)
+      bindIfCannotDuplicate(bv, "bv") { x =>
+        t.Assert(
+          t.LessThan(x, t.BVLiteral(false, BigInt(2) pow (size-1), size).copiedFrom(e)).copiedFrom(e),
+          Some("Unsigned to signed overflow"),
+          t.BVUnsignedToSigned(x).copiedFrom(e)
+        ).copiedFrom(e)
+      }
+
+    case s.BVSignedToUnsigned(BVTyped(signed, size, bv)) if checkOverflow =>
+      assert(signed)
+      bindIfCannotDuplicate(bv, "bv") { x =>
+        t.Assert(
+          t.GreaterEquals(x, t.BVLiteral(true, 0, size).copiedFrom(e)).copiedFrom(e),
+          Some("Signed to unsigned requires >= 0"),
+          t.BVSignedToUnsigned(x).copiedFrom(e)
+        ).copiedFrom(e)
+      }
+
+    case s.BVNarrowingCast(BVTyped(signed1, size1, bv), newType) if checkOverflow =>
+      val s.BVType(signed2, size2) = newType
+      assert(signed1 == signed2)
+      assert(size2 < size1)
+      if (!signed1) {
+        bindIfCannotDuplicate(bv, "bv") { x =>
+          t.Assert(
+            t.LessThan(x, t.BVLiteral(false, BigInt(2).pow(size2), size1).copiedFrom(e)).copiedFrom(e),
+            Some("Narrowing too large unsigned int"),
+            t.BVNarrowingCast(x, t.BVType(signed2, size2).copiedFrom(e)).copiedFrom(e)
+          ).copiedFrom(e)
+        }
+      } else {
+        bindIfCannotDuplicate(bv, "bv") { x =>
+          t.Assert(
+            t.LessThan(x, t.BVLiteral(true, BigInt(2).pow(size2-1), size1).copiedFrom(e)).copiedFrom(e),
+            Some("Narrowing too large signed int"),
+            t.Assert(
+              t.GreaterEquals(x, t.BVLiteral(true, -BigInt(2).pow(size2-1), size1).copiedFrom(e)).copiedFrom(e),
+              Some("Narrowing large negative signed int"),
+              t.BVNarrowingCast(x, t.BVType(signed2, size2).copiedFrom(e)).copiedFrom(e)
+            ).copiedFrom(e)
+          ).copiedFrom(e)
+        }
+      }
 
     case BVTyped(signed, size, BVShift(rhs, recons)) if strictArithmetic =>
-      val rhsVal = t.ValDef.fresh("rhs", transform(rhs.getType)).setPos(rhs)
-      val lt = t.LessThan(rhsVal.toVariable, t.BVLiteral(signed, size, size).copiedFrom(rhs)).copiedFrom(rhs)
-      // positivity check is only relevant for signed bitvectors
-      val pos = t.GreaterEquals(rhsVal.toVariable, zero(true, size, rhs.getPos)).copiedFrom(rhs)
-      val range = if (signed && checkOverflow) t.And(pos, lt).copiedFrom(rhs) else lt
-      // Ensure the operation doesn't shift more bits than there are.
-      t.Let(rhsVal, transform(rhs),
-        t.Assert(range, Some("Shift semantics"), recons(rhsVal.toVariable)).copiedFrom(e)
-      ).copiedFrom(e)
+      bindIfCannotDuplicate(rhs, "rhs") { rhsx =>
+        val lt = t.LessThan(rhsx, t.BVLiteral(signed, size, size).copiedFrom(rhs)).copiedFrom(rhs)
+        // positivity check is only relevant for signed bitvectors
+        val pos = t.GreaterEquals(rhsx, zero(true, size, rhs.getPos)).copiedFrom(rhs)
+        // TODO: explain why `checkOverflow` here and `strictArithmetic` in the guard?
+        val range = if (signed && checkOverflow) t.And(pos, lt).copiedFrom(rhs) else lt
+        // Ensure the operation doesn't shift more bits than there are.
+        t.Assert(range, Some("Shift semantics"), recons(rhsx)).copiedFrom(e)
+      }
 
     case _ => super.transform(e)
   }

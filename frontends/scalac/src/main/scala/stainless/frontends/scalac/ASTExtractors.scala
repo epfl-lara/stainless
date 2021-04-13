@@ -450,8 +450,7 @@ trait ASTExtractors {
             case R(signed, size) => Some((signed == "Int", size.toInt))
             case _ => None
           }
-        case _ =>
-          None
+        case _ => FrontendBVKind.unapply(tpe)
       }
 
       def unapply(tr: Tree): Option[(Boolean, Int)] = unapply(tr.tpe)
@@ -880,6 +879,25 @@ trait ASTExtractors {
              => Some(array)
 
         case ExArraySelect(array, "length") => Some(array)
+
+        case _ => None
+      }
+    }
+
+    object ExArrayApplyBV {
+      def unapply(tree: Apply): Option[(Tree, Tree, Tree)] = tree match {
+        case Apply(TypeApply(
+          Select(
+            Apply(
+              TypeApply(ExSelected("stainless", "math", "BitVectors", "ArrayIndexing"), tpe :: Nil),
+              array :: Nil
+            ),
+            ExNamed("apply")
+          ),
+          bvType :: Nil),
+          index :: Nil) =>
+
+          Some((array, bvType, index))
 
         case _ => None
       }
