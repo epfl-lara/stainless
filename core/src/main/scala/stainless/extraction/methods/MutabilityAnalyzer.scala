@@ -30,6 +30,7 @@ trait MutabilityAnalyzer extends oo.ExtractionPipeline { self =>
     // but may grow while computing the fixpoint below.
     private def isMutableType(tpe: Type, mutableClasses: Set[Identifier]): Boolean = {
       def rec(tpe: Type, seen: Set[Identifier]): Boolean = tpe match {
+        case _ if tpe == Untyped => true
         case tp: TypeParameter => tp.flags contains IsMutable
         case TypeBounds(NothingType(), AnyType(), flags) => flags contains IsMutable
         case any: AnyType => true

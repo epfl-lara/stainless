@@ -394,6 +394,24 @@ trait EffectsAnalyzer extends oo.CachingPhase {
 
     case ArrayLength(_) => Set.empty
 
+    case FiniteSet(elements, tpe) => Set.empty
+    case SetUnion(s1, s2) => Set.empty
+    case SetIntersection(s1, s2) => Set.empty
+    case SetDifference(s1, s2) => Set.empty
+    case SubsetOf(s1, s2) => Set.empty
+    case ElementOfSet(element, set) => Set.empty
+    case SetAdd(bag, element) => Set.empty
+
+    case FiniteBag(elements, tpe) => Set.empty
+    case BagUnion(s1, s2) => Set.empty
+    case BagIntersection(s1, s2) => Set.empty
+    case BagDifference(s1, s2) => Set.empty
+    case MultiplicityInBag(element, bag) => Set.empty
+    case BagAdd(bag, element) => Set.empty
+
+    case FiniteMap(pairs, default, from, to) => Set.empty
+    case MapUpdated(m, k, v) => Set.empty
+
     case Block(_, last) => getTargets(last, path)
 
     case Let(vd, e, b) if !symbols.isMutableType(vd.tpe) =>
@@ -404,6 +422,8 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       for (ee <- getTargets(e); be <- bEffects) yield {
         if (be.receiver == vd.toVariable) ee.append(be) else be
       }
+
+    case _ if !symbols.isMutableType(expr.getType) => Set.empty
 
     case _ =>
       throw MalformedStainlessCode(expr, s"Couldn't compute effect targets in (${expr.getClass}): ${expr.asString}")
