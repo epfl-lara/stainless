@@ -128,7 +128,7 @@ trait TreeSanitizer { self =>
         )
       }
       specced.specs.groupBy(_.kind).map { case (kind, specs) =>
-        if (specs.length > 1)
+        if (specs.length > 1 && kind != exprOps.PreconditionKind)
           errors += MalformedStainlessCode(fullBody, s"Duplicate `${kind.name}` specification.")
       }
       specced.specs.foreach(s => s.traverse(this))
