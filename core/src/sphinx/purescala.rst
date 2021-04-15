@@ -786,8 +786,8 @@ These examples are taken from `BitVectors3.scala
 
   // the `toByte`, `toShort`, `toInt`, and `toLong` methods described above
   // can be used on any bitvector type. For signed integers, this corresponds
-  // to a narrowing or a widening operation dependending on the bitvector size.
-  // For unsigned integers, this corresponds to first doing a widering/narrowing
+  // to a narrowing or a widening operation depending on the bitvector size.
+  // For unsigned integers, this corresponds to first doing a widening/narrowing
   // operation, and then applying `toSigned`
   val x9: UInt2 = 3
   assert(x9.toInt == x9.widen[UInt32].toSigned[Int32].toInt)
@@ -796,6 +796,9 @@ These examples are taken from `BitVectors3.scala
   assert(max[Int8] == 127)
   assert(min[Int8] == -128)
 
+
+Arrays, which are usually indexed using ``Int``, may also be indexed using the bitvector types.
+This is similar to first converting the bitvector index using ``toInt``.
 
 Bitvector types can be understood as finite intervals of integers
 (two's complement representation). For ``X`` an integer larger than ``1``
