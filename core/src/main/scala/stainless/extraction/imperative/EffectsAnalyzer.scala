@@ -419,9 +419,6 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     case MultiplicityInBag(element, bag) => Set.empty
     case BagAdd(bag, element) => Set.empty
 
-    case FiniteMap(pairs, default, from, to) => Set.empty
-    case MapUpdated(m, k, v) => Set.empty
-
     case Block(_, last) => getTargets(last, path)
 
     case Let(vd, e, b) if !symbols.isMutableType(vd.tpe) =>
