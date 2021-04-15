@@ -43,7 +43,8 @@ trait EffectsChecker { self: EffectsAnalyzer =>
       checkPurity(fd)
 
       // Recursive functions must return fresh results so that no aliasing is possible
-      if (symbols.isRecursive(fd.id) && !exprOps.withoutSpecs(fd.fullBody).forall(isExpressionFresh))
+      if ((symbols.isRecursive(fd.id) || fd.isInstanceOf[Inner]) &&
+          !exprOps.withoutSpecs(fd.fullBody).forall(isExpressionFresh))
         throw ImperativeEliminationException(fd, "Illegal recursive functions returning non-fresh result")
 
       object traverser extends SelfTreeTraverser {
@@ -273,11 +274,6 @@ trait EffectsChecker { self: EffectsAnalyzer =>
         // rejected later in `ImperativeCleanup`.
         case Old(_) => true
 
-        //function invocation from accessors are not fresh
-        case FunctionInvocation(id, _, _)
-          if symbols.getFunction(id).flags.exists(_.name == "accessor") => false
-
-
         case fi @ FunctionInvocation(id, _, _) if !symbols.isRecursive(id) =>
             BodyWithSpecs(symbols.simplifyLets(fi.inlined))
               .bodyOpt
@@ -297,12 +293,15 @@ trait EffectsChecker { self: EffectsAnalyzer =>
         case Snapshot(e) => true
 
         case Let(vd, e, b) => rec(e, bindings) && rec(b, bindings + vd)
-        case LetVar(vd, e, b) => rec(e, bindings) && rec(b, bindings + vd)
+        case LetVar(vd, e, b) => false
 
         case Block(_, e) => rec(e, bindings)
 
+        case IfExpr(_, e1, e2) => rec(e1, bindings) && rec(e2, bindings)
+        case MatchExpr(_, cases) => cases.forall(cse => rec(cse.rhs, bindings))
+
         //any other expression is conservately assumed to be non-fresh if
-        //any sub-expression is non-fresh (i.e. an if-then-else with a reference in one branch)
+        //any sub-expression is non-fresh
         case Operator(args, _) => args.forall(rec(_, bindings))
       })
 
