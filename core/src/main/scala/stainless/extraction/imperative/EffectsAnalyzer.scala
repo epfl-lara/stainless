@@ -354,6 +354,15 @@ trait EffectsAnalyzer extends oo.CachingPhase {
         Set.empty
     }
 
+    case FiniteArray(elems, _) => path match {
+      case ArrayAccessor(bv: BVLiteral) +: rest =>
+        val i = bv.toBigInt.toInt
+        if (i < elems.size) getTargets(elems(i), rest)
+        else throw MalformedStainlessCode(expr, s"Out of bound array access in ${expr.asString}")
+      case _ =>
+        Set.empty
+    }
+
     case Assert(_, _, e) => getTargets(e, path)
     case Annotated(e, _) => getTargets(e, path)
 
@@ -386,7 +395,8 @@ trait EffectsAnalyzer extends oo.CachingPhase {
 
     case fi: FunctionInvocation => Set.empty
     case (_: ApplyLetRec | _: Application) => Set.empty
-    case (_: FiniteArray | _: LargeArray | _: ArrayUpdated | _: MutableMapUpdated) => Set.empty
+    case _: LargeArray | _: ArrayUpdated if path.isEmpty || !path.head.isInstanceOf[ArrayAccessor] => Set.empty
+    case _: MutableMapUpdated => Set.empty
     case IsInstanceOf(e, _) => getTargets(e, path)
     case AsInstanceOf(e, _) => getTargets(e, path)
     case Old(_) => Set.empty
