@@ -786,6 +786,13 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
     case BVWideningCast(e, t)  => CIR.IntegralCast(rec(e), rec(t).asInstanceOf[CIR.PrimitiveType].primitive.asInstanceOf[PT.IntegralPrimitiveType])
     case BVNarrowingCast(e, t) => CIR.IntegralCast(rec(e), rec(t).asInstanceOf[CIR.PrimitiveType].primitive.asInstanceOf[PT.IntegralPrimitiveType])
 
+    case BVUnsignedToSigned(e) =>
+      val BVType(false, size) = e.getType
+      CIR.IntegralCast(rec(e), rec(BVType(true, size)).asInstanceOf[CIR.PrimitiveType].primitive.asInstanceOf[PT.IntegralPrimitiveType])
+    case BVSignedToUnsigned(e) =>
+      val BVType(true, size) = e.getType
+      CIR.IntegralCast(rec(e), rec(BVType(false, size)).asInstanceOf[CIR.PrimitiveType].primitive.asInstanceOf[PT.IntegralPrimitiveType])
+
     case MatchExpr(scrutinee, cases) => convertPatMap(scrutinee, cases)
 
     case IsInstanceOf(expr, ct: ClassType) if castNotSupported(ct) =>
