@@ -359,8 +359,10 @@ trait EffectsAnalyzer extends oo.CachingPhase {
         val i = bv.toBigInt.toInt
         if (i < elems.size) getTargets(elems(i), rest)
         else throw MalformedStainlessCode(expr, s"Out of bound array access in ${expr.asString}")
-      case _ =>
+      case _ if path.isEmpty || !path.head.isInstanceOf[ArrayAccessor] =>
         Set.empty
+      case _ =>
+        throw MalformedStainlessCode(expr, s"Couldn't compute effect targets in finite array ${expr.asString}")
     }
 
     case Assert(_, _, e) => getTargets(e, path)
