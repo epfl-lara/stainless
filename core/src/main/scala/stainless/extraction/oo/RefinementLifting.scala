@@ -118,16 +118,18 @@ trait RefinementLifting
 
         case s.RefinementType(ivd, pred) =>
           val nvd = vd.copy(tpe = ivd.tpe)
-          val subst = Map(ivd -> nvd.toVariable)
+          val tmp = nvd.freshen
+          val subst = Map(ivd -> tmp.toVariable)
 
           transform(s.Let(
             nvd,
-            value,
-            s.Assert(
-              s.exprOps.freshenLocals(s.exprOps.replaceFromSymbols(subst, pred)),
-              Some("Inner refinement lifting"),
-              body,
-            ).copiedFrom(e)
+            s.Let(tmp, value,
+              s.Assert(
+                s.exprOps.freshenLocals(s.exprOps.replaceFromSymbols(subst, pred)),
+                Some("Inner refinement lifting"),
+                tmp.toVariable,
+              ).copiedFrom(e)),
+            body
           ).copiedFrom(e))
 
         case _ => super.transform(e)
