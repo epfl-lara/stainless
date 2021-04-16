@@ -292,8 +292,14 @@ trait EffectsChecker { self: EffectsAnalyzer =>
         // snapshots are fresh
         case Snapshot(e) => true
 
+        // For `Let`, it is safe to add `vd` as a fresh binding because we disallow
+        // `FieldAssignments` with non-fresh expressions in `check(fd: FunAbstraction)` above.
+        // See discussion on: https://github.com/epfl-lara/stainless/pull/985#discussion_r614583479
         case Let(vd, e, b) => rec(e, bindings) && rec(b, bindings + vd)
-        case LetVar(vd, e, b) => false
+
+        // We don't add `vd` as a fresh binding, because it might be reassigned to a non-fresh
+        // expression in a `Block` appearing in `b` (see link above)
+        case LetVar(vd, e, b) => rec(b, bindings)
 
         case Block(_, e) => rec(e, bindings)
 
