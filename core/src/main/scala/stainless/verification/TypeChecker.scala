@@ -953,7 +953,7 @@ trait TypeChecker {
         (RefinementType(vd, pred), trPred ++ trVC)
 
       case _ =>
-        reporter.fatalError(e.getPos, s"Unsupported expression (${e.getClass}):\n${e.asString} \nin context:\n${tc.asString()}")
+        reporter.fatalError(e.getPos, s"The type-checker doesn't support expressions: ${e.getClass}")
     }
 
     reporter.debug(s"\n${tc0.indent}Inferred type: ${t.asString} for ${e.asString}")
