@@ -84,7 +84,7 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
       RecordRow(id, pos, level, extra, time) <- annotatedRows.sortBy(r => r.id -> r.pos)(ordering)
       if full || level != Level.Normal
       name = if (printUniqueName) id.uniqueName else id.name
-      contents = pos.fullString +: (name +: (extra :+ f"${time / 1000d}%3.1f"))
+      contents = Position.smartPos(pos) +: (name +: (extra :+ f"${time / 1000d}%3.1f"))
     } yield Row(contents map { str => Cell(withColor(str, level)) })
   }
 
