@@ -104,7 +104,7 @@ object QueueSpecs {
     if (queue.isEmpty)
       assert(queue.enqueue(elem).head == elem)
     else
-      true
+      ()
   }
 
   def enqueueDequeueThrice[A](queue: Queue[A], e1: A, e2: A, e3: A): Unit = {
@@ -119,6 +119,6 @@ object QueueSpecs {
       val e3prime = q5.head
       assert(e1 == e1prime && e2 == e2prime && e3 == e3prime)
     } else
-      true
+      ()
   }
 }
