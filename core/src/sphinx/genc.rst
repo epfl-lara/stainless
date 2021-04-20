@@ -86,7 +86,7 @@ The following raw types and their corresponding literals are supported:
 
 Additionally, GenC has a partial support for character and string literals made
 of ASCII characters only but it has no API to manipulate strings at the moment:
-``Char`` is map to ``char`` and ``String`` is mapped to ``char*``.
+``Char`` is mapped to ``char`` and ``String`` is mapped to ``char*``.
 
 Tuples
 ^^^^^^
