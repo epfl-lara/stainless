@@ -26,6 +26,7 @@ trait MeasureInference
   // so we include all dependencies in the key calculation
   override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult]((fd, context) =>
     getDependencyKey(fd.id)(context.symbols)
+    //ValueKey(scala.util.Random.nextInt(1000000000))
   )
 
   val sizes: SizeFunctions { val trees: s.type } = new {
