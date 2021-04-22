@@ -16,7 +16,7 @@ trait TerminationChecker { self =>
   def terminates(fd: FunDef): TerminationGuarantee
 
   /* Caches for inductive lemmas */
-  type Postconditions  = MutableMap[Identifier, Option[Lambda]]
+  type Postconditions  = MutableMap[Identifier, Lambda]
   type Applications    = MutableMap[(Identifier, Identifier, Identifier), Seq[ValDef] => Expr]
   type InductiveLemmas = Option[(Postconditions, Applications)]
   /* End caches for inductive lemmas */
