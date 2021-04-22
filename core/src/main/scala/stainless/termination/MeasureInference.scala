@@ -9,8 +9,7 @@ import scala.language.existentials
 trait MeasureInference
   extends extraction.CachingPhase
     with extraction.SimplyCachedSorts
-    with extraction.IdentitySorts
-    with extraction.SimpleFunctions { self =>
+    with extraction.IdentitySorts { self =>
 
   val s: Trees
   val t: Trees
@@ -18,25 +17,28 @@ trait MeasureInference
 
   import context.{options, timers, reporter}
 
+  type Postconditions  = MutableMap[Identifier, Lambda]
+  type Applications    = MutableMap[(Identifier, Identifier, Identifier), Seq[ValDef] => Expr]
+  // Result type is transformed function + all inductive lemmas found
+  type FunctionResult = (t.FunDef, Postconditions)
+
   // Measure inference depends on functions that are mutually recursive with `fd`,
   // so we include all dependencies in the key calculation
   override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult]((fd, context) =>
     getDependencyKey(fd.id)(context.symbols)
+    //ValueKey(scala.util.Random.nextInt(1000000000))
   )
 
   val sizes: SizeFunctions { val trees: s.type } = new {
     val trees: s.type = self.s
   } with SizeFunctions
 
-  type Postconditions  = MutableMap[Identifier, Option[Lambda]]
-  type Applications    = MutableMap[(Identifier, Identifier, Identifier), Seq[ValDef] => Expr]
-
   override protected def getContext(symbols: s.Symbols) = TransformerContext(symbols, MutableMap.empty, MutableMap.empty, MutableMap.empty)
 
   protected case class TransformerContext(symbols: Symbols, 
-                                          measureCache: MutableMap[FunDef, Expr], 
-                                          postconditionCache: Postconditions, 
-                                          applicationCache: Applications) {
+                                          measureCache:       MutableMap[FunDef, Expr], 
+                                          postconditionCache: MutableMap[Identifier, Postconditions], 
+                                          applicationCache:   Applications) {
     val program = inox.Program(s)(symbols)
 
     val pipeline = TerminationChecker(program, self.context)(sizes)
@@ -69,12 +71,10 @@ trait MeasureInference
     def needsMeasure(fd: FunDef): Boolean = symbols.isRecursive(fd.id) && {
       val specced = exprOps.BodyWithSpecs(fd.fullBody)
       !specced.specs.exists(_.kind == exprOps.MeasureKind)
-    }
+    }   
 
-    def annotatePosts(original: FunDef) = postconditionCache.get(original.id) match {
-      case Some(post) => original.copy(fullBody = exprOps.withPostcondition(original.fullBody, post))
-      case None       => original
-    }      
+    def getPosts(id: Identifier): Postconditions = 
+      postconditionCache.getOrElse(id, MutableMap())
 
     def annotateApps(original: FunDef) = {
       object injector extends inox.transformers.TreeTransformer {
@@ -111,8 +111,7 @@ trait MeasureInference
     /* Annotation order matters, postconditions can 
        introduce size functions which are yet unknown 
        in the symbols */
-    def annotate(original: FunDef) = 
-      annotatePosts(annotateApps(original))
+    def annotate(original: FunDef) = annotateApps(original)
 
     def inferMeasure(original: FunDef): FunDef = measureCache.get(original) match {
       case Some(measure) =>
@@ -129,7 +128,11 @@ trait MeasureInference
           case pipeline.Terminates(_, Some(measure), Some(lemmas)) =>
             reporter.info(s" => Found measure for ${original.id.asString}.")
             measureCache ++= pipeline.measureCache.get
-            postconditionCache ++= lemmas._1
+            pipeline.measureCache.get.keys.map{ fd => 
+              postconditionCache(fd.id) = lemmas._1 
+            }
+            //println("postconditions for " + original.id)
+            //println(lemmas._1)
             applicationCache ++= lemmas._2
             val annotated = annotate(original)
             annotated.copy(fullBody = exprOps.withMeasure(annotated.fullBody, Some(measure.setPos(original))))
@@ -170,18 +173,67 @@ trait MeasureInference
     }
   }
 
-  override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = {
+  override protected def extractFunction(context: TransformerContext, fd: s.FunDef): FunctionResult = {
     if (options.findOptionOrDefault(optInferMeasures) && context.needsMeasure(fd)) {
-      context.transformer.transform(context.inferMeasure(fd))
+      val tfd   = context.transformer.transform(context.inferMeasure(fd))
+      val posts = context.getPosts(fd.id)
+      //println("postconditions in extract function for " + fd.id)
+      //println(posts)
+      (tfd, posts)
     } else {
-      context.transformer.transform(fd)
+      (context.transformer.transform(fd), MutableMap.empty)
     }
   }
 
+  override def registerFunctions(symbols: t.Symbols, functions: Seq[FunctionResult]): t.Symbols = 
+    symbols
+
   override protected def extractSymbols(context: TransformerContext, symbols: s.Symbols): t.Symbols = {
-    val extracted = super.extractSymbols(context, symbols)
-    val sizeFunctions = sizes.getFunctions(symbols).map(context.transformer.transform(_))
-    registerFunctions(extracted, sizeFunctions)
+    val results: Seq[(t.FunDef, MutableMap[Identifier,s.Lambda])] = 
+      symbols.functions.values.map(fd =>  
+        funCache.cached(fd, context)(extractFunction(context,fd))
+      ).toSeq
+
+    //println("fun cache")
+    //println(funCache)
+    
+    val posts: Map[Identifier, s.Lambda] = results.flatMap{ case (tfd,post) => post }.toMap
+
+    //println("postconditions in extract symbols")
+    //println(posts)
+
+    def annotatePosts(original: t.FunDef) = {
+      val postTransformer: transformers.TreeTransformer {
+        val s: self.s.type;
+        val t: self.t.type
+      } = new transformers.TreeTransformer { 
+        val s: self.s.type = self.s; 
+        val t: self.t.type = self.t 
+      }
+
+      val postCache: Map[Identifier, t.Lambda] = 
+        posts.mapValues{ (v: s.Lambda) => 
+          postTransformer.transform(v).asInstanceOf[t.Lambda] 
+        }
+      postCache.get(original.id) match {
+        case Some(post) => 
+          original.copy(fullBody = t.exprOps.withPostcondition(original.fullBody, Some(post)))
+        case None       => original
+      } 
+    }  
+
+    val sizeFunctions: Seq[t.FunDef] = 
+      sizes.getFunctions(symbols).map(context.transformer.transform(_)).toSeq
+    
+    val functions = results.map { case (tfd, post) =>
+      annotatePosts(tfd)
+    }.toSeq 
+
+    val sorts = symbols.sorts.values.map { sort =>
+      sortCache.cached(sort, context)(extractSort(context, sort))
+    }.toSeq
+
+    t.NoSymbols.withSorts(sorts).withFunctions(functions ++ sizeFunctions)
   }
 }
 
