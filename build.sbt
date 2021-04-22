@@ -152,10 +152,16 @@ lazy val assemblySettings: Seq[Setting[_]] = {
   )
 }
 
+lazy val libFilesFile = "libfiles.txt" // file storing list of library file names
+  
 lazy val libraryFiles: Seq[(String, File)] = {
   val libFiles = ((root.base / "frontends" / "library") ** "*.scala").get
   val dropCount = (libFiles.head.getPath indexOfSlice "library") + ("library".size + 1 /* for separator */)
-  libFiles.map(file => (file.getPath drop dropCount, file)) // Drop the prefix of the path (i.e. everything before "library")
+  val res : Seq[(String, File)] = libFiles.map(file => (file.getPath drop dropCount, file)) // Drop the prefix of the path (i.e. everything before "library")
+  val fileNames : Seq[String] = res.map(_._1)
+  println(fileNames)
+  reflect.io.File(libFilesFile).writeAll(fileNames.mkString("\n"))
+  res
 }
 
 lazy val commonFrontendSettings: Seq[Setting[_]] = Defaults.itSettings ++ Seq(
@@ -198,9 +204,8 @@ lazy val commonFrontendSettings: Seq[Setting[_]] = Defaults.itSettings ++ Seq(
           |  val extraClasspath = \"\"\"${removeSlashU(extraClasspath.value)}\"\"\"
           |  val extraCompilerArguments = List("-classpath", \"\"\"${removeSlashU(extraClasspath.value)}\"\"\")
           |
-          |  val libraryPaths = List(
-          |    ${removeSlashU(libraryFiles.map(_._1).mkString("\"\"\"", "\"\"\",\n    \"\"\"", "\"\"\""))}
-          |  )
+          |  val source = scala.io.Source.fromFile(\"${libFilesFile}\")
+          |  val libraryPaths = try source.getLines.toList finally source.close()
           |
           |  override val factory = new frontends.${frontendClass.value}.Factory(extraCompilerArguments, libraryPaths)
           |
