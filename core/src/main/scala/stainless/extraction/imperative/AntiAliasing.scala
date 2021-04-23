@@ -302,6 +302,37 @@ trait AntiAliasing
           case ret @ Return(retExpr) =>
             Return(Tuple(transform(retExpr, env) +: freshLocals.map(_.setPos(ret))).setPos(ret)).setPos(ret)
 
+          case swap @ Swap(array1, index1, array2, index2) =>
+            val base = array1.getType.asInstanceOf[ArrayType].base
+            val temp = ValDef.fresh("temp", base).setPos(swap)
+            val ra1 = exprOps.replaceFromSymbols(env.rewritings, array1)
+            val targets1 = getTargets(ra1)
+            val ra2 = exprOps.replaceFromSymbols(env.rewritings, array2)
+            val targets2 = getTargets(ra2)
+
+            if (targets1.exists(target => !env.bindings.contains(target.receiver.toVal)))
+              throw MalformedStainlessCode(swap, "Unsupported swap (first array)")
+
+            if (targets2.exists(target => !env.bindings.contains(target.receiver.toVal)))
+              throw MalformedStainlessCode(swap, "Unsupported swap (second array)")
+
+            val updates1 =
+              targets1.toSeq map { target =>
+                val applied = updatedTarget(target + ArrayAccessor(index1), ArraySelect(array2, index2).setPos(swap))
+                transform(Assignment(target.receiver, applied).setPos(swap), env)
+              }
+            val updates2 =
+              targets2.toSeq map { target =>
+                val applied = updatedTarget(target + ArrayAccessor(index2), temp.toVariable)
+                transform(Assignment(target.receiver, applied).setPos(swap), env)
+              }
+            val updates = updates1 ++ updates2
+            if (updates.isEmpty) UnitLiteral().setPos(swap)
+            else
+              Let(temp, transform(ArraySelect(array1, index1).setPos(swap), env),
+                Block(updates.init, updates.last).setPos(swap)
+              ).setPos(swap)
+
           case l @ Let(vd, e, b) if isMutableType(vd.tpe) =>
             // see https://github.com/epfl-lara/stainless/pull/920 for discussion
 

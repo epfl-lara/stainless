@@ -158,4 +158,15 @@ package object lang {
     }
   }
 
+  @ignore @library
+  def swap[@mutable T](a1: Array[T], i1: Int, a2: Array[T], i2: Int): Unit = {
+    require(
+      0 <= i1 && i1 < a1.length &&
+      0 <= i2 && i2 < a2.length
+    )
+    val t = a1(i1)
+    a1(i1) = a2(i2)
+    a2(i2) = t
+  }
+
 }
