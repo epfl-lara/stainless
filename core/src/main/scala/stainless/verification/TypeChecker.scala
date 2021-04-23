@@ -1072,13 +1072,6 @@ trait TypeChecker {
       case (ADT(id, tps, args), Top()) => checkTypes(tc, args, Top())
       case (_, Top()) => inferType(tc, e)._2 // We ignore the inferred type but keep the VCs
 
-      case (e, TrueBoolean()) =>
-        checkType(tc.withVCKind(VCKind.CheckType), e, BooleanType()) ++ buildVC(tc, e)
-
-      case (e, RefinementType(vd, prop)) =>
-        val (tc2, freshener) = tc.freshBindWithValues(Seq(vd), Seq(e))
-        checkType(tc.withVCKind(VCKind.CheckType), e, vd.tpe) ++ checkType(tc2, freshener.transform(prop), TrueBoolean())
-
       case (Tuple(es), TupleType(tps)) =>
         checkTypes(tc, es, tps)
 
@@ -1116,6 +1109,13 @@ trait TypeChecker {
         checkType(tc.setPos(b).withVCKind(VCKind.CheckType), b, BooleanType()) ++
         checkType(tc.withTruth(b).setPos(e1), e1, tpe) ++
         checkType(tc.withTruth(Not(b)).setPos(e2), e2, tpe)
+
+      case (e, TrueBoolean()) =>
+        checkType(tc.withVCKind(VCKind.CheckType), e, BooleanType()) ++ buildVC(tc, e)
+
+      case (e, RefinementType(vd, prop)) =>
+        val (tc2, freshener) = tc.freshBindWithValues(Seq(vd), Seq(e))
+        checkType(tc.withVCKind(VCKind.CheckType), e, vd.tpe) ++ checkType(tc2, freshener.transform(prop), TrueBoolean())
 
       case (UncheckedExpr(e), tpe) =>
         val (inferredType, tr) = inferType(tc.withEmitVCs(false), e)
