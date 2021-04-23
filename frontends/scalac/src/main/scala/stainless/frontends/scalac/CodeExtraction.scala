@@ -1178,6 +1178,9 @@ trait CodeExtraction extends ASTExtractors {
         case _ => outOfSubsetError(tr, "Unexpected choose definition")
       }
 
+    case swap @ ExSwapExpression(array1, index1, array2, index2) =>
+      xt.Swap(extractTree(array1), extractTree(index1), extractTree(array2), extractTree(index2))
+
     case l @ ExLambdaExpression(args, body) =>
       val vds = args map(vd => xt.ValDef(
         FreshIdentifier(vd.symbol.name.toString),

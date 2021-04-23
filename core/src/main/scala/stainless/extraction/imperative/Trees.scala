@@ -19,6 +19,17 @@ trait Trees extends oo.Trees with Definitions { self =>
       if (expr.isTyped) NothingType() else Untyped
   }
 
+  /** Swap indices from two (not necessarily distinct) arrays */
+  sealed case class Swap(array1: Expr, index1: Expr, array2: Expr, index2: Expr) extends Expr with CachingTyped {
+    override protected def computeType(implicit s: Symbols): Type =
+      (array1.getType, array2.getType) match {
+        case (ArrayType(base1), ArrayType(base2)) if base1 == base2 =>
+          checkParamTypes(Seq(index1, index2), Seq(Int32Type(), Int32Type()), UnitType())
+        case _ =>
+          Untyped
+      }
+  }
+
   /** $encodingof `{ expr1; expr2; ...; exprn; last }` */
   case class Block(exprs: Seq[Expr], last: Expr) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type = if (exprs.forall(_.isTyped)) last.getType else Untyped
@@ -205,6 +216,9 @@ trait Printer extends oo.Printer {
     case Return(e) =>
       p"return $e"
 
+    case Swap(array1, index1, array2, index2) =>
+      p"swap($array1, $index1, $array2, $index2)"
+
     case LetVar(vd, value, expr) =>
       p"""|var $vd = $value
           |$expr"""
@@ -329,6 +343,9 @@ trait TreeDeconstructor extends oo.TreeDeconstructor {
 
     case s.Return(e) =>
       (Seq(), Seq(), Seq(e), Seq(), Seq(), (_, _, es, _, _) => t.Return(es(0)))
+
+    case s.Swap(array1, index1, array2, index2) =>
+      (Seq(), Seq(), Seq(array1, index1, array2, index2), Seq(), Seq(), (_, _, es, _, _) => t.Swap(es(0), es(1), es(2), es(3)))
 
     case s.MutableMapWithDefault(from, to, default) =>
       (Seq(), Seq(), Seq(default), Seq(from, to), Seq(), (_, _, es, tps, _) => t.MutableMapWithDefault(tps(0), tps(1), es(0)))

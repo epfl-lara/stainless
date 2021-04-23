@@ -841,6 +841,16 @@ trait ASTExtractors {
       }
     }
 
+    object ExSwapExpression {
+      def unapply(tree: Apply) : Option[(Tree, Tree, Tree, Tree)] = tree match {
+        case a @ Apply(
+              TypeApply(ExSymbol("stainless", "lang", "swap"), _),
+              array1 :: index1 :: array2 :: index2 :: Nil) =>
+            Some((array1, index1, array2, index2))
+        case _ => None
+      }
+    }
+
     object ExLambdaExpression {
       def unapply(tree: Function) : Option[(Seq[ValDef], Tree)] = tree match {
         case Function(vds, body) => Some((vds, body))
