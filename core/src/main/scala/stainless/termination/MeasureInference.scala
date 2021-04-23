@@ -26,7 +26,6 @@ trait MeasureInference
   // so we include all dependencies in the key calculation
   override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult]((fd, context) =>
     getDependencyKey(fd.id)(context.symbols)
-    //ValueKey(scala.util.Random.nextInt(1000000000))
   )
 
   val sizes: SizeFunctions { val trees: s.type } = new {
@@ -131,8 +130,6 @@ trait MeasureInference
             pipeline.measureCache.get.keys.map{ fd => 
               postconditionCache(fd.id) = lemmas._1 
             }
-            //println("postconditions for " + original.id)
-            //println(lemmas._1)
             applicationCache ++= lemmas._2
             val annotated = annotate(original)
             annotated.copy(fullBody = exprOps.withMeasure(annotated.fullBody, Some(measure.setPos(original))))
@@ -177,8 +174,6 @@ trait MeasureInference
     if (options.findOptionOrDefault(optInferMeasures) && context.needsMeasure(fd)) {
       val tfd   = context.transformer.transform(context.inferMeasure(fd))
       val posts = context.getPosts(fd.id)
-      //println("postconditions in extract function for " + fd.id)
-      //println(posts)
       (tfd, posts)
     } else {
       (context.transformer.transform(fd), MutableMap.empty)
@@ -193,15 +188,9 @@ trait MeasureInference
       symbols.functions.values.map(fd =>  
         funCache.cached(fd, context)(extractFunction(context,fd))
       ).toSeq
-
-    //println("fun cache")
-    //println(funCache)
     
     val posts: Map[Identifier, s.Lambda] = results.flatMap{ case (tfd,post) => post }.toMap
-
-    //println("postconditions in extract symbols")
-    //println(posts)
-
+    
     def annotatePosts(original: t.FunDef) = {
       val postTransformer: transformers.TreeTransformer {
         val s: self.s.type;
