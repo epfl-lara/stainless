@@ -9,19 +9,25 @@ object Iterables {
     require(set.contains(1) && set.contains(2) && !set.contains(3))
 
     val res = set.toList
-
+    set.toListPost(1)
     assert(res.contains(1))
+    set.toListPost(2)
     assert(res.contains(2))
+    set.toListPost(3)
     assert(!res.contains(3))
   }
 
   def test_setMap(set: Set[BigInt]) = {
     require(set.contains(1) && set.contains(2) && !set.contains(3))
 
-    val res = set.map(_ + 1)
+    val f = ((x:BigInt) => x + 1)
+    val res = set.map(f)
 
+    set.mapPost1(f)(1)
     assert(res.contains(2))
+    set.mapPost1(f)(2)
     assert(res.contains(3))
+    set.mapPost2(f)(4)    
     assert(!res.contains(4))
   }
 
@@ -30,32 +36,21 @@ object Iterables {
   def test_setFilter(set: Set[BigInt]) = {
     require((set & oneToSix) == oneToSix)
 
-    val res = set.filter(_ < 4)
-
+    val p = ((x:BigInt) => x < 4)
+    val res = set.filter(p)
+    set.filterPost(p)(1)
     assert(res.contains(1))
+    set.filterPost(p)(2)
     assert(res.contains(2))
+    set.filterPost(p)(3)
     assert(res.contains(3))
+    set.filterPost(p)(4)
     assert(!res.contains(4))
+    set.filterPost(p)(5)
     assert(!res.contains(5))
+    set.filterPost(p)(6)
     assert(!res.contains(6))
   }
-
-  // See https://github.com/epfl-lara/inox/issues/109
-  // def test_setWithFilter(set: Set[BigInt]) = {
-  //   require((set & oneToSix) == oneToSix)
-
-  //   val res = for {
-  //     x <- set
-  //     if x < 4
-  //   } yield x
-
-  //   assert(res.contains(1))
-  //   assert(res.contains(2))
-  //   assert(res.contains(3))
-  //   assert(!res.contains(4))
-  //   assert(!res.contains(5))
-  //   assert(!res.contains(6))
-  // }
 
   def test_mapKeys(map: Map[Int, String]) = {
     require(map.contains(1) && map.contains(2) && !map.contains(3))
