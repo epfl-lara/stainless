@@ -1,7 +1,7 @@
 .. _genc:
 
-Safe C Code
-===========
+Generating C Code
+=================
 
 Stainless can generate from Scala code an equivalent and safe C99 code. Using the verification, repair and
 synthesis features of Stainless this conversion can be made safely. Additionally, the produced code can be
@@ -13,6 +13,9 @@ Furthermore, this Master Thesis Report explains how to achieve compliance under 
 <https://en.wikipedia.org/wiki/MISRA_C>`_ guidelines.
 
 To convert a Scala program, please use the ``--genc`` option of Stainless.
+
+The option ``--genc-output=file`` specifies the file name for GenC output (default: ``stainless.c``).
+
 
 .. NOTE::
   Currently the memory model is limited to stack allocations. Hence, no dynamic allocation
