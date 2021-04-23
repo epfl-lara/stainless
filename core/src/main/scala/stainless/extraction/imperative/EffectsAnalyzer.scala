@@ -344,14 +344,25 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       case ADTFieldAccessor(fid) +: rest =>
         getTargets(args(symbols.getConstructor(id).fields.indexWhere(_.id == fid)), rest)
       case _ =>
-        throw MalformedStainlessCode(expr, s"Couldn't compute effect targets in ADT: ${expr.asString}")
+        Set.empty
     }
 
     case ClassConstructor(ct, args) => path match {
       case ClassFieldAccessor(fid) +: rest =>
         getTargets(args(ct.tcd.fields.indexWhere(_.id == fid)), rest)
       case _ =>
-        throw MalformedStainlessCode(expr, s"Couldn't compute effect targets in class constructor: ${expr.asString}")
+        Set.empty
+    }
+
+    case FiniteArray(elems, _) => path match {
+      case ArrayAccessor(bv: BVLiteral) +: rest =>
+        val i = bv.toBigInt.toInt
+        if (i < elems.size) getTargets(elems(i), rest)
+        else throw MalformedStainlessCode(expr, s"Out of bound array access in ${expr.asString}")
+      case _ if path.isEmpty || !path.head.isInstanceOf[ArrayAccessor] =>
+        Set.empty
+      case _ =>
+        throw MalformedStainlessCode(expr, s"Couldn't compute effect targets in finite array ${expr.asString}")
     }
 
     case Assert(_, _, e) => getTargets(e, path)
@@ -386,13 +397,29 @@ trait EffectsAnalyzer extends oo.CachingPhase {
 
     case fi: FunctionInvocation => Set.empty
     case (_: ApplyLetRec | _: Application) => Set.empty
-    case (_: FiniteArray | _: LargeArray | _: ArrayUpdated | _: MutableMapUpdated) => Set.empty
+    case _: LargeArray | _: ArrayUpdated if path.isEmpty || !path.head.isInstanceOf[ArrayAccessor] => Set.empty
+    case _: MutableMapUpdated => Set.empty
     case IsInstanceOf(e, _) => getTargets(e, path)
     case AsInstanceOf(e, _) => getTargets(e, path)
     case Old(_) => Set.empty
     case Snapshot(_) => Set.empty
 
     case ArrayLength(_) => Set.empty
+
+    case FiniteSet(elements, tpe) => Set.empty
+    case SetUnion(s1, s2) => Set.empty
+    case SetIntersection(s1, s2) => Set.empty
+    case SetDifference(s1, s2) => Set.empty
+    case SubsetOf(s1, s2) => Set.empty
+    case ElementOfSet(element, set) => Set.empty
+    case SetAdd(bag, element) => Set.empty
+
+    case FiniteBag(elements, tpe) => Set.empty
+    case BagUnion(s1, s2) => Set.empty
+    case BagIntersection(s1, s2) => Set.empty
+    case BagDifference(s1, s2) => Set.empty
+    case MultiplicityInBag(element, bag) => Set.empty
+    case BagAdd(bag, element) => Set.empty
 
     case Block(_, last) => getTargets(last, path)
 
@@ -404,6 +431,8 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       for (ee <- getTargets(e); be <- bEffects) yield {
         if (be.receiver == vd.toVariable) ee.append(be) else be
       }
+
+    case _ if !symbols.isMutableType(expr.getType) => Set.empty
 
     case _ =>
       throw MalformedStainlessCode(expr, s"Couldn't compute effect targets in (${expr.getClass}): ${expr.asString}")

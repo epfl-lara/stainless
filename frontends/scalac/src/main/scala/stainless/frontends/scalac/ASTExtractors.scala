@@ -450,8 +450,7 @@ trait ASTExtractors {
             case R(signed, size) => Some((signed == "Int", size.toInt))
             case _ => None
           }
-        case _ =>
-          None
+        case _ => FrontendBVKind.unapply(tpe)
       }
 
       def unapply(tr: Tree): Option[(Boolean, Int)] = unapply(tr.tpe)
@@ -494,6 +493,58 @@ trait ASTExtractors {
           FrontendBVType(signed, size) :: Nil
         ) =>
           Some((signed, size))
+        case _ =>
+          None
+      }
+    }
+
+    /** `fromByte` extraction (Byte to Int8 identity conversion) */
+    object ExFromByte {
+      def unapply(tree: Tree): Option[Tree] = tree  match {
+        case Apply(
+          ExSelected("stainless", "math", "BitVectors", "fromByte"),
+          expr :: Nil
+        ) =>
+          Some(expr)
+        case _ =>
+          None
+      }
+    }
+
+    /** `fromShort` extraction (Short to Int16 identity conversion) */
+    object ExFromShort {
+      def unapply(tree: Tree): Option[Tree] = tree  match {
+        case Apply(
+          ExSelected("stainless", "math", "BitVectors", "fromShort"),
+          expr :: Nil
+        ) =>
+          Some(expr)
+        case _ =>
+          None
+      }
+    }
+
+    /** `fromInt` extraction (Int to Int32 identity conversion) */
+    object ExFromInt {
+      def unapply(tree: Tree): Option[Tree] = tree  match {
+        case Apply(
+          ExSelected("stainless", "math", "BitVectors", "fromInt"),
+          expr :: Nil
+        ) =>
+          Some(expr)
+        case _ =>
+          None
+      }
+    }
+
+    /** `fromLong` extraction (Long to Int64 identity conversion) */
+    object ExFromLong {
+      def unapply(tree: Tree): Option[Tree] = tree  match {
+        case Apply(
+          ExSelected("stainless", "math", "BitVectors", "fromLong"),
+          expr :: Nil
+        ) =>
+          Some(expr)
         case _ =>
           None
       }
@@ -828,6 +879,25 @@ trait ASTExtractors {
              => Some(array)
 
         case ExArraySelect(array, "length") => Some(array)
+
+        case _ => None
+      }
+    }
+
+    object ExArrayApplyBV {
+      def unapply(tree: Apply): Option[(Tree, Tree, Tree)] = tree match {
+        case Apply(TypeApply(
+          Select(
+            Apply(
+              TypeApply(ExSelected("stainless", "math", "BitVectors", "ArrayIndexing"), tpe :: Nil),
+              array :: Nil
+            ),
+            ExNamed("apply")
+          ),
+          bvType :: Nil),
+          index :: Nil) =>
+
+          Some((array, bvType, index))
 
         case _ => None
       }

@@ -51,7 +51,6 @@ trait MainHelpers extends inox.MainHelpers { self =>
     genc.optOutputFile -> Description(General, "File name for GenC output"),
     optWatch -> Description(General, "Re-run stainless upon file changes"),
     optCompact -> Description(General, "Print only invalid elements of summaries"),
-    optNoColors -> Description(General, "Disable colored output"),
     optInteractive -> Description(General, "Whether to run in interactive query mode"),
     frontend.optPersistentCache -> Description(General, "Enable caching of program extraction & analysis"),
     frontend.optBatchedProgram -> Description(General, "Process the whole program together, skip dependency analysis"),
@@ -126,7 +125,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
       val logFile = new File("stainless.log")
       val reporter = new stainless.FilePlainTextReporter(logFile, ctx.reporter.debugSections)
       Context.withReporter(reporter)(ctx)
-    } else if (ctx.options.findOptionOrDefault(optNoColors)) {
+    } else if (ctx.options.findOptionOrDefault(inox.optNoColors)) {
       val reporter = new stainless.PlainTextReporter(ctx.reporter.debugSections)
       Context.withReporter(reporter)(ctx)
     } else {
@@ -228,12 +227,12 @@ trait MainHelpers extends inox.MainHelpers { self =>
           reporter.info(s"Printing JSON summary to $output")
           exportJson(compiler.getReport, output)
         }
-
         compiler.getReport.exists(_.isSuccess)
       }
 
+      val asciiOnly = ctx.options.findOptionOrDefault(inox.optNoColors)
       reporter.whenDebug(inox.utils.DebugSectionTimers) { debug =>
-        timers.outputTable(debug)
+        timers.outputTable(debug, asciiOnly)
       }
 
       // Shutdown the pool for a clean exit.

@@ -1082,14 +1082,28 @@ trait CodeExtraction extends ASTExtractors {
 
     case ExIntToBV(signed, size, tree) =>
       extractTree(tree) match {
-        case xt.Int32Literal(n) => xt.BVLiteral(signed, BigInt(n), size)
-        case _ => outOfSubsetError(tr, "`intToBV` implicit may only be used on `Int` literals")
+        case xt.Int32Literal(n)
+          if !signed && 0 <= n && BigInt(n) < BigInt(2).pow(size) =>
+
+          xt.BVLiteral(signed, BigInt(n), size)
+        case xt.Int32Literal(n)
+          if signed && -(BigInt(2).pow(size-1)) <= BigInt(n) && BigInt(n) < BigInt(2).pow(size-1) =>
+
+          xt.BVLiteral(signed, BigInt(n), size)
+        case _ => outOfSubsetError(tr, "`intToBV` implicit may only be used on `Int` literals (in the right range)")
       }
 
     case ExBigIntToBV(signed, size, tree) =>
       extractTree(tree) match {
-        case xt.IntegerLiteral(n) => xt.BVLiteral(signed, n, size)
-        case _ => outOfSubsetError(tr, "`bigIntToBV` implicit may only be used on `BigInt` literals")
+        case xt.IntegerLiteral(n)
+          if signed && 0 <= n && n < BigInt(2).pow(size) =>
+
+          xt.BVLiteral(signed, n, size)
+        case xt.IntegerLiteral(n)
+          if signed && -(BigInt(2).pow(size-1)) <= n && n < BigInt(2).pow(size-1) =>
+
+          xt.BVLiteral(signed, n, size)
+        case _ => outOfSubsetError(tr, "`bigIntToBV` implicit may only be used on `BigInt` literals (in the right range)")
       }
 
     case ExMaxBV(signed, size) =>
@@ -1099,6 +1113,11 @@ trait CodeExtraction extends ASTExtractors {
     case ExMinBV(signed, size) =>
       if (signed) xt.BVLiteral(signed, -(BigInt(2) pow (size - 1)), size)
       else xt.BVLiteral(signed, BigInt(0), size)
+
+    case ExFromByte(tree) => extractTree(tree)
+    case ExFromShort(tree) => extractTree(tree)
+    case ExFromInt(tree) => extractTree(tree)
+    case ExFromLong(tree) => extractTree(tree)
 
     case ExWrapping(tree) =>
       val body = extractTree(tree)(dctx.setWrappingArithmetic(true))
@@ -1324,6 +1343,17 @@ trait CodeExtraction extends ASTExtractors {
 
     case ExArrayUpdated(array, index, newValue) =>
       xt.ArrayUpdated(extractTree(array), extractTree(index), extractTree(newValue))
+
+    case ExArrayApplyBV(array, bvType, index) => bvType match {
+      case FrontendBVType(signed, size) =>
+        xt.ArraySelect(
+          extractTree(array),
+          toSigned(extractTree(index), signed, size, 32)
+        )
+      case tpe =>
+        outOfSubsetError(bvType, s"ArrayIndexing implicit must be used on a BitVector type (found $tpe instead)")
+
+    }
 
     case ExArrayLength(array) =>
       xt.ArrayLength(extractTree(array))
@@ -1552,6 +1582,34 @@ trait CodeExtraction extends ASTExtractors {
               else xt.BVNarrowingCast(extractTree(lhs), xt.BVType(signed2, size2))
           }
 
+          case (StrictBVType(signed, size), "toSigned",  Seq()) => tps match {
+            case Seq(FrontendBVType(signed2, size2)) =>
+              if (signed) outOfSubsetError(tr, "Method `toSigned` must be used on unsigned bitvectors")
+              else if (!signed2) outOfSubsetError(tr, "Method `toSigned` must be instantiated with a signed bitvector type")
+              else if (size != size2) outOfSubsetError(tr, "Method `toSigned` must be instantiated with a signed bitvector type of the same size as the original bitvector")
+              else xt.BVUnsignedToSigned(extractTree(lhs))
+            case _ =>
+              outOfSubsetError(tr, "Method `toSigned` must be instantiated with a signed bitvector type of the same size as the original bitvector")
+          }
+          case (StrictBVType(signed, size), "toUnsigned",  Seq()) => tps match {
+            case Seq(FrontendBVType(signed2, size2)) =>
+              if (!signed) outOfSubsetError(tr, "Method `toUnsigned` must be used on signed bitvectors")
+              else if (signed2) outOfSubsetError(tr, "Method `toUnsigned` must be instantiated with a unsigned bitvector type")
+              else if (size != size2) outOfSubsetError(tr, "Method `toUnsigned` must be instantiated with a unsigned bitvector type of the same size as the original bitvector")
+              else xt.BVSignedToUnsigned(extractTree(lhs))
+            case _ =>
+              outOfSubsetError(tr, "Method `toSigned` must be instantiated with a signed bitvector type of the same size as the original bitvector")
+          }
+
+          case (StrictBVType(signed, size), "toByte",  Seq()) =>
+            toSigned(extractTree(lhs), signed, size, 8)
+          case (StrictBVType(signed, size), "toShort",  Seq()) =>
+            toSigned(extractTree(lhs), signed, size, 16)
+          case (StrictBVType(signed, size), "toInt",  Seq()) =>
+            toSigned(extractTree(lhs), signed, size, 32)
+          case (StrictBVType(signed, size), "toLong",  Seq()) =>
+            toSigned(extractTree(lhs), signed, size, 64)
+
           case (_, "unary_+", Seq()) => injectCast(e => e)(lhs)
           case (_, "-",   Seq(rhs)) => injectCasts(xt.Minus)(lhs, rhs)
           case (_, "*",   Seq(rhs)) => injectCasts(xt.Times)(lhs, rhs)
@@ -1613,6 +1671,21 @@ trait CodeExtraction extends ASTExtractors {
     // default behaviour is to complain :)
     case _ => outOfSubsetError(tr, s"Stainless does not support expression (${tr.getClass}): `$tr`")
   }).ensurePos(tr.pos)
+
+  /** Inject casts for our BitVectors library for methods toByte, toShort, toInt, toLong */
+  private def toSigned(e: xt.Expr, signed: Boolean, size1: Int, size2: Int): xt.Expr = {
+    // already signed
+    if (signed && size1 < size2) xt.BVWideningCast(e, xt.BVType(signed, size2)).copiedFrom(e)
+    else if (signed && size1 > size2) xt.BVNarrowingCast(e, xt.BVType(signed, size2)).copiedFrom(e)
+    else if (signed) e
+    // unsigned
+    else if (size1 < size2)
+      xt.BVUnsignedToSigned(xt.BVWideningCast(e, xt.BVType(signed, size2)).copiedFrom(e)).copiedFrom(e)
+    else if (size1 > size2)
+      xt.BVUnsignedToSigned(xt.BVNarrowingCast(e, xt.BVType(signed, size2)).copiedFrom(e)).copiedFrom(e)
+    else
+      xt.BVUnsignedToSigned(e).copiedFrom(e)
+  }
 
   /** Inject implicit widening casts according to the Java semantics (5.6.2. Binary Numeric Promotion) */
   private def injectCasts(ctor: (xt.Expr, xt.Expr) => xt.Expr)

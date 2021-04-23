@@ -127,10 +127,12 @@ trait TreeSanitizer { self =>
             errors += MalformedStainlessCode(fullBody, s"Unexpected `${spec.kind.name}` specification.")
         )
       }
-      specced.specs.groupBy(_.kind).map { case (kind, specs) =>
-        if (specs.length > 1)
-          errors += MalformedStainlessCode(fullBody, s"Duplicate `${kind.name}` specification.")
-      }
+      specced.specs
+        .filter(spec => spec.kind != exprOps.PreconditionKind && spec.kind != exprOps.LetKind)
+        .groupBy(_.kind).map { case (kind, specs) =>
+          if (specs.length > 1)
+            errors += MalformedStainlessCode(fullBody, s"Duplicate `${kind.name}` specification.")
+        }
       specced.specs.foreach(s => s.traverse(this))
       specced.bodyOpt.foreach(traverse)
     }

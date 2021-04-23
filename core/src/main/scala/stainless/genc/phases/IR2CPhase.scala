@@ -182,7 +182,7 @@ private class IR2CImpl(val ctx: inox.Context) {
 
     case Assign(lhs, rhs) => C.Assign(rec(lhs), rec(rhs))
 
-    /* NOTE For shift operators, we first cast to unsigned, perform the shift operation and
+    /* NOTE For shifting signed integers, we first cast to unsigned, perform the shift operation and
      *      finally cast it back to signed integer. The rational is that overflow is undefined
      *      behaviour in C99 on signed integers and shifts of negative integers is also undefined
      *      behaviour. However, everything is well defined over unsigned integers. The catch is
@@ -190,11 +190,20 @@ private class IR2CImpl(val ctx: inox.Context) {
      *      values that are negative if we read them using a 2's complement notation. Having a
      *      C compiler that does a normal wrap around is one of the requirement of GenC.
      */
-    case BinOp(op, lhs0, rhs0) if Set[Operator](BLeftShift, BRightShift) contains op =>
-      assert(lhs0.getType == PrimitiveType(Int32Type))
-      val lhs = C.Cast(rec(lhs0), C.Primitive(UInt32Type))
-      val expr = C.BinOp(op, lhs, rec(rhs0)) // rhs doesn't need to be casted.
-      C.Cast(expr, C.Primitive(Int32Type))
+    case BinOp(op, lhs0, rhs0) if op == BLeftShift || op == BRightShift =>
+      val tpe = lhs0.getType
+      tpe match {
+        case PrimitiveType(tpe: IntegralPrimitiveType) if tpe.isSigned =>
+          val lhs = C.Cast(rec(lhs0), C.Primitive(tpe.toUnsigned))
+          val expr = C.BinOp(op, lhs, rec(rhs0)) // rhs doesn't need to be cast
+          C.Cast(expr, C.Primitive(tpe))
+
+        case PrimitiveType(tpe: IntegralPrimitiveType) if tpe.isUnsigned =>
+          C.BinOp(op, rec(lhs0), rec(rhs0))
+
+        case _ =>
+          ctx.reporter.fatalError(s"Shifting on type $tpe is not supported")
+      }
 
     /* NOTE For == and != on objects, we create a dedicated equal function.
      *      See comment in CmpFactory.

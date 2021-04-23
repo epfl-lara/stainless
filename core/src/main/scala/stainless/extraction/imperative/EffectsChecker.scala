@@ -42,6 +42,11 @@ trait EffectsChecker { self: EffectsAnalyzer =>
       checkEffectsLocations(fd)
       checkPurity(fd)
 
+      // Recursive functions must return fresh results so that no aliasing is possible
+      if ((symbols.isRecursive(fd.id) || fd.isInstanceOf[Inner]) &&
+          !exprOps.withoutSpecs(fd.fullBody).forall(isExpressionFresh))
+        throw ImperativeEliminationException(fd, "Illegal recursive functions returning non-fresh result")
+
       object traverser extends SelfTreeTraverser {
         override def traverse(tpe: Type): Unit = tpe match {
           case at @ ADTType(id, tps) =>
@@ -257,7 +262,57 @@ trait EffectsChecker { self: EffectsAnalyzer =>
      * It turns out that an expression of non-mutable type is always fresh,
      * as it can not contains reference to a mutable object, by definition
      */
-    def isExpressionFresh(expr: Expr): Boolean = getTargets(expr).isEmpty
+    def isExpressionFresh(expr: Expr): Boolean = {
+      def rec(expr: Expr, bindings: Set[ValDef]): Boolean = !isMutableType(expr.getType) || (expr match {
+        case v: Variable => bindings(v.toVal)
+        case ADT(_, _, args) => args.forall(rec(_, bindings))
+
+        case FiniteArray(elems, _) => elems.forall(rec(_, bindings))
+        case LargeArray(elems, default, _, _) => elems.forall(p => rec(p._2, bindings)) && rec(default, bindings)
+
+        // We assume `old(.)` is fresh here, although such cases will probably be
+        // rejected later in `ImperativeCleanup`.
+        case Old(_) => true
+
+        case fi @ FunctionInvocation(id, _, _) if !symbols.isRecursive(id) =>
+            BodyWithSpecs(symbols.simplifyLets(fi.inlined))
+              .bodyOpt
+              .forall(isExpressionFresh)
+
+        // other function invocations always return a fresh expression, by hypothesis (global assumption)
+        case (_: FunctionInvocation | _: ApplyLetRec | _: Application) => true
+
+        //ArrayUpdated returns a mutable array, which by definition is a clone of the original
+        case ArrayUpdated(IsTyped(_, ArrayType(base)), _, _) => !isMutableType(base)
+
+        //MutableMapDuplicate returns a fresh duplicate by definition
+        case MutableMapDuplicate(IsTyped(_, MutableMapType(from, to))) =>
+          !isMutableType(from) && !isMutableType(to)
+
+        // snapshots are fresh
+        case Snapshot(e) => true
+
+        // For `Let`, it is safe to add `vd` as a fresh binding because we disallow
+        // `FieldAssignments` with non-fresh expressions in `check(fd: FunAbstraction)` above.
+        // See discussion on: https://github.com/epfl-lara/stainless/pull/985#discussion_r614583479
+        case Let(vd, e, b) => rec(e, bindings) && rec(b, bindings + vd)
+
+        // We don't add `vd` as a fresh binding, because it might be reassigned to a non-fresh
+        // expression in a `Block` appearing in `b` (see link above)
+        case LetVar(vd, e, b) => rec(b, bindings)
+
+        case Block(_, e) => rec(e, bindings)
+
+        case IfExpr(_, e1, e2) => rec(e1, bindings) && rec(e2, bindings)
+        case MatchExpr(_, cases) => cases.forall(cse => rec(cse.rhs, bindings))
+
+        //any other expression is conservately assumed to be non-fresh if
+        //any sub-expression is non-fresh
+        case Operator(args, _) => args.forall(rec(_, bindings))
+      })
+
+      rec(expr, Set.empty)
+    }
 
     try {
       // We only check the bodies of functions which are not accessors

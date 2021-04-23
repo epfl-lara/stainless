@@ -116,8 +116,6 @@ trait ExprOps extends inox.ast.ExprOps { self =>
 
     def bodyOpt: Option[Expr] = if (hasBody) Some(body) else None
 
-    lazy val hasDuplicates: Boolean = specs.size != specs.map(_.kind).toSet.size
-
     def getFirstSpec(kind: SpecKind): Option[kind.Spec] = {
       specs.find(_.kind == kind).asInstanceOf[Option[kind.Spec]]
     }
@@ -129,13 +127,18 @@ trait ExprOps extends inox.ast.ExprOps { self =>
       else Some(filtered.head.asInstanceOf[kind.Spec])
     }
 
+    def withSpec(specOpt: Option[Specification]): BodyWithSpecs = {
+      if (specOpt.nonEmpty) withSpec(specOpt.get)
+      else this
+    }
+
     def withSpec(spec: Specification): BodyWithSpecs = {
       def adaptPos(spec: Specification, closest: Option[Specification]) = {
         if (spec.getPos == NoPosition)
           spec.setPos(closest.getOrElse(body).getPos)
         spec
       }
-      assert(!hasDuplicates, "Duplicate specs")
+      assert(specs.count(_.kind == spec.kind) <= 1, s"Duplicate specs of kind `${spec.kind.name}`")
       val newSpecs = specs.indexWhere(_.kind == spec.kind) match {
         case -1 => adaptPos(spec, specs.headOption) +: specs
         case i => specs.updated(i, adaptPos(spec, Some(specs(i))))
@@ -166,6 +169,11 @@ trait ExprOps extends inox.ast.ExprOps { self =>
 
     def reconstructed: Expr = specs.foldRight(body)(applySpec)
 
+    def addSpec(optSpec: Option[Specification]): BodyWithSpecs = {
+      if (optSpec.nonEmpty) this.copy(specs = optSpec.get +: specs)
+      else this
+    }
+
     // add a post-condition spec if there aren't any
     def addPost(implicit s: Symbols): BodyWithSpecs = {
       if (specs.exists(_.kind == PostconditionKind)) this
@@ -174,6 +182,12 @@ trait ExprOps extends inox.ast.ExprOps { self =>
         BooleanLiteral(true).setPos(body)
       ).setPos(body)).setPos(body) +: specs, body)
     }
+
+    def letsAndSpecs(kind: SpecKind): Seq[Specification] = {
+      val (afterLast, untilLast) = specs.reverse.span(_.kind != kind)
+      untilLast.reverse.filter(spec => spec.kind == kind || spec.kind == LetKind)
+    }
+
   }
 
   object BodyWithSpecs {
@@ -292,10 +306,8 @@ trait ExprOps extends inox.ast.ExprOps { self =>
 
   /** Returns the precondition of an expression wrapped in Option */
   final def preconditionOf(expr: Expr): Option[Expr] = {
-    val BodyWithSpecs(specs, _) = BodyWithSpecs(expr)
-    val (afterLastPrecondition, untilLastPrecondition) =
-      specs.reverse.span(_.kind != PreconditionKind)
-    val letsAndRequires = untilLastPrecondition.reverse.filter(spec => spec.kind == PreconditionKind || spec.kind == LetKind)
+    val specced = BodyWithSpecs(expr)
+    val letsAndRequires = specced.letsAndSpecs(PreconditionKind)
     if (letsAndRequires.isEmpty) None
     else Some(letsAndRequires.init.foldRight(letsAndRequires.last.asInstanceOf[Precondition].expr) {
       case (spec @ LetInSpec(vd, e), acc) => Let(vd, e, acc).setPos(spec)
