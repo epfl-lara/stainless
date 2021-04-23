@@ -2,6 +2,7 @@
 import stainless.lang._
 import stainless.collection._
 import stainless.annotation._
+import stainless.proof._
 
 object Iterables {
 
@@ -27,7 +28,11 @@ object Iterables {
     assert(res.contains(2))
     set.mapPost1(f)(2)
     assert(res.contains(3))
-    set.mapPost2(f)(4)    
+    if (res.contains(4)) {
+      set.mapPost2(f)(4)
+      assert(false)
+      check(!res.contains(4))
+    }
     assert(!res.contains(4))
   }
 
@@ -57,8 +62,11 @@ object Iterables {
 
     val res = map.keys
 
+    map.keysPost(1)
     assert(res.contains(1))
+    map.keysPost(2)
     assert(res.contains(2))
+    map.keysPost(3)
     assert(!res.contains(3))
   }
 
@@ -67,7 +75,9 @@ object Iterables {
 
     val res = map.values
 
+    map.valuesPost1(1)
     assert(res.contains("foo"))
+    map.valuesPost1(2)
     assert(res.contains("bar"))
   }
 
@@ -76,7 +86,9 @@ object Iterables {
 
     val res = map.toList
 
+    map.toListPost(1)
     assert(res.contains((1, "foo")))
+    map.toListPost(2)
     assert(res.contains((2, "bar")))
   }
 }

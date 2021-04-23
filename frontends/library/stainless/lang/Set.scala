@@ -45,9 +45,10 @@ object Set {
    
     @extern @pure
     def mapPost2[B](f: A => B)(b: B): A = {
+      require(map[B](f).contains(b))
       (??? : A)
     }.ensuring { (a:A) =>
-      !map[B](f).contains(b) || (b == f(a) && set.contains(a))
+      b == f(a) && set.contains(a)
     }
 
     @extern @pure
