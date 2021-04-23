@@ -9,6 +9,14 @@ object StaticChecks {
     def ensuring(@ghost cond: (A) => Boolean): A = x
   }
 
+  @library @ignore
+  implicit class WhileDecorations(val u: Unit) {
+    def invariant(@ghost x: Boolean): Unit = {
+      require(x)
+      u
+    }
+  }
+
   @library
   def require(@ghost pred: Boolean): Unit = ()
 
