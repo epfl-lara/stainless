@@ -37,7 +37,7 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
     class Inliner(inlinedOnce: Set[Identifier] = Set()) extends s.SelfTreeTransformer {
 
       override def transform(expr: s.Expr): t.Expr = expr match {
-        case fi: FunctionInvocation if fi.tfd.id != fd.id =>
+        case fi: FunctionInvocation =>
           inlineFunctionInvocations(fi.copy(args = fi.args map transform).copiedFrom(fi)).copiedFrom(fi)
 
         case _ => super.transform(expr)
@@ -47,6 +47,7 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
         import exprOps._
         val (tfd, args) = (fi.tfd, fi.args)
 
+        val isOpaque = tfd.fd.flags contains Opaque
         val isSynthetic = tfd.fd.flags contains Synthetic
         val hasInlineFlag = tfd.fd.flags contains Inline
         val hasInlineOnceFlag = tfd.fd.flags contains InlineOnce
@@ -62,7 +63,7 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
         // later on check that the class invariant is valid.
         val body = specced.bodyOpt match {
           case Some(body) if isSynthetic => body
-          case Some(body) => annotated(body, Unchecked).setPos(fi)
+          case Some(body) if !isOpaque => annotated(body, Unchecked).setPos(fi)
           case _ => NoTree(tfd.returnType).copiedFrom(tfd.fullBody)
         }
 
