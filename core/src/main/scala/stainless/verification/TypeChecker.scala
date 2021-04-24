@@ -965,7 +965,7 @@ trait TypeChecker {
     l.foldRight(e) { case (v, acc) =>
       v.tpe match {
         case LetEquality(e1: Variable, e2) =>
-          let(e1.toVal, e2, acc)
+          implies(Equals(e1, e2), acc)
         case Truth(t) =>
           implies(t, acc)
         case RefinementType(vd, pred) =>
