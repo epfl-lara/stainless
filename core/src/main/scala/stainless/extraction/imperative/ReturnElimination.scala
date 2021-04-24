@@ -108,7 +108,7 @@ trait ReturnElimination
         case s.Return(_) =>
           context.reporter.fatalError(e.getPos, "Keyword `return` is not allowed here")
 
-        case wh @ s.While(cond, body, optInv) =>
+        case wh @ s.While(cond, body, optInv, flags) =>
           val transformedCond = transform(cond)
           val transformedBody = transform(body)
           val transformedInv = optInv.map(transform)
@@ -152,7 +152,7 @@ trait ReturnElimination
           val fullBody = t.exprOps.reconstructSpecs(newSpecs, newBody, t.UnitType()).copiedFrom(wh)
 
           t.LetRec(
-            Seq(t.LocalFunDef(id, Seq(), Seq(), t.UnitType().copiedFrom(wh), fullBody, Seq()).copiedFrom(wh)),
+            Seq(t.LocalFunDef(id, Seq(), Seq(), t.UnitType().copiedFrom(wh), fullBody, flags.map(transform)).copiedFrom(wh)),
             t.IfExpr(
               transformedCond,
               t.ApplyLetRec(id, Seq(), tpe, Seq(), Seq()).copiedFrom(wh),
@@ -221,7 +221,7 @@ trait ReturnElimination
       }
 
       override def transform(expr: s.Expr, currentType: s.Type): t.Expr = expr match {
-        case wh @ s.While(cond, body, optInv) if exprHasReturn(expr) =>
+        case wh @ s.While(cond, body, optInv, flags) if exprHasReturn(expr) =>
 
           val id = FreshIdentifier(fd.id.name + "While")
           val loopType = ControlFlowSort.controlFlow(SimpleWhileTransformer.transform(retType), t.UnitType())
@@ -279,9 +279,10 @@ trait ReturnElimination
             specs.map(_.transform(SimpleWhileTransformer))
 
           val fullBody = t.exprOps.reconstructSpecs(newSpecs, newBody, t.UnitType()).copiedFrom(wh)
+          val flagsChecked = flags.map(SimpleWhileTransformer.transform)
 
           t.LetRec(
-            Seq(t.LocalFunDef(id, Seq(), Seq(), loopType.copiedFrom(wh), fullBody, Seq()).copiedFrom(wh)),
+            Seq(t.LocalFunDef(id, Seq(), Seq(), loopType.copiedFrom(wh), fullBody, flagsChecked).copiedFrom(wh)),
             t.IfExpr(
               condChecked,
               t.ApplyLetRec(id, Seq(), tpe, Seq(), Seq()).copiedFrom(wh),

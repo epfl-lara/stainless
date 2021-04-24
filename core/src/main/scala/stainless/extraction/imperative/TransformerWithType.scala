@@ -27,11 +27,12 @@ trait TransformerWithType extends oo.TransformerWithType {
         transform(value, fa.getField.get.getType)
       ).copiedFrom(expr)
 
-    case s.While(cond, body, pred) =>
+    case s.While(cond, body, pred, flags) =>
       t.While(
         transform(cond, s.BooleanType()),
         transform(body),
-        pred map (transform(_, s.BooleanType()))
+        pred map (transform(_, s.BooleanType())),
+        flags map (transform)
       ).copiedFrom(expr)
 
     case s.ArrayUpdate(array, index, value) =>
