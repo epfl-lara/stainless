@@ -158,10 +158,11 @@ trait TreeSanitizer { self =>
       case e: Ensuring =>
         errors += MalformedStainlessCode(e, s"Unexpected `ensuring` ($misplacedSpec).")
 
-      case wh @ While(cond, body, optInv) =>
+      case wh @ While(cond, body, optInv, flags) =>
         traverse(cond)
         checkBodyWithSpecs(body, kindsWhitelist = Some(Set(exprOps.MeasureKind)))
         optInv.foreach(traverse)
+        flags.foreach(traverse)
 
       case e: LetRec =>
         // Traverse LocalFunDef independently

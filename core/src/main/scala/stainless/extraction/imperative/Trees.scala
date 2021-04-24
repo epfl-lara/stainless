@@ -55,7 +55,7 @@ trait Trees extends oo.Trees with Definitions { self =>
   }
 
   /** $encodingof `(while(cond) { ... }) invariant (pred)` */
-  case class While(cond: Expr, body: Expr, pred: Option[Expr]) extends Expr with CachingTyped {
+  case class While(cond: Expr, body: Expr, pred: Option[Expr], flags: Seq[Flag]) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type =
       if (
         s.isSubtypeOf(cond.getType, BooleanType()) &&
@@ -215,9 +215,11 @@ trait Printer extends oo.Printer {
     case FieldAssignment(obj, selector, value) =>
       p"$obj.$selector = $value"
 
-    case While(cond, body, inv) =>
+    case While(cond, body, inv, flags) =>
       inv.foreach(p => p"""|@invariant($p)
                            |""")
+      for (f <- flags) p"""|@${f.asString(ctx.opts)}
+                           |"""
       p"""|while ($cond) {
           |  $body
           |}"""
@@ -315,8 +317,9 @@ trait TreeDeconstructor extends oo.TreeDeconstructor {
     case s.FieldAssignment(obj, selector, value) =>
       (Seq(selector), Seq(), Seq(obj, value), Seq(), Seq(), (ids, _, es, _, _) => t.FieldAssignment(es(0), ids.head, es(1)))
 
-    case s.While(cond, body, pred) =>
-      (Seq(), Seq(), Seq(cond, body) ++ pred, Seq(), Seq(), (_, _, es, _, _) => t.While(es(0), es(1), es.drop(2).headOption))
+    case s.While(cond, body, pred, flags) =>
+      (Seq(), Seq(), Seq(cond, body) ++ pred, Seq(), flags, (_, _, es, _, newFlags) =>
+        t.While(es(0), es(1), es.drop(2).headOption, newFlags))
 
     case s.ArrayUpdate(array, index, value) =>
       (Seq(), Seq(), Seq(array, index, value), Seq(), Seq(), (_, _, es, _, _) => t.ArrayUpdate(es(0), es(1), es(2)))
