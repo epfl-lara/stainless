@@ -14,6 +14,11 @@ class InliningOnceSuite extends FunSpec with InputUtils {
          |
          |object Test {
          |  @inlineOnce
+         |  def loop(x: BigInt): BigInt = {
+         |    loop(x + 1)
+         |  }
+         |
+         |  @inlineOnce
          |  def foo(x: BigInt): BigInt = {
          |    bar(x + 1)
          |  }
@@ -36,35 +41,40 @@ class InliningOnceSuite extends FunSpec with InputUtils {
 
     import stainless.trees._
 
+    val loop = program.lookup[FunDef]("Test.loop")
     val foo = program.lookup[FunDef]("Test.foo")
     val bar = program.lookup[FunDef]("Test.bar")
     val baz = program.lookup[FunDef]("Test.baz")
 
+    it("should occur in loop") {
+      assert(exprOps.exists { e => e.isInstanceOf[Let] }(loop.fullBody))
+    }
+
     it("should occur in foo") {
-      assert(program.symbols.transitiveCallees(foo).map(_.id) == Set(foo.id))
+      assert(exprOps.exists { e => e.isInstanceOf[Let] }(foo.fullBody))
     }
 
     it("should occur in bar") {
-      assert(program.symbols.transitiveCallees(bar).map(_.id) == Set(bar.id))
+      assert(exprOps.exists { e => e.isInstanceOf[Let] }(bar.fullBody))
     }
 
     it("should occur in baz") {
-      assert(program.symbols.transitiveCallees(baz).map(_.id) == Set(baz.id))
+      assert(exprOps.exists { e => e.isInstanceOf[Let] }(baz.fullBody))
     }
   }
 
-  describe("with @inlineOnce and @synthetic, inlining") {
+  describe("with @inlineOnce and @opaque, inlining") {
     val source =
       """|import stainless.lang._
          |import stainless.annotation._
          |
          |object Test {
-         |  @inlineOnce
+         |  @inlineOnce @opaque
          |  def foo(x: BigInt): BigInt = {
          |    bar(x + 1)
          |  }
          |
-         |  @inlineOnce
+         |  @inlineOnce @opaque
          |  def bar(y: BigInt): BigInt = {
          |    baz(y * 2)
          |  }
@@ -77,28 +87,38 @@ class InliningOnceSuite extends FunSpec with InputUtils {
 
     implicit val ctx = stainless.TestContext.empty
     val (funs, xlangProgram) = load(List(source))
-
-    val annFuns = xlangProgram.symbols.functions.values.map {
-      case fd if fd.id.name == "foo" || fd.id.name == "bar" => fd.copy(flags = fd.flags ++ Seq(xlangProgram.trees.Synthetic))
-      case fd => fd
-    }.toSeq
-
-    val annProgram = inox.Program(xlangProgram.trees)(xlangProgram.symbols.withFunctions(annFuns))
     val run = VerificationComponent.run(extraction.pipeline)
-    val program = inox.Program(run.trees)(run extract annProgram.symbols)
+    val program = inox.Program(run.trees)(run extract xlangProgram.symbols)
 
     import stainless.trees._
 
-    it("should make foo disappear") {
-      assert(program.symbols.lookup.get[FunDef]("Test.foo").isEmpty)
+    println("the second program is (before):")
+    println(xlangProgram.symbols.debugString(s => s == "foo" || s == "bar" || s == "baz")(new extraction.xlang.trees.PrinterOptions()))
+
+    println("the second program is:")
+    println(program.symbols.debugString(s => s == "foo" || s == "bar" || s == "baz")(new run.trees.PrinterOptions()))
+
+    val foo = program.lookup[FunDef]("Test.foo")
+    val bar = program.lookup[FunDef]("Test.bar")
+    val baz = program.lookup[FunDef]("Test.baz")
+
+    it("should make foo have a body without function calls") {
+      assert(program.symbols.callees(foo).isEmpty)
     }
 
-    it("should make bar disappear") {
-      assert(program.symbols.lookup.get[FunDef]("Test.bar").isEmpty)
+    it("should make baz have a body without function calls") {
+      assert(program.symbols.callees(foo).isEmpty)
     }
 
-    it("should keep baz") {
-      assert(program.symbols.lookup.get[FunDef]("Test.baz").isDefined)
+    it("should make the body of bar have two levels of inlining") {
+      assert(exprOps.exists {
+        case Let(_, e, _) => e.isInstanceOf[Times] //  y * 2
+        case _ => false
+      }(bar.fullBody))
+      assert(exprOps.exists {
+        case Let(_, e, _) => e.isInstanceOf[Division] //  z / 10
+        case _ => false
+      }(bar.fullBody))
     }
   }
 
