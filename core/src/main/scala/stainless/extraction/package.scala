@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 
@@ -26,7 +26,9 @@ import scala.language.existentials
 package object extraction {
 
   val phases: Seq[(String, String)] = Seq(
+    "Preprocessing"             -> "A preprocessing phase before the pipeline",
     "PartialFunctions"          -> "Lift partial function preconditions",
+    "XlangLowering"             -> "Lowering phase at the end of xlang phases",
     "InnerClasses"              -> "Lift inner classes",
     "Laws"                      -> "Rewrite laws as abstract functions with contracts",
     "SuperInvariants"           -> "Ensure super class invariant cannot be weakened in subclasses",
@@ -37,16 +39,19 @@ package object extraction {
     "ValueClasses"              -> "Erase value classes",
     "FieldAccessors"            -> "Inline field accessors of concrete classes",
     "AntiAliasing"              -> "Rewrite field and array mutations",
+    "ReturnElimination"         -> "Eliminate `return` expressions",
     "ImperativeCodeElimination" -> "Eliminate while loops and assignments",
     "ImperativeCleanup"         -> "Cleanup after imperative transformations",
     "AdtSpecialization"         -> "Specialize classes into ADTs (when possible)",
     "RefinementLifting"         -> "Lift simple refinements to contracts",
     "TypeEncoding"              -> "Encode non-ADT types",
     "FunctionClosure"           -> "Lift inner functions",
+    "FunctionSpecialization"    -> "Specialize functions",
     "FunctionInlining"          -> "Transitively inline marked functions",
+    "LeonInlining"              -> "Transitively inline marked functions (closer to what Leon did)",
+    "Trace"                     -> "Apply the traceInduct tactic during verification of the annotated function.",
     "SizedADTExtraction"        -> "Transforms calls to 'indexedAt' to the 'SizedADT' tree",
     "InductElimination"         -> "Replace @induct annotation by explicit recursion",
-    "SizeInjection"             -> "Injects a size function for each ADT",
     "MeasureInference"          -> "Infer and inject measures in recursive functions",
     "PartialEvaluation"         -> "Partially evaluate marked function calls",
     "AssertionInjector"         -> "Insert assertions which verify array accesses, casts, division by zero, etc.",
@@ -106,6 +111,7 @@ package object extraction {
     oo.extractor           andThen
     innerfuns.extractor    andThen
     inlining.extractor     andThen
+    trace.extractor        andThen
     termination.extractor
   }
 

@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 package extraction
@@ -7,6 +7,9 @@ package xlang
 trait Trees extends innerclasses.Trees { self =>
 
   case object Ignore extends Flag("ignore", Seq.empty)
+
+  /** Strictness flag for bitvector types that cannot be cast implicitly */
+  case object StrictBV extends Flag("strict-bv", Seq.empty)
 
   override def extractFlag(name: String, args: Seq[Expr]): Flag = (name, args) match {
     case ("ignore", Seq()) => Ignore
@@ -129,6 +132,7 @@ trait TreeDeconstructor extends innerclasses.TreeDeconstructor {
 
   override def deconstruct(f: s.Flag): DeconstructedFlag = f match {
     case s.Ignore => (Seq(), Seq(), Seq(), (_, _, _) => t.Ignore)
+    case s.StrictBV => (Seq(), Seq(), Seq(), (_, _, _) => t.StrictBV)
     case _ => super.deconstruct(f)
   }
 }

@@ -1,10 +1,9 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 package extraction
 package imperative
 
-// FIXME: @romac
 trait TransformerWithType extends oo.TransformerWithType {
   val s: Trees
   val t: Trees

@@ -1,14 +1,16 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 
 import scala.language.existentials
 
 import extraction.xlang.{ trees => xt, TreeSanitizer }
+import extraction.utils.DebugSymbols
 import frontend.{ CallBack, Recovery, RecoveryResult }
 import utils.CheckFilter
 
 import scala.collection.mutable.ListBuffer
+import scala.language.existentials
 
 import java.io.{ File, BufferedWriter, FileWriter }
 
@@ -34,6 +36,13 @@ trait InputUtils {
   /** Compile and extract the given files (& the library). */
   def loadFiles(files: Seq[String], filterOpt: Option[Filter] = None, sanitize: Boolean = true)
                (implicit ctx: inox.Context): (Seq[xt.UnitDef], Program { val trees: xt.type }) = {
+
+    val preprocessing = new DebugSymbols {
+      val name = "Preprocessing"
+      val context = ctx
+      val s: xt.type = xt
+      val t: xt.type = xt
+    }
 
     // Use the callback to collect the trees.
     val units = ListBuffer[xt.UnitDef]()
@@ -72,7 +81,7 @@ trait InputUtils {
 
       override def endExtractions(): Unit = {
         done = true
-        syms = Recovery.recover(syms)
+        syms = preprocessing.debug(frontend.Preprocessing().transform)(syms)
       }
     }
 

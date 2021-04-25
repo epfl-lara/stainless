@@ -234,7 +234,7 @@ assigned a default value.
     var value: A
   }
 
-Such abstract variables must be overriden at some point by either:
+Such abstract variables must be overridden at some point by either:
 
 a) a mutable field of a case class
 
@@ -270,3 +270,161 @@ is a perfectly valid sub-class of `MutableBox`:
     def value: A = underlying
     def value_=(newValue: A): Unit = ()
   }
+
+
+Return keyword
+--------------
+
+Stainless partially supports the `return` keyword. For verification, an internal
+phase of Stainless (called `ReturnElimination`) injects a data-structure named
+`ControlFlow` to simulate the control flow of programs with returns.
+
+.. code-block:: scala
+
+  sealed abstract class ControlFlow[Ret, Cur]
+  case class Return[Ret, Cur](value: Ret)  extends ControlFlow[Ret, Cur]
+  case class Proceed[Ret, Cur](value: Cur) extends ControlFlow[Ret, Cur]
+
+Here is a function taken from `ControlFlow2.scala <https://github.com/epfl-lara/stainless/blob/master/frontends/benchmarks/imperative/valid/ControlFlow2.scala>`_:
+
+.. code-block:: scala
+
+  def foo(x: Option[BigInt], a: Boolean, b: Boolean): BigInt = {
+    if (a && b) {
+      return 1
+    }
+
+    val y = x match {
+      case None()       => return 0
+      case Some(x) if a => return x + 1
+      case Some(x) if b => return x + 2
+      case Some(x)      => x
+    };
+
+    -y
+  }
+
+The program transformation can be inspected by running:
+
+  .. code-block:: bash
+
+    stainless ControlFlow2.scala --batched --debug=trees --debug-objects=foo --debug-phases=ReturnElimination
+
+We get the following output (with ``cf`` identifiers renamed for clarity; you can
+use the ``--print-ids`` option so that Stainless expressions get displayed with
+unique identifiers, at the cost of readability):
+
+  .. code-block:: scala
+
+    def foo(x: Option[BigInt], a: Boolean, b: Boolean): BigInt = {
+      val cf0: ControlFlow[BigInt, Unit] = if (a && b) {
+        Return[BigInt, Unit](1)
+      } else {
+        Proceed[BigInt, Unit](())
+      }
+      cf0 match {
+        case Return(retValue) =>
+          retValue
+        case Proceed(proceedValue) =>
+          val cf1: ControlFlow[BigInt, BigInt] = x match {
+            case None()       => Return[BigInt, BigInt](0)
+            case Some(x) if a => Return[BigInt, BigInt](x + 1)
+            case Some(x) if b => Return[BigInt, BigInt](x + 2)
+            case Some(x)      => Proceed[BigInt, BigInt](x)
+          }
+          cf1 match {
+            case Return(retValue) =>
+              retValue
+            case Proceed(proceedValue) =>
+              -proceedValue
+          }
+      }
+    }
+
+Stainless also supports ``return`` in while loops, and transforms them to local functions, also in
+the ``ReturnElimination`` phase. Here is a function taken from `ReturnInWhile.scala <https://github.com/epfl-lara/stainless/blob/master/frontends/benchmarks/imperative/valid/ReturnInWhile.scala>`_.
+
+  .. code-block:: scala
+
+    def returnN(n: Int): Int = {
+      require(n >= 0)
+      var i = 0
+      (while (true) {
+        decreases(n - i)
+        if (i == n) return i
+        i += 1
+      }).invariant(0 <= i && i <= n)
+
+      assert(false, "unreachable code")
+      0
+    }.ensuring((res: Int) => res == n)
+
+After transformation, we get a recursive (local) function named ``returnWhile``
+that returns a control flow element to indicate whether the loop terminated
+normally or returned. We check that the invariant clause of the while loop is
+indeed an invariant by adding it to the pre and postconditions of the generated
+``returnWhile`` function. When the while loop returns, we check in addition that
+the postcondition of the top-level holds (see comment).
+
+  .. code-block:: scala
+
+    def returnN(n: Int): Int = {
+      require(n >= 0)
+
+      var i: Int = 0
+      val cf0: ControlFlow[Int, Unit] = {
+        def returnNWhile: ControlFlow[Int, Unit] = {
+          require(0 <= i && i <= n)
+          decreases(n - i)
+          {
+            val cf1: ControlFlow[Int, Unit] = if (i == n) {
+              Return[Int, Unit](i)
+            } else {
+              Proceed[Int, Unit](())
+            }
+            cf1 match {
+              case Return(retValue) => Return[Int, Unit](retValue)
+              case Proceed(proceedValue) =>
+                Proceed[Int, Unit]({
+                  i = (i + 1)
+                  ()
+                })
+            }
+          } match {
+            case Return(retValue) =>
+              Return[Int, Unit](retValue)
+            case Proceed(proceedValue) =>
+              if (true) {
+                returnNWhile
+              } else {
+                Proceed[Int, Unit](())
+              }
+          }
+        } ensuring {
+          (cfWhile: ControlFlow[Int, Unit]) => cfWhile match {
+            case Return(retValue) =>
+              // we check the postcondition `retValue == n` of the top-level function
+              retValue == n &&
+              0 <= i && i <= n
+            case Proceed(proceedValue) =>
+              ¬true && 0 <= i && i <= n
+          }
+        }
+        if (true) {
+          returnNWhile
+        } else {
+          Proceed[Int, Unit](())
+        }
+      }
+      cf0 match {
+        case Return(retValue) => retValue
+        case Proceed(proceedValue) =>
+          assert(false, "unreachable code")
+          0
+      }
+    } ensuring {
+      (res: Int) => res == n
+    }
+
+Finally, ``return`` is also supported for local function definitions, with the same transformation.
+It is however not supported for anonymous functions.

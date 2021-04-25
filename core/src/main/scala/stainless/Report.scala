@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 
@@ -56,7 +56,8 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
   final def emit(ctx: inox.Context): Unit = {
     val compact = isCompactModeOn(ctx)
     val table = emitTable(!compact)(ctx)
-    ctx.reporter.info(table.render)
+    val asciiOnly = ctx.options.findOptionOrDefault(inox.optNoColors)
+    ctx.reporter.info(table.render(asciiOnly))
   }
 
   /** Create a new report with *only* the information about the given functions/classes/... */
@@ -83,7 +84,7 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
       RecordRow(id, pos, level, extra, time) <- annotatedRows.sortBy(r => r.id -> r.pos)(ordering)
       if full || level != Level.Normal
       name = if (printUniqueName) id.uniqueName else id.name
-      contents = (name +: extra) ++ Seq(pos.fullString, f"${time / 1000d}%3.3f")
+      contents = Position.smartPos(pos) +: (name +: (extra :+ f"${time / 1000d}%3.1f"))
     } yield Row(contents map { str => Cell(withColor(str, level)) })
   }
 
@@ -91,7 +92,7 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
     withColor(str, colorOf(level))
 
   private def withColor(str: String, color: String)(implicit ctx: inox.Context): String =
-    if (ctx.options.findOptionOrDefault(optNoColors)) str
+    if (ctx.options.findOptionOrDefault(inox.optNoColors)) str
     else s"$color$str${Console.RESET}"
 
   private def colorOf(level: Level): String = level match {
@@ -111,7 +112,7 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
       f"valid: ${stats.valid}%-4d (${stats.validFromCache} from cache) " +
       f"invalid: ${stats.invalid}%-4d " +
       f"unknown: ${stats.unknown}%-4d " +
-      f"time: ${stats.time/1000d}%7.3f"
+      f"time: ${stats.time/1000d}%7.1f"
 
     var t = Table(withColor(s"$name summary", color))
     t ++= rows

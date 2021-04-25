@@ -23,9 +23,11 @@ Contents:
    wrap
    purescala
    library
+   genc
    neon
    limitations
    casestudies
+   coq
    faq
    references
    internals

@@ -27,9 +27,12 @@ trait ASTExtractors {
   def getAnnotations(sym: Symbol, ignoreOwner: Boolean = false): Seq[(String, Seq[tpd.Tree])] = {
     val erased = if (sym.isEffectivelyErased) Seq(("ghost", Seq.empty)) else Seq()
     val inline = if (sym.annotations exists (_.symbol.fullName.toString == "scala.inline")) Seq(("inline", Seq.empty)) else Seq()
+    val ownerSymbols = sym.maybeOwner.annotations.filter(annot =>
+      !annot.name.startsWith("keep") || sym.isAccessor
+    )
 
     erased ++ inline ++ (for {
-      a <- sym.annotations ++ (if (!ignoreOwner) sym.maybeOwner.annotations else Set.empty)
+      a <- sym.annotations ++ (if (!ignoreOwner) ownerSymbols else Set.empty)
       name = a.symbol.fullName.toString.replaceAll("\\.package\\$\\.", ".")
       if name startsWith "stainless.annotation."
       shortName = name drop "stainless.annotation.".length
@@ -754,10 +757,7 @@ trait ASTExtractors {
 
           extract(rec) flatMap {
             case ExTuple(Seq(in, out)) => Some((in, out, cases))
-            case res =>
-              println("GOT")
-              println(res)
-              None
+            case res => None
           }
 
         case _ => None

@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 package extraction
@@ -30,6 +30,7 @@ trait MutabilityAnalyzer extends oo.ExtractionPipeline { self =>
     // but may grow while computing the fixpoint below.
     private def isMutableType(tpe: Type, mutableClasses: Set[Identifier]): Boolean = {
       def rec(tpe: Type, seen: Set[Identifier]): Boolean = tpe match {
+        case _ if tpe == Untyped => true
         case tp: TypeParameter => tp.flags contains IsMutable
         case TypeBounds(NothingType(), AnyType(), flags) => flags contains IsMutable
         case any: AnyType => true
@@ -43,7 +44,6 @@ trait MutabilityAnalyzer extends oo.ExtractionPipeline { self =>
         // We don't need to check for mutable fields here, as at this point every
         // field still has a getter
         case ClassType(cid, tps) =>
-          tps.exists(rec(_, seen)) ||
           symbols.getClass(cid).fields.exists { vd =>
             vd.flags.contains(IsVar) ||
             rec(vd.getType, seen + cid)

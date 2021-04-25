@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 import stainless._
 import stainless.lang._
@@ -160,7 +160,7 @@ object CovariantList {
         case h :: Nil => h
         case _ :: t => t.last
       }
-    } ensuring { this.contains _ }
+    } ensuring { (res: T) => this.contains(res) }
 
     def lastOption: Option[T] = { this match {
       case h :: t =>

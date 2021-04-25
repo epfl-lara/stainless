@@ -12,12 +12,27 @@ General Requirement
   It suffices to have headless OpenJDK JRE 8 (e.g. one that one gets with ``apt install openjdk-8-jre-headless`` on Debian/Ubuntu).
   Make sure that ``java -version`` reports a version starting with 1.8, such as ``openjdk version "1.8`` or ``java version "1.8``.
 
+
+.. _running-code:
+
+Running Code with Stainless dependencies
+----------------------------------------
+
+1. Clone the sources from https://github.com/epfl-lara/stainless
+
+2. Create a folder to put compiled Scala objects: ``mkdir -p ~/.scala_objects``
+
+3. Compile your code (here in ``MyFile.scala``, though you can have more than one file) while referring to the Stainless library sources: ``scalac -d ~/.scala_objects $(find /path/to/Stainless/frontends/library/stainless/ -name "*.scala") MyFile.scala``
+
+4. Run your code (replace ``MyMainClass`` with the name of your main object): ``scala -cp ~/.scala_objects MyMainClass``
+
+
 .. _standalone-release:
 
 Use Standalone Release (recommended)
 ------------------------------------
 
-1. Download the latest Stainless release from the `Releases page on GitHub <https://github.com/epfl-lara/stainless/releases>`_, under the **Assets** section. Make sure to pick the appropriate ZIP for your operating system. This release is bundled with Z3 4.7.1.
+1. Download the latest Stainless release from the `Releases page on GitHub <https://github.com/epfl-lara/stainless/releases>`_, under the **Assets** section. Make sure to pick the appropriate ZIP for your operating system. This release is bundled with Z3 4.8.6.
 
 2. Unzip the the file you just downloaded to a directory.
 
@@ -205,7 +220,7 @@ If no external SMT solvers (such as Z3 or CVC4) are found, Stainless will use th
 
 To improve performance, we highly recommend that you install the following two additional external SMT solvers as binaries for your platform:
 
-* CVC4 1.7, http://cvc4.cs.stanford.edu
+* CVC4 1.8, http://cvc4.cs.stanford.edu
 * Z3 4.8.6, https://github.com/Z3Prover/z3
 
 You can enable these solvers using ``--solvers=smt-z3`` and ``--solvers=smt-cvc4`` flags.
@@ -237,10 +252,10 @@ Install Z3 4.8.6 (Linux & macOS)
   Z3 version 4.8.6 - 64 bit`
 
 
-Install CVC 1.7 (Linux)
+Install CVC 1.8 (Linux)
 ***********************
 
-1. Download CVC4 1.7 from http://cvc4.cs.stanford.edu/downloads/builds/x86_64-linux-opt/ (reachable from https://cvc4.github.io/ )
+1. Download CVC4 1.8 from http://cvc4.cs.stanford.edu/downloads/builds/x86_64-linux-opt/ (reachable from https://cvc4.github.io/ )
 
 2. Copy or link the downloaded binary under name ``cvc4`` to a directory in your ``$PATH``, eg., ``/usr/local/bin``.
 
@@ -254,7 +269,7 @@ Install CVC 1.7 (Linux)
 
 .. code-block:: text
 
-  This is CVC4 version 1.7
+  This is CVC4 version 1.8
 
 Install CVC 1.6 (macOS)
 ***********************
@@ -371,10 +386,58 @@ was originally developed to support Python documentation.
 
 * On Ubuntu 18, you can use ``sudo apt install sphinx-common``
 
-After installing sphinx, run ``sbt previewSite``. This will generate the documentation and open a browser.
-
-The documentation resides in the ``core/src/sphinx/`` directory and can also be alternatively built without ``sbt``, using the provided ``Makefile``. To do this, in a Linux shell go to the directory ``core/src/sphinx/``,
+The documentation resides in the ``core/src/sphinx/`` directory and can be built using the provided ``Makefile``. To do this, in a Linux shell,
 type ``make html``, and open in your web browser the generated top-level local HTML file, by default stored in 
-``src/sphinx/_build/html/index.html``. Also, you can open the ``*.rst`` documentation files in a text editor, as they are human-readable in their source form as well.
+``core/src/sphinx/_build/html/index.html``. Also, you can open the ``*.rst`` documentation files in a text editor, as they are human-readable in their source form as well.
 
+Note for project maintainers: to build documentation on GitHub Pages, use ``make gh-pages`` in the same Makefile, or adapt it to you needs.
 
+Using IDEs with --no-colors option. Emacs illustration
+------------------------------------------------------
+
+Using command line option ``--no-colors`` asks stainless to produce clear 7-bit ASCII output with error messages in a standardized format:
+
+.. code-block:: bash
+
+  FileName.scala:LineNo:ColNo: text of the error message
+
+This helps IDEs to pick up line numbers and show error location in the source file.
+
+In ``emacs`` editor, you can invoke ``ansi-term`` and ``compilation-shell-minor-mode``. Then, run
+
+.. code-block:: bash
+
+  stainless --no-colors <InputFilesAndOptions>
+
+You may also consider using the ``--watch`` option.
+  
+You should now be able to click on a message for verification condition to jump to the appropriate position in the appropriate file, as well as to use emacs commands ``previous-error`` and ``next-error`` to navigate through errors and other verification-condition outcomes.
+
+Here is a very simple illustration that introduces an interactive ``comp-ansi-term`` command that creates new window with ansi-term and minor compilation mode:
+
+.. code-block:: lisp
+
+  (setq comp-terminal-current-number 1)
+  (defun create-numbered-comp-terminal ()
+    (ansi-term "/bin/bash")
+    (rename-buffer (concat "q" (number-to-string comp-terminal-current-number)) 1)
+    (setq comp-terminal-current-number (+ comp-terminal-current-number 1))
+    (compilation-shell-minor-mode)
+  )
+  (defun comp-ansi-term (arg)
+    "Run ansi-term with bash and compilation-shell-minor-mode in buffer named q_N for increasing N" (interactive "P")
+    (create-numbered-comp-terminal)
+    (split-window-vertically)
+    (previous-buffer)
+    (other-window 1)
+  )
+
+The following globally binds the above command to the F3 key and binds F7 and F8 to commands for navigating reports:
+
+.. code-block:: lisp
+
+  (global-set-key [f3] 'comp-ansi-term)
+  (global-set-key [f7] 'previous-error)
+  (global-set-key [f8] 'next-error)
+
+For more information, please consult the documentation for ``emacs``.

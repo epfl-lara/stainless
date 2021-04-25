@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 import stainless.lang._
 
@@ -17,7 +17,7 @@ object PreInSpecs {
   def invoke(i : BigInt): BigInt =  {
     require(i == 0 || i > 0 && f(i - 1))
     i + 1
-  } ensuring(res => g(i + 1))  
+  } ensuring(res => g(i + 1))
 
   def invoke2(i: BigInt): BigInt = {
     require(i > 0 && g(i))

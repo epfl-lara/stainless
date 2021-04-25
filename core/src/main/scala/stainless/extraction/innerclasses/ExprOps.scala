@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 package extraction
@@ -39,6 +39,74 @@ trait ExprOps extends methods.ExprOps {
         case _ => Set.empty
       } (fd.fullBody)
     }.toSet
+  }
+
+  /* =============================
+   * Freshening of local variables
+   * ============================= */
+
+  protected class Freshener(freshenChooses: Boolean)
+    extends super.Freshener(freshenChooses) {
+
+      def transform(lmd: LocalMethodDef, env: Env, methodsEnv: Env): LocalMethodDef = {
+        val LocalMethodDef(id, tparams, params, returnType, fullBody, flags) = lmd
+        val newId = methodsEnv(id)
+        val newTypeParams = tparams.map(tpd => transform(tpd.freshen, env))
+        val tparamsEnv = tparams.zip(newTypeParams).map {
+          case (tp, ntp) => tp.id -> ntp.id
+        }
+        val (newParams, finalEnv) = params.foldLeft((Seq[t.ValDef](), env ++ tparamsEnv)) {
+          case ((currentParams, currentEnv), vd) =>
+            val freshVd = transform(vd.freshen, env)
+            (currentParams :+ freshVd, currentEnv.updated(vd.id, freshVd.id))
+        }
+        val newReturnType = transform(returnType, finalEnv)
+        val newBody = transform(fullBody, finalEnv ++ methodsEnv)
+        val newFlags = flags.map(transform(_, env))
+        LocalMethodDef(newId, newTypeParams, newParams, newReturnType, newBody, newFlags)
+      }
+
+      def transform(ltd: LocalTypeDef, env: Env, typesEnv: Env): LocalTypeDef = {
+        val LocalTypeDef(id, tparams, rhs, flags) = ltd
+        val newId = typesEnv(id)
+        val newTypeParams = tparams.map(transform(_, env))
+        val newRhs = transform(rhs, env ++ typesEnv)
+        val newFlags = flags.map(transform(_, env))
+        LocalTypeDef(newId, newTypeParams, newRhs, newFlags)
+      }
+
+      override def transform(expr: Expr, env: Env): Expr = expr match {
+        case LetClass(classes, rest) =>
+          val freshIds = classes.map(lc => lc.id -> lc.id.freshen).toMap
+          val newClasses = for (LocalClassDef(id, tparams, parents, fields, methods, typeMembers, flags) <- classes) yield {
+            val newId = freshIds(id)
+            val newTypeParams = tparams.map(tpd => transform(tpd.freshen, env))
+            val tparamsEnv = tparams.zip(newTypeParams).map {
+              case (tp, ntp) => tp.id -> ntp.id
+            }
+            val newParents = parents.map(transform(_, env ++ tparamsEnv))
+            val (newFields, fieldsEnv) = fields.foldLeft((Seq[ValDef](), env ++ tparamsEnv)) {
+              case ((currentParams, currentEnv), vd) =>
+                val freshVd = transform(vd.freshen, env)
+                (currentParams :+ freshVd, currentEnv.updated(vd.id, freshVd.id))
+            }
+            val typesEnv = typeMembers.map(ltd => ltd.id -> ltd.id.freshen).toMap
+            val newTypeMembers = typeMembers.map(transform(_, env ++ freshIds, typesEnv))
+            val methodsEnv = methods.map(lmd => lmd.id -> lmd.id.freshen).toMap
+            val newMethods = methods.map(transform(_, fieldsEnv ++ freshIds ++ typesEnv, methodsEnv))
+            val newFlags = flags.map(transform(_, env))
+
+            LocalClassDef(newId, newTypeParams, newParents, newFields, newMethods, newTypeMembers, newFlags)
+          }
+          LetClass(newClasses, transform(rest, env ++ freshIds))
+
+        case _ =>
+          super.transform(expr, env)
+      }
+  }
+
+  override def freshenLocals(expr: Expr, freshenChooses: Boolean = false): Expr = {
+    new Freshener(freshenChooses).transform(expr, Map.empty[Identifier, Identifier])
   }
 
 }

@@ -1,6 +1,9 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
+
+import stainless.extraction.xlang.{trees => xt}
+import scala.language.existentials
 
 package object frontend {
 
@@ -11,6 +14,8 @@ package object frontend {
   object DebugSectionExtraction extends inox.DebugSection("extraction")
 
   object DebugSectionFrontend extends inox.DebugSection("frontend")
+
+  object DebugSectionStack extends inox.DebugSection("stack")
 
   /**
    * The persistent caches are stored in the same directory, denoted by this option.
@@ -38,7 +43,8 @@ package object frontend {
   /** All components handled by the frontend.  */
   val allComponents: Seq[Component] = Seq(
     verification.VerificationComponent,
-    evaluators.EvaluatorComponent
+    evaluators.EvaluatorComponent,
+    genc.GenCComponent
   )
 
   /**
@@ -70,7 +76,24 @@ package object frontend {
 
   private def batchSymbols(activeComponents: Seq[Component])(implicit ctx: inox.Context): Boolean = {
     ctx.options.findOptionOrDefault(optBatchedProgram) ||
+    activeComponents.contains(genc.GenCComponent) ||
     !ctx.options.findOptionOrDefault(optKeep).isEmpty
   }
+
+
+  // removes the `StrictBV` flag used in `CodeExtraction`
+  val strictBVCleaner = extraction.oo.SymbolTransformer(new transformers.TreeTransformer {
+    val s: xt.type = xt
+    val t: xt.type = xt
+
+    override def transform(tpe: xt.Type): xt.Type = tpe match {
+      case xt.AnnotatedType(tp, flags) if flags.exists(_ != xt.StrictBV) =>
+        xt.AnnotatedType(transform(tp), flags.filter(_ != xt.StrictBV))
+      case xt.AnnotatedType(tp, flags) =>
+        transform(tp)
+      case _ =>
+        super.transform(tpe)
+    }
+  })
 }
 

@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 package extraction
@@ -62,7 +62,7 @@ trait TreeSanitizer { self =>
     def sanitize(): Seq[MalformedStainlessCode]
   }
 
-  /** Check that setters are only overriden by other setters */
+  /** Check that setters are only overridden by other setters */
   private[this] class SettersOverrides(syms: Symbols, ctx: inox.Context) extends Sanitizer(syms, ctx) {
     override def sanitize(): Seq[MalformedStainlessCode] = {
       for {
@@ -76,7 +76,7 @@ trait TreeSanitizer { self =>
     }
   }
 
-  /** Check that methods are only overriden by methods with the same ghostiness */
+  /** Check that methods are only overridden by methods with the same ghostiness */
   private[this] class GhostOverrides(syms: Symbols, ctx: inox.Context) extends Sanitizer(syms, ctx) {
     override def sanitize(): Seq[MalformedStainlessCode] = {
       for {
@@ -119,31 +119,49 @@ trait TreeSanitizer { self =>
       errors.toSeq
     }
 
+    def checkBodyWithSpecs(fullBody: Expr, kindsWhitelist: Option[Set[exprOps.SpecKind]]): Unit = {
+      val specced = exprOps.BodyWithSpecs(fullBody)
+      kindsWhitelist.foreach { allowedKinds =>
+        specced.specs.foreach(spec =>
+          if (!allowedKinds.contains(spec.kind))
+            errors += MalformedStainlessCode(fullBody, s"Unexpected `${spec.kind.name}` specification.")
+        )
+      }
+      specced.specs
+        .filter(spec => spec.kind != exprOps.PreconditionKind && spec.kind != exprOps.LetKind)
+        .groupBy(_.kind).map { case (kind, specs) =>
+          if (specs.length > 1)
+            errors += MalformedStainlessCode(fullBody, s"Duplicate `${kind.name}` specification.")
+        }
+      specced.specs.foreach(s => s.traverse(this))
+      specced.bodyOpt.foreach(traverse)
+    }
+
     override def traverse(fd: FunDef): Unit = {
       traverse(fd.id)
       fd.tparams.foreach(traverse)
       fd.params.foreach(traverse)
       traverse(fd.returnType)
-      val (specs, body) = exprOps.deconstructSpecs(fd.fullBody)
-      specs.foreach(s => traverse(s.expr))
-      body.foreach(traverse)
+      checkBodyWithSpecs(fd.fullBody, kindsWhitelist = None)
       fd.flags.foreach(traverse)
     }
 
-    override def traverse(e: Expr): Unit = e match {
-      case wh @ While(cond, body, optInv) =>
-        traverse(cond)
-        val (specs, without) = exprOps.deconstructSpecs(body)
-        val (measures, otherSpecs) = specs.partition { case exprOps.Measure(_) => true case _ => false }
-        measures.foreach(s => traverse(s.expr))
-        traverse(exprOps.reconstructSpecs(otherSpecs, without, body.getType))
-        optInv.foreach(traverse)
+    val misplacedSpec = "This error message might occur when a function has return type Unit while its body has another type"
 
+    override def traverse(e: Expr): Unit = e match {
       case e: Require =>
-        errors += MalformedStainlessCode(e, s"Unexpected `require`.")
+        errors += MalformedStainlessCode(e, s"Unexpected `require`. ($misplacedSpec).")
 
       case e: Decreases =>
-        errors += MalformedStainlessCode(e, s"Unexpected `decreases`.")
+        errors += MalformedStainlessCode(e, s"Unexpected `decreases` ($misplacedSpec).")
+
+      case e: Ensuring =>
+        errors += MalformedStainlessCode(e, s"Unexpected `ensuring` ($misplacedSpec).")
+
+      case wh @ While(cond, body, optInv) =>
+        traverse(cond)
+        checkBodyWithSpecs(body, kindsWhitelist = Some(Set(exprOps.MeasureKind)))
+        optInv.foreach(traverse)
 
       case e: LetRec =>
         // Traverse LocalFunDef independently
@@ -152,9 +170,7 @@ trait TreeSanitizer { self =>
           tparams.foreach(traverse)
           params.foreach(traverse)
           traverse(returnType)
-          val (specs, body) = exprOps.deconstructSpecs(fullBody)
-          specs.foreach(s => traverse(s.expr))
-          body.foreach(traverse)
+          checkBodyWithSpecs(fullBody, kindsWhitelist = None)
           flags.foreach(traverse)
         }
 
@@ -162,10 +178,7 @@ trait TreeSanitizer { self =>
 
       case e: Lambda =>
         e.params.foreach(traverse)
-        val (specs, body) = exprOps.deconstructSpecs(e.body)
-        val (preconditions, otherSpecs) = specs.partition { case exprOps.Precondition(_) => true case _ => false }
-        preconditions.foreach(s => traverse(s.expr))
-        traverse(exprOps.reconstructSpecs(otherSpecs, body, e.body.getType))
+        checkBodyWithSpecs(e.body, kindsWhitelist = Some(Set(exprOps.PreconditionKind)))
 
       case _ => super.traverse(e)
     }
@@ -365,7 +378,7 @@ trait TreeSanitizer { self =>
     }
   }
 
-  /** Check that abstract vals are only overriden by constructor parameters */
+  /** Check that abstract vals are only overridden by constructor parameters */
   private[this] class AbstractValsOverride(syms: Symbols, ctx: inox.Context) extends Sanitizer(syms, ctx) {
 
     var errors: ListBuffer[MalformedStainlessCode] = ListBuffer.empty
@@ -379,7 +392,10 @@ trait TreeSanitizer { self =>
     private[this] def symbolOf(defn: Definition): Symbol =
       defn.id.asInstanceOf[SymbolIdentifier].symbol
 
+
     private[this] def check(cd: ClassDef): Unit = {
+
+      // `val` in abstract classes can only be overridden by a constructor parameter
       val abstractFields = cd.methods
         .map(symbols.getFunction)
         .filter(fd => fd.isAbstract && fd.isGetter)
@@ -400,20 +416,14 @@ trait TreeSanitizer { self =>
           val wrongOverrides = methodSymbols & abstractFieldSymbols
           wrongOverrides foreach { sym =>
             errors += MalformedStainlessCode(methods(sym),
-              s"Abstract values can only be overriden in concrete subclasses (with a field)")
+              s"Abstract values can only be overridden in concrete subclasses (with a field)")
           }
 
         case desc =>
           val methods = desc.methods.map(symbols.getFunction)
           val fieldSymbols = desc.fields.map(symbolOf).toSet
           val accessorSymbols = desc.fields.map { vd =>
-            val accessor = methods.find { fd =>
-              fd.isGetter && fd.flags.exists {
-                case IsAccessor(Some(id)) => id == vd.id
-                case _ => false
-              }
-            }
-
+            val accessor = methods.find { fd => fd.isGetter && fd.isAccessor(vd.id) }
             symbolOf(accessor.get) // Safe: All fields have accessors
           }
 
@@ -422,7 +432,7 @@ trait TreeSanitizer { self =>
           if (!abstractFieldSymbols.subsetOf(allSymbols)) {
             val missing = abstractFieldSymbols -- allSymbols
             val vals = missing.map(abstractFields(_)).map(_.id.asString).mkString("`", "`, `", "`")
-            errors += MalformedStainlessCode(desc, s"Abstract values $vals must be overriden with fields in concrete subclass")
+            errors += MalformedStainlessCode(desc, s"Abstract values $vals must be overridden with fields in concrete subclass")
           }
       }
     }

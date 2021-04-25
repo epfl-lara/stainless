@@ -1,13 +1,16 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 package ast
 
 import scala.collection.mutable.{Map => MutableMap}
 
-import inox.utils.{NoPosition, Position}
+import inox.utils.{NoPosition, Position, Positioned}
+import inox.transformers.Transformer
+import stainless.transformers.TreeTransformer
+import stainless.transformers.TreeTraverser
 
-trait ExprOps extends inox.ast.ExprOps {
+trait ExprOps extends inox.ast.ExprOps { self =>
   protected val trees: Trees
   import trees._
 
@@ -15,64 +18,235 @@ trait ExprOps extends inox.ast.ExprOps {
    * Body manipulation
    * ================= */
 
+  case class SpecKind(name: String) { type Spec <: Specification }
+  object PreconditionKind extends SpecKind("pre") { type Spec = Precondition }
+  object PostconditionKind extends SpecKind("post") { type Spec = Postcondition }
+  object MeasureKind extends SpecKind("measure") { type Spec = Measure }
+  object LetKind extends SpecKind("let") { type Spec = LetInSpec }
+
   /** Abstraction over contracts and specifications. */
-  abstract class Specification {
-    val expr: Expr
-    def map(trees: Trees)(f: Expr => trees.Expr): trees.exprOps.Specification
+  abstract class Specification(val kind: SpecKind) extends Positioned {
+    def transform(tr: Transformer { val s: trees.type; val t: Trees })(env: tr.Env): tr.t.exprOps.Specification
+    def transform(tr: TreeTransformer { val s: trees.type; val t: Trees }): tr.t.exprOps.Specification
+    def traverse(tr: TreeTraverser { val trees: self.trees.type }): Unit
 
-    final def map(f: Expr => Expr): Specification = map(trees)(f).asInstanceOf[Specification]
+    final def transform(f: Expr => Expr): Specification = {
+      object tr extends TreeTransformer {
+        val s: trees.type = trees
+        val t: trees.type = trees
+        override def transform(e: Expr): Expr = f(e)
+      }
+      transform(tr).asInstanceOf[Specification]
+    }
 
-    final def foreach(f: Expr => Unit): Unit = f(expr)
+    final def traverse(f: Expr => Unit): Unit = {
+      object tr extends TreeTraverser {
+        val trees: self.trees.type = self.trees
+        override def traverse(e: Expr): Unit = f(e)
+      }
+      traverse(tr)
+    }
+
+    // Whether the spec might as well be omitted
+    def isTrivial: Boolean
   }
 
-  /** Precondition contract that corresponds to [[Expressions.Require]]. */
-  case class Precondition(expr: Expr) extends Specification {
-    def map(trees: Trees)(f: Expr => trees.Expr): trees.exprOps.Precondition =
-      trees.exprOps.Precondition(f(expr))
+  /** Binding that appear before a specification with a [[Expressions.Let]]'s. */
+  case class LetInSpec(vd: ValDef, expr: Expr) extends Specification(LetKind) {
+    def transform(tr: Transformer { val s: trees.type; val t: Trees })(env: tr.Env): tr.t.exprOps.Specification =
+      tr.t.exprOps.LetInSpec(tr.transform(vd, env), tr.transform(expr, env)).setPos(this)
+    def transform(tr: TreeTransformer { val s: trees.type; val t: Trees }): tr.t.exprOps.Specification =
+      tr.t.exprOps.LetInSpec(tr.transform(vd), tr.transform(expr)).setPos(this)
+    def traverse(tr: TreeTraverser { val trees: self.trees.type }): Unit = {
+      tr.traverse(vd)
+      tr.traverse(expr)
+    }
+
+    def isTrivial: Boolean = false
+  }
+
+
+  /** Precondition contract that corresponds to [[Expressions.Require]]'s. */
+  case class Precondition(expr: Expr) extends Specification(PreconditionKind) {
+    def transform(tr: Transformer { val s: trees.type; val t: Trees })(env: tr.Env): tr.t.exprOps.Specification =
+      tr.t.exprOps.Precondition(tr.transform(expr, env)).setPos(this)
+    def transform(tr: TreeTransformer { val s: trees.type; val t: Trees }): tr.t.exprOps.Specification =
+      tr.t.exprOps.Precondition(tr.transform(expr)).setPos(this)
+
+    def traverse(tr: TreeTraverser { val trees: self.trees.type }): Unit = {
+      tr.traverse(expr)
+    }
+
+    def isTrivial: Boolean = expr == BooleanLiteral(true)
   }
 
   /** Postcondition contract that corresponds to [[Expressions.Ensuring]]. */
-  case class Postcondition(expr: Lambda) extends Specification {
-    def map(trees: Trees)(f: Expr => trees.Expr): trees.exprOps.Postcondition =
-      trees.exprOps.Postcondition(f(expr).asInstanceOf[trees.Lambda])
+  case class Postcondition(expr: Lambda) extends Specification(PostconditionKind) {
+    def transform(tr: Transformer { val s: trees.type; val t: Trees })(env: tr.Env): tr.t.exprOps.Specification =
+      tr.t.exprOps.Postcondition(tr.transform(expr, env).asInstanceOf[tr.t.Lambda]).setPos(this)
+    def transform(tr: TreeTransformer { val s: trees.type; val t: Trees }): tr.t.exprOps.Specification =
+      tr.t.exprOps.Postcondition(tr.transform(expr).asInstanceOf[tr.t.Lambda]).setPos(this)
+
+    def traverse(tr: TreeTraverser { val trees: self.trees.type }): Unit = {
+      tr.traverse(expr)
+    }
+
+    def isTrivial: Boolean = expr.body == BooleanLiteral(true)
   }
 
-  case class Measure(expr: Expr) extends Specification {
-    def map(trees: ast.Trees)(f: Expr => trees.Expr): trees.exprOps.Specification = trees match {
-      case t: ast.Trees =>
-        t.exprOps.Measure(f(expr).asInstanceOf[t.Expr]).asInstanceOf[trees.exprOps.Specification]
-      case _ =>
-        throw new java.lang.IllegalArgumentException("Can't map measure into non-stainless trees")
+  /** Measure contract that corresponds to [[Expressions.Decreases]]. */
+  case class Measure(expr: Expr) extends Specification(MeasureKind) {
+    def transform(tr: Transformer { val s: trees.type; val t: Trees })(env: tr.Env): tr.t.exprOps.Specification =
+      tr.t.exprOps.Measure(tr.transform(expr, env)).setPos(this)
+    def transform(tr: TreeTransformer { val s: trees.type; val t: Trees }): tr.t.exprOps.Specification =
+      tr.t.exprOps.Measure(tr.transform(expr)).setPos(this)
+
+    def traverse(tr: TreeTraverser { val trees: self.trees.type }): Unit = {
+      tr.traverse(expr)
+    }
+
+    def isTrivial: Boolean = false
+  }
+
+  case class BodyWithSpecs(
+    specs: Seq[Specification],
+    body: Expr)
+  {
+    def hasBody: Boolean = !body.isInstanceOf[NoTree]
+
+    def bodyOpt: Option[Expr] = if (hasBody) Some(body) else None
+
+    def getFirstSpec(kind: SpecKind): Option[kind.Spec] = {
+      specs.find(_.kind == kind).asInstanceOf[Option[kind.Spec]]
+    }
+
+    def getSpec(kind: SpecKind): Option[kind.Spec] = {
+      val filtered = specs.filter(_.kind == kind)
+      if (filtered.isEmpty) None
+      else if (filtered.size >= 2) sys.error(s"`getSpec` must be called when there is at most one spec of kind $kind")
+      else Some(filtered.head.asInstanceOf[kind.Spec])
+    }
+
+    def withSpec(specOpt: Option[Specification]): BodyWithSpecs = {
+      if (specOpt.nonEmpty) withSpec(specOpt.get)
+      else this
+    }
+
+    def withSpec(spec: Specification): BodyWithSpecs = {
+      def adaptPos(spec: Specification, closest: Option[Specification]) = {
+        if (spec.getPos == NoPosition)
+          spec.setPos(closest.getOrElse(body).getPos)
+        spec
+      }
+      assert(specs.count(_.kind == spec.kind) <= 1, s"Duplicate specs of kind `${spec.kind.name}`")
+      val newSpecs = specs.indexWhere(_.kind == spec.kind) match {
+        case -1 => adaptPos(spec, specs.headOption) +: specs
+        case i => specs.updated(i, adaptPos(spec, Some(specs(i))))
+      }
+      this.copy(specs = newSpecs)
+    }
+
+    def withoutSpec(kind: SpecKind): BodyWithSpecs =
+      this.copy(specs = specs.filterNot(_.kind == kind))
+
+    def withBody(body: Expr): BodyWithSpecs =
+      this.copy(body = body)
+
+    def withBody(bodyOpt: Option[Expr], resultType: Type): BodyWithSpecs =
+      withBody(bodyOpt getOrElse {
+        val poss = specs.map(_.getPos).filter(_ != NoPosition)
+        val pos = if (poss.isEmpty) NoPosition
+          else if (poss.size == 1) poss.head
+          else Position.between(poss.min, poss.max)
+        NoTree(resultType).setPos(pos)
+      })
+
+    def wrapLets(expr: Expr) =
+      specs.filter(_.kind == LetKind).foldRight(expr) {
+        case (spec @ LetInSpec(vd, e), b) => Let(vd, e, b).setPos(spec)
+        case _ => sys.error("shouldn't happen thanks to the filtering above")
+      }
+
+    def reconstructed: Expr = specs.foldRight(body)(applySpec)
+
+    def addSpec(optSpec: Option[Specification]): BodyWithSpecs = {
+      if (optSpec.nonEmpty) this.copy(specs = optSpec.get +: specs)
+      else this
+    }
+
+    // add a post-condition spec if there aren't any
+    def addPost(implicit s: Symbols): BodyWithSpecs = {
+      if (specs.exists(_.kind == PostconditionKind)) this
+      else BodyWithSpecs(Postcondition(Lambda(
+        Seq(ValDef(FreshIdentifier("res"), body.getType).setPos(body)),
+        BooleanLiteral(true).setPos(body)
+      ).setPos(body)).setPos(body) +: specs, body)
+    }
+
+    def letsAndSpecs(kind: SpecKind): Seq[Specification] = {
+      val (afterLast, untilLast) = specs.reverse.span(_.kind != kind)
+      untilLast.reverse.filter(spec => spec.kind == kind || spec.kind == LetKind)
+    }
+
+  }
+
+  object BodyWithSpecs {
+    def apply(fullBody: Expr): BodyWithSpecs = {
+      import scala.annotation.tailrec
+
+      // Gather the lets and specs around `expr`.
+      // Also handles lets interleaved with specs
+      type LetInfo = (ValDef, Expr, Position)
+      @tailrec
+      def gatherSpecs(
+          expr: Expr,
+          letsUncommitted: Seq[LetInfo],
+          exprUncommitted: Option[Expr],
+          specs: Seq[Specification]
+        ): (Seq[Specification], Expr) =
+      {
+        peelSpec(expr) match {
+          case Some((let: LetInSpec, rest)) =>
+            val newExprUncommitted = exprUncommitted.orElse(Some(expr))
+            gatherSpecs(rest, (let.vd, let.expr, let.getPos) +: letsUncommitted, newExprUncommitted, specs)
+          case Some((spec, rest)) =>
+            val lets = letsUncommitted.map { case (vd, expr, pos) =>
+              LetInSpec(vd, expr).setPos(pos)
+            }
+            gatherSpecs(rest, Seq.empty, None, spec +: (lets ++ specs))
+          case None =>
+            (specs.reverse, exprUncommitted.getOrElse(expr))
+        }
+      }
+
+      val (specs, body) = gatherSpecs(fullBody, Seq.empty, None, Seq.empty)
+      BodyWithSpecs(specs, body)
     }
   }
 
-  /** Returns an expression annotated with the provided spec. */
-  def withSpec(expr: Expr, spec: Specification): Expr = spec match {
-    case Precondition(pred) => withPrecondition(expr, Some(pred))
-    case Postcondition(post) => withPostcondition(expr, Some(post))
-    case Measure(meas) => withMeasure(expr, Some(meas))
+  /* These can be overridden to add new kinds of specifications: */
+
+  def peelSpec(expr: Expr): Option[(Specification, Expr)] = expr match {
+    case Require(pred, body) => Some((Precondition(pred).setPos(expr), body))
+    case Ensuring(body, pred) => Some((Postcondition(pred).setPos(expr), body))
+    case Decreases(measure, body) => Some((Measure(measure).setPos(expr), body))
+    case Let(vd, e, body) => Some((LetInSpec(vd, e).setPos(expr), body))
+    case _ => None
   }
 
-  /** Returns whether a particular [[Expressions.Expr]] contains specification
-    * constructs, namely [[Expressions.Require]] and [[Expressions.Ensuring]].
-    */
-  def hasSpec(e: Expr): Boolean = e match {
-    case Require(_, _) => true
-    case Ensuring(_, _) => true
-    case Decreases(_, _) => true
-    case Let(i, e, b) => hasSpec(b)
-    case _ => false
-  }
+  def applySpec(spec: Specification, body: Expr): Expr = (spec match {
+    case Precondition(pred) => Require(pred, body)
+    case Postcondition(pred) => Ensuring(body, pred)
+    case Measure(measure) => Decreases(measure, body)
+    case LetInSpec(vd, expr) => Let(vd, expr, body)
+  }).setPos(spec.getPos)
 
-  protected final def wrapSpec(vd: ValDef, e: Expr, b: Expr): Expr = {
-    def withoutLet(expr: Expr): Expr = expr match {
-      case Let(`vd`, `e`, b) if hasSpec(b) => withoutLet(b)
-      case Let(i, e, b) if hasSpec(b) => Let(i, e, withoutLet(b))
-      case _ => expr
+  // Adds or replaces a spec, when given a left. Removes the given spec kind, when given a right.
+  final def withSpec(expr: Expr, spec: Either[Specification, SpecKind]): Expr =
+    spec match {
+      case Left(spec) => BodyWithSpecs(expr).withSpec(spec).reconstructed
+      case Right(specKind) => BodyWithSpecs(expr).withoutSpec(specKind).reconstructed
     }
-
-    Let(vd, e, withoutLet(b))
-  }
 
   /** Replaces the precondition of an existing [[Expressions.Expr]] with a new one.
     *
@@ -84,18 +258,8 @@ trait ExprOps extends inox.ast.ExprOps {
     * @see [[Expressions.Ensuring]]
     * @see [[Expressions.Require]]
     */
-  def withPrecondition(expr: Expr, pred: Option[Expr]): Expr =
-    (pred.filterNot(_ == BooleanLiteral(true)), expr) match {
-      case (Some(newPre), Require(pre, b))                    => Require(newPre, b).copiedFrom(expr)
-      case (Some(newPre), Ensuring(req @ Require(pre, b), p)) => Ensuring(Require(newPre, b).copiedFrom(req), p).copiedFrom(expr)
-      case (Some(newPre), Ensuring(b, p))                     => Ensuring(Require(newPre, b).copiedFrom(newPre), p).copiedFrom(expr)
-      case (Some(newPre), Let(i, e, b)) if hasSpec(b)         => wrapSpec(i, e, withPrecondition(b, pred)).copiedFrom(expr)
-      case (Some(newPre), b)                                  => Require(newPre, b).copiedFrom(expr)
-      case (None, Require(pre, b))                            => b
-      case (None, Ensuring(Require(pre, b), p))               => Ensuring(b, p).copiedFrom(expr)
-      case (None, Let(i, e, b)) if hasSpec(b)                 => wrapSpec(i, e, withPrecondition(b, pred)).copiedFrom(expr)
-      case (None, b)                                          => b
-    }
+  final def withPrecondition(expr: Expr, pred: Option[Expr]): Expr =
+    withSpec(expr, pred.filterNot(_ == BooleanLiteral(true)).map(Precondition).toLeft(PreconditionKind))
 
   /** Replaces the postcondition of an existing [[Expressions.Expr]] with a new one.
     *
@@ -103,174 +267,93 @@ trait ExprOps extends inox.ast.ExprOps {
     * Else, wraps the expression with a [[Expressions.Ensuring]] clause referring to the new postcondition.
     *
     * @param expr The current expression
-    * @param oie An optional postcondition. Setting it to None removes any postcondition.
+    * @param pred An optional postcondition. Setting it to None removes any postcondition.
     * @see [[Expressions.Ensuring]]
     * @see [[Expressions.Require]]
     */
-  def withPostcondition(expr: Expr, oie: Option[Lambda]): Expr =
-    (oie.filterNot(_.body == BooleanLiteral(true)), expr) match {
-      case (Some(npost), Ensuring(b, post))          => Ensuring(b, npost).copiedFrom(expr)
-      case (Some(npost), Let(i, e, b)) if hasSpec(b) => wrapSpec(i, e, withPostcondition(b, oie)).copiedFrom(expr)
-      case (Some(npost), b)                          => Ensuring(b, npost).copiedFrom(expr)
-      case (None, Ensuring(b, p))                    => b
-      case (None, Let(i, e, b)) if hasSpec(b)        => wrapSpec(i, e, withPostcondition(b, oie)).copiedFrom(expr)
-      case (None, b)                                 => b
-    }
+  final def withPostcondition(expr: Expr, pred: Option[Lambda]): Expr =
+    withSpec(expr, pred.filterNot(_.body == BooleanLiteral(true)).map(Postcondition).toLeft(PostconditionKind))
+
+  final def withMeasure(expr: Expr, measure: Option[Expr]): Expr =
+    withSpec(expr, measure.map(Measure).toLeft(MeasureKind))
 
   /** Adds a body to a specification
     *
-    * @param e The specification expression [[Expressions.Ensuring]] or [[Expressions.Require]].
+    * @param expr The specification expression [[Expressions.Ensuring]] or [[Expressions.Require]].
     * If none of these, the argument is discarded.
-    * @param body An option of [[Expressions.Expr]] possibly containing an expression body.
+    * @param body An expression body
     * @return The post/pre condition with the body. If no body is provided, returns [[Expressions.NoTree]]
     * @see [[Expressions.Ensuring]]
     * @see [[Expressions.Require]]
     */
-  def withBody(e: Expr, body: Expr): Expr = e match {
-    case Let(i, e, b) if hasSpec(b)            => wrapSpec(i, e, withBody(b, body)).copiedFrom(e)
-    case Require(pre, d @ Decreases(meas, _)) =>
-      Require(pre, Decreases(meas, body).copiedFrom(d)).copiedFrom(e)
-    case Require(pre, _)                       => Require(pre, body).copiedFrom(e)
-    case Decreases(meas, _) =>
-      Decreases(meas, body).copiedFrom(e)
-    case Ensuring(r @ Require(pre, d @ Decreases(meas, _)), post) =>
-      Ensuring(Require(pre, Decreases(meas, body).copiedFrom(d)).copiedFrom(r), post).copiedFrom(e)
-    case Ensuring(d @ Decreases(meas, _), post) =>
-      Ensuring(Decreases(meas, body).copiedFrom(d), post).copiedFrom(e)
-    case Ensuring(req @ Require(pre, _), post) =>
-      Ensuring(Require(pre, body).copiedFrom(req), post).copiedFrom(e)
-    case Ensuring(_, post)                      => Ensuring(body, post).copiedFrom(e)
-    case _                                      => body
-  }
+  final def withBody(expr: Expr, body: Expr): Expr =
+    BodyWithSpecs(expr).withBody(body).reconstructed
 
   /** Extracts the body without its specification
     *
     * [[Expressions.Expr]] trees contain its specifications as part of certain nodes.
-    * This function helps extracting only the body part of an expression
+    * This function helps extracting only the body part of an expression, wrapped with
+    * the lets that are shared with the specification
     *
     * @return An option type with the resulting expression if not [[Expressions.NoTree]]
     * @see [[Expressions.Ensuring]]
     * @see [[Expressions.Require]]
     */
-  def withoutSpecs(expr: Expr): Option[Expr] = expr match {
-    case Let(i, e, b)                             => withoutSpecs(b).map(Let(i, e, _).copiedFrom(expr))
-    case Decreases(_, b)                          => Option(b).filterNot(_.isInstanceOf[NoTree])
-    case Require(_, Decreases(_, b))              => Option(b).filterNot(_.isInstanceOf[NoTree])
-    case Require(pre, b)                          => Option(b).filterNot(_.isInstanceOf[NoTree])
-    case Ensuring(Require(_, Decreases(_, b)), _) => Option(b).filterNot(_.isInstanceOf[NoTree])
-    case Ensuring(Require(pre, b), post)          => Option(b).filterNot(_.isInstanceOf[NoTree])
-    case Ensuring(Decreases(_, b), _)             => Option(b).filterNot(_.isInstanceOf[NoTree])
-    case Ensuring(b, post)                        => Option(b).filterNot(_.isInstanceOf[NoTree])
-    case b                                        => Option(b).filterNot(_.isInstanceOf[NoTree])
+  final def withoutSpecs(expr: Expr): Option[Expr] = {
+    val specced = BodyWithSpecs(expr)
+    specced.bodyOpt.map(specced.wrapLets)
   }
 
   /** Returns the precondition of an expression wrapped in Option */
-  def preconditionOf(expr: Expr): Option[Expr] = expr match {
-    case Let(i, e, b)                 => preconditionOf(b).map(Let(i, e, _).copiedFrom(expr))
-    case Require(pre, _)              => Some(pre)
-    case Ensuring(Require(pre, _), _) => Some(pre)
-    case b                            => None
+  final def preconditionOf(expr: Expr): Option[Expr] = {
+    val specced = BodyWithSpecs(expr)
+    val letsAndRequires = specced.letsAndSpecs(PreconditionKind)
+    if (letsAndRequires.isEmpty) None
+    else Some(letsAndRequires.init.foldRight(letsAndRequires.last.asInstanceOf[Precondition].expr) {
+      case (spec @ LetInSpec(vd, e), acc) => Let(vd, e, acc).setPos(spec)
+      case (spec @ Precondition(pred), acc) => And(pred, acc).setPos(spec)
+      case _ => sys.error("shouldn't happen thanks to the filtering above")
+    })
   }
 
   /** Returns the postcondition of an expression wrapped in Option */
-  def postconditionOf(expr: Expr): Option[Lambda] = expr match {
-    case Let(i, e, b)      => postconditionOf(b).map(l => l.copy(body = Let(i, e, l.body).copiedFrom(expr)).copiedFrom(l))
-    case Ensuring(_, post) => Some(post)
-    case _                 => None
+  final def postconditionOf(expr: Expr): Option[Lambda] = {
+    val BodyWithSpecs(specs, _) = BodyWithSpecs(expr)
+    val (beforePost, postAndAfter) = specs.span(_.kind != PostconditionKind)
+    val lets = beforePost.filter(_.kind == LetKind)
+    if (postAndAfter.isEmpty) None
+    else {
+      val lambda @ Lambda(vd, postBody) = postAndAfter.head.asInstanceOf[Postcondition].expr
+      Some(Lambda(vd, lets.foldRight(postBody) {
+        case (spec @ LetInSpec(vd, e), acc) => Let(vd, e, acc).setPos(spec)
+        case _ => sys.error("shouldn't happen thanks to the filtering above")
+      }).setPos(lambda))
+    }
   }
 
-  def measureOf(expr: Expr): Option[Expr] = expr match {
-    // @nv: we allow lets to wrap decreases (and other contracts) to facilitate
-    //      certain program transformations (eg. FunctionClosure) and avoid
-    //      repeating the let chains in each contract and body
-    case Let(i, e, b)                             => measureOf(b).map(Let(i, e, _).copiedFrom(expr))
-    case Decreases(m, _)                          => Some(m)
-    case Require(_, Decreases(m, _))              => Some(m)
-    case Ensuring(Require(_, Decreases(m, _)), _) => Some(m)
-    case Ensuring(Decreases(m, _), _)             => Some(m)
-    case _                                        => None
-  }
-
-  def withMeasure(expr: Expr, meas: Option[Expr]): Expr = (meas, expr) match {
-    case (_, Let(i, e, b)) if hasSpec(b) =>
-      wrapSpec(i, e, withMeasure(expr, meas)).copiedFrom(expr)
-    case (Some(newMeas), Ensuring(r @ Require(pre, d @ Decreases(_, b)), post)) =>
-      Ensuring(Require(pre, Decreases(newMeas, b).copiedFrom(d)).copiedFrom(r), post).copiedFrom(expr)
-    case (Some(newMeas), Ensuring(r @ Require(pre, b), post)) =>
-      Ensuring(Require(pre, Decreases(newMeas, b).copiedFrom(b)).copiedFrom(r), post).copiedFrom(expr)
-    case (Some(newMeas), Ensuring(d @ Decreases(_, b), post)) =>
-      Ensuring(Decreases(newMeas, b).copiedFrom(d), post).copiedFrom(expr)
-    case (Some(newMeas), Ensuring(b, post)) =>
-      Ensuring(Decreases(newMeas, b).copiedFrom(b), post).copiedFrom(expr)
-    case (Some(newMeas), Require(pre, d @ Decreases(_, b))) =>
-      Require(pre, Decreases(newMeas, b).copiedFrom(d)).copiedFrom(expr)
-    case (Some(newMeas), Require(pre, b)) =>
-      Require(pre, Decreases(newMeas, b).copiedFrom(b)).copiedFrom(expr)
-    case (Some(newMeas), Decreases(_, b)) =>
-      Decreases(newMeas, b).copiedFrom(expr)
-    case (Some(newMeas), b) =>
-      Decreases(newMeas, b).copiedFrom(expr)
-    case (None, Ensuring(r @ Require(pre, Decreases(_, b)), post)) =>
-      Ensuring(Require(pre, b).copiedFrom(r), post).copiedFrom(expr)
-    case (None, Ensuring(Decreases(_, b), post)) =>
-      Ensuring(b, post).copiedFrom(expr)
-    case (None, Require(pre, Decreases(_, b))) =>
-      Require(pre, b).copiedFrom(expr)
-    case (None, Decreases(_, b)) =>
-      b
-    case (None, b) =>
-      b
+  /** Returns the measure of an expression wrapped in Option */
+  final def measureOf(expr: Expr): Option[Expr] = {
+    val BodyWithSpecs(specs, _) = BodyWithSpecs(expr)
+    val (beforeMeasure, measureAndAfter) = specs.span(_.kind != MeasureKind)
+    val lets = beforeMeasure.filter(_.kind == LetKind)
+    if (measureAndAfter.isEmpty) None
+    else Some(lets.foldRight(measureAndAfter.head.asInstanceOf[Measure].expr) {
+      case (spec @ LetInSpec(vd, e), acc) => Let(vd, e, acc).setPos(spec)
+      case _ => sys.error("shouldn't happen thanks to the filtering above")
+    })
   }
 
   /** Deconstructs an expression into its [[Specification]] and body parts. */
-  def deconstructSpecs(e: Expr)(implicit s: Symbols): (Seq[Specification], Option[Expr]) = {
-    val measure = measureOf(e).map(Measure)
-    val pre = Precondition(preconditionOf(e).getOrElse(BooleanLiteral(true).copiedFrom(e)))
-    val post = Postcondition(postconditionOf(e).getOrElse(Lambda(
-      Seq(ValDef(FreshIdentifier("res"), e.getType).copiedFrom(e)),
-      BooleanLiteral(true).copiedFrom(e)
-    ).copiedFrom(e)))
-
-    val body = withoutSpecs(e)
-    (Seq(pre, post) ++ measure, body)
+  final def deconstructSpecs(e: Expr): (Seq[Specification], Option[Expr]) = {
+    val specced = BodyWithSpecs(e)
+    (specced.specs, specced.bodyOpt)
   }
 
-  /** Reconstructs an expression given a set of specifications
-    * and a body, as obtained through [[deconstructSpecs]]. */
-  final def reconstructSpecs(specs: Seq[Specification], body: Option[Expr], resultType: Type) = {
-    val newBody = body match {
-      case Some(body) => body
-      case None =>
-        val poss = specs.map(_.expr.getPos).filter(_ != NoPosition)
-        val pos = if (poss.isEmpty) NoPosition
-          else if (poss.size == 1) poss.head
-          else Position.between(poss.min, poss.max)
-        NoTree(resultType).setPos(pos)
-    }
-    specs.foldLeft(newBody)(withSpec)
-  }
-
-  override def freshenLocals(expr: Expr, freshenChooses: Boolean = false): Expr = {
-    val subst: MutableMap[Variable, Variable] = MutableMap.empty
-    variablesOf(expr).foreach(v => subst(v) = v)
-
-    new SelfTreeTransformer {
-      override def transform(vd: ValDef): ValDef = subst.getOrElse(vd.toVariable, {
-        val res = super.transform(vd).freshen.toVariable
-        subst(vd.toVariable) = res
-        res
-      }).toVal
-
-      override def transform(expr: Expr): Expr = expr match {
-        case v: Variable => transform(v.toVal).toVariable
-        case Choose(res, pred) if !freshenChooses =>
-          val newVd = super.transform(res)
-          subst(res.toVariable) = newVd.toVariable
-          Choose(newVd, transform(pred)).copiedFrom(expr)
-        case _ => super.transform(expr)
-      }
-    }.transform(expr)
-  }
+  /** Reconstructs an expression given a set of specifications */
+  final def reconstructSpecs(specs: Seq[Specification], body: Option[Expr], resultType: Type) =
+    BodyWithSpecs(specs.filterNot(_.isTrivial), UnitLiteral())
+      .withBody(body, resultType)
+      .reconstructed
 
   def freshenTypeParams(tps: Seq[TypeParameter]): Seq[TypeParameter] = tps.map(_.freshen)
 
@@ -316,4 +399,91 @@ trait ExprOps extends inox.ast.ExprOps {
       }
     }.transform(expr)
   }
+
+  def stripAnnotations(tpe: Type): Type = tpe match {
+    case AnnotatedType(tpe, _) => stripAnnotations(tpe)
+    case _ => tpe
+  }
+
+  /* =============================
+   * Freshening of local variables
+   * ============================= */
+
+  protected class Freshener(freshenChooses: Boolean)
+    extends super.Freshener(freshenChooses)
+    with transformers.Transformer {
+
+    override def transformCase(cse: MatchCase, env: Env): MatchCase = {
+      val MatchCase(pat, guard, rhs) = cse
+      val (newPat, newEnv) = transformAndGetEnv(pat, env)
+      val newGuard = guard.map(transform(_, newEnv))
+      val newRhs = transform(rhs, newEnv)
+      MatchCase(newPat, newGuard, newRhs).copiedFrom(cse)
+    }
+
+    override def transform(pat: Pattern, env: Env): Pattern = {
+      transformAndGetEnv(pat, env)._1
+    }
+
+    def transformAndGetEnv(pat: Pattern, env: Env): (Pattern, Env) = pat match {
+      case WildcardPattern(vdOpt) =>
+        val freshVdOpt = vdOpt.map(vd => transform(vd.freshen, env))
+        val newEnv = env ++ freshVdOpt.map(freshVd => vdOpt.get.id -> freshVd.id)
+        (WildcardPattern(freshVdOpt), newEnv)
+
+      case ADTPattern(vdOpt, id, tps, subPatterns) =>
+        val freshVdOpt = vdOpt.map(vd => transform(vd.freshen, env))
+        val newPatterns = subPatterns.map(transformAndGetEnv(_, env))
+        (
+          ADTPattern(
+            freshVdOpt,
+            transform(id, env),
+            tps.map(transform(_, env)),
+            newPatterns.map(_._1)
+          ),
+          newPatterns.map(_._2).fold
+            (env ++ freshVdOpt.map(freshVd => vdOpt.get.id -> freshVd.id))
+            (_ ++ _)
+        )
+
+      case TuplePattern(vdOpt, subPatterns) =>
+        val freshVdOpt = vdOpt.map(vd => transform(vd.freshen, env))
+        val newPatterns = subPatterns.map(transformAndGetEnv(_, env))
+        (
+          TuplePattern(freshVdOpt, newPatterns.map(_._1)),
+          newPatterns.map(_._2).fold
+            (env ++ freshVdOpt.map(freshVd => vdOpt.get.id -> freshVd.id))
+            (_ ++ _)
+        )
+
+      case LiteralPattern(vdOpt, lit) =>
+        val freshVdOpt = vdOpt.map(vd => transform(vd.freshen, env))
+        val newEnv = env ++ freshVdOpt.map(freshVd => vdOpt.get.id -> freshVd.id)
+        (LiteralPattern(freshVdOpt, lit), newEnv)
+
+      case UnapplyPattern(vdOpt, recs, id, tps, subPatterns) =>
+        val freshVdOpt = vdOpt.map(vd => transform(vd.freshen, env))
+        val newRecs = recs.map(transform(_, env))
+        val newPatterns = subPatterns.map(transformAndGetEnv(_, env))
+        (
+          UnapplyPattern(
+            freshVdOpt,
+            newRecs,
+            transform(id, env),
+            tps.map(transform(_, env)),
+            newPatterns.map(_._1)
+          ),
+          newPatterns.map(_._2).fold
+            (env ++ freshVdOpt.map(freshVd => vdOpt.get.id -> freshVd.id))
+            (_ ++ _)
+        )
+
+      case _ => (super.transform(pat, env), env)
+    }
+  }
+
+  override def freshenLocals(expr: Expr, freshenChooses: Boolean = false): Expr = {
+    new Freshener(freshenChooses).transform(expr, Map.empty[Identifier, Identifier])
+  }
+
 }

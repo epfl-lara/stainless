@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 package extraction
@@ -152,11 +152,12 @@ trait Sealing extends oo.CachingPhase
 
       // These are the flags that we *discard* when overriding an accessor or a method and creating a field
       def overrideDiscardFlag(flag: Flag) = flag match {
-        case IsAbstract        => true
-        case IsAccessor(_)     => true
-        case IsMethodOf(_)     => true
-        case IsTypeMemberOf(_) => true
-        case _                 => false
+        case IsAbstract           => true
+        case IsAccessor(_)        => true
+        case IsMethodOf(_)        => true
+        case IsTypeMemberOf(_)    => true
+        case FieldDefPosition(_)  => true
+        case _                    => false
       }
 
       // These are the flags that we *keep* when creating a field for an accessor

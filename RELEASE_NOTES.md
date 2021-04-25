@@ -1,5 +1,93 @@
-
 # Release Notes
+
+## Version 0.8.0 (2021-02-24)
+
+### Features
+
+- Support for Scala 2.12.13 (#913)
+- Support for ghost fields in GenC (#904, #907)
+- Initial support for unsigned integers in GenC (#888)
+
+### Bug fixes
+
+- Fix issues watch mode (and add support for Enter key to reload) (#906)
+- Better support for refinement types in type-checker
+- Various bug fixes in extraction phases
+
+
+## Version 0.7.6 (2021-01-18)
+
+### Features
+
+- Add GenC component from Leon (#885)
+- Add frontend for more bitvector types and operations (#879)
+
+### Improvements
+
+- Inox dependency is now directly on GitHub
+
+### Bug fixes
+
+- Fix some issues in imperative phase (#874) and type encoding (#884)
+
+
+## Version 0.7.5 (2020-11-27)
+
+### Features
+
+- Add `admit-vcs` option to generate VCs without sending them to the solver
+- Add support for indexed types in scalac frontend
+
+### Improvements
+
+- Generalize specification helpers (#828)
+
+### Bug fixes
+
+- Remove unsound type-checking rule for function types, and add subtying rules instead
+
+
+## Version 0.7.4 (2020-10-02)
+
+### Bug fixes
+
+- Fix unapplyAccessor not instantiating with refinement type (#841)
+- Remove duplicate serializations
+
+
+## Version 0.7.3 (2020-09-08)
+
+### Improvements
+
+- Remove check that measure has good type at call site (this was making arguments of recursive functions being type-checked twice, and thus duplicating VCs)
+- Instead, add check that mutually recursive functions have the same measure type
+- `SplitCallBack` now processes mutually recursive functions together
+- Improve HTML output for type-checking derivation
+
+
+## Version 0.7.2 (29-08-2020)
+
+### Features
+
+- Add `ListMap` implementation (associative list) (#794)
+
+### Improvements
+
+- Remove type-checking tuple rule that was duplicating VCs (#792)
+- Improve documentation on check/assert (#815)
+- Add documentation for contracts on abstract functions (#825)
+
+### Bug fixes
+
+- Fix `@induct` transformation for bounded-size integers (#804)
+- Add checks to reject programs not supported by Stainless (#810, #814)
+- Fix type encoding translation error (#818)
+- Fix issues on `@inlineInvariant` feature (#820)
+- Fix bug where Stainless could make an infinite loop in `isMutableClassType` (#824)
+- Fix "missing field" error in watch mode (#829)
+- Fix bug in watch mode where errors from previous runs kept getting reported (#830)
+- Fix bug in watch mode that made the verification report incomplete (#831)
+
 
 ## Version 0.7.1 (17-06-2020)
 
@@ -148,7 +236,7 @@
 - Propagate @ghost annotation to variables introduced by calls to default copy getter (#643)
 - Do not lift refinement into pre-/post-conditions when `--type-checker` is enabled (#620)
 - Follow symbolic links when searching for base directory (#621)
-- Check that methods are only overriden by methods with the same ghostiness (#615)
+- Check that methods are only overridden by methods with the same ghostiness (#615)
 - Check that required tools are installed before packaging (#599)
 - Add readability check for jars in script (#600)
 

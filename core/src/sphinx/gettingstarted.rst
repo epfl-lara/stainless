@@ -1,7 +1,10 @@
 .. _gettingstarted:
 
+Verifying and Compiling Examples
+================================
+
 Verifying Examples
-==================
+------------------
 
 Stainless is currently available as either:
 
@@ -81,4 +84,16 @@ and get something like this
   [  Info  ] ║ total: 9    valid: 7    (0 from cache) invalid: 2    unknown: 0    time:   1.218            ║
   [  Info  ] ╚═════════════════════════════════════════════════════════════════════════════════════════════╝
 
+
+Compiling and Executing Examples
+--------------------------------
+
+Scala code written with Stainless library dependencies can be compiled and run using the
+library sources available on the `Stainless github repository <https://github.com/epfl-lara/stainless>`_,
+and ``scalac`` and ``scala`` 2.12.9.
+
+.. code-block:: bash
+
+  scalac -d /some_folder_for_compiled_classes/ $(find /path/to/stainless/frontends/library/stainless/ -name "*.scala") File1.scala File2.scala ...
+  scala -cp /some_folder_for_compiled_classes/ $(find /path/to/stainless/frontends/library/stainless/ -name "*.scala") MainClassName
 

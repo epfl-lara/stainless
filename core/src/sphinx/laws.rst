@@ -78,7 +78,7 @@ satisfy for the datatype to form a valid monoid.
 
 Stainless will then ensure that the implementation of ``Monoid`` for the ``BigInt`` type satisfy
 those laws. In this case, the above definition of ``bigIntAdditiveMonoid`` will generate the
-following verification conditions:::
+following verification conditions::
 
      ┌───────────────────┐
    ╔═╡ stainless summary ╞══════════════════════════════════════════════════════════════════════╗
@@ -323,7 +323,7 @@ amended to exercise at once all the features described above.
      }
 
      @law
-     def law_leftIdentity(x: A): Boolean = {
+     def law_rightIdentity(x: A): Boolean = {
        append(x, empty) == x
      }
 
@@ -513,7 +513,7 @@ There are a few things going on here:
    holds the original body of the law. The law's body is then rewritten to
    be empty, and is provided with a postcondition which refers to the newly
    introduced method. This desugaring step basically turns the laws
-   into abstract methods which must be overriden at some point with
+   into abstract methods which must be overridden at some point with
    methods whose body can be proven to be true, while also satisfying the law
    itself.
 
@@ -543,7 +543,7 @@ There are a few things going on here:
        (res$82: Boolean) => res$82 && this.law_associativity$2(x$109, y$25, z$11)
      }
 
-2. Laws which are overriden into abstract subclasses, are provided with a
+2. Laws which are overridden into abstract subclasses, are provided with a
    postcondition that ensures that their body can be proven true,
    while still satisfying the original law via a call to the helper
    method introduced in the previous step. This step ensures that laws
@@ -576,7 +576,7 @@ There are a few things going on here:
        (res$79: Boolean) => res$79 && this.law_rightIdentity$2(x$115)
      }
 
-4. If a law is not overriden in a typeclass implementation, a stub override is
+4. If a law is not overridden in a typeclass implementation, a stub override is
    automatically defined by Stainless, to ensure that a verification condition
    will be generated. Those stubs just have ``true`` as a body, and a postcondition
    which calls to the appropriate law helper introduced in step 1.

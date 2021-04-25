@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 package verification
@@ -43,17 +43,4 @@ class SMTZ3DottyVerificationSuite extends DottyVerificationSuite {
   }
 
   def folder = "dotty-specific/valid"
-}
-
-
-class SMTZ3TypeCheckerDottyVerificationSuite extends DottyVerificationSuite {
-  override def configurations = super.configurations.map {
-    seq => Seq(
-      inox.optSelectedSolvers(Set("smt-z3")),
-      inox.solvers.optCheckModels(true),
-      optTypeChecker(true)
-    ) ++ seq
-  }
-
-  def folder = "dotty-specific/typechecker"
 }

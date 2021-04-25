@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 package extraction
@@ -13,6 +13,7 @@ object CheckResult {
 
 trait EffectsChecker { self: EffectsAnalyzer =>
   import s._
+  import exprOps._
 
   protected def checkEffects(fd: FunDef)(analysis: EffectsAnalysis): CheckResult = {
     import analysis._
@@ -23,7 +24,7 @@ trait EffectsChecker { self: EffectsAnalyzer =>
       fd.flags.contains(Synthetic) &&
       !isAccessor(Outer(fd)) &&
       fd.params.exists(vd => isMutableType(vd.tpe)) &&
-      !exprOps.withoutSpecs(fd.fullBody).forall(isExpressionFresh)
+      !exprOps.BodyWithSpecs(fd.fullBody).bodyOpt.forall(isExpressionFresh)
     }
 
     def isAccessor(fd: FunAbstraction): Boolean = {
@@ -41,109 +42,138 @@ trait EffectsChecker { self: EffectsAnalyzer =>
       checkEffectsLocations(fd)
       checkPurity(fd)
 
-      exprOps.withoutSpecs(fd.fullBody).foreach { bd =>
+      // Recursive functions must return fresh results so that no aliasing is possible
+      if ((symbols.isRecursive(fd.id) || fd.isInstanceOf[Inner]) &&
+          !exprOps.withoutSpecs(fd.fullBody).forall(isExpressionFresh))
+        throw ImperativeEliminationException(fd, "Illegal recursive functions returning non-fresh result")
 
-        object traverser extends SelfTreeTraverser {
-          override def traverse(e: Expr): Unit = e match {
-            case l @ Let(vd, e, b) =>
-              if (!isExpressionFresh(e) && isMutableType(vd.tpe)) try {
-                // Check if a precise effect can be computed
-                getEffects(e)
-              } catch {
-                case _: MalformedStainlessCode =>
-                  throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
-              }
+      object traverser extends SelfTreeTraverser {
+        override def traverse(tpe: Type): Unit = tpe match {
+          case at @ ADTType(id, tps) =>
+            (at.getSort.definition.tparams zip tps).foreach { case (tdef, instanceType) =>
+              if (isMutableType(instanceType) && !(tdef.flags contains IsMutable))
+                throw ImperativeEliminationException(tpe,
+                  s"Cannot instantiate a non-mutable ADT type parameter ${tdef.asString} with a mutable type ${instanceType.asString}")
+            }
 
-              super.traverse(l)
+            super.traverse(at)
 
-            case l @ LetVar(vd, e, b) =>
-              if (!isExpressionFresh(e) && isMutableType(vd.tpe))
-                throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
+          case ct @ ClassType(id, tps) =>
+            (ct.tcd.cd.tparams zip tps).foreach { case (tdef, instanceType) =>
+              if (isMutableType(instanceType) && !(tdef.flags contains IsMutable))
+                throw ImperativeEliminationException(tpe,
+                  s"Cannot instantiate a non-mutable class type parameter ${tdef.asString} with a mutable type ${instanceType.asString}")
+            }
 
-              super.traverse(l)
+            super.traverse(ct)
 
-            case au @ ArrayUpdate(a, i, e) =>
-              if (!isExpressionFresh(e) && isMutableType(e.getType))
-                throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
-
-              super.traverse(au)
-
-            case mu @ MapUpdated(m, k, e) =>
-              if (!isExpressionFresh(e) && isMutableType(e.getType))
-                throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
-
-              super.traverse(mu)
-
-            case fa @ FieldAssignment(o, sel, e) =>
-              if (!isExpressionFresh(e) && isMutableType(fa.getField.get.getType))
-                throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
-
-              super.traverse(fa)
-
-            case l @ LetRec(fds, body) =>
-              fds.foreach(fd => check(Inner(fd)))
-              traverse(body)
-
-            case l @ Lambda(args, body) =>
-              if (isMutableType(body.getType) && !isExpressionFresh(body))
-                throw ImperativeEliminationException(l, "Illegal aliasing in lambda body")
-              if (effects(body).exists(e => !args.contains(e.receiver.toVal)))
-                throw ImperativeEliminationException(l, "Illegal effects in lambda body")
-              super.traverse(l)
-
-            case fi: FunctionInvocation if isMutableSynthetic(fi.id) =>
-              throw ImperativeEliminationException(fi, s"Cannot call '${fi.id.asString}' on a class with mutable fields")
-
-            case fi @ FunctionInvocation(id, tps, args) =>
-              val fd = symbols.getFunction(id)
-              for ((tpe, tp) <- tps zip fd.tparams if (isMutableType(tpe) && !tp.flags.contains(IsMutable))) {
-                throw ImperativeEliminationException(e,
-                  s"Cannot instantiate a non-mutable type parameter ${tp.asString} in $fd with the mutable type ${tpe.asString}")
-              }
-
-              super.traverse(fi)
-
-            case adt @ ADT(id, tps, args) =>
-              (adt.getConstructor.sort.definition.tparams zip tps).foreach { case (tdef, instanceType) =>
-                if (isMutableType(instanceType) && !(tdef.flags contains IsMutable))
-                  throw ImperativeEliminationException(e,
-                    s"Cannot instantiate a non-mutable type parameter ${tdef.asString} with a mutable type ${instanceType.asString}")
-              }
-
-              super.traverse(adt)
-
-            case MutableMapUpdated(m, k, v) =>
-              m.getType match {
-                case MutableMapType(_, to) if !isMutableType(to) => ()
-                case _ =>
-                  throw ImperativeEliminationException(e,
-                    s"Cannot use `updated` on a MutableMap whose range is a mutable type (${m.getType}).")
-              }
-
-            case MutableMapDuplicate(m) =>
-              m.getType match {
-                case MutableMapType(_, to) if !isMutableType(to) => ()
-                case _ =>
-                  throw ImperativeEliminationException(e,
-                    s"Cannot use `duplicate` on a MutableMap whose range is a mutable type (${m.getType}).")
-              }
-
-            case _ => super.traverse(e)
-          }
+          case _ => super.traverse(tpe)
         }
 
-        traverser.traverse(bd)
+        override def traverse(e: Expr): Unit = e match {
+          case l @ Let(vd, e, b) =>
+            if (
+              (variablesOf(e) & variablesOf(b)).exists(v => isMutableType(v.tpe)) &&
+              !isExpressionFresh(e) &&
+              isMutableType(vd.tpe)
+            ) try {
+              // Check if a precise effect can be computed
+              getTargets(e)
+            } catch {
+              case _: MalformedStainlessCode =>
+                throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
+            }
+
+            super.traverse(l)
+
+          case l @ LetVar(vd, e, b) =>
+            if (!isExpressionFresh(e) && isMutableType(vd.tpe))
+              throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
+
+            super.traverse(l)
+
+          case au @ ArrayUpdate(a, i, e) =>
+            if (isMutableType(e.getType) && !isExpressionFresh(e))
+              throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
+
+            super.traverse(au)
+
+          case mu @ MapUpdated(m, k, e) =>
+            if (isMutableType(e.getType) && !isExpressionFresh(e))
+              throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
+
+            super.traverse(mu)
+
+          case fa @ FieldAssignment(o, sel, e) =>
+            if (isMutableType(fa.getField.get.getType) && !isExpressionFresh(e))
+              throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
+
+            super.traverse(fa)
+
+          case l @ LetRec(fds, body) =>
+            fds.foreach(fd => check(Inner(fd)))
+            traverse(body)
+
+          case l @ Lambda(args, body) =>
+            if (isMutableType(body.getType) && !isExpressionFresh(body))
+              throw ImperativeEliminationException(l, "Illegal aliasing in lambda body")
+            if (effects(body).exists(e => !args.contains(e.receiver.toVal)))
+              throw ImperativeEliminationException(l, "Illegal effects in lambda body")
+            super.traverse(l)
+
+          case fi: FunctionInvocation if isMutableSynthetic(fi.id) =>
+            throw ImperativeEliminationException(fi, s"Cannot call '${fi.id.asString}' on a class with mutable fields")
+
+          case fi @ FunctionInvocation(id, tps, args) =>
+            val fd = symbols.getFunction(id)
+            for ((tpe, tp) <- tps zip fd.tparams if (isMutableType(tpe) && !tp.flags.contains(IsMutable))) {
+              throw ImperativeEliminationException(e,
+                s"Cannot instantiate a non-mutable function type parameter ${tp.asString} in ${fi.asString} with the mutable type ${tpe.asString}")
+            }
+
+            super.traverse(fi)
+
+          case adt @ ADT(id, tps, args) =>
+            (adt.getConstructor.sort.definition.tparams zip tps).foreach { case (tdef, instanceType) =>
+              if (isMutableType(instanceType) && !(tdef.flags contains IsMutable))
+                throw ImperativeEliminationException(e,
+                  s"Cannot instantiate a non-mutable ADT constructor type parameter ${tdef.asString} in ${adt.asString} with a mutable type ${instanceType.asString}")
+            }
+
+            super.traverse(adt)
+
+          case MutableMapUpdated(m, k, v) =>
+            m.getType match {
+              case MutableMapType(_, to) if !isMutableType(to) => ()
+              case _ =>
+                throw ImperativeEliminationException(e,
+                  s"Cannot use `updated` on a MutableMap whose range is a mutable type (${m.getType}).")
+            }
+
+          case MutableMapDuplicate(m) =>
+            m.getType match {
+              case MutableMapType(_, to) if !isMutableType(to) => ()
+              case _ =>
+                throw ImperativeEliminationException(e,
+                  s"Cannot use `duplicate` on a MutableMap whose range is a mutable type (${m.getType}).")
+            }
+
+          case _ => super.traverse(e)
+        }
       }
+
+      traverser.traverse(fd.fullBody)
+      for (param <- fd.params) traverser.traverse(param.tpe)
     }
 
     def checkMutableField(fd: FunAbstraction): Unit = {
       if (!fd.flags.exists { case IsField(_) => true case _ => false }) return ()
 
       if (isMutableType(fd.returnType))
-        throw ImperativeEliminationException(fd, "A global field cannot refer to a mutable object")
+        throw ImperativeEliminationException(fd, "A field cannot refer to a mutable object")
 
       if (effects(fd.fullBody).nonEmpty)
-        throw ImperativeEliminationException(fd, s"A global field must be pure, but ${fd.id.asString} has effects: ${effects(fd.fullBody).map(_.asString).mkString(", ")}")
+        throw ImperativeEliminationException(fd, s"A field must be pure, but ${fd.id.asString} has effects: ${effects(fd.fullBody).map(_.asString).mkString(", ")}")
     }
 
     def checkEffectsLocations(fd: FunAbstraction): Unit = exprOps.preTraversal {
@@ -196,11 +226,16 @@ trait EffectsChecker { self: EffectsAnalyzer =>
             case up: UnapplyPattern =>
               val upEffects = effects(Outer(up.getFunction.fd))
               if (upEffects.nonEmpty)
-                throw ImperativeEliminationException(up, "Pattern unapply has effects on: " + upEffects.head.receiver)
+                throw ImperativeEliminationException(up, "Pattern unapply has effects on: " + upEffects.head.receiver.asString)
 
             case _ => ()
           }(cse.pattern)
         }
+
+      case Let(vd, v, rest) if vd.flags.contains(Lazy) =>
+        val eff = effects(v)
+        if (eff.nonEmpty)
+          throw ImperativeEliminationException(v, "Stainless does not support effects in lazy val's on: " + eff.head.receiver.asString)
 
       case _ => ()
     }(fd.fullBody)
@@ -239,20 +274,40 @@ trait EffectsChecker { self: EffectsAnalyzer =>
         // rejected later in `ImperativeCleanup`.
         case Old(_) => true
 
-        //function invocation always return a fresh expression, by hypothesis (global assumption)
+        case fi @ FunctionInvocation(id, _, _) if !symbols.isRecursive(id) =>
+            BodyWithSpecs(symbols.simplifyLets(fi.inlined))
+              .bodyOpt
+              .forall(isExpressionFresh)
+
+        // other function invocations always return a fresh expression, by hypothesis (global assumption)
         case (_: FunctionInvocation | _: ApplyLetRec | _: Application) => true
 
         //ArrayUpdated returns a mutable array, which by definition is a clone of the original
         case ArrayUpdated(IsTyped(_, ArrayType(base)), _, _) => !isMutableType(base)
 
-        // These cases cover some limitations due to dotty inlining
+        //MutableMapDuplicate returns a fresh duplicate by definition
+        case MutableMapDuplicate(IsTyped(_, MutableMapType(from, to))) =>
+          !isMutableType(from) && !isMutableType(to)
+
+        // snapshots are fresh
+        case Snapshot(e) => true
+
+        // For `Let`, it is safe to add `vd` as a fresh binding because we disallow
+        // `FieldAssignments` with non-fresh expressions in `check(fd: FunAbstraction)` above.
+        // See discussion on: https://github.com/epfl-lara/stainless/pull/985#discussion_r614583479
         case Let(vd, e, b) => rec(e, bindings) && rec(b, bindings + vd)
-        case LetVar(vd, e, b) => rec(e, bindings) && rec(b, bindings + vd)
+
+        // We don't add `vd` as a fresh binding, because it might be reassigned to a non-fresh
+        // expression in a `Block` appearing in `b` (see link above)
+        case LetVar(vd, e, b) => rec(b, bindings)
 
         case Block(_, e) => rec(e, bindings)
 
+        case IfExpr(_, e1, e2) => rec(e1, bindings) && rec(e2, bindings)
+        case MatchExpr(_, cases) => cases.forall(cse => rec(cse.rhs, bindings))
+
         //any other expression is conservately assumed to be non-fresh if
-        //any sub-expression is non-fresh (i.e. an if-then-else with a reference in one branch)
+        //any sub-expression is non-fresh
         case Operator(args, _) => args.forall(rec(_, bindings))
       })
 

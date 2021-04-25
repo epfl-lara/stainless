@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 package extraction
@@ -30,58 +30,61 @@ trait FunctionClosure
       tparamsMap: Map[TypeParameter, TypeParameter]
     )
 
-    def filterByIds(path: Path, ids: Set[Identifier]): Path = {
-      def containsIds(e: Expr): Boolean = exprOps.exists {
-        case Variable(id, _, _) => ids contains id
-        case _ => false
-      }(e)
-
-      import Path._
-      path.elements.foldLeft(Path.empty) {
-        case (pc, CloseBound(vd, e)) if (ids contains vd.id) || containsIds(e) => pc withBinding (vd -> e)
-        case (pc, Condition(cond)) if containsIds(cond) => pc withCond cond
-        case (pc, _) => pc
-      }
-    }
-
     def closeFd(inner: LocalFunDef, outer: FunDef, pc: Path, free: Seq[ValDef]): FunSubst = {
       val LocalFunDef(id, tparams, params, returnType, fullBody, flags) = inner
-
-      val reqPC = filterByIds(pc, free.map(_.id).toSet)
 
       val tpFresh = outer.tparams map { _.freshen }
       val tparamsMap = outer.typeArgs.zip(tpFresh map {_.tp}).toMap
 
       val inst = new typeOps.TypeInstantiator(tparamsMap)
 
-      val (paramSubst, freshVals) = (params ++ free)
-        .map { vd =>
-          vd.copy(tpe = typeOps.instantiateType(vd.tpe, tparamsMap))
-        }
-        .foldLeft((Map[ValDef, Expr](), Seq[(ValDef, ValDef)]())) { case ((paramSubst, params), vd) =>
+      val (paramSubst, freshVals) = (free ++ params)
+        .foldLeft((Map[ValDef, Expr](), Seq[(ValDef, ValDef)]())) { case ((paramSubst, params), vdOld) =>
+          val vd = vdOld.copy(tpe = typeOps.instantiateType(vdOld.tpe, tparamsMap))
           val ntpe = typeOps.replaceFromSymbols(paramSubst, vd.tpe)
           val nvd = ValDef(vd.id.freshen, ntpe, vd.flags).copiedFrom(vd)
-          (paramSubst + (vd -> nvd.toVariable), params :+ (vd -> nvd))
+          (paramSubst + (vd -> nvd.toVariable), params :+ (vdOld -> nvd))
         }
 
       val freeMap = freshVals.toMap
-      val freshParams = freshVals.filterNot(p => reqPC.bindings exists (_._1.id == p._1.id)).map(_._2)
+      val freshParams = freshVals.filterNot(p => pc.bindings exists (_._1.id == p._1.id)).map(_._2)
 
-      val instBody = inst.transform(withPath(fullBody, reqPC))
+      // we annotated conjuncts with `Unchecked` so that they are not checked when calling the
+      // inner function (as we know these already hold at this point)
+      val oldBody = Path.fold[Expr](fullBody, {
+        case (vd, e, acc) => Let(vd, e, acc).setPos(fullBody)
+      }, {
+        case (cond, Require(cond2, acc)) =>
+          Require(And(Annotated(cond, Seq(Unchecked)).setPos(cond), cond2).setPos(cond), acc).setPos(fullBody)
+        case (cond, acc) =>
+          Require(Annotated(cond, Seq(Unchecked)).setPos(cond), acc).setPos(fullBody)
+      })(pc.elements)
 
-      val newBody = exprOps.preMap {
-        case v: Variable => freeMap.get(v.toVal).map(_.toVariable.copiedFrom(v))
+      object bodyTransformer extends SelfTreeTransformer {
+        override def transform(e: Expr): Expr = e match {
+          case v: Variable if freeMap.contains(v.toVal) =>
+            freeMap(v.toVal).toVariable.copiedFrom(v)
 
-        case let @ Let(id, v, r) if freeMap.isDefinedAt(id) =>
-          Some(Let(freeMap(id), v, r).copiedFrom(let))
+          case let @ Let(id, v, r) if freeMap.contains(id) =>
+            Let(freeMap(id), transform(v), transform(r)).copiedFrom(let)
 
-        case app @ ApplyLetRec(id, tparams, tpe, tps, args) if id == inner.id =>
-          val ntps = tps ++ tpFresh.map(_.tp)
-          val nargs = args ++ freshParams.drop(args.length).map(_.toVariable)
-          Some(FunctionInvocation(id, ntps, nargs).copiedFrom(app))
+          case app @ ApplyLetRec(id, tparams, tpe, tps, args) if id == inner.id =>
+            val ntps = tps.map(transform) ++ tpFresh.map(_.tp)
+            val nargs = freshParams.dropRight(args.length).map(_.toVariable) ++ args.map(transform)
+            FunctionInvocation(id, ntps, nargs).copiedFrom(app)
 
-        case _ => None
-      }(instBody)
+          case _ => super.transform(e)
+        }
+
+        override def transform(tpe: Type): Type = tpe match {
+          case tp: TypeParameter =>
+            tparamsMap.getOrElse(tp, super.transform(tpe))
+
+          case _ => super.transform(tpe)
+        }
+      }
+
+      val newBody = exprOps.freshenLocals(bodyTransformer.transform(oldBody))
 
       val newFd = new s.FunDef(
         id,
@@ -133,8 +136,7 @@ trait FunctionClosure
         def step(current: Map[Identifier, Set[Variable]]): Map[Identifier, Set[Variable]] = {
           nestedFuns.map { fd =>
             val transFreeVars = (callGraph(fd.id) + fd.id).flatMap(current)
-            val reqPath = filterByIds(nestedWithPaths(fd), transFreeVars.map(_.id))
-            (fd.id, transFreeVars ++ fd.freeVariables ++ reqPath.freeVariables)
+            (fd.id, transFreeVars ++ fd.freeVariables ++ nestedWithPaths(fd).freeVariables)
           }.toMap
         }
 
@@ -159,6 +161,7 @@ trait FunctionClosure
 
         override def transform(e: s.Expr): t.Expr = e match {
           case app @ ApplyLetRec(id, tparams, tpe, tps, args) if closed contains id =>
+
             val FunSubst(newCallee, calleeMap, calleeTMap) = closed(id)
 
             // This needs some explanation.
@@ -173,14 +176,14 @@ trait FunctionClosure
             val tparamsMap = (newCallee.tparams.map(_.tp).drop(tparams.size) zip tFinalExtra).toMap
 
             val mapReverse = calleeMap map { _.swap }
-            val extraArgs = newCallee.params.drop(args.size).map { vd =>
+            val extraArgs = newCallee.params.dropRight(args.size).map { vd =>
               typeOps.instantiateType(callerMap(mapReverse(vd)).toVariable, tparamsMap)
             }
 
             t.FunctionInvocation(
               newCallee.id,
               tps.map(transform) ++ tFinalExtra.map(transform),
-              args.map(transform) ++ extraArgs.map(transform)
+              extraArgs.map(transform) ++ args.map(transform)
             ).copiedFrom(app)
 
           case _ => super.transform(e)

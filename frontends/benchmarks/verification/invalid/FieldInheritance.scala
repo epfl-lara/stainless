@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 import stainless.lang._
 
@@ -11,11 +11,11 @@ object FieldInheritance {
   }
 
   case class Bar[X](override val thisIsIt: BigInt, weird: X) extends Foo[X] {
-    val y = thisIsIt
+    lazy val y = thisIsIt
   }
 
   case class Baz[X](weird: X) extends Foo[X] {
-    val y = thisIsIt + 1
+    lazy val y = thisIsIt + 1
   }
 
 

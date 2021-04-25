@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 package extraction
@@ -9,6 +9,7 @@ trait InductElimination
     with SimpleFunctions
     with SimplyCachedFunctions
     with IdentitySorts { self =>
+
   val s: Trees
   val t: s.type
 
@@ -35,7 +36,7 @@ trait InductElimination
 
     // @induct on the function refers to induction on the first parameter for which `canInductOn` returns true
     val firstInductionParam =
-      if (fd.flags.exists(_.name == "induct")) {
+      if (fd.flags.contains(Induct)) {
         fd.params.find(vd => canInductOn(vd.getType)) match {
           case Some(vd) => Seq(vd)
           case None =>
@@ -51,7 +52,7 @@ trait InductElimination
     val inductionParams =
       firstInductionParam ++
         fd.params.filter { vd =>
-          !firstInductionParam.contains(vd) && vd.flags.exists(_.name == "induct")
+          !firstInductionParam.contains(vd) && vd.flags.contains(Induct)
         }
 
     if (inductionParams.isEmpty) {
@@ -113,6 +114,7 @@ trait InductElimination
                     ).setPos(oldBody)
                 }
               ).setPos(oldBody)
+
             case IntegerType() =>
               // FIXME: When fd.returnType is a dependent type, we must bind its variables with newParams
               val inductionVd = ValDef.fresh("inductVal", fd.returnType).setPos(oldBody)
@@ -129,15 +131,16 @@ trait InductElimination
                   currentBody
                 ).setPos(oldBody)
               ).setPos(oldBody)
+
             case BVType(sign, size) =>
               // FIXME: When fd.returnType is a dependent type, we must bind its variables with newParams
               val inductionVd = ValDef.fresh("inductVal", fd.returnType)
-              val newParams = fd.params.map(param =>
-                if (param == vd) Minus(param.toVariable, BVLiteral(sign, size, 1))
+              val newParams = fd.params.map { param =>
+                if (param == vd) Minus(param.toVariable, BVLiteral(sign, 1, size))
                 else param.toVariable
-              )
+              }
               IfExpr(
-                LessEquals(vd.toVariable, BVLiteral(sign, size, 0).setPos(oldBody)).setPos(oldBody),
+                LessEquals(vd.toVariable, BVLiteral(sign, 0, size).setPos(oldBody)).setPos(oldBody),
                 currentBody,
                 Let(
                   inductionVd,
@@ -145,6 +148,7 @@ trait InductElimination
                   currentBody
                 ).setPos(oldBody)
               )
+
             case tpe =>
               context.reporter.fatalError(vd.getPos, s"Induction on type ${tpe.asString} is not supported")
           }
@@ -159,21 +163,22 @@ trait InductElimination
     val typeCheckerEnabled = context.options.findOptionOrDefault(verification.optTypeChecker)
 
     val newSpecs =
-      if (inductionParams.isEmpty || !typeCheckerEnabled) specs
+      if (inductionParams.isEmpty) specs
       else specs.filterNot(_.isInstanceOf[Measure]) ++ newMeasure
 
-    val newBody = reconstructSpecs(newSpecs, inductionBody, fd.returnType)
+    val fullBody = reconstructSpecs(newSpecs, inductionBody, fd.returnType)
+
+    // Remove @induct flag from parameters and replace those in the body to ensure well-formedness.
+    val newParams = fd.params.map(vd => vd.copy(flags = vd.flags.filterNot(_ == Induct)).copiedFrom(vd))
+    val newBody = exprOps.replaceFromSymbols(fd.params.zip(newParams.map(_.toVariable)).toMap, fullBody)
 
     new FunDef(
       fd.id,
       fd.tparams,
-      fd.params,
-      // FIXME: fd.params should be
-      //        `fd.params.map(vd => vd.copy(flags = vd.flags.filterNot(_.name == "induct")).copiedFrom(vd))`,
-      //         but that creates a well-formedness exception
+      newParams,
       fd.returnType,
       newBody,
-      fd.flags
+      fd.flags.filterNot(_ == Induct),
     ).setPos(fd)
   }
 }

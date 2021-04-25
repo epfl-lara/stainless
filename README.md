@@ -8,16 +8,23 @@ for more details about the supported fragment).
 
 ## Documentation
 
-To get started, see the documentation chapters, such as
+To get started, see videos:
+  * Tutorials from [EPFL Course](https://lara.epfl.ch/w/fv20/top): [Getting Started](https://tube.switch.ch/videos/c7d203e8),  [Tutorial 1](https://tube.switch.ch/videos/03edee61) [Tutorial 2](https://tube.switch.ch/videos/c22ea3e8) [Tutorial 3](https://tube.switch.ch/videos/7f57f7a9) [Tutorial 4](https://tube.switch.ch/videos/2a9fd35c), [Assertions](https://tube.switch.ch/videos/44e8a0dc), [Unfolding](https://tube.switch.ch/videos/ada8a42c), [Dispenser Example](https://tube.switch.ch/videos/ded227dd)
+  * [Viktor's keynote at Lambda Days 2020](https://www.youtube.com/watch?v=dkO59PTcNxA)  
+  * [Viktor's keynote at ScalaDays 2017 Copenhagen](https://www.youtube.com/watch?v=d4VeFa0z_Lo)
 
+Or documentation chapters, such as:
+  * [Documentation](https://epfl-lara.github.io/stainless/)
   * [Introduction to Stainless](https://epfl-lara.github.io/stainless/intro.html)
   * [Installation](https://epfl-lara.github.io/stainless/installation.html)
   * [Getting Started](https://epfl-lara.github.io/stainless/gettingstarted.html)
   * [Command-line Options](https://epfl-lara.github.io/stainless/options.html)
   * [Tutorial](https://epfl-lara.github.io/stainless/tutorial.html)
   * [Stainless EPFL Page](https://stainless.epfl.ch)
-  * [Viktor's keynote at Lambda Days 2020](https://www.youtube.com/watch?v=dkO59PTcNxA)  
-  * [Viktor's keynote at ScalaDays 2017 Copenhagen](https://www.youtube.com/watch?v=d4VeFa0z_Lo)
+  
+## Development
+
+To build the project, run `sbt universal:stage`. If all goes well, a binary gets generated: `frontends/scalac/target/universal/stage/bin/stainless-scalac`. More information is available in the documentation links.
 
 ## Other Links
 

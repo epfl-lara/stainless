@@ -1,10 +1,8 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 
 import inox.DebugSection
-
-object optNoColors extends inox.FlagOptionDef("no-colors", false)
 
 abstract class ReportMessage {
   def sbtPluginOnly: Boolean

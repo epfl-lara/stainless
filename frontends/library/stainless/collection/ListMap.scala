@@ -4,7 +4,7 @@ package collection
 import stainless.annotation._
 import stainless.lang._
 
-/** Ordered list-backed Map implementation */
+/** List-backed Map implementation */
 
 @library
 case class ListMap[A, B](toList: List[(A, B)]) {

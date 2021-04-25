@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 package extraction
@@ -94,18 +94,64 @@ trait Trees extends throwing.Trees { self =>
     override protected def ensureWellFormedClass(cd: ClassDef) = {
       super.ensureWellFormedClass(cd)
 
-      // Check that abstract methods are overriden
+      val methods = cd.methods.map(getFunction)
+      val fds = methods.filter(fd => !fd.getFieldDefPosition.isEmpty && fd.isField(isLazy = false))
+      val fids = fds.map(_.id).toSet
+
+      for (fd <- fds) {
+        val fid = fd.id
+        val position = fd.getFieldDefPosition.get
+
+        exprOps.fold[Unit] {
+          // allow access to fields defined previously
+          case (MethodInvocation(This(_), xid, _, Seq()), _)
+            if fids(xid) && lookupFunction(xid).forall {
+              fd => (fd.isAccessor || fd.isField) && fd.getFieldDefPosition.forall(_ < position)
+            } =>
+
+          // allways allow access to constructor params
+          case (ClassSelector(This(_), xid), _) =>
+
+          // check that methods and functions don't access fields defined previously
+          case (MethodInvocation(rec, xid, _, _), subs) =>
+            val _ = subs.toList // force visit to children
+            for (tid <- ((transitiveCallees(xid) + xid) & fids).find(tid => getFunction(tid).getFieldDefPosition.exists(_ >= position)))
+              throw NotWellFormedException(fd,
+                Some(s"field `$fid` can only refer to previous fields, not to `$tid`")
+              )
+
+          case (FunctionInvocation(xid, _, _), subs) =>
+            val _ = subs.toList // force visit to children
+            for (tid <- (transitiveCallees(xid) & fids).find(tid => getFunction(tid).getFieldDefPosition.exists(_ >= position)))
+              throw NotWellFormedException(fd,
+                Some(s"field `$fid` can only refer to previous fields, not to `$tid`")
+              )
+
+          case (_, subs) =>
+            val _ = subs.toList // force visit to children
+            ()
+        }(fd.fullBody)
+      }
+
+      // Check that abstract methods are overridden by a method, a lazy val, or a constructor parameter (but not by a val)
       if (!cd.isAbstract) {
         val remainingAbstract = (cd +: cd.ancestors.map(_.cd)).reverse.foldLeft(Set.empty[Symbol]) {
           case (abstractSymbols, acd) =>
-            val concreteSymbols = acd.methods.map(_.symbol).toSet
+            val concreteSymbols = acd.methods
+              .map(id => id.symbol -> getFunction(id))
+              .filter { case (_, fd) => !fd.isAbstract }
+              // fd.getFieldDefPosition is empty for lazy val's, non-empty for val's
+              .filter { case (_, fd) =>
+                (!fd.isAccessor || fd.isAccessorOfParam(acd)) && fd.getFieldDefPosition.isEmpty
+              }
+              .map(_._1).toSet
             val newAbstractSymbols = acd.methods.filter(id => getFunction(id).isAbstract).map(_.symbol).toSet
             abstractSymbols -- concreteSymbols ++ newAbstractSymbols
         }
 
         if (remainingAbstract.nonEmpty) {
           throw NotWellFormedException(cd,
-            Some("abstract methods " + remainingAbstract.map(_.name).mkString(", ") + " were not overriden"))
+            Some("abstract methods " + remainingAbstract.map(_.name).mkString(", ") + " were not overridden by a method, a lazy val, or a constructor parameter"))
         }
       }
 
@@ -206,6 +252,7 @@ trait Trees extends throwing.Trees { self =>
   case class IsMethodOf(id: Identifier) extends Flag("method", Seq(id))
 
   case object ValueClass extends Flag("valueClass", Seq.empty)
+  case class FieldDefPosition(i: Int) extends Flag("fieldDefPosition", Seq(i))
 
   implicit class ClassDefWrapper(cd: ClassDef) {
     def isSealed: Boolean = cd.flags contains IsSealed
@@ -236,14 +283,29 @@ trait Trees extends throwing.Trees { self =>
     def getClassId: Option[Identifier] =
       fd.flags collectFirst { case IsMethodOf(id) => id }
 
+    def getFieldDefPosition: Option[Int] =
+      fd.flags collectFirst { case FieldDefPosition(i) => i }
+
     def getClassDef(implicit s: Symbols): Option[ClassDef] =
       getClassId flatMap s.lookupClass
 
     def isAccessor: Boolean =
       fd.flags exists { case IsAccessor(_) => true case _ => false }
 
+    def isAccessorOfParam(cd: ClassDef)(implicit s: Symbols): Boolean =
+      fd.flags exists {
+        case IsAccessor(Some(id)) => cd.fields.map(_.id).contains(id)
+        case _ => false
+      }
+
+    def isAccessor(id: Identifier): Boolean =
+      fd.flags exists { case IsAccessor(Some(id2)) if id == id2 => true case _ => false }
+
     def isField: Boolean =
       fd.flags exists { case IsField(_) => true case _ => false }
+
+    def isField(isLazy: Boolean): Boolean =
+      fd.flags exists { case IsField(`isLazy`) => true case _ => false }
 
     def isSetter: Boolean = isAccessor && fd.id.name.endsWith("_=") && fd.params.size == 1
     def isGetter: Boolean = isAccessor && fd.params.isEmpty
@@ -255,7 +317,7 @@ trait Trees extends throwing.Trees { self =>
       (!isExtern && !hasBody && !isSynthetic && fd.getClassDef.forall(_.isAbstract))
     }
 
-    def hasBody: Boolean = exprOps.withoutSpecs(fd.fullBody).isDefined
+    def hasBody: Boolean = exprOps.BodyWithSpecs(fd.fullBody).hasBody
 
     def isInvariant: Boolean = fd.flags contains IsInvariant
     def isExtern: Boolean = fd.flags contains Extern
@@ -275,6 +337,7 @@ trait Trees extends throwing.Trees { self =>
 
 trait ExprOps extends throwing.ExprOps {
   protected val trees: Trees
+
 }
 
 trait Printer extends throwing.Printer {
@@ -335,6 +398,7 @@ trait TreeDeconstructor extends throwing.TreeDeconstructor {
     case s.IsMethodOf(id) => (Seq(id), Seq(), Seq(), (ids, _, _) => t.IsMethodOf(ids.head))
     case s.IsAccessor(id) => (id.toSeq, Seq(), Seq(), (ids, _, _) => t.IsAccessor(ids.headOption))
     case s.ValueClass => (Seq(), Seq(), Seq(), (_, _, _) => t.ValueClass)
+    case s.FieldDefPosition(i) => (Seq(), Seq(), Seq(), (_, _, _) => t.FieldDefPosition(i))
     case _ => super.deconstruct(f)
   }
 }

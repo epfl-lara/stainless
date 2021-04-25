@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 import scala.collection.parallel.ForkJoinTasks
 import scala.concurrent.ExecutionContext
@@ -109,18 +109,25 @@ package object stainless {
   }
 
   def topLevelErrorHandler(e: Throwable)(implicit ctx: inox.Context): Nothing = {
+    e match {
+      case extraction.MalformedStainlessCode(tree, msg) => ctx.reporter.error(tree.getPos, msg)
+      case _ => ()
+    }
+
     ctx.reporter.error(s"Stainless terminated with an error.")
 
     val sw = new StringWriter
     e.printStackTrace(new PrintWriter(sw))
     new PrintWriter("stainless-stack-trace.txt") { write(sw.toString); close }
 
-    ctx.reporter.error("Debug output is available in the file `stainless-stack-trace.txt`, you may report your issue on https://github.com/epfl-lara/stainless/issues")
+    ctx.reporter.error(
+      "Debug output is available in the file `stainless-stack-trace.txt`. " +
+      "If the crash is caused by Stainless, you may report your issue on https://github.com/epfl-lara/stainless/issues")
 
-    if (ctx.reporter.debugSections.contains(frontend.DebugSectionFrontend))
-      ctx.reporter.debug(sw.toString)(frontend.DebugSectionFrontend)
+    if (ctx.reporter.debugSections.contains(frontend.DebugSectionStack))
+      ctx.reporter.debug(sw.toString)(frontend.DebugSectionStack)
     else
-      ctx.reporter.error("You may use --debug=frontend to have the stack trace displayed in the output.")
+      ctx.reporter.error("You may use --debug=stack to have the stack trace displayed in the output.")
 
     System.exit(2)
     ??? // unreachable
@@ -144,7 +151,7 @@ package object stainless {
 
   private lazy val multiThreadedExecutor: java.util.concurrent.ExecutorService =
     nParallel.map(Executors.newFixedThreadPool(_)).getOrElse(ForkJoinTasks.defaultForkJoinPool)
-  private lazy val multiThreadedExecutionContext: ExecutionContext =
+  lazy val multiThreadedExecutionContext: ExecutionContext =
     ExecutionContext.fromExecutor(multiThreadedExecutor)
 
   implicit def executionContext(implicit ctx: inox.Context): ExecutionContext =

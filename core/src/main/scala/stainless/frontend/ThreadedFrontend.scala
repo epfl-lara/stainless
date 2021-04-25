@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 package frontend
@@ -26,6 +26,7 @@ abstract class ThreadedFrontend(callback: CallBack, ctx: inox.Context) extends F
 
     val runnable = new Runnable {
       override def run(): Unit = try {
+        exceptions.clear()
         initRun()
         callback.beginExtractions()
         onRun()

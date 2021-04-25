@@ -1,9 +1,7 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 package lang
-
-import scala.language.implicitConversions
 
 import annotation._
 import stainless.lang.StaticChecks._
@@ -27,7 +25,7 @@ case class ~>[A, B] private[stainless](pre: A => Boolean, private val f: A => B)
 case class ~>>[A, B](private val f: A ~> B, post: B => Boolean) {
   require(forall((x: A) => f.pre(x) ==> post(f(x))))
 
-  val pre = f.pre
+  lazy val pre = f.pre
 
   def apply(a: A): B = {
     require(pre(a))

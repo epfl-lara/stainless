@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 package extraction
@@ -25,12 +25,12 @@ package object methods {
     def apply(tree: inox.ast.Trees#Tree, msg: String) = new MethodsException(tree, msg)
   }
 
-  def extractor(implicit ctx: inox.Context) = {
-    val lowering = ExtractionPipeline(new CheckingTransformer {
-      override val s: trees.type = trees
-      override val t: throwing.trees.type = throwing.trees
-    })
+  def lowering(implicit ctx: inox.Context) = ExtractionPipeline(new CheckingTransformer {
+    override val s: trees.type = trees
+    override val t: throwing.trees.type = throwing.trees
+  })
 
+  def extractor(implicit ctx: inox.Context) = {
     utils.DebugPipeline("Laws",            Laws(trees))            andThen
     utils.DebugPipeline("SuperInvariants", SuperInvariants(trees))      andThen
     utils.DebugPipeline("SuperCalls",      SuperCalls(trees))      andThen
@@ -39,7 +39,7 @@ package object methods {
     utils.DebugPipeline("MergeInvariants", MergeInvariants(trees)) andThen
     utils.DebugPipeline("FieldAccessors",  FieldAccessors(trees))  andThen
     utils.DebugPipeline("ValueClasses",    ValueClasses(trees))    andThen
-    lowering
+    utils.DebugPipeline("MethodsLowering", lowering)
   }
 
   def fullExtractor(implicit ctx: inox.Context) = extractor andThen nextExtractor

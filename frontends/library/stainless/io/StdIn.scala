@@ -1,8 +1,6 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless.io
-
-import scala.language.implicitConversions
 
 import stainless.annotation._
 import stainless.lang.StaticChecks._
@@ -146,7 +144,7 @@ object StdIn {
   @library
   @extern
   private def nativeReadBigInt(seed: BigInt): BigInt = {
-    BigInt(scala.io.StdIn.readInt)
+    BigInt(scala.io.StdIn.readInt())
   } ensuring((x: BigInt) => true)
 
   @library
@@ -158,7 +156,7 @@ object StdIn {
   @library
   @extern
   private def nativeReadBoolean(seed: BigInt): Boolean = {
-    scala.io.StdIn.readBoolean
+    scala.io.StdIn.readBoolean()
   } ensuring((x: Boolean) => true)
 
 }

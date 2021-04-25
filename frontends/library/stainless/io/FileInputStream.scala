@@ -1,8 +1,6 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless.io
-
-import scala.language.implicitConversions
 
 import stainless.lang._
 import stainless.annotation._
@@ -17,10 +15,19 @@ import stainless.lang.StaticChecks._
 @library
 object FileInputStream {
 
-  /**
-   * Open a new stream to read from `filename`, if it exists.
-   */
+  /** Open a new stream to read from `filename`, if it exists.
+    */
   @extern
+  @cCode.function(
+    code = """
+    |static FILE* __FUNCTION__(char* filename, void* unused) {
+    |  FILE* this = fopen(filename, "r");
+    |  /* this == NULL on failure */
+    |  return this;
+    |}
+    """,
+    includes = ""
+  )
   def open(filename: String)(implicit state: State): FileInputStream = {
     state.seed += 1
 
@@ -40,28 +47,103 @@ object FileInputStream {
 }
 
 @library
+@cCode.typedef(alias = "FILE*", include = "stdio.h")
 case class FileInputStream(var filename: Option[String], var consumed: BigInt) {
 
-  /**
-   * Close the stream; return `true` on success.
-   *
-   * NOTE The stream must not be used afterward, even on failure.
-   */
-  def close(implicit state: State): Boolean = {
+  /** Close the stream; return `true` on success.
+    *
+    * NOTE The stream must not be used afterward, even on failure.
+    */
+  @cCode.function(
+    code = """
+      |static bool __FUNCTION__(FILE* this, void* unused) {
+      |  if (this != NULL)
+      |    return fclose(this) == 0;
+      |  else
+      |    return true;
+      |}
+      """,
+    includes = ""
+  )
+  @extern
+  def close()(implicit state: State): Boolean = {
     state.seed += 1
 
     filename = None[String]()
     true // This implementation never fails
   }
 
-  /**
-   * Test whether the stream is opened or not.
-   *
-   * NOTE This is a requirement for all write operations.
-   */
+  /** Test whether the stream is opened or not.
+    *
+    * NOTE This is a requirement for all write operations.
+    */
+  @cCode.function(
+    code = """
+      |static bool __FUNCTION__(FILE* this) {
+      |  return this != NULL;
+      |}
+      """,
+    includes = ""
+  )
   // We assume the stream to be opened if and only if the filename is defined.
   def isOpen: Boolean = {
     filename.isDefined
+  }
+
+  // Implementation detail
+  @library
+  @extern
+  @cCode.drop
+  private def nativeReadByte(seed: BigInt): (Boolean, Byte) = {
+    val in = new java.io.FileInputStream(filename.get)
+
+    // Skip what was already consumed by previous reads
+    assert(
+      in.skip(consumed.toLong) == consumed.toLong
+    ) // Yes, skip might not skip the requested number of bytes...
+
+    val b = Array[Byte](0)
+    val read = in.read(b)
+
+    in.close()
+
+    if (read != 1) (false, 0)
+    else {
+      consumed += read
+      (true, b(0))
+    }
+  }
+
+  /** Attempt to read the next byte of data.
+    */
+  @library
+  def tryReadByte()(implicit state: State): Option[Byte] = {
+    require(isOpen)
+
+    var valid = true
+
+    // Similar to tryReadInt, but here we have to use %c to read a byte
+    // (which assumes CHAR_BITS == 8) because SCNi8 will read char '0' to '9'
+    // and not the "raw" data.
+    @cCode.function(
+      code = """
+      |static int8_t __FUNCTION__(FILE** this, void** unused, bool* valid) {
+      |  int8_t x;
+      |  *valid = fscanf(*this, "%c", &x) == 1;
+      |  return x;
+      |}
+      """,
+      includes = "inttypes.h"
+    )
+    def impl(): Byte = {
+      state.seed += 1
+      val (check, value) = nativeReadByte(state.seed)
+      valid = check
+      value
+    }
+
+    val res = impl()
+    if (valid) Some(res) else None()
   }
 
   @library
@@ -113,7 +195,9 @@ case class FileInputStream(var filename: Option[String], var consumed: BigInt) {
     }
 
     // Skip what was already consumed by previous reads
-    assert(in.skip(consumed.toLong) == consumed.toLong) // Yes, skip might not skip the requested number of bytes...
+    assert(
+      in.skip(consumed.toLong) == consumed.toLong
+    ) // Yes, skip might not skip the requested number of bytes...
 
     // Handle error in parsing and close the stream, return the given error code
     def fail(e: Int): Int = {
@@ -128,7 +212,8 @@ case class FileInputStream(var filename: Option[String], var consumed: BigInt) {
     }
 
     // Match C99 isspace function: either space (0x20), form feed (0x0c), line feed (0x0a), carriage return (0x0d), horizontal tab (0x09) or vertical tab (0x0b)
-    def isSpace(c: Int): Boolean = Set(0x20, 0x0c, 0x0a, 0x0d, 0x09, 0x0b) contains c
+    def isSpace(c: Int): Boolean =
+      Set(0x20, 0x0c, 0x0a, 0x0d, 0x09, 0x0b) contains c
 
     // Digit base 10
     def isDigit(c: Int): Boolean = c >= '0' && c <= '9'
@@ -137,7 +222,7 @@ case class FileInputStream(var filename: Option[String], var consumed: BigInt) {
     def skipSpaces(): Int = {
       val x = read()
       if (isSpace(x)) skipSpaces()
-      else            x
+      else x
     }
 
     // Safely wrap the addition of the accumulator with a digit character
@@ -148,7 +233,7 @@ case class FileInputStream(var filename: Option[String], var consumed: BigInt) {
       val r = acc * 10 + x
 
       if (r >= 0) r
-      else        Int.MaxValue
+      else Int.MaxValue
     } // ensuring { res => res >= 0 && res <= Int.MaxInt }
 
     // Read as many digit as possible, and after each digit we mark
@@ -160,20 +245,18 @@ case class FileInputStream(var filename: Option[String], var consumed: BigInt) {
       val c = read()
 
       if (isDigit(c)) readDecInt(safeAdd(acc, c), true)
-      else if (mark)  success(acc) // at least one digit was processed
-      else            fail(-2) // no digit was processed
+      else if (mark) success(acc) // at least one digit was processed
+      else fail(-2) // no digit was processed
     }
 
     val first = skipSpaces()
     first match {
       case EOF             => fail(-1)
-      case '-'             => - readDecInt(0, false)
-      case '+'             =>   readDecInt(0, false)
-      case c if isDigit(c) =>   readDecInt(c - '0', true)
+      case '-'             => -readDecInt(0, false)
+      case '+'             => readDecInt(0, false)
+      case c if isDigit(c) => readDecInt(c - '0', true)
       case _               => fail(-3)
     }
-  } ensuring((x: Int) => true)
-
+  } ensuring ((x: Int) => true)
 
 }
-

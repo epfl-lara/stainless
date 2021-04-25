@@ -1,8 +1,6 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless.lang
-
-import scala.language.implicitConversions
 
 import stainless.annotation._
 import stainless.lang.StaticChecks._

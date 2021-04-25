@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 package verification
@@ -20,7 +20,7 @@ trait VerificationGenerator { self =>
       val fd = getFunction(id)
       val tactic = getTactic(fd)
 
-      if (fd.body.isDefined) {
+      if (exprOps.BodyWithSpecs(fd.fullBody).hasBody) {
         tactic.generateVCs(id)
       } else {
         Nil

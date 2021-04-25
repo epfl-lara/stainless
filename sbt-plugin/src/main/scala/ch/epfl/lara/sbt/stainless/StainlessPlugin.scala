@@ -52,7 +52,7 @@ object StainlessPlugin extends sbt.AutoPlugin {
       if !BuildInfo.supportedScalaVersions.contains(sv)
     } state.log.error(
       s"Project uses unsupported Scala version: $sv. " +
-      s"To use Stainless use the following Scala version: ${BuildInfo.supportedScalaVersions.mkString(",")}."
+      s"Stainless supports the following Scala version: ${BuildInfo.supportedScalaVersions.mkString(", ")}."
     )
     state
   }

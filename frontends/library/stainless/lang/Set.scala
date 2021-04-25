@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless.lang
 
@@ -6,7 +6,6 @@ import StaticChecks._
 import stainless.annotation._
 import stainless.collection.{List, ListOps}
 
-import scala.language.implicitConversions
 import scala.collection.immutable.{Set => ScalaSet}
 
 object Set {
@@ -35,31 +34,52 @@ object Set {
     @extern @pure
     def map[B](f: A => B): Set[B] = {
       new Set(set.theSet.map(f))
-    } ensuring { res =>
-      forall((a: A) => set.contains(a) == res.contains(f(a)))
+    }
+
+    @extern @pure
+    def mapPost1[B](f: A => B)(a: A): Unit = {
+      ()
+    }.ensuring { _ =>
+      !set.contains(a) || map[B](f).contains(f(a))
+    }
+   
+    @extern @pure
+    def mapPost2[B](f: A => B)(b: B): A = {
+      require(map[B](f).contains(b))
+      (??? : A)
+    }.ensuring { (a:A) =>
+      b == f(a) && set.contains(a)
     }
 
     @extern @pure
     def filter(p: A => Boolean): Set[A] = {
       new Set(set.theSet.filter(p))
-    } ensuring { res =>
-      forall((a: A) => if (set.contains(a) && p(a)) res.contains(a) else !res.contains(a))
     }
+
+    @extern @pure
+    def filterPost(p: A => Boolean)(a: A): Unit = {
+      ()
+    }.ensuring (_ => filter(p).contains(a) == (p(a) && set.contains(a)))
 
     @extern @pure
     def withFilter(p: A => Boolean): Set[A] = {
       new Set(set.theSet.filter(p))
-    } ensuring { res =>
-      forall((a: A) => if (set.contains(a) && p(a)) res.contains(a) else !res.contains(a))
     }
+
+    @extern @pure
+    def withFilterPost(p: A => Boolean)(a: A): Unit = {
+      ()
+    } ensuring (_ => withFilter(p).contains(a) == (p(a) && set.contains(a)))
 
     @extern @pure
     def toList: List[A] = {
       List.fromScala(set.theSet.toList)
-    } ensuring { res =>
-      forall((a: A) => res.contains(a) == set.contains(a)) &&
-      ListOps.noDuplicate(res)
-    }
+    } ensuring (ListOps.noDuplicate(_))
+
+    @extern @pure
+    def toListPost(a:A): Unit = {
+      ()
+    } ensuring(_ => toList.contains(a) == set.contains(a))
 
     @extern @pure
     def toScala: ScalaSet[A] = set.theSet
@@ -84,7 +104,6 @@ case class Set[T](theSet: scala.collection.immutable.Set[T]) {
 
   def &(a: Set[T]): Set[T] = new Set[T](theSet & a.theSet)
 
-  def size: BigInt = theSet.size
   def isEmpty: Boolean = theSet.isEmpty
 
   def contains(a: T): Boolean = theSet.contains(a)

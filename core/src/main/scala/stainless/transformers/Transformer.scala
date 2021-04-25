@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 package transformers
@@ -14,23 +14,28 @@ trait Transformer extends inox.transformers.Transformer { self =>
     s.getDeconstructor(t).asInstanceOf[ast.TreeDeconstructor { val s: self.s.type; val t: self.t.type }]
   }
 
-  private def transformCases(cases: Seq[s.MatchCase], env: Env): (Seq[t.MatchCase], Boolean) = {
+  def transformCase(cse: s.MatchCase, env: Env): t.MatchCase = {
+    val s.MatchCase(pat, guard, rhs) = cse
+    val newPat = transform(pat, env)
+    val newGuard = guard.map(transform(_, env))
+    val newRhs = transform(rhs, env)
+    t.MatchCase(newPat, newGuard, newRhs).copiedFrom(cse)
+  }
+
+  def transformCases(cases: Seq[s.MatchCase], env: Env): (Seq[t.MatchCase], Boolean) = {
     var changed = false
     val newCases = for (cse @ s.MatchCase(pat, guard, rhs) <- cases) yield {
-      val newPat = transform(pat, env)
-      val newGuard = guard.map(transform(_, env))
-      val newRhs = transform(rhs, env)
+      val newCase = transformCase(cse, env)
 
-      if ((pat ne newPat) || guard.exists(_ ne newGuard.get) || (rhs ne newRhs) || (s ne t)) {
+      if ((pat ne newCase.pattern) || guard.exists(_ ne newCase.optGuard.get) || (rhs ne newCase.rhs) || (s ne t)) {
         changed = true
-        t.MatchCase(newPat, newGuard, newRhs).copiedFrom(cse)
+        newCase
       } else {
         cse.asInstanceOf[t.MatchCase]
       }
     }
     (newCases, changed)
   }
-
 
   override def transform(e: s.Expr, env: Env): t.Expr = e match {
     case s.MatchExpr(scrut, cases) =>

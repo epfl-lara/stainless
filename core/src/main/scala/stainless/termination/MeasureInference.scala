@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 package termination
@@ -40,13 +40,13 @@ trait MeasureInference
 
       override def transform(e: s.Expr): t.Expr = e match {
         case Decreases(v: Variable, body) if v.getType(symbols).isInstanceOf[ADTType] =>
-          t.Decreases(transform(size(v)), transform(body))
+          t.Decreases(transform(size(v)), transform(body)).setPos(e)
 
         case Decreases(Tuple(ts), body) =>
           t.Decreases(t.Tuple(ts.map {
             case v: Variable if v.getType(symbols).isInstanceOf[ADTType] => transform(size(v))
             case e => transform(e)
-          }), transform(body))
+          }), transform(body)).setPos(e)
 
         case _ =>
           super.transform(e)
@@ -59,34 +59,14 @@ trait MeasureInference
       }
     }
 
-    def mutuallyRecursiveWithoutMeasure(id: Identifier): Option[Identifier] = {
-      symbols.dependencies(id).find(id2 =>
-        symbols.lookupFunction(id2).exists(fd2 =>
-          symbols.dependencies(id2).contains(id) &&
-          !fd2.measure(symbols).isEmpty
-        )
-      )
-    }
-
-    def needsMeasure(fd: FunDef): Boolean = {
-      if (symbols.isRecursive(fd.id) && fd.measure(symbols).isEmpty) {
-        mutuallyRecursiveWithoutMeasure(fd.id) match {
-          case None =>
-            true
-          case Some(id) =>
-            reporter.fatalError(fd.getPos,
-              s"""Function ${fd.id} has no measure annotated, but mutually recursive function ${id} has one.
-                 |Please annotated both with a measure, or none for measure inference.""".stripMargin
-            )
-        }
-      } else {
-        false
-      }
+    def needsMeasure(fd: FunDef): Boolean = symbols.isRecursive(fd.id) && {
+      val specced = exprOps.BodyWithSpecs(fd.fullBody)
+      !specced.specs.exists(_.kind == exprOps.MeasureKind)
     }
 
     def inferMeasure(original: FunDef): FunDef = measureCache.get(original) match {
       case Some(measure) =>
-        original.copy(fullBody = exprOps.withMeasure(original.fullBody, Some(measure)))
+        original.copy(fullBody = exprOps.withMeasure(original.fullBody, Some(measure.setPos(original))))
 
       case None => try {
         val guarantee = timers.evaluators.termination.inference.run {
@@ -98,7 +78,7 @@ trait MeasureInference
           case pipeline.Terminates(_, Some(measure)) =>
             reporter.info(s" => Found measure for ${original.id.asString}.")
             measureCache ++= pipeline.measureCache.get
-            original.copy(fullBody = exprOps.withMeasure(original.fullBody, Some(measure)))
+            original.copy(fullBody = exprOps.withMeasure(original.fullBody, Some(measure.setPos(original))))
 
           case pipeline.Terminates(_, None) =>
             reporter.info(s" => No measure needed for ${original.id.asString}.")

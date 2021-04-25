@@ -1,19 +1,12 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless.util
 
-import scala.language.implicitConversions
-
 import stainless.annotation._
 import stainless.lang.StaticChecks._
+import stainless.io._
 
 object Random {
-
-  @library
-  case class State(var seed: BigInt)
-
-  @library
-  def newState: State = State(0)
 
   @library
   @isabelle.noBody()
@@ -25,7 +18,7 @@ object Random {
   @library
   @extern
   private def nativeNextBoolean(seed: BigInt): Boolean = {
-    scala.util.Random.nextBoolean
+    scala.util.Random.nextBoolean()
   } ensuring((x: Boolean) => true)
 
 
@@ -40,7 +33,7 @@ object Random {
   @library
   @extern
   private def nativeNextInt(seed: BigInt): Int = {
-    scala.util.Random.nextInt
+    scala.util.Random.nextInt()
   } ensuring((x: Int) => true)
 
 
@@ -71,7 +64,7 @@ object Random {
   @library
   @extern
   private def nativeNextBigInt(seed: BigInt): BigInt = {
-    BigInt(scala.util.Random.nextInt)
+    BigInt(scala.util.Random.nextInt())
   } ensuring((x: BigInt) => true)
 
 

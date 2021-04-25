@@ -14,7 +14,6 @@ val isMac     = osInf.indexOf("Mac") >= 0
 val osName = if (isWindows) "win" else if (isMac) "mac" else "unix"
 val osArch = System.getProperty("sun.arch.data.model")
 
-val inoxVersion = "1.1.0-343-gdc719cc"
 val dottyLibrary = "dotty-compiler_2.12"
 val dottyVersion = "0.12.0-RC1-nonbootstrapped"
 val circeVersion = "0.10.0-M2"
@@ -32,7 +31,7 @@ lazy val nParallel = {
   }
 }
 
-val SupportedScalaVersions = Seq("2.12.9")
+val SupportedScalaVersions = Seq("2.12.13")
 
 lazy val frontendClass = settingKey[String]("The name of the compiler wrapper used to extract stainless trees")
 
@@ -69,6 +68,14 @@ lazy val artifactSettings: Seq[Setting[_]] = baseSettings ++ Seq(
   buildInfoOptions := Seq(BuildInfoOption.BuildTime),
 )
 
+// FIXME: Uncomment this when we are are able to upgrade sbt version
+// Global / excludeLintKeys ++= Set(
+//   buildInfoPackage,
+//   buildInfoKeys,
+//   buildInfoOptions,
+//   testOptions
+// )
+
 lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
   scalacOptions ++= Seq(
     "-deprecation",
@@ -76,19 +83,14 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
     "-feature"
   ),
 
-  unmanagedJars in Runtime += {
-    root.base / "unmanaged" / s"scalaz3-$osName-$osArch-${scalaBinaryVersion.value}.jar"
-  },
-
   resolvers ++= Seq(
-    Resolver.sonatypeRepo("releases"),
-    Resolver.bintrayRepo("epfl-lara", "maven"),
+    Resolver.sonatypeRepo("releases").withAllowInsecureProtocol(true),
     ("uuverifiers" at "http://logicrunch.research.it.uu.se/maven").withAllowInsecureProtocol(true),
   ),
 
   libraryDependencies ++= Seq(
-    "ch.epfl.lara"    %% "inox"          % inoxVersion,
-    "ch.epfl.lara"    %% "inox"          % inoxVersion % "test" classifier "tests",
+    // "ch.epfl.lara"    %% "inox"          % inoxVersion,
+    // "ch.epfl.lara"    %% "inox"          % inoxVersion % "test" classifier "tests",
     "ch.epfl.lara"    %% "cafebabe"      % "1.2",
     "uuverifiers"     %% "princess"      % "2018-02-26" ,
     "io.circe"        %% "circe-core"    % circeVersion,
@@ -122,6 +124,8 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
   Test / testOptions := Seq(Tests.Argument("-oDF")),
 
   IntegrationTest / testOptions := Seq(Tests.Argument("-oDF")),
+
+  ThisBuild / maxErrors := 5
 )
 
 lazy val assemblySettings: Seq[Setting[_]] = {
@@ -134,6 +138,12 @@ lazy val assemblySettings: Seq[Setting[_]] = {
       // hence the following merge strategy picks the standalone BuildInfo over the usual one.
       case "stainless/BuildInfo.class" => MergeStrategy.first
       case "stainless/BuildInfo$.class" => MergeStrategy.first
+      case PathList("META-INF", xs @ _*) => MergeStrategy.discard
+      case PathList("scala", "collection", "compat", _*) => MergeStrategy.first
+      case PathList("scala", "annotation", _*) => MergeStrategy.first
+      case PathList("scala", "util", _*) => MergeStrategy.first
+      case path if path.endsWith("scala-collection-compat.properties") => MergeStrategy.first
+      case "reflect.properties" => MergeStrategy.first
       case file if isNativeLib(file) => MergeStrategy.first
       case x =>
         val oldStrategy = (assembly / assemblyMergeStrategy).value
@@ -142,15 +152,25 @@ lazy val assemblySettings: Seq[Setting[_]] = {
   )
 }
 
+lazy val libFilesFile = "libfiles.txt" // file storing list of library file names
+
+lazy val regenFilesFile = false
+  
 lazy val libraryFiles: Seq[(String, File)] = {
   val libFiles = ((root.base / "frontends" / "library") ** "*.scala").get
   val dropCount = (libFiles.head.getPath indexOfSlice "library") + ("library".size + 1 /* for separator */)
-  libFiles.map(file => (file.getPath drop dropCount, file)) // Drop the prefix of the path (i.e. everything before "library")
+  val res : Seq[(String, File)] = libFiles.map(file => (file.getPath drop dropCount, file)) // Drop the prefix of the path (i.e. everything before "library")
+  if (regenFilesFile) {
+    val fileNames : Seq[String] = res.map(_._1)
+    println(fileNames)
+    reflect.io.File(libFilesFile).writeAll(fileNames.mkString("\n"))
+  }
+  res
 }
 
 lazy val commonFrontendSettings: Seq[Setting[_]] = Defaults.itSettings ++ Seq(
   libraryDependencies ++= Seq(
-    "ch.epfl.lara" %% "inox" % inoxVersion % "it" classifier "tests" classifier "it",
+    // "ch.epfl.lara" %% "inox" % inoxVersion % "it" classifier "tests" classifier "it",
     "org.scalatest" %% "scalatest" % "3.0.1" % "it" // FIXME: Does this override `% "test"` from commonSettings above?
   ),
 
@@ -187,12 +207,16 @@ lazy val commonFrontendSettings: Seq[Setting[_]] = Defaults.itSettings ++ Seq(
           |
           |  val extraClasspath = \"\"\"${removeSlashU(extraClasspath.value)}\"\"\"
           |  val extraCompilerArguments = List("-classpath", \"\"\"${removeSlashU(extraClasspath.value)}\"\"\")
+          | 
+          |  val defaultPaths = List(${removeSlashU(libraryFiles.map(_._1).mkString("\"\"\"", "\"\"\",\n \"\"\"", "\"\"\""))})
+          |  val libPaths = try {
+          |    val source = scala.io.Source.fromFile(\"${libFilesFile}\")
+          |    try source.getLines.toList finally source.close()
+          |  } catch {
+          |     case (_:Throwable) => defaultPaths
+          |  }
           |
-          |  val libraryPaths = List(
-          |    ${removeSlashU(libraryFiles.map(_._1).mkString("\"\"\"", "\"\"\",\n    \"\"\"", "\"\"\""))}
-          |  )
-          |
-          |  override val factory = new frontends.${frontendClass.value}.Factory(extraCompilerArguments, libraryPaths)
+          |  override val factory = new frontends.${frontendClass.value}.Factory(extraCompilerArguments, libPaths)
           |
           |}""".stripMargin)
     Seq(main)
@@ -212,7 +236,8 @@ val scriptSettings: Seq[Setting[_]] = Seq(
 
 def ghProject(repo: String, version: String) = RootProject(uri(s"${repo}#${version}"))
 
-//lazy val inox = RootProject(file("../inox"))
+// lazy val inox = RootProject(file("../inox"))
+lazy val inox = ghProject("https://github.com/epfl-lara/inox.git", "fdbf887e8992018dd97a63fd078a89ee91273c51")
 //lazy val dotty = ghProject("git://github.com/lampepfl/dotty.git", "b3194406d8e1a28690faee12257b53f9dcf49506")
 
 // Allow integration test to use facilities from regular tests
@@ -225,7 +250,7 @@ lazy val `stainless-core` = (project in file("core"))
   .settings(name := "stainless-core")
   .settings(commonSettings, publishMavenSettings)
   //.settings(site.settings)
-  //.dependsOn(inox % "compile->compile;test->test")
+  .dependsOn(inox % "compile->compile;test->test")
 
 lazy val `stainless-library` = (project in file("frontends") / "library")
   .disablePlugins(AssemblyPlugin)
@@ -272,7 +297,7 @@ lazy val `stainless-scalac` = (project in file("frontends") / "scalac")
     },
   )
   .dependsOn(`stainless-core`)
-  //.dependsOn(inox % "test->test;it->test,it")
+  .dependsOn(inox % "test->test;it->test,it")
   .configs(IntegrationTest)
 
 // Following https://github.com/sbt/sbt-assembly#q-despite-the-concerned-friends-i-still-want-publish-fat-jars-what-advice-do-you-have
@@ -297,28 +322,29 @@ lazy val `stainless-scalac-standalone` = (project in file("frontends") / "stainl
   )
   .dependsOn(`stainless-scalac`)
 
-lazy val `stainless-dotty-frontend` = (project in file("frontends/dotty"))
-  .settings(commonSettings)
-  .settings(name := "stainless-dotty-frontend")
-  .dependsOn(`stainless-core`)
-  .settings(libraryDependencies += "ch.epfl.lamp" % dottyLibrary % dottyVersion % "provided")
+// lazy val `stainless-dotty-frontend` = (project in file("frontends/dotty"))
+//   .settings(commonSettings)
+//   .settings(noPublishSettings)
+//   .settings(name := "stainless-dotty-frontend")
+//   .dependsOn(`stainless-core`)
+//   .settings(libraryDependencies += "ch.epfl.lamp" % dottyLibrary % dottyVersion % "provided")
 
-lazy val `stainless-dotty` = (project in file("frontends/stainless-dotty"))
-  .enablePlugins(JavaAppPackaging)
-  .enablePlugins(BuildInfoPlugin)
-  .settings(commonSettings, commonFrontendSettings)
-  .settings(artifactSettings, scriptSettings)
-  .settings(noPublishSettings)
-  .settings(
-    name := "stainless-dotty",
-    frontendClass := "dotc.DottyCompiler",
-  )
-  //.dependsOn(inox % "test->test;it->test,it")
-  .dependsOn(`stainless-dotty-frontend`)
-  .aggregate(`stainless-dotty-frontend`)
-  // Should truly depend on dotty, overriding the "provided" modifier above:
-  .settings(libraryDependencies += "ch.epfl.lamp" % dottyLibrary % dottyVersion)
-  .configs(IntegrationTest)
+// lazy val `stainless-dotty` = (project in file("frontends/stainless-dotty"))
+//   .enablePlugins(JavaAppPackaging)
+//   .enablePlugins(BuildInfoPlugin)
+//   .settings(commonSettings, commonFrontendSettings)
+//   .settings(artifactSettings, scriptSettings)
+//   .settings(noPublishSettings)
+//   .settings(
+//     name := "stainless-dotty",
+//     frontendClass := "dotc.DottyCompiler",
+//   )
+//   .dependsOn(inox % "test->test;it->test,it")
+//   .dependsOn(`stainless-dotty-frontend`)
+//   .aggregate(`stainless-dotty-frontend`)
+//   // Should truly depend on dotty, overriding the "provided" modifier above:
+//   .settings(libraryDependencies += "ch.epfl.lamp" % dottyLibrary % dottyVersion)
+//   .configs(IntegrationTest)
 
 lazy val `sbt-stainless` = (project in file("sbt-plugin"))
   .enablePlugins(BuildInfoPlugin)
@@ -359,8 +385,8 @@ lazy val root = (project in file("."))
   .settings(
     sourcesInBase in Compile := false,
   )
-  .dependsOn(`stainless-scalac`, `stainless-library`, `stainless-dotty`, `sbt-stainless`)
-  .aggregate(`stainless-core`, `stainless-library`, `stainless-scalac`, `stainless-dotty`, `sbt-stainless`, `stainless-scalac-plugin`)
+  .dependsOn(`stainless-scalac`, `stainless-library`/*, `stainless-dotty`*/, `sbt-stainless`)
+  .aggregate(`stainless-core`, `stainless-library`, `stainless-scalac`/*, `stainless-dotty`*/, `sbt-stainless`, `stainless-scalac-plugin`)
 
 def commonPublishSettings = Seq(
   bintrayOrganization := Some("epfl-lara")

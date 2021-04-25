@@ -1,4 +1,4 @@
-.. _purescala:
+  .. _purescala:
 
 Pure Scala
 ==========
@@ -219,6 +219,34 @@ It is also possible to call methods of a superclass with the ``super`` keyword.
     }
   }
 
+Abstract methods may have contracts in terms of pre- and postconditions. The
+syntax uses ``???`` and is as follows:
+
+.. code-block:: scala
+
+  abstract class Set[T] {
+    def contains[T](t: T): Boolean
+
+    def add[T](t: T): Set[T] = {
+      require(!this.contains(t))
+      (??? : Set[T])
+    }.ensuring(res => res.contains(t))
+  }
+
+You can then extend such abstract classes by concrete implementations, and
+Stainless will generate verification conditions to make sure that the
+implementation respects the specification.
+
+You can also add implementations and assume that they are correct with respect
+to the specification of the abstract class, without having Stainless check the
+specification (e.g. if you want to use existing Scala data-structures inside).
+In that case, mark the concrete class with ``@extern`` (see Section :doc:`wrap`
+for more info on ``@extern``) or place the concrete implementation in files
+which are not inspected by Stainless (see e.g.
+https://github.com/epfl-lara/stainless-project.g8 for an example of how to setup
+such a hybrid project).
+
+
 Copy Method
 ***********
 
@@ -242,6 +270,76 @@ to be satisfied as a precondition.
   as ``Foo`` require its field ``x`` to be positive.
 
 
+Initialization
+**************
+
+In Pure Scala, initialization of ``val``'s  may not have future or self-references:
+
+.. code-block:: scala
+
+  object Initialization {
+    case class C(x: BigInt) {
+      val y = x       // ok
+      val z = y + x   // ok
+      val a = b       // Error: "because field `a` can only refer to previous fields, not to `b`"
+      val b = z + y   // ok
+    }
+  }
+
+
+Overriding
+**********
+
+Stainless supports overriding methods with some constraints:
+* A ``val`` in an abstract class can only be overridden by a concrete class parameter.
+* Methods and ``lazy val``s in abstract classes can be overridden by concrete methods or
+``lazy val``'s (interchangably), or by a concrete class parameter, but not by
+a ``val``.
+
+Here are a few examples that are rejected by Stainless:
+
+.. code-block:: scala
+
+  object BadOverride1 {
+    sealed abstract class Abs {
+      require(x != 0)
+      val x: Int
+    }
+
+    // Error: "Abstract values `x` must be overridden with fields in concrete subclass"
+    case class AbsInvalid() extends Abs {
+      def x: Int = 1
+    }
+  }
+
+.. code-block:: scala
+
+  object BadOverride2 {
+    sealed abstract class Abs {
+      val y: Int
+    }
+
+    // Error: "Abstract values `y` must be overridden with fields in concrete subclass"
+    case class AbsInvalid() extends Abs {
+      val y: Int = 2
+    }
+  }
+
+.. code-block:: scala
+
+  object BadOverride3 {
+    sealed abstract class AAA {
+      def f: BigInt
+    }
+
+    // Error: "because abstract methods BadOverride3.AAA.f were not overridden by
+    //         a method, a lazy val, or a constructor parameter"
+    case class BBB() extends AAA {
+      val f: BigInt = 0
+    }
+  }
+
+
 Default Parameters
 ******************
 
@@ -252,6 +350,7 @@ Functions and methods can have default values for their parameters.
   def test(x: Int = 21): Int = x * 2
 
   assert(test() == 42) // valid
+
 
 
 Type Definitions
@@ -283,7 +382,7 @@ Type Members
 
 Much like classes can have field members and method members, they can also
 define type members. Much like other members, those can also be declared
-abstract within an abstract class and overriden in implementations:
+abstract within an abstract class and overridden in implementations:
 
 .. code-block:: scala
 
@@ -639,3 +738,99 @@ Function
   currently quite limited.
 
 
+
+BitVectors
+**********
+
+These examples are taken from `BitVectors3.scala
+<https://github.com/epfl-lara/stainless/blob/master/frontends/benchmarks/verification/valid/MicroTests/BitVectors3.scala>`_.
+
+.. code-block:: scala
+
+  import stainless.math.BitVectors._
+
+  val x1: UInt8 = 145
+  val x2: Int8 = x1.toSigned[Int8] // conversion from unsigned to signed ints
+
+  // Bitvectors can be compared to literal constants, which are encoded as a bitvector of the same
+  // type as the left-hand-side bitvector.
+  // In the line below, `-111` get encoded internally as an `Int8`.
+  assert(x2 == -111)
+
+  // In Stainless internals, `Int8` and `Byte` are the same type, but not for the surface language,
+  // so `toByte` allows to go from `Int8` to `Byte`.
+  // Similarly, we support `toShort`, `toInt`, `toLong` for conversions
+  // respectively from `Int16` to `Short`, `Int32` to `Int`, `Int64` to `Long`,
+  // and `fromByte`, `fromShort`, `fromInt`, `fromLong` for the other direction
+  val x3: Byte = x2.toByte
+  assert(x3 == -111)
+
+  // Unsigned ints can be cast to larger unsigned types
+  val x4: UInt12 = x1.widen[UInt12]
+  assert(x4 == 145)
+
+  // or truncated to smaller unsigned types.
+  val x5: UInt4 = x1.narrow[UInt4]
+  assert(x5 == 1) // 145 % 2^4 == 1
+
+  // Signed ints can also be cast to larger signed types (using sign extension)
+  val x6: Int8 = 120
+  val x7: Int12 = x6.widen[Int12]
+  assert(x7 == 120)
+
+  // and cast to smaller signed types.
+  // This corresponds to extracting the least significant bits of the representation
+  // (see `extract` here http://smtlib.cs.uiowa.edu/logics-all.shtml).
+  val x8: Int4 = x6.narrow[Int4]
+  assert(x8 == -8)
+
+  // the `toByte`, `toShort`, `toInt`, and `toLong` methods described above
+  // can be used on any bitvector type. For signed integers, this corresponds
+  // to a narrowing or a widening operation depending on the bitvector size.
+  // For unsigned integers, this corresponds to first doing a widening/narrowing
+  // operation, and then applying `toSigned`
+  val x9: UInt2 = 3
+  assert(x9.toInt == x9.widen[UInt32].toSigned[Int32].toInt)
+
+  // The library also provide constants for maximum and minimum values.
+  assert(max[Int8] == 127)
+  assert(min[Int8] == -128)
+
+
+Arrays, which are usually indexed using ``Int``, may also be indexed using the bitvector types.
+This is similar to first converting the bitvector index using ``toInt``.
+
+Bitvector types can be understood as finite intervals of integers
+(two's complement representation). For ``X`` an integer larger than ``1``
+(and at most ``256`` in Stainless):
+
+* ``UIntX`` is the interval :math:`[0, 2^X - 1]`,
+* ``IntX`` is the interval :math:`[-2^{X-1}, 2^{X-1} - 1]`.
+
+Conversions between these types can be interpreted as operations on the
+arrays of bits of the bitvectors, or as operations on the integers they
+represent.
+
+* ``widen`` from ``UIntX`` to ``UIntY`` with :math:`Y > X` adds :math:`Y-X` (most significant) 0-bits, and corresponds to the identity transformation on integers.
+
+* ``widen`` from ``IntX`` to ``IntY`` with :math:`Y > X` copies :math:`Y-X` times the sign bit (sign-extension), and corresponds to the identity transformation on integers.
+
+* ``narrow`` from ``UIntX`` to ``UIntY`` with :math:`Y < X` removes the :math:`X-Y` most significant bits,
+  and corresponds to taking the number modulo :math:`2^Y`.
+  When the ``strict-arithmetic`` option is enabled, narrowing a number ``n`` to ``UIntY`` generates
+  a check ``n < 2^Y``.
+
+* ``narrow`` from ``IntX`` to ``IntY`` with :math:`Y < X` removes the :math:`X-Y` most significant bits (including the sign bit),
+  and corresponds to the identity for integers in the interval :math:`[-2^{Y-1}, 2^{Y-1} - 1]`. Outside this range,
+  the narrowing operation on a number ``n`` can be described as: 1) (unsigning) adding ``2^X`` if ``n`` is negative,
+  2) (unsigned narrowing) taking the result modulo ``2^Y``, 3) (signing) removing ``2^Y`` if the result of (2) is
+  greater or equal than ``2^{Y-1}``.
+  In ``strict-arithmetic`` mode, narrowing a number ``n`` to ``IntY`` generates two checks: ``-2^{Y-1} <= n`` and ``n <= 2^{Y-1} - 1``.
+
+* ``toSigned`` from ``UIntX`` to ``IntX`` does not change the bitvector, and behaves as the identity for integers not larger than :math:`2^{X-1}-1`,
+  and subtracts :math:`2^{X}` for integers in the interval :math:`[2^{X-1}, 2^{X} - 1]`.
+  In ``strict-arithmetic`` mode, making a number ``n`` signed generates a check ``n <= 2^{X-1}-1``.
+
+* ``toUnsigned`` from ``IntX`` to ``UIntX`` does not change the bitvector, and behaves as the identity
+  for non-negative integers, and adds :math:`2^{X}` for negative integers (in the interval :math:`[-2^{X-1}, 0[`).
+  In ``strict-arithmetic`` mode, making a number ``n`` unsigned generates a check ``n >= 0``.

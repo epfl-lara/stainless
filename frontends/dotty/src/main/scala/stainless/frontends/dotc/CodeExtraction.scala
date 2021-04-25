@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 package frontends.dotc
@@ -430,7 +430,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
     var typeMembers: Seq[xt.TypeDef] = Seq.empty
 
     // We collect the methods and fields
-    for (d <- template.body) d match {
+    for ((d, i) <- template.body.zipWithIndex) d match {
       case tpd.EmptyTree =>
         // ignore
 
@@ -484,7 +484,12 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         methods :+= extractFunction(fsym, dd, tparams, vparams, rhs)(defCtx)
 
       case t @ ExFieldDef(fsym, _, rhs) =>
-        methods :+= extractFunction(fsym, t, Seq.empty, Seq.empty, rhs)(defCtx)
+        val fd = extractFunction(fsym, t, Seq.empty, Seq.empty, rhs)(defCtx)
+        // this case split doesn't appear to be necessary in scalac extraction (always false?)
+        if (fsym is Lazy)
+          methods :+= fd.copy(flags = fd.flags)
+        else
+          methods :+= fd.copy(flags = fd.flags :+ xt.FieldDefPosition(i))
 
       case t @ ExFieldAccessorFunction(fsym, _, vparams, rhs) if flags.contains(xt.IsAbstract) =>
         methods :+= extractFunction(fsym, t, Seq.empty, vparams, rhs)(defCtx)
@@ -682,12 +687,18 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       (if (sym is Synthetic) Seq(xt.Synthetic) else Seq()) ++
       Seq(xt.IsAccessor(Some(field)))
 
+    val bodyOrEmpty = if (flags.contains(xt.Extern)) {
+      xt.exprOps.withBody(body, xt.NoTree(returnType).setPos(sym.pos))
+    } else {
+      body
+    }
+
     new xt.FunDef(
       id,
       Seq.empty,
       args,
       returnType,
-      body,
+      bodyOrEmpty,
       flags.distinct
     ).setPos(sym.pos)
   }
@@ -891,7 +902,8 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
         val vd = xt.VarDef(FreshIdentifier(name.toString), extractType(tpt)(dctx), annotationsOf(sym, ignoreOwner = true)).setPos(sym.pos)
         (vds + (sym -> vd), dctx.withNewMutableVar((sym, () => vd.toVariable)))
       } else {
-        val vd = xt.ValDef(FreshIdentifier(name.toString), extractType(tpt)(dctx), annotationsOf(sym, ignoreOwner = true)).setPos(sym.pos)
+        val laziness = if (sym is Lazy) Some(xt.Lazy) else None
+        val vd = xt.ValDef(FreshIdentifier(name.toString), extractType(tpt)(dctx), annotationsOf(sym, ignoreOwner = true) ++ laziness).setPos(sym.pos)
         (vds + (sym -> vd), dctx.withNewVar((sym, () => vd.toVariable)))
       }
     }
@@ -1002,11 +1014,6 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
       case (arg, ExprType(_)) => xt.Lambda(Seq(), extractTree(arg)).setPos(arg.pos)
       case (arg, _) => extractTree(arg)
     }
-  }
-
-  private def stripAnnotations(tpe: xt.Type): xt.Type = tpe match {
-    case xt.AnnotatedType(tpe, _) => stripAnnotations(tpe)
-    case _ => tpe
   }
 
   private def extractTree(tr: tpd.Tree)(implicit dctx: DefContext): xt.Expr = (tr match {
@@ -1503,7 +1510,7 @@ class CodeExtraction(inoxCtx: inox.Context, cache: SymbolsContext)(implicit val 
             xt.ApplyLetRec(id, tparams.map(_.tp), tpe, tps map extractType, extractArgs(sym, args)).setPos(tr.pos)
         }
 
-      case Some(lhs) => stripAnnotations(extractType(lhs)(dctx.setResolveTypes(true))) match {
+      case Some(lhs) => xt.exprOps.stripAnnotations(extractType(lhs)(dctx.setResolveTypes(true))) match {
         case ct: xt.ClassType =>
           val id = if (sym is ParamAccessor) getParam(sym) else getIdentifier(sym)
           xt.MethodInvocation(extractTree(lhs), id, tps map extractType, extractArgs(sym, args)).setPos(tr.pos)

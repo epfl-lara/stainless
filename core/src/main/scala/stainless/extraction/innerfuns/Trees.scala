@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 package extraction
@@ -191,4 +191,43 @@ trait ExprOps extends extraction.ExprOps {
     case LetRec(fds, body) => variablesOf(body) ++ fds.flatMap(_.freeVariables)
     case _ => super.variablesOf(e)
   }
+
+
+  /* =============================
+   * Freshening of local variables
+   * ============================= */
+
+  protected class Freshener(freshenChooses: Boolean)
+    extends super.Freshener(freshenChooses) {
+
+      override def transform(expr: Expr, env: Env): Expr = expr match {
+        case LetRec(lfds, rest) =>
+          val freshIds = lfds.map(lfd => lfd.id -> lfd.id.freshen).toMap
+          val newLfds = for (LocalFunDef(id, tparams, params, returnType, fullBody, flags) <- lfds) yield {
+            val newId = freshIds(id)
+            val newTypeParams = tparams.map(tpd => transform(tpd.freshen, env))
+            val tparamsEnv = tparams.zip(newTypeParams).map {
+              case (tp, ntp) => tp.id -> ntp.id
+            }
+            val (finalParams, finalEnv) = params.foldLeft((Seq[t.ValDef](), env ++ tparamsEnv)) {
+              case ((currentParams, currentEnv), vd) =>
+                val freshVd = transform(vd.freshen, env)
+                (currentParams :+ freshVd, currentEnv.updated(vd.id, freshVd.id))
+            }
+            val newReturnType = transform(returnType, finalEnv)
+            val newBody = transform(fullBody, finalEnv ++ freshIds)
+            val newFlags = flags.map(transform(_, env))
+            LocalFunDef(newId, newTypeParams, finalParams, newReturnType, newBody, newFlags)
+          }
+          LetRec(newLfds, transform(rest, env ++ freshIds))
+
+        case _ =>
+          super.transform(expr, env)
+      }
+  }
+
+  override def freshenLocals(expr: Expr, freshenChooses: Boolean = false): Expr = {
+    new Freshener(freshenChooses).transform(expr, Map.empty[Identifier, Identifier])
+  }
+
 }

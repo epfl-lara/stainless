@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 package verification
@@ -19,12 +19,13 @@ object VCKind {
     override def underlying = k.underlying
   }
 
+  case object CheckType                     extends VCKind("type-checking", "types")
   case object Precondition                  extends VCKind("precondition", "precond.")
   case object Postcondition                 extends VCKind("postcondition", "postcond.")
   case object Assert                        extends VCKind("body assertion", "assert.")
   case object ExhaustiveMatch               extends VCKind("match exhaustiveness", "match.")
-  case object ArrayUsage                    extends VCKind("array usage", "arr. use")
-  case object MapUsage                      extends VCKind("map usage", "map use")
+  case object ArrayUsage                    extends VCKind("array index within bounds", "arr. bounds")
+  case object MapUsage                      extends VCKind("map index in keys", "map use")
   case object Overflow                      extends VCKind("integer overflow", "overflow")
   case object Shift                         extends VCKind("strict arithmetic on shift", "shift")
   case object DivisionByZero                extends VCKind("division by zero", "div 0")
@@ -39,7 +40,10 @@ object VCKind {
   case object Choose                        extends VCKind("choose satisfiability", "choose")
   case object Law                           extends VCKind("law", "law")
   case object InvariantSat                  extends VCKind("invariant satisfiability", "inv. sat")
+  case object RefinementSubtype             extends VCKind("refinements checks for subtyping", "refinements")
+  case object RecursiveSubtype              extends VCKind("recursive types indices checks for subtyping", "rec. types")
   case class  AssertErr(err: String)        extends VCKind("body assertion: " + err, "assert.")
+  case object CoqMethod                     extends VCKind("coq function", "coq fun.")
   case class  Error(err: String)            extends VCKind(err, "error")
   case class  AdtInvariant(inv: Identifier) extends VCKind("adt invariant", "adt inv.")
 
@@ -49,7 +53,7 @@ object VCKind {
       else if (err.startsWith("Map ")) VCKind.MapUsage
       else if (err.endsWith("Overflow")) VCKind.Overflow
       else if (err.startsWith("Shift")) VCKind.Shift
-      else if (err.startsWith("Division ")) VCKind.DivisionByZero
+      else if (err.startsWith("Division by zero")) VCKind.DivisionByZero
       else if (err.startsWith("Modulo ")) VCKind.ModuloByZero
       else if (err.startsWith("Remainder ")) VCKind.RemainderByZero
       else if (err.startsWith("Cast ")) VCKind.CastError
@@ -69,12 +73,14 @@ object VCStatus {
 
   case class Invalid[+Model](reason: Reason[Model]) extends VCStatus[Model]("invalid")
   case object Valid extends VCStatus[Nothing]("valid")
+  case object Admitted extends VCStatus[Nothing]("admitted")
   case object ValidFromCache extends VCStatus[Nothing]("valid from cache")
   case object Unknown extends VCStatus[Nothing]("unknown")
   case object Timeout extends VCStatus[Nothing]("timeout")
   case object Cancelled extends VCStatus[Nothing]("cancelled")
   case object Crashed extends VCStatus[Nothing]("crashed")
   case object Unsupported extends VCStatus[Nothing]("unsupported")
+  case object ExternalBug extends VCStatus[Nothing]("external bug")
 }
 
 case class VCResult[+Model](
@@ -84,7 +90,7 @@ case class VCResult[+Model](
 ) {
   def isValid           = status == VCStatus.Valid || isValidFromCache
   def isValidFromCache  = status == VCStatus.ValidFromCache
+  def isAdmitted        = status == VCStatus.Admitted
   def isInvalid         = status.isInstanceOf[VCStatus.Invalid[_]]
   def isInconclusive    = !isValid && !isInvalid
 }
-

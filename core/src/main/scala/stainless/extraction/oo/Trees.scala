@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 package extraction
@@ -191,7 +191,6 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
       case mt: MapType => mt
       case _ => Untyped
     }
-
 
   /* ========================================
    *              EXTRACTORS
@@ -415,6 +414,43 @@ trait ExprOps extends innerfuns.ExprOps {
     val freshTypeMembers = typeMembers map (freshener.transform(_))
 
     (freshCd, freshMethods, freshTypeMembers)
+  }
+
+
+  /* =============================
+   * Freshening of local variables
+   * ============================= */
+
+  protected class Freshener(freshenChooses: Boolean)
+    extends super.Freshener(freshenChooses) {
+
+      override def transformAndGetEnv(pat: Pattern, env: Env): (Pattern, Env) = pat match {
+
+        case ClassPattern(vdOpt, ct, subPatterns) =>
+          val freshVdOpt = vdOpt.map(vd => transform(vd.freshen, env))
+          val newPatterns = subPatterns.map(transformAndGetEnv(_, env))
+          (
+            ClassPattern(
+              freshVdOpt,
+              transform(ct, env).asInstanceOf[ClassType],
+              newPatterns.map(_._1)
+            ),
+            newPatterns.map(_._2).fold
+              (env ++ freshVdOpt.map(freshVd => vdOpt.get.id -> freshVd.id))
+              (_ ++ _)
+          )
+
+        case InstanceOfPattern(vdOpt, tpe) =>
+          val freshVdOpt = vdOpt.map(vd => transform(vd.freshen, env))
+          val newEnv = env ++ freshVdOpt.map(freshVd => vdOpt.get.id -> freshVd.id)
+          (InstanceOfPattern(freshVdOpt, transform(tpe, env)), newEnv)
+
+        case _ => super.transformAndGetEnv(pat, env)
+      }
+  }
+
+  override def freshenLocals(expr: Expr, freshenChooses: Boolean = false): Expr = {
+    new Freshener(freshenChooses).transform(expr, Map.empty[Identifier, Identifier])
   }
 }
 

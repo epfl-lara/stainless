@@ -1,14 +1,11 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 
 import stainless.annotation._
 import stainless.lang.StaticChecks._
 
-import scala.language.implicitConversions
-
 package object lang {
-  import stainless.proof._
 
   @library
   def ghost[A](@ghost value: A): Unit = ()
@@ -145,4 +142,17 @@ package object lang {
   def print(x: String): Unit = {
     scala.Predef.print(x)
   }
+
+  @library
+  def specialize[T](call: T): T = call
+
+  @ignore @library
+  implicit class ArrayUpdating[T](a: Array[T]) {
+    def updated(index: Int, value: T): Array[T] = {
+      val res = a.clone
+      res(index) = value
+      res
+    }
+  }
+
 }

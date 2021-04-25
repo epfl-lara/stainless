@@ -7,7 +7,7 @@ object AnyDown {
 
   import Random._
 
-  def f(n: BigInt)(implicit state: State): BigInt = {
+  def f(n: BigInt)(implicit state: stainless.io.State): BigInt = {
     val i = Random.nextBigInt
     val x = if (i < 0) -i else i
     val delta = if (x > 0) x else 1 - x

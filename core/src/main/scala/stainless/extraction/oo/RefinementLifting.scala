@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 package extraction
@@ -118,16 +118,18 @@ trait RefinementLifting
 
         case s.RefinementType(ivd, pred) =>
           val nvd = vd.copy(tpe = ivd.tpe)
-          val subst = Map(ivd -> nvd.toVariable)
+          val tmp = nvd.freshen
+          val subst = Map(ivd -> tmp.toVariable)
 
           transform(s.Let(
             nvd,
-            value,
-            s.Assert(
-              s.exprOps.freshenLocals(s.exprOps.replaceFromSymbols(subst, pred)),
-              Some("Inner refinement lifting"),
-              body,
-            ).copiedFrom(e)
+            s.Let(tmp, value,
+              s.Assert(
+                s.exprOps.freshenLocals(s.exprOps.replaceFromSymbols(subst, pred)),
+                Some("Inner refinement lifting"),
+                tmp.toVariable,
+              ).copiedFrom(e)),
+            body
           ).copiedFrom(e))
 
         case _ => super.transform(e)
@@ -201,16 +203,15 @@ trait RefinementLifting
     import s._
 
     val (newParams, cond) = context.parameterConds(fd.params)
-    val optPre = cond match {
-      case cond if cond != s.BooleanLiteral(true) => s.exprOps.preconditionOf(fd.fullBody) match {
-        case Some(pre) => Some(s.and(cond, pre).copiedFrom(pre))
-        case None => Some(cond.copiedFrom(fd))
-      }
-      case _ => s.exprOps.preconditionOf(fd.fullBody)
-    }
+    val specced = exprOps.BodyWithSpecs(fd.fullBody)
 
-    val optPost = context.liftRefinements(fd.returnType) match {
-      case s.RefinementType(vd2, pred) => s.exprOps.postconditionOf(fd.fullBody) match {
+    val optPre =
+      if (cond != s.BooleanLiteral(true)) Some(exprOps.Precondition(cond).setPos(cond))
+      else None
+
+    val optOldPost = specced.getSpec(exprOps.PostconditionKind).map(_.expr)
+    val optPost = (context.liftRefinements(fd.returnType) match {
+      case s.RefinementType(vd2, pred) => optOldPost match {
         case Some(post @ s.Lambda(Seq(res), body)) =>
           Some(s.Lambda(Seq(res), s.and(
               exprOps.replaceFromSymbols(Map(vd2 -> res.toVariable), pred),
@@ -218,11 +219,11 @@ trait RefinementLifting
         case None =>
           Some(s.Lambda(Seq(vd2), pred).copiedFrom(fd))
       }
-      case _ => s.exprOps.postconditionOf(fd.fullBody)
-    }
+      case _ => optOldPost
+    }).map(exprOps.Postcondition)
 
     context.transform(fd.copy(
-      fullBody = s.exprOps.withPostcondition(s.exprOps.withPrecondition(fd.fullBody, optPre), optPost),
+      fullBody = specced.addSpec(optPre).withSpec(optPost).reconstructed,
       returnType = context.dropRefinements(fd.returnType)
     ).copiedFrom(fd))
   }

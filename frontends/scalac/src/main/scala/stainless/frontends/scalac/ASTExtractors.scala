@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 package frontends.scalac
@@ -70,6 +70,8 @@ trait ASTExtractors {
   protected lazy val bagSym        = classFromName("stainless.lang.Bag")
   protected lazy val realSym       = classFromName("stainless.lang.Real")
 
+  protected lazy val bvSym         = classFromName("stainless.math.BitVectors.BV")
+
   protected lazy val optionSymbol = classFromName("stainless.lang.Option")
   protected lazy val someSymbol   = classFromName("stainless.lang.Some")
   protected lazy val noneSymbol   = classFromName("stainless.lang.None")
@@ -104,6 +106,10 @@ trait ASTExtractors {
     } else {
       sym
     }
+  }
+
+  def isBVSym(sym: Symbol) : Boolean = {
+    getResolvedTypeSym(sym) == bvSym
   }
 
   def isSetSym(sym: Symbol) : Boolean = {
@@ -433,6 +439,147 @@ trait ASTExtractors {
       }
     }
 
+    object FrontendBVType {
+      val R = """type (UInt|Int)(\d+)""".r
+
+      def unapply(tpe: Type): Option[(Boolean, Int)] = tpe match {
+        case TypeRef(_, sym, FrontendBVKind(signed, size) :: Nil) if isBVSym(sym) =>
+          Some((signed, size))
+        case TypeRef(_, sym, Nil) if isBVSym(sym) =>
+          sym.toString match {
+            case R(signed, size) => Some((signed == "Int", size.toInt))
+            case _ => None
+          }
+        case _ => FrontendBVKind.unapply(tpe)
+      }
+
+      def unapply(tr: Tree): Option[(Boolean, Int)] = unapply(tr.tpe)
+    }
+
+    object FrontendBVKind {
+      val R = """object ([ui])(\d+)""".r
+
+      def unapply(tpe: Type): Option[(Boolean, Int)] = tpe match {
+        case SingleType(_, sym) =>
+          sym.toString match {
+            case R(signed, size) => Some((signed == "i", size.toInt))
+            case _ => None
+          }
+        case _ =>
+          None
+      }
+
+      def unapply(tr: Tree): Option[(Boolean, Int)] = unapply(tr.tpe)
+    }
+
+    /** `max` extraction for bitvectors */
+    object ExMaxBV {
+      def unapply(tree: Tree): Option[(Boolean, Int)] = tree  match {
+        case TypeApply(
+          ExSelected("stainless", "math", "BitVectors", "max"),
+          FrontendBVType(signed, size) :: Nil
+        ) =>
+          Some((signed, size))
+        case _ =>
+          None
+      }
+    }
+
+    /** `min` extraction for bitvectors */
+    object ExMinBV {
+      def unapply(tree: Tree): Option[(Boolean, Int)] = tree  match {
+        case TypeApply(
+          ExSelected("stainless", "math", "BitVectors", "min"),
+          FrontendBVType(signed, size) :: Nil
+        ) =>
+          Some((signed, size))
+        case _ =>
+          None
+      }
+    }
+
+    /** `fromByte` extraction (Byte to Int8 identity conversion) */
+    object ExFromByte {
+      def unapply(tree: Tree): Option[Tree] = tree  match {
+        case Apply(
+          ExSelected("stainless", "math", "BitVectors", "fromByte"),
+          expr :: Nil
+        ) =>
+          Some(expr)
+        case _ =>
+          None
+      }
+    }
+
+    /** `fromShort` extraction (Short to Int16 identity conversion) */
+    object ExFromShort {
+      def unapply(tree: Tree): Option[Tree] = tree  match {
+        case Apply(
+          ExSelected("stainless", "math", "BitVectors", "fromShort"),
+          expr :: Nil
+        ) =>
+          Some(expr)
+        case _ =>
+          None
+      }
+    }
+
+    /** `fromInt` extraction (Int to Int32 identity conversion) */
+    object ExFromInt {
+      def unapply(tree: Tree): Option[Tree] = tree  match {
+        case Apply(
+          ExSelected("stainless", "math", "BitVectors", "fromInt"),
+          expr :: Nil
+        ) =>
+          Some(expr)
+        case _ =>
+          None
+      }
+    }
+
+    /** `fromLong` extraction (Long to Int64 identity conversion) */
+    object ExFromLong {
+      def unapply(tree: Tree): Option[Tree] = tree  match {
+        case Apply(
+          ExSelected("stainless", "math", "BitVectors", "fromLong"),
+          expr :: Nil
+        ) =>
+          Some(expr)
+        case _ =>
+          None
+      }
+    }
+
+    /** `intToBV` extraction */
+    object ExIntToBV {
+      def unapply(tree: Tree): Option[(Boolean, Int, Tree)] = tree  match {
+        case Apply(
+          TypeApply(
+            ExSelected("stainless", "math", "BitVectors", "intToBV"),
+            FrontendBVKind(signed, size) :: Nil
+          ), n :: Nil
+        ) =>
+          Some((signed, size, n))
+        case _ =>
+          None
+      }
+    }
+
+    /** `bigIntToBV` extraction */
+    object ExBigIntToBV {
+      def unapply(tree: Tree): Option[(Boolean, Int, Tree)] = tree  match {
+        case Apply(
+          TypeApply(
+            ExSelected("stainless", "math", "BitVectors", "bigIntToBV"),
+            FrontendBVKind(signed, size) :: Nil
+          ), n :: Nil
+        ) =>
+          Some((signed, size, n))
+        case _ =>
+          None
+      }
+    }
+
     /** Returns the two components (n, d) of a real n/d literal */
     object ExRealLiteral {
       def unapply(tree: Tree): Option[(Tree, Tree)] = tree  match {
@@ -644,6 +791,14 @@ trait ASTExtractors {
       }
     }
 
+    object ExIndexedAt {
+      def unapply(annot: Annotation): Option[Tree] = annot match {
+        case AnnotationInfo(TypeRef(_, sym, _), Seq(arg), _) if
+            getResolvedTypeSym(sym) == classFromName("stainless.annotation.indexedAt") =>
+          Some(arg)
+        case _ => None
+      }
+    }
   }
 
   object ExpressionExtractors {
@@ -729,6 +884,25 @@ trait ASTExtractors {
       }
     }
 
+    object ExArrayApplyBV {
+      def unapply(tree: Apply): Option[(Tree, Tree, Tree)] = tree match {
+        case Apply(TypeApply(
+          Select(
+            Apply(
+              TypeApply(ExSelected("stainless", "math", "BitVectors", "ArrayIndexing"), tpe :: Nil),
+              array :: Nil
+            ),
+            ExNamed("apply")
+          ),
+          bvType :: Nil),
+          index :: Nil) =>
+
+          Some((array, bvType, index))
+
+        case _ => None
+      }
+    }
+
     object ExArrayUpdated {
       def unapply(tree: Apply): Option[(Tree, Tree, Tree)] = tree match {
         case Apply(
@@ -739,6 +913,18 @@ trait ASTExtractors {
              )
              if (arrayOps.toString endsWith "ArrayOps") && (update.toString == "updated")
              => Some((array, index, value))
+
+        case Apply(
+          Select(
+            Apply(
+              TypeApply(ExSelected("stainless", "lang", "package", "ArrayUpdating"), tpe :: Nil),
+              array :: Nil
+            ),
+            ExNamed("updated")
+          ),
+          index :: value :: Nil) =>
+
+          Some((array, index, value))
 
         // There's no `updated` method in the Array class itself, only though implicit conversion.
         case _ => None

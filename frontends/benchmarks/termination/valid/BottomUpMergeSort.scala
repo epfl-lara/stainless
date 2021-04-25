@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 import stainless._
 import lang._
@@ -17,7 +17,7 @@ object BottomUpMergeSortPrecise {
 
   sealed abstract class List[T] {
     // length is used in the implementation
-    val length: BigInt = {
+    lazy val length: BigInt = {
       this match {
         case Nil() => BigInt(0)
         case Cons(h, t) => 1 + t.length

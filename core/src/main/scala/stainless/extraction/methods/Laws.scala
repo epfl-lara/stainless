@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 package extraction
@@ -108,7 +108,7 @@ trait Laws
         throw MalformedStainlessCode(fd, "Unexpected law in non-abstract class")
       if (!symbols.isSubtypeOf(fd.returnType, s.BooleanType()))
         throw MalformedStainlessCode(fd, "Unexpected non-boolean typed law")
-      if (!s.exprOps.withoutSpecs(fd.fullBody).isDefined)
+      if (!fd.hasBody)
         throw MalformedStainlessCode(fd, "Unexpected law without a body")
       if (symbols.isRecursive(fd.id))
         throw MalformedStainlessCode(fd, "Unexpected recursive law")
@@ -145,8 +145,8 @@ trait Laws
       }
 
       val propFd: t.FunDef = {
-        val (specs, body) = s.exprOps.deconstructSpecs(fd.fullBody)(symbols)
-        val newSpecs = specs.map(_.map(t)(transform(_, env)))
+        val s.exprOps.BodyWithSpecs(specs, body) = s.exprOps.BodyWithSpecs(fd.fullBody)
+        val newSpecs = specs.map(_.transform(context)(env))
         val returnType = transform(fd.returnType, env)
         val newBody = t.exprOps.reconstructSpecs(newSpecs, Some(t.andJoin(
           symbols.firstSuperMethod(fd.id.unsafeToSymbolIdentifier).map { sid =>
@@ -155,8 +155,8 @@ trait Laws
               fd.typeArgs map (transform(_, env)),
               fd.params map (vd => transform(vd.toVariable, env))
             ).setPos(fd)
-          }.toSeq :+ transform(body.get, env)
-        ).setPos(body.get)), returnType)
+          }.toSeq :+ transform(body, env)
+        ).setPos(body)), returnType)
 
         val newFlags = (
           (fd.flags filter (_ != s.Law) map (transform(_, env))) ++
@@ -186,8 +186,8 @@ trait Laws
           val tparams = fd.tparams map (transform(_, env))
           val params = fd.params map (transform(_, env))
 
-          val (specs, body) = s.exprOps.deconstructSpecs(fd.fullBody)(symbols)
-          val newSpecs = specs.map {
+          val specced = s.exprOps.BodyWithSpecs(fd.fullBody).addPost
+          val newSpecs = specced.specs.map {
             case s.exprOps.Postcondition(l @ s.Lambda(Seq(vd), pred)) =>
               val nvd = transform(vd, env)
               t.exprOps.Postcondition(t.Lambda(Seq(nvd),
@@ -199,11 +199,11 @@ trait Laws
                 ).copiedFrom(fd)).copiedFrom(fd)
               ).copiedFrom(fd))
 
-            case spec => spec.map(t)(transform(_, env))
+            case spec => spec.transform(context)(env)
           }
 
           val returnType = transform(fd.returnType, env)
-          val newBody = t.exprOps.reconstructSpecs(newSpecs, body.map(transform(_, env)), returnType)
+          val newBody = t.exprOps.reconstructSpecs(newSpecs, specced.bodyOpt.map(transform(_, env)), returnType)
           val newFlags = (fd.flags map (transform(_, env))) :+ t.Law
           (new t.FunDef(fd.id, tparams, params, returnType, newBody, newFlags).copiedFrom(fd), None)
         }.getOrElse {

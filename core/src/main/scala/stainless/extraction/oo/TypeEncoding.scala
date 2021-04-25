@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 package extraction
@@ -122,7 +122,7 @@ trait TypeEncoding
     case s.CharType() => C(char)(e)
     case s.RealType() => C(real)(e)
     case s.StringType() => C(str)(e)
-    case s.UnitType() => t.ADT(unit, Seq(), Seq())
+    case s.UnitType() => let(("u" :: t.UnitType()).copiedFrom(e), e) { _ => t.ADT(unit, Seq(), Seq()).copiedFrom(e) }
   }).copiedFrom(e)
 
   private[this] def unwrap(e: t.Expr, tpe: s.Type)(implicit scope: Scope): t.Expr = (tpe match {
@@ -144,7 +144,7 @@ trait TypeEncoding
     case s.CharType() => getRefField(e, charValue)
     case s.RealType() => getRefField(e, realValue)
     case s.StringType() => getRefField(e, strValue)
-    case s.UnitType() => t.UnitLiteral()
+    case s.UnitType() => let(("u" :: ref.copiedFrom(e)).copiedFrom(e), e) { _ => t.UnitLiteral().copiedFrom(e) }
   }).copiedFrom(e)
 
 
@@ -161,6 +161,13 @@ trait TypeEncoding
     ((e, t1, t2) match {
       case (_, t1, t2) if erasedBy(t1) == erasedBy(t2) => e
       case (_, t1, t2) if isObject(t1) && isObject(t2) => e
+
+      case (e, s.NothingType(), t2) if !isObject(t2) =>
+        t.Error(scope.transform(t2), e match {
+          case t.Error(_, descr) => descr
+          case _ => s"Expression of type Nothing: ${e.toString}"
+        })
+
       case (_, t1, t2) if isObject(t1) && !isObject(t2) => unwrap(e, t2)
       case (_, t1, t2) if !isObject(t1) && isObject(t2) => wrap(e, t1)
 

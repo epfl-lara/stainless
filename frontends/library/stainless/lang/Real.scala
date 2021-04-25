@@ -1,11 +1,8 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless.lang
 
 import stainless.annotation._
-import stainless.lang.StaticChecks._
-
-import scala.language.implicitConversions
 
 @ignore
 class Real(val theReal: scala.math.BigDecimal) {

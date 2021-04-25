@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 package ast
@@ -13,6 +13,7 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
   case object Law extends Flag("law", Seq.empty)
   // TODO: Move Erasable to Inox?
   case object Erasable extends Flag("erasable", Seq.empty)
+  case object Lazy extends Flag("lazy", Seq.empty)
   case class IndexedAt(e: Expr) extends Flag("indexedAt", Seq(e))
   case object InlineInvariant extends Flag("inlineInvariant", Seq())
 
@@ -26,6 +27,7 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
   case object Synthetic extends Flag("synthetic", Seq())
   case object PartialEval extends Flag("partialEval", Seq())
   case object Wrapping extends Flag("wrapping", Seq.empty)
+  case object Template extends Flag("template", Seq.empty)
 
   case class Derived(id: Identifier) extends Flag("derived", Seq(id))
   case class IsField(isLazy: Boolean) extends Flag("field", Seq.empty)
@@ -36,6 +38,7 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
   def extractFlag(name: String, args: Seq[Expr]): Flag = (name, args) match {
     case ("law", Seq()) => Law
     case ("erasable", Seq()) => Erasable
+    case ("lazy", Seq()) => Lazy
     case ("indexedAt", Seq(e)) => IndexedAt(e)
     case ("ghost", Seq()) => Ghost
     case ("extern", Seq()) => Extern
@@ -44,6 +47,7 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
     case ("library", Seq()) => Library
     case ("partialEval", Seq()) => PartialEval
     case ("wrapping", Seq()) => Wrapping
+    case ("template", Seq()) => Template
     case ("inlineInvariant", Seq()) => InlineInvariant
     case _ => Annotation(name, args)
   }
@@ -56,38 +60,6 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
        with SymbolOps
        with CallGraph
        with DependencyGraph { self0: Symbols =>
-
-    private[this] val measureCache: MutableMap[TypedFunDef, Option[Expr]] = MutableMap.empty
-    @inline def getMeasure(fd: FunDef): Option[Expr] = getMeasure(fd.typed)
-    def getMeasure(tfd: TypedFunDef): Option[Expr] =
-      measureCache.getOrElseUpdate(tfd, exprOps.measureOf(tfd.fullBody))
-
-    private[this] val bodyCache: MutableMap[TypedFunDef, Option[Expr]] = MutableMap.empty
-    @inline def getBody(fd: FunDef): Option[Expr] = getBody(fd.typed)
-    def getBody(tfd: TypedFunDef): Option[Expr] =
-      bodyCache.getOrElse(tfd, {
-        val res = exprOps.withoutSpecs(tfd.fullBody)
-        bodyCache(tfd) = res
-        res
-      })
-
-    private[this] val preCache: MutableMap[TypedFunDef, Option[Expr]] = MutableMap.empty
-    @inline def getPrecondition(fd: FunDef): Option[Expr] = getPrecondition(fd.typed)
-    def getPrecondition(tfd: TypedFunDef): Option[Expr] =
-      preCache.getOrElse(tfd, {
-        val res = exprOps.preconditionOf(tfd.fullBody)
-        preCache(tfd) = res
-        res
-      })
-
-    private[this] val postCache: MutableMap[TypedFunDef, Option[Lambda]] = MutableMap.empty
-    @inline def getPostcondition(fd: FunDef): Option[Lambda] = getPostcondition(fd.typed)
-    def getPostcondition(tfd: TypedFunDef): Option[Lambda] =
-      postCache.getOrElse(tfd, {
-        val res = exprOps.postconditionOf(tfd.fullBody)
-        postCache(tfd) = res
-        res
-      })
 
     protected class Lookup {
       protected def find[T](name: String, map: Map[Identifier, T]): Option[T] = map.find(_._1 match {
@@ -114,16 +86,18 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
   }
 
   implicit class StainlessFunDef(fd: FunDef) {
-    @inline def precondition(implicit s: Symbols): Option[Expr] = s.getPrecondition(fd)
-    @inline def hasPrecondition(implicit s: Symbols): Boolean = precondition.isDefined
-    @inline def precOrTrue(implicit s: Symbols): Expr = precondition.getOrElse(BooleanLiteral(true))
+    @inline def precondition: Option[Expr] = exprOps.preconditionOf(fd.fullBody)
+    @inline def hasPrecondition: Boolean =
+      exprOps.BodyWithSpecs(fd.fullBody).specs.exists(_.kind == exprOps.PreconditionKind)
+    @inline def precOrTrue: Expr = precondition.getOrElse(BooleanLiteral(true))
 
-    @inline def body(implicit s: Symbols): Option[Expr] = s.getBody(fd)
-    @inline def measure(implicit s: Symbols): Option[Expr] = s.getMeasure(fd)
+    @inline def body: Option[Expr] = exprOps.withoutSpecs(fd.fullBody)
+    @inline def measure: Option[Expr] = exprOps.measureOf(fd.fullBody)
 
-    @inline def postcondition(implicit s: Symbols): Option[Lambda] = s.getPostcondition(fd)
-    @inline def hasPostcondition(implicit s: Symbols): Boolean = postcondition.isDefined
-    @inline def postOrTrue(implicit s: Symbols): Expr = postcondition.getOrElse {
+    @inline def postcondition: Option[Lambda] = exprOps.postconditionOf(fd.fullBody)
+    @inline def hasPostcondition: Boolean =
+      exprOps.BodyWithSpecs(fd.fullBody).specs.exists(_.kind == exprOps.PostconditionKind)
+    @inline def postOrTrue: Expr = postcondition.getOrElse {
       Lambda(Seq(ValDef(FreshIdentifier("res", true), fd.returnType)), BooleanLiteral(true))
     }
 
@@ -143,14 +117,15 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
   }
 
   implicit class StainlessTypedFunDef(tfd: TypedFunDef) {
-    @inline def precondition: Option[Expr] = tfd.symbols.getPrecondition(tfd)
-    @inline def hasPrecondition: Boolean = precondition.isDefined
+    @inline def precondition: Option[Expr] = exprOps.preconditionOf(tfd.fullBody)
+    @inline def hasPrecondition: Boolean =
+      exprOps.BodyWithSpecs(tfd.fullBody).specs.exists(_.kind == exprOps.PreconditionKind)
     @inline def precOrTrue: Expr = precondition.getOrElse(BooleanLiteral(true))
 
-    @inline def body: Option[Expr] = tfd.symbols.getBody(tfd)
-    @inline def measure(implicit s: Symbols): Option[Expr] = s.getMeasure(tfd)
+    @inline def body: Option[Expr] = exprOps.withoutSpecs(tfd.fullBody)
+    @inline def measure: Option[Expr] = exprOps.measureOf(tfd.fullBody)
 
-    @inline def postcondition: Option[Lambda] = tfd.symbols.getPostcondition(tfd)
+    @inline def postcondition: Option[Lambda] = exprOps.postconditionOf(tfd.fullBody)
     @inline def hasPostcondition: Boolean = postcondition.isDefined
     @inline def postOrTrue: Expr = postcondition.getOrElse {
       Lambda(Seq(ValDef(FreshIdentifier("res", true), tfd.returnType)), BooleanLiteral(true))

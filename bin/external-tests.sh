@@ -102,7 +102,7 @@ export PATH="$BASE_DIR/frontends/scalac/target/universal/stage/bin:$PATH"
 
 echo "Publishing Stainless..."
 
-STAINLESS_VERSION=$(sbt publishLocal | $SED -n -r 's#^.*stainless-scalac-plugin_2.12.9/([^/]+)/poms.*$#\1#p')
+STAINLESS_VERSION=$(sbt publishLocal | $SED -n -r 's#^.*stainless-scalac-plugin_2.12.13/([^/]+)/poms.*$#\1#p' | head -n1)
 
 echo "Published Stainless version is: $STAINLESS_VERSION"
 
@@ -112,7 +112,8 @@ TEST_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t "stainless-external-tests")
 
 mkdir -p "$TEST_DIR"
 
-"$BIN_DIR/stainless-actors-tests.sh" "$TEST_DIR" "$STAINLESS_VERSION"
+# Stainless Actors are currently disabled: https://github.com/epfl-lara/stainless/issues/970
+# "$BIN_DIR/stainless-actors-tests.sh" "$TEST_DIR" "$STAINLESS_VERSION"
 "$BIN_DIR/bolts-tests.sh" "$TEST_DIR"
 
 rm -rf "$TEST_DIR" || true

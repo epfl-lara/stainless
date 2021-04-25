@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 package evaluators
@@ -77,15 +77,19 @@ class EvaluatorRun(override val pipeline: extraction.StainlessPipeline)
 
     // Extract the body (with its precondition, if any) and the post condition (if any).
     def decomposeFunction(fd: FunDef): (Expr, Option[Expr]) = {
-      val preOpt = exprOps preconditionOf fd.fullBody
-      val nakedBodyOpt = exprOps withoutSpecs fd.fullBody
+      import exprOps._
+      val specced = BodyWithSpecs(fd.fullBody)
+      val pre = specced.specs.filter(spec => spec.kind == LetKind || spec.kind == PreconditionKind)
+      val nakedBodyOpt = specced.bodyOpt 
       if (nakedBodyOpt.isEmpty) reporter.internalError(s"Unexpected empty body for ${fd.id}")
       val nakedBody = nakedBodyOpt.get
-      val postOpt = exprOps postconditionOf fd.fullBody
+      val body = pre.foldRight(nakedBody) {
+        case (spec @ LetInSpec(vd, e0), acc) => Let(vd, e0, acc).setPos(spec)
+        case (spec @ Precondition(cond), acc) => Require(cond, acc).setPos(spec)
+      }
+      val postOpt = specced.getSpec(PostconditionKind)
 
-      val body = exprOps.withPrecondition(nakedBody, preOpt)
-
-      (body, postOpt)
+      (body, postOpt.map(_.expr))
     }
 
     // Build an evaluator once and only if there is something to evaluate

@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 package verification
@@ -16,6 +16,8 @@ import scala.collection._
 object DebugSectionTypeChecker extends inox.DebugSection("type-checker")
 object DebugSectionTypeCheckerVCs extends inox.DebugSection("type-checker-vcs")
 object DebugSectionDerivation extends inox.DebugSection("derivation")
+
+import inox.utils.Position
 
 trait VCFilter { self =>
   def apply(vc: StainlessVC): Boolean
@@ -288,25 +290,46 @@ trait TypeChecker {
   }
 
   def areDependentTypes(tc: TypingContext, types: Seq[ValDef]): TyperResult = {
-    types.foldLeft((tc, new Freshener(immutable.Map()), TyperResult.valid)) {
+    types.foldLeft((tc, new Substituter(immutable.Map()), TyperResult.valid)) {
       case ((tcAcc, freshener, tr), vd) =>
         val freshVd = freshener.transform(vd)
-        val (newTc, oldId, newId) = tcAcc.freshBind(freshVd)
-        if (oldId != vd.id)
-          reporter.internalError("The freshener should not affect the id of the current `vd`.")
-        (newTc, freshener.enrich(oldId, newId), tr ++ isType(tcAcc, freshVd.tpe))
+        val (newTc, newId) = tcAcc.freshBind(freshVd)
+        if (freshVd.id != vd.id)
+          reporter.internalError("In `areDependentTypes', the freshener should not affect the id of the current `vd`.")
+        (newTc, freshener.enrich(vd.id, newId), tr ++ isType(tcAcc, freshVd.tpe))
     }._3
   }
 
   def checkDependentTypes(tc: TypingContext, exprs: Seq[Expr], types: Seq[ValDef]): TyperResult = {
-    exprs.zip(types).foldLeft((tc, new Freshener(immutable.Map()), TyperResult.valid)) {
+    exprs.zip(types).foldLeft((tc, new Substituter(immutable.Map()), TyperResult.valid)) {
       case ((tcAcc, freshener, tr), (e, vd)) =>
         val freshVd = freshener.transform(vd)
-        val (newTc, oldId, newId) = tcAcc.freshBindWithValue(freshVd, e)
-        if (oldId != vd.id)
-          reporter.internalError("The freshener should not affect the id of the current `vd`.")
-        (newTc, freshener.enrich(oldId, newId), tr ++ checkType(tcAcc, e, freshVd.tpe))
+        val (newTc, newId) = tcAcc.freshBindWithValue(freshVd, e)
+        if (freshVd.id != vd.id)
+          reporter.internalError("In `checkDependentTypes', the freshener should not affect the id of the current `vd`.")
+        (newTc, freshener.enrich(vd.id, newId), tr ++ checkType(tcAcc, e, freshVd.tpe))
     }._3
+  }
+
+  def areSubtypes(tc: TypingContext, types1: Seq[ValDef], types2: Seq[ValDef]): (TypingContext, Substituter, TyperResult) = {
+    assert(types1.length == types2.length, "Function `areSubtypes` expects sequences of the same size")
+    types1.zip(types2).foldLeft((tc, new Substituter(immutable.Map()), TyperResult.valid)) {
+      case ((tcAcc, freshener, tr), (vd1, vd2)) =>
+        val freshVd1 = freshener.transform(vd1)
+        val freshVd2 = freshener.transform(vd2)
+        if (freshVd1.id != vd1.id)
+          reporter.internalError("In `areSubtypes', the freshener should not affect the id of the current `vd`.")
+        if (freshVd2.id != vd2.id)
+          reporter.internalError("In `areSubtypes', the freshener should not affect the id of the current `vd`.")
+        val (newTc, newId) = tcAcc.freshBind(freshVd1)
+        val newFreshener = freshener.enrich(collection.immutable.Map(vd1.id -> newId, vd2.id -> newId))
+        (newTc, newFreshener, tr ++ isSubtype(tcAcc, freshVd1.tpe, freshVd2.tpe))
+    }
+  }
+
+  def areSubtypes(tc: TypingContext, types1: Seq[Type], types2: Seq[Type]): TyperResult = {
+    assert(types1.length == types2.length, "Function `areSubtypes` (non-dependent) expects sequences of the same size")
+    TyperResult(types1.zip(types2).map { case (tp1, tp2) => isSubtype(tc, tp1, tp2) })
   }
 
 
@@ -339,8 +362,8 @@ trait TypeChecker {
 
       case AnnotatedType(tpe, _) => isType(tc, tpe)
       case RefinementType(vd, prop) =>
-        val (tc2, id1, id2) = tc.freshBind(vd)
-        val freshProp: Expr = Freshener(immutable.Map(id1 -> id2)).transform(prop)
+        val (tc2, id2) = tc.freshBind(vd)
+        val freshProp: Expr = Substituter(immutable.Map(vd.id -> id2)).transform(prop)
         isType(tc, vd.tpe) ++ checkType(tc2, freshProp, BooleanType())
 
       case FunctionType(ts, returnType) =>
@@ -442,7 +465,7 @@ trait TypeChecker {
       case FractionLiteral(_, _) => (RealType(), TyperResult.valid)
       case BVLiteral(signed, _, size) => (BVType(signed, size), TyperResult.valid)
 
-      case UncheckedExpr(e) => (inferType(tc, e)._1, TyperResult.valid)
+      case UncheckedExpr(e) => inferType(tc.withEmitVCs(false), e)
       case Annotated(e, _) => inferType(tc, e)
 
       case NoTree(tpe) => (tpe, isType(tc, tpe))
@@ -461,8 +484,9 @@ trait TypeChecker {
       case GreaterThan(lhs, rhs) => inferOperationType(">", e, tc, isComparableType, Some(BooleanType()), lhs, rhs)
       case LessThan(lhs, rhs) => inferOperationType("<", e, tc, isComparableType, Some(BooleanType()), lhs, rhs)
 
+      case BVNot(e2) => inferOperationType("bvnot (~)", e, tc, _.isInstanceOf[BVType], None, e2)
       case BVAnd(lhs, rhs) => inferOperationType("bvand (&)", e, tc, _.isInstanceOf[BVType], None, lhs, rhs)
-      case BVOr(lhs, rhs) => inferOperationType("bvand (|)", e, tc, _.isInstanceOf[BVType], None, lhs, rhs)
+      case BVOr(lhs, rhs) => inferOperationType("bvor (|)", e, tc, _.isInstanceOf[BVType], None, lhs, rhs)
       case BVXor(lhs, rhs) => inferOperationType("bvxor", e, tc, _.isInstanceOf[BVType], None, lhs, rhs)
       case BVShiftLeft(lhs, rhs) => inferOperationType("bvshiftleft", e, tc, _.isInstanceOf[BVType], None, lhs, rhs)
       case BVAShiftRight(lhs, rhs) => inferOperationType("bvshiftright", e, tc, _.isInstanceOf[BVType], None, lhs, rhs)
@@ -490,7 +514,20 @@ trait TypeChecker {
         val (tpe, vcs) = inferType(tc, e2)
         stripRefinementsAndAnnotations(tpe) match {
           case BVType(s, from) if s == newType.signed && from > newType.size => (newType, vcs)
-          case _ => reporter.fatalError(e.getPos, s"Cannot widen boolean vector ${e2.asString} to ${newType.asString}")
+          case _ => reporter.fatalError(e.getPos, s"Cannot narrow boolean vector ${e2.asString} to ${newType.asString}")
+        }
+
+      case c@BVUnsignedToSigned(e2) =>
+        val (tpe, vcs) = inferType(tc, e2)
+        stripRefinementsAndAnnotations(tpe) match {
+          case BVType(false, size) => (BVType(true, size), vcs)
+          case _ => reporter.fatalError(e.getPos, s"Cannot use `toSigned` on ${e2.asString}")
+        }
+      case c@BVSignedToUnsigned(e2) =>
+        val (tpe, vcs) = inferType(tc, e2)
+        stripRefinementsAndAnnotations(tpe) match {
+          case BVType(true, size) => (BVType(false, size), vcs)
+          case _ => reporter.fatalError(e.getPos, s"Cannot use `toUnsigned` on ${e2.asString}")
         }
 
       case FiniteSet(elements, tpe) =>
@@ -614,7 +651,7 @@ trait TypeChecker {
       case IfExpr(b, e1, e2) =>
         val (tpe1, tr1) = inferType(tc.withTruth(b).setPos(e1), e1)
         val (tpe2, tr2) = inferType(tc.withTruth(Not(b)).setPos(e2), e2)
-        (ite(b, tpe1, tpe2), checkType(tc.setPos(b), b, BooleanType()) ++ tr1 ++ tr2)
+        (ite(b, tpe1, tpe2), checkType(tc.setPos(b).withVCKind(VCKind.CheckType), b, BooleanType()) ++ tr1 ++ tr2)
 
       case Error(tpe, descr) =>
         val tr = isType(tc, tpe)
@@ -678,9 +715,9 @@ trait TypeChecker {
         }
 
       case Let(vd, value, body) =>
-        val trValue = checkType(tc.setPos(value), value, vd.tpe)
-        val (tc2, id1, id2) = tc.freshBindWithValue(vd, value)
-        val freshBody: Expr = Freshener(immutable.Map(id1 -> id2)).transform(body)
+        val trValue = checkType(tc.setPos(value).withVCKind(VCKind.CheckType), value, vd.tpe)
+        val (tc2, id2) = tc.freshBindWithValue(vd, value)
+        val freshBody: Expr = Substituter(immutable.Map(vd.id -> id2)).transform(body)
         val (tpe, trBody) = inferType(tc2.setPos(body), freshBody)
         (insertFreshLets(Seq(vd), Seq(value), tpe), trValue ++ trBody)
 
@@ -710,30 +747,40 @@ trait TypeChecker {
 
         val fiS = shortString(e.asString, 40)
 
-        val trPre = {
-          if (calleeTfd.precondition.isDefined) {
-            val kind = VCKind.Info(VCKind.Precondition, s"call $fiS")
-            val pre = calleeTfd.precondition.get
-            val (tc2, freshener) = tc.freshBindWithValues(calleeTfd.params, args)
-            buildVC(tc2.withVCKind(kind).setPos(e), freshener.transform(pre))
-          } else {
-            TyperResult.valid
-          }
-        }
+        import exprOps._
+
+        val (tc2, freshener2) = tc.freshBindWithValues(calleeTfd.params, args)
+        val specced = BodyWithSpecs(freshener2.transform(freshenLocals(calleeTfd.fullBody)))
+        val trPre = specced.letsAndSpecs(PreconditionKind).foldLeft(
+          (tc2, TyperResult.valid, 0)
+        ) {
+          case ((tcAcc, trAcc, i), LetInSpec(vd0, e0)) => (tcAcc.bindWithValue(vd0, e0), trAcc, i)
+          case ((tcAcc, trAcc, i), Precondition(cond)) =>
+            val kind = if (i == 0)
+              VCKind.Info(VCKind.Precondition, s"call $fiS")
+            else
+              VCKind.Info(VCKind.Precondition, s"call $fiS (require ${i+1}")
+            (
+              tcAcc.withTruth(cond),
+              trAcc ++ buildVC(tcAcc.withVCKind(kind).setPos(e), cond),
+              i + 1
+            )
+          case _ => sys.error("not possible due to filtering")
+        }._2
 
         val isRecursive = tc.currentFid.exists(fid => dependencies(id).contains(fid))
-        val hasMeasure = calleeTfd.measure.isDefined
+
+        val calleeMeasureOpt = measureOf(calleeTfd.fullBody).map(freshenLocals(_))
+        val hasMeasure = calleeMeasureOpt.isDefined
 
         val trSize = {
           if (checkMeasures.isTrue && isRecursive && hasMeasure) {
             assert(tc.measureType.isDefined)
             assert(tc.currentMeasure.isDefined)
             val currentMeasure = tc.currentMeasure.get
-            val calleeMeasureOpt = calleeTfd.measure
             assert(calleeMeasureOpt.isDefined, s"${calleeTfd.id.asString} must have a measure")
             val calleeMeasure = calleeMeasureOpt.get
             val calleeMeasureValue = freshLets(calleeTfd.params, args, calleeMeasure)
-            checkType(tc, calleeMeasureValue, tc.measureType.get) ++
             buildVC(
               tc.withVCKind(VCKind.MeasureDecreases).setPos(e),
               lessThan(tc.measureType.get, calleeMeasureValue, currentMeasure)
@@ -800,7 +847,7 @@ trait TypeChecker {
             val invKind = VCKind.AdtInvariant(id)
             val tc2 = tc.withVCKind(invKind).setPos(e)
             if (inv.flags.contains(InlineInvariant)) {
-              val (tc3, freshener) = tc.freshBindWithValues(inv.params, Seq(e))
+              val (tc3, freshener) = tc2.freshBindWithValues(inv.params, Seq(e))
               buildVC(tc3, freshener.transform(inv.fullBody))
             } else {
               val application: Expr = inv.applied(Seq(e))
@@ -839,7 +886,7 @@ trait TypeChecker {
             val invKind = VCKind.AdtInvariant(inv.id)
             val tc2 = tc.withVCKind(invKind).setPos(e)
             if (inv.flags.contains(InlineInvariant)) {
-              val (tc3, freshener) = tc.freshBindWithValues(inv.params, Seq(e))
+              val (tc3, freshener) = tc2.freshBindWithValues(inv.params, Seq(e))
               buildVC(tc3, freshener.transform(inv.fullBody))
             } else {
               buildVC(tc2, inv.applied(Seq(e)))
@@ -906,7 +953,7 @@ trait TypeChecker {
         (RefinementType(vd, pred), trPred ++ trVC)
 
       case _ =>
-        reporter.fatalError(e.getPos, s"Could not infer type for: ${e.asString} (${e.getClass})\nin context:\n${tc.asString()}")
+        reporter.fatalError(e.getPos, s"The type-checker doesn't support expressions: ${e.getClass}")
     }
 
     reporter.debug(s"\n${tc0.indent}Inferred type: ${t.asString} for ${e.asString}")
@@ -916,12 +963,15 @@ trait TypeChecker {
 
   def vcFromContext(l: Seq[Variable], e: Expr): Expr = {
     l.foldRight(e) { case (v, acc) =>
-      v match {
+      v.tpe match {
         case LetEquality(e1: Variable, e2) =>
           let(e1.toVal, e2, acc)
         case Truth(t) =>
           implies(t, acc)
-        case _ => acc
+        case RefinementType(vd, pred) =>
+          implies(substVar(pred, vd.id, v), acc)
+        case _ =>
+          acc
       }
     }
   }
@@ -930,6 +980,7 @@ trait TypeChecker {
     v.tpe match {
       case LetEquality(_, _) => true
       case Truth(_) => true
+      case RefinementType(_, _) => true
       case _ => false
     }
   }
@@ -941,17 +992,24 @@ trait TypeChecker {
       return TyperResult.valid
     }
 
-    val TopLevelAnds(es) = e
-    val e2 = andJoin(es.filterNot {
-      case Annotated(_, flags) => flags contains Unchecked
-      case _ => false
-    }).copiedFrom(e)
+    def filterUnchecked(e: Expr): Option[Expr] = e match {
+      case Let(vd, expr, body) => filterUnchecked(body).map(Let(vd, expr, _).setPos(e))
+      case And(exprs) =>
+        val filteredExprs = exprs.flatMap(filterUnchecked)
+        if (filteredExprs.isEmpty) None
+        else if (filteredExprs.size == 1) Some(filteredExprs.head)
+        else Some(And(filteredExprs).setPos(e))
+      case Annotated(_, flags) if flags.contains(Unchecked) => None
+      case _ => Some(e)
+    }
 
-    if (tc.vcKind.toString.toLowerCase.contains("cast")) {
+    val filtered = filterUnchecked(e)
+
+    if (filtered.isEmpty) {
       return TyperResult.valid
     }
 
-    val condition = vcFromContext(tc.termVariables, e2)
+    val condition = vcFromContext(tc.termVariables, filtered.get)
 
     val vc: StainlessVC = VC(
       condition,
@@ -969,7 +1027,7 @@ trait TypeChecker {
       s"VC:\n${condition.asString}\n\n\n"
     )(DebugSectionTypeCheckerVCs)
 
-    TyperResult(Seq(vc), Seq(NodeTree(JVC(tc, e2), Seq())))
+    TyperResult(Seq(vc), Seq(NodeTree(JVC(tc, filtered.get), Seq())))
   }
 
   /** The `checkType` function checks that an expression `e` has type `tpe` by
@@ -984,10 +1042,6 @@ trait TypeChecker {
 
     val tc = tc0.inc
     val res = (e, tpe) match {
-      case (UncheckedExpr(e), tpe) => checkType(tc.withEmitVCs(false), e, tpe)
-
-      case (Annotated(e, _), _) => checkType(tc, e, tpe)
-      case (_, AnnotatedType(tpe, flags)) => checkType(tc, e, tpe)
 
       // High-priority rules for `Top`.
       // Unapply for `Top` matches any `ValueType(_)`
@@ -1018,11 +1072,38 @@ trait TypeChecker {
       case (ADT(id, tps, args), Top()) => checkTypes(tc, args, Top())
       case (_, Top()) => inferType(tc, e)._2 // We ignore the inferred type but keep the VCs
 
+      case (e, TrueBoolean()) =>
+        checkType(tc.withVCKind(VCKind.CheckType), e, BooleanType()) ++ buildVC(tc, e)
+
+      case (e, RefinementType(vd, prop)) =>
+        val (tc2, freshener) = tc.freshBindWithValues(Seq(vd), Seq(e))
+        checkType(tc.withVCKind(VCKind.CheckType), e, vd.tpe) ++ checkType(tc2, freshener.transform(prop), TrueBoolean())
+
+      case (Tuple(es), TupleType(tps)) =>
+        checkTypes(tc, es, tps)
+
+      case (Tuple(es), SigmaType(from, to)) =>
+        checkDependentTypes(tc, es.init, from) ++
+        checkType(tc.bindWithValues(from, es.init), es.last, to)
+
+      case (Lambda(params1, body), FunctionType(params2, to)) =>
+        val vds = params1.zip(params2).map { case (vd, tp) => vd.copy(tpe = tp) }
+        checkType(tc.bind(vds), body, to)
+
+      case (Lambda(params1, body), PiType(params2, to)) =>
+        val freshener = Substituter(params1.map(_.id).zip(params2.map(_.id)).toMap)
+        checkType(tc.bind(params2), freshener.transform(body), to)
+
       case (Let(vd, value, body), _) =>
-        val (tc2, id1, id2) = tc.freshBindWithValue(vd, value)
-        val freshBody: Expr = Freshener(immutable.Map(id1 -> id2)).transform(body)
-        checkType(tc.setPos(value), value, vd.tpe) ++
+        val (tc2, id2) = tc.freshBindWithValue(vd, value)
+        val freshBody: Expr = Substituter(immutable.Map(vd.id -> id2)).transform(body)
+        checkType(tc.setPos(value).withVCKind(VCKind.CheckType), value, vd.tpe) ++
         checkType(tc2.setPos(body), freshBody, tpe)
+
+      case (Assert(cond, optErr, body), _) =>
+        val kind = VCKind.fromErr(optErr)
+        checkType(tc.withVCKind(kind).setPos(cond), cond, TrueBoolean()) ++
+        checkType(tc.withTruth(cond), body, tpe)
 
       case (m: MatchExpr, _) =>
         val tr = checkType(tc, matchToIfThenElse(e, true), tpe)
@@ -1032,87 +1113,20 @@ trait TypeChecker {
         tr ++ mr
 
       case (IfExpr(b, e1, e2), _) =>
-        checkType(tc.setPos(b), b, BooleanType()) ++
+        checkType(tc.setPos(b).withVCKind(VCKind.CheckType), b, BooleanType()) ++
         checkType(tc.withTruth(b).setPos(e1), e1, tpe) ++
         checkType(tc.withTruth(Not(b)).setPos(e2), e2, tpe)
 
-      // FIXME: This split creates too many VCs
-      // case (And(exprs), TrueBoolean()) =>
-      //   exprs.foldLeft((tc, TyperResult.valid)){
-      //     case ((tcAcc, tr), expr) =>
-      //       (tcAcc.withTruth(expr), tr ++ checkType(tcAcc, expr, TrueBoolean()))
-      //   }._2
+      case (UncheckedExpr(e), tpe) =>
+        val (inferredType, tr) = inferType(tc.withEmitVCs(false), e)
+        tr ++ isSubtype(tc, inferredType, tpe)
 
-      case (e, TrueBoolean()) =>
-        checkType(tc, e, BooleanType()) ++ buildVC(tc, e)
-
-      case (e, RefinementType(vd, prop)) =>
-        val (tc2, freshener) = tc.freshBindWithValues(Seq(vd), Seq(e))
-        checkType(tc, e, vd.tpe) ++ checkType(tc2, freshener.transform(prop), TrueBoolean())
-
-      case (Tuple(es), TupleType(tps)) =>
-        checkTypes(tc, es, tps)
-
-      case (Tuple(es), SigmaType(from, to)) =>
-        checkDependentTypes(tc, es.init, from) ++
-        checkType(tc.bindWithValues(from, es.init), es.last, to)
-
-      case (_, PiType(from, to)) =>
-        checkType(tc.bind(from), Application(e, from.map(_.toVariable)), to)
-      case (_, ft@FunctionType(from, to)) =>
-        val binders = from.map(tpe => ValDef.fresh("__u", tpe))
-        checkType(tc.bind(binders), Application(e, binders.map(_.toVariable)), to)
-
-      // we force invariance for now
-      case (_, SetType(base2)) =>
-        val (inferredType, tr) = inferType(tc, e)
-        stripRefinementsAndAnnotations(inferredType) match {
-          case SetType(base1) => tr ++ areEqualTypes(tc, base1, base2)
-          case _ =>
-            reporter.fatalError(e.getPos, s"Inferred type ${inferredType.asString} for ${e.asString}, but expected a `SetType`")
-        }
-
-      // we force invariance for now
-      case (_, ADTType(id2, tps2)) =>
-        val (inferredType, tr) = inferType(tc, e)
-        stripRefinementsAndAnnotations(inferredType) match {
-          case ADTType(id1, tps1) if (id1 == id2) =>
-            tr ++ TyperResult(tps1.zip(tps2).map {
-              case (t1,t2) => areEqualTypes(tc, t1, t2)
-            })
-          case _ =>
-            reporter.fatalError(e.getPos, s"Inferred type ${inferredType.asString} for ${e.asString}, but expected `${tpe.asString}`")
-        }
-
-      // we force invariance for now
-      // TODO: for positive recursive types, the equality check can be relaxed to >=
-      case (_, RecursiveType(id2, tps2, size2)) =>
-        val (inferredType, tr) = inferType(tc, e)
-        stripRefinementsAndAnnotations(inferredType) match {
-          case RecursiveType(id1, tps1, size1) if (id1 == id2) =>
-            val kind = VCKind.fromErr(Some("Equivalent recursive type indices"))
-            tr ++ TyperResult(tps1.zip(tps2).map {
-              case (t1,t2) => areEqualTypes(tc, t1, t2)
-            }) ++ buildVC(tc.withVCKind(kind), Equals(size1, size2))
-          case ADTType(id1, tps1) if (id1 == id2) =>
-            tr ++ TyperResult(tps1.zip(tps2).map {
-              case (t1,t2) => areEqualTypes(tc, t1, t2)
-            })
-          case _ =>
-            reporter.fatalError(e.getPos, s"Inferred type ${inferredType.asString} for ${e.asString}, but expected `${tpe.asString}`")
-        }
+      case (Annotated(e, _), _) => checkType(tc, e, tpe)
+      case (_, AnnotatedType(tpe, flags)) => checkType(tc, e, tpe)
 
       case _ =>
-        val (inferredType, vcs) = inferType(tc, e)
-        if (tpe == stripRefinementsAndAnnotations(inferredType))
-          vcs
-        else {
-          val vd = ValDef.fresh("x", inferredType)
-          isSubtype(tc.setPos(e),
-            RefinementType(vd, Equals(vd.toVariable, e)),
-            tpe
-          )
-        }
+        val (inferredType, tr) = inferType(tc, e)
+        tr ++ isSubtype(tc, inferredType, tpe)
     }
     reporter.debug(s"\n${tc0.indent}Checked that: ${e.asString} (${e.getPos})")
     reporter.debug(s"${tc0.indent}has type: ${tpe.asString}")
@@ -1121,33 +1135,99 @@ trait TypeChecker {
     res.root(CheckType(tc0, e, tpe))
   }
 
-  /** The `isSubtype` function simply calls `checkType` */
-  def isSubtype(tc0: TypingContext, tp1: Type, tp2: Type): TyperResult = {
+  def isSubtype(tc0: TypingContext, _tp1: Type, _tp2: Type): TyperResult = {
+    val tp1 = exprOps.stripAnnotations(_tp1)
+    val tp2 = exprOps.stripAnnotations(_tp2)
     reporter.debug(s"\n${tc0.indent}Checking that: ${tp1.asString}")
     reporter.debug(s"${tc0.indent}is a subtype of: ${tp2.asString}")
     reporter.debug(s"${tc0.indent}in context:")
     reporter.debug(tc0.asString(tc0.indent))
     val tc = tc0.inc
-    if (tp1 == tp2) TyperResult.valid
+    val res = if (tp1 == tp2) TyperResult.valid
     else (tp1, tp2) match {
-      case (TupleType(tps1), TupleType(tps2)) =>
-        TyperResult(tps1.zip(tps2).map {
-          case (ty1, ty2) => isSubtype(tc, ty1, ty2)
-        })
+      case (_, Top()) => TyperResult.valid
+
+      case (TupleType(tps1), TupleType(tps2)) if tps1.size == tps2.size =>
+        areSubtypes(tc, tps1, tps2)
+
+      case (TupleType(tps1), SigmaType(params2, to2)) if tps1.size == params2.size + 1 =>
+        val params1 = tps1.zip(params2).map { case (tp, vd) => ValDef.fresh(vd.id.name, tp) }
+        val (tc2, freshener, tr) = areSubtypes(tc, params1, params2)
+        tr ++ isSubtype(tc2, tps1.last, freshener.transform(to2))
+
+      case (SigmaType(params1, to1), TupleType(tps2)) if tps2.size == params1.size + 1 =>
+        val params2 = tps2.zip(params1).map { case (tp, vd) => ValDef.fresh(vd.id.name, tp) }
+        val (tc2, freshener, tr) = areSubtypes(tc, params1, params2)
+        tr ++ isSubtype(tc2, freshener.transform(to1), tps2.last)
+
+      case (SigmaType(params1, to1), SigmaType(params2, to2)) =>
+        val (tc2, freshener, tr) = areSubtypes(tc, params1, params2)
+        tr ++ isSubtype(tc2, freshener.transform(to1), freshener.transform(to2))
 
       case (RefinementType(vd1, prop1), RefinementType(vd2, prop2)) if (vd1.tpe == vd2.tpe) =>
-        buildVC(tc.bind(vd1).withTruth(prop1), renameVar(prop2, vd2.id, vd1.id))
+        buildVC(
+          tc.bind(vd1).withTruth(prop1).withVCKind(VCKind.RefinementSubtype),
+          substVar(prop2, vd2.id, vd1.toVariable)
+        )
+
+      case (_, RefinementType(vd, prop)) =>
+        isSubtype(tc, tp1, vd.tpe) ++ buildVC(tc.withVCKind(VCKind.RefinementSubtype), prop)
 
       case (RefinementType(vd, prop), _) =>
         isSubtype(tc, vd.tpe, tp2)
 
-      case (_, RefinementType(vd, prop)) if vd.tpe == tp1 =>
-        buildVC(tc, prop)
+      case (FunctionType(from1, to1), FunctionType(from2, to2)) =>
+        areSubtypes(tc, from2, from1) ++ isSubtype(tc, to1, to2)
 
-      // TODO: implement other subtyping rules
+      case (PiType(params1, to1), FunctionType(from2, to2)) =>
+        val params2 = from2.zip(params1).map { case (tp, vd) => ValDef.fresh(vd.id.name, tp) }
+        val (tc2, freshener, tr) = areSubtypes(tc, params2, params1)
+        tr ++ isSubtype(tc2, freshener.transform(to1), to2)
+
+      case (FunctionType(from1, to1), PiType(params2, to2)) =>
+        val params1 = from1.zip(params2).map { case (tp, vd) => ValDef.fresh(vd.id.name, tp) }
+        val (tc2, freshener, tr) = areSubtypes(tc, params2, params1)
+        tr ++ isSubtype(tc2, freshener.transform(to1), to2)
+
+      case (PiType(params1, to1), PiType(params2, to2)) =>
+        val (tc2, freshener, tr) = areSubtypes(tc, params2, params1)
+        tr ++ isSubtype(tc2, freshener.transform(to1), freshener.transform(to2))
+
+      case (ADTType(id1, tps1), RecursiveType(id2, tps2, index2))
+          if id1 == id2 && tps1.length == tps2.length =>
+        TyperResult(tps1.zip(tps2).map { case (tp1, tp2) => areEqualTypes(tc, tp1, tp2) })
+
+      case (ADTType(id1, tps1), ADTType(id2, tps2))
+          if id1 == id2 && tps1.length == tps2.length =>
+        TyperResult(tps1.zip(tps2).map { case (tp1, tp2) => areEqualTypes(tc, tp1, tp2) })
+
+      // The equality VC can be relaxed to >= for positive types
+      case (RecursiveType(id1, tps1, index1), RecursiveType(id2, tps2, index2))
+          if id1 == id2 && tps1.length == tps2.length =>
+        TyperResult(tps1.zip(tps2).map { case (tp1, tp2) => areEqualTypes(tc, tp1, tp2) }) ++
+        buildVC(tc.withVCKind(VCKind.RecursiveSubtype), Equals(index1, index2))
+
+      case (SetType(base1), SetType(base2)) =>
+        areEqualTypes(tc, base1, base2)
+
+      case (BagType(base1), BagType(base2)) =>
+        areEqualTypes(tc, base1, base2)
+
+      case (MapType(from1, to1), MapType(from2, to2)) =>
+        areEqualTypes(tc, from1, from2) ++
+        areEqualTypes(tc, to1, to2)
+
+      case (ArrayType(base1), ArrayType(base2)) =>
+        areEqualTypes(tc, base1, base2)
+
       case (_, _) =>
         reporter.fatalError(tc.getPos, s"Could not check that ${tp1.asString} is a subtype of ${tp2.asString}")
     }
+    reporter.debug(s"\n${tc0.indent}Checked that: ${tp1.asString} (${tp1.getPos})")
+    reporter.debug(s"${tc0.indent}is a subtype of: ${tp2.asString}")
+    reporter.debug(s"${tc0.indent}in context:")
+    reporter.debug(s"${tc0.asString(tc0.indent)}")
+    res.root(IsSubtype(tc0, tp1, tp2))
   }
 
   /** The `areEqualTypes` checks the subtyping relation in both directions */
@@ -1162,95 +1242,6 @@ trait TypeChecker {
     }
 
     tr.root(AreEqualTypes(tc0, t1, t2))
-  }
-
-  // TODO: check that arguments marked by `@erasable` can be erased
-  def checkType(fd: FunDef): TyperResult = {
-    val id = fd.id
-
-    val deps = dependencies(id)
-    val mutuallyRecursiveDeps = deps.filter { id2 => dependencies(id2).contains(id) }
-
-    // NOTE: We currently trust that synthetic functions with mutual
-    // recursion with an ADT are sound (eg. those generated by TypeEncoding).
-    if (!fd.flags.contains(Synthetic)) {
-      mutuallyRecursiveDeps
-        .find(sort => lookupSort(sort).isDefined)
-        .foreach { sort =>
-          reporter.fatalError(fd.getPos,
-            s"An ADT (${sort.asString}), and a function (${id.asString}) cannot be mutually recursive")
-        }
-    }
-
-    val toFreshen = fd.tparams.map(tpd => tpd.tp.id) ++ fd.params.map(vd => vd.id)
-
-    val freshener = Freshener(toFreshen.map(id => id -> id.freshen).toMap)
-
-    // The type of the arguments, the specifications, and the return type
-    // need to be well-formed without the mutually recursive dependencies
-    val nonMutuallyRecursiveContext =
-      TypingContext.empty.
-        withIdentifiers(deps -- mutuallyRecursiveDeps).
-        withTypeVariables(fd.tparams.map(tpd => freshener.transformTp(tpd.tp)).toSet).
-        inFunction(id).
-        setPos(fd)
-
-    // `tc` is `nonMutuallyRecursiveContext` to which we add variables for the
-    // arguments of the function
-    // `trArgs` are the verification conditions for ensuring that the type of
-    // the arguments are well-formed
-    val (tc, trArgs) = fd.params.foldLeft(nonMutuallyRecursiveContext, TyperResult.valid) {
-      case ((tcAcc, trAcc), vd) =>
-        val freshVd = freshener.transform(vd)
-        (
-          tcAcc.bind(freshVd),
-          trAcc ++ isType(tcAcc, freshVd.tpe)
-        )
-    }
-
-    val preOpt = fd.precondition.map(e => freshener.transform(e))
-    val postOpt = fd.postcondition.map(e => freshener.transform(e))
-    val measureOpt = fd.measure.map(e => freshener.transform(e))
-
-    // We check that the precondition is a boolean
-    val trPre = preOpt.map(pre => checkType(tc, pre, BooleanType())).getOrElse(TyperResult.valid)
-
-    val tcWithPre = preOpt.map(pre => tc.withTruth(pre)).getOrElse(tc)
-
-    val freshenedReturnType = freshener.transform(fd.returnType)
-
-    val (measureType, trMeasure): (Option[Type], TyperResult) =
-      if (measureOpt.isDefined) {
-        val measure = measureOpt.get
-        val (measureType, trMeasureType) = inferType(tcWithPre, measure)
-        val trMeasurePos = buildVC(
-          tcWithPre.withVCKind(VCKind.MeasurePositive).setPos(measure),
-          positive(measureType, measure)
-        )
-
-        (Some(measureType), trMeasureType ++ trMeasurePos)
-      } else {
-        (None, TyperResult.valid)
-      }
-
-    val bodyOpt = exprOps.withoutSpecs(fd.fullBody).map(e => freshener.transform(e))
-
-    // The TypingContext for the body contains all dependencies, and the measure
-    val tcBody = tcWithPre.withIdentifiers(deps).withMeasureType(measureType).withMeasure(measureOpt)
-
-    // We check that the body of the function respects the return type and
-    // the post-condition. We allow here references to mutually recursive dependencies (in `deps`)
-    val trBody = bodyOpt.fold(TyperResult.valid) { body =>
-      postOpt.fold(checkType(tcBody, body, freshenedReturnType)) {
-        case Lambda(Seq(retArg), postBody) =>
-          val refinedReturnType = RefinementType(retArg, postBody)
-          val vcKind = if (fd.flags.contains(Law)) VCKind.Law else VCKind.Postcondition
-
-          checkType(tcBody.withVCKind(vcKind), body, refinedReturnType)
-        }
-    }
-
-    (trArgs ++ trPre ++ trMeasure ++ trBody).root(OKFunction(id))
   }
 
   def checkFunctionIsVisible(tc: TypingContext, id: Identifier, in: Expr): Unit = {
@@ -1275,36 +1266,151 @@ trait TypeChecker {
   }
 
   def needsMeasure(fd: FunDef): Boolean = {
+    checkMeasures.isTrue &&
     symbols.isRecursive(fd.id) &&
     !fd.flags.contains(Synthetic) &&
     !fd.flags.exists(_.name == "library")
   }
 
-  def noMeasure(fd: FunDef): Boolean = {
-    checkMeasures.isTrue && needsMeasure(fd) && fd.measure.isEmpty
+  def checkType(id: Identifier): (Option[Type], TyperResult) = {
+    import exprOps._
+
+    val fd = getFunction(id)
+    val deps = dependencies(id)
+    val mutuallyRecursiveDeps = deps.filter { id2 => dependencies(id2).contains(id) }
+
+    // NOTE: We currently trust that synthetic functions with mutual
+    // recursion with an ADT are sound (eg. those generated by TypeEncoding).
+    if (!fd.flags.contains(Synthetic)) {
+      mutuallyRecursiveDeps
+        .find(sort => lookupSort(sort).isDefined)
+        .foreach { sort =>
+          reporter.fatalError(fd.getPos,
+            s"An ADT (${sort.asString}), and a function (${id.asString}) cannot be mutually recursive")
+        }
+    }
+
+    val toFreshen = fd.tparams.map(tpd => tpd.tp.id) ++ fd.params.map(vd => vd.id)
+
+    val freshener = Substituter(toFreshen.map(id => id -> id.freshen).toMap)
+
+    val specced = BodyWithSpecs(fd.fullBody)
+
+    // The type of the arguments, the specifications, and the return type
+    // need to be well-formed without the mutually recursive dependencies
+    val nonMutuallyRecursiveContext =
+      TypingContext.empty.
+        withIdentifiers(deps -- mutuallyRecursiveDeps).
+        withTypeVariables(fd.tparams.map(tpd => freshener.transformTp(tpd.tp)).toSet).
+        inFunction(id).
+        setPos(fd)
+
+    // `tc0` is `nonMutuallyRecursiveContext` to which we add variables for the
+    // arguments of the function
+    // `trArgs` are the verification conditions for ensuring that the type of
+    // the arguments are well-formed
+    val (tc0, trArgs) = fd.params.foldLeft(nonMutuallyRecursiveContext, TyperResult.valid) {
+      case ((tcAcc, trAcc), vd) =>
+        val freshVd = freshener.transform(vd)
+        (
+          tcAcc.bind(freshVd),
+          trAcc ++ isType(tcAcc, freshVd.tpe)
+        )
+    }
+
+    // `tcWithPre` is `tc0` to which we add the preconditions and lets
+    // and `trPre` is the `TyperResult` corresponding to type-checking those
+    val (tcWithPre, trPre) = specced.specs.filter(spec => spec.kind == LetKind || spec.kind == PreconditionKind).foldLeft (tc0, TyperResult.valid) {
+      case ((tcAcc, trAcc), LetInSpec(vd, e)) =>
+        val e2 = freshener.transform(e)
+        val freshVd = freshener.transform(vd)
+        (tcAcc.bindWithValue(freshVd, e2), trAcc ++ checkType(tcAcc, e2, freshVd.tpe))
+      case ((tcAcc, trAcc), Precondition(cond)) =>
+        val cond2 = freshener.transform(cond)
+        (tcAcc.withTruth(cond2), trAcc ++ checkType(tcAcc, cond2, BooleanType()))
+      case _ => sys.error("shouldn't be possible because of the filtering above")
+    }
+
+    val measureOpt = specced.getSpec(MeasureKind).map(measure => freshener.transform(measure.expr))
+
+    val (measureType, trMeasure): (Option[Type], TyperResult) =
+      if (measureOpt.isDefined) {
+        val measure = measureOpt.get
+        val (measureType, trMeasureType) = inferType(tcWithPre, measure)
+        val trMeasurePos = buildVC(
+          tcWithPre.withVCKind(VCKind.MeasurePositive).setPos(measure),
+          positive(measureType, measure)
+        )
+
+        (Some(measureType), trMeasureType ++ trMeasurePos)
+      } else {
+        (None, TyperResult.valid)
+      }
+
+    val postOpt = specced.getSpec(PostconditionKind).map(post => freshener.transform(post.expr))
+
+    val freshenedReturnType = freshener.transform(fd.returnType)
+    val bodyOpt = specced.bodyOpt.map(freshener.transform)
+
+    // The `TypingContext` for the body contains all dependencies, and the measure
+    val tcBody = tcWithPre.withIdentifiers(deps).withMeasureType(measureType).withMeasure(measureOpt)
+
+    // We check that the body of the function respects the return type and
+    // the post-condition. We allow here references to mutually recursive dependencies (in `deps`)
+    val trBody = bodyOpt.fold(TyperResult.valid) { body =>
+      postOpt.fold(checkType(tcBody, body, freshenedReturnType)) {
+        case Lambda(Seq(retArg), postBody) =>
+          val refinedReturnType = RefinementType(retArg, postBody)
+          val vcKind = if (fd.flags.contains(Law)) VCKind.Law else VCKind.Postcondition
+
+          checkType(tcBody.withVCKind(vcKind), body, refinedReturnType)
+        }
+    }
+
+    (measureType, (trArgs ++ trPre ++ trMeasure ++ trBody).root(OKFunction(id)))
   }
 
-  def checkType(funs: Seq[Identifier]): Seq[StainlessVC] = {
-    val vcs = (for (id <- funs) yield {
+  def checkType(fids: Seq[Identifier]): Seq[StainlessVC] = {
+    val checkedFunctions = fids.map(fid => fid -> checkType(fid))
+
+    val vcs = (for ((id, (measureType, tr)) <- checkedFunctions) yield {
       val fd = getFunction(id)
 
-      if (fd.body.isDefined) {
-        if (noMeasure(fd)) {
+      if (exprOps.BodyWithSpecs(fd.fullBody).bodyOpt.isDefined) {
+        val nm = needsMeasure(fd)
+        if (nm && measureType.isEmpty) {
           Seq(VC(BooleanLiteral(false), id, VCKind.MeasureMissing, false).setPos(fd))
         } else {
-          val TyperResult(vcs, trees) = checkType(fd)
+          if (nm) {
+            checkedFunctions.find { case (id2, (measureType2, _)) =>
+              dependencies(id).contains(id2) &&
+              dependencies(id2).contains(id) &&
+              measureType2 != measureType
+            } match {
+              case None => ()
+              case Some((id2, (None, _))) =>
+                reporter.fatalError(fd.getPos,
+                  s"Measure of ${id.asString} has type ${measureType.get} while mutually recursive function " +
+                  s"${id2.asString} has no measure")
+              case Some((id2, (Some(measureType2), _))) =>
+                reporter.fatalError(fd.getPos,
+                  s"Measure of ${id.asString} has type ${measureType.get} while mutually recursive function " +
+                  s"${id2.asString} has measure with type ${measureType2}")
+            }
+          }
+          val TyperResult(vcs, trees) = tr
 
           if (reporter.debugSections.contains(DebugSectionDerivation)) {
-            makeHTMLFile(id + ".html", trees)
+            makeHTMLFile(id.uniqueName + ".html", trees)
           }
 
           vcs
+
         }
       } else {
         Nil
       }
     }).flatten
-
     vcs.sortBy { vc =>
       (
         getFunction(vc.fd),
@@ -1350,7 +1456,7 @@ trait TypeChecker {
     ).root(OKADT(id))
 
     if (reporter.debugSections.contains(DebugSectionDerivation)) {
-      makeHTMLFile(id + ".html", trees)
+      makeHTMLFile(id.uniqueName + ".html", trees)
     }
 
     vcs

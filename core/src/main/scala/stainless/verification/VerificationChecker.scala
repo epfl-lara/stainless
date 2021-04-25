@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 package verification
@@ -288,7 +288,7 @@ trait VerificationChecker { self =>
             reporter.info(" => VALID")
 
           case VCStatus.Invalid(reason) =>
-            reporter.warning(" => INVALID")
+            reporter.warning(vc.getPos, " => INVALID")
             reason match {
               case VCStatus.CounterExample(cex) =>
                 reporter.warning("Found counter-example:")
@@ -299,7 +299,7 @@ trait VerificationChecker { self =>
             }
 
           case status =>
-            reporter.warning(" => " + status.name.toUpperCase)
+            reporter.warning(vc.getPos, " => " + status.name.toUpperCase)
         }
       }
 

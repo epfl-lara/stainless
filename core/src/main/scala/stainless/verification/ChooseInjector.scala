@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 package verification
@@ -8,13 +8,15 @@ trait ChooseInjector extends inox.transformers.SymbolTransformer {
   val s: trees.type = trees
   val t: trees.type = trees
   import trees._
+  import exprOps._
 
   override def transform(symbols: Symbols): Symbols = {
     t.NoSymbols
       .withSorts(symbols.sorts.values.toSeq)
       .withFunctions(symbols.functions.values.toSeq.map { fd =>
-        lazy val (specs, body) = exprOps.deconstructSpecs(fd.fullBody)(symbols)
-        lazy val post = exprOps.postconditionOf(fd.fullBody)
+
+        val specced = BodyWithSpecs(fd.fullBody)
+        val post = specced.getSpec(PostconditionKind).map(s => s.expr)
 
         def injectChooses(e: Expr): Expr = e match {
           case NoTree(tpe) =>
@@ -40,15 +42,15 @@ trait ChooseInjector extends inox.transformers.SymbolTransformer {
         }
 
         val newBody = if ((fd.flags contains Extern) || (fd.flags contains Opaque)) {
-          val Lambda(Seq(vd), post) = fd.postOrTrue(symbols)
-
-          fd.precondition(symbols) match {
-            case Some(pre) => Require(pre, Choose(vd, post))
-            case None => Choose(vd, post)
+          val Lambda(Seq(vd), post) = specced.getSpec(PostconditionKind).map(post => post.expr).getOrElse {
+            Lambda(Seq(ValDef.fresh("res", fd.returnType).setPos(fd.fullBody)), BooleanLiteral(true).setPos(fd.fullBody)).setPos(fd.fullBody)
           }
+
+          specced.specs.filter(spec => spec.kind == PreconditionKind || spec.kind == LetKind)
+            .foldRight(Choose(vd, post).setPos(fd.fullBody) : Expr)(applySpec)
         } else {
-          val newBody = injectChooses(body.getOrElse(NoTree(fd.returnType)))
-          exprOps.reconstructSpecs(specs, Some(newBody), fd.returnType)
+          val newBody = injectChooses(specced.bodyOpt.getOrElse(NoTree(fd.returnType)))
+          specced.withBody(newBody).reconstructed
         }
 
         fd.copy(fullBody = newBody)

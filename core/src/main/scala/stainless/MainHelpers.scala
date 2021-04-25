@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 
@@ -36,21 +36,24 @@ trait MainHelpers extends inox.MainHelpers { self =>
     verification.optFailEarly -> Description(Verification, "Halt verification as soon as a check fails (invalid or unknown)"),
     verification.optFailInvalid -> Description(Verification, "Halt verification as soon as a check is invalid"),
     verification.optVCCache -> Description(Verification, "Enable caching of verification conditions"),
+    verification.optCoq -> Description(Verification, "Transform the program into a Coq program, and let Coq generate subgoals automatically"),
+    verification.optAdmitAll -> Description(Verification, "Admit all obligations when translated into a coq program"),
     verification.optStrictArithmetic -> Description(Verification,
-      s"Check arithmetic operations for unintended behaviour and overflows (default: true)"),
+      s"Check arithmetic operations for unintended behavior and overflows (default: true)"),
     verification.optTypeChecker -> Description(Verification, "Use the type-checking rules from the calculus to generate verification conditions"),
+    verification.optAdmitVCs -> Description(Verification, "Admit all verification conditions"),
     termination.optCheckMeasures -> Description(Termination, "Check that measures are valid (both inferred and user-defined)"),
     termination.optInferMeasures -> Description(Termination, "Automatically infer measures for recursive functions"),
     inox.optTimeout -> Description(General, "Set a timeout n (in sec) such that\n" +
       "  - verification: each proof attempt takes at most n seconds\n" +
       "  - termination: each solver call takes at most n / 100 seconds"),
     optJson -> Description(General, "Output verification and termination reports to a JSON file"),
+    genc.optOutputFile -> Description(General, "File name for GenC output"),
     optWatch -> Description(General, "Re-run stainless upon file changes"),
     optCompact -> Description(General, "Print only invalid elements of summaries"),
-    optNoColors -> Description(General, "Disable colored output"),
     frontend.optPersistentCache -> Description(General, "Enable caching of program extraction & analysis"),
     frontend.optBatchedProgram -> Description(General, "Process the whole program together, skip dependency analysis"),
-    frontend.optKeep -> Description(General, "Keep library objects marked by @keep(g) for some g in g1,g2,... (implies --batched)"),
+    frontend.optKeep -> Description(General, "Keep library objects marked by @keepFor(g) for some g in g1,g2,... (implies --batched)"),
     frontend.optExtraDeps -> Description(General, "Fetch the specified extra source dependencies and add their source files to the session"),
     frontend.optExtraResolvers -> Description(General, "Extra resolvers to use to fetch extra source dependencies"),
     utils.Caches.optCacheDir -> Description(General, "Specify the directory in which cache files should be stored")
@@ -67,17 +70,21 @@ trait MainHelpers extends inox.MainHelpers { self =>
     verification.DebugSectionFullVC,
     verification.DebugSectionCacheHit,
     verification.DebugSectionCacheMiss,
+    verification.DebugSectionCoq,
     verification.DebugSectionPartialEval,
     verification.DebugSectionTypeChecker,
     verification.DebugSectionTypeCheckerVCs,
     verification.DebugSectionDerivation,
     termination.DebugSectionTermination,
+    extraction.inlining.DebugSectionFunctionSpecialization,
     extraction.utils.DebugSectionTrees,
     extraction.utils.DebugSectionPositions,
     frontend.DebugSectionExtraction,
     frontend.DebugSectionFrontend,
+    frontend.DebugSectionStack,
     frontend.DebugSectionRecovery,
     frontend.DebugSectionExtraDeps,
+    genc.DebugSectionGenC,
   )
 
   override protected def displayVersion(reporter: inox.Reporter): Unit = {
@@ -115,7 +122,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
   def getConfigContext(options: inox.Options)(implicit initReporter: inox.Reporter): inox.Context = {
     val ctx = super.processOptions(Seq.empty, getConfigOptions(options))
 
-    if (ctx.options.findOptionOrDefault(optNoColors)) {
+    if (ctx.options.findOptionOrDefault(inox.optNoColors)) {
       val reporter = new stainless.PlainTextReporter(ctx.reporter.debugSections)
       Context.withReporter(reporter)(ctx)
     } else ctx
@@ -135,7 +142,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
 
     val ctx = super.processOptions(files, options)
 
-    if (ctx.options.findOptionOrDefault(optNoColors)) {
+    if (ctx.options.findOptionOrDefault(inox.optNoColors)) {
       val reporter = new stainless.PlainTextReporter(ctx.reporter.debugSections)
       Context.withReporter(reporter)(ctx)
     } else ctx
@@ -178,9 +185,16 @@ trait MainHelpers extends inox.MainHelpers { self =>
       def watchRunCycle() = try {
         baseRunCycle()
       } catch {
-        case e: Throwable =>
-          reporter.debug(e)(frontend.DebugSectionFrontend)
+        case e @ extraction.MalformedStainlessCode(tree, msg) =>
+          reporter.debug(e)(frontend.DebugSectionStack)
+          ctx.reporter.error(tree.getPos, msg)
           reporter.error("There was an error during the watch cycle")
+          reporter.reset()
+          compiler = newCompiler()
+        case e: Throwable =>
+          reporter.debug(e)(frontend.DebugSectionStack)
+          reporter.error("There was an error during the watch cycle")
+          reporter.reset()
           compiler = newCompiler()
       }
 
@@ -204,8 +218,9 @@ trait MainHelpers extends inox.MainHelpers { self =>
         exportJson(compiler.getReport, output)
       }
 
+      val asciiOnly = ctx.options.findOptionOrDefault(inox.optNoColors)
       reporter.whenDebug(inox.utils.DebugSectionTimers) { debug =>
-        timers.outputTable(debug)
+        timers.outputTable(debug, asciiOnly)
       }
 
       // Shutdown the pool for a clean exit.

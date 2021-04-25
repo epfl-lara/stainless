@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 package extraction
@@ -28,7 +28,7 @@ trait ImperativeCleanup
     import symbols._
 
     def isImperativeFlag(f: s.Flag): Boolean = f match {
-      case s.IsPure | s.IsVar| s.IsMutable => true
+      case s.IsPure | s.IsVar | s.IsMutable => true
       case _ => false
     }
 
@@ -93,11 +93,11 @@ trait ImperativeCleanup
   } (expr)
 
   override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = {
-    val (specs, body) = s.exprOps.deconstructSpecs(fd.fullBody)(context.symbols)
+    val (specs, body) = s.exprOps.deconstructSpecs(fd.fullBody)
 
     specs foreach {
-      case post: s.exprOps.Postcondition => post foreach checkValidOldUsage
-      case spec => spec foreach checkNoOld
+      case post: s.exprOps.Postcondition => post traverse (checkValidOldUsage _)
+      case spec => spec traverse (checkNoOld _)
     }
 
     body foreach checkNoOld

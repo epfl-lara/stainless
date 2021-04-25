@@ -1,11 +1,15 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
+import scala.language.existentials
 
 import stainless.utils.YesNoOnly
+
+import extraction.xlang.{ TreeSanitizer, trees => xt }
+import extraction.utils.DebugSymbols
 
 trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with InputUtils { self =>
 
@@ -49,11 +53,24 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
       } test(s"$dir/$name", ctx => filter(ctx, s"$dir/$name")) { implicit ctx =>
         val (structure, program) = loadFiles(Seq(path))
         assert((structure count { _.isMain }) == 1, "Expecting only one main unit")
-        program.symbols.ensureWellFormed
+
+        val userFiltering = new DebugSymbols {
+          val name = "UserFiltering"
+          val context = ctx
+          val s: xt.type = xt
+          val t: xt.type = xt
+        }
+
+        val programSymbols = userFiltering.debug(frontend.UserFiltering().transform)(program.symbols)
+        programSymbols.ensureWellFormed
+        val errors = TreeSanitizer(xt).enforce(programSymbols)
+        if (!errors.isEmpty) {
+          ctx.reporter.fatalError("There were errors in TreeSanitizer")
+        }
 
         val run = component.run(extraction.pipeline)
 
-        val exProgram = inox.Program(run.trees)(run extract program.symbols)
+        val exProgram = inox.Program(run.trees)(run extract programSymbols)
         exProgram.symbols.ensureWellFormed
         assert(ctx.reporter.errorCount == 0, "There were errors during extraction")
 
@@ -77,7 +94,16 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
     } else {
       implicit val ctx = inox.TestContext.empty
       val (structure, program) = loadFiles(fs.map(_.getPath))
-      program.symbols.ensureWellFormed
+
+      val userFiltering = new DebugSymbols {
+        val name = "UserFiltering"
+        val context = ctx
+        val s: xt.type = xt
+        val t: xt.type = xt
+      }
+
+      val programSymbols = userFiltering.debug(frontend.UserFiltering().transform)(program.symbols)
+      programSymbols.ensureWellFormed
 
       // We use a shared run during extraction to ensure caching of extraction results is enabled.
 
@@ -86,13 +112,13 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
         if unit.isMain
         name = unit.id.name
       } test(s"$dir/$name", ctx => filter(ctx, s"$dir/$name")) { implicit ctx =>
-        val defs = unit.allFunctions(program.symbols).toSet ++ unit.allClasses
+        val defs = unit.allFunctions(programSymbols).toSet ++ unit.allClasses
 
-        val deps = defs.flatMap(id => program.symbols.dependencies(id) + id)
+        val deps = defs.flatMap(id => programSymbols.dependencies(id) + id)
         val symbols = extraction.xlang.trees.NoSymbols
-          .withClasses(program.symbols.classes.values.filter(cd => deps(cd.id)).toSeq)
-          .withFunctions(program.symbols.functions.values.filter(fd => deps(fd.id)).toSeq)
-          .withTypeDefs(program.symbols.typeDefs.values.filter(td => deps(td.id)).toSeq)
+          .withClasses(programSymbols.classes.values.filter(cd => deps(cd.id)).toSeq)
+          .withFunctions(programSymbols.functions.values.filter(fd => deps(fd.id)).toSeq)
+          .withTypeDefs(programSymbols.typeDefs.values.filter(td => deps(td.id)).toSeq)
 
         val extractor = component.run(extraction.pipeline)
         val exSymbols = extractor extract symbols

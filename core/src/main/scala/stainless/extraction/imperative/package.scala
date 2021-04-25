@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 package extraction
@@ -27,6 +27,7 @@ package object imperative {
 
   def extractor(implicit ctx: inox.Context) = {
     utils.DebugPipeline("AntiAliasing", AntiAliasing(trees)) andThen
+    utils.DebugPipeline("ReturnElimination", ReturnElimination(trees)) andThen
     utils.DebugPipeline("ImperativeCodeElimination", ImperativeCodeElimination(trees)) andThen
     utils.DebugPipeline("ImperativeCleanup", ImperativeCleanup(trees, oo.trees))
   }

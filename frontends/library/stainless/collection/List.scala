@@ -1,16 +1,13 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless.collection
 
 import scala.annotation.tailrec
-import scala.language.implicitConversions
 import scala.collection.immutable.{List => ScalaList}
 
-import stainless._
 import stainless.lang._
 import stainless.lang.StaticChecks._
 import stainless.annotation._
-import stainless.math._
 import stainless.proof._
 
 @library

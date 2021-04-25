@@ -1,16 +1,19 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 package frontend
 
 import stainless.extraction.xlang.{trees => xt, TreeSanitizer}
+import stainless.extraction.utils.DebugSymbols
 import stainless.utils.LibraryFilter
 
 import scala.util.{Try, Success, Failure}
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Context) extends CallBack with StainlessReports {
+import scala.language.existentials
+
+class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Context) extends CallBack with StainlessReports { self =>
   import context.reporter
 
   private implicit val debugSection = DebugSectionFrontend
@@ -21,10 +24,28 @@ class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Con
 
   private var report: AbstractReport[Report] = _
 
+  private[this] val preprocessing = new DebugSymbols {
+    val name = "Preprocessing"
+    val context = self.context
+    val s: xt.type = xt
+    val t: xt.type = xt
+  }
+
+  private[this] val userFiltering = new DebugSymbols {
+    val name = "UserFiltering"
+    val context = self.context
+    val s: xt.type = xt
+    val t: xt.type = xt
+  }
+
   protected val pipeline: extraction.StainlessPipeline = extraction.pipeline
   private[this] val runs = components.map(_.run(pipeline))
 
-  def beginExtractions(): Unit = {}
+  def beginExtractions(): Unit = {
+    currentClasses = Seq()
+    currentFunctions = Seq()
+    currentTypeDefs = Seq()
+  }
 
   override def apply(
     file: String,
@@ -48,35 +69,19 @@ class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Con
   def failed(): Unit = {}
 
   def endExtractions(): Unit = {
+    context.reporter.terminateIfFatal()
+
     val allSymbols = xt.NoSymbols
       .withClasses(currentClasses)
       .withFunctions(currentFunctions)
       .withTypeDefs(currentTypeDefs)
 
-    val initialSymbols = LibraryFilter.removeLibraryFlag(allSymbols)
-
-    def notUserFlag(f: xt.Flag) = f.name == "library" || f == xt.Synthetic
-
-    val userIds =
-      initialSymbols.classes.values.filterNot(cd => cd.flags.exists(notUserFlag)).map(_.id) ++
-      initialSymbols.functions.values.filterNot(fd => fd.flags.exists(notUserFlag)).map(_.id) ++
-      initialSymbols.typeDefs.values.filterNot(td => td.flags.exists(notUserFlag)).map(_.id)
-
-    val userDependencies = (userIds.flatMap(initialSymbols.dependencies) ++ userIds).toSeq
-    val keepGroups = context.options.findOptionOrDefault(optKeep)
-
-    def hasKeepFlag(flags: Seq[xt.Flag]) =
-      keepGroups.exists(g => flags.contains(xt.Annotation("keep", Seq(xt.StringLiteral(g)))))
-
-    def keepDefinition(defn: xt.Definition): Boolean =
-      hasKeepFlag(defn.flags) || userDependencies.contains(defn.id)
-
-    val preSymbols =
-      xt.NoSymbols.withClasses(initialSymbols.classes.values.filter(keepDefinition).toSeq)
-                  .withFunctions(initialSymbols.functions.values.filter(keepDefinition).toSeq)
-                  .withTypeDefs(initialSymbols.typeDefs.values.filter(keepDefinition).toSeq)
-
-    val symbols = Recovery.recover(preSymbols)
+    val symbols =
+      userFiltering.debug(UserFiltering().transform)(
+        preprocessing.debug(Preprocessing().transform)(
+          allSymbols
+        )
+      )
 
     val errors = TreeSanitizer(xt).enforce(symbols)
     if (!errors.isEmpty) {
@@ -124,6 +129,6 @@ class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Con
     reporter.debug(s"functions -> [${syms.functions.keySet.toSeq.sorted mkString ", "}]")
     reporter.debug(s"classes   -> [\n  ${syms.classes.values mkString "\n  "}\n]")
     reporter.debug(s"typedefs  -> [\n  ${syms.typeDefs.values mkString "\n  "}\n]")
-    reporter.fatalError(s"Aborting from BatchedCallBack")
+    reporter.fatalError(s"Well-formedness check failed after extraction")
   }
 }

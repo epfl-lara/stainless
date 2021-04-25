@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 package extraction
@@ -45,7 +45,8 @@ trait ImperativeCodeElimination
     //that should be introduced as such in the returned scope (the val already refers to the new names)
     def toFunction(expr: Expr)(implicit state: State): (Expr, Expr => Expr, Map[Variable, Variable]) = {
       import state._
-      expr match {
+
+      val (res, scope, fun): (Expr, Expr => Expr, Map[Variable, Variable]) = expr match {
         case LetVar(vd, e, b) =>
           val newVd = vd.freshen
           val (rhsVal, rhsScope, rhsFun) = toFunction(e)
@@ -132,48 +133,6 @@ trait ImperativeCodeElimination
           }
 
           (res.toVariable, scope, scrutFun ++ (modifiedVars zip freshVars))
-
-        case wh @ While(cond, body, optInv) =>
-          val id = FreshIdentifier(parent.id.name + "While")
-          val tpe = FunctionType(Seq(), UnitType().copiedFrom(wh)).copiedFrom(wh)
-
-          val (specs, without) = deconstructSpecs(body)
-          val (measures, otherSpecs) = specs.partition { case Measure(_) => true case _ => false }
-          val measure = measures.headOption.map { case Measure(m) => m }
-
-          val newBody = Block(
-            Seq(reconstructSpecs(otherSpecs, without, body.getType)),
-            IfExpr(
-              cond,
-              ApplyLetRec(id, Seq(), tpe, Seq(), Seq()).copiedFrom(wh),
-              UnitLiteral().copiedFrom(wh)
-            ).copiedFrom(wh)
-          ).copiedFrom(wh)
-
-          val newPost = Lambda(
-            Seq(ValDef.fresh("bodyRes", UnitType().copiedFrom(wh)).copiedFrom(wh)),
-            and(
-              Not(getFunctionalResult(cond).copiedFrom(cond)).copiedFrom(cond),
-              optInv.getOrElse(BooleanLiteral(true).copiedFrom(wh))
-            ).copiedFrom(wh)
-          ).copiedFrom(wh)
-
-          val fullBody = withPostcondition(
-            withPrecondition(
-              withMeasure(newBody, measure).copiedFrom(wh),
-              Some(andJoin(optInv.toSeq :+ getFunctionalResult(cond)))
-            ).copiedFrom(wh),
-            Some(newPost)
-          ).copiedFrom(wh)
-
-          toFunction(LetRec(
-            Seq(LocalFunDef(id, Seq(), Seq(), UnitType().copiedFrom(wh), fullBody, Seq()).copiedFrom(wh)),
-            IfExpr(
-              cond,
-              ApplyLetRec(id, Seq(), tpe, Seq(), Seq()).copiedFrom(wh),
-              UnitLiteral().copiedFrom(wh)
-            ).copiedFrom(wh)
-          ).copiedFrom(wh))
 
         case Block(Seq(), expr) =>
           toFunction(expr)
@@ -324,7 +283,7 @@ trait ImperativeCodeElimination
                     val (r, scope, _) = toFunction(newBody)
                     Postcondition(Lambda(Seq(newRes), scope(r)).setPos(post))
 
-                  case spec => spec.map { cond =>
+                  case spec => spec.transform { cond =>
                     val fresh = replaceFromSymbols((modifiedVars zip freshVars).toMap, cond)
                     //still apply recursively to update all function invocation
                     val (res, scope, _) = toFunction(fresh)
@@ -347,7 +306,10 @@ trait ImperativeCodeElimination
 
         //TODO: no support for true mutual recursion
         case LetRec(fds, b) =>
-          toFunction(LetRec(Seq(fds.head), LetRec(fds.tail, b)))
+          if (fds.isEmpty)
+            toFunction(b)
+          else
+            toFunction(LetRec(Seq(fds.head), LetRec(fds.tail, b)))
 
         //TODO: handle vars in scope, just like LetRec
         case ld @ Lambda(params, body) =>
@@ -400,20 +362,15 @@ trait ImperativeCodeElimination
             (argVal +: accArgs, newScope, argFun ++ accFun)
           }
 
-          (recons(recArgs).copiedFrom(n), scope, fun)
+          (recons(recArgs), scope, fun)
       }
-    }
 
-    /* Extract functional result value. Useful to remove side effect from conditions when moving it to post-condition */
-    def getFunctionalResult(expr: Expr): Expr = postMap {
-      case Block(_, res) => Some(res)
-      case _ => None
-    }(expr)
+      (res.copiedFrom(expr), scope, fun)
+    }
 
     def requireRewriting(expr: Expr) = expr match {
       case (e: Block) => true
       case (e: Assignment) => true
-      case (e: While) => true
       case (e: LetVar) => true
       case (e: Old) => true
       case (e: Snapshot) => true
@@ -434,7 +391,7 @@ trait ImperativeCodeElimination
           val (res, scope, _) = toFunction(newBody)(State(fd, Set(), Map()))
           Postcondition(Lambda(params, scope(res)).copiedFrom(ld))
 
-        case spec => spec.map { e =>
+        case spec => spec.transform { e =>
           val (res, scope, _) = toFunction(e)(State(fd, Set(), Map()))
           scope(res)
         }

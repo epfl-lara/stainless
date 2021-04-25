@@ -1,8 +1,7 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless.lang
 
-import scala.language.implicitConversions
 import scala.collection.immutable.{Map => ScalaMap}
 
 import StaticChecks._
@@ -38,24 +37,44 @@ object Map {
     @extern @pure
     def keys: List[A] = {
       List.fromScala(map.theMap.keys.toList)
-    } ensuring { res =>
-      forall((a: A) => map.contains(a) == res.contains(a))
     }
 
+    @extern @pure
+    def keysPost(a: A): Unit = {
+      ()
+    } ensuring { _ =>
+      map.contains(a) == keys.contains(a)
+    }
+    
+    
     @extern @pure
     def values: List[B] = {
       List.fromScala(map.theMap.values.toList)
-    } ensuring { res =>
-      forall((a: A, b: B) => (map.contains(a) && map(a) == b) == res.contains(b))
     }
 
     @extern @pure
+    def valuesPost1(a: A): Unit = {
+      ()
+    } ensuring { _ =>
+      !map.contains(a) || values.contains(map(a))
+    }    
+
+    @extern @pure
+    def valuesPost2(b: B): A = {
+      require(values.contains(b))
+      (??? : A)
+    } ensuring ((a:A) => b == map(a) && map.contains(a))
+    
+    @extern @pure
     def toList: List[(A, B)] = {
       List.fromScala(map.theMap.toList)
-    } ensuring { res =>
-      forall((a: A) => map.contains(a) == res.contains((a, map(a))))
     }
 
+    @extern @pure
+    def toListPost(a: A): Unit = {
+      ()
+    } ensuring (_ => map.contains(a) == toList.contains((a, map(a))))
+  
     @extern @pure
     def toScala: ScalaMap[A, B] = {
       map.theMap

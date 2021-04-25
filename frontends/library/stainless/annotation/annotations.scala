@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 package annotation
@@ -18,6 +18,10 @@ class library extends Annotation
 /** Apply the "induct" tactic during verification of the annotated function. */
 @ignore
 class induct extends Annotation
+
+/** Apply the "traceInduct" tactic during verification of the annotated function. */
+@ignore
+class traceInduct(fun: String) extends Annotation
 
 /** Only extract the contracts and replace the annotated function's body with a choose. */
 @ignore @field @getter @setter @param
@@ -68,10 +72,12 @@ class mutable extends Annotation
 
 /** Can be used to mark a library function/class/object so that it is not
   * filtered out by the keep objects. Use the command-line option `--keep=g` to
-  * keep all objects marked by `@keep(g)`
+  * keep all objects marked by `@keepFor(g)`
   */
 @ignore
-class keep(g: String) extends Annotation
+class keepFor(g: String) extends Annotation
+@ignore
+class keep extends Annotation
 
 /**
  * Code annotated with @ghost is removed after stainless extraction.
@@ -88,3 +94,13 @@ class erasable extends Annotation
 
 @ignore
 class indexedAt(n: BigInt) extends Annotation
+
+/** Export function to C for GenC translation */
+@ignore
+class export extends Annotation
+
+@ignore
+class refEq extends Annotation
+
+@ignore
+class template extends Annotation

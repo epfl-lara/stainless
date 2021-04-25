@@ -3,6 +3,7 @@
 import stainless.lang._
 import stainless.util._
 import stainless.util.Random._
+import stainless.io.State
 
 object UpDown {
 

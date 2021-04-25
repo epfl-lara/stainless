@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 package ast
@@ -68,7 +68,7 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
       val res = ValDef(FreshIdentifier("res", true), getType)
       Let(res, body, Assert(
         s.application(pred, Seq(res.toVariable)),
-        Some("Postcondition failed @" + this.getPos),
+        Some("Postcondition @" + this.getPos),
         res.toVariable
       ))
     }
@@ -166,7 +166,7 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
       .filter(_.params.size == 1)
       .getOrElse(throw extraction.MalformedStainlessCode(up, "Invalid unapply accessor"))
     val unapp = up.getFunction
-    val tpMap = s.instantiation(fd.params.head.getType, unapp.getType)
+    val tpMap = s.instantiation(fd.params.head.tpe, unapp.returnType)
       .getOrElse(throw extraction.MalformedStainlessCode(up, "Unapply pattern failed type instantiation"))
     fd.typed(fd.typeArgs map tpMap).applied(Seq(unapplied))
   }
@@ -193,7 +193,7 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
       getUnapplied(unapplyScrut(scrut, this).copiedFrom(this))
 
     def subTypes(in: Type)(implicit s: Symbols): Seq[Type] =
-      unwrapTupleType(s.unapplyAccessorResultType(getGet, getFunction.getType).get, subPatterns.size)
+      unwrapTupleType(s.unapplyAccessorResultType(getGet, getFunction.returnType).get, subPatterns.size)
   }
 
   /** Symbolic I/O examples as a match/case.

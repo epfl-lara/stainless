@@ -1,4 +1,4 @@
-/* Copyright 2009-2019 EPFL, Lausanne */
+/* Copyright 2009-2021 EPFL, Lausanne */
 
 package stainless
 package extraction
@@ -36,26 +36,36 @@ package object xlang {
       override protected type TransformerContext = identity.type
       override protected def getContext(symbols: s.Symbols) = identity
 
+      private def keepFlag(flag: s.Flag): Boolean = flag != s.Ignore && flag != s.StrictBV
+
       protected final object identity extends oo.TreeTransformer {
         override val s: self.s.type = self.s
         override val t: self.t.type = self.t
 
+        override def transform(tpe: s.Type): t.Type = tpe match {
+          case s.AnnotatedType(tpe, flags) if flags.exists(keepFlag) =>
+            t.AnnotatedType(super.transform(tpe), flags.filter(keepFlag).map(super.transform))
+          case s.AnnotatedType(tpe, _) => super.transform(tpe)
+          case _ => super.transform(tpe)
+        }
+
         override def transform(vd: s.ValDef): t.ValDef = {
-          super.transform(vd.copy(flags = vd.flags filterNot (_ == s.Ignore)))
+          super.transform(vd.copy(flags = vd.flags.filter(keepFlag)))
         }
       }
 
       override protected def extractFunction(transformer: TransformerContext, fd: s.FunDef): t.FunDef =
-        transformer.transform(fd.copy(flags = fd.flags.filter { case s.Ignore => false case _ => true }))
+        transformer.transform(fd.copy(flags = fd.flags.filter(keepFlag)))
 
       override protected def extractSort(transformer: TransformerContext, sort: s.ADTSort): t.ADTSort =
-        transformer.transform(sort.copy(flags = sort.flags filterNot (_ == s.Ignore)))
+        transformer.transform(sort.copy(flags = sort.flags.filter(keepFlag)))
 
       override protected def extractClass(transformer: TransformerContext, cd: s.ClassDef): t.ClassDef =
-        transformer.transform(cd.copy(flags = cd.flags filterNot (_ == s.Ignore)))
+        transformer.transform(cd.copy(flags = cd.flags.filter(keepFlag)))
     }
 
-    utils.DebugPipeline("PartialFunctions", PartialFunctions(trees)) andThen lowering
+    utils.DebugPipeline("PartialFunctions", PartialFunctions(trees)) andThen
+    utils.DebugPipeline("XlangLowering", lowering)
   }
 
   def fullExtractor(implicit ctx: inox.Context) = extractor andThen nextExtractor
