@@ -3,9 +3,9 @@
 package stainless
 package ast
 
-import org.scalatest._
+import org.scalatest.funsuite.AnyFunSuite
 
-class ExplicitNumericPromotionSuite extends FunSuite with InputUtils {
+class ExplicitNumericPromotionSuite extends AnyFunSuite with InputUtils {
 
   val unsupported = List(
     """|object Shift1 {

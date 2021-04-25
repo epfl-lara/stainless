@@ -99,7 +99,7 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
     "io.get-coursier" %% "coursier"      % "2.0.0-RC4-1",
     "com.typesafe"     % "config"        % "1.3.4",
 
-    "org.scalatest"   %% "scalatest"     % "3.0.8" % "test",
+    "org.scalatest"   %% "scalatest"     % "3.2.7" % "test",
   ),
 
   // disable documentation packaging in universal:stage to speedup development
@@ -169,10 +169,6 @@ lazy val libraryFiles: Seq[(String, File)] = {
 }
 
 lazy val commonFrontendSettings: Seq[Setting[_]] = Defaults.itSettings ++ Seq(
-  libraryDependencies ++= Seq(
-    // "ch.epfl.lara" %% "inox" % inoxVersion % "it" classifier "tests" classifier "it",
-    "org.scalatest" %% "scalatest" % "3.0.1" % "it" // FIXME: Does this override `% "test"` from commonSettings above?
-  ),
 
   /**
     * NOTE: IntelliJ seems to have trouble including sources located outside the base directory of an
@@ -237,7 +233,7 @@ val scriptSettings: Seq[Setting[_]] = Seq(
 def ghProject(repo: String, version: String) = RootProject(uri(s"${repo}#${version}"))
 
 // lazy val inox = RootProject(file("../inox"))
-lazy val inox = ghProject("https://github.com/epfl-lara/inox.git", "fdbf887e8992018dd97a63fd078a89ee91273c51")
+lazy val inox = ghProject("https://github.com/epfl-lara/inox.git", "b787367220c975d4a6bbe42f5261cb96e5578443")
 //lazy val dotty = ghProject("git://github.com/lampepfl/dotty.git", "b3194406d8e1a28690faee12257b53f9dcf49506")
 
 // Allow integration test to use facilities from regular tests

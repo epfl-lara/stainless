@@ -3,9 +3,9 @@
 package stainless
 package verification
 
-import org.scalatest._
+import org.scalatest.funsuite.AnyFunSuite
 
-class InliningSuite extends FunSuite with InputUtils {
+class InliningSuite extends AnyFunSuite with InputUtils {
 
   val source =
     """|import stainless.lang._
