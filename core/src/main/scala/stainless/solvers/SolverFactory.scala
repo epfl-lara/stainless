@@ -17,7 +17,7 @@ object SolverFactory {
                     val sourceProgram: p.type
                     val targetProgram: StainlessProgram
                   })(implicit sem: p.Semantics): SolverFactory { val program: p.type; type S <: TimeoutSolver { val program: p.type } } = {
-    if (inox.solvers.SolverFactory.solvers(name)) {
+    if (inox.solvers.SolverFactory.supportedSolver(name)) {
       val newCtx: inox.Context =
         if (ctx.options.findOption(optAssumeChecked).isDefined) ctx
         else ctx.withOpts(optAssumeChecked(true))

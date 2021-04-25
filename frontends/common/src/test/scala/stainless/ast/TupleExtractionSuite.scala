@@ -3,9 +3,9 @@
 package stainless
 package ast
 
-import org.scalatest._
+import org.scalatest.funsuite.AnyFunSuite
 
-class TupleExtractionSuite extends FunSuite with InputUtils {
+class TupleExtractionSuite extends AnyFunSuite with InputUtils {
 
   val sources = List(
     """|object Tup5 {

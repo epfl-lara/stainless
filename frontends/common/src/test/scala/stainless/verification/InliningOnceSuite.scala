@@ -3,9 +3,9 @@
 package stainless
 package verification
 
-import org.scalatest._
+import org.scalatest.funspec.AnyFunSpec
 
-class InliningOnceSuite extends FunSpec with InputUtils {
+class InliningOnceSuite extends AnyFunSpec with InputUtils {
 
   describe("with @inlineOnce only, inlining") {
     val source =

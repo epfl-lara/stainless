@@ -5,13 +5,13 @@ package stainless
 import stainless.extraction.xlang.{ trees => xt }
 import stainless.extraction.utils.DebugSymbols
 
-import org.scalatest._
+import org.scalatest.funspec.AnyFunSpec
 import scala.util.{Success, Failure, Try}
 import scala.language.existentials
 
 /** Subclass are only meant to call [[testExtractAll]] and [[testRejectAll]] on
  *  the relevant directories. */
-abstract class ExtractionSuite extends FunSpec with inox.ResourceUtils with InputUtils {
+abstract class ExtractionSuite extends AnyFunSpec with inox.ResourceUtils with InputUtils {
 
   def options: Seq[inox.OptionValue[_]] = Seq()
 
