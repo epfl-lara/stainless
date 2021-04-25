@@ -27,6 +27,7 @@ trait TypeCheckerSuite extends ComponentTestSuite {
     case "verification/invalid/SpecWithExtern"        => Ignore
     case "verification/invalid/BinarySearchTreeQuant" => Ignore
     case "verification/invalid/ForallAssoc"           => Ignore
+    case "verification/invalid/BadConcRope"           => Ignore
 
     // Not compatible with typechecker
     case "verification/valid/Countable2" => Ignore
@@ -54,7 +55,7 @@ class SMTZ3TypeCheckerSuite extends TypeCheckerSuite {
 
   override def configurations = super.configurations.map {
     seq => Seq(
-      inox.optSelectedSolvers(Set("smt-z3")),
+      inox.optSelectedSolvers(Set("smt-z3:z3-4.8.10")),
       inox.solvers.optCheckModels(true),
       verification.optVCCache(true),
     ) ++ seq
