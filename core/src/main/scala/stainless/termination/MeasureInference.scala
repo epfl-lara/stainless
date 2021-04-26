@@ -84,15 +84,19 @@ trait MeasureInference
           case fi @ FunctionInvocation(_, _, args) =>
             fi.copy(args = (symbols.getFunction(fi.id).params.map(_.id) zip args).map {
               case (id, l @ Lambda(largs, body)) if applicationCache.isDefinedAt(original.id, fi.id,id) =>
-                val cnstr = applicationCache(original.id, fi.id,id)
+                val cnstr = applicationCache(original.id, fi.id,id) 
                 body match {
-                  case FunctionInvocation(_,_,_) => 
+                  case FunctionInvocation(lid,_,_) if lid == original.id => 
                     Lambda(largs, Assume(cnstr(largs), body))
                   case _                         => 
                     /*
-                      This avoids a problem detected in LawTypeArgsElim.scala.
+                      a) This avoids a problem detected in LawTypeArgsElim.scala.
                       Annotating assume makes appear an undeclared variable in the
                       assumption and type checking fails.
+
+                      b) This avoids annotating the lambda when it is not needed for
+                      termination (condition lid == original.id). Annotating in that 
+                      case may make it difficult for the SMT solvers in some instances.
                     */
                     Lambda(largs, body)                    
                 }
