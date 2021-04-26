@@ -203,6 +203,12 @@ trait TransformerWithType extends TreeTransformer {
     case s.BVWideningCast(expr, tpe) =>
       t.BVWideningCast(transform(expr), transform(tpe).asInstanceOf[t.BVType]).copiedFrom(expr)
 
+    case s.BVUnsignedToSigned(expr) =>
+      t.BVUnsignedToSigned(transform(expr)).copiedFrom(expr)
+
+    case s.BVSignedToUnsigned(expr) =>
+      t.BVSignedToUnsigned(transform(expr)).copiedFrom(expr)
+
     case s.Tuple(es) => widen(tpe) match {
       case s.TupleType(tps) => t.Tuple((es zip tps) map (p => transform(p._1, p._2))).copiedFrom(expr)
       case _ => t.Tuple(es map (transform(_, s.AnyType()))).copiedFrom(expr)

@@ -514,7 +514,20 @@ trait TypeChecker {
         val (tpe, vcs) = inferType(tc, e2)
         stripRefinementsAndAnnotations(tpe) match {
           case BVType(s, from) if s == newType.signed && from > newType.size => (newType, vcs)
-          case _ => reporter.fatalError(e.getPos, s"Cannot widen boolean vector ${e2.asString} to ${newType.asString}")
+          case _ => reporter.fatalError(e.getPos, s"Cannot narrow boolean vector ${e2.asString} to ${newType.asString}")
+        }
+
+      case c@BVUnsignedToSigned(e2) =>
+        val (tpe, vcs) = inferType(tc, e2)
+        stripRefinementsAndAnnotations(tpe) match {
+          case BVType(false, size) => (BVType(true, size), vcs)
+          case _ => reporter.fatalError(e.getPos, s"Cannot use `toSigned` on ${e2.asString}")
+        }
+      case c@BVSignedToUnsigned(e2) =>
+        val (tpe, vcs) = inferType(tc, e2)
+        stripRefinementsAndAnnotations(tpe) match {
+          case BVType(true, size) => (BVType(false, size), vcs)
+          case _ => reporter.fatalError(e.getPos, s"Cannot use `toUnsigned` on ${e2.asString}")
         }
 
       case FiniteSet(elements, tpe) =>
@@ -736,16 +749,24 @@ trait TypeChecker {
 
         import exprOps._
 
-        val pre = preconditionOf(calleeTfd.fullBody).map(freshenLocals(_))
-        val trPre = {
-          if (pre.isDefined) {
-            val kind = VCKind.Info(VCKind.Precondition, s"call $fiS")
-            val (tc2, freshener2) = tc.freshBindWithValues(calleeTfd.params, args)
-            buildVC(tc2.withVCKind(kind).setPos(e), freshener2.transform(pre.get))
-          } else {
-            TyperResult.valid
-          }
-        }
+        val (tc2, freshener2) = tc.freshBindWithValues(calleeTfd.params, args)
+        val specced = BodyWithSpecs(freshener2.transform(freshenLocals(calleeTfd.fullBody)))
+        val trPre = specced.letsAndSpecs(PreconditionKind).foldLeft(
+          (tc2, TyperResult.valid, 0)
+        ) {
+          case ((tcAcc, trAcc, i), LetInSpec(vd0, e0)) => (tcAcc.bindWithValue(vd0, e0), trAcc, i)
+          case ((tcAcc, trAcc, i), Precondition(cond)) =>
+            val kind = if (i == 0)
+              VCKind.Info(VCKind.Precondition, s"call $fiS")
+            else
+              VCKind.Info(VCKind.Precondition, s"call $fiS (require ${i+1}")
+            (
+              tcAcc.withTruth(cond),
+              trAcc ++ buildVC(tcAcc.withVCKind(kind).setPos(e), cond),
+              i + 1
+            )
+          case _ => sys.error("not possible due to filtering")
+        }._2
 
         val isRecursive = tc.currentFid.exists(fid => dependencies(id).contains(fid))
 
@@ -932,7 +953,7 @@ trait TypeChecker {
         (RefinementType(vd, pred), trPred ++ trVC)
 
       case _ =>
-        reporter.fatalError(e.getPos, s"Unsupported expression (${e.getClass}):\n${e.asString} \nin context:\n${tc.asString()}")
+        reporter.fatalError(e.getPos, s"The type-checker doesn't support expressions: ${e.getClass}")
     }
 
     reporter.debug(s"\n${tc0.indent}Inferred type: ${t.asString} for ${e.asString}")

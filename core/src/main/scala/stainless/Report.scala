@@ -56,7 +56,8 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
   final def emit(ctx: inox.Context): Unit = {
     val compact = isCompactModeOn(ctx)
     val table = emitTable(!compact)(ctx)
-    ctx.reporter.info(table.render)
+    val asciiOnly = ctx.options.findOptionOrDefault(inox.optNoColors)
+    ctx.reporter.info(table.render(asciiOnly))
   }
 
   /** Create a new report with *only* the information about the given functions/classes/... */
@@ -83,7 +84,7 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
       RecordRow(id, pos, level, extra, time) <- annotatedRows.sortBy(r => r.id -> r.pos)(ordering)
       if full || level != Level.Normal
       name = if (printUniqueName) id.uniqueName else id.name
-      contents = (name +: extra) ++ Seq(pos.fullString, f"${time / 1000d}%3.1f")
+      contents = Position.smartPos(pos) +: (name +: (extra :+ f"${time / 1000d}%3.1f"))
     } yield Row(contents map { str => Cell(withColor(str, level)) })
   }
 
@@ -91,7 +92,7 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
     withColor(str, colorOf(level))
 
   private def withColor(str: String, color: String)(implicit ctx: inox.Context): String =
-    if (ctx.options.findOptionOrDefault(optNoColors)) str
+    if (ctx.options.findOptionOrDefault(inox.optNoColors)) str
     else s"$color$str${Console.RESET}"
 
   private def colorOf(level: Level): String = level match {

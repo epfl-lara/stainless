@@ -72,6 +72,7 @@ trait SymbolOps extends oo.SymbolOps { self: TypeOps =>
   }
 
   private[this] def isMutableType(tpe: Type, mutableClasses: Set[Identifier], visited: Set[Identifier]): Boolean = tpe match {
+    case _ if tpe == Untyped => true
     case tp: TypeParameter => tp.flags contains IsMutable
     case TypeBounds(NothingType(), AnyType(), flags) => flags contains IsMutable
     case any: AnyType => true

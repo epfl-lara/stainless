@@ -7,8 +7,6 @@ import java.io.{File, PrintWriter}
 import inox.DebugSection
 import inox.utils._
 
-object optNoColors extends inox.FlagOptionDef("no-colors", false)
-
 abstract class ReportMessage {
   def sbtPluginOnly: Boolean
   def title: String
@@ -39,11 +37,11 @@ class FilePlainTextReporter(file: File, debugSections: Set[DebugSection]) extend
   }
 
   override def emit(msg: Message) = synchronized {
-    printLine(reline(severityToPrefix(msg.severity), smartPos(msg.position) + msg.msg.toString))
+    printLine(reline(severityToPrefix(msg.severity), Position.smartPos(msg.position) + msg.msg.toString))
     printLineContent(msg.position)
   }
 
-  override def printLineContent(pos: Position): Unit = {
+  def printLineContent(pos: Position): Unit = {
     getLine(pos) match {
       case Some(line) =>
         printLine(blankPrefix+line)
