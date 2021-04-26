@@ -64,7 +64,7 @@ trait VerificationChecker { self =>
 
   /** @see [[checkAdtInvariantModel]] */
   protected def getFactoryForVC(vc: VC): TimeoutSolverFactory = vc.kind match {
-    case _: VCKind.AdtInvariant => getFactory(Options(Seq(optCheckModels(false))))
+    case _: VCKind.AdtInvariant => getFactory(options + optCheckModels(false))
     case _ => getFactory()
   }
 
