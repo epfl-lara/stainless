@@ -27,11 +27,18 @@ trait TypeCheckerSuite extends ComponentTestSuite {
     case "verification/invalid/SpecWithExtern"        => Ignore
     case "verification/invalid/BinarySearchTreeQuant" => Ignore
     case "verification/invalid/ForallAssoc"           => Ignore
+
+    // unknown/timeout VC but counter-example not found
     case "verification/invalid/BadConcRope"           => Ignore
 
     // Unstable
     case "verification/invalid/BigIntMonoidLaws" => Ignore
     case "verification/invalid/BigIntRing" => Ignore
+
+    // Lemmas used in one equation can leak in other equations due to https://github.com/epfl-lara/inox/issues/139
+    case "verification/invalid/Equations1" => Ignore
+    case "verification/invalid/Equations2" => Ignore
+    case "verification/invalid/Equations3" => Ignore
 
     // Not compatible with typechecker
     case "verification/valid/Countable2" => Ignore
