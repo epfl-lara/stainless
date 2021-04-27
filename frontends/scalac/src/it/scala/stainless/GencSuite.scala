@@ -33,7 +33,7 @@ class GenCSuite extends FunSuite with inox.ResourceUtils with InputUtils {
 
   for (file <- files) {
     val cFile = file.replace(".scala", ".c")
-    test(s"stainless --genc --genc-ouptut=$cFile $file") {
+    test(s"stainless --genc --genc-output=$cFile $file") {
       runMainWithArgs(Array(file) :+ "--genc" :+ s"--genc-output=$cFile")
       assert(Files.exists(Paths.get(cFile)))
       val gccCompile = s"gcc $cFile"

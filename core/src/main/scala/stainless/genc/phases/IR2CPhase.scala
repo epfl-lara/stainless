@@ -77,7 +77,7 @@ private class IR2CImpl(val ctx: inox.Context) {
     val params = (fd.ctx ++ fd.params) map rec
     val body = rec(fd.body)
 
-    C.Fun(id, returnType, params, body, fd.export)
+    C.Fun(id, returnType, params, body, fd.isExported)
   })
 
   private def rec(fb: FunBody): Either[C.Block, String] = fb match {
@@ -89,8 +89,10 @@ private class IR2CImpl(val ctx: inox.Context) {
       Right(body)
   }
 
-  // Yet, we do nothing here. The work is done when converting ValDef types, for example.
-  private def rec(cd: ClassDef): Unit = ()
+  private def rec(cd: ClassDef): Unit = {
+    convertClass(cd)
+    ()
+  }
 
   private def rec(vd: ValDef): C.Var = {
     // TODO Add const whenever possible, based on e.g. vd.isVar
@@ -106,9 +108,9 @@ private class IR2CImpl(val ctx: inox.Context) {
     case array @ ArrayType(_) => array2Struct(array)
     case ReferenceType(t) => C.Pointer(rec(t))
 
-    case TypeDefType(original, alias, include) =>
+    case TypeDefType(original, alias, include, export) =>
       include foreach { i => register(C.Include(i)) }
-      val td = C.TypeDef(rec(original), rec(alias))
+      val td = C.TypeDef(rec(original), rec(alias), export)
       register(td)
       td
 
@@ -406,7 +408,7 @@ private class IR2CImpl(val ctx: inox.Context) {
     val fields = leaves.toSeq map { c => C.Var(getUnionFieldFor(c), getStructFor(c)) }
     val id = rec("union_" + cd.id)
 
-    val union = C.Union(id, fields)
+    val union = C.Union(id, fields, cd.isExported)
 
     // Register the union as a datatype as well
     register(union)
@@ -438,7 +440,7 @@ private class IR2CImpl(val ctx: inox.Context) {
     val unionType = getUnionFor(top)
     val union = C.Var(TaggedUnion.value, unionType)
 
-    C.Struct(rec(top.id), tag :: union :: Nil)
+    C.Struct(rec(top.id), tag :: union :: Nil, top.isExported)
   }
 
   private def buildStructForCaseClass(cd: ClassDef): C.Struct = {
@@ -451,7 +453,7 @@ private class IR2CImpl(val ctx: inox.Context) {
       Seq(C.Var(C.Id("extra"), C.Primitive(Int8Type)))
     } else cd.fields map rec
 
-    C.Struct(rec(cd.id), fields)
+    C.Struct(rec(cd.id), fields, cd.isExported)
   }
 
   private object TaggedUnion {
@@ -466,7 +468,7 @@ private class IR2CImpl(val ctx: inox.Context) {
     val data = C.Var(Array.data, C.Pointer(base))
     val id = C.Id(repId(arrayType))
 
-    val array = C.Struct(id, data :: length :: Nil)
+    val array = C.Struct(id, data :: length :: Nil, false)
 
     // This needs to get registered as a datatype as well
     register(array)

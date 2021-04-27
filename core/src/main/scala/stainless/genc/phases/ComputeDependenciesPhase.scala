@@ -62,6 +62,12 @@ private[genc] object ComputeDependenciesPhase
           s"${cd.id} cannot be both a generic type and manually defined"
         )
 
+      if (cd.isGeneric && cd.isExported)
+        ctx.reporter.fatalError(
+          pos,
+          s"Generic classes (${cd.id.asString}) cannot be exported"
+        )
+
       if (cd.isManuallyTyped && cd.parents.nonEmpty)
         ctx.reporter.fatalError(
           pos,
@@ -113,8 +119,11 @@ private[genc] object ComputeDependenciesPhase
     }
 
     val finder = new ComputeDependenciesImpl(ctx)
-    val exportedFuns: Seq[Definition] = syms.functions.values.toSeq.filter(_.isExported)
-    val deps = finder(exportedFuns)
+    val exportedObjects: Seq[Definition] =
+      syms.functions.values.toSeq.filter(_.isExported) ++
+      syms.classes.values.toSeq.filter(_.isExported)
+
+    val deps = finder(exportedObjects)
 
     // Ensure all annotations are sane on all dependencies, including nested functions.
     deps foreach {
