@@ -58,7 +58,7 @@ abstract class Transformer[From <: IR, To <: IR](final val from: From, final val
   protected final def rec(fd: FunDef)(implicit env: Env): to.FunDef = funCache.getOrElse(fd, recImpl(fd))
 
   protected def recImpl(fd: FunDef)(implicit env: Env): to.FunDef = {
-    val newer = to.FunDef(fd.id, rec(fd.returnType), fd.ctx map rec, fd.params map rec, null, fd.export)
+    val newer = to.FunDef(fd.id, rec(fd.returnType), fd.ctx map rec, fd.params map rec, null, fd.isExported)
     registerFunction(fd, newer)
     newer.body = rec(fd.body)
     newer
@@ -90,7 +90,7 @@ abstract class Transformer[From <: IR, To <: IR](final val from: From, final val
   }
 
   protected def recImpl(cd: ClassDef, parent: Option[to.ClassDef])(implicit env: Env): to.ClassDef =
-    to.ClassDef(cd.id, parent, cd.fields map rec, cd.isAbstract)
+    to.ClassDef(cd.id, parent, cd.fields map rec, cd.isAbstract, cd.isExported)
 
   protected def rec(vd: ValDef)(implicit env: Env): to.ValDef = to.ValDef(vd.id, rec(vd.typ), vd.isVar)
 
@@ -156,7 +156,7 @@ abstract class Transformer[From <: IR, To <: IR](final val from: From, final val
     case ClassType(clazz) => to.ClassType(rec(clazz))
     case ArrayType(base) => to.ArrayType(rec(base))
     case ReferenceType(t) => to.ReferenceType(rec(t))
-    case TypeDefType(original, alias, include) => to.TypeDefType(original, alias, include)
+    case TypeDefType(original, alias, include, export) => to.TypeDefType(original, alias, include, export)
     case DroppedType => to.DroppedType
     case NoType => to.NoType
   }

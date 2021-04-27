@@ -36,7 +36,7 @@ final class ClassLifter(val ctx: inox.Context) extends Transformer(NIR, LIR) {
     val params = fd.params map lift
 
     // Handle recursive functions
-    val newer = to.FunDef(id, returnType, ctx, params, null, fd.export)
+    val newer = to.FunDef(id, returnType, ctx, params, null, fd.isExported)
     registerFunction(fd, newer)
 
     newer.body = rec(fd.body)(lift)
@@ -70,7 +70,7 @@ final class ClassLifter(val ctx: inox.Context) extends Transformer(NIR, LIR) {
       vd
     }
 
-    val cd = to.ClassDef(id, parent, fields, isAbstract)
+    val cd = to.ClassDef(id, parent, fields, isAbstract, cd0.isExported)
 
     // Actually register the classes/arrays now that we have the corresponding ClassDef
     valFieldsToRegister foreach { case (id, ct) =>

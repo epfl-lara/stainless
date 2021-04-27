@@ -60,7 +60,7 @@ class CPrinter(
               sep = "\n\n")
              }
             |${nary(
-              functions.filter(!_.export) map FunDecl,
+              functions.filter(!_.isExported) map FunDecl,
               opening = separator("function declarations"),
               closing = "\n\n",
               sep = "\n")
@@ -105,7 +105,7 @@ class CPrinter(
               sep = "\n\n")
              }
             |${nary(
-              functions.filter(_.export) map FunDecl,
+              functions.filter(_.isExported) map FunDecl,
               opening = separator("function declarations"),
               sep = "\n")
              }
@@ -129,7 +129,7 @@ class CPrinter(
 
     case Var(id, typ) => c"${TypeId(typ, id)}"
 
-    case TypeDef(orig, _) => c"$orig"
+    case TypeDef(orig, _, _) => c"$orig"
 
     case Primitive(pt) => pt match {
       case CharType => c"char"
@@ -155,9 +155,9 @@ class CPrinter(
 
     case Pointer(base) => c"$base*"
 
-    case Struct(id, _) => c"$id"
+    case Struct(id, _, _) => c"$id"
 
-    case Union(id, _) => c"$id"
+    case Union(id, _, _) => c"$id"
 
     case Enum(id, _) => c"$id"
 
@@ -272,7 +272,7 @@ class CPrinter(
 
     case FunDecl(f) => c"${FunSign(f)};"
 
-    case TypeDefDecl(TypeDef(original, alias)) => c"typedef $alias $original;"
+    case TypeDefDecl(TypeDef(original, alias, _)) => c"typedef $alias $original;"
 
     case EnumDef(Enum(id, literals)) =>
       c"""|typedef enum {

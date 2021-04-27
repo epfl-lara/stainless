@@ -36,7 +36,9 @@ trait ASTExtractors {
   def getAnnotations(sym: Symbol, ignoreOwner: Boolean = false): Seq[(String, Seq[Tree])] = {
     val actualSymbol = sym.accessedOrSelf.orElse(sym)
     val selfs = actualSymbol.annotations
-    val owners = if (ignoreOwner) Set.empty else actualSymbol.owner.annotations
+    val owners =
+      if (ignoreOwner) Set.empty
+      else actualSymbol.owner.annotations.filter(annot => annot.toString != "stainless.annotation.export")
     val companions = if (actualSymbol.isSynthetic) actualSymbol.companionSymbol.annotations else Set.empty
     (for {
       a <- (selfs ++ owners ++ companions)
