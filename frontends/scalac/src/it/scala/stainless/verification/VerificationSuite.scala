@@ -30,6 +30,10 @@ trait VerificationSuite extends ComponentTestSuite {
     case "verification/invalid/BinarySearchTreeQuant" => Ignore
     case "verification/invalid/ForallAssoc" => Ignore
 
+    // Unstable
+    case "verification/invalid/BigIntMonoidLaws" => Ignore
+    case "verification/invalid/BigIntRing" => Ignore
+
     // Z3 4.8.10 and CVC4 1.8 time out but can't find a counter-example
     case "verification/invalid/BadConcRope" => Ignore
 

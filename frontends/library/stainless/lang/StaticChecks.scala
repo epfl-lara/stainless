@@ -15,6 +15,9 @@ object StaticChecks {
       require(x)
       u
     }
+
+    def inline: Unit = { }
+    def opaque: Unit = { }
   }
 
   @library
