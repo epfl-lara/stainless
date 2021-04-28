@@ -57,7 +57,10 @@ trait ImperativeCleanup
       def unapply(e: s.Expr): Option[s.Expr] = e match {
         case s.Let(vd, tuple, Lets(lets, s.Tuple(es))) =>
           val letsMap = lets.toMap
-          if (es.zipWithIndex.forall {
+          if (
+            vd.getType.isInstanceOf[s.TupleType] &&
+            es.length == vd.getType.asInstanceOf[s.TupleType].bases.length &&
+            es.zipWithIndex.forall {
             case (e0 : s.Variable, i) =>
               letsMap.contains(e0.toVal) &&
               letsMap(e0.toVal) == s.TupleSelect(vd.toVariable, i + 1)
