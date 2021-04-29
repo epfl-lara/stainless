@@ -44,7 +44,9 @@ trait Trees extends oo.Trees with Definitions { self =>
   /** $encodingof `vd = value` */
   case class Assignment(v: Variable, value: Expr) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type =
-      checkParamType(value, v.tpe, UnitType())
+      // check that variable really _is_ mutable
+      if (v.flags.contains(IsVar)) checkParamType(value, v.tpe, UnitType())
+      else Untyped
   }
 
   /** $encodingof `obj.selector = value` */
@@ -59,7 +61,9 @@ trait Trees extends oo.Trees with Definitions { self =>
 
     protected def computeType(implicit s: Symbols): Type = {
       getField
-        .filter(vd => s.isSubtypeOf(value.getType, vd.tpe))
+        // check that the assigned field really _is_ mutable
+        .filter(fieldVd => fieldVd.flags.contains(IsVar))
+        .filter(fieldVd => s.isSubtypeOf(value.getType, fieldVd.tpe))
         .map(_ => UnitType())
         .getOrElse(Untyped)
     }
