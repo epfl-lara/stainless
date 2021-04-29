@@ -44,9 +44,7 @@ trait Trees extends oo.Trees with Definitions { self =>
   /** $encodingof `vd = value` */
   case class Assignment(v: Variable, value: Expr) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type =
-      // check that variable really _is_ mutable
-      if (v.flags.contains(IsVar)) checkParamType(value, v.tpe, UnitType())
-      else Untyped
+      checkParamType(value, v.tpe, UnitType())
   }
 
   /** $encodingof `obj.selector = value` */
