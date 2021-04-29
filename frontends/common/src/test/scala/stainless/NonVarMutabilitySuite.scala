@@ -2,14 +2,13 @@ package stainless
 
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers._
-
 import extraction.xlang.{trees => xt}
 
 class NonVarMutabilitySuite extends AnyFunSpec with InputUtils {
 
   implicit val ctx = stainless.TestContext.empty
 
-  describe("Mutation of non-var annotated field") {
+  describe("Mutation of a field that is not 'var' annotated") {
     val classId   = ast.SymbolIdentifier("ImmutableClass")
     val fieldId   = ast.SymbolIdentifier("field")
     val classType = xt.ClassType(classId, Seq())
@@ -44,10 +43,8 @@ class NonVarMutabilitySuite extends AnyFunSpec with InputUtils {
     )
     val symbols = xt.NoSymbols.withClasses(classes).withFunctions(functions)
 
-    it("should fails") {
-      the[Exception] thrownBy (
-        extraction.pipeline.extract(symbols)
-      ) should have message "Illegal aliasing: var0"
+    it("should fail with a type error") {
+      a[symbols.TypeErrorException] should be thrownBy symbols.ensureWellFormed
     }
   }
 }
