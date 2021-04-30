@@ -483,7 +483,8 @@ trait CodeExtraction extends ASTExtractors {
       val pos = inox.utils.Position.between(invariants.map(_.getPos).min, invariants.map(_.getPos).max)
       new xt.FunDef(id, Seq.empty, Seq.empty, xt.BooleanType().setPos(pos),
         if (invariants.size == 1) invariants.head else xt.And(invariants).setPos(pos),
-        (Seq(xt.IsInvariant) ++ annots.filterNot(_ == xt.IsMutable)).distinct
+        (Seq(xt.IsInvariant) ++
+         annots.filterNot(annot => annot == xt.IsMutable || annot.name == "export")).distinct
       ).setPos(pos)
     })
 
