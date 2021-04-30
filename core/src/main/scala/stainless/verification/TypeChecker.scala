@@ -1382,10 +1382,18 @@ trait TypeChecker {
           Seq(VC(BooleanLiteral(false), id, VCKind.MeasureMissing, false).setPos(fd))
         } else {
           if (nm) {
+            /* Type Without Refinements */
+            def wr(ty: Type): Type = {
+              typeOps.postMap {
+                case RefinementType(vd, ref) => Some(vd.tpe)
+                case _ => None
+              }(ty)
+            }
+
             checkedFunctions.find { case (id2, (measureType2, _)) =>
               dependencies(id).contains(id2) &&
               dependencies(id2).contains(id) &&
-              measureType2 != measureType
+              measureType2.map(wr) != measureType.map(wr)
             } match {
               case None => ()
               case Some((id2, (None, _))) =>

@@ -87,6 +87,7 @@ trait MeasureInference
                 val cnstr = applicationCache(original.id, fi.id,id) 
                 body match {
                   case FunctionInvocation(lid,_,_) if lid == original.id => 
+                    println("inserted constraint")
                     Lambda(largs, Assume(cnstr(largs), body))
                   case _                         => 
                     /*
@@ -209,8 +210,12 @@ trait MeasureInference
           postTransformer.transform(v).asInstanceOf[t.Lambda] 
         }
       postCache.get(original.id) match {
-        case Some(post) => 
-          original.copy(fullBody = t.exprOps.withPostcondition(original.fullBody, Some(post)))
+        case Some(post@t.Lambda(Seq(nlarg), nbody)) => 
+          val newVd = t.ValDef.fresh("arg", original.returnType)
+          val newMap: Map[t.ValDef, t.Expr] = Map((nlarg, newVd.toVariable))
+          val newNBody: t.Expr = t.exprOps.replaceFromSymbols(newMap, nbody)(t.convertToVal)
+          val refinement = t.RefinementType(newVd, newNBody) 
+          original.copy(returnType = refinement)
         case None       => original
       } 
     }  
