@@ -59,9 +59,7 @@ trait Trees extends oo.Trees with Definitions { self =>
 
     protected def computeType(implicit s: Symbols): Type = {
       getField
-        // check that the assigned field really _is_ mutable
-        .filter(fieldVd => fieldVd.flags.contains(IsVar))
-        .filter(fieldVd => s.isSubtypeOf(value.getType, fieldVd.tpe))
+        .filter(vd => s.isSubtypeOf(value.getType, vd.tpe))
         .map(_ => UnitType())
         .getOrElse(Untyped)
     }

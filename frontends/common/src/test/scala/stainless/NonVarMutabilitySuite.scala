@@ -43,8 +43,11 @@ class NonVarMutabilitySuite extends AnyFunSpec with InputUtils {
     )
     val symbols = xt.NoSymbols.withClasses(classes).withFunctions(functions)
 
-    it("should fail with a type error") {
-      a[symbols.TypeErrorException] should be thrownBy symbols.ensureWellFormed
+    it("should fail with not well formed exception") {
+      val exception = the[xt.NotWellFormedException] thrownBy symbols.ensureWellFormed
+      exception.getMessage should include(
+        "cannot assign to immutable field 'field' of class 'ImmutableClass'"
+      )
     }
   }
 }
