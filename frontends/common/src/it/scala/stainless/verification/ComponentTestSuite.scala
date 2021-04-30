@@ -105,8 +105,6 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
       val programSymbols = userFiltering.debug(frontend.UserFiltering().transform)(program.symbols)
       programSymbols.ensureWellFormed
 
-      // We use a shared run during extraction to ensure caching of extraction results is enabled.
-
       for {
         unit <- structure
         if unit.isMain
@@ -120,28 +118,21 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
           .withFunctions(programSymbols.functions.values.filter(fd => deps(fd.id)).toSeq)
           .withTypeDefs(programSymbols.typeDefs.values.filter(td => deps(td.id)).toSeq)
 
-        val extractor = component.run(extraction.pipeline)
-        val exSymbols = extractor extract symbols
+        val run = component.run(extraction.pipeline)
+        val exSymbols = run extract symbols
         exSymbols.ensureWellFormed
         assert(ctx.reporter.errorCount == 0, "There were errors during pipeline extraction")
 
-        val run = component.run(extraction.pipeline)
-
         val funs = inox.utils.fixpoint { (defs: Set[Identifier]) =>
-          def derived(flags: Seq[extractor.trees.Flag]): Boolean =
-            (defs & flags.collect { case extractor.trees.Derived(id) => id }.toSet).nonEmpty
+          def derived(flags: Seq[run.trees.Flag]): Boolean =
+            (defs & flags.collect { case run.trees.Derived(id) => id }.toSet).nonEmpty
 
           defs ++
           exSymbols.functions.values.filter(fd => derived(fd.flags)).map(_.id) ++
           exSymbols.sorts.values.filter(sort => derived(sort.flags)).map(_.id)
         } (defs).toSeq.filter(exSymbols.functions contains _)
 
-        // We have to cast the extracted symbols type as we are using two different
-        // run instances. However, the trees types are the same so this should be safe (tm).
-        val report = Await.result(
-          run.execute(funs, exSymbols.asInstanceOf[run.trees.Symbols]),
-          Duration.Inf
-        )
+        val report = Await.result(run.execute(funs, exSymbols),Duration.Inf)
 
         block(report, ctx.reporter)
       }
