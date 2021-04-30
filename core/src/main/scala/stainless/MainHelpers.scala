@@ -176,6 +176,8 @@ trait MainHelpers extends inox.MainHelpers { self =>
       // For each cycle, passively wait until the compiler has finished
       // & print summary of reports for each component
       def baseRunCycle(): Unit = timers.cycle.run {
+        // reset the global VC counters for displaying progress
+        verification.VerificationChecker.reset()
         compiler.run()
         compiler.join()
 

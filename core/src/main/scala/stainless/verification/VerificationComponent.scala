@@ -109,8 +109,10 @@ class VerificationRun(override val pipeline: StainlessPipeline)
         debugChooses.debugEncoder(chooseEncoder)
       }
 
-      if (!functions.isEmpty)
-        reporter.debug(s"Generating VCs for those functions: ${functions map { _.uniqueName } mkString ", "}")
+      if (!functions.isEmpty) {
+        reporter.info(s"Generating VCs...")
+        reporter.debug(s"For functions: ${functions map { _.uniqueName } mkString ", "}")
+      }
 
       val vcs = if (context.options.findOptionOrDefault(optTypeChecker))
         context.timers.verification.get("type-checker").run {
@@ -118,6 +120,10 @@ class VerificationRun(override val pipeline: StainlessPipeline)
         }
       else
         VerificationGenerator.gen(assertionEncoder.targetProgram, context)(functions)
+
+      if (!functions.isEmpty) {
+        reporter.info(s"Finished VCs generation")
+      }
 
       val fullEncoder = assertionEncoder andThen chooseEncoder
 
