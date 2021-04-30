@@ -397,11 +397,12 @@ trait TypeChecker {
   def inferOperationType(name: String, fullExpr: Expr, tc: TypingContext, allowedType: Type => Boolean, returnType: Option[Type], exprs: Expr*): (Type, TyperResult) = {
     require(exprs.size > 0)
     val (tpe, tr) = inferType(tc, exprs.head)
-    if (allowedType(stripRefinementsAndAnnotations(tpe))) {
-      val tr2 = checkTypes(tc, exprs.tail, exprs.tail.map(_ => tpe))
-      (returnType.getOrElse(tpe), tr ++ tr2)
+    val baseTpe = stripRefinementsAndAnnotations(tpe)
+    if (allowedType(baseTpe)) {
+      val tr2 = checkTypes(tc, exprs.tail, exprs.tail.map(_ => baseTpe))
+      (returnType.getOrElse(baseTpe), tr ++ tr2)
     } else {
-      reporter.fatalError(fullExpr.getPos, s"Cannot use `$name` on type: ${tpe.asString}\nin context:\n${tc.asString()}")
+      reporter.fatalError(fullExpr.getPos, s"Cannot use `$name` on type: ${baseTpe.asString}\nin context:\n${tc.asString()}")
     }
   }
 
@@ -1382,18 +1383,10 @@ trait TypeChecker {
           Seq(VC(BooleanLiteral(false), id, VCKind.MeasureMissing, false).setPos(fd))
         } else {
           if (nm) {
-            /* Type Without Refinements */
-            def wr(ty: Type): Type = {
-              typeOps.postMap {
-                case RefinementType(vd, ref) => Some(vd.tpe)
-                case _ => None
-              }(ty)
-            }
-
             checkedFunctions.find { case (id2, (measureType2, _)) =>
               dependencies(id).contains(id2) &&
               dependencies(id2).contains(id) &&
-              measureType2.map(wr) != measureType.map(wr)
+              measureType2.map(_.getType) != measureType.map(_.getType) // type without refinements
             } match {
               case None => ()
               case Some((id2, (None, _))) =>
