@@ -87,7 +87,6 @@ trait MeasureInference
                 val cnstr = applicationCache(original.id, fi.id,id) 
                 body match {
                   case FunctionInvocation(lid,_,_) if lid == original.id => 
-                    println("inserted constraint")
                     Lambda(largs, Assume(cnstr(largs), body))
                   case _                         => 
                     /*

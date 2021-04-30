@@ -10,7 +10,7 @@ import stainless.lang.StaticChecks._
 import stainless.annotation._
 import stainless.proof._
 
-@library
+ 
 @isabelle.typ(name = "List.list")
 sealed abstract class List[T] {
 
@@ -563,11 +563,11 @@ sealed abstract class List[T] {
   }
 }
 
-@library
+ 
 @isabelle.constructor(name = "List.list.Cons")
 case class Cons[T](h: T, t: List[T]) extends List[T]
 
-@library
+ 
 @isabelle.constructor(name = "List.list.Nil")
 case class Nil[T]() extends List[T]
 
@@ -581,15 +581,15 @@ object List {
     l.reverse
   }
 
-  @library
+   
   def empty[T]: List[T] = Nil[T]()
 
-  @library @extern @pure
+    @extern @pure
   def fromScala[A](list: ScalaList[A]): List[A] = {
     list.foldRight(List.empty[A])(_ :: _)
   }
 
-  @library
+   
   def fill[T](n: BigInt)(x: T) : List[T] = {
     if (n <= 0) Nil[T]()
     else Cons[T](x, fill[T](n-1)(x))
@@ -597,14 +597,14 @@ object List {
                     res.size == (if (n <= BigInt(0)) BigInt(0) else n))
 
   /* Range from start (inclusive) to until (exclusive) */
-  @library
+   
   def range(start: BigInt, until: BigInt): List[BigInt] = {
     require(start <= until)
     decreases(until - start)
     if(until <= start) Nil[BigInt]() else Cons(start, range(start + 1, until))
   } ensuring{(res: List[BigInt]) => res.size == until - start }
 
-  @library
+   
   def mkString[A](l: List[A], mid: String, f: A => String) = {
     def rec(l: List[A]): String = l match {
       case Nil() => ""
@@ -617,7 +617,7 @@ object List {
   }
 }
 
-@library
+ 
 object ListOps {
   @isabelle.function(term = "List.concat")
   def flatten[T](ls: List[List[T]]): List[T] = ls match {
@@ -665,7 +665,7 @@ object ListOps {
 
 // 'Cons' Extractor
 object :: {
-  @library
+   
   def unapply[A](l: List[A]): Option[(A, List[A])] = l match {
     case Nil() => None()
     case Cons(x, xs) => Some((x, xs))
@@ -675,7 +675,7 @@ object :: {
 
 import ListOps._
 
-@library
+ 
 object ListSpecs {
 
   def snocIndex[T](l: List[T], t: T, i: BigInt): Boolean = {

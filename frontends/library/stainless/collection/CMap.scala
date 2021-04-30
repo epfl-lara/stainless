@@ -4,7 +4,7 @@ package stainless.collection
 
 import stainless.annotation._
 
-@library
+ 
 case class CMap[A, B](f: A => B) {
   def apply(k: A): B = f(k)
 
