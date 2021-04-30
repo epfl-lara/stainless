@@ -6,7 +6,7 @@ import stainless.lang._
 
 /** List-backed Map implementation */
 
- 
+@library
 case class ListMap[A, B](toList: List[(A, B)]) {
   require(ListOps.noDuplicate(toList.map(_._1)))
 
@@ -76,12 +76,12 @@ case class ListMap[A, B](toList: List[(A, B)]) {
   }
 }
 
- 
+@library
 object ListMap {
   def empty[A, B]: ListMap[A, B] = ListMap(List.empty[(A, B)])
 }
 
- 
+@library
 object ListMapLemmas {
   import ListSpecs._
 
