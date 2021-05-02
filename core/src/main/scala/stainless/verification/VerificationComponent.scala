@@ -110,8 +110,7 @@ class VerificationRun(override val pipeline: StainlessPipeline)
       }
 
       if (!functions.isEmpty) {
-        reporter.info(s"Generating VCs...")
-        reporter.debug(s"For functions: ${functions map { _.uniqueName } mkString ", "}")
+        reporter.debug(s"Generating VCs for functions: ${functions map { _.uniqueName } mkString ", "}")
       }
 
       val vcs = if (context.options.findOptionOrDefault(optTypeChecker))
@@ -122,7 +121,7 @@ class VerificationRun(override val pipeline: StainlessPipeline)
         VerificationGenerator.gen(assertionEncoder.targetProgram, context)(functions)
 
       if (!functions.isEmpty) {
-        reporter.info(s"Finished VCs generation")
+        reporter.debug(s"Finished generating VCs")
       }
 
       val fullEncoder = assertionEncoder andThen chooseEncoder

@@ -6,6 +6,8 @@ package termination
 import scala.collection.mutable.{Map => MutableMap, HashSet => MutableSet, ListBuffer => MutableList}
 import scala.language.existentials
 
+object DebugSectionMeasureInference extends inox.DebugSection("measure-inference")
+
 trait MeasureInference
   extends extraction.CachingPhase
     with extraction.SimplyCachedSorts
@@ -21,6 +23,8 @@ trait MeasureInference
   type Applications    = MutableMap[(Identifier, Identifier, Identifier), Seq[ValDef] => Expr]
   // Result type is transformed function + all inductive lemmas found
   type FunctionResult = (t.FunDef, Postconditions)
+
+  implicit val debugSection = DebugSectionMeasureInference
 
   // Measure inference depends on functions that are mutually recursive with `fd`,
   // so we include all dependencies in the key calculation
@@ -123,13 +127,13 @@ trait MeasureInference
 
       case None => try {
         val guarantee = timers.evaluators.termination.inference.run {
-          reporter.info(s"  - Inferring measure for ${original.id.asString}...")
+          reporter.debug(s"  - Inferring measure for ${original.id.asString}...")
           pipeline.terminates(original)
         }
 
         val result = guarantee match {
           case pipeline.Terminates(_, Some(measure), Some(lemmas)) =>
-            reporter.info(s" => Found measure for ${original.id.asString}.")
+            reporter.debug(s" => Found measure for ${original.id.asString}.")
             measureCache ++= pipeline.measureCache.get
             pipeline.measureCache.get.keys.map{ fd => 
               postconditionCache(fd.id) = lemmas._1 
@@ -139,11 +143,11 @@ trait MeasureInference
             annotated.copy(fullBody = exprOps.withMeasure(annotated.fullBody, Some(measure.setPos(original))))
 
           case pipeline.Terminates(_, None, _) =>
-            reporter.info(s" => No measure needed for ${original.id.asString}.")
+            reporter.debug(s" => No measure needed for ${original.id.asString}.")
             original
 
           case _ if exprOps.measureOf(original.fullBody).isDefined =>
-            reporter.info(s" => Function ${original.id.asString} already has a measure.")
+            reporter.debug(s" => Function ${original.id.asString} already has a measure.")
             original
 
           case nt: pipeline.NonTerminating =>
