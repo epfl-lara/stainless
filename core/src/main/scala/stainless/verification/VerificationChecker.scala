@@ -296,7 +296,9 @@ trait VerificationChecker { self =>
 
           case VCStatus.Invalid(reason) =>
             reporter.warning(descr)
-            reporter.warning(prettify(vc.condition).asString)
+            // avoid reprinting VC if --debug=verification is enabled
+            if (!reporter.isDebugEnabled(DebugSectionVerification))
+              reporter.warning(prettify(vc.condition).asString)
             reporter.warning(vc.getPos, " => INVALID")
             reason match {
               case VCStatus.CounterExample(cex) =>
@@ -309,7 +311,9 @@ trait VerificationChecker { self =>
 
           case status =>
             reporter.warning(descr)
-            reporter.warning(prettify(vc.condition).asString)
+            // avoid reprinting VC if --debug=verification is enabled
+            if (!reporter.isDebugEnabled(DebugSectionVerification))
+              reporter.warning(prettify(vc.condition).asString)
             reporter.warning(vc.getPos, " => " + status.name.toUpperCase)
         }
       }
