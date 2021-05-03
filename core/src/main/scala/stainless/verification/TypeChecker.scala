@@ -397,11 +397,12 @@ trait TypeChecker {
   def inferOperationType(name: String, fullExpr: Expr, tc: TypingContext, allowedType: Type => Boolean, returnType: Option[Type], exprs: Expr*): (Type, TyperResult) = {
     require(exprs.size > 0)
     val (tpe, tr) = inferType(tc, exprs.head)
-    if (allowedType(stripRefinementsAndAnnotations(tpe))) {
-      val tr2 = checkTypes(tc, exprs.tail, exprs.tail.map(_ => tpe))
-      (returnType.getOrElse(tpe), tr ++ tr2)
+    val baseTpe = stripRefinementsAndAnnotations(tpe)
+    if (allowedType(baseTpe)) {
+      val tr2 = checkTypes(tc, exprs.tail, exprs.tail.map(_ => baseTpe))
+      (returnType.getOrElse(baseTpe), tr ++ tr2)
     } else {
-      reporter.fatalError(fullExpr.getPos, s"Cannot use `$name` on type: ${tpe.asString}\nin context:\n${tc.asString()}")
+      reporter.fatalError(fullExpr.getPos, s"Cannot use `$name` on type: ${baseTpe.asString}\nin context:\n${tc.asString()}")
     }
   }
 
@@ -965,7 +966,7 @@ trait TypeChecker {
     l.foldRight(e) { case (v, acc) =>
       v.tpe match {
         case LetEquality(e1: Variable, e2) =>
-          let(e1.toVal, e2, acc)
+          implies(Equals(e1, e2), acc)
         case Truth(t) =>
           implies(t, acc)
         case RefinementType(vd, pred) =>
@@ -1072,13 +1073,6 @@ trait TypeChecker {
       case (ADT(id, tps, args), Top()) => checkTypes(tc, args, Top())
       case (_, Top()) => inferType(tc, e)._2 // We ignore the inferred type but keep the VCs
 
-      case (e, TrueBoolean()) =>
-        checkType(tc.withVCKind(VCKind.CheckType), e, BooleanType()) ++ buildVC(tc, e)
-
-      case (e, RefinementType(vd, prop)) =>
-        val (tc2, freshener) = tc.freshBindWithValues(Seq(vd), Seq(e))
-        checkType(tc.withVCKind(VCKind.CheckType), e, vd.tpe) ++ checkType(tc2, freshener.transform(prop), TrueBoolean())
-
       case (Tuple(es), TupleType(tps)) =>
         checkTypes(tc, es, tps)
 
@@ -1116,6 +1110,13 @@ trait TypeChecker {
         checkType(tc.setPos(b).withVCKind(VCKind.CheckType), b, BooleanType()) ++
         checkType(tc.withTruth(b).setPos(e1), e1, tpe) ++
         checkType(tc.withTruth(Not(b)).setPos(e2), e2, tpe)
+
+      case (e, TrueBoolean()) =>
+        checkType(tc.withVCKind(VCKind.CheckType), e, BooleanType()) ++ buildVC(tc, e)
+
+      case (e, RefinementType(vd, prop)) =>
+        val (tc2, freshener) = tc.freshBindWithValues(Seq(vd), Seq(e))
+        checkType(tc.withVCKind(VCKind.CheckType), e, vd.tpe) ++ checkType(tc2, freshener.transform(prop), TrueBoolean())
 
       case (UncheckedExpr(e), tpe) =>
         val (inferredType, tr) = inferType(tc.withEmitVCs(false), e)
@@ -1385,7 +1386,7 @@ trait TypeChecker {
             checkedFunctions.find { case (id2, (measureType2, _)) =>
               dependencies(id).contains(id2) &&
               dependencies(id2).contains(id) &&
-              measureType2 != measureType
+              measureType2.map(_.getType) != measureType.map(_.getType) // type without refinements
             } match {
               case None => ()
               case Some((id2, (None, _))) =>

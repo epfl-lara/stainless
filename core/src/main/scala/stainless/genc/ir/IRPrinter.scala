@@ -120,7 +120,7 @@ final class IRPrinter[S <: IR](val ir: S) {
     case ClassType(clazz) => clazz.id
     case ArrayType(base) => "Array[" + rec(base) + "]"
     case ReferenceType(t) => "Ref[" + rec(t) + "]"
-    case TypeDefType(original, alias, _) => "typedef " + original + " -> " + alias
+    case TypeDefType(original, alias, _, _) => "typedef " + original + " -> " + alias
     case DroppedType => "DROPPED"
     case NoType => "NO-TYPE"
   }

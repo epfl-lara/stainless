@@ -4,14 +4,14 @@ package stainless
 
 import utils._
 
-import org.scalatest._
+import org.scalatest.funsuite.AnyFunSuite
 
 import java.nio.file.{Paths, Files}
 import java.io.File
 
 import Utils._
 
-class GenCSuite extends FunSuite with inox.ResourceUtils with InputUtils {
+class GenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUtils {
   val files = resourceFiles("genc", _.endsWith(".scala"), false).map(_.getPath).toSeq
 
   val ctx = TestContext.debug()
@@ -33,7 +33,7 @@ class GenCSuite extends FunSuite with inox.ResourceUtils with InputUtils {
 
   for (file <- files) {
     val cFile = file.replace(".scala", ".c")
-    test(s"stainless --genc --genc-ouptut=$cFile $file") {
+    test(s"stainless --genc --genc-output=$cFile $file") {
       runMainWithArgs(Array(file) :+ "--genc" :+ s"--genc-output=$cFile")
       assert(Files.exists(Paths.get(cFile)))
       val gccCompile = s"gcc $cFile"

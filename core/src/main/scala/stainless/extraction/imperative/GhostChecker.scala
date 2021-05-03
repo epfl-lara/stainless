@@ -91,7 +91,7 @@ trait GhostChecker { self: EffectsAnalyzer =>
         new Checker(true).traverse(fun)
       } else {
         if (!inGhost && isGhostExpression(fun.fullBody))
-          throw ImperativeEliminationException(fun, s"Non-ghost function cannot return a ghost result")
+          throw ImperativeEliminationException(fun, s"Non-ghost function ${fun.id.asString} cannot return a ghost result")
         new Checker(inGhost).traverse(fun)
       }
     }

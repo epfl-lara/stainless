@@ -2,14 +2,14 @@
 
 package stainless
 
-import org.scalatest._
+import org.scalatest.funspec.AnyFunSpec
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
 import stainless.utils.YesNoOnly
 
-abstract class AbstractLibrarySuite(opts: Seq[inox.OptionValue[_]]) extends FunSpec with InputUtils {
+abstract class AbstractLibrarySuite(opts: Seq[inox.OptionValue[_]]) extends AnyFunSpec with InputUtils {
   import ast.SymbolIdentifier
 
   protected val defaultOptions = Seq(inox.optSelectedSolvers(Set("smt-z3")))

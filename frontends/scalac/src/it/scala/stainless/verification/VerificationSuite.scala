@@ -30,6 +30,13 @@ trait VerificationSuite extends ComponentTestSuite {
     case "verification/invalid/BinarySearchTreeQuant" => Ignore
     case "verification/invalid/ForallAssoc" => Ignore
 
+    // Unstable
+    case "verification/valid/BigIntMonoidLaws" => Ignore
+    case "verification/valid/BigIntRing" => Ignore
+
+    // Z3 4.8.10 and CVC4 1.8 time out but can't find a counter-example
+    case "verification/invalid/BadConcRope" => Ignore
+
     case _ => super.filter(ctx, name)
   }
 
@@ -51,7 +58,7 @@ trait VerificationSuite extends ComponentTestSuite {
 class SMTZ3VerificationSuite extends VerificationSuite {
   override def configurations = super.configurations.map {
     seq => Seq(
-      inox.optSelectedSolvers(Set("smt-z3")),
+      inox.optSelectedSolvers(Set("smt-z3:z3-4.8.10")),
       inox.solvers.optCheckModels(true)
     ) ++ seq
   }

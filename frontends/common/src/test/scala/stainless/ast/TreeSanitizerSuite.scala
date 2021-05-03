@@ -3,12 +3,12 @@ package stainless
 package ast
 
 import scala.language.experimental.macros
-import org.scalatest._
+import org.scalatest.funspec.AnyFunSpec
 
 import stainless.macros.FileProvider
 import stainless.extraction.xlang.{trees => xt, TreeSanitizer}
 
-class TreeSanitizerSuite extends FunSpec with InputUtils {
+class TreeSanitizerSuite extends AnyFunSpec with InputUtils {
 
   val ID = 2 // Change this to trigger re-compilation
 

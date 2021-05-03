@@ -121,12 +121,6 @@ class ScalaCompiler(settings: NSCSettings, ctx: inox.Context, callback: CallBack
     )
     phs foreach { phasesSet += _._1 }
   }
-
-  class Run extends super.Run {
-    override def progress(current: Int, total: Int) {
-      ctx.reporter.onCompilerProgress(current, total)
-    }
-  }
 }
 
 object ScalaCompiler {

@@ -132,10 +132,10 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
       val sym = tree.symbol
       tree match {
         case Ident(_) if sym.hasAnnotation(ghostAnnotation) && !ghostContext =>
-          reportError(tree.pos, s"Cannot access a ghost symbol outside of a ghost context. [ $currentOwner ]")
+          reportError(tree.pos, s"Cannot access a ghost symbol outside of a ghost context. [ $tree in $currentOwner ]")
 
         case Select(qual, _) if sym.hasAnnotation(ghostAnnotation) && !ghostContext =>
-          reportError(tree.pos, s"Cannot access a ghost symbol outside of a ghost context. [ $currentOwner ]")
+          reportError(tree.pos, s"Cannot access a ghost symbol outside of a ghost context. [ $tree in $currentOwner ]")
           super.traverse(tree)
 
         case m: MemberDef  =>

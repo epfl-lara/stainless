@@ -26,6 +26,7 @@ import scala.language.existentials
 package object extraction {
 
   val phases: Seq[(String, String)] = Seq(
+    "UserFiltering"             -> "Removes all the library functions not used by the user",
     "Preprocessing"             -> "A preprocessing phase before the pipeline",
     "PartialFunctions"          -> "Lift partial function preconditions",
     "XlangLowering"             -> "Lowering phase at the end of xlang phases",

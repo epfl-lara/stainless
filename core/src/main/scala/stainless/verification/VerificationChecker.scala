@@ -64,7 +64,7 @@ trait VerificationChecker { self =>
 
   /** @see [[checkAdtInvariantModel]] */
   protected def getFactoryForVC(vc: VC): TimeoutSolverFactory = vc.kind match {
-    case _: VCKind.AdtInvariant => getFactory(Options(Seq(optCheckModels(false))))
+    case _: VCKind.AdtInvariant => getFactory(options + optCheckModels(false))
     case _ => getFactory()
   }
 
@@ -76,8 +76,6 @@ trait VerificationChecker { self =>
 
   def verify(vcs: Seq[VC], stopWhen: VCResult => Boolean = defaultStop): Future[Map[VC, VCResult]] = {
     try {
-      if (!vcs.isEmpty)
-        reporter.debug("Checking Verification Conditions...")
       checkVCs(vcs, stopWhen)
     } finally {
       factoryCache.values.foreach(_.shutdown())
@@ -88,7 +86,13 @@ trait VerificationChecker { self =>
   private lazy val unknownResult: VCResult = VCResult(VCStatus.Unknown, None, None)
 
   def checkVCs(vcs: Seq[VC], stopWhen: VCResult => Boolean = defaultStop): Future[Map[VC, VCResult]] = {
+    if (!VerificationChecker.startedVerification) reporter.info("Starting verification...")
+    VerificationChecker.startedVerification = true
+
     @volatile var stop = false
+
+    VerificationChecker.total += vcs.length
+    reporter.onCompilerProgress(VerificationChecker.verified, VerificationChecker.total)
 
     val initMap: Map[VC, VCResult] = vcs.map(vc => vc -> unknownResult).toMap
 
@@ -107,6 +111,8 @@ trait VerificationChecker { self =>
           val res = checkVC(simplifiedVC, vc, sf)
 
           val shouldStop = stopWhen(res)
+          if (res.isValid) VerificationChecker.verified += 1
+          reporter.onCompilerProgress(VerificationChecker.verified, VerificationChecker.total)
 
           interruptManager.synchronized { // Make sure that we only interrupt the manager once.
             if (shouldStop && !stop && !interruptManager.isInterrupted) {
@@ -219,7 +225,7 @@ trait VerificationChecker { self =>
       val cond = vc.condition
 
       reporter.synchronized {
-        reporter.info(s" - Now solving '${vc.kind}' VC for ${vc.fd.asString} @${vc.getPos}...")
+        reporter.debug(s" - Now solving '${vc.kind}' VC for ${vc.fd.asString} @${vc.getPos}...")
         debugVC(vc, origVC)
         reporter.debug("Solving with: " + s.name)
       }
@@ -278,16 +284,21 @@ trait VerificationChecker { self =>
       }
 
       val vcResultMsg = VCResultMessage(vc, vcres)
-      reporter.info(vcResultMsg)
+      reporter.debug(vcResultMsg)
 
       reporter.synchronized {
-        reporter.info(s" - Result for '${vc.kind}' VC for ${vc.fd.asString} @${vc.getPos}:")
+        val descr = s" - Result for '${vc.kind}' VC for ${vc.fd.asString} @${vc.getPos}:"
 
         vcres.status match {
           case VCStatus.Valid =>
-            reporter.info(" => VALID")
+            reporter.debug(descr)
+            reporter.debug(" => VALID")
 
           case VCStatus.Invalid(reason) =>
+            reporter.warning(descr)
+            // avoid reprinting VC if --debug=verification is enabled
+            if (!reporter.isDebugEnabled(DebugSectionVerification))
+              reporter.warning(prettify(vc.condition).asString)
             reporter.warning(vc.getPos, " => INVALID")
             reason match {
               case VCStatus.CounterExample(cex) =>
@@ -299,6 +310,10 @@ trait VerificationChecker { self =>
             }
 
           case status =>
+            reporter.warning(descr)
+            // avoid reprinting VC if --debug=verification is enabled
+            if (!reporter.isDebugEnabled(DebugSectionVerification))
+              reporter.warning(prettify(vc.condition).asString)
             reporter.warning(vc.getPos, " => " + status.name.toUpperCase)
         }
       }
@@ -331,6 +346,22 @@ trait VerificationChecker { self =>
 }
 
 object VerificationChecker {
+  // number of verified VCs (incremented when a VC is verified)
+  var verified: Int = 0
+  // total number of VCs (we add to that counter when entering `checkVCs`)
+  // this is cumulative across different subprograms (for `SplitCallBack`)
+  var total: Int = 0
+
+  // flag to remember whether we have shown "Starting verification" message to the user
+  var startedVerification = false
+
+  // reset the counters before each watch cycle
+  def reset(): Unit = {
+    verified = 0
+    total = 0
+    startedVerification = false
+  }
+
   def verify(p: StainlessProgram, ctx: inox.Context)
             (vcs: Seq[VC[p.trees.type]]): Future[Map[VC[p.trees.type], VCResult[p.Model]]] = {
     class Checker extends VerificationChecker {

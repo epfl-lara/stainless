@@ -5,10 +5,10 @@ import scala.tools.nsc.Settings
 import scala.tools.nsc.reporters.StoreReporter
 import scala.tools.nsc.reporters.ConsoleReporter
 
-import org.scalatest._
+import org.scalatest.funspec.AnyFunSpec
 import stainless.frontends.scalac.StainlessPlugin
 
-class GhostRewriteSuite extends FunSpec {
+class GhostRewriteSuite extends AnyFunSpec {
   val settings = new Settings()
   settings.stopAfter.value = List("refchecks")
   settings.usejavacp.value = false

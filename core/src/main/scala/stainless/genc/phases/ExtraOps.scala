@@ -76,6 +76,7 @@ private[genc] object ExtraOps {
   implicit class ClassDefOps(val cd: ClassDef) {
     def isManuallyTyped = hasAnnotation(manualTypeAnnotation)
     def isDropped       = hasAnnotation(droppedAnnotation)
+    def isExported      = hasAnnotation("export")
 
     def extAnnotations: Map[String, Seq[Any]] = cd.flags.collect {
       case Annotation(s, args) => s -> args

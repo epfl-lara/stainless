@@ -77,6 +77,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
     verification.DebugSectionTypeCheckerVCs,
     verification.DebugSectionDerivation,
     termination.DebugSectionTermination,
+    termination.DebugSectionMeasureInference,
     extraction.inlining.DebugSectionFunctionSpecialization,
     extraction.utils.DebugSectionTrees,
     extraction.utils.DebugSectionPositions,
@@ -185,11 +186,13 @@ trait MainHelpers extends inox.MainHelpers { self =>
         def newCompiler() = frontend.build(ctx, compilerArgs, factory)
         var compiler = newCompiler()
 
-        // For each cycle, passively wait until the compiler has finished
-        // & print summary of reports for each component
-        def baseRunCycle(): Unit = timers.cycle.run {
-          compiler.run()
-          compiler.join()
+      // For each cycle, passively wait until the compiler has finished
+      // & print summary of reports for each component
+      def baseRunCycle(): Unit = timers.cycle.run {
+        // reset the global VC counters for displaying progress
+        verification.VerificationChecker.reset()
+        compiler.run()
+        compiler.join()
 
           compiler.getReport foreach { _.emit(ctx) }
         }

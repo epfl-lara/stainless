@@ -93,8 +93,9 @@ trait RelationProcessor extends OrderingProcessor {
 
         // We preserve the measure specified by the user
         measureCache.add(tf._1 -> measure)
-
-        Cleared(tf._1, Some(measure))
+        val inductiveLemmas = 
+          Some((ordering.getPostconditions, ordering.insertedApps))
+        Cleared(tf._1, Some(measure), inductiveLemmas)
       }.toSeq)
     } else {
       None
