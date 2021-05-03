@@ -48,8 +48,7 @@ class PlainTextReporter(debugSections: Set[DebugSection]) extends inox.PlainText
   }
 
   override def onCompilerProgress(current: Int, total: Int): Unit = synchronized {
-    printingProgress = true
-    print(s"\rVerified: $current / $total")
+    printingProgress = false
   }
 }
 
