@@ -159,7 +159,7 @@ trait ImperativeCodeElimination
           val finalFun = fun ++ lastFun
           (
             replaceFromSymbols(finalFun, lastRes),
-            (body: Expr) => scope(replaceFromSymbols(fun, lastScope(body))),
+            (body: Expr) => scope(replaceFromSymbols(fun, lastScope(body)).setPos(expr)),
             finalFun
           )
 
