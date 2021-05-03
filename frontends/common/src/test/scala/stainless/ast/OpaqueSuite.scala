@@ -3,10 +3,10 @@
 package stainless
 package ast
 
-import org.scalatest._
+import org.scalatest.funsuite.AnyFunSuite
 import scala.language.existentials
 
-class OpaqueSuite extends FunSuite with InputUtils {
+class OpaqueSuite extends AnyFunSuite with InputUtils {
 
   val sources = List(
     """|import stainless.annotation._

@@ -1,7 +1,7 @@
 .. _cmdlineoptions:
 
-Command Line Options
-====================
+Specifying Options
+==================
 
 Stainless's command line options have the form ``--option`` or ``--option=value``.
 To enable a flag option, use ``--option=true`` or ``on`` or ``yes``,
@@ -10,7 +10,7 @@ or just ``--option``. To disable a flag option, use ``--option=false``.
 Additionally, if you need to pass options to the ``scalac`` frontend of Stainless,
 you can do it by using a single dash ``-``. For example, try ``-Ybrowse:typer``.
 
-The rest of this section presents command-line options that Stainless recognizes.
+The rest of this section presents some of the command-line options that Stainless recognizes.
 For a short (but always up-to-date) summary, you can also invoke ``stainless --help``.
 
 Choosing which Stainless feature to use
@@ -28,6 +28,29 @@ By default, ``--verification`` is chosen.
   Evaluate parameterless functions and report their body's value and whether
   or not their postcondition holds.
 
+* ``--genc``
+
+  Convert stainless code to C (implies --batched, default: false).
+  See documentation section for generating C code.
+
+* ``--coq``
+
+  Transform the program into a Coq program, and let Coq generate subgoals automatically                                                         
+
+* ``--type-checker``
+
+  Use type checker inspired by System FR to generate verification conditions.
+  Default is ``true`` and is strongly recommended; using ``false`` reverts to
+  an old verification-condition generator.
+
+* ``--infer-measures=[yes|no|only] (default: yes)``
+
+  Infers measures for recursive functions which do not already have one.
+
+* ``--check-measures=[true|false] (default: true)``
+
+  Check termination of functions with measures, ie. whether measures decrease between recursive calls.
+  
 * ``--help``
 
   Prints a helpful message, then exits.
@@ -43,22 +66,18 @@ These options are available to all Stainless components:
   Re-run the selected analysis components upon file changes, making the program analysis
   interactive and significantly more efficient than restarting stainless manually.
 
+* ``--no-colors``
+
+  Disable colored output and non-ascii characters (consider this option for better support in IDEs)
+  
 * ``--compact``
 
   Reduces the components' summaries to only the invalid elements (e.g. invalid VC).
 
-* ``--infer-measures=[yes|no|only] (default: yes)``
-
-  Infers measures for recursive functions which do not already have one.
-
-* ``--check-measures=[true|false] (default: true)``
-
-  Check termination of functions with measures, ie. whether measures decrease between recursive calls.
-
 * ``--debug=d1,d2,...``
 
   Enables printing detailed messages for the components d1,d2,... .
-  Available components are:
+  Available components include:
 
   * ``solver`` (SMT solvers and their wrappers)
 
@@ -186,7 +205,11 @@ Verification
 
 * ``--strict-aritmetic``
 
-  Check arithmetic operations for unintended behaviour and overflows.
+  Check arithmetic operations for unintended behaviour and
+  overflows.  Note that reasoning about bitvectors is sound
+  even if this option is false, but in that case no warnings
+  are generated for overflows and underflows because these
+  have well-defined semantics in Scala.
 
 * ``--vc-cache``
 
@@ -280,8 +303,9 @@ Evaluators
 Configuration File
 ------------------
 
-Stainless supports setting default values for command line options configuration files.   
-The file must be named ``stainless.conf`` or ``.stainless.conf`` and be a valid HOCON file.
+Stainless supports setting default values for command line options configuration files.
+To specify configuration file you can use the option ```--config-file=FILE``. The default is
+``stainless.conf`` or ``.stainless.conf``. The file should be a valid HOCON file.
 
 For example, consider the config file containin the following lines:
 
@@ -303,3 +327,49 @@ starting from the current directory and walking up the
 directory hierarchy.  For example, if one runs stainless
 from ``/a/b/c`` and there is a config file in any of `c`,
 `b` or `a`, the first of those is going to be loaded.
+
+Library Files
+-------------
+
+Purpose of library files
+************************
+
+Stainless contains library source Scala files that define types and functions that are meant to be always available
+via import statements such as ``import stainless.lang._``, ``import stainless.annotation._``,
+``import stainless.collection._``, and so on. Many of these types have special treatment inside the extraction
+pipeline and will map directly to mathematical data types of the underlying SMT solvers.
+At build time, the ``build.sbt`` script computes the list of these files by traversing the ``frontends/library/`` directory.
+
+Changing the list of library files
+**********************************
+
+To support further customization, if at run time stainless finds
+a file ``libfiles.txt`` in the current directory, it replaces the list of library files files with the list contained
+in this file, one file per line, with paths relative to the directory ``frontends/library/``. For example, ``libfiles.txt``
+may contain:
+
+.. code:: text
+
+   stainless/util/Random.scala
+   stainless/lang/Option.scala
+   stainless/lang/StaticChecks.scala
+   stainless/lang/Real.scala
+   stainless/lang/Either.scala
+   stainless/lang/Set.scala
+   stainless/lang/MutableMap.scala
+   stainless/lang/package.scala
+   stainless/lang/Bag.scala
+   stainless/lang/Map.scala
+   stainless/collection/List.scala
+   stainless/math/BitVectors.scala
+   stainless/math/Nat.scala
+   stainless/math/package.scala
+   stainless/io/StdIn.scala
+   stainless/io/package.scala
+   stainless/annotation/annotations.scala
+   stainless/annotation/isabelle.scala
+   stainless/annotation/cCode.scala
+   stainless/proof/Internal.scala
+   stainless/proof/package.scala
+
+For further customization by advanced users, please examine the ``build.sbt`` file.

@@ -55,11 +55,12 @@ trait SizeFunctions {
   private val bvCache: MutableMap[BVType, FunDef] = MutableMap.empty
 
   def bvAbs(tpe: BVType)(implicit symbols: Symbols): FunDef = synchronized {
+    val zero = BVLiteral(tpe.signed, 0, tpe.size)
     bvCache.getOrElseUpdate(tpe, {
       val fd = mkFunDef(FreshIdentifier("bvAbs" + tpe.size))()(_ =>
         (Seq("x" :: tpe), tpe, {
           case Seq(x) =>
-            if_(x >= E(0)) {
+            if_(x >= zero) {
               -x
             } else_ {
               x

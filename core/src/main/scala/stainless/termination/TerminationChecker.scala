@@ -15,11 +15,17 @@ trait TerminationChecker { self =>
 
   def terminates(fd: FunDef): TerminationGuarantee
 
+  /* Caches for inductive lemmas */
+  type Postconditions  = MutableMap[Identifier, Lambda]
+  type Applications    = MutableMap[(Identifier, Identifier, Identifier), Seq[ValDef] => Expr]
+  type InductiveLemmas = Option[(Postconditions, Applications)]
+  /* End caches for inductive lemmas */
+
   sealed abstract class TerminationGuarantee {
     def isGuaranteed: Boolean
   }
 
-  case class Terminates(reason: String, measure: Option[Expr]) extends TerminationGuarantee {
+  case class Terminates(reason: String, measure: Option[Expr], lemmas: InductiveLemmas) extends TerminationGuarantee {
     override def isGuaranteed: Boolean = true
   }
 

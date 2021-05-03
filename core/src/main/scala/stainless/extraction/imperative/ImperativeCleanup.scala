@@ -10,6 +10,9 @@ package imperative
   * that can be generated during xlang desugaring phase. The most
   * common case is the generation of function returning tuple with
   * Unit in it, which can be safely eliminated.
+
+  * We also eliminate expressions that deconstruct a tuple just to
+  * reconstruct it right after.
   */
 trait ImperativeCleanup
   extends oo.SimplePhase
@@ -41,6 +44,36 @@ trait ImperativeCleanup
       case _ => super.transform(tpe)
     }
 
+    object Lets {
+      def unapply(e: s.Expr): Option[(Seq[(s.ValDef, s.Expr)], s.Expr)] = e match {
+        case s.Let(vd, e0, body) => unapply(body).map {
+          case (lets, rest) => ((vd, e0) +: lets, rest)
+        }
+        case _ => Some((Seq(), e))
+      }
+    }
+
+    object ReconstructTuple {
+      def unapply(e: s.Expr): Option[s.Expr] = e match {
+        case s.Let(vd, tuple, Lets(lets, s.Tuple(es))) =>
+          val letsMap = lets.toMap
+          if (
+            vd.getType.isInstanceOf[s.TupleType] &&
+            es.length == vd.getType.asInstanceOf[s.TupleType].bases.length &&
+            es.zipWithIndex.forall {
+            case (e0 : s.Variable, i) =>
+              letsMap.contains(e0.toVal) &&
+              letsMap(e0.toVal) == s.TupleSelect(vd.toVariable, i + 1)
+            case (e0, i) =>
+              e0 == s.TupleSelect(vd.toVariable, i + 1)
+          })
+            Some(tuple)
+          else
+            None
+        case _ => None
+      }
+    }
+
     override def transform(expr: s.Expr): t.Expr = expr match {
       // Desugar Boolean bitwise operations &, | and ^
       case (_: s.BoolBitwiseAnd | _: s.BoolBitwiseOr | _: s.BoolBitwiseXor) =>
@@ -64,6 +97,8 @@ trait ImperativeCleanup
       case s.MutableMapApply(map, index) => t.MapApply(transform(map), transform(index))
       case s.MutableMapUpdated(map, key, value) => t.MapUpdated(transform(map), transform(key), transform(value))
       case s.MutableMapDuplicate(map) => transform(map)
+
+      case ReconstructTuple(tuple) => transform(tuple)
 
       case _ => super.transform(expr)
     }

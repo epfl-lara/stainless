@@ -36,7 +36,9 @@ trait ASTExtractors {
   def getAnnotations(sym: Symbol, ignoreOwner: Boolean = false): Seq[(String, Seq[Tree])] = {
     val actualSymbol = sym.accessedOrSelf.orElse(sym)
     val selfs = actualSymbol.annotations
-    val owners = if (ignoreOwner) Set.empty else actualSymbol.owner.annotations
+    val owners =
+      if (ignoreOwner) Set.empty
+      else actualSymbol.owner.annotations.filter(annot => annot.toString != "stainless.annotation.export")
     val companions = if (actualSymbol.isSynthetic) actualSymbol.companionSymbol.annotations else Set.empty
     (for {
       a <- (selfs ++ owners ++ companions)
@@ -841,6 +843,16 @@ trait ASTExtractors {
       }
     }
 
+    object ExSwapExpression {
+      def unapply(tree: Apply) : Option[(Tree, Tree, Tree, Tree)] = tree match {
+        case a @ Apply(
+              TypeApply(ExSymbol("stainless", "lang", "swap"), _),
+              array1 :: index1 :: array2 :: index2 :: Nil) =>
+            Some((array1, index1, array2, index2))
+        case _ => None
+      }
+    }
+
     object ExLambdaExpression {
       def unapply(tree: Function) : Option[(Seq[ValDef], Tree)] = tree match {
         case Function(vds, body) => Some((vds, body))
@@ -1014,7 +1026,7 @@ trait ASTExtractors {
       }
     }
 
-    object ExWhile {
+    object ExBareWhile {
       def unapply(tree: LabelDef): Option[(Tree,Tree)] = tree match {
         case (label@LabelDef(
                 _, _, If(cond, Block(body, jump@Apply(_, _)), unit@ExUnitLiteral())))
@@ -1023,15 +1035,54 @@ trait ASTExtractors {
       }
     }
 
-    object ExWhileWithInvariant {
-      def unapply(tree: Apply): Option[(Tree, Tree, Tree)] = tree match {
-        case Apply(
-          Select(
-            Apply(while2invariant, List(ExWhile(cond, body))),
-            invariantSym),
-          List(invariant)) if invariantSym.toString == "invariant" => Some((cond, body, invariant))
-        case _ => None
+    object ExWhile {
+      object WithInvariant {
+        def unapply(tree: Tree): Option[(Tree, Tree)] = tree match {
+          case Apply(
+            Select(
+              Apply(while2invariant, List(rest)),
+              invariantSym),
+            List(invariant)) if invariantSym.toString == "invariant" => Some((invariant, rest))
+          case _ => None
+        }
       }
+
+      object WithInline {
+        def unapply(tree: Tree): Option[Tree] = tree match {
+          case Select(
+              Apply(_, List(rest)),
+              inlineSym
+            ) if inlineSym.toString == "inline" => Some(rest)
+          case _ => None
+        }
+      }
+
+      object WithOpaque {
+        def unapply(tree: Tree): Option[Tree] = tree match {
+          case Select(
+              Apply(_, List(rest)),
+              opaqueSym
+            ) if opaqueSym.toString == "opaque" => Some(rest)
+          case _ => None
+        }
+      }
+
+
+      def parseWhile(tree: Tree, optInv: Option[Tree], inline: Boolean, opaque: Boolean):
+        Option[(Tree, Tree, Option[Tree], Boolean, Boolean)] = {
+
+        tree match {
+          case WithOpaque(rest) => parseWhile(rest, optInv, inline, true)
+          case WithInline(rest) => parseWhile(rest, optInv, true, opaque)
+          case WithInvariant(invariant, rest) => parseWhile(rest, Some(invariant), inline, opaque)
+          case ExBareWhile(cond, body) => Some((cond, body, optInv, inline, opaque))
+          case _ => None
+        }
+      }
+
+      // returns condition, body, optional invariant, inline boolean, opaque boolean
+      def unapply(tree: Tree): Option[(Tree, Tree, Option[Tree], Boolean, Boolean)] =
+        parseWhile(tree, None, false, false)
     }
 
     object ExTuple {

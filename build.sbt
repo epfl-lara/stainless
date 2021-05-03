@@ -99,7 +99,7 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
     "io.get-coursier" %% "coursier"      % "2.0.0-RC4-1",
     "com.typesafe"     % "config"        % "1.3.4",
 
-    "org.scalatest"   %% "scalatest"     % "3.0.8" % "test",
+    "org.scalatest"   %% "scalatest"     % "3.2.7" % "test",
   ),
 
   // disable documentation packaging in universal:stage to speedup development
@@ -152,17 +152,23 @@ lazy val assemblySettings: Seq[Setting[_]] = {
   )
 }
 
+lazy val libFilesFile = "libfiles.txt" // file storing list of library file names
+
+lazy val regenFilesFile = false
+
 lazy val libraryFiles: Seq[(String, File)] = {
   val libFiles = ((root.base / "frontends" / "library") ** "*.scala").get
   val dropCount = (libFiles.head.getPath indexOfSlice "library") + ("library".size + 1 /* for separator */)
-  libFiles.map(file => (file.getPath drop dropCount, file)) // Drop the prefix of the path (i.e. everything before "library")
+  val res : Seq[(String, File)] = libFiles.map(file => (file.getPath drop dropCount, file)) // Drop the prefix of the path (i.e. everything before "library")
+  if (regenFilesFile) {
+    val fileNames : Seq[String] = res.map(_._1)
+    println(fileNames)
+    reflect.io.File(libFilesFile).writeAll(fileNames.mkString("\n"))
+  }
+  res
 }
 
 lazy val commonFrontendSettings: Seq[Setting[_]] = Defaults.itSettings ++ Seq(
-  libraryDependencies ++= Seq(
-    // "ch.epfl.lara" %% "inox" % inoxVersion % "it" classifier "tests" classifier "it",
-    "org.scalatest" %% "scalatest" % "3.0.1" % "it" // FIXME: Does this override `% "test"` from commonSettings above?
-  ),
 
   /**
     * NOTE: IntelliJ seems to have trouble including sources located outside the base directory of an
@@ -198,11 +204,15 @@ lazy val commonFrontendSettings: Seq[Setting[_]] = Defaults.itSettings ++ Seq(
           |  val extraClasspath = \"\"\"${removeSlashU(extraClasspath.value)}\"\"\"
           |  val extraCompilerArguments = List("-classpath", \"\"\"${removeSlashU(extraClasspath.value)}\"\"\")
           |
-          |  val libraryPaths = List(
-          |    ${removeSlashU(libraryFiles.map(_._1).mkString("\"\"\"", "\"\"\",\n    \"\"\"", "\"\"\""))}
-          |  )
+          |  val defaultPaths = List(${removeSlashU(libraryFiles.map(_._1).mkString("\"\"\"", "\"\"\",\n \"\"\"", "\"\"\""))})
+          |  val libPaths = try {
+          |    val source = scala.io.Source.fromFile(\"${libFilesFile}\")
+          |    try source.getLines.toList finally source.close()
+          |  } catch {
+          |     case (_:Throwable) => defaultPaths
+          |  }
           |
-          |  override val factory = new frontends.${frontendClass.value}.Factory(extraCompilerArguments, libraryPaths)
+          |  override val factory = new frontends.${frontendClass.value}.Factory(extraCompilerArguments, libPaths)
           |
           |}""".stripMargin)
     Seq(main)
@@ -223,8 +233,8 @@ val scriptSettings: Seq[Setting[_]] = Seq(
 def ghProject(repo: String, version: String) = RootProject(uri(s"${repo}#${version}"))
 
 // lazy val inox = RootProject(file("../inox"))
-// lazy val inox = ghProject("https://github.com/epfl-lara/inox.git", "fdbf887e8992018dd97a63fd078a89ee91273c51")
-lazy val inox = ghProject("https://github.com/yannbolliger/inox.git", "cbf19c65fe44258de17a70fe85e63fecb64db18f") // rust-interop, latest commit
+// lazy val inox = ghProject("https://github.com/epfl-lara/inox.git", "22de8d6b6af51fbe09bca2fc26dbdd596de8e3e8")
+lazy val inox = ghProject("https://github.com/yannbolliger/inox.git", "4ab8e63213cf52adb322ddeb16c4c0b07bcfe4b8") // rust-interop, latest commit
 //lazy val dotty = ghProject("git://github.com/lampepfl/dotty.git", "b3194406d8e1a28690faee12257b53f9dcf49506")
 
 // Allow integration test to use facilities from regular tests

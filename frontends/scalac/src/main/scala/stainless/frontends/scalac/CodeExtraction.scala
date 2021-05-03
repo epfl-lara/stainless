@@ -483,7 +483,8 @@ trait CodeExtraction extends ASTExtractors {
       val pos = inox.utils.Position.between(invariants.map(_.getPos).min, invariants.map(_.getPos).max)
       new xt.FunDef(id, Seq.empty, Seq.empty, xt.BooleanType().setPos(pos),
         if (invariants.size == 1) invariants.head else xt.And(invariants).setPos(pos),
-        (Seq(xt.IsInvariant) ++ annots.filterNot(_ == xt.IsMutable)).distinct
+        (Seq(xt.IsInvariant) ++
+         annots.filterNot(annot => annot == xt.IsMutable || annot.name == "export")).distinct
       ).setPos(pos)
     })
 
@@ -1065,11 +1066,11 @@ trait CodeExtraction extends ASTExtractors {
     case a @ ExFieldAssign(sym, lhs@Select(thiss: This, _), rhs) =>
       xt.FieldAssignment(extractTree(thiss), getIdentifier(sym), extractTree(rhs))
 
-    case wh @ ExWhile(cond, body) =>
-      xt.While(extractTree(cond), extractTree(body), None)
-
-    case wh @ ExWhileWithInvariant(cond, body, inv) =>
-      xt.While(extractTree(cond), extractTree(body), Some(extractTree(inv)))
+    case wh @ ExWhile(cond, body, invOpt, inline, opaque) =>
+      val inlineFlag = if (inline) Some(xt.InlineOnce) else None
+      val opaqueFlag = if (opaque) Some(xt.Opaque) else None
+      val flags = inlineFlag.toSeq ++ opaqueFlag
+      xt.While(extractTree(cond), extractTree(body), invOpt.map(extractTree), flags)
 
     case ExBigIntLiteral(n: Literal) =>
       xt.IntegerLiteral(BigInt(n.value.stringValue))
@@ -1177,6 +1178,9 @@ trait CodeExtraction extends ASTExtractors {
         case xt.Lambda(Seq(vd), body) => xt.Choose(vd, body)
         case _ => outOfSubsetError(tr, "Unexpected choose definition")
       }
+
+    case swap @ ExSwapExpression(array1, index1, array2, index2) =>
+      xt.Swap(extractTree(array1), extractTree(index1), extractTree(array2), extractTree(index2))
 
     case l @ ExLambdaExpression(args, body) =>
       val vds = args map(vd => xt.ValDef(

@@ -3,11 +3,11 @@
 package stainless
 package ast
 
-import org.scalatest._
+import org.scalatest.funsuite.AnyFunSuite
 import scala.language.existentials
 import extraction.methods.trees.Library
 
-class LawsLibrarySuite extends FunSuite with InputUtils {
+class LawsLibrarySuite extends AnyFunSuite with InputUtils {
 
   val sources = List(
     """|import stainless.lang._

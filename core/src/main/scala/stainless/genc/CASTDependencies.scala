@@ -11,7 +11,7 @@ class CASTTraverser(implicit ctx: inox.Context) {
     case Prog(includes, typeDefs, enums, types, functions) =>
       includes.toSeq ++ typeDefs.toSeq ++ enums.toSeq ++ types ++ functions.toSeq
 
-    case TypeDef(orig, alias) =>
+    case TypeDef(orig, alias, _) =>
       Seq(orig, alias)
 
     case Pointer(base) =>
@@ -20,7 +20,7 @@ class CASTTraverser(implicit ctx: inox.Context) {
     case FunType(ret, params) =>
       ret +: params
 
-    case Struct(id, fields) =>
+    case Struct(id, fields, _) =>
       id +: fields
 
     case Fun(id, returnType, params, Left(block), _) =>
@@ -35,7 +35,7 @@ class CASTTraverser(implicit ctx: inox.Context) {
     case Primitive(pt) =>
       Seq()
 
-    case Union(id, fields) =>
+    case Union(id, fields, _) =>
       id +: fields
 
     case Enum(id, literals) =>
@@ -145,10 +145,13 @@ object CASTDependencies {
       }
     }
 
-    for (Fun(_, returnType, params, _, _) <- prog.functions.filter(_.export)) {
+    for (Fun(_, returnType, params, _, _) <- prog.functions.filter(_.isExported)) {
       typeCollector.traverse(returnType)
       params.foreach(typeCollector.traverse)
     }
+
+    for (tpe <- prog.typeDefs.filter(_.isExported)) typeCollector.traverse(tpe)
+    for (tpe <- prog.types.filter(_.isExported)) typeCollector.traverse(tpe)
 
     res.toSet
   }

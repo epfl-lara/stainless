@@ -40,8 +40,8 @@ private[genc] object Scala2IRPhase extends LeonPipeline[(Dependencies, FunCtxDB)
     impl.run()
 
     val ir = CIR.Prog(
-      impl.funCache.values.toSeq,
-      impl.classCache.values.toSeq
+      impl.funCache.values.toList,
+      impl.classCache.values.toList
     )
 
     ctx.reporter.debug("RESULTING CIR:\n" + ir.toString())
@@ -67,12 +67,12 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
       df match {
         case fd: FunDef if fd.isExported =>
           rec(Outer(fd), Seq())(Map.empty, (Map.empty, Map.empty))
+        case cd: ClassDef if cd.isExported =>
+          rec(cd.typed.toType)(Map.empty)
         case _ =>
       }
     }
   }
-
-  // def apply(entryPoint: FunDef): CIR.FunDef = rec(Outer(entryPoint), entryPoint.tparams.map(_.tp))(Map.empty, (Map.empty, Map.empty))
 
   /****************************************************************************************************
    *                                                       Caches                                     *
@@ -83,7 +83,9 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
   // instantiation of the outer function we have only one TypedFunDef for the inner function.
   val funCache = MutableMap[(FunAbstraction, Seq[Type], TypeMapping), CIR.FunDef]()
 
-  val classCache = MutableMap[ClassType, CIR.ClassDef]()
+  // The `classCache` might be queried with a generic class type, which is why we keep the concrete
+  // type mapping in the cache key
+  val classCache = MutableMap[(ClassType, TypeMapping), CIR.ClassDef]()
 
 
 
@@ -102,7 +104,7 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
     typeOps.instantiateType(typ, tm)
 
   // Here, when contexts are translated, there might remain some generic types. We use `tm` to make them disapear.
-  private def convertVarInfoToArg(vi: VarInfo)(implicit tm: TypeMapping) = CIR.ValDef(rec(vi.vd), rec(vi.typ), vi.isVar)
+  private def convertVarInfoToArg(vi: VarInfo)(implicit tm: TypeMapping) = CIR.ValDef(rec(vi.vd.id), rec(vi.typ), vi.isVar)
   private def convertVarInfoToParam(vi: VarInfo)(implicit tm: TypeMapping) = CIR.Binding(convertVarInfoToArg(vi))
 
   // Extract the ValDef from the known one
@@ -127,7 +129,7 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
 
   private def buildLet(x: ValDef, e: Expr, body: Expr, isVar: Boolean)
                       (implicit env: Env, tm: TypeMapping): CIR.Expr = {
-    val vd = CIR.ValDef(rec(x), rec(x.tpe), isVar)
+    val vd = CIR.ValDef(rec(x.id), rec(x.tpe), isVar)
     val decl = CIR.DeclInit(vd, rec(e))
     val newValDefEnv = env._1 + ((x, instantiate(x.tpe, tm)) -> vd)
     val rest = rec(body)((newValDefEnv, env._2), tm)
@@ -145,8 +147,10 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
     rec(fa.id, withUnique = !exported) + (if (tps.nonEmpty) buildIdPostfix(tps) else buildIdFromTypeMapping(tm))
   }
 
-  private def buildId(ct: ClassType)(implicit tm: TypeMapping): CIR.Id =
-    rec(ct.tcd.id) + buildIdPostfix(ct.tps)
+  private def buildId(ct: ClassType)(implicit tm: TypeMapping): CIR.Id = {
+    val exported = ct.tcd.cd.isExported
+    rec(ct.tcd.id, withUnique = !exported) + buildIdPostfix(ct.tps)
+  }
 
   private def buildIdPostfix(tps: Seq[Type])(implicit tm: TypeMapping): CIR.Id = if (tps.isEmpty) "" else {
     "_" + (tps filterNot { _ == Untyped } map rec map CIR.repId mkString "_")
@@ -233,7 +237,7 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
       val types = bases map rec
       val fields = types.zipWithIndex map { case (typ, i) => CIR.ValDef("_" + (i+1), typ, isVar = false) }
       val id = "Tuple" + buildIdPostfix(bases)
-      CIR.ClassDef(id, None, fields, isAbstract = false)
+      CIR.ClassDef(id, None, fields, isAbstract = false, isExported = false)
 
     case _ => ctx.reporter.fatalError(typ.getPos, s"Unexpected ${typ.getClass} instead of TupleType")
   }
@@ -267,7 +271,7 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
 
     def withTmp(typ: Type, value: Expr, env: Env): (Variable, Some[CIR.DeclInit], Env) = {
       val tmp0 = ValDef.fresh("tmp", typ)
-      val tmpId = rec(tmp0)
+      val tmpId = rec(tmp0.id)
       val tmpTyp = rec(typ)
       val tmp = CIR.ValDef(tmpId, tmpTyp, isVar = false)
       val pre = CIR.DeclInit(tmp, rec(value)(env, tm))
@@ -415,10 +419,6 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
     else id.name
   }
 
-  private def rec(vd: ValDef): CIR.Id = {
-    vd.id.uniqueNameDelimited("_")
-  }
-
   // Try first to fetch the function from cache to handle recursive funcitons.
   private def rec(fa: FunAbstraction, tps: Seq[Type])(implicit tm0: TypeMapping, env: Env): CIR.FunDef = {
     val cacheKey = (fa, tps, tm0)
@@ -465,6 +465,7 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
 
     // Build a partial function without body in order to support recursive functions
     val fun = CIR.FunDef(id, returnType, funCtx, params, null, export)
+
     funCache.update(cacheKey, fun) // Register with the callee TypeMapping, *not* the newer
 
     // Now proceed with the body
@@ -518,7 +519,7 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
         CIR.DroppedType
       } else if (cd.isManuallyTyped) {
         val typeDef = cd.getManualType
-        CIR.TypeDefType(cd.id.name, typeDef.alias, typeDef.include)
+        CIR.TypeDefType(cd.id.name, typeDef.alias, typeDef.include, cd.isExported)
       } else {
         CIR.ClassType(rec(ct))
       }
@@ -535,6 +536,8 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
   }
 
   private def rec(ct: ClassType)(implicit tm: TypeMapping): CIR.ClassDef = {
+    val cacheKey = (ct, tm)
+    classCache.getOrElseUpdate(cacheKey, {
     // Convert the whole class hierarchy to register all siblings, in a top down fasion, that way
     // each children class in the the CIR hierarchy get registered to its parent and we can keep track
     // of all of them.
@@ -552,12 +555,17 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
       if (cd.isCaseObject)
         ctx.reporter.fatalError(ct.getPos, s"Case objects (${ct.id.asString}) are not convertible to ClassDef in GenC")
 
+      // disable name mangling for fields of exported classes
+      val mangling = !cd.isExported
+
       // Use the class definition id, not the typed one as they might not match.
       val nonGhostFields = tcd.fields.filter(!_.flags.contains(Ghost))
       val fieldTypes = nonGhostFields.map(_.tpe) map rec
-      val fields = (nonGhostFields zip fieldTypes) map { case (vd, typ) => CIR.ValDef(rec(vd), typ, vd.flags.contains(IsVar)) }
+      val fields = (nonGhostFields zip fieldTypes) map { case (vd, typ) =>
+        CIR.ValDef(rec(vd.id, withUnique = mangling), typ, vd.flags.contains(IsVar))
+      }
 
-      val clazz = CIR.ClassDef(id, parent, fields, cd.isAbstract)
+      val clazz = CIR.ClassDef(id, parent, fields, cd.isAbstract, cd.isExported)
 
       val newAcc = acc + (ct -> clazz)
 
@@ -569,6 +577,7 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
     val translation = recTopDown(syms.getClass(root(ct.id)).typed(ct.tps).toType, None, Map.empty)
 
     translation(ct)
+    })
   }
 
   private def rec(e: Expr)(implicit env: Env, tm0: TypeMapping): CIR.Expr = e match {
@@ -616,15 +625,18 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
     case FieldAssignment(obj, fieldId0, expr) =>
       // The fieldId might actually not be the correct one;
       // it's global counter might differ from the one in the class definition.
-      val fieldId = obj.getType match {
+      obj.getType match {
         case ct: ClassType =>
           val fields = ct.tcd.fields
           val optFieldId = fields collectFirst { case field if field.id.name == fieldId0.name => field.id }
-          optFieldId getOrElse { ctx.reporter.fatalError(e.getPos, s"No corresponding field for $fieldId0 in class $ct") }
+          val fieldId = optFieldId getOrElse {
+            ctx.reporter.fatalError(e.getPos, s"No corresponding field for $fieldId0 in class $ct")
+          }
+          CIR.Assign(CIR.FieldAccess(rec(obj), rec(fieldId, withUnique = !ct.tcd.cd.isExported)), rec(expr))
 
-        case typ => ctx.reporter.fatalError(e.getPos, s"Unexpected type $typ. Only class type are expected to update fields")
+        case typ =>
+          ctx.reporter.fatalError(e.getPos, s"Unexpected type $typ. Only class type are expected to update fields")
       }
-      CIR.Assign(CIR.FieldAccess(rec(obj), rec(fieldId)), rec(expr))
 
     case LetRec(lfds, body) =>
       // We don't have to traverse the nested function now because we already have their contexts
@@ -698,7 +710,9 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
 
       CIR.Construct(ct2, args2)
 
-    case ClassSelector(obj, fieldId) => CIR.FieldAccess(rec(obj), rec(fieldId))
+    case ClassSelector(obj, fieldId) =>
+      val cd = obj.getType.asInstanceOf[ClassType].tcd.cd
+      CIR.FieldAccess(rec(obj), rec(fieldId, withUnique = !cd.isExported))
 
     case tuple @ Tuple(args0) =>
       val clazz = tuple2Class(tuple.getType)
@@ -756,7 +770,7 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
     case IfExpr(cond, thenn, NoTree(_)) => CIR.If(rec(cond), rec(thenn))
     case IfExpr(cond, thenn, elze) => CIR.IfElse(rec(cond), rec(thenn), rec(elze))
 
-    case While(cond, body, _)     => CIR.While(rec(cond), rec(body))
+    case While(cond, body, _, _)     => CIR.While(rec(cond), rec(body))
 
     case LessThan(lhs, rhs)       => buildBinOp(lhs, O.LessThan, rhs)(e.getPos)
     case GreaterThan(lhs, rhs)    => buildBinOp(lhs, O.GreaterThan, rhs)(e.getPos)
