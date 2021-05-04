@@ -69,40 +69,43 @@ object NoxtFrontend {
       case _ => super.transform(pat)
     }
 
+
+    val flagsByName = Seq(
+      xt.IsAbstract,
+      xt.IsCaseObject,
+      xt.Erasable,
+      xt.Extern,
+      xt.Final,
+      xt.Ghost,
+      xt.Ignore,
+      xt.Inline,
+      xt.InlineInvariant,
+      xt.InlineOnce,
+      xt.IsInvariant,
+      xt.Law,
+      xt.Lazy,
+      xt.Library,
+      xt.IsMutable,
+      xt.Opaque,
+      xt.PartialEval,
+      xt.Private,
+      xt.IsPure,
+      xt.IsSealed,
+      xt.StrictBV,
+      xt.Synthetic,
+      xt.Template,
+      xt.TraceInduct,
+      xt.Unchecked,
+      xt.ValueClass,
+      xt.IsVar,
+      xt.Wrapping
+    ).map(f => (f.name, f)).toMap
+
     // FIXME: Deserialization doesn't map flags that are implemented as objects to their singleton
     //   instance, but instead creates a new instance, which is matched by nothing.
     //   This is a temporary workaround.
     override def transform(flag: xt.Flag): xt.Flag =
-      Seq(
-        xt.IsAbstract,
-        xt.IsCaseObject,
-        xt.Erasable,
-        xt.Extern,
-        xt.Final,
-        xt.Ghost,
-        xt.Ignore,
-        xt.Inline,
-        xt.InlineInvariant,
-        xt.InlineOnce,
-        xt.IsInvariant,
-        xt.Law,
-        xt.Lazy,
-        xt.Library,
-        xt.IsMutable,
-        xt.Opaque,
-        xt.PartialEval,
-        xt.Private,
-        xt.IsPure,
-        xt.IsSealed,
-        xt.StrictBV,
-        xt.Synthetic,
-        xt.Template,
-        xt.TraceInduct,
-        xt.Unchecked,
-        xt.ValueClass,
-        xt.IsVar,
-        xt.Wrapping
-      ).map(f => (f.name, f)).toMap.getOrElse(flag.name, super.transform(flag))
+      flagsByName.getOrElse(flag.name, super.transform(flag))
 
     override def transform(oldFd: xt.FunDef): xt.FunDef = {
       val fd = super.transform(oldFd)
