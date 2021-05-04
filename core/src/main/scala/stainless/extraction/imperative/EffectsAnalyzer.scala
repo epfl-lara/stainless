@@ -331,6 +331,8 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     override def toString: String = asString
   }
 
+  // getTargets(expr, Seq()) returns the set of targets such that after `var x = expr`,
+  // the modifications on `x` will result in modifications on these targets
   def getTargets(expr: Expr, path: Seq[Accessor])(implicit symbols: Symbols): Set[Target] = expr match {
     case _ if variablesOf(expr).forall(v => !symbols.isMutableType(v.tpe)) => Set.empty
     case v: Variable => Set(Target(v, None, Path(path)))

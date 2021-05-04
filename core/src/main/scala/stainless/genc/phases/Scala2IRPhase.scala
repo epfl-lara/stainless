@@ -735,6 +735,21 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
     case ArrayUpdate(array, index, value) =>
       CIR.Assign(CIR.ArrayAccess(rec(array), rec(index)), rec(value))
 
+    case Swap(array1, index1, array2, index2) =>
+      val ArrayType(base) = array1.getType
+      val a1 = rec(array1)
+      val a2 = rec(array2)
+      val i1 = rec(index1)
+      val i2 = rec(index2)
+      val tmpId = rec(FreshIdentifier("tmp"))
+      val tmpVd = CIR.ValDef(tmpId, rec(base), false)
+      val tmp = CIR.Binding(tmpVd)
+      CIR.buildBlock(Seq(
+        CIR.DeclInit(tmpVd, CIR.ArrayAccess(a1, i1)),
+        CIR.Assign(CIR.ArrayAccess(a1, i1), CIR.ArrayAccess(a2, i2)),
+        CIR.Assign(CIR.ArrayAccess(a2, i2), tmp),
+      ))
+
     case array @ FiniteArray(elems, base) =>
       val arrayType = CIR.ArrayType(rec(base))
       val length = elems.size

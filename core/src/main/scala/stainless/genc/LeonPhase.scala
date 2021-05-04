@@ -2,7 +2,7 @@
 
 package stainless.genc
 
-trait NamedLeonPhase[-F, +T] extends LeonPipeline[F, T] {
+trait NamedLeonPhase[F, T] extends LeonPipeline[F, T] {
   val underlying: LeonPipeline[F, T]
   val name: String
 
@@ -25,6 +25,7 @@ trait NamedLeonPhase[-F, +T] extends LeonPipeline[F, T] {
 }
 
 object NamedLeonPhase {
+
   def apply[F, T](s: String, pipeline: LeonPipeline[F, T]): LeonPipeline[F, T] {
   } = new {
     override val underlying: pipeline.type = pipeline

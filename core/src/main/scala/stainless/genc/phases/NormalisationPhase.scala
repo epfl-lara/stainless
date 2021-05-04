@@ -20,12 +20,6 @@ private[genc] object NormalisationPhase extends LeonPipeline[CIR.Prog, NIR.Prog]
   def getTimer(ctx: inox.Context) = ctx.timers.genc.get("CIR -> NIR")
 
   def run(ctx: inox.Context, cprog: CIR.Prog): NIR.Prog = {
-
-    val normaliser = new Normaliser(ctx)
-    val nprog = normaliser(cprog)
-
-    ctx.reporter.debug("RESUTING NIR PROGRAM:\n" + nprog)
-
-    nprog
+    new Normaliser(ctx)(cprog)
   }
 }
