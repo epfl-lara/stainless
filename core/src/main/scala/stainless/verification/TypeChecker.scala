@@ -1096,7 +1096,8 @@ trait TypeChecker {
 
       case (Assert(cond, optErr, body), _) =>
         val kind = VCKind.fromErr(optErr)
-        checkType(tc.withVCKind(kind).setPos(cond), cond, TrueBoolean()) ++
+        checkType(tc, cond, BooleanType()) ++
+        buildVC(tc.withVCKind(kind).setPos(cond), cond) ++
         checkType(tc.withTruth(cond), body, tpe)
 
       case (m: MatchExpr, _) =>
