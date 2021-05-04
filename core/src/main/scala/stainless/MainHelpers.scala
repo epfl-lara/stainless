@@ -25,6 +25,8 @@ trait MainHelpers extends inox.MainHelpers { self =>
     optVersion -> Description(General, "Display the version number"),
     optConfigFile -> Description(General, "Path to configuration file, set to false to disable (default: stainless.conf or .stainless.conf)"),
     optFunctions -> Description(General, "Only consider functions f1,f2,..."),
+    optCompareFuns -> Description(General, "Only consider functions f1,f2,... for equivalence checking"),
+    optModels -> Description(General, "Consider functions f1, f2, ... as model functions for equivalence checking"),
     extraction.utils.optDebugObjects -> Description(General, "Only print debug output for functions/adts named o1,o2,..."),
     extraction.utils.optDebugPhases -> Description(General, {
       "Only print debug output for phases p1,p2,...\nAvailable: " +
@@ -165,6 +167,11 @@ trait MainHelpers extends inox.MainHelpers { self =>
       }
 
       import ctx.{ reporter, timers }
+
+      if (extraction.trace.Trace.optionsError) {
+        reporter.error(s"Equivalence checking for --comparefuns and --models only works in batched mode.")
+        System.exit(1)
+      }
 
       if (!useParallelism) {
         reporter.warning(s"Parallelism is disabled.")
