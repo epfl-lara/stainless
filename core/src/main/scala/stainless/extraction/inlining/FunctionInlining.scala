@@ -69,14 +69,15 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
 
         val pre = specced.specs.filter(spec => spec.kind == LetKind || spec.kind == PreconditionKind)
         def addPreconditionAssertions(e: Expr): Expr = {
-          pre.foldRight(e) {
-            case (spec @ LetInSpec(vd, e0), acc) => Let(vd, annotated(e0, Unchecked), acc).setPos(fi)
-            case (spec @ Precondition(cond), acc) =>
+          pre.zipWithIndex.foldRight(e) {
+            case ((spec @ LetInSpec(vd, e0), _), acc) => Let(vd, annotated(e0, Unchecked), acc).setPos(fi)
+            case ((spec @ Precondition(cond), i), acc) =>
+              val num = if (i == 0) "" else s" (${i+1})"
               // the assertion is not itself marked `Unchecked` (as it needs to be checked)
               // but `cond` should not generate additional VCs and is marked with `Unchecked`
               val condVal = ValDef.fresh("cond", BooleanType()).setPos(fi)
               Let(condVal, annotated(cond, Unchecked),
-                Assert(condVal.toVariable, Some("Inlined precondition of " + tfd.id.asString), acc
+                Assert(condVal.toVariable.setPos(fi), Some(s"Inlined precondition$num of " + tfd.id.asString), acc
               ).copiedFrom(fi)).copiedFrom(fi)
           }
         }
@@ -90,7 +91,7 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
             val postVal = ValDef.fresh("post", BooleanType()).setPos(fi)
             Let(vd, e,
               Let(postVal, annotated(post, Unchecked),
-                Assert(postVal.toVariable, err, vd.toVariable.copiedFrom(fi)
+                Assert(postVal.toVariable.setPos(fi), err, vd.toVariable.copiedFrom(fi)
             ).copiedFrom(fi)).copiedFrom(fi)).copiedFrom(fi)
           case Some(Lambda(Seq(vd), post)) =>
             Let(vd, e, Assume(annotated(post, Unchecked), vd.toVariable.copiedFrom(fi)).copiedFrom(fi)).copiedFrom(fi)

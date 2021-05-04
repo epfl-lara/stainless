@@ -242,11 +242,19 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
   // e.g. when declaring a variable we can directly call a function without needing a (duplicate) sequence
   // point. Caller can therefore carefully set `allowTopLevelApp` to true in those cases.
   private def flatten(e: Expr, allowTopLevelApp: Boolean = false)(implicit env: Env): (Seq[to.Expr], to.Expr) = {
-    val (init, last) = rec(e) match {
-      case to.Block(init :+ last) => (init, last)
-      case e => (Seq.empty, e)
+    def innerLoop(e2: to.Expr): (Seq[to.Expr], to.Expr) = e2 match {
+      case to.Block(init :+ last) =>
+        (init, last)
+      case to.IntegralCast(e3, tpe) =>
+        val (i, l) = innerLoop(e3)
+        (i, to.IntegralCast(l, tpe))
+      case to.AsA(e3, tpe) =>
+        val (i, l) = innerLoop(e3)
+        (i, to.AsA(l, tpe))
+      case e =>
+        (Seq.empty, e)
     }
-
+    val (init, last) = innerLoop(rec(e))
     normalise(init, last, allowTopLevelApp)
   }
 

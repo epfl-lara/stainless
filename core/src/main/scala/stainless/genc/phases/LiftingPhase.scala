@@ -22,12 +22,6 @@ private[genc] object LiftingPhase extends LeonPipeline[NIR.Prog, LIR.Prog] {
   def getTimer(ctx: inox.Context) = ctx.timers.genc.get("NIR -> LIR")
 
   def run(ctx: inox.Context, nprog: NIR.Prog): LIR.Prog = {
-
-    val lifter = new ClassLifter(ctx)
-    val lprog = lifter(nprog)
-
-    ctx.reporter.debug("RESUTING LIR PROGRAM:\n" + lprog.toString())
-
-    lprog
+    new ClassLifter(ctx)(nprog)
   }
 }

@@ -361,11 +361,10 @@ trait ImperativeCodeElimination
             val newScope = (body: Expr) => argScope(replaceFromSymbols(argFun, accScope(body)))
             (argVal +: accArgs, newScope, argFun ++ accFun)
           }
-
-          (recons(recArgs), scope, fun)
+          (recons(recArgs).setPos(n), scope, fun)
       }
 
-      (res.copiedFrom(expr), scope, fun)
+      (res.ensurePos(expr.getPos), scope, fun)
     }
 
     def requireRewriting(expr: Expr) = expr match {

@@ -249,6 +249,7 @@ class CPrinter(
 
     case Break => c"break"
 
+    case Return(Lit(UnitLit)) => c"return"
     case Return(value) => c"return $value"
 
     case Cast(expr, typ) => optP { c"($typ)$expr" }
