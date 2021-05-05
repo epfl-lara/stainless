@@ -405,6 +405,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     case AsInstanceOf(e, _) => getTargets(e, path)
     case Old(_) => Set.empty
     case Snapshot(_) => Set.empty
+    case FreshCopy(_) => Set.empty
 
     case ArrayLength(_) => Set.empty
 

@@ -411,7 +411,7 @@ trait ReturnElimination
           }
           processBlockExpressions(es :+ last)
 
-        case (_: s.Lambda | _: s.Forall | _: s.Old | _: s.Snapshot | _: s.Choose) =>
+        case (_: s.Lambda | _: s.Forall | _: s.Old | _: s.Snapshot | _: s.FreshCopy | _: s.Choose) =>
           SimpleWhileTransformer.transform(expr)
 
         case _ if exprHasReturn(expr) =>
