@@ -45,6 +45,7 @@ trait GhostChecker { self: EffectsAnalyzer =>
       case Decreases(_, body) => isGhostExpression(body)
 
       case Snapshot(e) => true
+      case FreshCopy(_) => false
 
       case FunInvocation(id, _, args, _) =>
         val fun = lookupFunction(id).map(Outer(_)).getOrElse(analysis.local(id))
