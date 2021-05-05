@@ -289,7 +289,7 @@ trait EffectsChecker { self: EffectsAnalyzer =>
         case MutableMapDuplicate(IsTyped(_, MutableMapType(from, to))) =>
           !isMutableType(from) && !isMutableType(to)
 
-        // snapshots & freshCopies are fresh
+        // snapshots & fresh copies are fresh
         case Snapshot(_) => true
         case FreshCopy(_) => true
 
