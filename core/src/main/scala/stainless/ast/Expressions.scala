@@ -166,7 +166,7 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
       .filter(_.params.size == 1)
       .getOrElse(throw extraction.MalformedStainlessCode(up, "Invalid unapply accessor"))
     val unapp = up.getFunction
-    val tpMap = s.instantiation(fd.params.head.tpe, unapp.returnType)
+    val tpMap = s.instantiation(fd.params.head.tpe.getType, unapp.returnType.getType)
       .getOrElse(throw extraction.MalformedStainlessCode(up, "Unapply pattern failed type instantiation"))
     fd.typed(fd.typeArgs map tpMap).applied(Seq(unapplied))
   }
