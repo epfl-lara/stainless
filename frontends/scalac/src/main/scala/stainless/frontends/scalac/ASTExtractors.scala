@@ -826,7 +826,16 @@ trait ASTExtractors {
 
     object ExSnapshotExpression {
       def unapply(tree: Apply) : Option[Tree] = tree match {
-        case a @ Apply(TypeApply(ExSymbol("stainless", "lang", "snapshot"), List(tpe)), List(arg)) =>
+        case Apply(TypeApply(ExSymbol("stainless", "lang", "snapshot"), List(_)), List(arg)) =>
+          Some(arg)
+        case _ =>
+          None
+      }
+    }
+
+    object ExFreshCopyExpression {
+      def unapply(tree: Apply) : Option[Tree] = tree match {
+        case Apply(TypeApply(ExSymbol("stainless", "lang", "freshCopy"), List(_)), List(arg)) =>
           Some(arg)
         case _ =>
           None
