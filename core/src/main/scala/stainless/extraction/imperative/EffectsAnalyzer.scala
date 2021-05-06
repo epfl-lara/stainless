@@ -392,7 +392,8 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       } yield target
 
     case fi: FunctionInvocation if !symbols.isRecursive(fi.id) =>
-      BodyWithSpecs(symbols.simplifyLets(fi.inlined))
+      if (fi.tfd.flags.contains(IsPure)) Set.empty
+      else BodyWithSpecs(symbols.simplifyLets(fi.inlined))
         .bodyOpt
         .map(getTargets(_, path))
         .getOrElse(Set.empty)
