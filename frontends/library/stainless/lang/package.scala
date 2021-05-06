@@ -86,8 +86,9 @@ package object lang {
   @ignore @ghost
   def snapshot[T](value: T): T = value
 
+  /** @note for internal and testing use only */
   @ignore
-  def freshCopy[T](value: T): T = value
+  def freshCopy[T](value: T): T = (??? : T)
 
   @library
   @partialEval
