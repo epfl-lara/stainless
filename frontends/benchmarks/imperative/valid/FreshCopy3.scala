@@ -3,7 +3,7 @@ import stainless.annotation._
 
 sealed case class S(var field: Int)
 
-object FreshCopy2 {
+object FreshCopy3 {
 
   @pure
   def setField(arg: S): S = {
