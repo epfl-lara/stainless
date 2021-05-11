@@ -1,0 +1,46 @@
+name: Release rust-interop branch
+
+on:
+  push:
+    #branches:
+    #  - rust-interop
+    #tags:
+    #  - "noxt-*"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup SBT
+        uses: olafurpg/setup-scala@v10
+      - name: Build
+        run: ${{ github.workspace }}/bin/package-standalone.sh
+
+      - name: Set version env
+        id: version
+        run: echo ::set-output name=version::${GITHUB_REF#refs/*/}
+      - name: Set date env
+        id: date
+        run: echo "::set-output name=date::$(date +'%Y-%m-%d')"
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          name: Stainless Noxt v${{ steps.version.outputs.version }} (${{ steps.date.outputs.date }})
+          prerelease: true
+          fail_on_unmatched_files: true
+          files: |
+            stainless-noxt-*-linux.zip
+            stainless-noxt-*-mac.zip
+          body: |
+            ## Warning
+
+            The Stainless Noxt releases are custom built for the [Rust
+            Stainless](https://github.com/epfl-lara/rust-stainless/) project and
+            are not meant to be used directly. Please use a standard Stainless
+            release instead.
