@@ -962,19 +962,18 @@ trait TypeChecker {
     (t, tr.root(InferType(tc0, e, t)))
   }
 
-  def vcFromContext(l: Seq[Variable], e: Expr): Expr = {
-    l.foldRight(e) { case (v, acc) =>
-      v.tpe match {
-        case LetEquality(e1: Variable, e2) =>
-          implies(Equals(e1, e2), acc)
-        case Truth(t) =>
-          implies(t, acc)
-        case RefinementType(vd, pred) =>
-          implies(substVar(pred, vd.id, v), acc)
-        case _ =>
-          acc
-      }
-    }
+  def vcFromContext(l: Seq[Variable], e: Expr): Expr = l.map(v => v -> v.tpe) match {
+    case Seq() => e
+    case (x1, _) +: (_, LetEquality(x2: Variable, e2)) +: _ if x1.id == x2.id =>
+      let(x2.toVal, e2, vcFromContext(l.tail.tail, e))
+    case (_, LetEquality(e1: Variable, e2)) +: _ =>
+      let(e1.toVal, e2, vcFromContext(l.tail, e))
+    case (_, Truth(t)) +: _ =>
+      implies(t, vcFromContext(l.tail, e))
+    case (x, RefinementType(vd, pred)) +: _ =>
+      implies(substVar(pred, vd.id, x), vcFromContext(l.tail, e))
+    case _ =>
+      vcFromContext(l.tail, e)
   }
 
   def isPathCondition(v: Variable): Boolean = {
@@ -1096,7 +1095,8 @@ trait TypeChecker {
 
       case (Assert(cond, optErr, body), _) =>
         val kind = VCKind.fromErr(optErr)
-        checkType(tc.withVCKind(kind).setPos(cond), cond, TrueBoolean()) ++
+        checkType(tc, cond, BooleanType()) ++
+        buildVC(tc.withVCKind(kind).setPos(cond), cond) ++
         checkType(tc.withTruth(cond), body, tpe)
 
       case (m: MatchExpr, _) =>

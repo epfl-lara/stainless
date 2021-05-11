@@ -24,12 +24,6 @@ private[genc] object ReferencingPhase extends LeonPipeline[LIR.Prog, RIR.Prog] {
   def getTimer(ctx: inox.Context) = ctx.timers.genc.get("CIR -> RIR")
 
   def run(ctx: inox.Context, lprog: LIR.Prog): RIR.Prog = {
-
-    val referencing = new Referentiator(ctx)
-    val rprog = referencing(lprog)
-
-    ctx.reporter.debug("RESUTING RIR PROGRAM:\n" + rprog)
-
-    rprog
+    new Referentiator(ctx)(lprog)
   }
 }

@@ -3,19 +3,13 @@
 package stainless
 package genc
 
-abstract class LeonPipeline[-F, +T] {
+abstract class LeonPipeline[F, T] {
   self =>
 
   def andThen[G](thenn: LeonPipeline[T, G]): LeonPipeline[F, G] = new LeonPipeline[F,G] {
     def run(ctx: inox.Context, v: F): G = {
       // if(ctx.findOptionOrDefault(GlobalOptions.optStrictPhases)) ctx.reporter.terminateIfError()
       thenn.run(ctx, self.run(ctx, v))
-    }
-  }
-
-  def when[F2 <: F, T2 >: T](cond: Boolean)(implicit tps: F2 =:= T2): LeonPipeline[F2, T2] = {
-    if (cond) this else new LeonPipeline[F2, T2] {
-      def run(ctx: inox.Context, v: F2): T2 = v
     }
   }
 
