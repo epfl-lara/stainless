@@ -263,10 +263,10 @@ class CPrinter(
     case TypeId(typ, id) => c"$typ $id"
 
     case FunSign(Fun(id, FunType(retret, retparamTypes), params, _, _)) =>
-      c"${StaticStorage(id)}$retret (*$id(${FunSignParams(params)}))(${FunSignParams(retparamTypes)})"
+      c"$retret (*$id(${FunSignParams(params)}))(${FunSignParams(retparamTypes)})"
 
     case FunSign(Fun(id, returnType, params, _, _)) =>
-      c"${StaticStorage(id)}$returnType $id(${FunSignParams(params)})"
+      c"$returnType $id(${FunSignParams(params)})"
 
     case FunSignParams(Seq()) => c"void"
     case FunSignParams(params) => c"${nary(params)}"
