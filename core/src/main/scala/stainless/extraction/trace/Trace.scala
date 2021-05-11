@@ -75,11 +75,10 @@ trait Trace extends CachingPhase with IdentityFunctions with IdentitySorts { sel
           val f = symbols.functions(function)
           if (m.params.size == f.params.size) {
             val newFun = equivalenceChek(m, f)
-            //Trace.setTrace(newFun.id)
             Some(newFun)
           }
           else {
-            Trace.reportWrong
+            Trace.resetTrace
             None
           }
         }
@@ -125,10 +124,17 @@ trait Trace extends CachingPhase with IdentityFunctions with IdentitySorts { sel
             flags = (s.Derived(fd.id) +: s.Derived(finv.id) +: (fd.flags.filterNot(f => f.name == "traceInduct"))).distinct
           ).copiedFrom(fd)
 
-          Trace.setTrace(helper.id, lemma.id)
+          Trace.setTrace(lemma.id)
+          Trace.setProof(helper.id)
           List(helper, lemma)
         }
-        case None => List()
+        case None => {
+          val lemma = fd.copy(
+            flags = (s.Derived(fd.id) +: (fd.flags.filterNot(f => f.name == "traceInduct")))
+          ).copiedFrom(fd)
+          Trace.setTrace(lemma.id)
+          List(lemma)
+        }
       }
     } else List())
 
@@ -274,7 +280,8 @@ object Trace {
       reporter.info(s"Printing equivalence checking results:")  
       allModels.foreach(model => {
         val l = clusters(model).map(CheckFilter.fixedFullName).mkString(", ")
-        reporter.info(s"List of functions that are equivalent to model $CheckFilter.fixedFullName(model): $l")
+        val m = CheckFilter.fixedFullName(model)
+        reporter.info(s"List of functions that are equivalent to model $m: $l")
       })
 
       val errorneous = errors.map(CheckFilter.fixedFullName).mkString(", ")
@@ -294,7 +301,8 @@ object Trace {
 
   var model: Option[Identifier] = None
   var function: Option[Identifier] = None
-  var trace: Option[(Identifier, Identifier)] = None
+  var trace: Option[Identifier] = None
+  var proof: Option[Identifier] = None
 
   def apply(ts: Trees, tt: termination.Trees)(implicit ctx: inox.Context): ExtractionPipeline {
     val s: ts.type
@@ -326,60 +334,56 @@ object Trace {
   //function to check in the current iteration
   def getFunction = function
 
-  def setTrace(t: Identifier, i: Identifier) = trace = Some(t, i)
+  def setTrace(t: Identifier) = trace = Some(t)
+  def setProof(p: Identifier) = proof = Some(p)
+
+
+  def resetTrace = {
+    trace = None
+    proof = None
+  }
 
   //iterate model for the current function
-  def nextModel = (tmpModels, allModels) match {
-    case (x::xs, _) => { // check the next model for the current function
+  def nextModel = tmpModels match {
+    case x::xs => { 
       tmpModels = xs
       model = Some(x)
     }
-    case (Nil, x::xs) => {
-      tmpModels = allModels
-      model = Some(x)
-      tmpModels = xs
-      function = tmpFunctions match {
-        case x::xs => {
-          tmpFunctions = xs
-          Some(x)
-        }
-        case Nil => None
-      }
-    }
-    case _ => model = None
+    case Nil => model = None
   }
 
   //iterate function to check; reset model
-  def nextFunction = tmpFunctions match {
-    case x::xs => {
-      tmpFunctions = xs
-      function = Some(x)
-      tmpModels = allModels
-      tmpModels match {
-        case Nil => model = None
-        case x::xs => {
-          model = Some(x)
-          tmpModels = xs
-        }
+  def nextFunction = {
+    trace = None
+    proof = None
+      tmpFunctions match {
+      case x::xs => {
+        tmpModels = allModels
+        nextModel
+        tmpFunctions = xs
+        function = Some(x)
       }
-      function
-    }
-    case Nil => {
-      function = None
+      case Nil => {
+        function = None
+      }
     }
   }
 
-  def nextIteration[T <: AbstractReport[T]](report: AbstractReport[T])(implicit context: inox.Context): Boolean = trace match {
-    case Some((t, i)) => {
-      if (report.hasError(t) || report.hasError(i)) reportError
-      else if (report.hasUnknown(t) || report.hasError(i)) reportUnknown
-      else reportValid
-      !isDone
+  def nextIteration[T <: AbstractReport[T]](report: AbstractReport[T])(implicit context: inox.Context): Boolean = {
+    (function, proof, trace) match {
+      case (Some(f), Some(p), Some(t)) => {
+        if (report.hasError(f) || report.hasError(p) || report.hasError(t)) reportError
+        else if (report.hasUnknown(f) || report.hasUnknown(p) || report.hasError(t)) reportUnknown
+        else reportValid
+      }
+      case (Some(f), _, Some(t)) => {
+        if (report.hasError(f) || report.hasError(t)) reportError
+        else if (report.hasUnknown(f) || report.hasError(t)) reportUnknown
+        else reportValid
+      }
+      case _ => reportWrong
     }
-    case None => {
-      nextFunction
-      !isDone
-    }
+    !isDone
   }
 
   private def isDone = function == None
@@ -399,13 +403,13 @@ object Trace {
 
   private def reportValid = {
     clusters = clusters + (model.get -> (function.get::clusters(model.get)))
-
     nextFunction
   }
 
   private def reportWrong = {
-    trace = None
     wrong = function.get::wrong
+    resetTrace
+    nextFunction
   }
 
 }
