@@ -70,10 +70,12 @@ trait Strengthener { self: OrderingRelation =>
           Lambda(Seq(res), and(post, sizePost))
         }
 
-        val formula = specced.wrapLets(implies(
-          specced.getSpec(PreconditionKind).map(_.expr).getOrElse(BooleanLiteral(true)),
-          application(postcondition, Seq(specced.body))
-        ))
+        val letsAndRequires = specced.letsAndSpecs(PreconditionKind)
+        val formula = letsAndRequires.foldRight(application(postcondition, Seq(specced.body))) {
+          case (spec @ LetInSpec(vd, e), acc) => Let(vd, e, acc).setPos(spec)
+          case (spec @ Precondition(pred), acc) => implies(pred, acc).setPos(spec)
+          case _ => sys.error("shouldn't happen thanks to the filtering above")
+        }
 
         val strengthener = new IdentitySymbolTransformer {
           override def transform(syms: Symbols): Symbols = super.transform(syms).withFunctions {
