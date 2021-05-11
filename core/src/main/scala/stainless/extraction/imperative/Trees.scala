@@ -134,6 +134,11 @@ trait Trees extends oo.Trees with Definitions { self =>
     protected def computeType(implicit s: Symbols): Type = e.getType
   }
 
+  /** copy primitive, like `Snapshot` but usable outside of the ghost context. Mostly to work-around anti-aliasing. */
+  case class FreshCopy(e: Expr) extends Expr with CachingTyped {
+    protected def computeType(implicit s: Symbols): Type = e.getType
+  }
+
   /** $encodingof `a & b` for Boolean; desuggared to { val l = lhs; val r = rhs; l && r } when removing imperative style. */
   case class BoolBitwiseAnd(lhs: Expr, rhs: Expr) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type =
@@ -265,6 +270,9 @@ trait Printer extends oo.Printer {
     case Snapshot(e) =>
       p"snapshot($e)"
 
+    case FreshCopy(e) =>
+      p"freshCopy($e)"
+
     case BoolBitwiseAnd(lhs, rhs) => optP {
       p"$lhs & $rhs"
     }
@@ -364,6 +372,9 @@ trait TreeDeconstructor extends oo.TreeDeconstructor {
 
     case s.Snapshot(e) =>
       (Seq(), Seq(), Seq(e), Seq(), Seq(), (_, _, es, _, _) => t.Snapshot(es.head))
+
+    case s.FreshCopy(e) =>
+      (Seq(), Seq(), Seq(e), Seq(), Seq(), (_, _, es, _, _) => t.FreshCopy(es.head))
 
     case _ => super.deconstruct(e)
   }

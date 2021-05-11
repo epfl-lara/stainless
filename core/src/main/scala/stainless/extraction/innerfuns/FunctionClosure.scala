@@ -92,7 +92,7 @@ trait FunctionClosure
         freshParams,
         typeOps.replaceFromSymbols(paramSubst, inst.transform(returnType)),
         newBody,
-        (flags ++ outer.flags :+ Derived(outer.id)).distinct
+        (flags :+ Derived(outer.id)).distinct
       ).copiedFrom(inner)
 
       FunSubst(newFd, freeMap, tparamsMap)

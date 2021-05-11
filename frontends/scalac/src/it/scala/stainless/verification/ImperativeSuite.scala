@@ -13,6 +13,13 @@ class ImperativeSuite extends ComponentTestSuite {
 
   override protected def optionsString(options: inox.Options): String = ""
 
+  override def filter(ctx: inox.Context, name: String): FilterStatus = name match {
+    // Unstable on 4.8.10, but should work with Z3 new core options in non-incremental mode
+    case "imperative/valid/WhileAsFun2" => Ignore
+
+    case _ => super.filter(ctx, name)
+  }
+
   val component = VerificationComponent
 
   testAll("imperative/valid") { (report, reporter) =>

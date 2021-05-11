@@ -331,6 +331,8 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     override def toString: String = asString
   }
 
+  // getTargets(expr, Seq()) returns the set of targets such that after `var x = expr`,
+  // the modifications on `x` will result in modifications on these targets
   def getTargets(expr: Expr, path: Seq[Accessor])(implicit symbols: Symbols): Set[Target] = expr match {
     case _ if variablesOf(expr).forall(v => !symbols.isMutableType(v.tpe)) => Set.empty
     case v: Variable => Set(Target(v, None, Path(path)))
@@ -390,7 +392,8 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       } yield target
 
     case fi: FunctionInvocation if !symbols.isRecursive(fi.id) =>
-      BodyWithSpecs(symbols.simplifyLets(fi.inlined))
+      if (fi.tfd.flags.contains(IsPure)) Set.empty
+      else BodyWithSpecs(symbols.simplifyLets(fi.inlined))
         .bodyOpt
         .map(getTargets(_, path))
         .getOrElse(Set.empty)
@@ -403,6 +406,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     case AsInstanceOf(e, _) => getTargets(e, path)
     case Old(_) => Set.empty
     case Snapshot(_) => Set.empty
+    case FreshCopy(_) => Set.empty
 
     case ArrayLength(_) => Set.empty
 

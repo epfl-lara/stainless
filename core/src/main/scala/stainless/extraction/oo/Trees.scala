@@ -336,8 +336,7 @@ trait Printer extends innerfuns.Printer {
       p"($subs)"
 
     case InstanceOfPattern(ovd, tpe) =>
-      ovd foreach (vd => p"${vd.toVariable} : ")
-      p"$tpe"
+      p"${ovd.map(_.toVariable).getOrElse("_")}: $tpe"
 
     case (tcd: TypedClassDef) =>
       p"typed class ${tcd.id}[${tcd.tps}]"

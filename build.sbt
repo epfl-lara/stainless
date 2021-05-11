@@ -233,7 +233,7 @@ val scriptSettings: Seq[Setting[_]] = Seq(
 def ghProject(repo: String, version: String) = RootProject(uri(s"${repo}#${version}"))
 
 // lazy val inox = RootProject(file("../inox"))
-// lazy val inox = ghProject("https://github.com/epfl-lara/inox.git", "22de8d6b6af51fbe09bca2fc26dbdd596de8e3e8")
+// lazy val inox = ghProject("https://github.com/epfl-lara/inox.git", "ec3b77f97da1acf46af21766fb0d845c7f2d9834")
 lazy val inox = ghProject("https://github.com/yannbolliger/inox.git", "4ab8e63213cf52adb322ddeb16c4c0b07bcfe4b8") // rust-interop, latest commit
 //lazy val dotty = ghProject("git://github.com/lampepfl/dotty.git", "b3194406d8e1a28690faee12257b53f9dcf49506")
 
