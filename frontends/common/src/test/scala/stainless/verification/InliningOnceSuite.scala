@@ -92,12 +92,6 @@ class InliningOnceSuite extends AnyFunSpec with InputUtils {
 
     import stainless.trees._
 
-    println("the second program is (before):")
-    println(xlangProgram.symbols.debugString(s => s == "foo" || s == "bar" || s == "baz")(new extraction.xlang.trees.PrinterOptions()))
-
-    println("the second program is:")
-    println(program.symbols.debugString(s => s == "foo" || s == "bar" || s == "baz")(new run.trees.PrinterOptions()))
-
     val foo = program.lookup[FunDef]("Test.foo")
     val bar = program.lookup[FunDef]("Test.bar")
     val baz = program.lookup[FunDef]("Test.baz")
