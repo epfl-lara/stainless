@@ -68,18 +68,22 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
         }
 
         val pre = specced.specs.filter(spec => spec.kind == LetKind || spec.kind == PreconditionKind)
+        val maxPre = pre.count(_.kind == PreconditionKind)
         def addPreconditionAssertions(e: Expr): Expr = {
-          pre.zipWithIndex.foldRight(e) {
-            case ((spec @ LetInSpec(vd, e0), _), acc) => Let(vd, annotated(e0, Unchecked), acc).setPos(fi)
-            case ((spec @ Precondition(cond), i), acc) =>
-              val num = if (i == 0) "" else s" (${i+1})"
+          pre.foldRight((e, maxPre)) {
+            case (spec @ LetInSpec(vd, e0), (acc, i)) => (Let(vd, annotated(e0, Unchecked), acc).setPos(fi), i)
+            case (spec @ Precondition(cond), (acc, i)) =>
+              val num = if (i == 1) "" else s" ($i)"
               // the assertion is not itself marked `Unchecked` (as it needs to be checked)
               // but `cond` should not generate additional VCs and is marked with `Unchecked`
               val condVal = ValDef.fresh("cond", BooleanType()).setPos(fi)
-              Let(condVal, annotated(cond, Unchecked),
-                Assert(condVal.toVariable.setPos(fi), Some(s"Inlined precondition$num of " + tfd.id.asString), acc
-              ).copiedFrom(fi)).copiedFrom(fi)
-          }
+              (
+                Let(condVal, annotated(cond, Unchecked),
+                  Assert(condVal.toVariable.setPos(fi), Some(s"Inlined precondition$num of " + tfd.id.asString), acc
+                ).copiedFrom(fi)).copiedFrom(fi),
+                i-1
+              )
+          }._1
         }
 
         val post = specced.getSpec(PostconditionKind)
