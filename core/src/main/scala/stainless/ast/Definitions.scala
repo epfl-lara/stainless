@@ -83,6 +83,12 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
     }
 
     val lookup = new Lookup
+
+    override protected def simplestValue(tpe: Type, seen: Set[Type], allowSolver: Boolean, inLambda: Boolean)
+                                        (implicit sem: symbols.Semantics, ctx: inox.Context): Expr = tpe match {
+      case ArrayType(base) => FiniteArray(Seq(), base)
+      case _ => super.simplestValue(tpe, seen, allowSolver, inLambda)
+    }
   }
 
   implicit class StainlessFunDef(fd: FunDef) {
