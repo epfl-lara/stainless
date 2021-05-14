@@ -13,8 +13,8 @@ object Size {
   }) //ensuring(res => res >= 0)
 
   @traceInduct("")
-  def nonNegSize(l: IList): Boolean = {
-    size(l) >= 0
-  }.holds
+  def nonNegSize(l: IList): Unit = {
+    ()
+  } ensuring (size(l) >= 0)
 }
 

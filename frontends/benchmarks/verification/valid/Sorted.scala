@@ -22,8 +22,8 @@ object Sorted {
   }//ensuring(res => res == sorted1(l))
 
   @traceInduct("")
-  def sorted_check(l: List[BigInt]): Boolean = {
-    sorted1(l) == sorted2(l)
-  }.holds
+  def sorted_check(l: List[BigInt]): Unit = {
+    ()
+  } ensuring (sorted1(l) == sorted2(l))
 
 }

@@ -96,17 +96,21 @@ trait Trace extends CachingPhase with IdentityFunctions with IdentitySorts { sel
       var funInv: Option[s.FunctionInvocation] = None
       fd.flags.filter(elem => elem.name == "traceInduct").head match {
         case s.Annotation("traceInduct", fun) => {
-          s.exprOps.preTraversal {
-            case _ if funInv.isDefined => // do nothing
-            case fi @ s.FunctionInvocation(tfd, _, args) if symbols.isRecursive(tfd) && (fun.contains(StringLiteral(tfd.name)) || fun.contains(StringLiteral("")))
-            => {
-                  val paramVars = fd.params.map(_.toVariable)
-                  val argCheck = args.forall(paramVars.contains) && args.toSet.size == args.size
-                  if (argCheck) 
-                    funInv = Some(fi)
-                }
+          BodyWithSpecs(fd.fullBody).getSpec(PostconditionKind) match {
+            case Some(Postcondition(post)) => 
+              s.exprOps.preTraversal {
+                case _ if funInv.isDefined => // do nothing
+                case fi @ s.FunctionInvocation(tfd, _, args) if symbols.isRecursive(tfd) && (fun.contains(StringLiteral(tfd.name)) || fun.contains(StringLiteral("")))
+                => {
+                      val paramVars = fd.params.map(_.toVariable)
+                      val argCheck = args.forall(paramVars.contains) && args.toSet.size == args.size
+                      if (argCheck) 
+                        funInv = Some(fi)
+                    }
+                case _ => 
+              }(post)
             case _ => 
-          }(fd.fullBody)
+          }
         }
       }
 
@@ -161,16 +165,10 @@ trait Trace extends CachingPhase with IdentityFunctions with IdentitySorts { sel
     val returnType = model.returnType
     val flags = Seq(s.Derived(lemma.id), s.Derived(model.id))
 
-    val fi = FunctionInvocation(model.id, newParamTps, newParamVars)
-
-    /*val body = FunctionInvocation(
-      ast.SymbolIdentifier("stainless.lang.specialize"),
-      fi.tps,
-      Seq(fi)
-    )*/
-
     val body = FunctionInvocation(model.id, newParamTps, newParamVars)
     val indPattern = new s.FunDef(id, newParamTypes, newParams, returnType, body, flags)
+
+    val fi = FunctionInvocation(model.id, newParamTps, newParamVars)
 
     class Specializer(
       origFd: FunDef,
