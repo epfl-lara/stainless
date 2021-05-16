@@ -11,12 +11,14 @@ trait NamedLeonPhase[F, T] extends LeonPipeline[F, T] {
   override def run(ctx: inox.Context, p: F): T = {
     ctx.reporter.debug("\n" * 2)
     ctx.reporter.debug("=" * 100)
-    ctx.reporter.debug(s"Running phase $name on")
+    ctx.reporter.debug(s"Running phase $name on:\n")
     ctx.reporter.debug(p)
     val res = ctx.timers.genc.get(name).run {
       underlying.run(ctx, p)
     }
-    ctx.reporter.debug(s"Finished running phase $name")
+    ctx.reporter.debug("\n")
+    ctx.reporter.debug("-" * 100)
+    ctx.reporter.debug(s"Finished running phase $name:\n")
     ctx.reporter.debug(res)
     ctx.reporter.debug("=" * 100)
     ctx.reporter.debug("\n" * 4)

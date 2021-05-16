@@ -105,7 +105,8 @@ private class IR2CImpl(val ctx: inox.Context) {
     case PrimitiveType(pt) => C.Primitive(pt)
     case FunType(ctx, params, ret) => C.FunType(params = (ctx ++ params) map rec, ret = rec(ret))
     case ClassType(clazz) => convertClass(clazz) // can be a struct or an enum
-    case array @ ArrayType(_) => array2Struct(array)
+    case array @ ArrayType(_, None) => array2Struct(array)
+    case array @ ArrayType(base, Some(length)) => C.FixedArrayType(rec(base), length)
     case ReferenceType(t) => C.Pointer(rec(t))
 
     case TypeDefType(original, alias, include, export) =>
@@ -178,7 +179,16 @@ private class IR2CImpl(val ctx: inox.Context) {
 
     case ArrayInit(alloc) => ctx.reporter.fatalError("This should be part of a DeclInit expression!")
 
-    case FieldAccess(objekt, fieldId) => C.FieldAccess(rec(objekt), rec(fieldId))
+    case FieldAccess(obj, fieldId) => C.FieldAccess(rec(obj), rec(fieldId))
+
+    // no `data` field for fixed arrays
+    case ArrayAccess(FieldAccess(obj, fieldId), index)
+      if  obj.getType.isInstanceOf[ClassType] &&
+          obj.getType.asInstanceOf[ClassType].clazz.fields.exists(vd =>
+            vd.id == fieldId && vd.typ.isFixedArray
+          ) =>
+        C.ArrayAccess(C.FieldAccess(rec(obj), rec(fieldId)), rec(index))
+
     case ArrayAccess(array, index) => C.ArrayAccess(C.FieldAccess(rec(array), C.Id("data")), rec(index))
     case ArrayLength(array) => C.FieldAccess(rec(array), C.Id("length"))
 

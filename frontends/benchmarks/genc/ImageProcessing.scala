@@ -647,7 +647,6 @@ object ImageProcessing {
       }) invariant (inRange(p, -mid, mid + 1))
 
       res = clamp(res / scale, 0, 255)
-      // StdOut.print("RESULT BYTE: ")
       res.toByte
     }
 

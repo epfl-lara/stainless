@@ -26,7 +26,7 @@ trait LoopProcessor extends OrderingProcessor {
     val t: program.trees.type = program.trees
 
     protected def transformFunction(fd: FunDef): FunDef =
-      fd.copy(fullBody = exprOps.withPostcondition(fd.fullBody, None))
+      fd.copy(fullBody = exprOps.withPostcondition(fd.fullBody, None)).copiedFrom(fd)
 
     protected def transformSort(sort: ADTSort): ADTSort = sort
   }

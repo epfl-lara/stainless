@@ -26,8 +26,13 @@ import ir.Literals._
  */
 object CAST { // C Abstract Syntax Tree
 
-  sealed abstract class Tree
-
+  sealed abstract class Tree {
+    override def toString = {
+      val sb = new StringBuffer()
+      new CPrinter("stainless.h", true, Set(), sb).print(this)
+      sb.toString
+    }
+  }
 
   /* ----------------------------------------------------- Definitions  ----- */
   abstract class Def extends Tree
@@ -44,6 +49,7 @@ object CAST { // C Abstract Syntax Tree
     functions: Set[Fun]
   ) extends Def {
     require(types.length == types.distinct.length) // no duplicates in `types`
+
   }
 
   // Manually defined function through the cCode.function annotation have a string
@@ -89,6 +95,8 @@ object CAST { // C Abstract Syntax Tree
   case class Enum(id: Id, literals: Seq[EnumLiteral]) extends Type {
     require(literals.nonEmpty)
   }
+
+  case class FixedArrayType(base: Type, length: Int) extends Type
 
 
   /* ------------------------------------------------------ Expressions ----- */

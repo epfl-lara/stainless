@@ -118,7 +118,8 @@ final class IRPrinter[S <: IR](val ir: S) {
     case FunType(ctx, params, ret) =>
       "Function[" + (ctx map rec mkString ", ") + "][" + (params map rec mkString ", ") + "]: " + rec(ret)
     case ClassType(clazz) => clazz.id
-    case ArrayType(base) => "Array[" + rec(base) + "]"
+    case ArrayType(base, None) => "Array[" + rec(base) + "]"
+    case ArrayType(base, Some(length)) => s"Array_$length[" + rec(base) + "]"
     case ReferenceType(t) => "Ref[" + rec(t) + "]"
     case TypeDefType(original, alias, _, _) => "typedef " + original + " -> " + alias
     case DroppedType => "DROPPED"
