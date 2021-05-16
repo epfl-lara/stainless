@@ -23,7 +23,7 @@ object GenerateCPhase extends LeonPipeline[Symbols, CAST.Prog] {
     NamedLeonPhase("LiftingPhase", LiftingPhase) andThen
     NamedLeonPhase("ReferencingPhase", ReferencingPhase) andThen
     NamedLeonPhase("IR2CPhase", IR2CPhase) andThen
-    NamedLeonPhase("CFileOutputPhase", CFileOutputPhase)
+    CFileOutputPhase
 
   def run(ctx: inox.Context, symbols: Symbols) = pipeline.run(ctx, symbols)
 

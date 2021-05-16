@@ -125,7 +125,7 @@ abstract class Visitor[S <: IR](final val ir: S) {
       case PrimitiveType(pt) => ()
       case FunType(ctx, params, ret) => ((ret +: ctx) ++ params) map rec
       case ClassType(clazz) => rec(clazz)
-      case ArrayType(base) => rec(base)
+      case ArrayType(base, _) => rec(base)
       case ReferenceType(t) => rec(t)
       case TypeDefType(original, alias, include, _) => ()
       case DroppedType => ()

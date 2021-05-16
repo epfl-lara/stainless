@@ -95,14 +95,14 @@ abstract class Transformer[From <: IR, To <: IR](final val from: From, final val
   protected def rec(vd: ValDef)(implicit env: Env): to.ValDef = to.ValDef(vd.id, rec(vd.typ), vd.isVar)
 
   protected def rec(alloc: ArrayAlloc)(implicit env: Env): to.ArrayAlloc = (alloc: @unchecked) match {
-    case ArrayAllocStatic(ArrayType(base), length, Right(values)) =>
-      to.ArrayAllocStatic(to.ArrayType(rec(base)), length, Right(values map rec))
+    case ArrayAllocStatic(ArrayType(base, optLength), length, Right(values)) =>
+      to.ArrayAllocStatic(to.ArrayType(rec(base), optLength), length, Right(values map rec))
 
-    case ArrayAllocStatic(ArrayType(base), length, Left(_)) =>
-      to.ArrayAllocStatic(to.ArrayType(rec(base)), length, Left(to.Zero))
+    case ArrayAllocStatic(ArrayType(base, optLength), length, Left(_)) =>
+      to.ArrayAllocStatic(to.ArrayType(rec(base), optLength), length, Left(to.Zero))
 
-    case ArrayAllocVLA(ArrayType(base), length, valueInit) =>
-      to.ArrayAllocVLA(to.ArrayType(rec(base)), rec(length), rec(valueInit))
+    case ArrayAllocVLA(ArrayType(base, optLength), length, valueInit) =>
+      to.ArrayAllocVLA(to.ArrayType(rec(base), optLength), rec(length), rec(valueInit))
   }
 
   protected final def rec(e: Expr)(implicit env: Env): to.Expr = recImpl(e)._1
@@ -154,7 +154,7 @@ abstract class Transformer[From <: IR, To <: IR](final val from: From, final val
     case PrimitiveType(pt) => to.PrimitiveType(pt)
     case FunType(ctx, params, ret) => to.FunType(ctx map rec, params map rec, rec(ret))
     case ClassType(clazz) => to.ClassType(rec(clazz))
-    case ArrayType(base) => to.ArrayType(rec(base))
+    case ArrayType(base, optLength) => to.ArrayType(rec(base), optLength)
     case ReferenceType(t) => to.ReferenceType(rec(t))
     case TypeDefType(original, alias, include, export) => to.TypeDefType(original, alias, include, export)
     case DroppedType => to.DroppedType

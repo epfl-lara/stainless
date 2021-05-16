@@ -39,14 +39,10 @@ private[genc] object Scala2IRPhase extends LeonPipeline[(Dependencies, FunCtxDB)
     val impl = new S2IRImpl(ctx, ctxDB, deps)
     impl.run()
 
-    val ir = CIR.Prog(
+    CIR.Prog(
       impl.funCache.values.toList,
       impl.classCache.values.toList
     )
-
-    ctx.reporter.debug("RESULTING CIR:\n" + ir.toString())
-
-    ir
   }
 
 }
@@ -524,7 +520,7 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
         CIR.ClassType(rec(ct))
       }
 
-    case ArrayType(base) => CIR.ArrayType(rec(base))
+    case ArrayType(base) => CIR.ArrayType(rec(base), None)
 
     case TupleType(_) => CIR.ClassType(tuple2Class(typ))
 
@@ -560,10 +556,52 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
 
       // Use the class definition id, not the typed one as they might not match.
       val nonGhostFields = tcd.fields.filter(!_.flags.contains(Ghost))
-      val fieldTypes = nonGhostFields.map(_.tpe) map rec
-      val fields = (nonGhostFields zip fieldTypes) map { case (vd, typ) =>
-        CIR.ValDef(rec(vd.id, withUnique = mangling), typ, vd.flags.contains(IsVar))
+
+      object TopLevelAnds {
+        def unapply(e: Expr): Option[Seq[Expr]] = e match {
+          case And(exprs) => Some(exprs.flatMap(unapply).flatten)
+          case e => Some(Seq(e))
+        }
       }
+
+      object EvalBV {
+        val program = inox.Program(extraction.throwing.trees)(syms)
+        val semantics: program.Semantics = program.getSemantics(extraction.throwing.phaseSemantics(ctx))
+        val evaluator = semantics.getEvaluator(ctx)
+        def unapply(expr: Expr): Option[BVLiteral] = {
+          evaluator.eval(expr) match {
+            case inox.evaluators.EvaluationResults.Successful(bv: BVLiteral) => Some(bv)
+            case _ => None
+          }
+        }
+      }
+
+      val arrayLengths: Seq[(Identifier, Int)] = cd.flags
+        .find(_.isInstanceOf[HasADTInvariant]).toSeq.flatMap {
+          case HasADTInvariant(inv) =>
+            val invFd = syms.getFunction(inv)
+            val Seq(tthisVd) = invFd.params
+            val TopLevelAnds(conjuncts) = invFd.fullBody
+            conjuncts.collect(e => e match {
+              case Equals(ArrayLength(ClassSelector(tthis: Variable, array)), EvalBV(bv))
+                if tthisVd.id == tthis.id && nonGhostFields.map(_.id).contains(array) =>
+
+                array -> bv.toBigInt.toInt
+            })
+        }
+
+      if (arrayLengths.map(_._1).toSet.size != arrayLengths.length) {
+        ctx.reporter.fatalError(cd.getPos, "Cannot specify two lengths for an array in a class invariant")
+      }
+
+      val arrayLengthsMap: Map[Identifier, Int] = arrayLengths.toMap
+
+      val fields = nonGhostFields.map(vd => vd.tpe match {
+        case ArrayType(base) if arrayLengthsMap.contains(vd.id) =>
+          CIR.ValDef(rec(vd.id, withUnique = mangling), CIR.ArrayType(rec(base), Some(arrayLengthsMap(vd.id))), vd.flags.contains(IsVar))
+        case typ =>
+          CIR.ValDef(rec(vd.id, withUnique = mangling), rec(typ), vd.flags.contains(IsVar))
+      })
 
       val clazz = CIR.ClassDef(id, parent, fields, cd.isAbstract, cd.isExported)
 
@@ -751,12 +789,12 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
       ))
 
     case array @ FiniteArray(elems, base) =>
-      val arrayType = CIR.ArrayType(rec(base))
+      val arrayType = CIR.ArrayType(rec(base), None)
       val length = elems.size
       CIR.ArrayInit(CIR.ArrayAllocStatic(arrayType, length, Right(elems.map(rec))))
 
     case array @ LargeArray(elems, default, size, base) =>
-      val arrayType = CIR.ArrayType(rec(base))
+      val arrayType = CIR.ArrayType(rec(base), None)
 
       // Convert to VLA or normal array
       val alloc = rec(size) match {

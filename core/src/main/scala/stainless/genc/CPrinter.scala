@@ -260,6 +260,7 @@ class CPrinter(
     case StaticStorage(_) => c"static "
 
     case TypeId(FunType(ret, params), id) => c"$ret (*$id)($params)"
+    case TypeId(FixedArrayType(base, length), id) => c"$base $id[$length]"
     case TypeId(typ, id) => c"$typ $id"
 
     case FunSign(Fun(id, FunType(retret, retparamTypes), params, _, _)) =>
