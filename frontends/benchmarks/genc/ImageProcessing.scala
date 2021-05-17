@@ -566,7 +566,7 @@ object ImageProcessing {
   @extern
   @cCode.function(
     code = """
-      |static void __FUNCTION__(int8_t x) {
+      |void __FUNCTION__(int8_t x) {
       |  printf("%u\n", x);
       |}
       """,

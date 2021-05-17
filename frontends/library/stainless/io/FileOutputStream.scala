@@ -24,7 +24,7 @@ object FileOutputStream {
   @extern
   @cCode.function(
     code = """
-    |static FILE* __FUNCTION__(char* filename) {
+    |FILE* __FUNCTION__(char* filename) {
     |  FILE* this = fopen(filename, "w");
     |  /* this == NULL on failure */
     |  return this;
@@ -58,7 +58,7 @@ case class FileOutputStream(var filename: Option[String]) {
     */
   @cCode.function(
     code = """
-    |static bool __FUNCTION__(FILE* this) {
+    |bool __FUNCTION__(FILE* this) {
     |  if (this != NULL)
     |    return fclose(this) == 0;
     |  else
@@ -79,7 +79,7 @@ case class FileOutputStream(var filename: Option[String]) {
   // We assume the stream to be opened if and only if the filename is defined.
   @cCode.function(
     code = """
-    |static bool __FUNCTION__(FILE* this) {
+    |bool __FUNCTION__(FILE* this) {
     |  return this != NULL;
     |}
     """,
@@ -97,7 +97,7 @@ case class FileOutputStream(var filename: Option[String]) {
   @extern
   @cCode.function(
     code = """
-    |static bool __FUNCTION__(FILE* this, int8_t x) {
+    |bool __FUNCTION__(FILE* this, int8_t x) {
     |  return fprintf(this, "%c", x) >= 0;
     |}
     """,
@@ -123,7 +123,7 @@ case class FileOutputStream(var filename: Option[String]) {
   @extern
   @cCode.function(
     code = """
-    |static bool __FUNCTION__(FILE* this, int32_t x) {
+    |bool __FUNCTION__(FILE* this, int32_t x) {
     |  return fprintf(this, "%"PRIi32, x) >= 0;
     |}
     """,
@@ -148,7 +148,7 @@ case class FileOutputStream(var filename: Option[String]) {
   @extern
   @cCode.function(
     code = """
-    |static bool __FUNCTION__(FILE* this, char c) {
+    |bool __FUNCTION__(FILE* this, char c) {
     |  return fprintf(this, "%c", c) >= 0;
     |}
     """,
@@ -174,7 +174,7 @@ case class FileOutputStream(var filename: Option[String]) {
   @extern
   @cCode.function(
     code = """
-    |static bool __FUNCTION__(FILE* this, char* s) {
+    |bool __FUNCTION__(FILE* this, char* s) {
     |  return fprintf(this, "%s", s) >= 0;
     |}
     """,
