@@ -24,19 +24,16 @@ import scala.collection.mutable.{ Map => MutableMap }
  *      the >> operator, some forms of membership tests, the unapply pattern matching construct,
  *      and more.
  */
-private[genc] object Scala2IRPhase extends LeonPipeline[(Dependencies, FunCtxDB), CIR.Prog] {
+trait Scala2IRPhase extends LeonPipeline[(Dependencies, FunCtxDB), CIR.Prog] {
   val name = "Scala to IR converter"
-  val description = "Convert the Scala AST into GenC's IR"
 
   implicit val debugSection = DebugSectionGenC
 
-  def getTimer(ctx: inox.Context) = ctx.timers.genc.get("Scala -> CIR")
-
-  def run(ctx: inox.Context, input: (Dependencies, FunCtxDB)): CIR.Prog = {
+  def run(input: (Dependencies, FunCtxDB)): CIR.Prog = {
     val (deps, ctxDB) = input
     implicit val syms = deps.syms
 
-    val impl = new S2IRImpl(ctx, ctxDB, deps)
+    val impl = new S2IRImpl(context, ctxDB, deps)
     impl.run()
 
     CIR.Prog(
@@ -877,4 +874,10 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
       ctx.reporter.fatalError(e.getPos, s"Expression `${e.asString}` (${e.getClass}) not handled by GenC component")
   }
 
+}
+
+object Scala2IRPhase {
+  def apply(implicit ctx: inox.Context): LeonPipeline[(Dependencies, FunCtxDB), CIR.Prog] = new {
+    val context = ctx
+  } with Scala2IRPhase
 }
