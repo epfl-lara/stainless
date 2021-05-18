@@ -13,15 +13,16 @@ import ir.{ ClassLifter }
  *
  * This is done in order to use tagged union to represent classes in C.
  */
-private[genc] object LiftingPhase extends LeonPipeline[NIR.Prog, LIR.Prog] {
+trait LiftingPhase extends LeonPipeline[NIR.Prog, LIR.Prog] {
   val name = "Lifter"
-  val description = "Lift class types to their hierarchy top class"
 
   private implicit val debugSection = DebugSectionGenC
 
-  def getTimer(ctx: inox.Context) = ctx.timers.genc.get("NIR -> LIR")
+  def run(nprog: NIR.Prog): LIR.Prog = new ClassLifter(context)(nprog)
+}
 
-  def run(ctx: inox.Context, nprog: NIR.Prog): LIR.Prog = {
-    new ClassLifter(ctx)(nprog)
-  }
+object LiftingPhase {
+  def apply(implicit ctx: inox.Context): LeonPipeline[NIR.Prog, LIR.Prog] = new {
+    val context = ctx
+  } with LiftingPhase
 }

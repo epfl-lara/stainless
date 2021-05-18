@@ -463,6 +463,7 @@ private[genc] sealed trait IR { ir =>
 }
 
 object IRs {
+  final object SIR extends IR
   final object CIR extends IR
   final object RIR extends IR
   final object NIR extends IR

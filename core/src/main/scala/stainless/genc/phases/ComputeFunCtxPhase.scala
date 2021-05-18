@@ -17,22 +17,21 @@ import scala.collection.mutable.{ Map => MutableMap }
  * NOTE in C99 there's the concept of strict aliasing (cf. §6.5/7), but since we don't do any weird
  *      cast operation in our translation, the overapproximation mentioned above is not an issue.
  */
-private[genc] object ComputeFunCtxPhase extends LeonPipeline[Dependencies, FunCtxDB] {
+trait ComputeFunCtxPhase extends LeonPipeline[Dependencies, FunCtxDB] {
   val name = "Function context computer"
-  val description = "Compute the context of each given function definition"
+  implicit val context: inox.Context
+  import context._
 
   private implicit val debugSection = DebugSectionGenC
 
-  def getTimer(ctx: inox.Context) = ctx.timers.genc.get("build function contexts database")
-
-  def run(ctx: inox.Context, deps: Dependencies): FunCtxDB = {
+  def run(deps: Dependencies): FunCtxDB = {
 
     val db = MutableMap[LocalFunDef, Seq[VarInfo]]()
 
     def toVarInfo(vd: ValDef) = VarInfo(vd, vd.tpe, vd.flags.contains(IsVar))
 
     def processFunction(fd: LocalFunDef, env: Seq[VarInfo]): Unit = {
-      ctx.reporter.debug(s"Registering ${fd.id.name} with ${env map { _.vd.id } mkString ", "}.")
+      reporter.debug(s"Registering ${fd.id.name} with ${env map { _.vd.id } mkString ", "}.")
       db += fd -> env
 
       // Recurse on body with an extended context
@@ -62,7 +61,7 @@ private[genc] object ComputeFunCtxPhase extends LeonPipeline[Dependencies, FunCt
       // This also includes Terminal-like expression and therefore stop recursion when needed.
       case Operator(args, _) => args foreach { arg => rec(arg, env) }
 
-      case _ => ctx.reporter.fatalError(s"NOT YET IMPLEMENTED: env computation for ${expr.getClass}")
+      case _ => reporter.fatalError(s"NOT YET IMPLEMENTED: env computation for ${expr.getClass}")
     }
 
     // Process every top level function to register function contexts for their inner functions;
@@ -72,4 +71,10 @@ private[genc] object ComputeFunCtxPhase extends LeonPipeline[Dependencies, FunCt
     db.toMap // Make it immutable
   }
 
+}
+
+object ComputeFunCtxPhase {
+  def apply(implicit ctx: inox.Context): LeonPipeline[Dependencies, FunCtxDB] = new {
+    val context = ctx
+  } with ComputeFunCtxPhase
 }
