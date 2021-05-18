@@ -51,8 +51,26 @@ private[genc] object Scala2IRPhase extends LeonPipeline[(Dependencies, FunCtxDB)
 private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dependencies)(implicit val syms: Symbols) {
 
   implicit val debugSection = DebugSectionGenC
-
   implicit val printerOpts = PrinterOptions.fromContext(ctx)
+  val program = inox.Program(extraction.throwing.trees)(syms)
+  val semantics: program.Semantics = program.getSemantics(extraction.throwing.phaseSemantics(ctx))
+  val evaluator = semantics.getEvaluator(ctx)
+
+  object TopLevelAnds {
+    def unapply(e: Expr): Option[Seq[Expr]] = e match {
+      case And(exprs) => Some(exprs.flatMap(unapply).flatten)
+      case e => Some(Seq(e))
+    }
+  }
+
+  object EvalBV {
+    def unapply(expr: Expr): Option[BVLiteral] = {
+      evaluator.eval(expr) match {
+        case inox.evaluators.EvaluationResults.Successful(bv: BVLiteral) => Some(bv)
+        case _ => None
+      }
+    }
+  }
 
   /****************************************************************************************************
    *                                                       Entry point of conversion                  *
@@ -556,25 +574,6 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
 
       // Use the class definition id, not the typed one as they might not match.
       val nonGhostFields = tcd.fields.filter(!_.flags.contains(Ghost))
-
-      object TopLevelAnds {
-        def unapply(e: Expr): Option[Seq[Expr]] = e match {
-          case And(exprs) => Some(exprs.flatMap(unapply).flatten)
-          case e => Some(Seq(e))
-        }
-      }
-
-      object EvalBV {
-        val program = inox.Program(extraction.throwing.trees)(syms)
-        val semantics: program.Semantics = program.getSemantics(extraction.throwing.phaseSemantics(ctx))
-        val evaluator = semantics.getEvaluator(ctx)
-        def unapply(expr: Expr): Option[BVLiteral] = {
-          evaluator.eval(expr) match {
-            case inox.evaluators.EvaluationResults.Successful(bv: BVLiteral) => Some(bv)
-            case _ => None
-          }
-        }
-      }
 
       val arrayLengths: Seq[(Identifier, Int)] = cd.flags
         .find(_.isInstanceOf[HasADTInvariant]).toSeq.flatMap {
