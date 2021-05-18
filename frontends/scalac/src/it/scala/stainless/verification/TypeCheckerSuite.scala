@@ -39,6 +39,7 @@ trait TypeCheckerSuite extends ComponentTestSuite {
     // Unstable
     case "verification/valid/BigIntMonoidLaws" => Ignore
     case "verification/valid/BigIntRing" => Ignore
+    case "verification/valid/InnerClasses4" => Ignore
 
     // Not compatible with typechecker
     case "verification/valid/Countable2" => Ignore
