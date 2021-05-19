@@ -70,7 +70,9 @@ class InteractiveRunner(ctx: inox.Context, factory: FrontendFactory) {
         } catch {
           case e: Throwable =>
             reporter.debug(e)(frontend.DebugSectionFrontend)
-            emitError("There was an error while processing the query!")
+            emitError(
+              Option(e.getMessage).getOrElse("There was an error while processing the query!")
+            )
         }
       } else {
         emitError(s"Cannot read $sourceFile!")
