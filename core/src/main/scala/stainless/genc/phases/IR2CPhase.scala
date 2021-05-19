@@ -156,6 +156,20 @@ private class IR2CImpl(val ctx: inox.Context) {
 
       C.buildBlock(bufferDecl :: varDecl :: Nil)
 
+    case ArrayInit(ArrayAllocStatic(arrayType, length, values0)) =>
+      val values = values0 match {
+        case Right(values0) => values0 map rec
+        case Left(_) =>
+          // By default, 0-initialisation using only zero value
+          val z = arrayType.base match {
+            case PrimitiveType(Int8Type) => Int8Lit(0)
+            case PrimitiveType(Int32Type) => Int32Lit(0)
+            case _ => ctx.reporter.fatalError(s"Unexpected integral type $arrayType")
+          }
+          Seq(C.Lit(z))
+      }
+      C.ArrayStatic(rec(arrayType.base), values)
+
     case DeclInit(vd, ArrayInit(ArrayAllocVLA(arrayType, length, valueInit))) =>
       val bufferId = C.FreshId("buffer")
       val lenId = C.FreshId("length")
@@ -541,7 +555,7 @@ private class IR2CImpl(val ctx: inox.Context) {
         case typ => ctx.reporter.fatalError(s"Unexpected type $typ in CmpFactory!")
       }
 
-      FunDef(id, retTyp, Seq(), params, body, false)
+      FunDef(id, retTyp, Seq(), params, body, false, true)
     }
 
     private def buildStringCmpBody() = FunBodyManual(

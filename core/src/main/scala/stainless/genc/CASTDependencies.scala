@@ -65,6 +65,9 @@ class CASTTraverser(implicit ctx: inox.Context) {
     case DeclArrayStatic(id, base, length, values) =>
       Seq(id, base) ++ values
 
+    case ArrayStatic(base, values) =>
+      base +: values
+
     case DeclArrayVLA(id, base, length, defaultExpr) =>
       Seq(id, base, length, defaultExpr)
 

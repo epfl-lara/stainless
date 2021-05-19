@@ -4,6 +4,7 @@ package stainless
 package genc
 package phases
 
+import extraction._
 import extraction.throwing.trees._
 
 import inox.utils.Position
@@ -37,21 +38,47 @@ trait Scala2IRPhase extends LeonPipeline[(Dependencies, FunCtxDB), CIR.Prog] {
     impl.run()
 
     CIR.Prog(
-      impl.funCache.values.toList,
-      impl.classCache.values.toList
+      impl.funResults.values.toList,
+      impl.classResults.values.toList
     )
   }
 
 }
 
 
-private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dependencies)(implicit val syms: Symbols) {
+private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps: Dependencies)(implicit val syms: Symbols)
+  extends extraction.imperative.EffectsAnalyzer
+  with IdentityFunctions
+  with IdentitySorts
+  with oo.IdentityClasses
+  with oo.IdentityTypeDefs { self =>
+
+  import context._
+
+  val s: extraction.throwing.trees.type = extraction.throwing.trees
+  val t: extraction.throwing.trees.type = extraction.throwing.trees
 
   implicit val debugSection = DebugSectionGenC
-  implicit val printerOpts = PrinterOptions.fromContext(ctx)
-  val program = inox.Program(extraction.throwing.trees)(syms)
-  val semantics: program.Semantics = program.getSemantics(extraction.throwing.phaseSemantics(ctx))
-  val evaluator = semantics.getEvaluator(ctx)
+  private val prog = inox.Program(extraction.throwing.trees)(syms)
+  private val evaluator = new {
+    val context = self.context
+    val program: prog.type = prog
+    val semantics = new inox.Semantics {
+      val trees: throwing.trees.type = throwing.trees
+      val symbols: syms.type = syms
+      val program: prog.type = prog
+      def createEvaluator(ctx: inox.Context) = ???
+      def createSolver(ctx: inox.Context) = ???
+    }
+  } with evaluators.RecursiveEvaluator
+    with inox.evaluators.HasDefaultGlobalContext
+    with inox.evaluators.HasDefaultRecContext
+
+  type TransformerContext = EffectsAnalysis
+  private val analysis = new {
+    val symbols = syms
+  } with EffectsAnalysis
+  def getContext(sym: Symbols) = analysis
 
   object TopLevelAnds {
     def unapply(e: Expr): Option[Seq[Expr]] = e match {
@@ -92,11 +119,11 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
   // For functions, we associate each TypedFunDef to a CIR.FunDef for each "type context" (TypeMapping).
   // This is very important for (non-generic) functions nested in a generic function because for N
   // instantiation of the outer function we have only one TypedFunDef for the inner function.
-  val funCache = MutableMap[(FunAbstraction, Seq[Type], TypeMapping), CIR.FunDef]()
+  val funResults = MutableMap[(FunAbstraction, Seq[Type], TypeMapping), CIR.FunDef]()
 
-  // The `classCache` might be queried with a generic class type, which is why we keep the concrete
+  // The `classResults` might be queried with a generic class type, which is why we keep the concrete
   // type mapping in the cache key
-  val classCache = MutableMap[(ClassType, TypeMapping), CIR.ClassDef]()
+  val classResults = MutableMap[(ClassType, TypeMapping), CIR.ClassDef]()
 
 
 
@@ -128,11 +155,11 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
         // Identifiers in Leon are known to be tricky when it comes to unique id.
         // It sometimes happens that the unique id are not in sync, especially with
         // generics. Here we try to find the best match based on the name only.
-        ctx.reporter.warning(s"Working around issue with identifiers on ${vd.id}...")
+        reporter.warning(s"Working around issue with identifiers on ${vd.id}...")
         env._1.collectFirst {
           case ((eid, etype), evd) if eid.id.name == vd.id.name && etype == typ => evd
         } getOrElse {
-           ctx.reporter.fatalError(vd.getPos, s"Couldn't find a ValDef for ${vd.id} in the environment:\n$env")
+           reporter.fatalError(vd.getPos, s"Couldn't find a ValDef for ${vd.id} in the environment:\n$env")
         }
     }
     CIR.Binding(newVD)
@@ -178,7 +205,7 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
     assert(ops.nonEmpty)
 
     def check(b: Boolean) = if (!b) {
-      ctx.reporter.fatalError(pos, s"Invalid use of operator $op with the given operands")
+      reporter.fatalError(pos, s"Invalid use of operator $op with the given operands")
     }
 
     def isLogical: Boolean = ops forall { _.isLogical }
@@ -189,7 +216,7 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
       case _: O.FromPairOfT => check(isPairOfT)
       case _: O.FromLogical => check(isLogical)
       case _: O.FromIntegral => check(isIntegral)
-      case _ => ctx.reporter.fatalError(pos, s"Unhandled check of operator $op")
+      case _ => reporter.fatalError(pos, s"Unhandled check of operator $op")
     }
   }
 
@@ -205,7 +232,7 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
 
     args find isRefToMutableVar match {
       case Some((_, pos)) =>
-        ctx.reporter.fatalError(pos, s"Invalid reference: cannot construct an object from a mutable variable.")
+        reporter.fatalError(pos, s"Invalid reference: cannot construct an object from a mutable variable.")
 
       case _ =>
     }
@@ -236,8 +263,8 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
   private def buildMultiOp(op: O.BinaryOperator, exprs: Seq[Expr])
                           (pos: Position)
                           (implicit env: Env, tm: TypeMapping): CIR.BinOp = exprs.toList match {
-    case Nil => ctx.reporter.fatalError(pos, "no operands")
-    case a :: Nil => ctx.reporter.fatalError(pos, "at least two operands required")
+    case Nil => reporter.fatalError(pos, "no operands")
+    case a :: Nil => reporter.fatalError(pos, "at least two operands required")
     case a :: b :: Nil => buildBinOp(a, op, b)(pos)
     case a :: xs => CIR.BinOp(op, rec(a), buildMultiOp(op, xs)(pos))
   }
@@ -250,7 +277,7 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
       val id = "Tuple" + buildIdPostfix(bases)
       CIR.ClassDef(id, None, fields, isAbstract = false, isExported = false)
 
-    case _ => ctx.reporter.fatalError(typ.getPos, s"Unexpected ${typ.getClass} instead of TupleType")
+    case _ => reporter.fatalError(typ.getPos, s"Unexpected ${typ.getClass} instead of TupleType")
   }
 
   private def castNotSupported(ct: ClassType): Boolean =
@@ -309,7 +336,7 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
         (newSelect, preOpt, newEnv)
 
       case select @ ArraySelect(a, i) =>
-        ctx.reporter.fatalError(scrutinee0.getPos, s"array select $a[$i] is not supported by GenC (${a.getClass}, ${i.getClass})")
+        reporter.fatalError(scrutinee0.getPos, s"array select $a[$i] is not supported by GenC (${a.getClass}, ${i.getClass})")
 
       case Assert(_, _, body) => scrutRec(body)
       case Assume(_, body) => scrutRec(body)
@@ -317,7 +344,7 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
       case _: Application | _: FunctionInvocation | _: ADT | _: LetVar | _: Let | _: Tuple | _: IfExpr =>
         withTmp(scrutinee0.getType, scrutinee0, env)
 
-      case e => ctx.reporter.fatalError(e.getPos, s"scrutinee ${e.asString} (${e.getClass}) is not supported by GenC")
+      case e => reporter.fatalError(e.getPos, s"scrutinee ${e.asString} (${e.getClass}) is not supported by GenC")
     }
 
     val (scrutinee, preOpt, newEnv) = scrutRec(scrutinee0)
@@ -412,7 +439,7 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
         buildBinOp(scrutinee, O.Equals, lit)(pat.getPos)
 
       case UnapplyPattern(_, _, _, _, _) =>
-        ctx.reporter.fatalError(pat.getPos, s"Unapply Pattern, a.k.a. Extractor Objects, is not supported by GenC")
+        reporter.fatalError(pat.getPos, s"Unapply Pattern, a.k.a. Extractor Objects, is not supported by GenC")
     }
 
     val cond = ccRec(caze.pattern, initialScrutinee)
@@ -433,7 +460,7 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
   // Try first to fetch the function from cache to handle recursive funcitons.
   private def rec(fa: FunAbstraction, tps: Seq[Type])(implicit tm0: TypeMapping, env: Env): CIR.FunDef = {
     val cacheKey = (fa, tps, tm0)
-    funCache get cacheKey getOrElse {
+    funResults get cacheKey getOrElse {
 
     val id = buildId(fa, tps)(tm0)
 
@@ -454,7 +481,7 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
 
     // FIXME: Add this warning
     // if (tfd.fd.isRecursive(deps.syms))
-      // ctx.reporter.warning(s"MISRA rules state that recursive functions should be very tightly controlled; ${tfd.id} is recursive")
+      // reporter.warning(s"MISRA rules state that recursive functions should be very tightly controlled; ${tfd.id} is recursive")
 
     // We have to manually specify tm1 from now on to avoid using tm0. We mark tm1 as
     // implicit as well to generate ambiguity at compile time to avoid forgetting a call site.
@@ -472,12 +499,14 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
 
     val returnType = rec(fa.returnType)(tm1)
     if (returnType.containsArray)
-      ctx.reporter.fatalError(fa.getPos, "Returning arrays from function is not supported by GenC")
+      reporter.fatalError(fa.getPos, "Returning arrays from function is not supported by GenC")
+
+    val isPure = fa.flags.contains(IsPure) || analysis.effects(fa.fullBody).isEmpty
 
     // Build a partial function without body in order to support recursive functions
-    val fun = CIR.FunDef(id, returnType, funCtx, params, null, export)
+    val fun = CIR.FunDef(id, returnType, funCtx, params, null, export, isPure)
 
-    funCache.update(cacheKey, fun) // Register with the callee TypeMapping, *not* the newer
+    funResults.update(cacheKey, fun) // Register with the callee TypeMapping, *not* the newer
 
     // Now proceed with the body
     val body: CIR.FunBody =
@@ -543,12 +572,12 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
 
     case tp: TypeParameter => rec(instantiate(tp, tm))
 
-    case t => ctx.reporter.fatalError(t.getPos, s"Type tree ${t.asString} (${t.getClass}) not handled by GenC component")
+    case t => reporter.fatalError(t.getPos, s"Type tree ${t.asString} (${t.getClass}) not handled by GenC component")
   }
 
   private def rec(ct: ClassType)(implicit tm: TypeMapping): CIR.ClassDef = {
     val cacheKey = (ct, tm)
-    classCache.getOrElseUpdate(cacheKey, {
+    classResults.getOrElseUpdate(cacheKey, {
     // Convert the whole class hierarchy to register all siblings, in a top down fasion, that way
     // each children class in the the CIR hierarchy get registered to its parent and we can keep track
     // of all of them.
@@ -561,10 +590,10 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
       val id = buildId(ct)
 
       if (cd.isDropped || cd.isManuallyTyped)
-        ctx.reporter.fatalError(ct.getPos, s"${ct.id.asString} is not convertible to ClassDef in GenC")
+        reporter.fatalError(ct.getPos, s"${ct.id.asString} is not convertible to ClassDef in GenC")
 
       if (cd.isCaseObject)
-        ctx.reporter.fatalError(ct.getPos, s"Case objects (${ct.id.asString}) are not convertible to ClassDef in GenC")
+        reporter.fatalError(ct.getPos, s"Case objects (${ct.id.asString}) are not convertible to ClassDef in GenC")
 
       // disable name mangling for fields of exported classes
       val mangling = !cd.isExported
@@ -587,7 +616,7 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
         }
 
       if (arrayLengths.map(_._1).toSet.size != arrayLengths.length) {
-        ctx.reporter.fatalError(cd.getPos, "Cannot specify two lengths for an array in a class invariant")
+        reporter.fatalError(cd.getPos, "Cannot specify two lengths for an array in a class invariant")
       }
 
       val arrayLengthsMap: Map[Identifier, Int] = arrayLengths.toMap
@@ -664,12 +693,12 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
           val fields = ct.tcd.fields
           val optFieldId = fields collectFirst { case field if field.id.name == fieldId0.name => field.id }
           val fieldId = optFieldId getOrElse {
-            ctx.reporter.fatalError(e.getPos, s"No corresponding field for $fieldId0 in class $ct")
+            reporter.fatalError(e.getPos, s"No corresponding field for $fieldId0 in class $ct")
           }
           CIR.Assign(CIR.FieldAccess(rec(obj), rec(fieldId, withUnique = !ct.tcd.cd.isExported)), rec(expr))
 
         case typ =>
-          ctx.reporter.fatalError(e.getPos, s"Unexpected type $typ. Only class type are expected to update fields")
+          reporter.fatalError(e.getPos, s"Unexpected type $typ. Only class type are expected to update fields")
       }
 
     case LetRec(lfds, body) =>
@@ -700,7 +729,7 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
       // context as no environment variables are allowed to be captured.
       val fun = rec(fun0) match {
         case e if e.getType.isInstanceOf[CIR.FunType] => CIR.FunRef(e)
-        case e => ctx.reporter.fatalError(fun0.getPos, s"Expected a binding but got $e of type ${e.getClass}.")
+        case e => reporter.fatalError(fun0.getPos, s"Expected a binding but got $e of type ${e.getClass}.")
       }
       val args = args0 map rec
 
@@ -714,23 +743,23 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
       if ((argsA map { _.toVariable }) != argsB) {
         val strA = argsA.mkString("[", ", ", "]")
         val strB = argsB.mkString("[", ", ", "]")
-        ctx.reporter.debug(s"This is a capturing lambda because: $strA != $strB")
-        ctx.reporter.fatalError(e.getPos, s"Capturing lambda are not supported by GenC")
+        reporter.debug(s"This is a capturing lambda because: $strA != $strB")
+        reporter.fatalError(e.getPos, s"Capturing lambda are not supported by GenC")
       }
 
       val fun = rec(Outer(fd), tps)
 
       if (fun.ctx.nonEmpty) {
-        ctx.reporter.debug(s"${fun.id} is capturing some variables: ${fun.ctx mkString ", "}")
-        ctx.reporter.fatalError(e.getPos, s"Function capturing their environment cannot be used as value")
+        reporter.debug(s"${fun.id} is capturing some variables: ${fun.ctx mkString ", "}")
+        reporter.fatalError(e.getPos, s"Function capturing their environment cannot be used as value")
       }
 
       fun.toVal
 
     case Lambda(args0, body0) =>
-      ctx.reporter.debug(s"This is an unamed function; support is currently missing")
-      ctx.reporter.debug(s"args = $args0, body = $body0 (${body0.getClass})")
-      ctx.reporter.fatalError(e.getPos, s"Lambdas that don't directly invoke a function are not (yet) supported")
+      reporter.debug(s"This is an unamed function; support is currently missing")
+      reporter.debug(s"args = $args0, body = $body0 (${body0.getClass})")
+      reporter.fatalError(e.getPos, s"Lambdas that don't directly invoke a function are not (yet) supported")
 
     case ClassConstructor(ct, args) =>
       val cd = syms.getClass(ct.id)
@@ -764,7 +793,7 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
 
     case ArraySelect(array, index) => CIR.ArrayAccess(rec(array), rec(index))
 
-    case ArrayUpdated(array, index, newValue) => ctx.reporter.fatalError(e.getPos, s"Unsupported copy of array")
+    case ArrayUpdated(array, index, newValue) => reporter.fatalError(e.getPos, s"Unsupported copy of array")
 
     case ArrayUpdate(array, index, value) =>
       CIR.Assign(CIR.ArrayAccess(rec(array), rec(index)), rec(value))
@@ -806,9 +835,9 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
 
         case length =>
           if (arrayType.base.containsArray)
-            ctx.reporter.fatalError(array.getPos, s"VLAs cannot have elements being/containing other array")
+            reporter.fatalError(array.getPos, s"VLAs cannot have elements being/containing other array")
 
-          ctx.reporter.warning(array.getPos, s"VLAs should be avoid according to MISRA C rules")
+          reporter.warning(array.getPos, s"VLAs should be avoid according to MISRA C rules")
 
           val value = rec(default)
           CIR.ArrayAllocVLA(arrayType, length, value)
@@ -843,7 +872,7 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
     case BVOr(lhs, rhs)           => buildBinOp(lhs, O.BOr, rhs)(e.getPos)
     case BVXor(lhs, rhs)          => buildBinOp(lhs, O.BXor, rhs)(e.getPos)
     case BVShiftLeft(lhs, rhs)    => buildBinOp(lhs, O.BLeftShift, rhs)(e.getPos)
-    case BVAShiftRight(lhs, rhs)  => ctx.reporter.fatalError(e.getPos, "Operator >> is not supported by GenC")
+    case BVAShiftRight(lhs, rhs)  => reporter.fatalError(e.getPos, "Operator >> is not supported by GenC")
     case BVLShiftRight(lhs, rhs)  => buildBinOp(lhs, O.BRightShift, rhs)(e.getPos)
 
     case BVWideningCast(e, t)  => CIR.IntegralCast(rec(e), rec(t).asInstanceOf[CIR.PrimitiveType].primitive.asInstanceOf[PT.IntegralPrimitiveType])
@@ -859,19 +888,19 @@ private class S2IRImpl(val ctx: inox.Context, val ctxDB: FunCtxDB, val deps: Dep
     case MatchExpr(scrutinee, cases) => convertPatMap(scrutinee, cases)
 
     case IsInstanceOf(expr, ct: ClassType) if castNotSupported(ct) =>
-      ctx.reporter.fatalError(e.getPos, s"Membership tests on abstract classes are not supported by GenC")
+      reporter.fatalError(e.getPos, s"Membership tests on abstract classes are not supported by GenC")
 
     case IsInstanceOf(expr, ct: ClassType) => CIR.IsA(rec(expr), CIR.ClassType(rec(ct)))
 
     case AsInstanceOf(expr, ct: ClassType) if castNotSupported(ct) =>
-      ctx.reporter.fatalError(e.getPos, s"Cast to abstract classes are not supported by GenC")
+      reporter.fatalError(e.getPos, s"Cast to abstract classes are not supported by GenC")
 
     case AsInstanceOf(expr, ct: ClassType) => CIR.AsA(rec(expr), CIR.ClassType(rec(ct)))
 
     case Return(expr) => CIR.Return(rec(expr))
 
     case e =>
-      ctx.reporter.fatalError(e.getPos, s"Expression `${e.asString}` (${e.getClass}) not handled by GenC component")
+      reporter.fatalError(e.getPos, s"Expression `${e.asString}` (${e.getClass}) not handled by GenC component")
   }
 
 }

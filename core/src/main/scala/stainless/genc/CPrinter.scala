@@ -185,6 +185,9 @@ class CPrinter(
     case DeclArrayStatic(id, base, length, values) =>
       c"$base $id[$length] = { ${nary(values, sep = ", ")} }"
 
+    case ArrayStatic(_, values) =>
+      c"{ ${nary(values, sep = ", ")} }"
+
     case DeclArrayVLA(id, base, length, defaultExpr) =>
       val i = FreshId("i")
       c"""|$base $id[$length];

@@ -16,14 +16,15 @@ final class StructInliner(val ctx: inox.Context) extends Transformer(RIR, SIR) w
 
   object SimplifiableClassDef {
     def unapply(cd: ClassDef): Option[ClassDef] = {
-      if (cd.fields.length == 1) Some(cd)
-      else None
+      None
+      // if (cd.fields.length == 1) Some(cd)
+      // else None
     }
   }
 
   object SimplifiableExpr {
     def unapply(e: Expr): Option[Expr] = e.getType match {
-      case ClassType(SimplifiableClassDef(cd)) => Some(e)
+      // case ClassType(SimplifiableClassDef(cd)) => Some(e)
       case _ => None
     }
   }
