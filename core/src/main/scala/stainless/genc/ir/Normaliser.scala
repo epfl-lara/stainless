@@ -90,7 +90,10 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
 
     case Construct(cd0, args0) =>
       val cd = rec(cd0)
-      val (preArgs, args) = flattenArgs(allowTopLevelApp = true, allowArray = true, args0)
+      val (preArgs, args) = flattenArgs(allowTopLevelApp = true, args0.zip(cd0.fields).map {
+        case (e, vd) if vd.typ.isFixedArray => (e, true)
+        case (e, _) => (e, false)
+      })
       val ctor = to.Construct(cd, args)
 
       combine(preArgs :+ ctor) -> env
@@ -263,7 +266,18 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
   //  - the init statements for each argument
   //  - the arguments themselves
   private def flattenAll(allowTopLevelApp: Boolean, allowArray: Boolean, args0: Expr*)(implicit env: Env): (Seq[Seq[to.Expr]], Seq[to.Expr]) = {
-    val (initss1, args1) = args0.map(flatten(_, allowTopLevelApp = false, allowArray)).unzip
+    val (initss1, args1) = args0.map(flatten(_, allowTopLevelApp, allowArray)).unzip
+    val initssArgs = for (i <- 0 until args1.length) yield {
+      val (argDeclOpt, arg) = strictNormalisation(args1(i), initss1:_*)
+      val init = initss1(i) ++ argDeclOpt
+      (init, arg)
+    }
+
+    initssArgs.unzip
+  }
+
+  private def flattenAll(allowTopLevelApp: Boolean, args0: Seq[(Expr, Boolean)])(implicit env: Env): (Seq[Seq[to.Expr]], Seq[to.Expr]) = {
+    val (initss1, args1) = args0.map { case (arg0, allowArray) => flatten(arg0, allowTopLevelApp, allowArray) }.unzip
     val initssArgs = for (i <- 0 until args1.length) yield {
       val (argDeclOpt, arg) = strictNormalisation(args1(i), initss1:_*)
       val init = initss1(i) ++ argDeclOpt
@@ -276,6 +290,13 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
   // Extract all "init" together; first regular flatten then a strict normalisation.
   private def flattenArgs(allowTopLevelApp: Boolean, allowArray: Boolean, args0: Seq[Expr])(implicit env: Env): (Seq[to.Expr], Seq[to.Expr]) = {
     val (initss, args) = flattenAll(allowTopLevelApp, allowArray, args0:_*)
+    val allInit = initss.flatten
+
+    (allInit, args)
+  }
+
+  private def flattenArgs(allowTopLevelApp: Boolean, args0: Seq[(Expr, Boolean)])(implicit env: Env): (Seq[to.Expr], Seq[to.Expr]) = {
+    val (initss, args) = flattenAll(allowTopLevelApp, args0)
     val allInit = initss.flatten
 
     (allInit, args)
