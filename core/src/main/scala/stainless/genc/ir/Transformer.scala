@@ -58,7 +58,7 @@ abstract class Transformer[From <: IR, To <: IR](final val from: From, final val
   protected final def rec(fd: FunDef)(implicit env: Env): to.FunDef = funCache.getOrElse(fd, recImpl(fd))
 
   protected def recImpl(fd: FunDef)(implicit env: Env): to.FunDef = {
-    val newer = to.FunDef(fd.id, rec(fd.returnType), fd.ctx map rec, fd.params map rec, null, fd.isExported)
+    val newer = to.FunDef(fd.id, rec(fd.returnType), fd.ctx map rec, fd.params map rec, null, fd.isExported, fd.isPure)
     registerFunction(fd, newer)
     newer.body = rec(fd.body)
     newer

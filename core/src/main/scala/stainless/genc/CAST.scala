@@ -118,6 +118,10 @@ object CAST { // C Abstract Syntax Tree
     require(values forall { _.isValue })
   }
 
+  case class ArrayStatic(base: Type, values: Seq[Expr]) extends Expr {
+    require(values forall { _.isValue })
+  }
+
   case class DeclArrayVLA(id: Id, base: Type, length: Expr, defaultExpr: Expr) extends Expr {
     require(
       length.isValue &&
@@ -263,7 +267,7 @@ object CAST { // C Abstract Syntax Tree
   /* ---------------------------------------------- Sanitisation Helper ----- */
   private implicit class ExprValidation(e: Expr) {
     def isValue = e match {
-      case _: Binding | _: Lit | _: EnumLiteral | _: StructInit |
+      case _: Binding | _: Lit | _: EnumLiteral | _: StructInit | _: ArrayStatic |
            _: UnionInit | _: Call | _: FieldAccess | _: ArrayAccess |
            _: Ref | _: Deref | _: BinOp | _: UnOp | _: Cast => true
       case _ => false

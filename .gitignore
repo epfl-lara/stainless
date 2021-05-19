@@ -107,3 +107,8 @@ project/project/
 
 # ripgrep
 .rgignore
+
+# C files
+*.c
+*.h
+*.out

@@ -21,7 +21,7 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
 
   // Inject return in functions that need it
   override def recImpl(fd: FunDef)(implicit env: Env): to.FunDef = super.recImpl(fd) match {
-    case fd @ to.FunDef(_, returnType, _, _, to.FunBodyAST(body), _) if !isUnitType(returnType) =>
+    case fd @ to.FunDef(_, returnType, _, _, to.FunBodyAST(body), _, _) if !isUnitType(returnType) =>
       val newBody = to.FunBodyAST(inject({ e => to.Return(e) }, e => !e.isInstanceOf[to.Return])(body))
 
       fd.body = newBody
@@ -35,14 +35,14 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
   private def recCT(typ: ClassType)(implicit env: Env) = rec(typ).asInstanceOf[to.ClassType]
 
   override def recImpl(e: Expr)(implicit env: Env): (to.Expr, Env) = e match {
-    case _: Binding | _: FunVal | _: FunRef | _: Lit | _: Block | _: Deref | _: IntegralCast  => super.recImpl(e)
+    case _: Binding | _: FunVal | _: FunRef | _: Lit | _: Block | _: Deref | _: IntegralCast => super.recImpl(e)
 
     case DeclInit(vd0, ArrayInit(alloc0)) =>
       val vd = rec(vd0)
 
       val (preAlloc, alloc) = alloc0 match {
         case ArrayAllocStatic(typ, length, Right(values0)) =>
-          val (preValues, values) = flattenArgs(values0)
+          val (preValues, values) = flattenArgs(false, false, values0)
           val alloc = to.ArrayAllocStatic(recAT(typ), length, Right(values))
 
           preValues -> alloc
@@ -55,8 +55,8 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
         case ArrayAllocVLA(typ, length0, valueInit0) =>
           // Here it's fine to do two independent normalisations because there will be a
           // sequence point between the length and the value in the C code anyway.
-          val (preLength, length) = flatten(length0, allowTopLevelApp = true)
-          val (preValueInit, valueInit) = flatten(valueInit0, allowTopLevelApp = true)
+          val (preLength, length) = flatten(length0, allowTopLevelApp = true, allowArray = false)
+          val (preValueInit, valueInit) = flatten(valueInit0, allowTopLevelApp = true, allowArray = false)
 
           if (preValueInit.nonEmpty) {
             ctx.reporter.debug(s"VLA Elements init not supported: ${preValueInit mkString " ~ "} ~ $valueInit")
@@ -74,7 +74,7 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
 
     case DeclInit(vd0, value0) =>
       val vd = rec(vd0)
-      val (pre, value) = flatten(value0, allowTopLevelApp = true)
+      val (pre, value) = flatten(value0, allowTopLevelApp = true, allowArray = true)
 
       val declinit = to.DeclInit(vd, value)
 
@@ -83,42 +83,43 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
     case App(fun0, extra0, args0) =>
       val fun = recCallable(fun0)
       val extra = extra0 map rec // context argument are trivial enough to not require special handling
-      val (preArgs, args) = flattenArgs(args0)
+      val (preArgs, args) = flattenArgs(allowTopLevelApp = true, allowArray = false, args0)
       val app = to.App(fun, extra, args)
 
       combine(preArgs :+ app) -> env
 
     case Construct(cd0, args0) =>
       val cd = rec(cd0)
-      val (preArgs, args) = flattenArgs(args0)
+      val (preArgs, args) = flattenArgs(allowTopLevelApp = true, allowArray = true, args0)
       val ctor = to.Construct(cd, args)
 
       combine(preArgs :+ ctor) -> env
 
     case ai @ ArrayInit(_) => super.recImpl(ai) // this will be handled later
 
-    case FieldAccess(objekt0, fieldId) =>
-      val (preObjekt, objekt) = flatten(objekt0)
-      val access = to.FieldAccess(objekt, fieldId)
+    case FieldAccess(obj0, fieldId) =>
+      val (preObj, obj) = flatten(obj0, allowTopLevelApp = false, allowArray = false)
+      val access = to.FieldAccess(obj, fieldId)
 
-      combine(preObjekt :+ access) -> env
+      combine(preObj :+ access) -> env
 
     case ArrayAccess(array0, index0) =>
-      val (Seq(preArray, preIndex), Seq(array, index)) = flattenAll(array0, index0)
+      val (Seq(preArray, preIndex), Seq(array, index)) =
+        flattenAll(allowTopLevelApp = false, allowArray = false, array0, index0)
       val access = to.ArrayAccess(array, index)
 
       combine(preArray ++ preIndex :+ access) -> env
 
     case ArrayLength(array0) =>
-      val (preArray, array) = flatten(array0)
+      val (preArray, array) = flatten(array0, allowTopLevelApp = false, allowArray = false)
       val length = to.ArrayLength(array)
 
       combine(preArray :+ length) -> env
 
     case Assign(ArrayAccess(array0, index0), rhs0) =>
       // Add sequence point for index and rhs, but we assume array is simple enough to not require normalisation.
-      val (preArray, array) = flatten(array0)
-      val (Seq(preIndex, preRhs), Seq(index, rhs)) = flattenAll(index0, rhs0)
+      val (preArray, array) = flatten(array0, allowTopLevelApp = false, allowArray = false)
+      val (Seq(preIndex, preRhs), Seq(index, rhs)) = flattenAll(allowTopLevelApp = false, allowArray = false, index0, rhs0)
 
       if (preArray.nonEmpty)
         ctx.reporter.fatalError(s"Unsupported form of array update: $e")
@@ -128,21 +129,21 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
       combine(preIndex ++ preRhs :+ assign) -> env
 
     case Assign(lhs0, rhs0) =>
-      val (preLhs, lhs) = flatten(lhs0)
+      val (preLhs, lhs) = flatten(lhs0, allowTopLevelApp = false, allowArray = false)
 
       if (preLhs.nonEmpty) {
         ctx.reporter.debug(s"When processing:\n$e")
         ctx.reporter.fatalError(s"Assumed to be invalid Scala code is apparently present in the AST")
       }
 
-      val (preRhs, rhs) = flatten(rhs0)
+      val (preRhs, rhs) = flatten(rhs0, allowTopLevelApp = false, allowArray = false)
 
       val assign = to.Assign(lhs, rhs)
 
       combine(preRhs :+ assign) -> env
 
     case BinOp(op, lhs0, rhs0) =>
-      val (Seq(preLhs, preRhs), Seq(lhs, rhs)) = flattenAll(lhs0, rhs0)
+      val (Seq(preLhs, preRhs), Seq(lhs, rhs)) = flattenAll(allowTopLevelApp = true, allowArray = false, lhs0, rhs0)
 
       def default = {
         val binop = to.BinOp(op, lhs, rhs)
@@ -163,13 +164,13 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
       }
 
     case UnOp(op, expr0) =>
-      val (pre, expr) = flatten(expr0)
+      val (pre, expr) = flatten(expr0, allowTopLevelApp = true, allowArray = false)
       val unop = to.UnOp(op, expr)
 
       combine(pre :+ unop) -> env
 
     case If(cond0, thenn0) =>
-      val (preCond, cond) = flatten(cond0, allowTopLevelApp = true)
+      val (preCond, cond) = flatten(cond0, allowTopLevelApp = true, allowArray = false)
       val thenn = rec(thenn0)
 
       val fi = to.If(cond, thenn)
@@ -177,7 +178,7 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
       combine(preCond :+ fi) -> env
 
     case IfElse(cond0, thenn0, elze0) =>
-      val (preCond, cond) = flatten(cond0, allowTopLevelApp = true)
+      val (preCond, cond) = flatten(cond0, allowTopLevelApp = true, allowArray = false)
       val thenn = rec(thenn0)
       val elze = rec(elze0)
 
@@ -186,7 +187,7 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
       combine(preCond :+ fi) -> env
 
     case While(cond0, body0) =>
-      val (preCond, cond) = flatten(cond0, allowTopLevelApp = true)
+      val (preCond, cond) = flatten(cond0, allowTopLevelApp = true, allowArray = false)
       val body = rec(body0)
 
       val loop = preCond match {
@@ -200,7 +201,7 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
       loop -> env
 
     case Return(expr0) =>
-      val (preExpr, expr) = flatten(expr0, allowTopLevelApp = true)
+      val (preExpr, expr) = flatten(expr0, allowTopLevelApp = true, allowArray = false)
       val res = preExpr match {
         case Seq() => to.Return(expr)
         case _ => to.buildBlock(preExpr :+ to.Return(expr))
@@ -210,20 +211,20 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
 
     case IsA(expr0, ct0) =>
       val ct = recCT(ct0)
-      val (preExpr, expr) = flatten(expr0)
+      val (preExpr, expr) = flatten(expr0, allowTopLevelApp = false, allowArray = false)
       val isa = to.IsA(expr, ct)
 
       combine(preExpr :+ isa) -> env
 
     case AsA(expr0, ct0) =>
       val ct = recCT(ct0)
-      val (preExpr, expr) = flatten(expr0)
+      val (preExpr, expr) = flatten(expr0, allowTopLevelApp = true, allowArray = true)
       val asa = to.AsA(expr, ct)
 
       combine(preExpr :+ asa) -> env
 
     case Ref(e0) =>
-      val (pre, e) = flatten(e0)
+      val (pre, e) = flatten(e0, allowTopLevelApp = true, allowArray = true)
       val ref = to.Ref(e)
 
       combine(pre :+ ref) -> env
@@ -241,7 +242,7 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
   // a variable holding the result of the function call). However, in a few cases this is not required;
   // e.g. when declaring a variable we can directly call a function without needing a (duplicate) sequence
   // point. Caller can therefore carefully set `allowTopLevelApp` to true in those cases.
-  private def flatten(e: Expr, allowTopLevelApp: Boolean = false)(implicit env: Env): (Seq[to.Expr], to.Expr) = {
+  private def flatten(e: Expr, allowTopLevelApp: Boolean, allowArray: Boolean)(implicit env: Env): (Seq[to.Expr], to.Expr) = {
     def innerLoop(e2: to.Expr): (Seq[to.Expr], to.Expr) = e2 match {
       case to.Block(init :+ last) =>
         (init, last)
@@ -255,14 +256,14 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
         (Seq.empty, e)
     }
     val (init, last) = innerLoop(rec(e))
-    normalise(init, last, allowTopLevelApp)
+    normalise(init, last, allowTopLevelApp, allowArray)
   }
 
   // Flatten all the given arguments, adding strict normalisation is needed and returning two lists of:
   //  - the init statements for each argument
   //  - the arguments themselves
-  private def flattenAll(args0: Expr*)(implicit env: Env): (Seq[Seq[to.Expr]], Seq[to.Expr]) = {
-    val (initss1, args1) = args0.map(flatten(_)).unzip
+  private def flattenAll(allowTopLevelApp: Boolean, allowArray: Boolean, args0: Expr*)(implicit env: Env): (Seq[Seq[to.Expr]], Seq[to.Expr]) = {
+    val (initss1, args1) = args0.map(flatten(_, allowTopLevelApp = false, allowArray)).unzip
     val initssArgs = for (i <- 0 until args1.length) yield {
       val (argDeclOpt, arg) = strictNormalisation(args1(i), initss1:_*)
       val init = initss1(i) ++ argDeclOpt
@@ -273,14 +274,35 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
   }
 
   // Extract all "init" together; first regular flatten then a strict normalisation.
-  private def flattenArgs(args0: Seq[Expr])(implicit env: Env): (Seq[to.Expr], Seq[to.Expr]) = {
-    val (initss, args) = flattenAll(args0:_*)
+  private def flattenArgs(allowTopLevelApp: Boolean, allowArray: Boolean, args0: Seq[Expr])(implicit env: Env): (Seq[to.Expr], Seq[to.Expr]) = {
+    val (initss, args) = flattenAll(allowTopLevelApp, allowArray, args0:_*)
     val allInit = initss.flatten
 
     (allInit, args)
   }
 
-  private def normalise(pre: Seq[to.Expr], value: to.Expr, allowTopLevelApp: Boolean): (Seq[to.Expr], to.Expr) = value match {
+  // Simple expressions that do not require normalisation
+  // We allow here function invocations where the `FunDef` is marked as `pure` thanks to
+  // the effects analysis done during the `Scala2IR` phase (or thanks to user annotation)
+  private def isSimple(e: to.Expr, allowTopLevelApp: Boolean, allowArray: Boolean): Boolean = {
+    def rec(e: to.Expr): Boolean = e match {
+      case _: to.Binding | _: to.Lit => true
+      case to.Deref(e0) => rec(e0)
+      case to.IntegralCast(e0, _) => rec(e0)
+      case to.AsA(e0, _) => rec(e0)
+      case to.BinOp(op, lhs, rhs) => rec(lhs) && rec(rhs)
+      case to.UnOp(op, e0) => rec(e0)
+      case to.App(to.FunVal(fd), extra, args) if allowTopLevelApp => fd.isPure && extra.forall(rec) && args.forall(rec)
+      case to.ArrayInit(to.ArrayAllocStatic(_, _, Left(_))) if allowArray => true
+      case to.ArrayInit(to.ArrayAllocStatic(_, _, Right(elems))) if allowArray => elems.forall(rec)
+      case _ => false
+    }
+    rec(e)
+  }
+
+  private def normalise(pre: Seq[to.Expr], value: to.Expr, allowTopLevelApp: Boolean, allowArray: Boolean): (Seq[to.Expr], to.Expr) = value match {
+    case _ if isSimple(value, allowTopLevelApp, allowArray) => (pre, value)
+
     case fi0 @ to.IfElse(_, _, _) =>
       val norm = freshNormVal(fi0.getType, isVar = true)
       val decl = to.Decl(norm)
@@ -306,7 +328,7 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
       val declinit0 = from.DeclInit(norm0, ai0)
       val binding = to.Binding(norm)
 
-      val (preDeclinit, declinit) = flatten(declinit0)(Ø)
+      val (preDeclinit, declinit) = flatten(declinit0, allowTopLevelApp = false, allowArray = false)(Ø)
 
       (preDeclinit :+ declinit, binding)
 

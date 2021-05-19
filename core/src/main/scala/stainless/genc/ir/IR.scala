@@ -58,7 +58,7 @@ private[genc] sealed trait IR { ir =>
   case class FunBodyAST(body: Expr) extends FunBody
   case class FunBodyManual(includes: Seq[String], body: String) extends FunBody // NOTE `body` is actually the whole function!
 
-  case class FunDef(id: Id, returnType: Type, ctx: Seq[ValDef], params: Seq[ValDef], var body: FunBody, isExported: Boolean) extends Def {
+  case class FunDef(id: Id, returnType: Type, ctx: Seq[ValDef], params: Seq[ValDef], var body: FunBody, isExported: Boolean, isPure: Boolean) extends Def {
     // Ignore body in equality/hash code; actually, use only the identifier. This is to prevent infinite recursion...
     override def equals(that: Any): Boolean = that match {
       case fd: FunDef => fd.id == id
