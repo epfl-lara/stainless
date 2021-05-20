@@ -3,7 +3,7 @@ import stainless.annotation._
 object WhileInLet {
 
   @export
-  def whileInLet(): Unit = {
+  def main(): Unit = {
     val noLoop = while (false) {}
     ()
   }

@@ -30,19 +30,24 @@ object FixedArray {
     w.a(0) + w.a(1) + w.a(2) + w.a(3) + w.a(4) + w.x + w.y
   }
 
-  // @export
-  // def g(a: Array[Int]): Unit = {
-  //   require(a.length > 0)
-  //   require(0 <= a(0) && a(0) <= 1000)
+  @export
+  def g(a: Array[Int]): Unit = {
+    require(a.length > 0)
+    require(0 <= a(0) && a(0) <= 1000)
 
-  //   a(0) += 1
-  // }
+    a(0) += 1
+  }
 
   @export
   def main(): Unit = {
     val w = W(30, Array(10, 20, 30, 20, 42), 100)
-    // g(w.a)
-    StdOut.println(f(w))
+    val w2 = W(30, Array(10, 20, 30, 20, 42), { w.a(0) += 1; 100 })
+    g(w.a)
+    val a2 = w.a
+    g(a2)
+    val z = f(w)
+    assert(z == 30 + 155 + 20 + 30 + 20 + 42 + 100)
+    StdOut.println(z)
   }
 
 }
