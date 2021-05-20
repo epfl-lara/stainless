@@ -234,7 +234,7 @@ trait AntiAliasing
                     (and(condition, recCond), recSelect)
 
                   case (tt: TupleType, TupleFieldAccessor(idx) +: xs) =>
-                    select(tt.bases(idx), TupleSelect(expr, idx).setPos(pos), xs)
+                    select(tt.bases(idx - 1), TupleSelect(expr, idx).setPos(pos), xs)
 
                   case (ArrayType(base), ArrayAccessor(idx) +: xs) =>
                     select(base, ArraySelect(expr, idx).setPos(pos), xs)
