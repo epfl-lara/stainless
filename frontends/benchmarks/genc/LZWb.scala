@@ -418,9 +418,7 @@ object LZWb {
     val capacity = pteps.length
     require(
       capacity == DictionarySize &&
-      // FIXME: length is on right-hand-side to avoid finite array optimization
-      // see issue https://github.com/epfl-lara/stainless/issues/1056
-      DictionaryMemorySize == memory.length &&
+      memory.length == DictionaryMemorySize &&
       allInRange(pteps, 0, DictionaryMemorySize) &&
       0 <= nextIndex && nextIndex <= capacity
     )

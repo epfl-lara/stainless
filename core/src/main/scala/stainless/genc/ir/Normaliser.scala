@@ -91,8 +91,7 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
     case Construct(cd0, args0) =>
       val cd = rec(cd0)
       val (preArgs, args) = flattenArgs(allowTopLevelApp = true, args0.zip(cd0.fields).map {
-        case (e, vd) if vd.typ.isFixedArray => (e, true)
-        case (e, _) => (e, false)
+        case (e, vd) => (e, vd.typ.isFixedArray)
       })
       val ctor = to.Construct(cd, args)
 
@@ -360,19 +359,21 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
     case value => (pre, value)
   }
 
+  // FIXME: Not sure what this is for?
   // Strict normalisation: create a normalisation variable to save the result of an argument if it could be modified
   // by an init segment (from any argument) extracted during regular normalisation.
   private def strictNormalisation(value: to.Expr, inits: Seq[to.Expr]*): (Option[to.DeclInit], to.Expr) = {
-    if (inits exists { _.nonEmpty }) {
-      // We need to store the result in a temporary variable.
+    if (inits.forall(_.isEmpty) || isSimple(value, allowTopLevelApp = true, allowArray = true)) {
+      // No init segment, so we can safely use the given value as is
+      // Same when value is simple
+      (None, value)
+    } else {
+      // We store the result in a temporary variable.
       val norm = freshNormVal(value.getType, isVar = false)
       val binding = to.Binding(norm)
       val declinit = to.DeclInit(norm, value)
 
       (Some(declinit), binding)
-    } else {
-      // No init segment, so we can safely use the given value as is.
-      (None, value)
     }
   }
 

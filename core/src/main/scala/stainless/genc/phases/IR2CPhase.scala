@@ -200,15 +200,32 @@ private class IR2CImpl(val ctx: inox.Context) {
 
     case ArrayInit(alloc) => ctx.reporter.fatalError("This should be part of a DeclInit expression!")
 
-    case FieldAccess(obj, fieldId) => C.FieldAccess(rec(obj), rec(fieldId))
-
     // no `data` field for fixed arrays
     case ArrayAccess(FieldAccess(obj, fieldId), index)
       if  obj.getType.isInstanceOf[ClassType] &&
           obj.getType.asInstanceOf[ClassType].clazz.fields.exists(vd =>
             vd.id == fieldId && vd.typ.isFixedArray
           ) =>
-        C.ArrayAccess(C.FieldAccess(rec(obj), rec(fieldId)), rec(index))
+
+      C.ArrayAccess(C.FieldAccess(rec(obj), rec(fieldId)), rec(index))
+
+    // but field accesses of fixed arrays not followed by an array access
+    // must be wrapped in an array wrapper struct (see FixedArray.scala example)
+    case FieldAccess(obj, fieldId)
+      if  obj.getType.isInstanceOf[ClassType] &&
+          obj.getType.asInstanceOf[ClassType].clazz.fields.exists(vd =>
+            vd.id == fieldId && vd.typ.isFixedArray
+          ) =>
+
+      val vd = obj.getType.asInstanceOf[ClassType].clazz.fields.find(vd =>
+        vd.id == fieldId && vd.typ.isFixedArray
+      ).get
+      val arrayType = vd.typ.asInstanceOf[ArrayType]
+      val length = arrayType.length.get
+      val array = array2Struct(arrayType.copy(length = None))
+      C.StructInit(array, C.FieldAccess(rec(obj), rec(fieldId)) :: C.Lit(Int32Lit(length)) :: Nil)
+
+    case FieldAccess(obj, fieldId) => C.FieldAccess(rec(obj), rec(fieldId))
 
     case ArrayAccess(array, index) => C.ArrayAccess(C.FieldAccess(rec(array), C.Id("data")), rec(index))
     case ArrayLength(array) => C.FieldAccess(rec(array), C.Id("length"))
