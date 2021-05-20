@@ -169,8 +169,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
       import ctx.{ reporter, timers }
 
       if (extraction.trace.Trace.optionsError) {
-        reporter.error(s"Equivalence checking for --comparefuns and --models only works in batched mode.")
-        System.exit(1)
+        reporter.fatalError(s"Equivalence checking for --comparefuns and --models only works in batched mode.")
       }
 
       if (!useParallelism) {
