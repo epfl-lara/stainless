@@ -1083,7 +1083,7 @@ trait CodeExtraction extends ASTExtractors {
         case _ => outOfSubsetError(tr, "Conversion from Int to BigInt")
       }
 
-    case ExIntToBV(signed, size, tree) =>
+    case ExIntToBV(FrontendBVKind(signed, size), tree) =>
       extractTree(tree) match {
         case xt.Int32Literal(n)
           if !signed && 0 <= n && BigInt(n) < BigInt(2).pow(size) =>
@@ -1093,8 +1093,11 @@ trait CodeExtraction extends ASTExtractors {
           if signed && -(BigInt(2).pow(size-1)) <= BigInt(n) && BigInt(n) < BigInt(2).pow(size-1) =>
 
           xt.BVLiteral(signed, BigInt(n), size)
-        case _ => outOfSubsetError(tr, "`intToBV` implicit may only be used on `Int` literals (in the right range)")
+        case _ => outOfSubsetError(tr, "`intToBV` may only be used on `Int` literals (in the right range)")
       }
+
+    case ExIntToBV(typ, tree) =>
+      outOfSubsetError(tr, s"`intToBV` cannot be instantiated on non-bitvector type $typ")
 
     case ExBigIntToBV(signed, size, tree) =>
       extractTree(tree) match {
