@@ -152,13 +152,6 @@ See below for a case class with a fixed length array and its transformation in C
     int32_t y;
   } W;
 
-.. WARNING::
-
-  Support for fixed length arrays is experimental and not fully implemented. At
-  the moment, it is not possible to pass a fixed length array (e.g. coming from
-  ``W`` in the example above) to a function expecting an array. It is also not
-  possible to construct an element of ``W``. `An issue <https://github.com/epfl-lara/stainless/issues/1056>`_ is open for these problems.
-
 Classes
 ^^^^^^^
 
