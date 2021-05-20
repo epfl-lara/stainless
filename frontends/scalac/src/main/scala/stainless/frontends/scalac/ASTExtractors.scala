@@ -554,14 +554,14 @@ trait ASTExtractors {
 
     /** `intToBV` extraction */
     object ExIntToBV {
-      def unapply(tree: Tree): Option[(Boolean, Int, Tree)] = tree  match {
+      def unapply(tree: Tree): Option[(Tree, Tree)] = tree  match {
         case Apply(
           TypeApply(
             ExSelected("stainless", "math", "BitVectors", "intToBV"),
-            FrontendBVKind(signed, size) :: Nil
+            typ :: Nil
           ), n :: Nil
         ) =>
-          Some((signed, size, n))
+          Some((typ, n))
         case _ =>
           None
       }
