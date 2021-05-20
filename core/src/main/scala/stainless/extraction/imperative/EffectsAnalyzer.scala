@@ -179,6 +179,10 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     def asString(implicit ctx: inox.Context) = s"MutableMapAccessor(${index.asString})"
   }
 
+  case class TupleFieldAccessor(index: Int) extends Accessor {
+    def asString(implicit ctx: inox.Context) = s"TupleFieldAccessor($index)"
+  }
+
   case class Path(path: Seq[Accessor]) {
     def :+(elem: Accessor): Path = Path(path :+ elem)
     def +:(elem: Accessor): Path = Path(elem +: path)
@@ -210,6 +214,8 @@ trait EffectsAnalyzer extends oo.CachingPhase {
           rec(xs1, xs2)
         case (ClassFieldAccessor(id1) +: xs1, ClassFieldAccessor(id2) +: xs2) if id1 == id2 =>
           rec(xs1, xs2)
+        case (TupleFieldAccessor(id1) +: xs1, TupleFieldAccessor(id2) +: xs2) if id1 == id2 =>
+          rec(xs1, xs2)
         case (MutableMapAccessor(_) +: xs1, MutableMapAccessor(_) +: xs2) =>
           rec(xs1, xs2)
         case _ => false
@@ -225,6 +231,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       else path.map {
         case ADTFieldAccessor(id) => s".${id.asString}"
         case ClassFieldAccessor(id) => s".${id.asString}"
+        case TupleFieldAccessor(idx) => s"._$idx"
         case ArrayAccessor(idx) => s"(${idx.asString})"
         case MutableMapAccessor(idx) => s"(${idx.asString})"
       }.mkString("")
@@ -238,6 +245,9 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     def wrap(expr: Expr, path: Seq[Accessor])(implicit symbols: Symbols): Option[Expr] = path match {
       case ADTFieldAccessor(id) +: xs =>
         wrap(ADTSelector(expr, id), xs)
+
+      case TupleFieldAccessor(idx) +: xs =>
+        wrap(TupleSelect(expr, idx), xs)
 
       case ClassFieldAccessor(id) +: xs =>
         def asClassType(tpe: Type): Option[ClassType] = tpe match {
@@ -297,6 +307,9 @@ trait EffectsAnalyzer extends oo.CachingPhase {
           val field = syms.classForField(ct, id).flatMap(_.fields.find(_.id == id))
           field.isDefined && rec(field.get.getType, xs)
 
+        case (tt: TupleType, TupleFieldAccessor(idx) +: xs) =>
+          0 < idx && idx <= tt.dimension && rec(tt.bases(idx - 1), xs)
+
         case (ArrayType(base), ArrayAccessor(idx) +: xs) =>
           rec(base, xs)
 
@@ -338,6 +351,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     case v: Variable => Set(Target(v, None, Path(path)))
     case ADTSelector(e, id) => getTargets(e, ADTFieldAccessor(id) +: path)
     case ClassSelector(e, id) => getTargets(e, ClassFieldAccessor(id) +: path)
+    case TupleSelect(e, idx) => getTargets(e, TupleFieldAccessor(idx) +: path)
     case ArraySelect(a, idx) => getTargets(a, ArrayAccessor(idx) +: path)
     case MutableMapApply(a, idx) => getTargets(a, MutableMapAccessor(idx) +: path)
     case MutableMapDuplicate(m) => getTargets(m, path)
@@ -352,6 +366,13 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     case ClassConstructor(ct, args) => path match {
       case ClassFieldAccessor(fid) +: rest =>
         getTargets(args(ct.tcd.fields.indexWhere(_.id == fid)), rest)
+      case _ =>
+        Set.empty
+    }
+
+    case Tuple(exprs) => path match {
+      case TupleFieldAccessor(idx) +: rest =>
+        getTargets(exprs(idx), rest)
       case _ =>
         Set.empty
     }
