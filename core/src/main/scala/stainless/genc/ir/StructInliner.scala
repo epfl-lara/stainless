@@ -39,4 +39,15 @@ final class StructInliner(val ctx: inox.Context) extends Transformer(RIR, SIR) w
     case _ => super.recImpl(e)
   }
 
+  override def rec(prog: Prog)(implicit env: Env): to.Prog = {
+    super.rec(
+      prog.copy(classes =
+        prog.classes.filter {
+          case SimplifiableClassDef(cd) => false
+          case _ => true
+        }
+      )
+    )
+  }
+
 }
