@@ -263,7 +263,7 @@ object Trace {
         
   def printEverything(implicit ctx: inox.Context) = {
     import ctx.{ reporter, timers }
-    if(!clusters.isEmpty || !errors.isEmpty || !unknowns.isEmpty) {
+    if(!clusters.isEmpty || !errors.isEmpty || !unknowns.isEmpty || !wrong.isEmpty) {
       reporter.info(s"Printing equivalence checking results:")  
       allModels.foreach(model => {
         val l = clusters(model).map(CheckFilter.fixedFullName).mkString(", ")
@@ -394,7 +394,7 @@ object Trace {
   }
 
   private def reportWrong = {
-    wrong = function.get::wrong
+    if (function != None) wrong = function.get::wrong
     resetTrace
     nextFunction
   }
