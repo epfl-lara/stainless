@@ -29,6 +29,9 @@ trait GhostChecker { self: EffectsAnalyzer =>
         case (ArrayType(base), ArrayAccessor(index) +: rest) =>
           rec(base, rest)
 
+        case (tt: TupleType, TupleFieldAccessor(index) +: rest) =>
+          rec(tt.bases(index - 1), rest)
+
         case _ => false
       }
 
