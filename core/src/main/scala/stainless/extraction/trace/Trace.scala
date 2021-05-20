@@ -54,7 +54,6 @@ trait Trace extends CachingPhase with IdentityFunctions with IdentitySorts { sel
         val pre = specs.map(spec => spec match {
           case Precondition(cond) => Precondition(exprOps.replaceFromSymbols(specsMap, cond))
           case LetInSpec(vd, expr) => LetInSpec(vd, exprOps.replaceFromSymbols(specsMap, expr))
-          case s => s
         })
 
         val res = s.ValDef.fresh("res", s.UnitType())
@@ -104,8 +103,7 @@ trait Trace extends CachingPhase with IdentityFunctions with IdentitySorts { sel
                 => {
                       val paramVars = fd.params.map(_.toVariable)
                       val argCheck = args.forall(paramVars.contains) && args.toSet.size == args.size
-                      if (argCheck) 
-                        funInv = Some(fi)
+                      if (argCheck) funInv = Some(fi)
                     }
                 case _ => 
               }(post)
@@ -117,7 +115,7 @@ trait Trace extends CachingPhase with IdentityFunctions with IdentitySorts { sel
       funInv match {
         case Some(finv) => {
           // make a helper lemma:
-          val helper = inductPattern(symbols, symbols.functions(finv.id), fd)
+          val helper = inductPattern(symbols, symbols.functions(finv.id), fd).setPos(fd.getPos)
 
           // transform the main lemma
           val proof = FunctionInvocation(helper.id, fd.tparams.map(_.tp), fd.params.map(_.toVariable))
@@ -126,7 +124,7 @@ trait Trace extends CachingPhase with IdentityFunctions with IdentitySorts { sel
           val lemma = fd.copy(
             fullBody = BodyWithSpecs(withPre).reconstructed,
             flags = (s.Derived(fd.id) +: s.Derived(finv.id) +: (fd.flags.filterNot(f => f.name == "traceInduct"))).distinct
-          ).copiedFrom(fd)
+          ).copiedFrom(fd).setPos(fd.getPos)
 
           Trace.setTrace(lemma.id)
           Trace.setProof(helper.id)
@@ -135,7 +133,7 @@ trait Trace extends CachingPhase with IdentityFunctions with IdentitySorts { sel
         case None => {
           val lemma = fd.copy(
             flags = (s.Derived(fd.id) +: (fd.flags.filterNot(f => f.name == "traceInduct")))
-          ).copiedFrom(fd)
+          ).copiedFrom(fd).setPos(fd.getPos)
           Trace.setTrace(lemma.id)
           List(lemma)
         }
@@ -200,8 +198,9 @@ trait Trace extends CachingPhase with IdentityFunctions with IdentitySorts { sel
       case Precondition(cond) => Precondition(exprOps.replaceFromSymbols(specsMap, cond)).setPos(spec)
       case LetInSpec(vd, expr) => LetInSpec(vd, exprOps.replaceFromSymbols(specsMap, expr)).setPos(spec)
       case Measure(measure) => Measure(exprOps.replaceFromSymbols(specsMap, measure)).setPos(spec)
-      case s => s
+      case s => context.reporter.fatalError(s"Unsupported specs: $s")
     })
+
     val withPre = exprOps.reconstructSpecs(pre, Some(fullBodySpecialized), indPattern.returnType)
 
     val speccedLemma = BodyWithSpecs(lemma.fullBody).addPost
@@ -230,24 +229,14 @@ trait Trace extends CachingPhase with IdentityFunctions with IdentitySorts { sel
     functions map CheckFilter.fullNameToPath
   }
 
-  private def shouldBeChecked(fid: Identifier): Boolean = pathsOpt match {
-    case None => false
-
-    case Some(paths) =>
-      // Support wildcard `_` as specified in the documentation.
-      // A leading wildcard is always assumed.
-      val path: Path = CheckFilter.fullNameToPath(CheckFilter.fixedFullName(fid))
-      paths exists { p =>
-        if (p endsWith Seq("_")) path containsSlice p.init
-        else path endsWith p
-      }
-  }
-
   private lazy val pathsOptModels: Option[Seq[Path]] = context.options.findOption(optModels) map { functions =>
     functions map CheckFilter.fullNameToPath
   }
 
-  private def isModel(fid: Identifier): Boolean = pathsOptModels match {
+  private def shouldBeChecked(fid: Identifier): Boolean = shouldBeChecked(pathsOpt, fid)
+  private def isModel(fid: Identifier): Boolean = shouldBeChecked(pathsOptModels, fid)
+
+  private def shouldBeChecked(paths: Option[Seq[Path]], fid: Identifier): Boolean = paths match {
     case None => false
 
     case Some(paths) =>
