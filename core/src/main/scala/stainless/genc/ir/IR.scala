@@ -39,7 +39,18 @@ private[genc] sealed trait IR { ir =>
    ****************************************************************************************************/
   sealed abstract class Def extends Tree
 
-  case class Prog(functions: Seq[FunDef], classes: Seq[ClassDef])
+  case class Prog(functions: Seq[FunDef], classes: Seq[ClassDef]) {
+
+    private def wrapWith(header: String, s: String) = {
+      if (s.isEmpty) ""
+      else "-------------" + header + "-------------\n" + s + "\n\n"
+    }
+
+    override def toString = {
+      wrapWith("Classes", classes.mkString("\n\n")) ++
+      wrapWith("Functions", functions.mkString("\n\n"))
+    }
+  }
 
   // Define a function body as either a regular AST or a manually defined
   // function using @cCode.function
@@ -47,7 +58,7 @@ private[genc] sealed trait IR { ir =>
   case class FunBodyAST(body: Expr) extends FunBody
   case class FunBodyManual(includes: Seq[String], body: String) extends FunBody // NOTE `body` is actually the whole function!
 
-  case class FunDef(id: Id, returnType: Type, ctx: Seq[ValDef], params: Seq[ValDef], var body: FunBody, isExported: Boolean) extends Def {
+  case class FunDef(id: Id, returnType: Type, ctx: Seq[ValDef], params: Seq[ValDef], var body: FunBody, isExported: Boolean, isPure: Boolean) extends Def {
     // Ignore body in equality/hash code; actually, use only the identifier. This is to prevent infinite recursion...
     override def equals(that: Any): Boolean = that match {
       case fd: FunDef => fd.id == id
@@ -324,7 +335,12 @@ private[genc] sealed trait IR { ir =>
    ****************************************************************************************************/
   sealed abstract class Type extends Tree {
     def isArray: Boolean = this match {
-      case ArrayType(_) => true
+      case ArrayType(_, _) => true
+      case _ => false
+    }
+
+    def isFixedArray: Boolean = this match {
+      case ArrayType(_, Some(_)) => true
       case _ => false
     }
 
@@ -337,7 +353,7 @@ private[genc] sealed trait IR { ir =>
       // We do *NOT* answer this question for the whole class hierarchy!
       case ClassType(clazz) => clazz.fields exists { _.getType.containsArray }
 
-      case ArrayType(_) => true
+      case ArrayType(_, _) => true
       case ReferenceType(t) => t.containsArray
 
       // We assume typeDefs don't contain arrays
@@ -356,7 +372,7 @@ private[genc] sealed trait IR { ir =>
       // We do answer this question for the whole class hierarchy!
       case ClassType(clazz) => clazz.isHierarchyMutable
 
-      case ArrayType(_) => true
+      case ArrayType(_, _) => true
       case ReferenceType(_) => true
       case TypeDefType(_, _, _, _) => false // This is our assumption
       case DroppedType => false
@@ -395,8 +411,8 @@ private[genc] sealed trait IR { ir =>
   // Type representing an abstract or case class, as well as tuples
   case class ClassType(clazz: ClassDef) extends Type
 
-  // Represents the type of an array of `base`
-  case class ArrayType(base: Type) extends Type
+  // Represents the type of an array of `base`, optionally with a fixed length
+  case class ArrayType(base: Type, length: Option[Int]) extends Type
 
   // A ReferenceType is just a marker for references, it acts like the underlying type
   case class ReferenceType(t: Type) extends Type
@@ -436,7 +452,8 @@ private[genc] sealed trait IR { ir =>
       val paramsRep = params map repId mkString "_"
       "function_" + ctx + "_" + params + "_" + repId(ret)
     case ClassType(clazz) => clazz.id
-    case ArrayType(base) => "array_" + repId(base)
+    case ArrayType(base, None) => "array_" + repId(base)
+    case ArrayType(base, Some(length)) => s"${repId(base)}[$length]"
     case ReferenceType(t) => "ref_" + repId(t)
     case TypeDefType(original, _, _, _) => original
     case DroppedType => ??? // Building an id on dropped type is illegal!
@@ -446,6 +463,7 @@ private[genc] sealed trait IR { ir =>
 }
 
 object IRs {
+  final object SIR extends IR
   final object CIR extends IR
   final object RIR extends IR
   final object NIR extends IR

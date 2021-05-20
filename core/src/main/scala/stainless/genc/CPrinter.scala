@@ -185,6 +185,9 @@ class CPrinter(
     case DeclArrayStatic(id, base, length, values) =>
       c"$base $id[$length] = { ${nary(values, sep = ", ")} }"
 
+    case ArrayStatic(_, values) =>
+      c"{ ${nary(values, sep = ", ")} }"
+
     case DeclArrayVLA(id, base, length, defaultExpr) =>
       val i = FreshId("i")
       c"""|$base $id[$length];
@@ -249,6 +252,7 @@ class CPrinter(
 
     case Break => c"break"
 
+    case Return(Lit(UnitLit)) => c"return"
     case Return(value) => c"return $value"
 
     case Cast(expr, typ) => optP { c"($typ)$expr" }
@@ -259,13 +263,14 @@ class CPrinter(
     case StaticStorage(_) => c"static "
 
     case TypeId(FunType(ret, params), id) => c"$ret (*$id)($params)"
+    case TypeId(FixedArrayType(base, length), id) => c"$base $id[$length]"
     case TypeId(typ, id) => c"$typ $id"
 
     case FunSign(Fun(id, FunType(retret, retparamTypes), params, _, _)) =>
-      c"${StaticStorage(id)}$retret (*$id(${FunSignParams(params)}))(${FunSignParams(retparamTypes)})"
+      c"$retret (*$id(${FunSignParams(params)}))(${FunSignParams(retparamTypes)})"
 
     case FunSign(Fun(id, returnType, params, _, _)) =>
-      c"${StaticStorage(id)}$returnType $id(${FunSignParams(params)})"
+      c"$returnType $id(${FunSignParams(params)})"
 
     case FunSignParams(Seq()) => c"void"
     case FunSignParams(params) => c"${nary(params)}"

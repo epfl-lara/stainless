@@ -4,24 +4,22 @@ package stainless
 package genc
 package phases
 
-import ir.IRs.{ RIR }
+import ir.IRs.{ SIR }
 
 import ir.PrimitiveTypes._
 import ir.Literals._
 import ir.Operators._
 
 import genc.{ CAST => C }
-import RIR._
+import SIR._
 
 import collection.mutable.{ Map => MutableMap, Set => MutableSet }
 
-private[genc] object IR2CPhase extends LeonPipeline[RIR.Prog, CAST.Prog] {
+trait IR2CPhase extends LeonPipeline[SIR.Prog, CAST.Prog] {
   val name = "CASTer"
   val description = "Translate the IR tree into the final C AST"
 
-  def getTimer(ctx: inox.Context) = ctx.timers.genc.get("RIR -> CAST")
-
-  def run(ctx: inox.Context, ir: RIR.Prog): CAST.Prog = new IR2CImpl(ctx)(ir)
+  def run(ir: SIR.Prog): CAST.Prog = new IR2CImpl(context)(ir)
 }
 
 // This implementation is basically a Transformer that produce something which isn't an IR tree.
@@ -105,7 +103,8 @@ private class IR2CImpl(val ctx: inox.Context) {
     case PrimitiveType(pt) => C.Primitive(pt)
     case FunType(ctx, params, ret) => C.FunType(params = (ctx ++ params) map rec, ret = rec(ret))
     case ClassType(clazz) => convertClass(clazz) // can be a struct or an enum
-    case array @ ArrayType(_) => array2Struct(array)
+    case array @ ArrayType(_, None) => array2Struct(array)
+    case array @ ArrayType(base, Some(length)) => C.FixedArrayType(rec(base), length)
     case ReferenceType(t) => C.Pointer(rec(t))
 
     case TypeDefType(original, alias, include, export) =>
@@ -157,6 +156,20 @@ private class IR2CImpl(val ctx: inox.Context) {
 
       C.buildBlock(bufferDecl :: varDecl :: Nil)
 
+    case ArrayInit(ArrayAllocStatic(arrayType, length, values0)) =>
+      val values = values0 match {
+        case Right(values0) => values0 map rec
+        case Left(_) =>
+          // By default, 0-initialisation using only zero value
+          val z = arrayType.base match {
+            case PrimitiveType(Int8Type) => Int8Lit(0)
+            case PrimitiveType(Int32Type) => Int32Lit(0)
+            case _ => ctx.reporter.fatalError(s"Unexpected integral type $arrayType")
+          }
+          Seq(C.Lit(z))
+      }
+      C.ArrayStatic(rec(arrayType.base), values)
+
     case DeclInit(vd, ArrayInit(ArrayAllocVLA(arrayType, length, valueInit))) =>
       val bufferId = C.FreshId("buffer")
       val lenId = C.FreshId("length")
@@ -178,7 +191,16 @@ private class IR2CImpl(val ctx: inox.Context) {
 
     case ArrayInit(alloc) => ctx.reporter.fatalError("This should be part of a DeclInit expression!")
 
-    case FieldAccess(objekt, fieldId) => C.FieldAccess(rec(objekt), rec(fieldId))
+    case FieldAccess(obj, fieldId) => C.FieldAccess(rec(obj), rec(fieldId))
+
+    // no `data` field for fixed arrays
+    case ArrayAccess(FieldAccess(obj, fieldId), index)
+      if  obj.getType.isInstanceOf[ClassType] &&
+          obj.getType.asInstanceOf[ClassType].clazz.fields.exists(vd =>
+            vd.id == fieldId && vd.typ.isFixedArray
+          ) =>
+        C.ArrayAccess(C.FieldAccess(rec(obj), rec(fieldId)), rec(index))
+
     case ArrayAccess(array, index) => C.ArrayAccess(C.FieldAccess(rec(array), C.Id("data")), rec(index))
     case ArrayLength(array) => C.FieldAccess(rec(array), C.Id("length"))
 
@@ -241,7 +263,7 @@ private class IR2CImpl(val ctx: inox.Context) {
     case IsA(expr0, ct) =>
       val tag = getEnumLiteralFor(ct.clazz)
       val expr =
-        if (isEnumeration(ct.clazz)) rec(expr0) // It's an enum, therefor no field to access
+        if (isEnumeration(ct.clazz)) rec(expr0) // It's an enum, therefore no field to access
         else C.FieldAccess(rec(expr0), TaggedUnion.tag)
 
       C.BinOp(Equals, expr, tag)
@@ -533,7 +555,7 @@ private class IR2CImpl(val ctx: inox.Context) {
         case typ => ctx.reporter.fatalError(s"Unexpected type $typ in CmpFactory!")
       }
 
-      FunDef(id, retTyp, Seq(), params, body, false)
+      FunDef(id, retTyp, Seq(), params, body, false, true)
     }
 
     private def buildStringCmpBody() = FunBodyManual(
@@ -590,4 +612,10 @@ private class IR2CImpl(val ctx: inox.Context) {
     }
   }
 
+}
+
+object IR2CPhase {
+  def apply(implicit ctx: inox.Context): LeonPipeline[SIR.Prog, CAST.Prog] = new {
+    val context = ctx
+  } with IR2CPhase
 }

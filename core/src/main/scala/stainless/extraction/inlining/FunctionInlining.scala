@@ -68,14 +68,22 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
         }
 
         val pre = specced.specs.filter(spec => spec.kind == LetKind || spec.kind == PreconditionKind)
+        val maxPre = pre.count(_.kind == PreconditionKind)
         def addPreconditionAssertions(e: Expr): Expr = {
-          pre.foldRight(e) {
-            case (spec @ LetInSpec(vd, e0), acc) => Let(vd, annotated(e0, Unchecked), acc).setPos(fi)
-            case (spec @ Precondition(cond), acc) =>
+          pre.foldRight((e, maxPre)) {
+            case (spec @ LetInSpec(vd, e0), (acc, i)) => (Let(vd, annotated(e0, Unchecked), acc).setPos(fi), i)
+            case (spec @ Precondition(cond), (acc, i)) =>
+              val num = if (i == 1) "" else s" ($i)"
               // the assertion is not itself marked `Unchecked` (as it needs to be checked)
               // but `cond` should not generate additional VCs and is marked with `Unchecked`
-              Assert(annotated(cond, Unchecked), Some("Inlined precondition of " + tfd.id.asString), acc).copiedFrom(fi)
-          }
+              val condVal = ValDef.fresh("cond", BooleanType()).setPos(fi)
+              (
+                Let(condVal, annotated(cond, Unchecked),
+                  Assert(condVal.toVariable.setPos(fi), Some(s"Inlined precondition$num of " + tfd.id.asString), acc
+                ).copiedFrom(fi)).copiedFrom(fi),
+                i-1
+              )
+          }._1
         }
 
         val post = specced.getSpec(PostconditionKind)
@@ -84,7 +92,11 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
           // It is thus inlined into an assertion here.
           case Some(Lambda(Seq(vd), post)) if isSynthetic =>
             val err = Some("Inlined postcondition of " + tfd.id.name)
-            Let(vd, e, Assert(annotated(post, Unchecked), err, vd.toVariable.copiedFrom(fi)).copiedFrom(fi)).copiedFrom(fi)
+            val postVal = ValDef.fresh("post", BooleanType()).setPos(fi)
+            Let(vd, e,
+              Let(postVal, annotated(post, Unchecked),
+                Assert(postVal.toVariable.setPos(fi), err, vd.toVariable.copiedFrom(fi)
+            ).copiedFrom(fi)).copiedFrom(fi)).copiedFrom(fi)
           case Some(Lambda(Seq(vd), post)) =>
             Let(vd, e, Assume(annotated(post, Unchecked), vd.toVariable.copiedFrom(fi)).copiedFrom(fi)).copiedFrom(fi)
           case _ => e

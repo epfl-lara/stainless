@@ -70,6 +70,9 @@ trait TransformerWithType extends oo.TransformerWithType {
     case s.Snapshot(e) =>
       t.Snapshot(transform(e, tpe)).copiedFrom(expr)
 
+    case s.FreshCopy(e) =>
+      t.FreshCopy(transform(e, tpe)).copiedFrom(expr)
+
     case s.BoolBitwiseAnd(lhs, rhs) =>
       t.BoolBitwiseAnd(transform(lhs, s.BooleanType()), transform(rhs, s.BooleanType())).copiedFrom(expr)
 

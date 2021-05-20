@@ -11,7 +11,7 @@ object StdOut {
   @extern
   @cCode.function(
     code = """
-     |static void __FUNCTION__(uint8_t x) {
+     |void __FUNCTION__(uint8_t x) {
      |  printf("%"PRIu8, x);
      |}
      """,
@@ -31,7 +31,7 @@ object StdOut {
   @extern
   @cCode.function(
     code = """
-     |static void __FUNCTION__(uint16_t x) {
+     |void __FUNCTION__(uint16_t x) {
      |  printf("%"PRIu16, x);
      |}
      """,
@@ -51,7 +51,7 @@ object StdOut {
   @extern
   @cCode.function(
     code = """
-     |static void __FUNCTION__(uint32_t x) {
+     |void __FUNCTION__(uint32_t x) {
      |  printf("%"PRIu32, x);
      |}
      """,
@@ -71,7 +71,7 @@ object StdOut {
   @extern
   @cCode.function(
     code = """
-     |static void __FUNCTION__(uint64_t x) {
+     |void __FUNCTION__(uint64_t x) {
      |  printf("%"PRIu64, x);
      |}
      """,
@@ -91,7 +91,7 @@ object StdOut {
   @library
   @cCode.function(
     code = """
-      |static void __FUNCTION__(char* s) {
+      |void __FUNCTION__(char* s) {
       |  printf("%s", s);
       |}
       """,
@@ -115,7 +115,7 @@ object StdOut {
   @extern
   @cCode.function(
     code = """
-      |static void __FUNCTION__(int8_t x) {
+      |void __FUNCTION__(int8_t x) {
       |  printf("%c", x);
       |}
       """,
@@ -136,7 +136,7 @@ object StdOut {
   @extern
   @cCode.function(
     code = """
-     |static void __FUNCTION__(int32_t x) {
+     |void __FUNCTION__(int32_t x) {
      |  printf("%"PRIi32, x);
      |}
      """,
@@ -156,7 +156,7 @@ object StdOut {
   @extern
   @cCode.function(
     code = """
-      |static void __FUNCTION__(char c) {
+      |void __FUNCTION__(char c) {
       |  printf("%c", c);
       |}
       """,
@@ -182,7 +182,7 @@ object StdOut {
   @pure
   @cCode.function(
     code = """
-      |static void __FUNCTION__(void* s) {
+      |void __FUNCTION__(void* s) {
       |  printf("%s", s);
       |}
       """,
@@ -197,7 +197,7 @@ object StdOut {
   @pure
   @cCode.function(
     code = """
-      |static void __FUNCTION__(void* s) {
+      |void __FUNCTION__(void* s) {
       |  printf("%s\n", s);
       |}
       """,

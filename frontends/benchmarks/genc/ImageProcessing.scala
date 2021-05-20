@@ -227,9 +227,11 @@ object ImageProcessing {
    */
   case class Image(r: Array[Byte], g: Array[Byte], b: Array[Byte], w: Int, h: Int) {
     require(
-      r.length == MaxSurfaceSize &&
-      g.length == MaxSurfaceSize &&
-      b.length == MaxSurfaceSize &&
+      // FIXME: length is on right-hand-side to avoid finite array optimization
+      // see issue https://github.com/epfl-lara/stainless/issues/1056
+      MaxSurfaceSize == r.length &&
+      MaxSurfaceSize == g.length &&
+      MaxSurfaceSize == b.length &&
       inRange(w, 0, MaxSize) &&
       inRange(h, 0, MaxSize) &&
       inRange(w * h, 0, MaxSurfaceSize)
@@ -566,7 +568,7 @@ object ImageProcessing {
   @extern
   @cCode.function(
     code = """
-      |static void __FUNCTION__(int8_t x) {
+      |void __FUNCTION__(int8_t x) {
       |  printf("%u\n", x);
       |}
       """,
@@ -594,7 +596,9 @@ object ImageProcessing {
      */
     private def apply(channel: Array[Byte], width: Int, height: Int, index: Int): Byte = {
       require(
-        channel.length == MaxSurfaceSize &&
+        // FIXME: length is on right-hand-side to avoid finite array optimization
+        // see issue https://github.com/epfl-lara/stainless/issues/1056
+        MaxSurfaceSize == channel.length &&
         inRange(index, 0, channel.length) &&
         inRange(width, 1, MaxSize) &&
         inRange(height, 1, MaxSize) &&
@@ -647,7 +651,6 @@ object ImageProcessing {
       }) invariant (inRange(p, -mid, mid + 1))
 
       res = clamp(res / scale, 0, 255)
-      // StdOut.print("RESULT BYTE: ")
       res.toByte
     }
 

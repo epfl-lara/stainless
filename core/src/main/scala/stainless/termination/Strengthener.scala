@@ -31,7 +31,7 @@ trait Strengthener { self: OrderingRelation =>
       syms.withFunctions(syms.functions.toSeq.map {
         case (id, fd) =>
           strengthenedPost.get(id) match {
-            case Some(post @ Some(_)) => fd.copy(fullBody = exprOps.withPostcondition(fd.fullBody, post))
+            case Some(post @ Some(_)) => fd.copy(fullBody = exprOps.withPostcondition(fd.fullBody, post)).copiedFrom(fd)
             case _                    => fd
           }
       })
@@ -70,14 +70,16 @@ trait Strengthener { self: OrderingRelation =>
           Lambda(Seq(res), and(post, sizePost))
         }
 
-        val formula = specced.wrapLets(implies(
-          specced.getSpec(PreconditionKind).map(_.expr).getOrElse(BooleanLiteral(true)),
-          application(postcondition, Seq(specced.body))
-        ))
+        val letsAndRequires = specced.letsAndSpecs(PreconditionKind)
+        val formula = letsAndRequires.foldRight(application(postcondition, Seq(specced.body))) {
+          case (spec @ LetInSpec(vd, e), acc) => Let(vd, e, acc).setPos(spec)
+          case (spec @ Precondition(pred), acc) => implies(pred, acc).setPos(spec)
+          case _ => sys.error("shouldn't happen thanks to the filtering above")
+        }
 
         val strengthener = new IdentitySymbolTransformer {
           override def transform(syms: Symbols): Symbols = super.transform(syms).withFunctions {
-            Seq(fd.copy(fullBody = exprOps.withPostcondition(fd.fullBody, Some(postcondition))))
+            Seq(fd.copy(fullBody = exprOps.withPostcondition(fd.fullBody, Some(postcondition))).copiedFrom(fd))
           }
         }
 

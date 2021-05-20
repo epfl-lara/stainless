@@ -2,45 +2,67 @@
 
 package stainless.genc
 
-trait NamedLeonPhase[-F, +T] extends LeonPipeline[F, T] {
+import stainless.extraction.utils._
+
+trait NamedLeonPhase[F, T] extends LeonPipeline[F, T] {
   val underlying: LeonPipeline[F, T]
   val name: String
 
-  private implicit val debugSection = DebugSectionGenC
+  lazy val phases = context.options.findOption(optDebugPhases).map(_.toSet)
 
-  override def run(ctx: inox.Context, p: F): T = {
-    ctx.reporter.debug("\n" * 2)
-    ctx.reporter.debug("=" * 100)
-    ctx.reporter.debug(s"Running phase $name on")
-    ctx.reporter.debug(p)
-    val res = ctx.timers.genc.get(name).run {
-      underlying.run(ctx, p)
+  lazy val debugTrees: Boolean =
+    (phases.isEmpty || phases.exists(_.contains(name))) &&
+    context.reporter.debugSections.contains(DebugSectionTrees)
+
+  private implicit val debugSection = DebugSectionTrees
+
+  override def run(p: F): T = {
+    if (debugTrees) {
+      context.reporter.debug("\n" * 2)
+      context.reporter.debug("=" * 100)
+      context.reporter.debug(s"Running phase $name on:\n")
+      context.reporter.debug(p)
     }
-    ctx.reporter.debug(s"Finished running phase $name")
-    ctx.reporter.debug(res)
-    ctx.reporter.debug("=" * 100)
-    ctx.reporter.debug("\n" * 4)
+    val res = context.timers.genc.get(name).run {
+      underlying.run(p)
+    }
+    if (debugTrees) {
+      context.reporter.debug("\n")
+      context.reporter.debug("-" * 100)
+      context.reporter.debug(s"Finished running phase $name:\n")
+      context.reporter.debug(res)
+      context.reporter.debug("=" * 100)
+      context.reporter.debug("\n" * 4)
+    }
     res
   }
 }
 
 object NamedLeonPhase {
-  def apply[F, T](s: String, pipeline: LeonPipeline[F, T]): LeonPipeline[F, T] {
+
+  def apply[F, T](s: String, pipeline: LeonPipeline[F, T])(implicit ctx: inox.Context): LeonPipeline[F, T] {
   } = new {
     override val underlying: pipeline.type = pipeline
     override val name: String = s
+    override val context = ctx
   } with NamedLeonPhase[F, T]
 }
 
-abstract class UnitPhase[T] extends LeonPipeline[T, T] {
-  def apply(ctx: inox.Context, p: T): Unit
+trait UnitPhase[T] extends LeonPipeline[T, T] {
+  def apply(p: T): Unit
 
-  override def run(ctx: inox.Context, p: T) = {
-    apply(ctx, p)
+  override def run(p: T) = {
+    apply(p)
     p
   }
 }
 
-case class NoopPhase[T]() extends LeonPipeline[T, T] {
-  override def run(ctx: inox.Context, v: T) = v
+object NoopPhase {
+  def apply[T](implicit ctx: inox.Context): LeonPipeline[T, T] = {
+    new {
+      override val context = ctx
+    } with LeonPipeline[T, T] {
+      override def run(v: T) = v
+    }
+  }
 }

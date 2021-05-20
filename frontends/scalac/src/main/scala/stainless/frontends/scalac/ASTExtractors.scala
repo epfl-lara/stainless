@@ -554,14 +554,14 @@ trait ASTExtractors {
 
     /** `intToBV` extraction */
     object ExIntToBV {
-      def unapply(tree: Tree): Option[(Boolean, Int, Tree)] = tree  match {
+      def unapply(tree: Tree): Option[(Tree, Tree)] = tree  match {
         case Apply(
           TypeApply(
             ExSelected("stainless", "math", "BitVectors", "intToBV"),
-            FrontendBVKind(signed, size) :: Nil
+            typ :: Nil
           ), n :: Nil
         ) =>
-          Some((signed, size, n))
+          Some((typ, n))
         case _ =>
           None
       }
@@ -826,7 +826,16 @@ trait ASTExtractors {
 
     object ExSnapshotExpression {
       def unapply(tree: Apply) : Option[Tree] = tree match {
-        case a @ Apply(TypeApply(ExSymbol("stainless", "lang", "snapshot"), List(tpe)), List(arg)) =>
+        case Apply(TypeApply(ExSymbol("stainless", "lang", "snapshot"), List(_)), List(arg)) =>
+          Some(arg)
+        case _ =>
+          None
+      }
+    }
+
+    object ExFreshCopyExpression {
+      def unapply(tree: Apply) : Option[Tree] = tree match {
+        case Apply(TypeApply(ExSymbol("stainless", "lang", "freshCopy"), List(_)), List(arg)) =>
           Some(arg)
         case _ =>
           None

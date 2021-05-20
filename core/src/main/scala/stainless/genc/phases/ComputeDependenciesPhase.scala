@@ -36,49 +36,46 @@ import collection.mutable.{Set => MutableSet}
  *     classes annotated with @cCode.typdef. We therefore implement a simpler version
  *     of it here based on a TreeTraverser.
  */
-private[genc] object ComputeDependenciesPhase
-    extends LeonPipeline[Symbols, Dependencies] {
+trait ComputeDependenciesPhase extends LeonPipeline[Symbols, Dependencies] {
   val name = "Dependency computer"
-  val description = "Compute the dependencies of a given definition"
 
-  def getTimer(ctx: inox.Context) = ctx.timers.genc.get("compute dependencies")
+  implicit val context: inox.Context
+  import context._
 
-  var warned = false
-
-  def run(ctx: inox.Context, syms: Symbols): Dependencies = {
+  def run(syms: Symbols): Dependencies = {
     implicit val symbols = syms
-    implicit val printerOpts = PrinterOptions.fromContext(ctx)
+    implicit val printerOpts = PrinterOptions.fromContext(context)
 
     def validateClassAnnotations(cd: ClassDef): Unit = {
 
       val pos = cd.getPos
 
       if (cd.isManuallyTyped && cd.isDropped)
-        ctx.reporter.fatalError(pos, s"${cd.id} cannot be both dropped and manually defined")
+        reporter.fatalError(pos, s"${cd.id} cannot be both dropped and manually defined")
 
       if (cd.isGeneric && cd.isManuallyTyped)
-        ctx.reporter.fatalError(
+        reporter.fatalError(
           pos,
           s"${cd.id} cannot be both a generic type and manually defined"
         )
 
       if (cd.isGeneric && cd.isExported)
-        ctx.reporter.fatalError(
+        reporter.fatalError(
           pos,
           s"Generic classes (${cd.id.asString}) cannot be exported"
         )
 
       if (cd.isManuallyTyped && cd.parents.nonEmpty)
-        ctx.reporter.fatalError(
+        reporter.fatalError(
           pos,
           s"${cd.id} cannot be manually defined because it is part of a class hierarchy"
         )
 
       if (cd.isRecursive)
-        ctx.reporter.fatalError(pos, s"${cd.id} and other recursive types are not supported")
+        reporter.fatalError(pos, s"${cd.id} and other recursive types are not supported")
       if (!cd.isManuallyTyped) {
         if (cd.isRecursive)
-          ctx.reporter.fatalError("Recursive types are not supported")
+          reporter.fatalError("Recursive types are not supported")
       }
     }
 
@@ -87,38 +84,38 @@ private[genc] object ComputeDependenciesPhase
 
       // Those next three tests could be carried out on all functions, not just dependencies
       if (fd.isExtern && !fd.isManuallyDefined && !fd.isDropped)
-        ctx.reporter.fatalError(
+        reporter.fatalError(
           pos,
           s"Extern functions (${fd.id.asString}) need to be either manually defined or dropped"
         )
 
       if (fd.isManuallyDefined && fd.isDropped)
-        ctx.reporter.fatalError(
+        reporter.fatalError(
           pos,
           s"Functions (${fd.id.asString}) cannot be dropped and manually implemented at the same time"
         )
 
       if (fd.isGeneric && fd.isManuallyDefined)
-        ctx.reporter.fatalError(
+        reporter.fatalError(
           pos,
           s"Functions (${fd.id.asString}) cannot be both a generic function and manually defined"
         )
 
       if (fd.isGeneric && fd.isExported)
-        ctx.reporter.fatalError(
+        reporter.fatalError(
           pos,
           s"Generic functions (${fd.id.asString}) cannot be exported"
         )
 
       // This last test is specific to dependencies.
       if (fd.isDropped)
-        ctx.reporter.fatalError(
+        reporter.fatalError(
           pos,
           s"Dropped functions (${fd.id.asString}) shall not be used"
         )
     }
 
-    val finder = new ComputeDependenciesImpl(ctx)
+    val finder = new ComputeDependenciesImpl(context)
     val exportedObjects: Seq[Definition] =
       syms.functions.values.toSeq.filter(_.isExported) ++
       syms.classes.values.toSeq.filter(_.isExported)
@@ -234,4 +231,10 @@ private final class ComputeDependenciesImpl(val ctx: inox.Context)(implicit
     }
   }
 
+}
+
+object ComputeDependenciesPhase {
+  def apply(implicit ctx: inox.Context): LeonPipeline[Symbols, Dependencies] = new {
+    val context = ctx
+  } with ComputeDependenciesPhase
 }

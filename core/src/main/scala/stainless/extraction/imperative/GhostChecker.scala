@@ -29,6 +29,9 @@ trait GhostChecker { self: EffectsAnalyzer =>
         case (ArrayType(base), ArrayAccessor(index) +: rest) =>
           rec(base, rest)
 
+        case (tt: TupleType, TupleFieldAccessor(index) +: rest) =>
+          rec(tt.bases(index - 1), rest)
+
         case _ => false
       }
 
@@ -44,7 +47,8 @@ trait GhostChecker { self: EffectsAnalyzer =>
       // Measures are also considered ghost, as they are never executed
       case Decreases(_, body) => isGhostExpression(body)
 
-      case Snapshot(e) => true
+      case Snapshot(_) => true
+      case FreshCopy(e) => isGhostExpression(e)
 
       case FunInvocation(id, _, args, _) =>
         val fun = lookupFunction(id).map(Outer(_)).getOrElse(analysis.local(id))

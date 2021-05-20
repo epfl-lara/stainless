@@ -134,7 +134,7 @@ trait ReturnElimination
 
           val newPost =
             t.Lambda(
-              Seq(t.ValDef.fresh("_unused", t.UnitType().copiedFrom(wh)).copiedFrom(wh)),
+              Seq(t.ValDef.fresh("_res", t.UnitType().copiedFrom(wh)).copiedFrom(wh)),
               t.and(
                 transformedInv.getOrElse(t.BooleanLiteral(true).copiedFrom(wh)),
                 t.Not(getFunctionalResult(transformedCond).copiedFrom(cond)).copiedFrom(cond),
@@ -411,7 +411,7 @@ trait ReturnElimination
           }
           processBlockExpressions(es :+ last)
 
-        case (_: s.Lambda | _: s.Forall | _: s.Old | _: s.Snapshot | _: s.Choose) =>
+        case (_: s.Lambda | _: s.Forall | _: s.Old | _: s.Snapshot | _: s.FreshCopy | _: s.Choose) =>
           SimpleWhileTransformer.transform(expr)
 
         case _ if exprHasReturn(expr) =>

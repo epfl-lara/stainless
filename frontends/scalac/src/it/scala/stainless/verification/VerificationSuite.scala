@@ -30,9 +30,15 @@ trait VerificationSuite extends ComponentTestSuite {
     case "verification/invalid/BinarySearchTreeQuant" => Ignore
     case "verification/invalid/ForallAssoc" => Ignore
 
+    // Lemmas used in one equation can leak in other equations due to https://github.com/epfl-lara/inox/issues/139
+    case "verification/invalid/Equations1" => Ignore
+    case "verification/invalid/Equations2" => Ignore
+    case "verification/invalid/Equations3" => Ignore
+
     // Unstable
     case "verification/valid/BigIntMonoidLaws" => Ignore
     case "verification/valid/BigIntRing" => Ignore
+    case "verification/valid/InnerClasses4" => Ignore
 
     // Z3 4.8.10 and CVC4 1.8 time out but can't find a counter-example
     case "verification/invalid/BadConcRope" => Ignore

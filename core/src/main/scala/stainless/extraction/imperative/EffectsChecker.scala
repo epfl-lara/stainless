@@ -289,8 +289,9 @@ trait EffectsChecker { self: EffectsAnalyzer =>
         case MutableMapDuplicate(IsTyped(_, MutableMapType(from, to))) =>
           !isMutableType(from) && !isMutableType(to)
 
-        // snapshots are fresh
-        case Snapshot(e) => true
+        // snapshots & fresh copies are fresh
+        case Snapshot(_) => true
+        case FreshCopy(_) => true
 
         // For `Let`, it is safe to add `vd` as a fresh binding because we disallow
         // `FieldAssignments` with non-fresh expressions in `check(fd: FunAbstraction)` above.
