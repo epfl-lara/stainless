@@ -372,7 +372,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
 
     case Tuple(exprs) => path match {
       case TupleFieldAccessor(idx) +: rest =>
-        getTargets(exprs(idx), rest)
+        getTargets(exprs(idx - 1), rest)
       case _ =>
         Set.empty
     }
