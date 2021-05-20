@@ -324,6 +324,8 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
   private def normalise(pre: Seq[to.Expr], value: to.Expr, allowTopLevelApp: Boolean, allowArray: Boolean): (Seq[to.Expr], to.Expr) = value match {
     case _ if isSimple(value, allowTopLevelApp, allowArray) => (pre, value)
 
+    case _: to.While => (pre :+ value, to.Lit(Literals.UnitLit))
+
     case fi0 @ to.IfElse(_, _, _) =>
       val norm = freshNormVal(fi0.getType, isVar = true)
       val decl = to.Decl(norm)
