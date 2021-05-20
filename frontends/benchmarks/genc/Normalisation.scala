@@ -20,8 +20,8 @@ object Normalisation {
     val x = a.sum + a.sum
     val y = x + a.sum
     StdOut.println(y)
-    // val b = B(a, 76, 14, a)
-    // StdOut.println(b.a1.sum + b.i.toInt + b.j.toInt + b.a2.sum)
+    val b = B(a, 76, 14, a)
+    StdOut.println(b.a1.sum + b.i.toInt + b.j.toInt + b.a2.sum)
   }
 
 }
