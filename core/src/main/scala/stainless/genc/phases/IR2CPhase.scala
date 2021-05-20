@@ -263,7 +263,7 @@ private class IR2CImpl(val ctx: inox.Context) {
     case IsA(expr0, ct) =>
       val tag = getEnumLiteralFor(ct.clazz)
       val expr =
-        if (isEnumeration(ct.clazz)) rec(expr0) // It's an enum, therefor no field to access
+        if (isEnumeration(ct.clazz)) rec(expr0) // It's an enum, therefore no field to access
         else C.FieldAccess(rec(expr0), TaggedUnion.tag)
 
       C.BinOp(Equals, expr, tag)
