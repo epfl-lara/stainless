@@ -334,6 +334,11 @@ private[genc] sealed trait IR { ir =>
    *                                                       Type Tree                                  *
    ****************************************************************************************************/
   sealed abstract class Type extends Tree {
+    def isUnitType: Boolean = this match {
+      case PrimitiveType(UnitType) => true
+      case _ => false
+    }
+
     def isArray: Boolean = this match {
       case ArrayType(_, _) => true
       case _ => false

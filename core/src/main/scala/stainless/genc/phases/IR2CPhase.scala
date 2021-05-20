@@ -130,7 +130,16 @@ private class IR2CImpl(val ctx: inox.Context) {
       // artificially (e.g. CmpFactory).
       C.Binding(rec(fd.id))
 
-    case Block(exprs) => C.buildBlock(exprs map rec)
+    case Block(exprs) => C.buildBlock {
+      // remove left-over Unit bindings and Unit declarations
+      exprs
+        .filter {
+          case Binding(vd) if vd.typ.isUnitType => false
+          case DeclInit(vd, Lit(UnitLit)) if vd.typ.isUnitType => false
+          case _ => true
+        }
+        .map(rec)
+    }
 
     case Decl(vd) => C.Decl(rec(vd.id), rec(vd.getType))
 
