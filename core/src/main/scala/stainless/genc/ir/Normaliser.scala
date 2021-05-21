@@ -304,9 +304,10 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
   // Simple expressions that do not require normalisation
   // We allow here function invocations where the `FunDef` is marked as `pure` thanks to
   // the effects analysis done during the `Scala2IR` phase (or thanks to user annotation)
-  private def isSimple(e: to.Expr, allowTopLevelApp: Boolean, allowArray: Boolean): Boolean = {
+  private def isSimple(e: to.Expr, allowTopLevelApp: Boolean, allowArray: Boolean, allowVariable: Boolean): Boolean = {
     def rec(e: to.Expr): Boolean = e match {
-      case _: to.Binding | _: to.Lit => true
+      case _: to.Binding => allowVariable
+      case _: to.Lit => true
       case to.Deref(e0) => rec(e0)
       case to.IntegralCast(e0, _) => rec(e0)
       case to.AsA(e0, _) => rec(e0)
@@ -321,7 +322,7 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
   }
 
   private def normalise(pre: Seq[to.Expr], value: to.Expr, allowTopLevelApp: Boolean, allowArray: Boolean): (Seq[to.Expr], to.Expr) = value match {
-    case _ if isSimple(value, allowTopLevelApp, allowArray) => (pre, value)
+    case _ if isSimple(value, allowTopLevelApp, allowArray, true) => (pre, value)
 
     case _: to.While => (pre :+ value, to.Lit(Literals.UnitLit))
 
@@ -363,7 +364,7 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
   // Strict normalisation: create a normalisation variable to save the result of an argument if it could be modified
   // by an init segment (from any argument) extracted during regular normalisation.
   private def strictNormalisation(value: to.Expr, inits: Seq[to.Expr]*): (Option[to.DeclInit], to.Expr) = {
-    if (inits.forall(_.isEmpty) || isSimple(value, allowTopLevelApp = true, allowArray = true)) {
+    if (inits.forall(_.isEmpty) || isSimple(value, allowTopLevelApp = true, allowArray = true, allowVariable = false)) {
       // No init segment, so we can safely use the given value as is
       // Same when value is simple
       (None, value)

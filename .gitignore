@@ -112,3 +112,8 @@ project/project/
 *.c
 *.h
 *.out
+
+# LZW GenC benchmarks files
+input.txt
+decoded.txt
+encoded.txt
