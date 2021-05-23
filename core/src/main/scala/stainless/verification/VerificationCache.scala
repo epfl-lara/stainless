@@ -35,7 +35,7 @@ trait VerificationCache extends VerificationChecker { self =>
   import program.trees._
 
   import VerificationCache._
-  import serializer._
+  import treeSerializer._
 
   private lazy val vccache = CacheLoader.get(context)
 
@@ -53,7 +53,7 @@ trait VerificationCache extends VerificationChecker { self =>
       val (canonicalSymbols, canonicalExpr): (Symbols, Expr) =
         utils.Canonization(program)(program.symbols, vc.condition)
 
-      val key = serializer.serialize((vc.satisfiability, canonicalSymbols, canonicalExpr))
+      val key = treeSerializer.serialize((vc.satisfiability, canonicalSymbols, canonicalExpr))
 
       if (vccache contains key) {
         reporter.debug(s"Cache hit: '${vc.kind}' VC for ${vc.fd.asString} @${vc.getPos}...")(DebugSectionVerification)
@@ -86,7 +86,7 @@ trait VerificationCache extends VerificationChecker { self =>
 
         val result = super.checkVC(vc, origVC, sf)
         if (result.isValid) {
-          vccache addPersistently key
+          vccache.add(key)
         }
 
         result
@@ -102,27 +102,40 @@ trait VerificationCache extends VerificationChecker { self =>
 }
 
 object VerificationCache {
-  private val serializer = utils.Serializer(stainless.trees)
-  import serializer._
+  val treeSerializer = utils.Serializer(stainless.trees)
+  import treeSerializer._
 
-  /** Cache with the ability to save itself to disk. */
-  private class Cache(cacheFile: File) {
-    // API
-    def contains(key: SerializationResult): Boolean = underlying contains key
-    def +=(key: SerializationResult) = underlying += key -> unusedCacheValue
-    def addPersistently(key: SerializationResult): Unit = {
-      this += key
-      this.synchronized { serializer.serialize(key, out) }
+  object Database {
+    private implicit val resultSerializer = Serializers.serializer
+
+    def apply(dir: File) = swaydb.persistent.Set[SerializationResult, Nothing, swaydb.Glass](
+      dir = dir.toPath(),
+    )
+  }
+
+  object Serializers {
+    import swaydb.data.slice.Slice
+    import swaydb.serializers.Serializer
+
+    implicit val serializer = new Serializer[SerializationResult] {
+      override def write(result: SerializationResult): Slice[Byte] = {
+        Slice.ofBytesScala(result.bytes.length) ++ result.bytes
+      }
+
+      override def read(slice: Slice[Byte]): SerializationResult = {
+        val klass = classOf[SerializationResult]
+        val ctor = klass.getDeclaredConstructor(classOf[Array[Byte]])
+        ctor.setAccessible(true)
+        ctor.newInstance(slice.toArray)
+      }
     }
+  }
 
-    // Implementation details
-    private val underlying = TrieMap[SerializationResult, Unit]() // Thread safe
-    private val unusedCacheValue = ()
+  private class Cache(cacheDir: File) {
+    private val db = Database(dir = cacheDir)
 
-    // output stream used to save verified VCs
-    private val out =
-      if (cacheFile.exists) new FileOutputStream(cacheFile, true)
-      else new FileOutputStream(cacheFile)
+    def add(item: SerializationResult) = db.add(elem = item)
+    def contains(key: SerializationResult): Boolean = db.contains(key)
   }
 
 
@@ -136,57 +149,17 @@ object VerificationCache {
     private val db = scala.collection.mutable.Map[File, Cache]()
 
     /**
-     * Opens an ObjectInputStream and catches corruption errors
-     */
-    private def openStream(ctx: inox.Context, file: File): InputStream = {
-      try new FileInputStream(file)
-      catch {
-        case e: java.io.FileNotFoundException =>
-          ctx.reporter.fatalError(s"Could not open cache file at $file.")
-      }
-    }
-
-    /**
-     * Closes an ObjectInputStream and catches potential IO errors
-     */
-    private def closeStream(ctx: inox.Context, in: InputStream, file: File) = {
-      try in.close()
-      catch {
-        case e: java.io.IOException =>
-          ctx.reporter.error(s"Could not close InputStream of $file properly.")
-      }
-    }
-
-
-
-    /**
      * Create a cache with the data stored in the given file if it exists.
      *
      * NOTE This function assumes the file is not written by another process
      *      while being loaded!
      */
     def get(ctx: inox.Context): Cache = this.synchronized {
-      val cacheFile: File = utils.Caches.getCacheFile(ctx, "vccache.bin")
+      val cacheDir: File = utils.Caches.getCacheDir(ctx)
 
-      db.getOrElse(cacheFile, {
-        val cache = new Cache(cacheFile)
-
-        if (cacheFile.exists) {
-          val in = openStream(ctx, cacheFile)
-
-          try {
-            while (true) {
-              val s = serializer.deserialize[SerializationResult](in)
-              cache += s
-            }
-          } catch {
-            case e: java.io.EOFException => // Silently consume expected exception.
-          } finally {
-            closeStream(ctx, in, cacheFile)
-          }
-        }
-
-        db(cacheFile) = cache
+      db.getOrElse(cacheDir, {
+        val cache = new Cache(cacheDir)
+        db(cacheDir) = cache
         cache
       })
     }

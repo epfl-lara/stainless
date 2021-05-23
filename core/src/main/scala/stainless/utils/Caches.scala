@@ -31,37 +31,22 @@ object Caches {
   }
 
   /**
-   * Get the cache file after creating the cache directory.
+   * Get the cache directory, and create it if necessary.
    *
-   * The cache file itself is not created. Return None when the switch if off.
+   * Return None when the switch if off.
    */
-  def getCacheFile(ctx: inox.Context, optCacheSwitch: inox.FlagOptionDef, filename: String): Option[File] = {
+  def getCacheDir(ctx: inox.Context, optCacheSwitch: inox.FlagOptionDef): Option[File] = {
     val cacheEnabled = ctx.options findOptionOrDefault optCacheSwitch
-    if (cacheEnabled) Some(getCacheFile(ctx, filename)) else None
+    if (cacheEnabled) Some(getCacheDir(ctx)) else None
   }
 
   /**
-   * Get the cache file after creating the cache directory and its subdirectory [[subdir]].
-   *
-   * The cache file itself is not created. Return None when the switch if off.
+   * Get the cache directory, creating it if necessary.
    */
-  def getCacheFile(ctx: inox.Context, optCacheSwitch: inox.FlagOptionDef, subdir: String, filename: String): Option[File] =
-    getCacheFile(ctx, optCacheSwitch, subdir) map { getSubFile(_, filename) }
-
-  /**
-   * Get the cache file after creating the cache directory.
-   *
-   * The cache file itself is not created.
-   */
-  def getCacheFile(ctx: inox.Context, filename: String): File = {
+  def getCacheDir(ctx: inox.Context): File = {
     val cacheDir = ctx.options.findOptionOrDefault(optCacheDir).getAbsoluteFile
-    getSubFile(cacheDir, filename)
-  }
-
-  private def getSubFile(dir: File, filename: String): File = {
-    dir.mkdirs()
-    assert(dir.isDirectory, s"Not a directory: ${dir.getAbsolutePath}")
-    new File(dir, filename)
+    cacheDir.mkdirs()
+    cacheDir
   }
 }
 
