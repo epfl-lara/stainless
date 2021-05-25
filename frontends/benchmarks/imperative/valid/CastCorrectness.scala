@@ -35,7 +35,7 @@ object CastCorrectness {
   }
 
   @pure
-  def remove_from_list(var0: List[Int]): Unit = {
+  def removeFromList(var0: List[Int]): Unit = {
     var list: List[Int] = freshCopy(var0)
     list match {
       case Cons(first_elem, _) =>
