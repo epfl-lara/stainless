@@ -135,8 +135,8 @@ private class IR2CImpl(val ctx: inox.Context) {
       exprs
         .filter {
           case Binding(vd) if vd.typ.isUnitType => false
-          case DeclInit(vd, Lit(UnitLit)) if vd.typ.isUnitType => false
-          case _ => true
+          case DeclInit(vd, _) if vd.typ.isUnitType => false
+          case e => true
         }
         .map(rec)
     }
