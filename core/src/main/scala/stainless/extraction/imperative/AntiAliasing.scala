@@ -411,7 +411,9 @@ trait AntiAliasing
             } else {
               val newScrut = transform(scrut, env)
               val newCases = cses.map { case mc @ MatchCase(pattern, guard, rhs) =>
-                val newRewritings = mapForPattern(newScrut, pattern)
+                val newRewritings =
+                  mapForPattern(newScrut, pattern).filterKeys(v => isMutableType(v.getType))
+
                 val newGuard = guard.map(transform(_, env withRewritings newRewritings))
                 val newRhs = transform(rhs, env withRewritings newRewritings)
                 MatchCase(pattern, newGuard, newRhs).copiedFrom(mc)
