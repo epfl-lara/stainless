@@ -47,37 +47,37 @@ trait ChainProcessor extends OrderingProcessor {
       return None
     }
 
-    val bases: Seq[FunDef] =
+    val bases: Seq[FunDef] = 
       {if (loopPoints.nonEmpty) loopPoints
-      else chainsMap.collect {
-        case (fd, (fds, chains)) if chains.nonEmpty => fd
+      else chainsMap.collect { 
+        case (fd, (fds, chains)) if chains.nonEmpty => fd 
       }}.toList
-
+    
     findDecrease(bases,chainsMap,checker.program.symbols) match {
-      case (cs, Some(base), Some(reconstr)) =>
+      case (cs, Some(base), Some(reconstr)) => 
         annotateChains(cs,base,reconstr)
         Some(problem.funDefs.map { fd =>
           measureCache.get(fd) match {
             case Some(measure) =>
-              val inductiveLemmas =
-                Some((ordering.getPostconditions, ordering.insertedApps))
+              val inductiveLemmas = 
+                Some((ordering.getPostconditions, ordering.insertedApps))              
               Cleared(fd, Some(measure), inductiveLemmas)
             case None =>
               throw FailedMeasureInference(fd,
                 s"No measure annotated in function `${fd.id}` which was cleared in chain processor.")
           }
         })
-      case (Seq(), _, _) =>
+      case (Seq(), _, _) => 
         None
     }
   }
 
-  def findDecrease(bases: Seq[FunDef], chainsMap: Map[FunDef,(Set[FunDef], Set[Chain])], syms: Symbols): (Seq[Chain], Option[FunDef], Option[Expr => Expr]) = {
-    val depth: Int = 1 // Number of unfoldings
+  def findDecrease(bases: Seq[FunDef], chainsMap: Map[FunDef,(Set[FunDef], Set[Chain])], syms: Symbols): (Seq[Chain], Option[FunDef], Option[Expr => Expr]) = {  
+    val depth: Int = 1 // Number of unfoldings 
     val api = getAPI
 
     def solveIter(i: Int,allChains: Set[Chain],cs: Set[Chain],base: FunDef): (Set[Chain], Option[Expr => Expr]) = {
-      reporter.debug("-+> Iteration #" + i)
+      reporter.debug("-+> Iteration #" + i)              
       if(i < 0) (cs,None)
       else {
         val e1s = cs.toSeq.map { chain =>
@@ -98,14 +98,14 @@ trait ChainProcessor extends OrderingProcessor {
     }
 
     def solveBase(bases: Seq[FunDef]): (Seq[Chain], Option[FunDef], Option[Expr => Expr]) = bases match {
-      case base :: bs =>
+      case base :: bs => 
         val chains = chainsMap(base)._2
         val allChains = chainsMap(base)._2
         reporter.debug("- Searching for size decrease")
         val (cs,reconstr) = solveIter(depth, allChains,chains, base)
-        if(reconstr.isDefined) (cs.toSeq, Some(base), reconstr)
+        if(reconstr.isDefined) (cs.toSeq, Some(base), reconstr) 
         else solveBase(bs)
-      case Nil => (Seq(), None, None)
+      case Nil => (Seq(), None, None)  
     }
 
     solveBase(bases)
@@ -116,11 +116,11 @@ trait ChainProcessor extends OrderingProcessor {
    */
   private val measureCache: MutableMap[FunDef, Expr] = MutableMap.empty
 
-  def annotateChains(cs: Seq[Chain],base: FunDef,recons: Expr => Expr): Unit = {
-    /* Stores for a function f an index i the measure expressions
-     holding for those values leaving the chains in i steps.
+  def annotateChains(cs: Seq[Chain],base: FunDef,recons: Expr => Expr): Unit = { 
+    /* Stores for a function f an index i the measure expressions 
+     holding for those values leaving the chains in i steps. 
      If i = -1 then the value loops. */
-    val annotationMap: MutableMap[(FunDef,Int),Seq[(Expr,Expr)]] =
+    val annotationMap: MutableMap[(FunDef,Int),Seq[(Expr,Expr)]] = 
       MutableMap.empty[(FunDef,Int), Seq[(Expr,Expr)]].withDefaultValue(Seq())
 
     /* Gives the index of f in chain c. */
@@ -137,11 +137,11 @@ trait ChainProcessor extends OrderingProcessor {
       ordering.measure(Seq(recons(tupleWrap(expr))))
     def tupleMeasure(expr: Expr, j: Int, k: Int) =
       tupleWrap(Seq(expr, IntegerLiteral(j), IntegerLiteral(k)))
-
+  
     /* Annotate the base of a sequence of chains. */
     def annotateBase(base: FunDef, cs: Seq[Chain]) = {
       val args = measure(base.params.map(_.toVariable))
-      val baseCond =
+      val baseCond = 
         orJoin(cs.map{ c => Chain(c.relations).loop._1.toClause })
       val baseMeasure = tupleMeasure(args,0,0)
       annotationMap += ((base,-1) -> (annotationMap((base,-1)) :+ (baseCond,baseMeasure)))
@@ -159,7 +159,7 @@ trait ChainProcessor extends OrderingProcessor {
         val cond1 = domRpath.toClause
         val measure1 = tupleMeasure(margs1,M-i,M)
         annotationMap += ((member,-1) -> (annotationMap((member,-1)) :+ (cond1,measure1)))
-
+        
         // annotate escaping steps
         var relations = domRelations.dropRight(1)
         while(!relations.isEmpty){
@@ -181,15 +181,15 @@ trait ChainProcessor extends OrderingProcessor {
       val default = tupleMeasure(IntegerLiteral(0),0,M)
 
       /* Annotation map with format: f -> (index -> Seq(values)) */
-      val indexedByFun =
+      val indexedByFun = 
         annotationMap.groupBy(_._1._1)
                     .mapValues(_.map{ case (k,v) => k._2 -> v })
 
       for((k,v) <- indexedByFun.toSeq) yield {
         val orderedMeasures: List[(Int, Seq[(Expr,Expr)])] = v.toList.sortBy(_._1)
         /* Measures has -1 at the end and flattened */
-        val measures: List[(Int, Seq[(Expr,Expr)])]  =
-          if(orderedMeasures.head._1 == -1){
+        val measures: List[(Int, Seq[(Expr,Expr)])]  = 
+          if(orderedMeasures.head._1 == -1){            
             orderedMeasures.tail ++ orderedMeasures.head._2.map(m => -1 -> Seq(m)).toList
           } else {
             orderedMeasures.tail
@@ -201,7 +201,7 @@ trait ChainProcessor extends OrderingProcessor {
             IfExpr(orJoin(seq.map(_._1)),expr,acc)
           } else {
             acc
-          }
+          }        
         }
 
         measureCache += k -> measure

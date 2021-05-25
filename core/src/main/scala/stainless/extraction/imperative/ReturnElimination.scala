@@ -134,7 +134,7 @@ trait ReturnElimination
 
           val newPost =
             t.Lambda(
-              Seq(t.ValDef.fresh("_unused", t.UnitType().copiedFrom(wh)).copiedFrom(wh)),
+              Seq(t.ValDef.fresh("_res", t.UnitType().copiedFrom(wh)).copiedFrom(wh)),
               t.and(
                 transformedInv.getOrElse(t.BooleanLiteral(true).copiedFrom(wh)),
                 t.Not(getFunctionalResult(transformedCond).copiedFrom(cond)).copiedFrom(cond),

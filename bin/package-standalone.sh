@@ -30,20 +30,15 @@ LOG="./package-standalone.log"
 
 # -----
 
-RST="\e[0m"
-BLD="\e[1m"
-RED="\e[31m"
-GRN="\e[32m"
-
 function info {
-  echo -e "$1 $RST"
+  echo "$1 $(tput sgr 0)"
 }
 function okay {
-  info "${GRN}    Done."
+  info "$(tput setaf 2)    Done."
   echo -e "-----\n" >> $LOG
 }
 function fail {
-  info "${RED}    Failed. See log ($LOG) for details."
+  info "$(tput setaf 1)   Failed. See log ($LOG) for details."
   exit 1
 }
 
@@ -139,25 +134,25 @@ function package {
 
 echo -e "Starting packaging version $STAINLESS_VERSION on $(date).\n-----\n" | tee -a $LOG
 
-info "${BLD}[] Checking required tools..."
+info "$(tput bold)[] Checking required tools..."
 check_tools
 
-info "${BLD}[] Assembling fat jar..."
+info "$(tput bold)[] Assembling fat jar..."
 if [ -f "$STAINLESS_JAR_PATH" ]; then
   info "  (JAR already exists, skipping sbt assembly step.)" && okay
 else
   $SBT_PACKAGE >> $LOG && okay || fail
 fi
 
-info "${BLD}\n[] Downloading Z3 binaries..."
+info "$(tput bold)[] Downloading Z3 binaries..."
 fetch_z3 "linux" $Z3_LINUX_NAME
 fetch_z3 "mac" $Z3_MAC_NAME
 
-info "${BLD}\n[] Packaging..."
+info "$(tput bold)[] Packaging..."
 package "linux" $SCALAZ3_JAR_LINUX_PATH
 package "mac" $SCALAZ3_JAR_MAC_PATH
 
-info "\n${BLD}[] Cleaning up..."
+info "$(tput bold)[] Cleaning up..."
 rm -r "$TMP_DIR" && okay
 
-info "\n${BLD}Packaging successful."
+info "$(tput bold)Packaging successful."

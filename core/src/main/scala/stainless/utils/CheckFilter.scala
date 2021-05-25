@@ -10,25 +10,9 @@ trait CheckFilter {
   import trees._
 
   type Path = Seq[String]
-  private def fullNameToPath(fullName: String): Path = (fullName split '.').toSeq
-
-  // TODO this is probably done somewhere else in a cleaner fasion...
-  private def fixedFullName(id: Identifier): String = id.fullName
-    .replaceAllLiterally("$bar", "|")
-    .replaceAllLiterally("$up", "^")
-    .replaceAllLiterally("$eq", "=")
-    .replaceAllLiterally("$plus", "+")
-    .replaceAllLiterally("$minus", "-")
-    .replaceAllLiterally("$times", "*")
-    .replaceAllLiterally("$div", "/")
-    .replaceAllLiterally("$less", "<")
-    .replaceAllLiterally("$geater", ">")
-    .replaceAllLiterally("$colon", ":")
-    .replaceAllLiterally("$amp", "&")
-    .replaceAllLiterally("$tilde", "~")
 
   private lazy val pathsOpt: Option[Seq[Path]] = context.options.findOption(optFunctions) map { functions =>
-    functions map fullNameToPath
+    functions map CheckFilter.fullNameToPath
   }
 
   private def shouldBeChecked(fid: Identifier, flags: Seq[trees.Flag]): Boolean = pathsOpt match {
@@ -40,7 +24,7 @@ trait CheckFilter {
     case Some(paths) =>
       // Support wildcard `_` as specified in the documentation.
       // A leading wildcard is always assumes.
-      val path: Path = fullNameToPath(fixedFullName(fid))
+      val path: Path = CheckFilter.fullNameToPath(CheckFilter.fixedFullName(fid))
       paths exists { p =>
         if (p endsWith Seq("_")) path containsSlice p.init
         else path endsWith p
@@ -86,5 +70,23 @@ object CheckFilter {
     override val context = ctx
     override val trees: t.type = t
   }
-}
 
+  type Path = Seq[String]
+
+  def fullNameToPath(fullName: String): Path = (fullName split '.').toSeq
+
+  // TODO this is probably done somewhere else in a cleaner fasion...
+  def fixedFullName(id: Identifier): String = id.fullName
+    .replaceAllLiterally("$bar", "|")
+    .replaceAllLiterally("$up", "^")
+    .replaceAllLiterally("$eq", "=")
+    .replaceAllLiterally("$plus", "+")
+    .replaceAllLiterally("$minus", "-")
+    .replaceAllLiterally("$times", "*")
+    .replaceAllLiterally("$div", "/")
+    .replaceAllLiterally("$less", "<")
+    .replaceAllLiterally("$geater", ">")
+    .replaceAllLiterally("$colon", ":")
+    .replaceAllLiterally("$amp", "&")
+    .replaceAllLiterally("$tilde", "~")
+}

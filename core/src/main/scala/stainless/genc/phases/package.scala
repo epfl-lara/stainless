@@ -18,6 +18,9 @@ package object phases {
 
   type FunCtxDB = Map[LocalFunDef, Seq[VarInfo]]
 
-  case class Dependencies(syms: Symbols, deps: Set[Definition])
+  case class Dependencies(syms: Symbols, deps: Set[Definition]) {
+    override def toString =
+      "Dependencies: " + deps.map(_.id) + " in symbols:\n" + syms.toString
+  }
 
 }

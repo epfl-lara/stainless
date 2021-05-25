@@ -13,8 +13,8 @@ object Monotonicity {
   }
   
   @traceInduct("")
-  def monotonicity(l: List[BigInt], set1: Set[BigInt], set2: Set[BigInt]): Boolean = {
-    (contains(l, set1, set2) && set1.subsetOf(set2)) ==> contains(l, set2, set1)
-  }.holds
+  def monotonicity(l: List[BigInt], set1: Set[BigInt], set2: Set[BigInt]): Unit = {
+    ()
+  } ensuring((contains(l, set1, set2) && set1.subsetOf(set2)) ==> contains(l, set2, set1))
 }
 

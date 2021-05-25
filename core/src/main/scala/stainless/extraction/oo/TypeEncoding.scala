@@ -1142,6 +1142,7 @@ trait TypeEncoding
           case s.Tuple(es) => tplSizes += es.size; super.traverse(expr)
           case s.Lambda(params, _) => funSizes += params.size; super.traverse(expr)
           case s.BVLiteral(signed, _, size) => bvSizes += (signed -> size); super.traverse(expr)
+          case s.ArrayLength(_) => bvSizes += (true -> 32); super.traverse(expr)
           case _ => super.traverse(expr)
         }
       }

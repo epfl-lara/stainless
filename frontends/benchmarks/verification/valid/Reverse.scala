@@ -20,8 +20,8 @@ object Reverse {
   }
   
   @traceInduct("reverse0")
-  def revPreservesContent(l1: IList, l2: IList): Boolean = {
-    content(l1) ++ content(l2) == content(reverse0(l1, l2))
-  }.holds
+  def revPreservesContent(l1: IList, l2: IList): Unit = {
+    ()
+  } ensuring (content(l1) ++ content(l2) == content(reverse0(l1, l2)))
 }
 
