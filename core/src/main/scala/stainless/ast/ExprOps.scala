@@ -275,7 +275,7 @@ trait ExprOps extends inox.ast.ExprOps { self =>
     withSpec(expr, pred.filterNot(_.body == BooleanLiteral(true)).map(Postcondition).toLeft(PostconditionKind))
 
   final def withMeasure(expr: Expr, measure: Option[Expr]): Expr =
-    withSpec(expr, measure.map(Measure).toLeft(MeasureKind))
+    withSpec(expr, measure.map(expr => Measure(expr).setPos(expr)).toLeft(MeasureKind))
 
   /** Adds a body to a specification
     *

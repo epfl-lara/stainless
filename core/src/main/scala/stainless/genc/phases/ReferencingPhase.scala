@@ -15,15 +15,16 @@ import ir.{ Referentiator }
  *
  * NOTE a ReferenceType(T) is basically a T* in C.
  */
-private[genc] object ReferencingPhase extends LeonPipeline[LIR.Prog, RIR.Prog] {
+trait ReferencingPhase extends LeonPipeline[LIR.Prog, RIR.Prog] {
   val name = "Referencer"
-  val description = "Add 'referencing' to the input LIR program to produce a RIR program"
 
   private implicit val debugSection = DebugSectionGenC
 
-  def getTimer(ctx: inox.Context) = ctx.timers.genc.get("CIR -> RIR")
+  def run(lprog: LIR.Prog): RIR.Prog = new Referentiator(context)(lprog)
+}
 
-  def run(ctx: inox.Context, lprog: LIR.Prog): RIR.Prog = {
-    new Referentiator(ctx)(lprog)
-  }
+object ReferencingPhase {
+  def apply(implicit ctx: inox.Context): LeonPipeline[LIR.Prog, RIR.Prog] = new {
+    val context = ctx
+  } with ReferencingPhase
 }

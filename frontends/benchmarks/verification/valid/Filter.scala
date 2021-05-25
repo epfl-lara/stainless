@@ -7,7 +7,7 @@ object Filter {
 
   def filter1(p: BigInt => Boolean, l: List[BigInt], n: BigInt): List[BigInt] = { 
     require(l.size <= n)
-    if(l.isEmpty) Nil()
+    if (l.isEmpty) List()
     else if(p(l.head)) l.head::filter1(p, l.tail, n)
     else filter1(p, l.tail, n)
   }
@@ -18,8 +18,9 @@ object Filter {
   }
   
   @traceInduct("")
-  def filter_check(p: BigInt => Boolean, l: List[BigInt], n: BigInt): Boolean = {
+  def filter_check(p: BigInt => Boolean, l: List[BigInt], n: BigInt): Unit = {
     require(l.size <= n)
-    filter1(p, l, n) == filter2(p, l, n)
-  }.holds
+    ()
+  } ensuring(filter1(p, l, n) == filter2(p, l, n))
+  
 }

@@ -14,8 +14,8 @@ object Zero {
   }//ensuring(res => res == zero1(arg))
   
   @traceInduct("")
-  def zero_check(arg: BigInt): Boolean = {
-    zero1(arg) == zero2(arg)
-  }.holds
+  def zero_check(arg: BigInt): Unit = {
+    ()
+  } ensuring (zero1(arg) == zero2(arg))
 
 }

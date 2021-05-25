@@ -93,7 +93,7 @@ final class Referentiator(val ctx: inox.Context) extends Transformer(LIR, RIR) {
     val newEnv = env.withParams(((fd.ctx ++ fd.params) zip (ctx ++ params)).toMap)
 
     // Handle recursive functions
-    val newer = to.FunDef(id, returnType, ctx, params, null, fd.isExported)
+    val newer = to.FunDef(id, returnType, ctx, params, null, fd.isExported, fd.isPure)
 
     // Don't traverse nor register the body if we are looking ahead. It would be useless and wrong, resp.
     if (lookingAhead) {

@@ -234,7 +234,7 @@ You can use multiple solvers in portfolio mode, as with the options ``--timeout=
 For final verification runs of highly critical software, we recommend that (instead of the portfolio mode) you obtain several solvers and their versions, then try a single solver at a time and ensure that each verification run succeeds (thus applying N-version programming to SMT solver implementations).
 
 Install Z3 4.8.10 (Linux & macOS)
-********************************
+*********************************
 
 1. Download Z3 4.8.10 from https://github.com/Z3Prover/z3/releases/tag/z3-4.8.10
 2. Unzip the downloaded archive

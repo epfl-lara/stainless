@@ -16,6 +16,6 @@ object Utils {
     ctx.reporter.info(s"Running: stainless ${args.mkString(" ")}")
     compiler.run()
     compiler.join()
-    compiler.getReport
+    (ctx, compiler.getReport)
   }
 }

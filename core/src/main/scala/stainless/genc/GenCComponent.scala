@@ -9,7 +9,6 @@ import utils.{CheckFilter, DefinitionIdFinder, DependenciesFinder}
 import extraction.xlang.{trees => xt}
 import extraction.throwing.{trees => tt}
 import extraction._
-// import inox.evaluators.EvaluationResults.{ EvaluatorError, RuntimeError, Successful }
 
 import stainless.utils.JsonConvertions._
 
@@ -18,7 +17,6 @@ import io.circe.syntax._
 import io.circe.generic.semiauto._
 
 import scala.concurrent.Future
-// import scala.util.{ Success, Failure }
 
 import scala.language.existentials
 
@@ -86,7 +84,7 @@ class GenCRun(override val pipeline: extraction.StainlessPipeline) // pipeline i
 
     val symbolsAfterPipeline: tt.Symbols = pipelineBegin.extract(filtered)
 
-    GenerateCPhase.run(context, symbolsAfterPipeline)
+    GenerateC.run(symbolsAfterPipeline)
 
     val p = inox.Program(trees)(filtered)
 

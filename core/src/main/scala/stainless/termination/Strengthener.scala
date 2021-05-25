@@ -31,7 +31,7 @@ trait Strengthener { self: OrderingRelation =>
       syms.withFunctions(syms.functions.toSeq.map {
         case (id, fd) =>
           strengthenedPost.get(id) match {
-            case Some(post @ Some(_)) => fd.copy(fullBody = exprOps.withPostcondition(fd.fullBody, post))
+            case Some(post @ Some(_)) => fd.copy(fullBody = exprOps.withPostcondition(fd.fullBody, post)).copiedFrom(fd)
             case _                    => fd
           }
       })
@@ -79,7 +79,7 @@ trait Strengthener { self: OrderingRelation =>
 
         val strengthener = new IdentitySymbolTransformer {
           override def transform(syms: Symbols): Symbols = super.transform(syms).withFunctions {
-            Seq(fd.copy(fullBody = exprOps.withPostcondition(fd.fullBody, Some(postcondition))))
+            Seq(fd.copy(fullBody = exprOps.withPostcondition(fd.fullBody, Some(postcondition))).copiedFrom(fd))
           }
         }
 

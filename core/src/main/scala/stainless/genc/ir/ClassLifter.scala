@@ -36,7 +36,7 @@ final class ClassLifter(val ctx: inox.Context) extends Transformer(NIR, LIR) {
     val params = fd.params map lift
 
     // Handle recursive functions
-    val newer = to.FunDef(id, returnType, ctx, params, null, fd.isExported)
+    val newer = to.FunDef(id, returnType, ctx, params, null, fd.isExported, fd.isPure)
     registerFunction(fd, newer)
 
     newer.body = rec(fd.body)(lift)
@@ -61,7 +61,7 @@ final class ClassLifter(val ctx: inox.Context) extends Transformer(NIR, LIR) {
         case ct @ to.ClassType(c) if c.hierarchyTop != c =>
           valFieldsToRegister += (vd.id -> ct)
 
-        case to.ArrayType(ct @ to.ClassType(c)) if c.hierarchyTop != c =>
+        case to.ArrayType(ct @ to.ClassType(c), _) if c.hierarchyTop != c =>
           arrayFieldsToRegister += (vd.id -> ct)
 
         case _ => ()
@@ -112,7 +112,7 @@ final class ClassLifter(val ctx: inox.Context) extends Transformer(NIR, LIR) {
 
   override def rec(typ: Type)(implicit lift: Env): to.Type = typ match {
     case ClassType(clazz) if lift => to.ClassType(rec(clazz.hierarchyTop))
-    case ArrayType(ArrayType(ClassType(_))) =>
+    case ArrayType(ArrayType(ClassType(_), _), _) =>
       ctx.reporter.fatalError("Multidimentional arrays of objects are not yet supported")
     case typ => super.rec(typ)
   }
@@ -200,7 +200,7 @@ final class ClassLifter(val ctx: inox.Context) extends Transformer(NIR, LIR) {
       case ct @ to.ClassType(c) if c.hierarchyTop != c =>
         valDB += vd0 -> (vd, ct)
 
-      case to.ArrayType(ct @ to.ClassType(c)) if c.hierarchyTop != c =>
+      case to.ArrayType(ct @ to.ClassType(c), _) if c.hierarchyTop != c =>
         arrayDB += vd0 -> (vd, ct)
 
       case _ => ()

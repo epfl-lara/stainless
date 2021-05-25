@@ -20,7 +20,7 @@ object FileInputStream {
   @extern
   @cCode.function(
     code = """
-    |static FILE* __FUNCTION__(char* filename, void* unused) {
+    |FILE* __FUNCTION__(char* filename, void* unused) {
     |  FILE* this = fopen(filename, "r");
     |  /* this == NULL on failure */
     |  return this;
@@ -56,7 +56,7 @@ case class FileInputStream(var filename: Option[String], var consumed: BigInt) {
     */
   @cCode.function(
     code = """
-      |static bool __FUNCTION__(FILE* this, void* unused) {
+      |bool __FUNCTION__(FILE* this, void* unused) {
       |  if (this != NULL)
       |    return fclose(this) == 0;
       |  else
@@ -79,7 +79,7 @@ case class FileInputStream(var filename: Option[String], var consumed: BigInt) {
     */
   @cCode.function(
     code = """
-      |static bool __FUNCTION__(FILE* this) {
+      |bool __FUNCTION__(FILE* this) {
       |  return this != NULL;
       |}
       """,
@@ -127,7 +127,7 @@ case class FileInputStream(var filename: Option[String], var consumed: BigInt) {
     // and not the "raw" data.
     @cCode.function(
       code = """
-      |static int8_t __FUNCTION__(FILE** this, void** unused, bool* valid) {
+      |int8_t __FUNCTION__(FILE** this, void** unused, bool* valid) {
       |  int8_t x;
       |  *valid = fscanf(*this, "%c", &x) == 1;
       |  return x;

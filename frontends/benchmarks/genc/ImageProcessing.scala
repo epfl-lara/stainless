@@ -566,7 +566,7 @@ object ImageProcessing {
   @extern
   @cCode.function(
     code = """
-      |static void __FUNCTION__(int8_t x) {
+      |void __FUNCTION__(int8_t x) {
       |  printf("%u\n", x);
       |}
       """,
@@ -647,7 +647,6 @@ object ImageProcessing {
       }) invariant (inRange(p, -mid, mid + 1))
 
       res = clamp(res / scale, 0, 255)
-      // StdOut.print("RESULT BYTE: ")
       res.toByte
     }
 
