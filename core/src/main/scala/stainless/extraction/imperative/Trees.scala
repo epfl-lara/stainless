@@ -66,13 +66,13 @@ trait Trees extends oo.Trees with Definitions { self =>
   }
 
   /** $encodingof `(while(cond) { ... }).invariant(pred).weakInvariant(pred2)`*/
-  case class While(cond: Expr, body: Expr, pred: Option[Expr], weakInvariant: Option[Expr], flags: Seq[Flag]) extends Expr with CachingTyped {
+  case class While(cond: Expr, body: Expr, pred: Option[Expr], pred2: Option[Expr], flags: Seq[Flag]) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type =
       if (
         s.isSubtypeOf(cond.getType, BooleanType()) &&
         body.isTyped &&
         pred.forall(p => s.isSubtypeOf(p.getType, BooleanType())) &&
-        weakInvariant.forall(p => s.isSubtypeOf(p.getType, BooleanType()))
+        pred2.forall(p => s.isSubtypeOf(p.getType, BooleanType()))
       ) UnitType() else Untyped
   }
 

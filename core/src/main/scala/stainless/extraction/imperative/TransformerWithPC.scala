@@ -15,7 +15,7 @@ trait TransformerWithPC extends innerfuns.TransformerWithPC {
     case s.While(cond, body, optInv, optWeakInv, flags) =>
       val bodyEnv1 = env withCond cond
       val bodyEnv2 = if (optInv.nonEmpty) bodyEnv1 withCond (optInv.get) else bodyEnv1
-      val bodyEnv3 = if (optInv.nonEmpty) bodyEnv2 withCond (optWeakInv.get) else bodyEnv2
+      val bodyEnv3 = if (optWeakInv.nonEmpty) bodyEnv2 withCond (optWeakInv.get) else bodyEnv2
       t.While(
         transform(cond, env),
         transform(body, bodyEnv3),
