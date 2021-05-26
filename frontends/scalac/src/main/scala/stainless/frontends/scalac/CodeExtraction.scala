@@ -1068,11 +1068,11 @@ trait CodeExtraction extends ASTExtractors {
     case a @ ExFieldAssign(sym, lhs@Select(thiss: This, _), rhs) =>
       xt.FieldAssignment(extractTree(thiss), getIdentifier(sym), extractTree(rhs))
 
-    case wh @ ExWhile(cond, body, invOpt, inline, opaque) =>
+    case wh @ ExWhile(cond, body, invOpt, weakInvOpt, inline, opaque) =>
       val inlineFlag = if (inline) Some(xt.InlineOnce) else None
       val opaqueFlag = if (opaque) Some(xt.Opaque) else None
       val flags = inlineFlag.toSeq ++ opaqueFlag
-      xt.While(extractTree(cond), extractTree(body), invOpt.map(extractTree), flags)
+      xt.While(extractTree(cond), extractTree(body), invOpt.map(extractTree), weakInvOpt.map(extractTree), flags)
 
     case ExBigIntLiteral(n: Literal) =>
       xt.IntegerLiteral(BigInt(n.value.stringValue))
