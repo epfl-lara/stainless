@@ -66,26 +66,31 @@ trait ReturnElimination
     case _ => None
   }(expr)
 
-  // when cf: ControlFlow[A, A]
-  // optimisation for `cf match { case Return(retValue) => retValue case Proceed(value) => value }`
-  def unwrap(expr: t.Expr): t.Expr = expr match {
-    case ControlFlowSort.Return(e) => e
-    case ControlFlowSort.Proceed(e) => e
-    case t.Let(vd, e, body) => t.Let(vd, e, unwrap(body)).setPos(expr)
-    case t.LetVar(vd, e, body) => t.LetVar(vd, e, unwrap(body)).setPos(expr)
-    case t.LetRec(fds, rest) => t.LetRec(fds, unwrap(rest)).setPos(expr)
-    case t.Assert(cond, err, body) => t.Assert(cond, err, unwrap(body)).setPos(expr)
-    case t.Assume(cond, body) => t.Assume(cond, unwrap(body)).setPos(expr)
-    case t.IfExpr(cond, e1, e2) => t.IfExpr(cond, unwrap(e1), unwrap(e2)).setPos(expr)
-    case t.MatchExpr(scrut, cases) => t.MatchExpr(scrut, cases.map {
-      case mc @ t.MatchCase(pat, optGuard, rhs) =>
-      t.MatchCase(pat, optGuard, unwrap(rhs)).copiedFrom(mc)
-    }).setPos(expr)
-    case t.Block(es, last) => t.Block(es, unwrap(last)).setPos(expr)
-    case _ =>
-      context.reporter.internalError(expr.getPos,
-        s"In ReturnElimination phase, ControlFlow unwrapping not supported for ${expr.asString}"
-      )
+  // when expr: ControlFlow[retT, retT]
+  // optimisation for `expr match { case Return(retValue) => retValue case Proceed(value) => value }`
+  def unwrap(expr: t.Expr, retT: t.Type): t.Expr = {
+    def rec(expr: t.Expr): t.Expr = expr match {
+      case ControlFlowSort.Return(e) => e
+      case ControlFlowSort.Proceed(e) => e
+      case t.Let(vd, e, body) => t.Let(vd, e, rec(body)).setPos(expr)
+      case t.LetVar(vd, e, body) => t.LetVar(vd, e, rec(body)).setPos(expr)
+      case t.LetRec(fds, rest) => t.LetRec(fds, rec(rest)).setPos(expr)
+      case t.Assert(cond, err, body) => t.Assert(cond, err, rec(body)).setPos(expr)
+      case t.Assume(cond, body) => t.Assume(cond, rec(body)).setPos(expr)
+      case t.IfExpr(cond, e1, e2) => t.IfExpr(cond, rec(e1), rec(e2)).setPos(expr)
+      case t.MatchExpr(scrut, cases) => t.MatchExpr(scrut, cases.map {
+        case mc @ t.MatchCase(pat, optGuard, rhs) =>
+        t.MatchCase(pat, optGuard, rec(rhs)).copiedFrom(mc)
+      }).setPos(expr)
+      case t.Block(es, last) => t.Block(es, rec(last)).setPos(expr)
+      case _ =>
+        ControlFlowSort.buildMatch(retT, retT, expr,
+          res => res,
+          res => res,
+          expr.getPos
+        )
+    }
+    rec(expr)
   }
 
   override protected def getContext(symbols: s.Symbols) = new TransformerContext(symbols)
@@ -185,7 +190,7 @@ trait ReturnElimination
         val newBody =
           specced.bodyOpt.map { body =>
             if (tc.exprHasReturn.contains(fa.id))
-              unwrap(transform(body, retType)).setPos(body)
+              unwrap(transform(body, retType), retTypeChecked).setPos(body)
             else
               transform(body, retType)
           }
