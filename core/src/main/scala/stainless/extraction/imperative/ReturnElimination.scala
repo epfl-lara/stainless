@@ -113,10 +113,16 @@ trait ReturnElimination
         case s.Return(_) =>
           context.reporter.fatalError(e.getPos, "Keyword `return` is not allowed here")
 
-        case wh @ s.While(cond, body, optInv, flags) =>
+        case wh @ s.While(cond, body, optInv, optWeakInv, flags) =>
           val transformedCond = transform(cond)
           val transformedBody = transform(body)
           val transformedInv = optInv.map(transform)
+
+          if (optWeakInv.nonEmpty) {
+            context.reporter.fatalError(
+              "In ReturnElimination Phase, unexpected `weakInvariant` for a while loop without return"
+            )
+          }
 
           val id = FreshIdentifier(fd.id.name + "While")
           val tpe = t.FunctionType(Seq(), t.UnitType().copiedFrom(wh)).copiedFrom(wh)
@@ -226,7 +232,7 @@ trait ReturnElimination
       }
 
       override def transform(expr: s.Expr, currentType: s.Type): t.Expr = expr match {
-        case wh @ s.While(cond, body, optInv, flags) if exprHasReturn(expr) =>
+        case wh @ s.While(cond, body, optInv, optWeakInv, flags) if exprHasReturn(expr) =>
 
           val id = FreshIdentifier(fd.id.name + "While")
           val loopType = ControlFlowSort.controlFlow(SimpleWhileTransformer.transform(retType), t.UnitType())
@@ -250,6 +256,7 @@ trait ReturnElimination
           }
 
           val optInvChecked = optInv.map(SimpleWhileTransformer.transform)
+          val optWeakInvChecked = optWeakInv.map(SimpleWhileTransformer.transform)
           val condChecked = SimpleWhileTransformer.transform(cond)
 
           val cfWhileVal = t.ValDef.fresh("cfWhile", loopType.copiedFrom(wh)).copiedFrom(wh)
@@ -269,9 +276,10 @@ trait ReturnElimination
                   }.getOrElse(t.BooleanLiteral(true)),
                 ),
                 // when the while loop terminates without returning, we check the loop condition
-                // is false and that the invariant is true
+                // is false and that the invariant and weak invariant are true
                 _ => t.and(
                   optInvChecked.getOrElse(t.BooleanLiteral(true).copiedFrom(wh)),
+                  optWeakInvChecked.getOrElse(t.BooleanLiteral(true).copiedFrom(wh)),
                   t.Not(getFunctionalResult(condChecked).copiedFrom(cond)).copiedFrom(cond),
                 ),
                 wh.getPos
@@ -280,7 +288,7 @@ trait ReturnElimination
 
           val newSpecs =
             t.exprOps.Postcondition(newPost) +:
-            t.exprOps.Precondition(t.andJoin(optInvChecked.toSeq :+ getFunctionalResult(condChecked))).setPos(wh) +:
+            t.exprOps.Precondition(t.andJoin((optInvChecked.toSeq ++ optWeakInvChecked) :+ getFunctionalResult(condChecked))).setPos(wh) +:
             specs.map(_.transform(SimpleWhileTransformer))
 
           val fullBody = t.exprOps.reconstructSpecs(newSpecs, newBody, t.UnitType()).copiedFrom(wh)

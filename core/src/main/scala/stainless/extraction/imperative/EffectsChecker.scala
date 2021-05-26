@@ -209,10 +209,12 @@ trait EffectsChecker { self: EffectsAnalyzer =>
         if (predEffects.nonEmpty)
           throw ImperativeEliminationException(pred, "Quantifier has effects on: " + predEffects.head.receiver.asString)
 
-      case wh @ While(_, _, Some(invariant), _) =>
-        val invEffects = effects(invariant)
-        if (invEffects.nonEmpty)
-          throw ImperativeEliminationException(invariant, "Loop invariant has effects on: " + invEffects.head.receiver.asString)
+      case wh @ While(_, _, invOpt, weakInvOpt, _) =>
+        for (inv <- invOpt.toSeq ++ weakInvOpt) {
+          val invEffects = effects(inv)
+          if (invEffects.nonEmpty)
+            throw ImperativeEliminationException(inv, "Loop invariant has effects on: " + invEffects.head.receiver.asString)
+        }
 
       case m @ MatchExpr(_, cses) =>
         cses.foreach { cse =>
