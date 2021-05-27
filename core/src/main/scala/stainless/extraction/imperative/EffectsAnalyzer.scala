@@ -521,11 +521,10 @@ trait EffectsAnalyzer extends oo.CachingPhase {
 
       // A `LetVar` can be fresh if `vd` is only assigned fresh values both
       // here and in all subsequent Assign statements.
-      case LetVar(vd, expr, b) if rec(expr, bindings) =>
-        !exprOps.exists {
-          case Assignment(v, e) if v.toVal == vd => !rec(e, bindings + vd)
-          case _ => false
-        }(b) &&
+      case LetVar(vd, expr, b) if rec(expr, bindings) && !exprOps.exists {
+        case Assignment(v, e) if v.toVal == vd => !rec(e, bindings + vd)
+        case _ => false
+      }(b) =>
         rec(b, bindings + vd)
 
       // Otherwise, we don't add `vd` as a fresh binding, because it might be reassigned
