@@ -273,6 +273,7 @@ private class IR2CImpl(val ctx: inox.Context) {
     case UnOp(op, expr) => C.UnOp(op, rec(expr))
 
     case If(cond, thenn) => C.If(rec(cond), C.buildBlock(rec(thenn)))
+    case IfElse(cond, thenn, Lit(UnitLit)) => C.If(rec(cond), C.buildBlock(rec(thenn)))
     case IfElse(cond, thenn, elze) => C.IfElse(rec(cond), C.buildBlock(rec(thenn)), C.buildBlock(rec(elze)))
     case While(cond, body) => C.While(rec(cond), C.buildBlock(rec(body)))
 
