@@ -29,9 +29,10 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
   case object Wrapping extends Flag("wrapping", Seq.empty)
   case object Template extends Flag("template", Seq.empty)
 
-  case class Derived(id: Identifier) extends Flag("derived", Seq(id))
+  case class Derived(idOpt: Option[Identifier]) extends Flag("derived", idOpt.toSeq)
   case class IsField(isLazy: Boolean) extends Flag("field", Seq.empty)
   case class IsUnapply(isEmpty: Identifier, get: Identifier) extends Flag("unapply", Seq(isEmpty, get))
+  case class ClassParamInit(cid: Identifier) extends Flag("paramInit", Seq(cid))
 
   case class TerminationStatus(status: TerminationReport.Status) extends Flag("termination", Seq(status))
 
@@ -119,7 +120,7 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
      *      holds the requested data.
      */
     final def source: Identifier =
-      fd.flags collectFirst { case Derived(id) => id } getOrElse fd.id
+      fd.flags collectFirst { case Derived(Some(id)) => id } getOrElse fd.id
   }
 
   implicit class StainlessTypedFunDef(tfd: TypedFunDef) {

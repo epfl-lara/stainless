@@ -106,6 +106,25 @@ The abstract root can also be extended by a case-class, defining several fields:
 .. note::
   You can also define single case-class, for Tuple-like structures.
 
+You can add invariants to case classes using a ``require`` clause, as follows:
+
+.. code-block:: scala
+
+  case class Positive(value: BigInt = 0) {
+    require(value >= 0)
+  }
+
+For classes without type parameters, when all fields have a default value, Stainless generates a
+verification condition to check that the default instance respects the invariant. In this example,
+the verification condition will be seen as coming from an internal function called
+``PositiveRequireForDefault``.
+
+.. note::
+
+  Invariants are only allowed to refer to fields of their class, and
+  cannot call any methods on ``this`` (but calls to methods on their
+  fields are allowed).
+
 Case Objects
 ************
 
@@ -134,9 +153,7 @@ subsequently lifted into a refinement type of the underlying type.
 
 .. note::
 
-   Invariants are only allowed to refer to fields of their class, and
-   cannot call any methods on ``this`` (but calls to methods on their
-   fields are allowed).
+   Same remark as above: invariants are only allowed to refer to fields of their class.
 
 Generics
 --------

@@ -27,14 +27,14 @@ trait MethodLifting
         val descendants = cd.descendants(symbols)
         val descendantIds = descendants.map(_.id).toSet
 
-        val isInvariant = fd.flags contains s.IsInvariant
+        val isInvariant = fd.isInvariant
 
         def symbolOf(fd: s.FunDef): Symbol = fd.id.asInstanceOf[SymbolIdentifier].symbol
 
         symbols.functions.values
           .filter(_.flags exists { case s.IsMethodOf(id) => descendantIds(id) case _ => false })
           .filter { ofd =>
-            if (isInvariant) ofd.flags contains s.IsInvariant
+            if (isInvariant) ofd.isInvariant
             else symbolOf(ofd) == symbolOf(fd) // casts are sound after checking `IsMethodOf`
           }.map(FunctionKey(_): CacheKey).toSet
       }.toSet)
@@ -302,11 +302,11 @@ trait MethodLifting
 
     // a lifted method is derived from the methods that (first) override it
     val derivedFrom = cos.flatMap(o => firstOverrides(o).map(_._2))
-    val derivedFlags = derivedFrom.map(fd => t.Derived(fd.id))
+    val derivedFlags = derivedFrom.map(fd => t.Derived(Some(fd.id)))
     val isAccessor = derivedFrom.nonEmpty && derivedFrom.forall(_.isAccessor)
     val accessorFlag = if (isAccessor) Some(t.Annotation("accessor", Seq.empty)) else None
     val filteredFlags = fd.flags filter {
-        case s.IsMethodOf(_) | s.IsInvariant | s.FieldDefPosition(_) => false
+        case s.IsMethodOf(_) | s.FieldDefPosition(_) => false
         case _ => true
       } map transformer.transform
 

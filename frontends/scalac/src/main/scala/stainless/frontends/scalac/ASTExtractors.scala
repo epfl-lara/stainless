@@ -38,7 +38,10 @@ trait ASTExtractors {
     val selfs = actualSymbol.annotations
     val owners =
       if (ignoreOwner) Set.empty
-      else actualSymbol.owner.annotations.filter(annot => annot.toString != "stainless.annotation.export")
+      else actualSymbol.owner.annotations.filter(annot =>
+        annot.toString != "stainless.annotation.export" &&
+        !annot.toString.startsWith("stainless.annotation.cCode.global")
+      )
     val companions = if (actualSymbol.isSynthetic) actualSymbol.companionSymbol.annotations else Set.empty
     (for {
       a <- (selfs ++ owners ++ companions)

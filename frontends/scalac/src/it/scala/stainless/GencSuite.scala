@@ -57,6 +57,24 @@ class GenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUtils {
     assert(output == "113", s"Output '$output' should be '113'")
   }
 
+  test("Checking that Global outputs 5710120") {
+    val fileGlobal = files.find(_.toString.contains("Global.scala")).get
+    val outFile = fileGlobal.replace(".scala", ".out")
+    ctx.reporter.info(s"Running: $outFile")
+    val (std, _) = runCommand(outFile)
+    val output = std.mkString
+    assert(output == "5710120", s"Output '$output' should be '5710120'")
+  }
+
+  test("Checking that GlobalUninitialized outputs 01210120") {
+    val fileGlobalUninitialized = files.find(_.toString.contains("GlobalUninitialized.scala")).get
+    val outFile = fileGlobalUninitialized.replace(".scala", ".out")
+    ctx.reporter.info(s"Running: $outFile")
+    val (std, _) = runCommand(outFile)
+    val output = std.mkString
+    assert(output == "01210120", s"Output '$output' should be '01210120'")
+  }
+
   test("Checking that LZWa can encode and decode") {
     val fileLZWa = files.find(_.toString.contains("LZWa.scala")).get
     val outFile = fileLZWa.replace(".scala", ".out")

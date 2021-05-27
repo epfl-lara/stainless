@@ -5,7 +5,8 @@ package genc
 package phases
 
 import extraction._
-import extraction.throwing.trees._
+import extraction.throwing. { trees => tt }
+import tt._
 
 import inox.utils.Position
 
@@ -14,7 +15,7 @@ import ExtraOps._
 import ir.{ PrimitiveTypes => PT, Literals => L, Operators => O }
 import ir.IRs.{ CIR }
 
-import scala.collection.mutable.{ Map => MutableMap }
+import scala.collection.mutable.{ Map => MutableMap, Set => MutableSet }
 
 /*
  * This phase takes a set of definitions (the Dependencies) and the fonction context database (FunCtxDB)
@@ -32,31 +33,34 @@ trait Scala2IRPhase extends LeonPipeline[(Dependencies, FunCtxDB), CIR.Prog] {
 
   def run(input: (Dependencies, FunCtxDB)): CIR.Prog = {
     val (deps, ctxDB) = input
-    implicit val syms = deps.syms
 
     val impl = new S2IRImpl(context, ctxDB, deps)
     impl.run()
 
     CIR.Prog(
+      impl.declResults.toList,
       impl.funResults.values.toList,
-      impl.classResults.values.toList
+      impl.classResults.filter { case ((ct, _), _) => !isGlobal(ct)(deps.syms) }.values.toList,
     )
   }
-
 }
 
-
-private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps: Dependencies)(implicit val syms: Symbols)
+private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps: Dependencies)
   extends extraction.imperative.EffectsAnalyzer
+  with GlobalStateChecker
   with IdentityFunctions
   with IdentitySorts
   with oo.IdentityClasses
   with oo.IdentityTypeDefs { self =>
 
-  import context._
+  implicit val syms = deps.syms
+  override implicit val printerOpts: tt.PrinterOptions = tt.PrinterOptions.fromSymbols(syms, context)
 
-  val s: extraction.throwing.trees.type = extraction.throwing.trees
-  val t: extraction.throwing.trees.type = extraction.throwing.trees
+  import context._
+  import typeOps._
+
+  val s: tt.type = tt
+  val t: tt.type = tt
 
   implicit val debugSection = DebugSectionGenC
   private val prog = inox.Program(extraction.throwing.trees)(syms)
@@ -101,11 +105,14 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
    ****************************************************************************************************/
 
   def run(): Unit = {
+    checkGlobalUsage()
+
+    // Start the transformation from `@exported` (and `@cCode.global`) functions and classes
     for (df <- deps.deps) {
       df match {
         case fd: FunDef if fd.isExported =>
           rec(Outer(fd), Seq())(Map.empty, (Map.empty, Map.empty))
-        case cd: ClassDef if cd.isExported =>
+        case cd: ClassDef if cd.isExported || cd.isGlobal =>
           rec(cd.typed.toType)(Map.empty)
         case _ =>
       }
@@ -115,6 +122,8 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
   /****************************************************************************************************
    *                                                       Caches                                     *
    ****************************************************************************************************/
+
+  var declResults = new scala.collection.mutable.ListBuffer[(CIR.Decl, Boolean)]()
 
   // For functions, we associate each TypedFunDef to a CIR.FunDef for each "type context" (TypeMapping).
   // This is very important for (non-generic) functions nested in a generic function because for N
@@ -138,38 +147,22 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
   // Keep track of generic to concrete type mapping
   private type TypeMapping = Map[TypeParameter, Type]
 
-  private def instantiate(typ: Type, tm: TypeMapping): Type =
-    typeOps.instantiateType(typ, tm)
-
   // Here, when contexts are translated, there might remain some generic types. We use `tm` to make them disapear.
   private def convertVarInfoToArg(vi: VarInfo)(implicit tm: TypeMapping) = CIR.ValDef(rec(vi.vd.id), rec(vi.typ), vi.isVar)
   private def convertVarInfoToParam(vi: VarInfo)(implicit tm: TypeMapping) = CIR.Binding(convertVarInfoToArg(vi))
 
   // Extract the ValDef from the known one
   private def buildBinding(vd: ValDef)(implicit env: Env, tm: TypeMapping): CIR.Binding = {
-    val typ = instantiate(vd.tpe, tm)
-    val optVd = env._1.get(vd -> typ)
-    val newVD = optVd match {
-      case Some(vd2) => vd2
-      case None =>
-        // Identifiers in Leon are known to be tricky when it comes to unique id.
-        // It sometimes happens that the unique id are not in sync, especially with
-        // generics. Here we try to find the best match based on the name only.
-        reporter.warning(s"Working around issue with identifiers on ${vd.id}...")
-        env._1.collectFirst {
-          case ((eid, etype), evd) if eid.id.name == vd.id.name && etype == typ => evd
-        } getOrElse {
-           reporter.fatalError(vd.getPos, s"Couldn't find a ValDef for ${vd.id} in the environment:\n$env")
-        }
-    }
+    val typ = instantiateType(vd.tpe, tm)
+    val newVD = env._1(vd -> typ)
     CIR.Binding(newVD)
   }
 
   private def buildLet(x: ValDef, e: Expr, body: Expr, isVar: Boolean)
                       (implicit env: Env, tm: TypeMapping): CIR.Expr = {
     val vd = CIR.ValDef(rec(x.id), rec(x.tpe), isVar)
-    val decl = CIR.DeclInit(vd, rec(e))
-    val newValDefEnv = env._1 + ((x, instantiate(x.tpe, tm)) -> vd)
+    val decl = CIR.Decl(vd, Some(rec(e)))
+    val newValDefEnv = env._1 + ((x, instantiateType(x.tpe, tm)) -> vd)
     val rest = rec(body)((newValDefEnv, env._2), tm)
 
     CIR.buildBlock(Seq(decl, rest))
@@ -307,13 +300,13 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
   private def convertPatMap(scrutinee0: Expr, cases0: Seq[MatchCase])(implicit env: Env, tm: TypeMapping): CIR.Expr = {
     require(cases0.nonEmpty)
 
-    def withTmp(typ: Type, value: Expr, env: Env): (Variable, Some[CIR.DeclInit], Env) = {
+    def withTmp(typ: Type, value: Expr, env: Env): (Variable, Some[CIR.Decl], Env) = {
       val tmp0 = ValDef.fresh("tmp", typ)
       val tmpId = rec(tmp0.id)
       val tmpTyp = rec(typ)
       val tmp = CIR.ValDef(tmpId, tmpTyp, isVar = false)
-      val pre = CIR.DeclInit(tmp, rec(value)(env, tm))
-      val newValDefEnv = env._1 + ((tmp0, instantiate(typ, tm)) -> tmp)
+      val pre = CIR.Decl(tmp, Some(rec(value)(env, tm)))
+      val newValDefEnv = env._1 + ((tmp0, instantiateType(typ, tm)) -> tmp)
 
       (tmp0.toVariable, Some(pre), (newValDefEnv, env._2))
     }
@@ -488,9 +481,10 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
     implicit val tm1: TypeMapping = tm0 ++ tpSubst
 
     // Make sure to get the id from the function definition, not the typed one, as they don't always match.
-    val nonGhostParams = fa.params.filter(!_.flags.contains(Ghost))
-    val paramTypes = nonGhostParams map { p => rec(p.getType)(tm1) }
-    val paramIds = nonGhostParams map { p => rec(p.id) }
+    // Remove ghost parameters, and remove global parameters
+    val newParams = fa.params.filter(vd => !vd.flags.contains(Ghost) && !isGlobal(vd.tpe))
+    val paramTypes = newParams map { p => rec(p.getType)(tm1) }
+    val paramIds = newParams map { p => rec(p.id) }
     val params = (paramIds zip paramTypes) map { case (id, typ) => CIR.ValDef(id, typ, isVar = false) }
 
     // Extract the context for the function definition, taking care of the remaining generic types in the context.
@@ -515,10 +509,10 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
         CIR.FunBodyManual(impl.includes, impl.code)
       } else {
         // Build the new environment from context and parameters
-        val ctxKeys: Seq[(ValDef, Type)] = ctxDBAbs map { c => c.vd -> instantiate(c.typ, tm1) }
+        val ctxKeys: Seq[(ValDef, Type)] = ctxDBAbs map { c => c.vd -> instantiateType(c.typ, tm1) }
         val ctxEnv: Seq[((ValDef, Type), CIR.ValDef)] = ctxKeys zip funCtx
 
-        val paramKeys: Seq[(ValDef, Type)] = nonGhostParams map { p => p -> instantiate(p.getType, tm1) }
+        val paramKeys: Seq[(ValDef, Type)] = newParams map { p => p -> instantiateType(p.getType, tm1) }
         val paramEnv: Seq[((ValDef, Type), CIR.ValDef)] = paramKeys zip params
 
         val newValDefEnv = env._1 ++ ctxEnv ++ paramEnv
@@ -570,7 +564,7 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
 
     case FunctionType(from, to) => CIR.FunType(ctx = Nil, params = from map rec, ret = rec(to))
 
-    case tp: TypeParameter => rec(instantiate(tp, tm))
+    case tp: TypeParameter => rec(instantiateType(tp, tm))
 
     case t => reporter.fatalError(t.getPos, s"Type tree ${t.asString} (${t.getClass}) not handled by GenC component")
   }
@@ -595,8 +589,8 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
       if (cd.isCaseObject)
         reporter.fatalError(ct.getPos, s"Case objects (${ct.id.asString}) are not convertible to ClassDef in GenC")
 
-      // disable name mangling for fields of exported classes
-      val mangling = !cd.isExported
+      // disable name mangling for fields of exported and global classes
+      val mangling = !cd.isExported && !cd.isGlobal
 
       // Use the class definition id, not the typed one as they might not match.
       val nonGhostFields = tcd.fields.filter(!_.flags.contains(Ghost))
@@ -629,16 +623,42 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
       })
 
       val clazz = CIR.ClassDef(id, parent, fields, cd.isAbstract, cd.isExported)
-
       val newAcc = acc + (ct -> clazz)
+      if (cd.isGlobal) {
+        assert(parent.isEmpty, "Classes annotated with `@cCode.global` cannot have parents")
+        assert(cd.children.isEmpty, "Classes annotated with `@cCode.global` cannot have children")
+        assert(cd.tparams.isEmpty, "Classes annotated with `@cCode.global` cannot have type parameters")
 
-      // Recurse down
-      val children = cd.children map { _.typed(ct.tps) }
-      children.foldLeft(newAcc) { case (currentAcc, child) => recTopDown(child.toType, Some(clazz), currentAcc) }
+        val paramInits = syms.paramInits(cd.id)
+        if (cd.isGlobalDefault) {
+          if (paramInits.length != fields.length)  {
+            reporter.fatalError(cd.getPos,
+              "Variables in classes annotated with `@cCode.global` must all be initialized for GenC.\n" +
+              s"We found ${paramInits.length} initializations instead of ${fields.length}."
+            )
+          }
+          for ((field, paramInit) <- fields.zip(paramInits)) {
+            implicit val emptyEnv: Env = (Map(), Map())
+            val decl = (CIR.Decl(field, Some(rec(paramInit.fullBody))), false)
+            if (declResults.map(_._1.vd).contains(field)) {
+              reporter.fatalError(cd.getPos, s"Global variable ${field.id} is defined twice")
+            }
+            declResults.append(decl)
+          }
+        } else if (cd.isGlobalUninitialized) {
+          for (field <- fields) declResults.append((CIR.Decl(field, None), false))
+        } else if (cd.isGlobalExternal) {
+          for (field <- fields) declResults.append((CIR.Decl(field, None), true))
+        }
+        newAcc
+      } else {
+        // Recurse down
+        val children = cd.children map { _.typed(ct.tps) }
+        children.foldLeft(newAcc) { case (currentAcc, child) => recTopDown(child.toType, Some(clazz), currentAcc) }
+      }
     }
 
     val translation = recTopDown(syms.getClass(root(ct.id)).typed(ct.tps).toType, None, Map.empty)
-
     translation(ct)
     })
   }
@@ -680,21 +700,22 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
     case v: Variable => buildBinding(v.toVal)
 
     case Let(x, e, body) if x.flags.contains(Ghost) => rec(body)
+    case Let(x, e, body) if isGlobal(x.getType) => rec(body)
     case Let(x, e, body) => buildLet(x, e, body, isVar = false)
     case LetVar(x, e, body) => buildLet(x, e, body, isVar = true)
 
     case Assignment(v, expr) => CIR.Assign(buildBinding(v.toVal), rec(expr))
 
-    case FieldAssignment(obj, fieldId0, expr) =>
-      // The fieldId might actually not be the correct one;
-      // it's global counter might differ from the one in the class definition.
+    case FieldAssignment(obj, fieldId, expr) =>
       obj.getType match {
+        case ct: ClassType if isGlobal(ct) =>
+          val cd2 = rec(ct)
+          val fieldId2 = rec(fieldId, withUnique = false)
+          val field2 = cd2.fields.find(_.id == fieldId2).get
+          val vd = CIR.ValDef(rec(fieldId, withUnique = false), field2.typ, isVar = field2.isVar)
+          CIR.Assign(CIR.Binding(vd), rec(expr))
+
         case ct: ClassType =>
-          val fields = ct.tcd.fields
-          val optFieldId = fields collectFirst { case field if field.id.name == fieldId0.name => field.id }
-          val fieldId = optFieldId getOrElse {
-            reporter.fatalError(e.getPos, s"No corresponding field for $fieldId0 in class $ct")
-          }
           CIR.Assign(CIR.FieldAccess(rec(obj), rec(fieldId, withUnique = !ct.tcd.cd.isExported)), rec(expr))
 
         case typ =>
@@ -710,9 +731,11 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
       val tfd = fd.typed(tps)
       val fun = rec(Outer(fd), tps)
       implicit val tm1 = tm0 ++ tfd.tpSubst
-      val nonGhostArgs = args.zip(fd.params).filter(!_._2.flags.contains(Ghost)).map(_._1)
-      val args2 = nonGhostArgs map { a0 => rec(a0)(env, tm1) }
-      CIR.App(fun.toVal, Seq(), args2)
+      val filteredArgs = args.zip(fd.params).filter {
+        case (arg, vd) => !vd.flags.contains(Ghost) && !isGlobal(vd.tpe)
+      }.map(_._1)
+      val newArgs = filteredArgs map { a0 => rec(a0)(env, tm1) }
+      CIR.App(fun.toVal, Seq(), newArgs)
 
     case ApplyLetRec(id, tparams, tpe, tps, args) =>
       val lfd = env._2(id)
@@ -774,8 +797,17 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
       CIR.Construct(ct2, args2)
 
     case ClassSelector(obj, fieldId) =>
-      val cd = obj.getType.asInstanceOf[ClassType].tcd.cd
-      CIR.FieldAccess(rec(obj), rec(fieldId, withUnique = !cd.isExported))
+      val ct = obj.getType.asInstanceOf[ClassType]
+      val cd = ct.tcd.cd
+      if (isGlobal(ct)) {
+        val cd2 = rec(ct)
+        val fieldId2 = rec(fieldId, withUnique = false)
+        val field2 = cd2.fields.find(_.id == fieldId2).get
+        val vd = CIR.ValDef(rec(fieldId, withUnique = false), field2.typ, isVar = field2.isVar)
+        CIR.Binding(vd)
+      } else {
+        CIR.FieldAccess(rec(obj), rec(fieldId, withUnique = !cd.isExported))
+      }
 
     case tuple @ Tuple(args0) =>
       val clazz = tuple2Class(tuple.getType)
@@ -808,7 +840,7 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
       val tmpVd = CIR.ValDef(tmpId, rec(base), false)
       val tmp = CIR.Binding(tmpVd)
       CIR.buildBlock(Seq(
-        CIR.DeclInit(tmpVd, CIR.ArrayAccess(a1, i1)),
+        CIR.Decl(tmpVd, Some(CIR.ArrayAccess(a1, i1))),
         CIR.Assign(CIR.ArrayAccess(a1, i1), CIR.ArrayAccess(a2, i2)),
         CIR.Assign(CIR.ArrayAccess(a2, i2), tmp),
       ))

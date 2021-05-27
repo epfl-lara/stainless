@@ -59,6 +59,19 @@ private class IR2CImpl(val ctx: inox.Context) {
 
   private def rec(prog: Prog): C.Prog = {
 
+    val decls = prog.decls.map { case (decl, external) => rec(decl, allowFixedArray = true) match {
+      case res: C.Decl => (res, external)
+      case res =>
+        ctx.reporter.fatalError(
+          "Only simple values are supported as default values for global variables.\n" +
+          s"Declaration $decl was translated to $res.\n" +
+          (if (decl.vd.typ.isArray && !decl.vd.typ.isFixedArray)
+            "Try making the length of the array constant by adding a condition in the class invariant of the global state."
+          else
+            "")
+        )
+    }}
+
     prog.functions foreach rec
     prog.classes foreach rec
 
@@ -66,13 +79,13 @@ private class IR2CImpl(val ctx: inox.Context) {
     val functions = funCache.values.toSet
 
     // Remove "mutability" on includes & typeDefs
-    C.Prog(includes.toSet, typdefs.toSet, enums, dataTypes, functions)
+    C.Prog(includes.toSet, decls, typdefs.toSet, enums, dataTypes, functions)
   }
 
   private def rec(fd: FunDef): Unit = funCache.getOrElseUpdate(fd, {
     val id = rec(fd.id)
     val returnType = rec(fd.returnType)
-    val params = (fd.ctx ++ fd.params) map rec
+    val params = (fd.ctx ++ fd.params).map(rec(_))
     val body = rec(fd.body)
 
     C.Fun(id, returnType, params, body, fd.isExported)
@@ -101,7 +114,7 @@ private class IR2CImpl(val ctx: inox.Context) {
 
   private def rec(typ: Type): C.Type = typ match {
     case PrimitiveType(pt) => C.Primitive(pt)
-    case FunType(ctx, params, ret) => C.FunType(params = (ctx ++ params) map rec, ret = rec(ret))
+    case FunType(ctx, params, ret) => C.FunType(params = (ctx ++ params).map(rec(_)), ret = rec(ret))
     case ClassType(clazz) => convertClass(clazz) // can be a struct or an enum
     case array @ ArrayType(_, None) => array2Struct(array)
     case array @ ArrayType(base, Some(length)) => C.FixedArrayType(rec(base), length)
@@ -120,7 +133,7 @@ private class IR2CImpl(val ctx: inox.Context) {
   // One major difference of this rec compared to Transformer.rec(Expr) is that here
   // we don't necessarily follow every branch of the AST. For example, we don't recurse
   // on function definitions, hence no problem with recursive functions.
-  private def rec(e: Expr): C.Expr = e match {
+  private def rec(e: Expr, allowFixedArray: Boolean = false): C.Expr = e match {
     case Binding(vd) => C.Binding(rec(vd.id))
 
     case FunRef(e) => rec(e)
@@ -135,18 +148,32 @@ private class IR2CImpl(val ctx: inox.Context) {
       exprs
         .filter {
           case Binding(vd) if vd.typ.isUnitType => false
-          case DeclInit(vd, _) if vd.typ.isUnitType => false
+          case Decl(vd, _) if vd.typ.isUnitType => false
           case e => true
         }
-        .map(rec)
+        .map(rec(_))
     }
 
-    case Decl(vd) => C.Decl(rec(vd.id), rec(vd.getType))
+    case Decl(vd, None) => C.Decl(rec(vd.id), rec(vd.getType), None)
 
-    case DeclInit(vd, ArrayInit(ArrayAllocStatic(arrayType, length, values0))) =>
+    case Decl(vd, Some(ArrayInit(ArrayAllocStatic(arrayType, length, values0)))) if allowFixedArray && vd.typ.isFixedArray =>
+      val values = values0 match {
+        case Right(values0) => values0.map(rec(_))
+        case Left(_) =>
+          // By default, 0-initialisation using only zero value
+          val z = arrayType.base match {
+            case PrimitiveType(Int8Type) => Int8Lit(0)
+            case PrimitiveType(Int32Type) => Int32Lit(0)
+            case _ => ctx.reporter.fatalError(s"Unexpected integral type $arrayType")
+          }
+          Seq(C.Lit(z))
+      }
+      C.Decl(rec(vd.id), rec(vd.typ), Some(C.ArrayStatic(rec(arrayType.base), values)))
+
+    case Decl(vd, Some(ArrayInit(ArrayAllocStatic(arrayType, length, values0)))) =>
       val bufferId = C.FreshId("buffer")
       val values = values0 match {
-        case Right(values0) => values0 map rec
+        case Right(values0) => values0.map(rec(_))
         case Left(_) =>
           // By default, 0-initialisation using only zero value
           val z = arrayType.base match {
@@ -161,13 +188,13 @@ private class IR2CImpl(val ctx: inox.Context) {
       val len = C.Lit(Int32Lit(length))
       val array = array2Struct(arrayType)
       val varInit = C.StructInit(array, data :: len :: Nil)
-      val varDecl = C.DeclInit(rec(vd.id), array, varInit)
+      val varDecl = C.Decl(rec(vd.id), array, Some(varInit))
 
       C.buildBlock(bufferDecl :: varDecl :: Nil)
 
     case ArrayInit(ArrayAllocStatic(arrayType, length, values0)) =>
       val values = values0 match {
-        case Right(values0) => values0 map rec
+        case Right(values0) => values0.map(rec(_))
         case Left(_) =>
           // By default, 0-initialisation using only zero value
           val z = arrayType.base match {
@@ -179,28 +206,28 @@ private class IR2CImpl(val ctx: inox.Context) {
       }
       C.ArrayStatic(rec(arrayType.base), values)
 
-    case DeclInit(vd, ArrayInit(ArrayAllocVLA(arrayType, length, valueInit))) =>
+    case Decl(vd, Some(ArrayInit(ArrayAllocVLA(arrayType, length, valueInit)))) =>
       val bufferId = C.FreshId("buffer")
       val lenId = C.FreshId("length")
-      val lenDecl = C.DeclInit(lenId, C.Primitive(Int32Type), rec(length)) // Eval `length` once only
+      val lenDecl = C.Decl(lenId, C.Primitive(Int32Type), Some(rec(length))) // Eval `length` once only
       val len = C.Binding(lenId)
       val bufferDecl = C.DeclArrayVLA(bufferId, rec(arrayType.base), len, rec(valueInit))
       val data = C.Binding(bufferId)
       val array = array2Struct(arrayType)
       val varInit = C.StructInit(array, data :: len :: Nil)
-      val varDecl = C.DeclInit(rec(vd.id), array, varInit)
+      val varDecl = C.Decl(rec(vd.id), array, Some(varInit))
 
       C.buildBlock(lenDecl :: bufferDecl :: varDecl :: Nil)
 
-    case DeclInit(vd, value) => C.DeclInit(rec(vd.id), rec(vd.getType), rec(value))
+    case Decl(vd, Some(value)) => C.Decl(rec(vd.id), rec(vd.getType), Some(rec(value)))
 
-    case App(callable, extra, args) => C.Call(rec(callable), (extra ++ args) map rec)
+    case App(callable, extra, args) => C.Call(rec(callable), (extra ++ args).map(rec(_)))
 
     case Construct(cd, args) => constructObject(cd, args) // can be a StructInit or an EnumLiteral
 
-    case ArrayInit(alloc) => ctx.reporter.fatalError("This should be part of a DeclInit expression!")
+    case ArrayInit(alloc) => ctx.reporter.fatalError("This should be part of a Decl expression!")
 
-    // no `data` field for fixed arrays
+    // no `data` field for fixed arrays accesses
     case ArrayAccess(FieldAccess(obj, fieldId), index)
       if  obj.getType.isInstanceOf[ClassType] &&
           obj.getType.asInstanceOf[ClassType].clazz.fields.exists(vd =>
@@ -227,6 +254,8 @@ private class IR2CImpl(val ctx: inox.Context) {
 
     case FieldAccess(obj, fieldId) => C.FieldAccess(rec(obj), rec(fieldId))
 
+    // no `data` field for fixed arrays accesses
+    case ArrayAccess(array, index) if array.getType.isFixedArray => C.ArrayAccess(rec(array), rec(index))
     case ArrayAccess(array, index) => C.ArrayAccess(C.FieldAccess(rec(array), C.Id("data")), rec(index))
     case ArrayLength(array) => C.FieldAccess(rec(array), C.Id("length"))
 
@@ -398,7 +427,7 @@ private class IR2CImpl(val ctx: inox.Context) {
       if (markedAsEmpty(cd)) Seq(Lit(Int8Lit(0)))
       else args0
 
-    C.StructInit(struct, args map rec)
+    C.StructInit(struct, args.map(rec(_)))
   }
 
   private def hierarchyConstruction(cd: ClassDef, args: Seq[Expr]): C.StructInit = {
@@ -500,7 +529,7 @@ private class IR2CImpl(val ctx: inox.Context) {
               s"I'm adding a dummy byte to ${cd.id} structure for compatibility purposes.")
       markAsEmpty(cd)
       Seq(C.Var(C.Id("extra"), C.Primitive(Int8Type)))
-    } else cd.fields map rec
+    } else cd.fields.map(rec(_))
 
     C.Struct(rec(cd.id), fields, cd.isExported)
   }

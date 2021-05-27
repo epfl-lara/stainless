@@ -27,7 +27,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
   )
 
   final override def createContext(options: inox.Options) = stainless.TestContext(options)
-  
+
   override protected def optionsString(options: inox.Options): String = {
     "solvr=" + options.findOptionOrDefault(inox.optSelectedSolvers).head + " " +
     "lucky=" + options.findOptionOrDefault(inox.solvers.unrolling.optFeelingLucky) + " " +
@@ -79,7 +79,8 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
 
         val defs = inox.utils.fixpoint { (defs: Set[Identifier]) =>
           def derived(flags: Seq[run.trees.Flag]): Boolean =
-            (defs & flags.collect { case run.trees.Derived(id) => id }.toSet).nonEmpty
+            (defs & flags.collect { case run.trees.Derived(Some(id)) => id }.toSet).nonEmpty ||
+            flags.contains(run.trees.Derived(None))
 
           defs ++
           exProgram.symbols.functions.values.filter(fd => derived(fd.flags)).map(_.id) ++
@@ -125,7 +126,8 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
 
         val funs = inox.utils.fixpoint { (defs: Set[Identifier]) =>
           def derived(flags: Seq[run.trees.Flag]): Boolean =
-            (defs & flags.collect { case run.trees.Derived(id) => id }.toSet).nonEmpty
+            (defs & flags.collect { case run.trees.Derived(Some(id)) => id }.toSet).nonEmpty ||
+            flags.contains(run.trees.Derived(None))
 
           defs ++
           exSymbols.functions.values.filter(fd => derived(fd.flags)).map(_.id) ++

@@ -160,7 +160,7 @@ trait Laws
 
         val newFlags = (
           (fd.flags filter (_ != s.Law) map (transform(_, env))) ++
-          Seq(t.InlineOnce, t.Derived(fd.id), t.Final)
+          Seq(t.InlineOnce, t.Derived(Some(fd.id)), t.Final)
         ).distinct
 
         t.exprOps.freshenSignature(
@@ -257,7 +257,7 @@ trait Laws
               ).setPos(lawFd)
             ).setPos(lawFd)
           ).setPos(lawFd),
-          Seq(t.IsMethodOf(cd.id), t.Derived(lawFd.id), t.Law) ++ libraryFlag ++ ghostFlag
+          Seq(t.IsMethodOf(cd.id), t.Derived(Some(lawFd.id)), t.Law) ++ libraryFlag ++ ghostFlag
         ).setPos(cd))
       }
 

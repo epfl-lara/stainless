@@ -63,7 +63,7 @@ trait Trace extends CachingPhase with IdentityFunctions with IdentitySorts { sel
         val withPre = exprOps.reconstructSpecs(pre, Some(body), s.UnitType())
         val fullBody = BodyWithSpecs(withPre).withSpec(post).reconstructed
 
-        val flags: Seq[s.Flag] = Seq(s.Derived(fd1.id), s.Annotation("traceInduct",List(StringLiteral(fd1.id.name))))
+        val flags: Seq[s.Flag] = Seq(s.Derived(Some(fd1.id)), s.Annotation("traceInduct",List(StringLiteral(fd1.id.name))))
 
         new s.FunDef(id, newParamTypes, newParams, returnType, fullBody, flags)
       }
@@ -123,7 +123,7 @@ trait Trace extends CachingPhase with IdentityFunctions with IdentitySorts { sel
           val withPre = exprOps.reconstructSpecs(BodyWithSpecs(fd.fullBody).specs, Some(body), fd.returnType)
           val lemma = fd.copy(
             fullBody = BodyWithSpecs(withPre).reconstructed,
-            flags = (s.Derived(fd.id) +: s.Derived(finv.id) +: (fd.flags.filterNot(f => f.name == "traceInduct"))).distinct
+            flags = (s.Derived(Some(fd.id)) +: s.Derived(Some(finv.id)) +: (fd.flags.filterNot(f => f.name == "traceInduct"))).distinct
           ).copiedFrom(fd).setPos(fd.getPos)
 
           Trace.setTrace(lemma.id)
@@ -132,7 +132,7 @@ trait Trace extends CachingPhase with IdentityFunctions with IdentitySorts { sel
         }
         case None => {
           val lemma = fd.copy(
-            flags = (s.Derived(fd.id) +: (fd.flags.filterNot(f => f.name == "traceInduct")))
+            flags = (s.Derived(Some(fd.id)) +: (fd.flags.filterNot(f => f.name == "traceInduct")))
           ).copiedFrom(fd).setPos(fd.getPos)
           Trace.setTrace(lemma.id)
           List(lemma)
@@ -161,7 +161,7 @@ trait Trace extends CachingPhase with IdentityFunctions with IdentitySorts { sel
     val newParamTps = newParamTypes.map{tparam => tparam.tp}
 
     val returnType = model.returnType
-    val flags = Seq(s.Derived(lemma.id), s.Derived(model.id))
+    val flags = Seq(s.Derived(Some(lemma.id)), s.Derived(Some(model.id)))
 
     val body = FunctionInvocation(model.id, newParamTps, newParamVars)
     val indPattern = new s.FunDef(id, newParamTypes, newParams, returnType, body, flags)

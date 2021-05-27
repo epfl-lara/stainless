@@ -178,7 +178,7 @@ trait InnerClasses
     def liftLocalClasses(fd: FunDef, ctx: Context): FunctionResult = {
       val lift = new LiftingTransformer
       val result = lift.transform(fd, ctx)
-      val derived = Derived(fd.id)
+      val derived = Derived(Some(fd.id))
 
       val newSymbols = lift.result.values.toSeq map { subst =>
         val cd = transform(subst.cd.copy(flags = subst.cd.flags :+ derived))
