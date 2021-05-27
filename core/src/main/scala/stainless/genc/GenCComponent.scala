@@ -52,14 +52,6 @@ class GenCRun(override val pipeline: extraction.StainlessPipeline) // pipeline i
 
   import xt._
 
-  private def filter2(ids: Seq[Identifier], symbols: Symbols): Symbols = {
-    dependenciesFinder.findDependencies(ids.toSet, symbols)
-  }
-
-  protected def createFilter2: CheckFilter { val trees: xt.type } = CheckFilter(trees, context)
-
-  private[this] final val extractionFilter2 = createFilter
-
   // We only keep some parts of the standard verification pipeline for genc
   val pipelineBegin: ExtractionPipeline{val s: xt.type; val t: tt.type} =
     xlang.extractor        andThen
@@ -76,17 +68,12 @@ class GenCRun(override val pipeline: extraction.StainlessPipeline) // pipeline i
     methods.lowering andThen
     utils.DebugPipeline("LeonInlining", LeonInlining(tt, tt))
 
-  override def apply(ids: Seq[Identifier], symbols: Symbols, filterSymbols: Boolean = false): Future[GenCComponent.Analysis] = try {
-    // FIXME: use findDependencies as in Leon?
-    // val toProcess = extractionFilter2.filter(ids, symbols, component)
-    // val filtered = dependenciesFinder.findDependencies(toProcess.toSet, symbols)
-    val filtered = symbols
-
-    val symbolsAfterPipeline: tt.Symbols = pipelineBegin.extract(filtered)
+  override def apply(ids: Seq[Identifier], symbols: Symbols): Future[GenCComponent.Analysis] = try {
+    val symbolsAfterPipeline: tt.Symbols = pipelineBegin.extract(symbols)
 
     GenerateC.run(symbolsAfterPipeline)
 
-    val p = inox.Program(trees)(filtered)
+    val p = inox.Program(trees)(symbols)
 
     Future.successful(new GenCAnalysis {
       override val program = p

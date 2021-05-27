@@ -47,9 +47,13 @@ trait LeonInlining extends CachingPhase with extraction.IdentitySorts with oo.Id
       }
 
       // values that can be inlined directly, without being let-bound
-      // TODO: expand with more values
       private def isValue(e: Expr): Boolean = e match {
+        case UnitLiteral() => true
+        case BooleanLiteral(_) => true
+        case IntegerLiteral(_) => true
         case BVLiteral(_, _, _) => true
+        case Tuple(es) => es.forall(isValue)
+        case ADT(_, _, args) => args.forall(isValue)
         case _ => false
       }
 
@@ -68,12 +72,10 @@ trait LeonInlining extends CachingPhase with extraction.IdentitySorts with oo.Id
 
         if (!willInline) return fi
 
-        if (exprOps.BodyWithSpecs(tfd.fullBody).specs.isEmpty && isValue(tfd.fullBody)) {
+        val specced = BodyWithSpecs(tfd.fullBody)
+        if (specced.specs.isEmpty && isValue(tfd.fullBody)) {
           exprOps.freshenLocals(tfd.fullBody)
         } else {
-
-          val specced = BodyWithSpecs(tfd.fullBody)
-
           // We need to keep the body as-is for `@synthetic` methods, such as
           // `copy` or implicit conversions for implicit classes, in order to
           // later on check that the class invariant is valid.
@@ -138,7 +140,7 @@ trait LeonInlining extends CachingPhase with extraction.IdentitySorts with oo.Id
       }
     }
 
-    if ((fd.flags contains Synthetic) && (fd.flags contains Inline)) None
+    if ((fd.flags contains Synthetic) && (fd.flags contains Inline) && (!fd.flags.exists(_.isInstanceOf[ClassParamInit]))) None
     else Some(identity.transform(fd.copy(
       fullBody = new Inliner().transform(fd.fullBody),
       flags = fd.flags filterNot (f => f == Inline || f == InlineOnce)
@@ -170,12 +172,9 @@ trait LeonInlining extends CachingPhase with extraction.IdentitySorts with oo.Id
     def isCandidate(id: Identifier): Boolean =
       (inlinedOnceFuns contains id) && (symbols.getFunction(id).flags contains Synthetic)
 
-    def isPrunable(id: Identifier): Boolean =
-      isCandidate(id) && newSymbols.transitiveCallers(id).forall(isCandidate)
-
-    def hasAnInlineFlag(id: Identifier): Boolean = {
-      val flags = symbols.getFunction(id).flags
-      flags.contains(Inline) || flags.contains(InlineOnce)
+    def isPrunable(id: Identifier): Boolean = {
+      isCandidate(id) && newSymbols.transitiveCallers(id).forall(isCandidate) &&
+      !symbols.getFunction(id).flags.exists(_.isInstanceOf[ClassParamInit])
     }
 
     t.NoSymbols

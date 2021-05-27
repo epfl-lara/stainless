@@ -67,6 +67,11 @@ trait AdtSpecialization
 
     protected implicit val implicitContext: TransformerContext = this
 
+    override def transform(flag: s.Flag): t.Flag = flag match {
+      case s.ClassParamInit(cid) if isCandidate(cid) => t.ClassParamInit(constructorID(cid))
+      case _ => super.transform(flag)
+    }
+
     override def transform(e: s.Expr): t.Expr = e match {
       case s.ClassSelector(expr, selector) => expr.getType match {
         case s.ClassType(id, tps) if isCandidate(id) =>
@@ -196,7 +201,7 @@ trait AdtSpecialization
           val objectFunction = if (isCaseObject(cd.id)) {
             val vd = t.ValDef.fresh("v", t.ADTType(root(cd.id), cd.typeArgs map (transform(_))).setPos(cd)).setPos(cd)
             val returnType = t.RefinementType(vd, t.IsConstructor(vd.toVariable, constructorID(cd.id)).setPos(cd)).setPos(cd)
-            Some(mkFunDef(caseObject(cd.id), t.Inline, t.Derived(cd.id))()(_ => (
+            Some(mkFunDef(caseObject(cd.id), t.Inline, t.Derived(Some(cd.id)))()(_ => (
               Seq(),
               returnType,
               (_ => t.ADT(constructorID(cd.id), Seq(), Seq()).setPos(cd))
@@ -252,7 +257,7 @@ trait AdtSpecialization
       .withFunctions(newSymbols.functions.values.toSeq.filter { fd =>
         dependencies(fd.id) ||
         // keep the introduced case object construction functions
-        fd.flags.exists { case t.Derived(id) => dependencies(id) case _ => false }
+        fd.flags.exists { case t.Derived(Some(id)) => dependencies(id) case _ => false }
       })
       .withSorts(newSymbols.sorts.values.toSeq.filter(sort => dependencies(sort.id)))
       .withClasses(newSymbols.classes.values.toSeq.filter(cd => dependencies(cd.id)))

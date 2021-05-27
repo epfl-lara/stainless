@@ -203,7 +203,7 @@ trait Sealing extends oo.CachingPhase
         val ct = ClassType(dummyClass.id, cd.typeArgs).setPos(fd)
         val thiss = This(ct).setPos(fd)
         val newFlags = fd.flags.filterNot(overrideDiscardFlag) ++
-          Seq(Synthetic, IsMethodOf(ct.id), Derived(id), IsAccessor(Some(vd.id)))
+          Seq(Synthetic, IsMethodOf(ct.id), Derived(Some(id)), IsAccessor(Some(vd.id)))
 
         val accessor = exprOps.freshenSignature(if (fd.isSetter) {
           fd.copy(
@@ -233,7 +233,7 @@ trait Sealing extends oo.CachingPhase
           fullBody = reconstructSpecs(specs, None, fd.returnType),
           flags = (
             fd.flags.filterNot(overrideDiscardFlag) ++
-              Seq(Extern, Derived(id), Synthetic, IsMethodOf(dummyClass.id))
+              Seq(Extern, Derived(Some(id)), Synthetic, IsMethodOf(dummyClass.id))
           ).distinct
         ))
 
@@ -247,7 +247,7 @@ trait Sealing extends oo.CachingPhase
           rhs = TypeBounds(NothingType(), AnyType(), Seq.empty),
           flags = (
             td.flags.filterNot(overrideDiscardFlag) ++
-            Seq(IsAbstract, Derived(td.id), Synthetic, IsTypeMemberOf(dummyClass.id))
+            Seq(IsAbstract, Derived(Some(td.id)), Synthetic, IsTypeMemberOf(dummyClass.id))
           ).distinct
         )
       }
@@ -265,7 +265,7 @@ trait Sealing extends oo.CachingPhase
   private[this] def duplicate(fd: FunDef): FunDef = {
     exprOps.freshenSignature(fd.copy(
       id = ast.SymbolIdentifier(fd.id.name),
-      flags = (fd.flags :+ Derived(fd.id)).distinct
+      flags = (fd.flags :+ Derived(Some(fd.id))).distinct
     ).copiedFrom(fd))
   }
 

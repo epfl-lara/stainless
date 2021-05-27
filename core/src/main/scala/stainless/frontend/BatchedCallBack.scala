@@ -104,7 +104,7 @@ class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Con
     while (rerunPipeline) {
       val reports = runs map { run =>
         val ids = symbols.functions.keys.toSeq
-        val analysis = Await.result(run(ids, symbols, filterSymbols = true), Duration.Inf)
+        val analysis = Await.result(run(ids, symbols), Duration.Inf)
         RunReport(run)(analysis.toReport)
       }
       report = Report(reports)

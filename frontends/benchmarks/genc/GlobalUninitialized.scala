@@ -1,0 +1,49 @@
+import stainless.annotation._
+import stainless.io._
+
+object GlobalUninitialized {
+
+  @cCode.globalUninitialized
+  case class GlobalState(
+    val data: Array[Int],
+    var stable: Boolean,
+    var x: Int,
+    var y: Int,
+  ) {
+    require(
+      data.length == 100 && (
+        !stable || (
+          0 <= x && x <= 100 &&
+          0 <= y && y <= 100 &&
+          x + y == 12
+        )
+      )
+    )
+  }
+
+  def move()(implicit state: GlobalState): Unit = {
+    require(state.stable && state.y > 0)
+    state.stable = false
+    state.x += 1
+    state.y -= 1
+    state.data(state.y) = 1
+    state.stable = true
+    if (state.y > 0) move()
+  }.ensuring(_ => state.stable)
+
+  @export
+  def main() {
+    implicit val gs = GlobalState(Array.fill(100)(0), false, 0, 0)
+    gs.x = 0
+    gs.y = 12
+    gs.stable = true
+    StdOut.print(gs.x)
+    StdOut.print(gs.y)
+    move()
+    StdOut.print(gs.data(11))
+    StdOut.print(gs.data(12))
+    StdOut.print(gs.x)
+    StdOut.println(gs.y)
+  }
+
+}

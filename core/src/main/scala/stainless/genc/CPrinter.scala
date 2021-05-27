@@ -17,8 +17,8 @@ class CPrinter(
 ) {
   def print(tree: Tree) = pp(tree)(PrinterContext(indent = 0, printer = this, previous = None, current = tree))
 
-  private[genc] def pp(tree: Tree)(implicit ctx: PrinterContext): Unit = tree match {
-    case Prog(includes, typeDefs0, enums0, types, functions0) =>
+  private[genc] def pp(tree: Tree)(implicit pctx: PrinterContext): Unit = tree match {
+    case Prog(includes, decls, typeDefs0, enums0, types, functions0) =>
       // We need to convert Set to Seq in order to use nary.
       val typeDefs = typeDefs0.toSeq
       val enums = enums0.toSeq.sortBy(_.id.name)
@@ -58,6 +58,12 @@ class CPrinter(
               opening = separator("data type definitions"),
               closing = "\n\n",
               sep = "\n\n")
+             }
+            |${nary(
+              decls.filter(!_._2).map(_._1),
+              opening = separator("global variables"),
+              closing = ";\n\n",
+              sep = ";\n")
              }
             |${nary(
               functions.filter(!_.isExported) map FunDecl,
@@ -177,9 +183,9 @@ class CPrinter(
 
     case EnumLiteral(lit) => c"$lit"
 
-    case Decl(id, typ) => c"${TypeId(typ, id)}"
+    case Decl(id, typ, None) => c"${TypeId(typ, id)}"
 
-    case DeclInit(id, typ, value) => c"${TypeId(typ, id)} = $value"
+    case Decl(id, typ, Some(value)) => c"${TypeId(typ, id)} = $value"
 
     // TODO Visual "optimisation" can be made here if all values are zeros
     case DeclArrayStatic(id, base, length, values) =>
@@ -191,7 +197,7 @@ class CPrinter(
     case DeclArrayVLA(id, base, length, defaultExpr) =>
       val i = FreshId("i")
       c"""|$base $id[$length];
-          |${Decl(i, Primitive(Int32Type))};
+          |${Decl(i, Primitive(Int32Type), None)};
           |for ($i = 0; $i < $length; ++$i) {
           |    $id[$i] = $defaultExpr;
           |}"""
@@ -256,9 +262,11 @@ class CPrinter(
     case Return(value) => c"return $value"
 
     case Cast(expr, typ) => optP { c"($typ)$expr" }
+
+    case _ => throw new Exception(s"GenC cannot print tree (of class ${tree.getClass})")
   }
 
-  private[genc] def pp(wt: WrapperTree)(implicit ctx: PrinterContext): Unit = wt match {
+  private[genc] def pp(wt: WrapperTree)(implicit pctx: PrinterContext): Unit = wt match {
     case StaticStorage(id) if id.name == "main" => /* Nothing */
     case StaticStorage(_) => c"static "
 
@@ -321,8 +329,8 @@ class CPrinter(
 
 
   /** Special helpers for pretty parentheses **/
-  private def optP(body: => Any)(implicit ctx: PrinterContext) = {
-    if (requiresParentheses(ctx.current, ctx.previous)) {
+  private def optP(body: => Any)(implicit pctx: PrinterContext) = {
+    if (requiresParentheses(pctx.current, pctx.previous)) {
       sb.append("(")
       body
       sb.append(")")
@@ -333,7 +341,7 @@ class CPrinter(
 
   private def requiresParentheses(current: Tree, previous: Option[Tree]): Boolean = (current, previous) match {
     case (_, None) => false
-    case (_, Some(_: DeclInit | _: Call | _: ArrayAccess | _: If | _: IfElse | _: While | _: Return | _: Assign)) => false
+    case (_, Some(_: Decl | _: Call | _: ArrayAccess | _: If | _: IfElse | _: While | _: Return | _: Assign)) => false
     case (Operator(precedence1), Some(Operator(precedence2))) if precedence1 < precedence2 => false
     case (_, _) => true
   }

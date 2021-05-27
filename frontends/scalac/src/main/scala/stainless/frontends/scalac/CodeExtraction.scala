@@ -54,7 +54,7 @@ trait CodeExtraction extends ASTExtractors {
         (FreshIdentifier(u.source.file.name.replaceFirst("[.][^.]+$", "")), List.empty)
     }
 
-    val (imports, classes, functions, typeDefs, subs, allClasses, allFunctions, allTypeDefs) = extractStatic(stats)
+    val (imports, classes, functions, typeDefs, subs, allClasses, allFunctions, allTypeDefs, _) = extractStatic(stats)
     assert(functions.isEmpty, "Packages shouldn't contain functions")
     assert(typeDefs.isEmpty, "Packages shouldn't contain type defintions")
 
@@ -194,7 +194,8 @@ trait CodeExtraction extends ASTExtractors {
     Seq[xt.ModuleDef],
     Seq[xt.ClassDef],
     Seq[xt.FunDef],
-    Seq[xt.TypeDef]
+    Seq[xt.TypeDef],
+    Option[Identifier]
   ) = {
     var imports   : Seq[xt.Import]    = Seq.empty
     var classes   : Seq[Identifier]   = Seq.empty
@@ -205,6 +206,8 @@ trait CodeExtraction extends ASTExtractors {
     var allClasses   : Seq[xt.ClassDef] = Seq.empty
     var allFunctions : Seq[xt.FunDef]   = Seq.empty
     var allTypeDefs  : Seq[xt.TypeDef]  = Seq.empty
+
+    var companionOf : Option[Identifier] = None
 
     for (d <- stats) d match {
       case EmptyTree =>
@@ -226,7 +229,7 @@ trait CodeExtraction extends ASTExtractors {
         imports ++= extractImports(i)
 
       case pd @ PackageDef(ref, stats) =>
-        val (imports, classes, functions, typeDefs, modules, newClasses, newFunctions, newTypeDefs) = extractStatic(stats)
+        val (imports, classes, functions, typeDefs, modules, newClasses, newFunctions, newTypeDefs, _) = extractStatic(stats)
         val pid = FreshIdentifier(extractRef(ref).mkString("$"))
         subs :+= xt.ModuleDef(pid, imports, classes, functions, typeDefs, modules)
         allClasses ++= newClasses
@@ -234,13 +237,36 @@ trait CodeExtraction extends ASTExtractors {
         allTypeDefs ++= newTypeDefs
 
       case td @ ExObjectDef(_, _) =>
-        val (obj, newClasses, newFunctions, newTypeDefs) = extractObject(td)
+        val (obj, newClasses, newFunctions, newTypeDefs, companionOf) = extractObject(td)
         subs :+= obj
         allClasses ++= newClasses
-        allFunctions ++= newFunctions
+        allFunctions ++= newFunctions.map { fd =>
+          if (
+            fd.id.name.startsWith("apply$default") &&
+            !fd.flags.exists(_.isInstanceOf[xt.ClassParamInit])
+          ) {
+            fd.copy(flags = (xt.ClassParamInit(companionOf.get) +: fd.flags)).setPos(fd)
+          } else {
+            fd
+          }
+        }
         allTypeDefs ++= newTypeDefs
 
-      // this case goes after `ExObjectDef` in order to explore objects
+      case t @ DefDef(_, name, _, _, tpt, _)
+        if  t.symbol.isSynthetic &&
+            !canExtractSynthetic(t.symbol) &&
+            name.toString == "apply" =>
+        extractType(tpt)(DefContext()) match {
+          case xt.ClassType(cid, _) =>
+            assert(companionOf.forall(_ != cid),
+              s"Error during Stainless extraction, couldn't tie companion object to class: $cid"
+            )
+            companionOf = Some(cid)
+          case _ =>
+        }
+
+      // this case goes after `ExObjectDef` in order to explore synthetic objects that may contain
+      // field initializers
       case t if t.symbol.isSynthetic && !canExtractSynthetic(t.symbol) =>
         // ignore
 
@@ -301,7 +327,7 @@ trait CodeExtraction extends ASTExtractors {
         reporter.warning(other.pos, s"Stainless does not support the following tree in static containers:\n$other")
     }
 
-    (imports, classes, functions, typeDefs, subs, allClasses, allFunctions, allTypeDefs)
+    (imports, classes, functions, typeDefs, subs, allClasses, allFunctions, allTypeDefs, companionOf)
   }
 
   private def extractTypeDef(td: TypeDef)(implicit dctx: DefContext): xt.TypeDef = {
@@ -331,10 +357,10 @@ trait CodeExtraction extends ASTExtractors {
     )
   }
 
-  private def extractObject(obj: ModuleDef): (xt.ModuleDef, Seq[xt.ClassDef], Seq[xt.FunDef], Seq[xt.TypeDef]) = {
+  private def extractObject(obj: ModuleDef): (xt.ModuleDef, Seq[xt.ClassDef], Seq[xt.FunDef], Seq[xt.TypeDef], Option[Identifier]) = {
     val ExObjectDef(_, template) = obj
 
-    val (imports, classes, functions, typeDefs, subs, allClasses, allFunctions, allTypeDefs) = extractStatic(template.body)
+    val (imports, classes, functions, typeDefs, subs, allClasses, allFunctions, allTypeDefs, companionOf) = extractStatic(template.body)
 
     val module = xt.ModuleDef(
       getIdentifier(obj.symbol),
@@ -345,7 +371,7 @@ trait CodeExtraction extends ASTExtractors {
       subs
     ).setPos(obj.pos)
 
-    (module, allClasses, allFunctions, allTypeDefs)
+    (module, allClasses, allFunctions, allTypeDefs, companionOf)
   }
 
   private def extractClass(cd: ImplDef)(implicit dctx: DefContext): (xt.ClassDef, Seq[xt.FunDef], Seq[xt.TypeDef]) = {
@@ -457,7 +483,7 @@ trait CodeExtraction extends ASTExtractors {
         methods :+= extractFunction(fsym, Seq.empty, Seq.empty, rhs)(defCtx)
 
       case t @ ExMutableFieldDef(_, _, rhs) if rhs != EmptyTree =>
-        outOfSubsetError(t, "Mutable fields in traits cannot have a default value")
+        outOfSubsetError(t, "Mutable fields in traits or abstract classes cannot have default values")
 
       case vd @ ExMutableFieldDef(sym, _, _) if vd.symbol.owner.isAbstract || vd.symbol.owner.isTrait =>
         methods :+= extractFunction(sym, Seq.empty, Seq.empty, EmptyTree)(defCtx)
@@ -485,7 +511,12 @@ trait CodeExtraction extends ASTExtractors {
       new xt.FunDef(id, Seq.empty, Seq.empty, xt.BooleanType().setPos(pos),
         if (invariants.size == 1) invariants.head else xt.And(invariants).setPos(pos),
         (Seq(xt.IsInvariant) ++
-         annots.filterNot(annot => annot == xt.IsMutable || annot.name == "export")).distinct
+          annots.filterNot(annot =>
+            annot == xt.IsMutable ||
+            annot.name == "export" ||
+            annot.name.startsWith("cCode.global")
+          )
+        ).distinct
       ).setPos(pos)
     })
 
@@ -709,7 +740,6 @@ trait CodeExtraction extends ASTExtractors {
       (xt.WildcardPattern(binder).setPos(p.pos), dctx)
 
     case s @ Select(_, b) if s.tpe.typeSymbol.isCase =>
-      // case Obj =>
       extractType(s) match {
         case ct: xt.ClassType =>
           (xt.ClassPattern(binder, ct, Seq()).setPos(p.pos), dctx)

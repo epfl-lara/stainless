@@ -94,8 +94,8 @@ abstract class Visitor[S <: IR](final val ir: S) {
       case FunVal(fd) => rec(fd)
       case FunRef(e) => rec(e)
       case Block(exprs) => exprs foreach rec
-      case Decl(vd) => rec(vd)
-      case DeclInit(vd, value) => rec(vd); rec(value)
+      case Decl(vd, None) => rec(vd)
+      case Decl(vd, Some(value)) => rec(vd); rec(value)
       case App(fun, extra, args) => rec(fun); extra foreach rec; args foreach rec
       case Construct(cd, args) => rec(cd); args foreach rec
       case ArrayInit(alloc) => rec(alloc)

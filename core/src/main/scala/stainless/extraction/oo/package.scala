@@ -22,11 +22,16 @@ package object oo {
     val lowering = ExtractionPipeline(new CheckingTransformer {
       override val s: trees.type = trees
       override val t: innerfuns.trees.type = innerfuns.trees
+
+      override def transform(fd: s.FunDef): t.FunDef = {
+        super.transform(fd.copy(flags = fd.flags.filterNot(_ == s.IsInvariant)))
+      }
     })
 
     utils.DebugPipeline("AdtSpecialization", AdtSpecialization(trees, trees)) andThen
     utils.DebugPipeline("RefinementLifting", RefinementLifting(trees, trees)) andThen
     utils.DebugPipeline("TypeEncoding",      TypeEncoding(trees, trees))      andThen
+    utils.DebugPipeline("InvariantInitialization", InvariantInitialization(trees, trees)) andThen
     lowering
   }
 

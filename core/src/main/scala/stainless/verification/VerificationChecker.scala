@@ -137,7 +137,7 @@ trait VerificationChecker { self =>
    *  valid, ie. whether evalutating the invariant with the given model actually returns `false`.
    *
    *  One needs to be careful, because simply evaluating the invariant over the model
-   *  returned by Inox fails with a 'adt invariant' violation. While this is expected,
+   *  returned by Inox fails with a 'class invariant' violation. While this is expected,
    *  we cannot know whether it was the invariant that we are interested in at this point
    *  or some other invariant that failed.
    *

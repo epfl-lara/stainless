@@ -85,14 +85,10 @@ final class ClassLifter(val ctx: inox.Context) extends Transformer(NIR, LIR) {
   }
 
   override def recImpl(e: Expr)(implicit env: Env): (to.Expr, Env) = e match {
-    case Decl(vd0) =>
+    case Decl(vd0, optInit0) =>
       val vd = lift(vd0)
-      to.Decl(vd) -> env
-
-    case DeclInit(vd0, value0) =>
-      val vd = lift(vd0)
-      val value = rec(value0)(lift)
-      to.DeclInit(vd, value) -> env
+      val optInit = optInit0.map(init => rec(init)(lift))
+      to.Decl(vd, optInit) -> env
 
     case FieldAccess(Castable(asa), fieldId) =>
       to.FieldAccess(asa, fieldId) -> env

@@ -31,10 +31,18 @@ final class IRPrinter[S <: IR](val ir: S) {
   }
 
   private def rec(prog: Prog)(implicit ptx: Context): String = {
+    def wrapWith(header: String, s: String) = {
+      if (s.isEmpty) ""
+      else "------------------  " + header + "  ------------------\n\n" + s + "\n\n\n"
+    }
+
+    val decls = prog.decls.map { case (decl, _) => rec(decl) }
     val funs = prog.functions.map(rec)
     val classes = prog.classes.map(rec)
 
-    (funs mkString ptx.newLine) + ptx.newLine + (classes mkString ptx.newLine)
+    wrapWith("Global Declarations", decls.mkString("\n")) +
+    wrapWith("Classes", classes.mkString("\n\n")) +
+    wrapWith("Functions", funs.mkString("\n\n"))
   }
 
   private def rec(fd: FunDef)(implicit ptx: Context): String = {
@@ -86,8 +94,8 @@ final class IRPrinter[S <: IR](val ir: S) {
     case FunVal(fd) => "@" + fd.id
     case FunRef(e) => "@{" + rec(e) + "}"
     case Block(exprs) => "{{ " + (exprs map rec mkString ptx.newLine) + " }}"
-    case Decl(vd) => (if (vd.isVar) "var" else "val") + " " + rec(vd) + " // no value"
-    case DeclInit(vd, value) => (if (vd.isVar) "var" else "val") + " " + rec(vd) + " = " + rec(value)
+    case Decl(vd, None) => (if (vd.isVar) "var" else "val") + " " + rec(vd)
+    case Decl(vd, Some(value)) => (if (vd.isVar) "var" else "val") + " " + rec(vd) + " = " + rec(value)
     case App(callable, extra, args) =>
       rec(callable) + "(<" + (extra map rec mkString ", ") + ">" + (args map rec).mkString(start = ", ", sep = ", ", end = "") + ")"
     case Construct(cd, args) => cd.id + "(" + (args map rec mkString ", ") + ")"

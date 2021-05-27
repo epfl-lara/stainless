@@ -37,7 +37,7 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
   override def recImpl(e: Expr)(implicit env: Env): (to.Expr, Env) = e match {
     case _: Binding | _: FunVal | _: FunRef | _: Lit | _: Block | _: Deref | _: IntegralCast => super.recImpl(e)
 
-    case DeclInit(vd0, ArrayInit(alloc0)) =>
+    case Decl(vd0, Some(ArrayInit(alloc0))) =>
       val vd = rec(vd0)
 
       val (preAlloc, alloc) = alloc0 match {
@@ -68,17 +68,21 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
           preLength -> alloc
       }
 
-      val declinit = to.DeclInit(vd, to.ArrayInit(alloc))
+      val declinit = to.Decl(vd, Some(to.ArrayInit(alloc)))
 
       combine(preAlloc :+ declinit) -> env
 
-    case DeclInit(vd0, value0) =>
+    case Decl(vd0, Some(value0)) =>
       val vd = rec(vd0)
       val (pre, value) = flatten(value0, allowTopLevelApp = true, allowArray = true)
-
-      val declinit = to.DeclInit(vd, value)
+      val declinit = to.Decl(vd, Some(value))
 
       combine(pre :+ declinit) -> env
+
+    case Decl(vd0, None) =>
+      val vd = rec(vd0)
+      val decl = to.Decl(vd, None)
+      decl -> env
 
     case App(fun0, extra0, args0) =>
       val fun = recCallable(fun0)
@@ -328,7 +332,7 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
 
     case fi0 @ to.IfElse(_, _, _) =>
       val norm = freshNormVal(fi0.getType, isVar = true)
-      val decl = to.Decl(norm)
+      val decl = to.Decl(norm, None)
       val binding = to.Binding(norm)
       val fi = inject({ e => to.Assign(binding, e) }, _ => true)(fi0)
 
@@ -337,18 +341,18 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
     case app @ to.App(fun, _, _) if !allowTopLevelApp =>
       // Add explicit execution point by saving the result in a temporary variable
       val norm = freshNormVal(fun.typ.ret, isVar = false)
-      val declinit = to.DeclInit(norm, app)
+      val declinit = to.Decl(norm, Some(app))
       val binding = to.Binding(norm)
 
       (pre :+ declinit, binding)
 
     case ai @ to.ArrayInit(_) =>
-      // Attach the ArrayInit to a DeclInit
+      // Attach the ArrayInit to a Decl
       // Go backwards to reuse code from the main recImpl function
       val ai0 = backward(ai)
       val norm = freshNormVal(ai.getType, isVar = false)
       val norm0 = backward(norm)
-      val declinit0 = from.DeclInit(norm0, ai0)
+      val declinit0 = from.Decl(norm0, Some(ai0))
       val binding = to.Binding(norm)
 
       val (preDeclinit, declinit) = flatten(declinit0, allowTopLevelApp = false, allowArray = false)(Ø)
@@ -363,7 +367,7 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
   // FIXME: Not sure what this is for?
   // Strict normalisation: create a normalisation variable to save the result of an argument if it could be modified
   // by an init segment (from any argument) extracted during regular normalisation.
-  private def strictNormalisation(value: to.Expr, inits: Seq[to.Expr]*): (Option[to.DeclInit], to.Expr) = {
+  private def strictNormalisation(value: to.Expr, inits: Seq[to.Expr]*): (Option[to.Decl], to.Expr) = {
     if (inits.forall(_.isEmpty) || isSimple(value, allowTopLevelApp = true, allowArray = true, allowVariable = false)) {
       // No init segment, so we can safely use the given value as is
       // Same when value is simple
@@ -372,7 +376,7 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
       // We store the result in a temporary variable.
       val norm = freshNormVal(value.getType, isVar = false)
       val binding = to.Binding(norm)
-      val declinit = to.DeclInit(norm, value)
+      val declinit = to.Decl(norm, Some(value))
 
       (Some(declinit), binding)
     }
@@ -386,7 +390,7 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
       override def recImpl(e: Expr)(implicit env: Env): (Expr, Env) = e match {
         case _ if !pre(e) => (e, Ø)
 
-        case Decl(_) | DeclInit(_, _) | Assign(_, _) | While(_, _) =>
+        case Decl(_, _) | Assign(_, _) | While(_, _) =>
           ctx.reporter.fatalError(s"Injecting into unexpected expression: $e")
 
         case Block(es) => (buildBlock(es.init :+ rec(es.last)), Ø)

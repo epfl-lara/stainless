@@ -1225,7 +1225,7 @@ trait TypeEncoding
         elimParams,
         dropRefinements(encoded.returnType),
         t.NoTree(dropRefinements(encoded.returnType)),
-        Seq(t.Derived(original.id))
+        Seq(t.Derived(Some(original.id)))
       ).copiedFrom(encoded))
 
       val (vd, post) = t.exprOps.postconditionOf(encoded.fullBody) match {

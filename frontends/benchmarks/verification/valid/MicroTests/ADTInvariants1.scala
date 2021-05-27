@@ -1,4 +1,3 @@
-
 object ADTInvariants1 {
 
   case class Positive(i: BigInt) {

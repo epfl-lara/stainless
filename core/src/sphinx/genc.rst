@@ -251,6 +251,114 @@ The following operators are supported:
     - ``&``, ``|``, ``^``, ``~``, ``<<``, ``>>>``
 
 
+Global State
+------------
+
+At the moment, Stainless does not support global mutable variables declared in objects.
+It is however possible to simulate global state by using classes marked with ``@cCode.global``,
+as shown in the `Global.scala
+<https://github.com/epfl-lara/stainless/blob/master/frontends/benchmarks/genc/Global.scala>`_
+example:
+
+.. code-block:: scala
+
+  @cCode.global
+  case class GlobalState(
+    val data: Array[Int] = Array.fill(100)(0),
+    var stable: Boolean = true,
+    var x: Int = 5,
+    var y: Int = 7,
+  ) {
+    require(
+      data.length == 100 && (
+        !stable || (
+          0 <= x && x <= 100 &&
+          0 <= y && y <= 100 &&
+          x + y == 12
+        )
+      )
+    )
+  }
+
+.. note::
+
+  In classes annotated with ``@cCode.global``, only arrays with a fixed length are
+  allowed. Please check the paragraph about arrays to learn how to specify the array length.
+
+This annotation triggers some checks to make sure that indeed the ``GlobalState`` class
+(the name of the class can be changed, and there can be multiple such classes) is used as a global
+state:
+
+* Functions can take as argument at most one instance of ``GlobalState``.
+* There can be at most one instance of ``GlobalState`` created (in a function that doesn't already take an instance as argument).
+* A ``GlobalState`` instance can only be used for reads and assignments (e.g. it cannot be let bound, except for the declaration mentioned above).
+* The only global state that can be passed to other functions is the one we create or the one we received as a function argument.
+
+These checks ensure that the fields of ``GlobalState`` can be compiled as global variables in ``C``.
+Consider the ``move`` function from the `Global.scala
+<https://github.com/epfl-lara/stainless/blob/master/frontends/benchmarks/genc/Global.scala>`_
+example:
+
+.. code-block:: scala
+
+  def move()(implicit state: GlobalState): Unit = {
+    require(state.stable && state.y > 0)
+    state.stable = false
+    state.x += 1
+    state.y -= 1
+    state.data(state.y) = 1
+    state.stable = true
+    if (state.y > 0) move()
+  }.ensuring(_ => state.stable)
+
+After compilation to C, we get the following function, with global declarations
+``stable``, ``x``, ``y``, and ``data``.
+
+.. code-block:: C
+
+  int32_t data[100] = { 0 };
+  bool stable = true;
+  int32_t x = 5;
+  int32_t y = 7;
+
+  void move() {
+      stable = false;
+      x = x + 1;
+      y = y - 1;
+      data[y] = 1;
+      stable = true;
+      if (y > 0) {
+          move();
+      }
+  }
+
+Note that the initial values for the global variables correspond to the default values given
+in the Stainless class declaration (default values are mandatory when using the ``@cCode.global``
+annotation). When creating a global state instance (the only one), we do not pass arguments, to
+make sure that the instance is created using the default values:
+
+.. code-block:: scala
+
+  @export
+  def main() {
+    implicit val gs = GlobalState()
+    StdOut.print(gs.x)
+    StdOut.print(gs.y)
+    move()
+    StdOut.print(gs.data(6))
+    StdOut.print(gs.data(7))
+    StdOut.print(gs.x)
+    StdOut.println(gs.y)
+  }
+
+Stainless supports two variants of the ``@cCode.global`` annotation, namely ``@cCode.globalUninitialized``
+and ``@cCode.globalExternal``. The first one generates global declarations without initial
+values. These global variables are thus initialized according to C semantics, and there can be
+a mismatch between the global state instance created by the user, and the initial values in C.
+The second one hides the global declarations, which can be useful when interacting with C code
+that declares global variables outside of the Stainless program.
+
+
 Custom Conversion
 -----------------
 

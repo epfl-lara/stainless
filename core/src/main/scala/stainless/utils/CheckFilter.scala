@@ -33,7 +33,11 @@ trait CheckFilter {
 
   def filter(ids: Seq[Identifier], symbols: trees.Symbols, component: Component): Seq[Identifier] = {
     def isDerivedFrom(ids: Set[Identifier])(fd: trees.FunDef): Boolean =
-      fd.flags.exists { case trees.Derived(id) => ids(id) case _ => false }
+      fd.flags.exists {
+        case trees.Derived(Some(id)) => ids(id)
+        case trees.Derived(None) => true
+        case _ => false
+      }
 
     val init = ids.flatMap(id => symbols.lookupFunction(id).toSeq).filter(shouldBeChecked).map(_.id).toSet
 
