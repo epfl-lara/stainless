@@ -213,10 +213,7 @@ trait CodeExtraction extends ASTExtractors {
       case l: Literal =>
         // top level literal are ignored
 
-      case t if (
-        (annotationsOf(t.symbol) contains xt.Ignore) ||
-        (t.symbol.isSynthetic && !canExtractSynthetic(t.symbol))
-      ) =>
+      case t if annotationsOf(t.symbol) contains xt.Ignore =>
         // ignore
 
       case ExtractorHelpers.ExSymbol("stainless", "annotation", "ignore") =>
@@ -242,6 +239,10 @@ trait CodeExtraction extends ASTExtractors {
         allClasses ++= newClasses
         allFunctions ++= newFunctions
         allTypeDefs ++= newTypeDefs
+
+      // this case goes after `ExObjectDef` in order to explore objects
+      case t if t.symbol.isSynthetic && !canExtractSynthetic(t.symbol) =>
+        // ignore
 
       case md: ModuleDef if !md.symbol.isSynthetic && md.symbol.isCase =>
         val (xcd, newFunctions, newTypeDefs) = extractClass(md)(DefContext())
