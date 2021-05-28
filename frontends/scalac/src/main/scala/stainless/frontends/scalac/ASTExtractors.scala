@@ -654,14 +654,10 @@ trait ASTExtractors {
       }
     }
 
-    /** Matches an object with no type parameters, and regardless of its
-      * visibility. Does not match on case objects or the automatically generated companion
-      * objects of case classes (or any synthetic class). */
+    /** Matches an object with no type parameters, regardless of its visibility. */
     object ExObjectDef {
       def unapply(md: ModuleDef): Option[(String, Template)] = md match {
-        case ModuleDef(_, name, impl) if
-          !md.symbol.isSynthetic &&
-          !md.symbol.isCase => Some((name.toString, impl))
+        case ModuleDef(_, name, impl) if !md.symbol.isCase => Some((name.toString, impl))
         case _ => None
       }
     }
