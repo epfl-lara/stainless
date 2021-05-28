@@ -8,7 +8,7 @@ object Count {
   def count1(p: BigInt => Boolean, l: List[BigInt]): BigInt = {
     l match {
       case Nil() => BigInt(0)
-      case Cons(h,t) => (if (p(l.head)) BigInt(1) else BigInt(0)) + count1(p, l.tail)
+      case h::t => (if (p(l.head)) BigInt(1) else BigInt(0)) + count1(p, l.tail)
     }
   }//ensuring(res => res == count2(p, l))
 

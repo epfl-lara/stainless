@@ -12,9 +12,9 @@ trait TypeOps extends inox.ast.TypeOps {
     lookupFunction(id)
       .filter(_.params.size == 1)
       .flatMap { fd =>
-        instantiation(fd.params.head.tpe, inType)
+        instantiation(fd.params.head.tpe.getType, inType.getType)
           .filter(tpMap => fd.typeArgs forall (tpMap contains _))
-          .map(typeOps.instantiateType(fd.returnType, _))
+          .map(typeOps.instantiateType(fd.returnType.getType, _))
       }
 
   def patternIsTyped(in: Type, pat: Pattern): Boolean = {
