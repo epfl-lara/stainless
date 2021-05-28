@@ -54,11 +54,11 @@ trait MeasureInference
         case Decreases(v: Variable, body) if v.getType(symbols).isInstanceOf[ADTType] =>
           t.Decreases(transform(size(v)), transform(body)).setPos(e)
 
-        case Decreases(Tuple(ts), body) =>
+        case Decreases(tup @ Tuple(ts), body) =>
           t.Decreases(t.Tuple(ts.map {
             case v: Variable if v.getType(symbols).isInstanceOf[ADTType] => transform(size(v))
             case e => transform(e)
-          }), transform(body)).setPos(e)
+          }).copiedFrom(tup), transform(body)).setPos(e)
 
         case _ =>
           super.transform(e)
@@ -106,7 +106,7 @@ trait MeasureInference
                 }
                 
               case (_, arg) => transform(arg)
-            })            
+            }).copiedFrom(fi)
           case _ =>
             super.transform(e)
         }
@@ -141,6 +141,7 @@ trait MeasureInference
             applicationCache ++= lemmas._2
             val annotated = annotate(original)
             annotated.copy(fullBody = exprOps.withMeasure(annotated.fullBody, Some(measure.setPos(original))))
+                     .setPos(original)
 
           case pipeline.Terminates(_, None, _) =>
             reporter.debug(s" => No measure needed for ${original.id.asString}.")
@@ -168,7 +169,7 @@ trait MeasureInference
     }
 
     private def annotate(fd: FunDef, guarantee: pipeline.TerminationGuarantee): FunDef = {
-      fd.copy(flags = fd.flags :+ TerminationStatus(status(guarantee)))
+      fd.copy(flags = fd.flags :+ TerminationStatus(status(guarantee))).copiedFrom(fd)
     }
 
     private def status(g: pipeline.TerminationGuarantee): TerminationReport.Status = g match {
@@ -218,7 +219,7 @@ trait MeasureInference
           val newMap: Map[t.ValDef, t.Expr] = Map((nlarg, newVd.toVariable))
           val newNBody: t.Expr = t.exprOps.replaceFromSymbols(newMap, nbody)(t.convertToVal)
           val refinement = t.RefinementType(newVd, newNBody) 
-          original.copy(returnType = refinement)
+          original.copy(returnType = refinement).copiedFrom(original)
         case None       => original
       } 
     }  

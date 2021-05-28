@@ -38,6 +38,7 @@ trait VerificationSuite extends ComponentTestSuite {
     // Unstable
     case "verification/valid/BigIntMonoidLaws" => Ignore
     case "verification/valid/BigIntRing" => Ignore
+    case "verification/valid/InnerClasses4" => Ignore
 
     // Z3 4.8.10 and CVC4 1.8 time out but can't find a counter-example
     case "verification/invalid/BadConcRope" => Ignore

@@ -25,6 +25,8 @@ trait MainHelpers extends inox.MainHelpers { self =>
     optVersion -> Description(General, "Display the version number"),
     optConfigFile -> Description(General, "Path to configuration file, set to false to disable (default: stainless.conf or .stainless.conf)"),
     optFunctions -> Description(General, "Only consider functions f1,f2,..."),
+    optCompareFuns -> Description(General, "Only consider functions f1,f2,... for equivalence checking"),
+    optModels -> Description(General, "Consider functions f1, f2, ... as model functions for equivalence checking"),
     extraction.utils.optDebugObjects -> Description(General, "Only print debug output for functions/adts named o1,o2,..."),
     extraction.utils.optDebugPhases -> Description(General, {
       "Only print debug output for phases p1,p2,...\nAvailable: " +
@@ -166,6 +168,10 @@ trait MainHelpers extends inox.MainHelpers { self =>
 
       import ctx.{ reporter, timers }
 
+      if (extraction.trace.Trace.optionsError) {
+        reporter.fatalError(s"Equivalence checking for --comparefuns and --models only works in batched mode.")
+      }
+
       if (!useParallelism) {
         reporter.warning(s"Parallelism is disabled.")
       }
@@ -191,14 +197,16 @@ trait MainHelpers extends inox.MainHelpers { self =>
         case e @ extraction.MalformedStainlessCode(tree, msg) =>
           reporter.debug(e)(frontend.DebugSectionStack)
           ctx.reporter.error(tree.getPos, msg)
-          reporter.error("There was an error during the watch cycle")
-          reporter.reset()
-          compiler = newCompiler()
+        case e @ inox.FatalError(msg) =>
+          // we don't print the error message in this case because it was already printed before
+          // the `FatalError` was thrown
+          reporter.debug(e)(frontend.DebugSectionStack)
         case e: Throwable =>
           reporter.debug(e)(frontend.DebugSectionStack)
-          reporter.error("There was an error during the watch cycle")
-          reporter.reset()
-          compiler = newCompiler()
+          reporter.error(e.getMessage)
+      } finally {
+        reporter.reset()
+        compiler = newCompiler()
       }
 
       val watchMode = isWatchModeOn(ctx)

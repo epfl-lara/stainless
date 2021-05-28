@@ -103,10 +103,15 @@ the sequence of types.
 Arrays
 ^^^^^^
 
-``Array[T]`` are implemented using regular C array when the array size is known at compile time, or
-using Variable Length Array (VLA) when the size is only available at runtime. Both types of array
-use the same unique structure type to keep track of the length of the array and its allocated
-memory.
+Arrays are compiled by GenC into C structs that also store the length of the array.
+For ``Array[Int]`` we get:
+
+.. code-block:: C
+
+  typedef struct {
+    int32_t* data;
+    int32_t length;
+  } array_int32;
 
 .. NOTE::
 
@@ -114,10 +119,38 @@ memory.
   extended to other types having an array as field. In some cases, it is acceptable to use the
   ``@inline`` annotation from Stainless's library to workaround this limitation.
 
+For case classes containing arrays whose length is known at compile time, we avoid
+using a ``struct`` wrapper for the array, and instead directly inline the array
+in the ``struct`` of the case class. We trigger this optimized transformation
+when the array length is specified in the case class invariant (with ``require``)
+as a conjunct. The left-hand-side needs to be ``a.length`` where ``a`` is the
+array, and the right-hand-side needs to be a constant (or evaluate to a constant
+at compile time).
 
-Arrays can be created using the companion object, e.g. ``Array(1, 2, 3)``, or using the
-``Array.fill`` method, e.g. ``Array.fill(size)(value)``.
+See below for a case class with a fixed length array and its transformation in C:
 
+.. code-block:: scala
+
+  val CONSTANT1: UInt16 = 5
+  val CONSTANT2: UInt16 = 12
+  val CONSTANT3: UInt16 = CONSTANT1 + CONSTANT2
+
+  @export
+  case class W(x: Int, a: Array[Int], y: Int) {
+    require(
+      a.length == CONSTANT3.toInt &&
+      0 <= x && x <= 1000 &&
+      0 <= y && y <= 1000
+    )
+  }
+
+.. code-block:: C
+
+  typedef struct {
+    int32_t x;
+    int32_t a[17];
+    int32_t y;
+  } W;
 
 Classes
 ^^^^^^^

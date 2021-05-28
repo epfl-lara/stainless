@@ -185,6 +185,9 @@ class CPrinter(
     case DeclArrayStatic(id, base, length, values) =>
       c"$base $id[$length] = { ${nary(values, sep = ", ")} }"
 
+    case ArrayStatic(_, values) =>
+      c"{ ${nary(values, sep = ", ")} }"
+
     case DeclArrayVLA(id, base, length, defaultExpr) =>
       val i = FreshId("i")
       c"""|$base $id[$length];
@@ -260,6 +263,7 @@ class CPrinter(
     case StaticStorage(_) => c"static "
 
     case TypeId(FunType(ret, params), id) => c"$ret (*$id)($params)"
+    case TypeId(FixedArrayType(base, length), id) => c"$base $id[$length]"
     case TypeId(typ, id) => c"$typ $id"
 
     case FunSign(Fun(id, FunType(retret, retparamTypes), params, _, _)) =>

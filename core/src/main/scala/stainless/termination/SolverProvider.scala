@@ -34,7 +34,7 @@ trait SolverProvider { self =>
           fd.copy(flags = fd.flags.filter {
             case Uncached => false
             case _        => true
-          })
+          }).copiedFrom(fd)
         )
 
         NoSymbols.withSorts(newSorts).withFunctions(newFunctions)

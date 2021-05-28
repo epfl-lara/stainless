@@ -233,6 +233,9 @@ trait AntiAliasing
                     val (recCond, recSelect) = select(field.tpe, ClassSelector(AsInstanceOf(expr, fieldClassType).setPos(expr), id).setPos(pos), xs)
                     (and(condition, recCond), recSelect)
 
+                  case (tt: TupleType, TupleFieldAccessor(idx) +: xs) =>
+                    select(tt.bases(idx - 1), TupleSelect(expr, idx).setPos(pos), xs)
+
                   case (ArrayType(base), ArrayAccessor(idx) +: xs) =>
                     select(base, ArraySelect(expr, idx).setPos(pos), xs)
 
@@ -408,7 +411,9 @@ trait AntiAliasing
             } else {
               val newScrut = transform(scrut, env)
               val newCases = cses.map { case mc @ MatchCase(pattern, guard, rhs) =>
-                val newRewritings = mapForPattern(newScrut, pattern)
+                val newRewritings =
+                  mapForPattern(newScrut, pattern).filterKeys(v => isMutableType(v.getType))
+
                 val newGuard = guard.map(transform(_, env withRewritings newRewritings))
                 val newRhs = transform(rhs, env withRewritings newRewritings)
                 MatchCase(pattern, newGuard, newRhs).copiedFrom(mc)
@@ -576,6 +581,15 @@ trait AntiAliasing
           ClassConstructor(ct, ct.tcd.fields.map { vd =>
             if (vd.id == id) r
             else Annotated(ClassSelector(casted, vd.id).copiedFrom(receiver), Seq(Unchecked)).copiedFrom(receiver)
+          }).copiedFrom(newValue)
+
+        case TupleFieldAccessor(index) :: fs =>
+          val tt @ TupleType(_) = receiver.getType
+          val r = rec(Annotated(TupleSelect(receiver, index).copiedFrom(newValue), Seq(Unchecked)).copiedFrom(newValue), fs)
+
+          Tuple((1 to tt.dimension).map { i =>
+            if (i == index) r
+            else Annotated(TupleSelect(receiver, i).copiedFrom(receiver), Seq(Unchecked)).copiedFrom(receiver)
           }).copiedFrom(newValue)
 
         case ArrayAccessor(index) :: fs =>

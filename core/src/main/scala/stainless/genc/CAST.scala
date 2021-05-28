@@ -26,8 +26,13 @@ import ir.Literals._
  */
 object CAST { // C Abstract Syntax Tree
 
-  sealed abstract class Tree
-
+  sealed abstract class Tree {
+    override def toString = {
+      val sb = new StringBuffer()
+      new CPrinter("stainless.h", true, Set(), sb).print(this)
+      sb.toString
+    }
+  }
 
   /* ----------------------------------------------------- Definitions  ----- */
   abstract class Def extends Tree
@@ -44,6 +49,7 @@ object CAST { // C Abstract Syntax Tree
     functions: Set[Fun]
   ) extends Def {
     require(types.length == types.distinct.length) // no duplicates in `types`
+
   }
 
   // Manually defined function through the cCode.function annotation have a string
@@ -79,16 +85,18 @@ object CAST { // C Abstract Syntax Tree
   case class FunType(ret: Type, params: Seq[Type]) extends Type
 
   case class Struct(id: Id, fields: Seq[Var], isExported: Boolean) extends DataType {
-    require(fields.nonEmpty)
+    require(fields.nonEmpty, s"Fields of struct $id should be non empty")
   }
 
   case class Union(id: Id, fields: Seq[Var], isExported: Boolean) extends DataType {
-    require(fields.nonEmpty)
+    require(fields.nonEmpty, s"Fields of union $id should be non empty")
   }
 
   case class Enum(id: Id, literals: Seq[EnumLiteral]) extends Type {
-    require(literals.nonEmpty)
+    require(literals.nonEmpty, s"Literals in enum $id should be non empty")
   }
+
+  case class FixedArrayType(base: Type, length: Int) extends Type
 
 
   /* ------------------------------------------------------ Expressions ----- */
@@ -103,111 +111,100 @@ object CAST { // C Abstract Syntax Tree
   case class Decl(id: Id, typ: Type) extends Expr
 
   case class DeclInit(id: Id, typ: Type, value: Expr) extends Expr {
-    require(value.isValue)
+    require(value.isValue, s"Initialisation $id = $value should be done with a value")
   }
 
   case class DeclArrayStatic(id: Id, base: Type, length: Int, values: Seq[Expr]) extends Expr {
-    require(values forall { _.isValue })
+    require(values forall { _.isValue },
+      s"Array initialisation of $id with ${values.mkString("{", ", ", "}")} should be done with values"
+    )
+  }
+
+  case class ArrayStatic(base: Type, values: Seq[Expr]) extends Expr {
+    require(values forall { _.isValue },
+      s"Array ${values.mkString("{", ", ", "}")} should contain only values"
+    )
   }
 
   case class DeclArrayVLA(id: Id, base: Type, length: Expr, defaultExpr: Expr) extends Expr {
-    require(
-      length.isValue &&
-      // length.getType == Primitive(Int32Type) &&
-      defaultExpr.isValue
-    )
+    require(length.isValue, s"Length $length of array $id should be a value")
+    require(defaultExpr.isValue, s"Default expression $defaultExpr of of array $id should be a value")
   }
 
   // Initialise all the fields of a struct, in the same order as they are declared.
   case class StructInit(struct: Struct, values: Seq[Expr]) extends Expr {
-    require(
-      values.length == struct.fields.length && // Allow only explicit initialisation.
-      (values forall { _.isValue })
+    require(values.length == struct.fields.length,
+      s"Wrong number of arguments for initialisation of struct $struct with values $values (expected ${struct.fields.length})"
+    )
+    require(values forall { _.isValue },
+      s"Struct initialisation of $struct with ${values.mkString("{", ", ", "}")} should be done with values"
     )
   }
 
   // Initialise one of the fields of the union
   case class UnionInit(union: Union, fieldId: Id, value: Expr) extends Expr {
-    require(
-      (union.fields exists { _.id == fieldId }) && // The requested field must exists.
-      value.isValue // &&
-      // (union.fields forall { f => f.id != fieldId || f.getType == value.getType })
+    require(union.fields exists { _.id == fieldId },
+      s"Field $fieldId must exist in union $union"
+    )
+    require(value.isValue,
+      s"Initialisation of union $union with $value should be done with a value"
     )
   }
 
   case class Call(callable: Expr, args: Seq[Expr]) extends Expr {
-    require(args forall { _.isValue })
+    require(args forall { _.isValue },
+      s"Call of $callable with arguments ${args.mkString("{", ", ", "}")} should be done with values"
+    )
   }
 
   case class Binding(id: Id) extends Expr
 
-  case class FieldAccess(objekt: Expr, fieldId: Id) extends Expr {
-    require(
-      objekt.isValue //&&
-      /*
-       * (objekt.getType match {
-       *   case dt: DataType => dt.fields exists { _.id == fieldId }
-       *   case _ => false
-       * })
-       */
-    )
+  case class FieldAccess(obj: Expr, fieldId: Id) extends Expr {
+    require(obj.isValue, s"Field access on $obj must be done on a value")
   }
 
   case class ArrayAccess(array: Expr, index: Expr) extends Expr {
-    require(
-      array.isValue // &&
-      // array.getType.isInstanceOf[ArrayType]
-    )
+    require(array.isValue, s"Array access of $array must be done on a value")
   }
 
   case class Ref(e: Expr) extends Expr {
-    require(e.isValue)
+    require(e.isValue, s"Referencing ($e) must be done on values")
   }
 
   case class Deref(e: Expr) extends Expr {
-    require(e.isValue)
+    require(e.isValue, s"Dereferencing ($e) must be done on values")
   }
 
   case class Assign(lhs: Expr, rhs: Expr) extends Expr {
-    require(
-      // lhs.getType == rhs.getType &&
-      lhs.isValue && rhs.isValue
-    )
+    require(lhs.isValue, s"Assignment left-hand-side ($lhs) must be a value")
+    require(rhs.isValue, s"Assignment right-hand-side ($rhs) must be a value")
   }
 
   case class BinOp(op: BinaryOperator, lhs: Expr, rhs: Expr) extends Expr {
-    require(lhs.isValue && rhs.isValue)
+    require(lhs.isValue, s"Left-hand-side of operation $op ($lhs) must be a value")
+    require(rhs.isValue, s"Right-hand-side of operation $op ($rhs) must be a value")
   }
 
   case class UnOp(op: UnaryOperator, expr: Expr) extends Expr {
-    require(expr.isValue)
+    require(expr.isValue, s"Unary operations $op must be done on values")
   }
 
   case class If(cond: Expr, thenn: Block) extends Expr {
-    require(
-      cond.isValue // &&
-      // cond.getType == Primitive(BoolType)
-    )
+    require(cond.isValue, s"Condition ($cond) of if expression must be a value")
   }
 
   case class IfElse(cond: Expr, thenn: Block, elze: Block) extends Expr {
-    require(
-      cond.isValue // &&
-      // cond.getType == Primitive(BoolType)
-    )
+    require(cond.isValue, s"Condition ($cond) of if-then-else expression must be a value")
   }
 
   case class While(cond: Expr, body: Block) extends Expr {
-    require(
-      cond.isValue // &&
-      // cond.getType == Primitive(BoolType)
-    )
+    require(cond.isValue, s"Condition ($cond) of while loop must be a value")
   }
 
   case object Break extends Expr
 
   case class Return(value: Expr) extends Expr {
-    require(value.isValue)
+    require(value.isValue, s"Return expressions ($value) must be values")
   }
 
   // This can represent any C cast, however unsafe it can be.
@@ -255,7 +252,7 @@ object CAST { // C Abstract Syntax Tree
   /* ---------------------------------------------- Sanitisation Helper ----- */
   private implicit class ExprValidation(e: Expr) {
     def isValue = e match {
-      case _: Binding | _: Lit | _: EnumLiteral | _: StructInit |
+      case _: Binding | _: Lit | _: EnumLiteral | _: StructInit | _: ArrayStatic |
            _: UnionInit | _: Call | _: FieldAccess | _: ArrayAccess |
            _: Ref | _: Deref | _: BinOp | _: UnOp | _: Cast => true
       case _ => false

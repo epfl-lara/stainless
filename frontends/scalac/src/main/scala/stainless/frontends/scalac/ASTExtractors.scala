@@ -554,14 +554,14 @@ trait ASTExtractors {
 
     /** `intToBV` extraction */
     object ExIntToBV {
-      def unapply(tree: Tree): Option[(Boolean, Int, Tree)] = tree  match {
+      def unapply(tree: Tree): Option[(Tree, Tree)] = tree  match {
         case Apply(
           TypeApply(
             ExSelected("stainless", "math", "BitVectors", "intToBV"),
-            FrontendBVKind(signed, size) :: Nil
+            typ :: Nil
           ), n :: Nil
         ) =>
-          Some((signed, size, n))
+          Some((typ, n))
         case _ =>
           None
       }
@@ -1056,6 +1056,17 @@ trait ASTExtractors {
         }
       }
 
+      object WithWeakInvariant {
+        def unapply(tree: Tree): Option[(Tree, Tree)] = tree match {
+          case Apply(
+            Select(
+              Apply(while2invariant, List(rest)),
+              invariantSym),
+            List(invariant)) if invariantSym.toString == "weakInvariant" => Some((invariant, rest))
+          case _ => None
+        }
+      }
+
       object WithInline {
         def unapply(tree: Tree): Option[Tree] = tree match {
           case Select(
@@ -1077,21 +1088,22 @@ trait ASTExtractors {
       }
 
 
-      def parseWhile(tree: Tree, optInv: Option[Tree], inline: Boolean, opaque: Boolean):
-        Option[(Tree, Tree, Option[Tree], Boolean, Boolean)] = {
+      def parseWhile(tree: Tree, optInv: Option[Tree], optWeakInv: Option[Tree], inline: Boolean, opaque: Boolean):
+        Option[(Tree, Tree, Option[Tree], Option[Tree], Boolean, Boolean)] = {
 
         tree match {
-          case WithOpaque(rest) => parseWhile(rest, optInv, inline, true)
-          case WithInline(rest) => parseWhile(rest, optInv, true, opaque)
-          case WithInvariant(invariant, rest) => parseWhile(rest, Some(invariant), inline, opaque)
-          case ExBareWhile(cond, body) => Some((cond, body, optInv, inline, opaque))
+          case WithOpaque(rest) => parseWhile(rest, optInv, optWeakInv, inline, true)
+          case WithInline(rest) => parseWhile(rest, optInv, optWeakInv, true, opaque)
+          case WithInvariant(invariant, rest) => parseWhile(rest, Some(invariant), optWeakInv, inline, opaque)
+          case WithWeakInvariant(invariant, rest) => parseWhile(rest, optInv, Some(invariant), inline, opaque)
+          case ExBareWhile(cond, body) => Some((cond, body, optInv, optWeakInv, inline, opaque))
           case _ => None
         }
       }
 
-      // returns condition, body, optional invariant, inline boolean, opaque boolean
-      def unapply(tree: Tree): Option[(Tree, Tree, Option[Tree], Boolean, Boolean)] =
-        parseWhile(tree, None, false, false)
+      // returns condition, body, optional invariant and weak invariant, inline boolean, opaque boolean
+      def unapply(tree: Tree): Option[(Tree, Tree, Option[Tree], Option[Tree], Boolean, Boolean)] =
+        parseWhile(tree, None, None, false, false)
     }
 
     object ExTuple {

@@ -57,6 +57,15 @@ package object extraction {
     "PartialEvaluation"         -> "Partially evaluate marked function calls",
     "AssertionInjector"         -> "Insert assertions which verify array accesses, casts, division by zero, etc.",
     "ChooseInjector"            -> "Insert chooses where necessary",
+
+    "ComputeDependencies"       -> "(GenC) Compute the dependencies of a given definition",
+    "ComputeFunCtxPhase"        -> "(GenC) Compute the context of each given function definition",
+    "Scala2IRPhase"             -> "(GenC) Convert the Stainless AST into GenC's IR",
+    "StructInliningPhase"       -> "(GenC) Inline structs which have just one member",
+    "NormalisationPhase"        -> "(GenC) Normalise IR to match the C execution model",
+    "LiftingPhase"              -> "(GenC) Lift class types to their hierarchy top class",
+    "ReferencingPhase"          -> "(GenC) Add 'referencing' to the input LIR program to produce a RIR program",
+    "IR2CPhase"                 -> "(GenC) From IR to C",
   )
 
   val phaseNames: Set[String] = phases.map(_._1).toSet

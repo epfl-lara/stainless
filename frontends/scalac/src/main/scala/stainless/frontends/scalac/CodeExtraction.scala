@@ -1068,11 +1068,11 @@ trait CodeExtraction extends ASTExtractors {
     case a @ ExFieldAssign(sym, lhs@Select(thiss: This, _), rhs) =>
       xt.FieldAssignment(extractTree(thiss), getIdentifier(sym), extractTree(rhs))
 
-    case wh @ ExWhile(cond, body, invOpt, inline, opaque) =>
+    case wh @ ExWhile(cond, body, invOpt, weakInvOpt, inline, opaque) =>
       val inlineFlag = if (inline) Some(xt.InlineOnce) else None
       val opaqueFlag = if (opaque) Some(xt.Opaque) else None
       val flags = inlineFlag.toSeq ++ opaqueFlag
-      xt.While(extractTree(cond), extractTree(body), invOpt.map(extractTree), flags)
+      xt.While(extractTree(cond), extractTree(body), invOpt.map(extractTree), weakInvOpt.map(extractTree), flags)
 
     case ExBigIntLiteral(n: Literal) =>
       xt.IntegerLiteral(BigInt(n.value.stringValue))
@@ -1083,7 +1083,7 @@ trait CodeExtraction extends ASTExtractors {
         case _ => outOfSubsetError(tr, "Conversion from Int to BigInt")
       }
 
-    case ExIntToBV(signed, size, tree) =>
+    case ExIntToBV(FrontendBVKind(signed, size), tree) =>
       extractTree(tree) match {
         case xt.Int32Literal(n)
           if !signed && 0 <= n && BigInt(n) < BigInt(2).pow(size) =>
@@ -1093,8 +1093,11 @@ trait CodeExtraction extends ASTExtractors {
           if signed && -(BigInt(2).pow(size-1)) <= BigInt(n) && BigInt(n) < BigInt(2).pow(size-1) =>
 
           xt.BVLiteral(signed, BigInt(n), size)
-        case _ => outOfSubsetError(tr, "`intToBV` implicit may only be used on `Int` literals (in the right range)")
+        case _ => outOfSubsetError(tr, "`intToBV` may only be used on `Int` literals (in the right range)")
       }
+
+    case ExIntToBV(typ, tree) =>
+      outOfSubsetError(tr, s"`intToBV` cannot be instantiated on non-bitvector type $typ")
 
     case ExBigIntToBV(signed, size, tree) =>
       extractTree(tree) match {
@@ -1277,8 +1280,12 @@ trait CodeExtraction extends ASTExtractors {
       case (xt.Int32Literal(value), _, r2, StrictBVType(signed, size)) =>
         xt.Equals(xt.BVLiteral(signed, BigInt(value), size).setPos(l.pos), r2)
 
-      case (l2, StrictBVType(_, _), r2, _) => xt.Equals(l2, r2)
-      case (l2, _, r2, StrictBVType(_, _)) => xt.Equals(l2, r2)
+      case (l2, tpeL @ StrictBVType(_, _), r2, tpeR) =>
+        if (tpeL == tpeR) xt.Equals(l2, r2)
+        else outOfSubsetError(tr, "Bitvectors can only be compared with bitvectors of the same type.")
+      case (l2, tpeL, r2, tpeR @ StrictBVType(_, _)) =>
+        if (tpeL == tpeR) xt.Equals(l2, r2)
+        else outOfSubsetError(tr, "Bitvectors can only be compared with bitvectors of the same type.")
 
       case _ => injectCasts(xt.Equals)(l, r)
     }).setPos(tr.pos))
@@ -1296,8 +1303,12 @@ trait CodeExtraction extends ASTExtractors {
       case (xt.Int32Literal(value), _, r2, StrictBVType(signed, size)) =>
         xt.Equals(xt.BVLiteral(signed, BigInt(value), size).setPos(l.pos), r2)
 
-      case (l2, StrictBVType(_, _), r2, _) => xt.Equals(l2, r2)
-      case (l2, _, r2, StrictBVType(_, _)) => xt.Equals(l2, r2)
+      case (l2, tpeL @ StrictBVType(_, _), r2, tpeR) =>
+        if (tpeL == tpeR) xt.Equals(l2, r2)
+        else outOfSubsetError(tr, "Bitvectors can only be compared with bitvectors of the same type.")
+      case (l2, tpeL, r2, tpeR @ StrictBVType(_, _)) =>
+        if (tpeL == tpeR) xt.Equals(l2, r2)
+        else outOfSubsetError(tr, "Bitvectors can only be compared with bitvectors of the same type.")
 
       case _ => injectCasts(xt.Equals)(l, r)
     }

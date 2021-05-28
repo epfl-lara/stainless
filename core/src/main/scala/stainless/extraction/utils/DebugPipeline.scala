@@ -32,8 +32,6 @@ trait DebugSymbols extends PositionChecker { self =>
   val name: String
   val context: inox.Context
 
-  private[this] lazy val sPrinterOpts = s.PrinterOptions.fromContext(context)
-  private[this] lazy val tPrinterOpts = t.PrinterOptions.fromContext(context)
   private[this] lazy val positions = new PositionTraverser
 
   lazy val phases = context.options.findOption(optDebugPhases).map(_.toSet)
@@ -53,7 +51,7 @@ trait DebugSymbols extends PositionChecker { self =>
 
   def debug[A](run: s.Symbols => t.Symbols)(symbols: s.Symbols): t.Symbols = {
     implicit val debugSection = DebugSectionTrees
-
+    val sPrinterOpts = s.PrinterOptions.fromSymbols(symbols, context)
     val symbolsToPrint = if (debugTrees) symbols.debugString(filterObjects)(sPrinterOpts) else ""
 
     if (!symbolsToPrint.isEmpty) {
@@ -62,6 +60,7 @@ trait DebugSymbols extends PositionChecker { self =>
     }
 
     val res = run(symbols)
+    val tPrinterOpts = t.PrinterOptions.fromSymbols(res, context)
 
     val resToPrint = if (debugTrees) res.debugString(filterObjects)(tPrinterOpts) else ""
     if (!symbolsToPrint.isEmpty || !resToPrint.isEmpty) {

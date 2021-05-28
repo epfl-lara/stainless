@@ -16,6 +16,11 @@ object StaticChecks {
       u
     }
 
+    def weakInvariant(@ghost x: Boolean): Unit = {
+      require(x)
+      u
+    }
+
     def inline: Unit = { }
     def opaque: Unit = { }
   }

@@ -25,17 +25,11 @@ abstract class ThreadedFrontend(callback: CallBack, ctx: inox.Context) extends F
     assert(!isRunning)
 
     val runnable = new Runnable {
-      override def run(): Unit = try {
+      override def run(): Unit = {
         exceptions.clear()
         initRun()
         callback.beginExtractions()
         onRun()
-      } catch {
-        case e: Throwable =>
-          ctx.reporter.debug(s"Exception thrown during compilation: ${e.getMessage}")
-          callback.failed()
-          throw e
-      } finally {
         callback.endExtractions()
         onEnd()
       }

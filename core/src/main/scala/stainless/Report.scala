@@ -101,6 +101,18 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
     case Level.Error   => Console.RED
   }
 
+  def hasError(identifier: Identifier)(implicit ctx: inox.Context): Boolean = {
+    annotatedRows.exists(elem => elem match {
+      case RecordRow(id, pos, level, extra, time) => level == Level.Error && id == identifier
+    })
+  }
+
+  def hasUnknown(identifier: Identifier)(implicit ctx: inox.Context): Boolean = {
+    annotatedRows.exists(elem => elem match {
+      case RecordRow(id, pos, level, extra, time) => level == Level.Warning && id == identifier
+    })
+  }
+
   // Emit the report table, with all VCs when full is true, otherwise only with unknown/invalid VCs.
   private def emitTable(full: Boolean)(implicit ctx: inox.Context): Table = {
     val rows  = processRows(full)
