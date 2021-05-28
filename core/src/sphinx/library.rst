@@ -36,18 +36,17 @@ To use Stainless' libraries, you need to use the appropriate
 Here is a quick summary of what to import.
 
 
-+--------------------------------+----------------------------------------------------+
-| Package to import              | What it gives access to                            |
-+================================+====================================================+
-| `stainless.annotation._`       | Stainless annotations, e.g. @induct                |
-+--------------------------------+----------------------------------------------------+
-| `stainless.lang._`             | `Map`, `Set`, `holds`, `passes`, `invariant`       |
-+--------------------------------+----------------------------------------------------+
-| `stainless.collection._`       | List[T] and subclasses, Option[T] and subclasses   |
-+--------------------------------+----------------------------------------------------+
++--------------------------------+-----------------------------------------------------------------+
+| Package to import              | What it gives access to                                         |
++================================+=================================================================+
+| `stainless.annotation._`       | Stainless annotations, e.g. @induct                             |
++--------------------------------+-----------------------------------------------------------------+
+| `stainless.lang._`             | `Map`, `Set`, `PartialFunction`, `holds`, `passes`, `invariant` |
++--------------------------------+-----------------------------------------------------------------+
+| `stainless.collection._`       | List[T] and subclasses, Option[T] and subclasses                |
++--------------------------------+-----------------------------------------------------------------+
 
-To learn more, we encourage you to
-look in the `library/` subdirectory of Stainless distribution.
+To learn more, we encourage you to look in the `library/` subdirectory of Stainless distribution.
 
 Annotations
 -----------
@@ -333,3 +332,35 @@ Additionally, the following functions for Sets are provided in the
 |                                                           | for all elements of Set ``set``.          |
 +-----------------------------------------------------------+-------------------------------------------+
 
+
+PartialFunction[A, B]
+---------------------
+
+To define anonymous functions with preconditions, Stainless has a ``PartialFunction[A, B]`` type
+with the corresponding annotation ``A ~> B``. To construct a partial function, you must use
+``PartialFunction.apply`` as in the ``unOpt`` function below. The precondition written in the
+``require`` becomes the ``pre`` field of the partial function (as in the call to ``f.pre`` in ``map1``).
+
+.. code-block:: scala
+
+  def map1[A, B](l: List[A], f: A ~> B): List[B] = {
+    require(l.forall(f.pre))
+    l match {
+      case Cons(x, xs) => Cons[B](f(x), map1(xs, f))
+      case Nil() => Nil[B]()
+    }
+  }
+
+  def unOpt[T](l: List[Option[T]]): List[T] = {
+    require(l.forall(_.nonEmpty))
+    map1(l, PartialFunction {(x:Option[T]) => require(x.nonEmpty); x.get})
+  }
+
+Partial functions can also be written using pattern matching:
+
+.. code-block:: scala
+
+  def unOptCase[T](l: List[Option[T]]): List[T] = {
+    require(l.forall { case Some(_) => true; case _ => false })
+    map1(l, PartialFunction[Option[T], T] { case Some(v) => v })
+  }
