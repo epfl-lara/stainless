@@ -848,7 +848,7 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
     case IfExpr(cond, thenn, NoTree(_)) => CIR.If(rec(cond), rec(thenn))
     case IfExpr(cond, thenn, elze) => CIR.IfElse(rec(cond), rec(thenn), rec(elze))
 
-    case While(cond, body, _, _)     => CIR.While(rec(cond), rec(body))
+    case While(cond, body, _, _, _)     => CIR.While(rec(cond), rec(body))
 
     case LessThan(lhs, rhs)       => buildBinOp(lhs, O.LessThan, rhs)(e.getPos)
     case GreaterThan(lhs, rhs)    => buildBinOp(lhs, O.GreaterThan, rhs)(e.getPos)

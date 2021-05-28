@@ -10,8 +10,8 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
   import s._
 
   // The function inlining transformation depends on all (transitive) callees
-  override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult]({(fd, symbols) =>
   // that will require inlining.
+  override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult]({(fd, symbols) =>
     FunctionKey(fd) + SetKey(
       symbols.dependencies(fd.id)
         .flatMap(id => symbols.lookupFunction(id))
