@@ -3,6 +3,7 @@
 package stainless
 package evaluators
 
+
 trait RecursiveEvaluator extends inox.evaluators.RecursiveEvaluator {
   val program: Program
 
@@ -10,6 +11,8 @@ trait RecursiveEvaluator extends inox.evaluators.RecursiveEvaluator {
   import program._
   import program.trees._
   import program.symbols._
+
+  import inox.utils.Position
 
   override def e(expr: Expr)(implicit rctx: RC, gctx: GC): Expr = expr match {
     case Require(pred, body) =>
@@ -24,9 +27,20 @@ trait RecursiveEvaluator extends inox.evaluators.RecursiveEvaluator {
       e(body)
 
     case Assert(pred, err, body) =>
-      if (!ignoreContracts && e(pred) != BooleanLiteral(true))
-        throw RuntimeError(err.getOrElse("Assertion failed @" + expr.getPos))
-      e(body)
+      if (!ignoreContracts && e(pred) != BooleanLiteral(true)) {
+        val msg = (err match {
+          case Some(m) => m.toString + ": "
+          case None => ""
+        }) + pred.toString
+        reporter.info(s"${Position.smartPos(pred.getPos)} assertion failure of ${msg}")
+        reporter.info("Relevant variables at assertion failure point:")
+        val m = rctx.mappings
+        val fvs = exprOps.variablesOf(pred)
+        val fvDump: String = fvs.map(v => v.id.toString + " -> " + m.get(v.toVal).getOrElse("?").toString)
+                                .mkString("\n")
+        reporter.info(fvDump)
+        throw RuntimeError(err.getOrElse("Assertion failed @" + pred.getPos))
+      } else e(body)
 
     case MatchExpr(scrut, cases) =>
       val rscrut = e(scrut)
