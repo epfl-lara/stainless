@@ -28,7 +28,7 @@ import collection.mutable.{ Stack => MutableStack, Set => MutableSet }
  *   if (cond) norm = v1 else norm = v2
  * If v1 & v2 are:
  *  - both of reference type, then norm also is a reference;
- *  - both of non-reference type, then norm is not a regerence either;
+ *  - both of non-reference type, then norm is not a reference either;
  *  - a mix of reference/non-reference types, then we stop due to a C type conflict.
  *
  * NOTE The last case could be hanlded with something like what follows, but this is too complex for now.
@@ -58,7 +58,7 @@ final class Referentiator(val ctx: inox.Context) extends Transformer(LIR, RIR) {
   // Keep track of the block we are traversing right now
   private val blocks = MutableStack[Block]()
 
-  // When looking ahead (for declImpl purposes), binding should not get derefenced.
+  // When looking ahead (for declImpl purposes), binding should not get dereferenced.
   private var lookingAhead = false
 
   // Registry of ValDef declared using Decl and which are references.
@@ -252,7 +252,7 @@ final class Referentiator(val ctx: inox.Context) extends Transformer(LIR, RIR) {
     case _: to.Binding | _: to.FieldAccess | _: to.ArrayAccess | _: to.AsA => to.Ref(e)
     case to.Deref(e) => e
 
-    // NOTE Reference can be build on Constructor, but we have to make sure we
+    // NOTE Reference can be built on Constructor, but we have to make sure we
     //      don't take the reference of a temporary result for a too long period.
     case ctor @ to.Construct(_, _) if shortLived => to.Ref(ctor)
 
