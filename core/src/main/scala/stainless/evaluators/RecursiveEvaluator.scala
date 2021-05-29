@@ -14,11 +14,29 @@ trait RecursiveEvaluator extends inox.evaluators.RecursiveEvaluator {
 
   import inox.utils.Position
 
+  def showPredicateFailure(kind: String, pred: Expr, err: Option[String])(implicit rctx: RC): Unit = {
+    val msg = (err match {
+      case Some(m) => m.toString + ": "
+      case None => ""
+    }) + pred.toString
+    reporter.info(s"${Position.smartPos(pred.getPos)} ${kind} failure of ${msg}")
+    reporter.info(s"Relevant variables at ${kind} failure point:")
+    val m = rctx.mappings
+    val fvs = exprOps.variablesOf(pred)
+    def showBinding(v: Variable): String = {
+      "  " + v.id.toString + " -> " + m.get(v.toVal).getOrElse("?").toString
+    }
+    val fvDump: String = fvs.map(showBinding).mkString("\n")
+    reporter.info(fvDump)
+  }
+
+  
   override def e(expr: Expr)(implicit rctx: RC, gctx: GC): Expr = expr match {
     case Require(pred, body) =>
-      if (!ignoreContracts && e(pred) != BooleanLiteral(true))
-        throw RuntimeError("Requirement did not hold @" + expr.getPos)
-      e(body)
+      if (!ignoreContracts && e(pred) != BooleanLiteral(true)) {
+        showPredicateFailure("require", pred, None)
+        throw RuntimeError("Requirement did not hold @" + Position.smartPos(expr.getPos))
+      } else e(body)
 
     case en @ Ensuring(body, pred) =>
       e(en.toAssert)
@@ -28,18 +46,8 @@ trait RecursiveEvaluator extends inox.evaluators.RecursiveEvaluator {
 
     case Assert(pred, err, body) =>
       if (!ignoreContracts && e(pred) != BooleanLiteral(true)) {
-        val msg = (err match {
-          case Some(m) => m.toString + ": "
-          case None => ""
-        }) + pred.toString
-        reporter.info(s"${Position.smartPos(pred.getPos)} assertion failure of ${msg}")
-        reporter.info("Relevant variables at assertion failure point:")
-        val m = rctx.mappings
-        val fvs = exprOps.variablesOf(pred)
-        val fvDump: String = fvs.map(v => v.id.toString + " -> " + m.get(v.toVal).getOrElse("?").toString)
-                                .mkString("\n")
-        reporter.info(fvDump)
-        throw RuntimeError(err.getOrElse("Assertion failed @" + pred.getPos))
+        showPredicateFailure("assertion", pred, err)
+        throw RuntimeError(err.getOrElse("Assertion failed @" + Position.smartPos(pred.getPos)))
       } else e(body)
 
     case MatchExpr(scrut, cases) =>
