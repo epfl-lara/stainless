@@ -16,15 +16,15 @@ trait RecursiveEvaluator extends inox.evaluators.RecursiveEvaluator {
 
   def showPredicateFailure(kind: String, pred: Expr, err: Option[String])(implicit rctx: RC): Unit = {
     val msg = (err match {
-      case Some(m) => m.toString + ": "
+      case Some(m) => m + ": "
       case None => ""
-    }) + pred.toString
+    }) + pred.asString
     reporter.info(s"${Position.smartPos(pred.getPos)} ${kind} failure of ${msg}")
     reporter.info(s"Relevant variables at ${kind} failure point:")
     val m = rctx.mappings
     val fvs = exprOps.variablesOf(pred)
     def showBinding(v: Variable): String = {
-      "  " + v.id.toString + " -> " + m.get(v.toVal).getOrElse("?").toString
+      "  " + v.id.asString + " -> " + m.get(v.toVal).getOrElse("?").toString
     }
     val fvDump: String = fvs.map(showBinding).mkString("\n")
     reporter.info(fvDump)
