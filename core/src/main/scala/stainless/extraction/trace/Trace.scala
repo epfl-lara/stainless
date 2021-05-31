@@ -360,12 +360,12 @@ object Trace {
     (function, proof, trace) match {
       case (Some(f), Some(p), Some(t)) => {
         if (report.hasError(f) || report.hasError(p) || report.hasError(t)) reportError
-        else if (report.hasUnknown(f) || report.hasUnknown(p) || report.hasError(t)) reportUnknown
+        else if (report.hasUnknown(f) || report.hasUnknown(p) || report.hasUnknown(t)) reportUnknown
         else reportValid
       }
       case (Some(f), _, Some(t)) => {
         if (report.hasError(f) || report.hasError(t)) reportError
-        else if (report.hasUnknown(f) || report.hasError(t)) reportUnknown
+        else if (report.hasUnknown(f) || report.hasUnknown(t)) reportUnknown
         else reportValid
       }
       case _ => reportWrong
