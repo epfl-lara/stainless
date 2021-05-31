@@ -37,6 +37,23 @@ trait Trace extends CachingPhase with IdentityFunctions with IdentitySorts { sel
       Trace.nextFunction
     }
 
+    if (Trace.getNorm.isEmpty) {
+      val normOpt = symbols.functions.values.toList.find(elem => isNorm(elem.id)).map(elem => elem.id)
+
+      def checkArgs(model: Identifier, norm: Identifier) = {
+        val m = symbols.functions(model)
+        val n = symbols.functions(norm)
+
+        n.params.size >= 1 && n.params.init.map(_.toVariable) == m.params.map(_.toVariable) 
+      }
+
+      (Trace.getModel, normOpt) match {
+        case (Some(model), Some(norm)) if checkArgs(model, norm) =>
+          Trace.setNorm(normOpt)
+        case _ =>
+      }
+    }
+
     def generateEqLemma: Option[s.FunDef] = {
       def equivalenceChek(fd1: s.FunDef, fd2: s.FunDef): s.FunDef = {
         val id = FreshIdentifier(CheckFilter.fixedFullName(fd1.id)+"$"+CheckFilter.fixedFullName(fd2.id))
@@ -57,7 +74,19 @@ trait Trace extends CachingPhase with IdentityFunctions with IdentitySorts { sel
         })
 
         val res = s.ValDef.fresh("res", s.UnitType())
-        val cond = s.Equals(s.FunctionInvocation(fd1.id, newParamTps, newParamVars), s.FunctionInvocation(fd2.id, newParamTps, newParamVars))
+
+        val fun1 = s.FunctionInvocation(fd1.id, newParamTps, newParamVars)
+        val fun2 = s.FunctionInvocation(fd2.id, newParamTps, newParamVars)
+
+        //TODO check that the norm fun has the correct signature (=same as model plus fun res)
+        val (normFun1, normFun2) = Trace.getNorm match {
+          case Some(n) => (
+            s.FunctionInvocation(n, symbols.functions(n).tparams.map(_.tp), newParamVars :+ fun1), 
+            s.FunctionInvocation(n, symbols.functions(n).tparams.map(_.tp), newParamVars :+ fun2))
+          case None => (fun1, fun2)
+        }
+
+        val cond = s.Equals(normFun1, normFun2)
         val post = Postcondition(Lambda(Seq(res), cond))
 
         val withPre = exprOps.reconstructSpecs(pre, Some(body), s.UnitType())
@@ -233,8 +262,12 @@ trait Trace extends CachingPhase with IdentityFunctions with IdentitySorts { sel
     functions map CheckFilter.fullNameToPath
   }
 
+  private lazy val pathsOptNorm: Option[Seq[Path]] = 
+    Some(Seq(context.options.findOptionOrDefault(optNorm)).map(CheckFilter.fullNameToPath))
+
   private def shouldBeChecked(fid: Identifier): Boolean = shouldBeChecked(pathsOpt, fid)
   private def isModel(fid: Identifier): Boolean = shouldBeChecked(pathsOptModels, fid)
+  private def isNorm(fid: Identifier): Boolean = shouldBeChecked(pathsOptNorm, fid)
 
   private def shouldBeChecked(paths: Option[Seq[Path]], fid: Identifier): Boolean = paths match {
     case None => false
@@ -288,6 +321,7 @@ object Trace {
 
   var model: Option[Identifier] = None
   var function: Option[Identifier] = None
+  var norm: Option[Identifier] = None
   var trace: Option[Identifier] = None
   var proof: Option[Identifier] = None
 
@@ -301,8 +335,9 @@ object Trace {
   }
 
   def setModels(m: List[Identifier]) = {
-    allModels = m
-    tmpModels = m
+    allModels = List(m.head)
+    tmpModels = List(m.head)
+    //setNorm(m.tail.head)
     clusters = (m zip m.map(_ => Nil)).toMap
   }
 
@@ -321,8 +356,12 @@ object Trace {
   //function to check in the current iteration
   def getFunction = function
 
+  def getNorm = norm
+
   def setTrace(t: Identifier) = trace = Some(t)
   def setProof(p: Identifier) = proof = Some(p)
+
+  def setNorm(n: Option[Identifier]) = norm = n
 
 
   def resetTrace = {

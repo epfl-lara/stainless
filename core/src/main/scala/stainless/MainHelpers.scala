@@ -27,6 +27,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
     optFunctions -> Description(General, "Only consider functions f1,f2,..."),
     optCompareFuns -> Description(General, "Only consider functions f1,f2,... for equivalence checking"),
     optModels -> Description(General, "Consider functions f1, f2, ... as model functions for equivalence checking"),
+    optNorm -> Description(General, "Use function f as normalization function for equivalence checking"),
     extraction.utils.optDebugObjects -> Description(General, "Only print debug output for functions/adts named o1,o2,..."),
     extraction.utils.optDebugPhases -> Description(General, {
       "Only print debug output for phases p1,p2,...\nAvailable: " +
