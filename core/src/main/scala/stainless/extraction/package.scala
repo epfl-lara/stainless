@@ -26,7 +26,7 @@ import scala.language.existentials
 package object extraction {
 
   val phases: Seq[(String, String)] = Seq(
-    "UserFiltering"             -> "Removes all the library functions not used by the user",
+    "UserFiltering"             -> "Remove all the library functions not used by the user",
     "Preprocessing"             -> "A preprocessing phase before the pipeline",
     "PartialFunctions"          -> "Lift partial function preconditions",
     "XlangLowering"             -> "Lowering phase at the end of xlang phases",
@@ -52,8 +52,8 @@ package object extraction {
     "FunctionSpecialization"    -> "Specialize functions",
     "FunctionInlining"          -> "Transitively inline marked functions",
     "LeonInlining"              -> "Transitively inline marked functions (closer to what Leon did)",
-    "Trace"                     -> "Apply the traceInduct tactic during verification of the annotated function.",
-    "SizedADTExtraction"        -> "Transforms calls to 'indexedAt' to the 'SizedADT' tree",
+    "Trace"                     -> "Compare --compareFuns functions for equivalence. Expand @traceInduct",
+    "SizedADTExtraction"        -> "Transform calls to 'indexedAt' to the 'SizedADT' tree",
     "InductElimination"         -> "Replace @induct annotation by explicit recursion",
     "MeasureInference"          -> "Infer and inject measures in recursive functions",
     "PartialEvaluation"         -> "Partially evaluate marked function calls",
