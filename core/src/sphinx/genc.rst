@@ -18,7 +18,7 @@ The option ``--genc-output=file`` specifies the file name for GenC output (defau
 
 
 .. NOTE::
-  Currently the memory model is limited to stack allocations. Hence, no dynamic allocation
+  Currently the memory model is limited to stack allocation and global state. Hence, no dynamic allocation
   is done using ``malloc`` function family.
 
 
