@@ -44,7 +44,7 @@ trait Trace extends CachingPhase with IdentityFunctions with IdentitySorts { sel
         val m = symbols.functions(model)
         val n = symbols.functions(norm)
 
-        n.params.size >= 1 && n.params.init.map(_.toVariable) == m.params.map(_.toVariable) 
+        n.params.size >= 1 && n.params.init.size == m.params.size
       }
 
       (Trace.getModel, normOpt) match {
@@ -145,15 +145,19 @@ trait Trace extends CachingPhase with IdentityFunctions with IdentitySorts { sel
         case Some(finv) => {
           // make a helper lemma:
           val helper = inductPattern(symbols, symbols.functions(finv.id), fd).setPos(fd.getPos)
+          System.out.println(helper)
 
           // transform the main lemma
           val proof = FunctionInvocation(helper.id, fd.tparams.map(_.tp), fd.params.map(_.toVariable))
           val body = Let(s.ValDef.fresh("ind$proof", helper.returnType), proof, exprOps.withoutSpecs(fd.fullBody).get)
           val withPre = exprOps.reconstructSpecs(BodyWithSpecs(fd.fullBody).specs, Some(body), fd.returnType)
+
           val lemma = fd.copy(
             fullBody = BodyWithSpecs(withPre).reconstructed,
             flags = (s.Derived(Some(fd.id)) +: s.Derived(Some(finv.id)) +: (fd.flags.filterNot(f => f.name == "traceInduct"))).distinct
           ).copiedFrom(fd).setPos(fd.getPos)
+
+          System.out.println(lemma)
 
           Trace.setTrace(lemma.id)
           Trace.setProof(helper.id)
@@ -200,6 +204,7 @@ trait Trace extends CachingPhase with IdentityFunctions with IdentitySorts { sel
     class Specializer(
       origFd: FunDef,
       newId: Identifier,
+      tsubst: Map[Identifier, Type],
       vsubst: Map[Identifier, Expr]
     ) extends s.SelfTreeTransformer {
 
@@ -213,10 +218,20 @@ trait Trace extends CachingPhase with IdentityFunctions with IdentitySorts { sel
 
         case _ => super.transform(expr)
       }
+
+      override def transform(tpe: s.Type): t.Type = tpe match {
+        case tp: TypeParameter =>
+          tsubst.getOrElse(tp.id, super.transform(tp))
+
+        case _ => super.transform(tpe)
+      }
     }
 
+    val tpairs = model.tparams zip fi.tps
+    val tsubst = tpairs.map { case (tparam, targ) => tparam.tp.id -> targ } .toMap
+
     val subst = (model.params.map(_.id) zip fi.args).toMap
-    val specializer = new Specializer(model, indPattern.id, subst)
+    val specializer = new Specializer(model, indPattern.id, tsubst, subst)
     
     val fullBodySpecialized = specializer.transform(exprOps.withoutSpecs(model.fullBody).get)
 
@@ -290,6 +305,17 @@ object Trace {
   var unknowns: List[Identifier] = List()
   var wrong: List[Identifier] = List() //bad signature
 
+  object Status extends Enumeration {
+    type Status = Value
+    val Valid, Unknown, Errorneus, Wrong = Value
+  }
+
+  import Status._
+
+  case class State(var status: Status, var path: List[Identifier])
+
+  var state: Map[Identifier, State] = Map()
+
   def optionsError(implicit ctx: inox.Context): Boolean = 
     !ctx.options.findOptionOrDefault(frontend.optBatchedProgram) && 
     (!ctx.options.findOptionOrDefault(optModels).isEmpty || !ctx.options.findOptionOrDefault(optCompareFuns).isEmpty)
@@ -298,7 +324,7 @@ object Trace {
     import ctx.{ reporter, timers }
     if(!clusters.isEmpty || !errors.isEmpty || !unknowns.isEmpty || !wrong.isEmpty) {
       reporter.info(s"Printing equivalence checking results:")  
-      allModels.foreach(model => {
+      allModels.foreach(model => if (!clusters(model).isEmpty) {
         val l = clusters(model).map(CheckFilter.fixedFullName).mkString(", ")
         val m = CheckFilter.fixedFullName(model)
         reporter.info(s"List of functions that are equivalent to model $m: $l")
@@ -310,7 +336,16 @@ object Trace {
       reporter.info(s"List of timed-out functions: $timeouts")
       val wrongs = wrong.map(CheckFilter.fixedFullName).mkString(", ")
       reporter.info(s"List of wrong functions: $wrongs")
+
+
+      reporter.info(s"Printing the final state:")  
+      allFunctions.foreach(f => {
+        val l = state(f).path.map(CheckFilter.fixedFullName).mkString(", ")
+        val m = CheckFilter.fixedFullName(f)
+        reporter.info(s"Path for the function $m: $l")
+      })
     }
+
   }
 
   var allModels: List[Identifier] = List()
@@ -335,15 +370,16 @@ object Trace {
   }
 
   def setModels(m: List[Identifier]) = {
-    allModels = List(m.head)
-    tmpModels = List(m.head)
-    //setNorm(m.tail.head)
+    allModels = m
+    tmpModels = m
     clusters = (m zip m.map(_ => Nil)).toMap
+    state = state ++ (m zip m.map(_ => State(Valid, List()))).toMap
   }
 
   def setFunctions(f: List[Identifier]) = {
     allFunctions = f
     tmpFunctions = f
+    state = state ++ (f zip f.map(_ => State(Unknown, List()))).toMap
   }
 
   def getModels = allModels
@@ -428,7 +464,15 @@ object Trace {
   }
 
   private def reportValid = {
-    clusters = clusters + (model.get -> (function.get::clusters(model.get)))
+    if (!allModels.contains(function.get)) {
+      state(function.get).status = Valid
+      state(function.get).path = model.get +: state(model.get).path
+      allModels = allModels :+ function.get
+      clusters = clusters + (function.get -> List())
+    }
+
+    clusters = clusters + (model.get -> (function.get::clusters.getOrElse(model.get, List())))
+
     nextFunction
   }
 
