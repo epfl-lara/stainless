@@ -66,13 +66,13 @@ class GenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUtils {
     assert(output == "5710120", s"Output '$output' should be '5710120'")
   }
 
-  test("Checking that GlobalUninitialized outputs 01210120") {
+  test("Checking that GlobalUninitialized outputs 8410120") {
     val fileGlobalUninitialized = files.find(_.toString.contains("GlobalUninitialized.scala")).get
     val outFile = fileGlobalUninitialized.replace(".scala", ".out")
     ctx.reporter.info(s"Running: $outFile")
     val (std, _) = runCommand(outFile)
     val output = std.mkString
-    assert(output == "01210120", s"Output '$output' should be '01210120'")
+    assert(output == "8410120", s"Output '$output' should be '8410120'")
   }
 
   test("Checking that LZWa can encode and decode") {

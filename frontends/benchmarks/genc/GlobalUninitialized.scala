@@ -34,14 +34,14 @@ object GlobalUninitialized {
   @export
   def main() {
     implicit val gs = GlobalState(Array.fill(100)(0), false, 0, 0)
-    gs.x = 0
-    gs.y = 12
+    gs.x = 8
+    gs.y = 4
     gs.stable = true
     StdOut.print(gs.x)
     StdOut.print(gs.y)
     move()
-    StdOut.print(gs.data(11))
-    StdOut.print(gs.data(12))
+    StdOut.print(gs.data(3))
+    StdOut.print(gs.data(4))
     StdOut.print(gs.x)
     StdOut.println(gs.y)
   }
