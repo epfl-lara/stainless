@@ -191,7 +191,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     def wrap(expr: Expr)(implicit symbols: Symbols) = Path.wrap(expr, path)
 
     def on(that: Expr)(implicit symbols: Symbols): Set[Target] = {
-      wrap(that).toSet.flatMap(getTargets)
+      wrap(that).toSet.flatMap((expr: Expr) => getTargets(expr, true))
     }
 
     def prefixOf(that: Path): Boolean = {
@@ -344,55 +344,65 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     override def toString: String = asString
   }
 
-  // getTargets(expr, Seq()) returns the set of targets such that after `var x = expr`,
-  // the modifications on `x` will result in modifications on these targets
-  def getTargets(expr: Expr, path: Seq[Accessor])(implicit symbols: Symbols): Set[Target] = expr match {
+  /* When `strict` is false, getTargets(expr, Seq()) returns the set of targets such that after `var x = expr`,
+   * the direct modifications on `x` (field assignments, array updates, etc.) result in modifications on these targets.
+   *
+   * When `strict` is true, we return set of targets, such that the arbitrary modifications on `x`
+   * (after possibly many field accesses, array updates, etc.) result in modifications on these targets.
+   */
+  def getTargets(expr: Expr, path: Seq[Accessor], strict: Boolean)(implicit symbols: Symbols): Set[Target] = expr match {
     case _ if variablesOf(expr).forall(v => !symbols.isMutableType(v.tpe)) => Set.empty
     case v: Variable => Set(Target(v, None, Path(path)))
-    case ADTSelector(e, id) => getTargets(e, ADTFieldAccessor(id) +: path)
-    case ClassSelector(e, id) => getTargets(e, ClassFieldAccessor(id) +: path)
-    case TupleSelect(e, idx) => getTargets(e, TupleFieldAccessor(idx) +: path)
-    case ArraySelect(a, idx) => getTargets(a, ArrayAccessor(idx) +: path)
-    case MutableMapApply(a, idx) => getTargets(a, MutableMapAccessor(idx) +: path)
-    case MutableMapDuplicate(m) => getTargets(m, path)
+    case ADTSelector(e, id) => getTargets(e, ADTFieldAccessor(id) +: path, strict)
+    case ClassSelector(e, id) => getTargets(e, ClassFieldAccessor(id) +: path, strict)
+    case TupleSelect(e, idx) => getTargets(e, TupleFieldAccessor(idx) +: path, strict)
+    case ArraySelect(a, idx) => getTargets(a, ArrayAccessor(idx) +: path, strict)
+    case MutableMapApply(a, idx) => getTargets(a, MutableMapAccessor(idx) +: path, strict)
+    case MutableMapDuplicate(m) => getTargets(m, path, strict)
 
     case ADT(id, _, args) => path match {
       case ADTFieldAccessor(fid) +: rest =>
-        getTargets(args(symbols.getConstructor(id).fields.indexWhere(_.id == fid)), rest)
+        getTargets(args(symbols.getConstructor(id).fields.indexWhere(_.id == fid)), rest, strict)
       case _ =>
-        Set.empty
+        if (strict)
+          throw MalformedStainlessCode(expr, s"Couldn't compute effect targets in ADT ${expr.asString}")
+        else Set.empty
     }
 
     case ClassConstructor(ct, args) => path match {
       case ClassFieldAccessor(fid) +: rest =>
-        getTargets(args(ct.tcd.fields.indexWhere(_.id == fid)), rest)
+        getTargets(args(ct.tcd.fields.indexWhere(_.id == fid)), rest, strict)
       case _ =>
-        Set.empty
+        if (strict)
+          throw MalformedStainlessCode(expr, s"Couldn't compute effect targets in class constructor ${expr.asString}")
+        else Set.empty
     }
 
     case Tuple(exprs) => path match {
       case TupleFieldAccessor(idx) +: rest =>
-        getTargets(exprs(idx - 1), rest)
+        getTargets(exprs(idx - 1), rest, strict)
       case _ =>
-        Set.empty
+        if (strict)
+          throw MalformedStainlessCode(expr, s"Couldn't compute effect targets in tuple ${expr.asString}")
+        else Set.empty
     }
 
     case FiniteArray(elems, _) => path match {
       case ArrayAccessor(bv: BVLiteral) +: rest =>
         val i = bv.toBigInt.toInt
-        if (i < elems.size) getTargets(elems(i), rest)
+        if (i < elems.size) getTargets(elems(i), rest, strict)
         else throw MalformedStainlessCode(expr, s"Out of bound array access in ${expr.asString}")
-      case _ if path.isEmpty || !path.head.isInstanceOf[ArrayAccessor] =>
+      case _ if (path.isEmpty || !path.head.isInstanceOf[ArrayAccessor]) && !strict =>
         Set.empty
       case _ =>
         throw MalformedStainlessCode(expr, s"Couldn't compute effect targets in finite array ${expr.asString}")
     }
 
-    case Assert(_, _, e) => getTargets(e, path)
-    case Annotated(e, _) => getTargets(e, path)
+    case Assert(_, _, e) => getTargets(e, path, strict)
+    case Annotated(e, _) => getTargets(e, path, strict)
 
     case m: MatchExpr =>
-      getTargets(symbols.matchToIfThenElse(m), path)
+      getTargets(symbols.matchToIfThenElse(m), path, strict)
 
     case IfExpr(cnd, thn, els) =>
       def notConj(cnd: Expr, e: Option[Expr])(): Expr = e map { e =>
@@ -404,8 +414,8 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       } getOrElse(cnd)
 
       for {
-        t <- getTargets(thn, path)
-        e <- getTargets(els, path)
+        t <- getTargets(thn, path, strict)
+        e <- getTargets(els, path, strict)
         target <- Set(
           Target(t.receiver, Some(conj(cnd, t.condition)), t.path),
           Target(e.receiver, Some(notConj(cnd, e.condition)), e.path)
@@ -415,15 +425,16 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     case fi: FunctionInvocation if !symbols.isRecursive(fi.id) =>
       BodyWithSpecs(symbols.simplifyLets(fi.inlined))
         .bodyOpt
-        .map(getTargets(_, path))
+        .map(getTargets(_, path, strict))
         .getOrElse(Set.empty)
 
     case fi: FunctionInvocation => Set.empty
     case (_: ApplyLetRec | _: Application) => Set.empty
-    case _: LargeArray | _: ArrayUpdated if path.isEmpty || !path.head.isInstanceOf[ArrayAccessor] => Set.empty
+    case _: LargeArray | _: ArrayUpdated
+      if (path.isEmpty || !path.head.isInstanceOf[ArrayAccessor]) && !strict => Set.empty
     case _: MutableMapUpdated => Set.empty
-    case IsInstanceOf(e, _) => getTargets(e, path)
-    case AsInstanceOf(e, _) => getTargets(e, path)
+    case IsInstanceOf(e, _) => getTargets(e, path, strict)
+    case AsInstanceOf(e, _) => getTargets(e, path, strict)
     case Old(_) => Set.empty
     case Snapshot(_) => Set.empty
     case FreshCopy(_) => Set.empty
@@ -445,14 +456,14 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     case MultiplicityInBag(element, bag) => Set.empty
     case BagAdd(bag, element) => Set.empty
 
-    case Block(_, last) => getTargets(last, path)
+    case Block(_, last) => getTargets(last, path, strict)
 
     case Let(vd, e, b) if !symbols.isMutableType(vd.tpe) =>
-      getTargets(b, path)
+      getTargets(b, path, strict)
 
     case Let(vd, e, b) =>
-      val bEffects = getTargets(b, path)
-      for (ee <- getTargets(e); be <- bEffects) yield {
+      val bEffects = getTargets(b, path, strict)
+      for (ee <- getTargets(e, strict); be <- bEffects) yield {
         if (be.receiver == vd.toVariable) ee.append(be) else be
       }
 
@@ -467,8 +478,8 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       )
   }
 
-  def getTargets(expr: Expr)(implicit symbols: Symbols): Set[Target] = {
-    getTargets(expr, Seq.empty)
+  def getTargets(expr: Expr, strict: Boolean)(implicit symbols: Symbols): Set[Target] = {
+    getTargets(expr, Seq.empty, strict)
   }
 
   /* A fresh expression is an expression that is newly created
@@ -572,7 +583,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       env.get(effect.receiver).map(e => e.copy(path = e.path ++ effect.path))
 
     def effect(expr: Expr, env: Map[Variable, Effect]): Set[Effect] =
-      getTargets(expr) flatMap { (target: Target) =>
+      getTargets(expr, true) flatMap { (target: Target) =>
         inEnv(target.toEffect, env).toSet
       }
 
@@ -583,7 +594,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
           val newEnv = (variablesOf(b) ++ freeVars).map(v => v -> Effect(v, Path.empty)).toMap
           val effb = rec(b, newEnv)
           effe ++ effb.flatMap { case ef @ Effect(receiver, path) =>
-            if (receiver == vd.toVariable) getTargets(e, path.toSeq).map(_.toEffect)
+            if (receiver == vd.toVariable) getTargets(e, path.toSeq, true).map(_.toEffect)
             else Set(ef)
           }.flatMap(inEnv(_, env))
         }
