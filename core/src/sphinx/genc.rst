@@ -289,8 +289,9 @@ This annotation triggers some checks to make sure that indeed the ``GlobalState`
 (the name of the class can be changed, and there can be multiple such classes) is used as a global
 state:
 
-* Functions can take as argument at most one instance of ``GlobalState``.
-* There can be at most one instance of ``GlobalState`` created (in a function that doesn't already take an instance as argument).
+* Functions can take as argument at most one instance per each global class such as ``GlobalState``.
+* There can be at most one instance created for each global class such as ``GlobalState``
+  (in a function that doesn't already take an instance of that class as argument).
 * A ``GlobalState`` instance can only be used for reads and assignments (e.g. it cannot be let bound, except for the declaration mentioned above).
 * The only global state that can be passed to other functions is the one we create or the one we received as a function argument.
 

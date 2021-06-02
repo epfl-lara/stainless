@@ -135,7 +135,12 @@ transform the above on the following equivalent implementation:
   a = a.updated(1, 10)
   a(1) //10
 
-Then Stainless would apply the same process as for any other imperative program.
+Stainless also has a ``swap`` operation in ``stainless.lang``, which is equivalent to two updates.
+
+.. code-block:: scala
+
+  def swap[@mutable T](a1: Array[T], i1: Int, a2: Array[T], i2: Int): Unit
+
 
 Mutable Objects
 ---------------

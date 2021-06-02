@@ -756,8 +756,11 @@ Function
 
 
 
-BitVectors
+Bitvectors
 **********
+
+Bitvectors are currently only supported in GenC and for verification, but
+`not for compilation <https://github.com/epfl-lara/stainless/issues/982>`_.
 
 These examples are taken from `BitVectors3.scala
 <https://github.com/epfl-lara/stainless/blob/master/frontends/benchmarks/verification/valid/MicroTests/BitVectors3.scala>`_.
