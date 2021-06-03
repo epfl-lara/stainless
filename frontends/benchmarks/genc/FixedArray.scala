@@ -41,7 +41,8 @@ object FixedArray {
   @export
   def main(): Unit = {
     val w = W(30, Array(10, 20, 30, 20, 42), 100)
-    val w2 = W(30, Array(10, 20, 30, 20, 42), { w.a(0) += 1; 100 })
+    w.a(0) += 1
+    val w2 = W(30, Array(10, 20, 30, 20, 42), 100)
     g(w.a)
     val a2 = w.a
     g(a2)
