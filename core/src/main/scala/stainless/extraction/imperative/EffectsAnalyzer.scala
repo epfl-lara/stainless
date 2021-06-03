@@ -462,9 +462,10 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       getTargets(b, path, strict)
 
     case Let(vd, e, b) =>
-      val bEffects = getTargets(b, path, strict)
-      for (ee <- getTargets(e, strict); be <- bEffects) yield {
-        if (be.receiver == vd.toVariable) ee.append(be) else be
+      val eEffects = getTargets(e, path, strict)
+      getTargets(b, path, strict).flatMap { be =>
+        if (be.receiver == vd.toVariable) eEffects.map(_ append be)
+        else Set(be)
       }
 
     case _ if isExpressionFresh(expr) => Set.empty
