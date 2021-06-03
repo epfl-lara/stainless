@@ -568,7 +568,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     * Effects of expr are any free variables in scope (either local vars
     * already defined in the scope containing expr, or global var) that
     * are re-assigned by an operation in the expression. An effect is
-    * also a mutation of an object refer by an id defined in the scope.
+    * also a mutation of an object referred by an id defined in the scope.
     *
     * This is a conservative analysis, not taking into account control-flow.
     * The set of effects is not definitely effects, but any identifier
@@ -666,8 +666,6 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       case Operator(es, _) => es.flatMap(rec(_, env)).toSet
     }
 
-    val mutated = rec(expr, freeVars.map(v => v -> Effect(v, Path.empty)).toMap)
-
     // We truncate the effects path if it goes through an inductive ADT as
     // such effects can lead to inexistence of the effects fixpoint.
     // We also truncate array paths as they rely on some index that is not
@@ -718,6 +716,10 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       merged.filterNot(t1 => (merged - t1).exists(t2 => t2 prefixOf t1))
     }
 
+    val mutated = try (rec(expr, freeVars.map(v => v -> Effect(v, Path.empty)).toMap))
+      catch {
+        case _: MalformedStainlessCode => freeVars.map(v => Effect(v, Path.empty)).toSet
+      }
     mutated
       .map(truncate)
       .groupBy(_.receiver)
