@@ -53,6 +53,8 @@ trait LeonInlining extends CachingPhase with extraction.IdentitySorts with oo.Id
         case IntegerLiteral(_) => true
         case BVLiteral(_, _, _) => true
         case Tuple(es) => es.forall(isValue)
+        case FiniteArray(args, base) => args.forall(isValue)
+        case LargeArray(elems, default, _, _) => elems.map(_._2).forall(isValue) && isValue(default)
         case ADT(_, _, args) => args.forall(isValue)
         case _ => false
       }
