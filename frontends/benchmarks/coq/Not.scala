@@ -1,6 +1,6 @@
 import stainless.lang._
 
-object Test {
+object Not {
 
     def f(x: Boolean) = {
         require(x)

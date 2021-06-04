@@ -52,6 +52,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
         name = file.getName stripSuffix ".scala"
       } test(s"$dir/$name", ctx => filter(ctx, s"$dir/$name")) { implicit ctx =>
         val (structure, program) = loadFiles(Seq(path))
+        assert(ctx.reporter.errorCount == 0, "There should be no error while loading the files")
         assert((structure count { _.isMain }) == 1, "Expecting only one main unit")
 
         val userFiltering = new DebugSymbols {
@@ -95,6 +96,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
     } else {
       implicit val ctx = inox.TestContext.empty
       val (structure, program) = loadFiles(fs.map(_.getPath))
+      assert(ctx.reporter.errorCount == 0, "There should be no error while loading the files")
 
       val userFiltering = new DebugSymbols {
         val name = "UserFiltering"
