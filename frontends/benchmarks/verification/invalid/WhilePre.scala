@@ -1,6 +1,6 @@
 import stainless.lang._
 
-object Test {
+object WhilePre {
   def f(n: BigInt): Unit = {
     var i = n
     (while (i > 0) {

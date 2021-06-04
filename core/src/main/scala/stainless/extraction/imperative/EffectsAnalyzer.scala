@@ -659,9 +659,9 @@ trait EffectsAnalyzer extends oo.CachingPhase {
           case None => Seq(e) // This effect occurs on some variable captured from scope
         })
 
-        val effectsOnFreeVars = invocEffects.filter(e => freeVars contains e.receiver)
         val effectsOnLocalFreeVars = currentEffects.filterNot(e => paramSubst contains e.receiver)
-        effectsOnFreeVars ++ effectsOnLocalFreeVars ++ args.flatMap(rec(_, env))
+
+        invocEffects ++ effectsOnLocalFreeVars ++ args.flatMap(rec(_, env))
 
       case Operator(es, _) => es.flatMap(rec(_, env)).toSet
     }

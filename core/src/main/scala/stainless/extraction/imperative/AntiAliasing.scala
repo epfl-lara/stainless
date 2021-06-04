@@ -117,7 +117,6 @@ trait AntiAliasing
      */
     def updateFunction(fd: FunAbstraction, env: Environment): FunAbstraction = {
       val aliasedParams = analysis.getAliasedParams(fd)
-
       val newFd = fd.copy(returnType = analysis.getReturnType(fd))
 
       if (aliasedParams.isEmpty) {
@@ -365,14 +364,14 @@ trait AntiAliasing
               val newBody = transform(b, env withBinding vd)
 
               // for all effects of `b` whose receiver is `vd`
-              val copyEffects = effects(b).filter(_.receiver == vd.toVariable).flatMap { eff =>
+              val copyEffects = effects(b).filter(_.receiver == vd.toVariable).flatMap { case eff @ Effect(receiver1, path1) =>
                 // we go to the corresponding target modified in the bound expression (after transformation)
-                getTargets(newExpr, eff.path.toSeq, true).map { case Target(receiver, _, path) =>
+                getTargets(newExpr, eff.path.toSeq, true).map { case target @ Target(receiver2, _, path2) =>
                   // and we update it
-                  eff.wrap match {
-                    case None => throw MalformedStainlessCode(l, "Unsupported `val` in AntiAliasing")
-                    case Some(expr) => Assignment(receiver, expr).copiedFrom(l)
-                  }
+                  val result = eff.wrap.getOrElse(
+                    throw MalformedStainlessCode(l, "Unsupported `val` in AntiAliasing (couldn't compute update after aliasing)")
+                  )
+                  Assignment(receiver2, updatedTarget(target, result)).copiedFrom(l)
                 }
               }
 

@@ -1,4 +1,4 @@
-object Test {
+object ArgumentAliasing {
   case class IntRef(var x:Int)
   def f = IntRef(42)
 

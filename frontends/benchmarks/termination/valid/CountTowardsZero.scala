@@ -1,7 +1,7 @@
 /* Copyright 2009-2021 EPFL, Lausanne */
 
 
-object Test {
+object CountTowardsZero {
   def f(x: BigInt): BigInt = {
     if (x == 0) {
       BigInt(0)
