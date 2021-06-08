@@ -720,6 +720,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       catch {
         case _: MalformedStainlessCode => freeVars.map(v => Effect(v, Path.empty)).toSet
       }
+
     mutated
       .map(truncate)
       .groupBy(_.receiver)
