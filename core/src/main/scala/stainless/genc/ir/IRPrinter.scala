@@ -120,6 +120,7 @@ final class IRPrinter[S <: IR](val ir: S) {
     case Ref(e) => "&" + rec(e)
     case Deref(e) => "*" + rec(e)
     case Return(e) => "return " + rec(e)
+    case Assert(e) => "assert(" + rec(e) + ")"
     case Break => "break"
   }
 

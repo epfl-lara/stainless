@@ -293,6 +293,8 @@ private[genc] sealed trait IR { ir =>
     require(e.getType.isInstanceOf[ReferenceType])
   }
 
+  case class Assert(e: Expr) extends Expr
+
   case class Return(e: Expr) extends Expr
 
   case object Break extends Expr

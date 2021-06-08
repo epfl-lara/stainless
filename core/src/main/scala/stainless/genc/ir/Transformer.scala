@@ -159,6 +159,7 @@ abstract class Transformer[From <: IR, To <: IR](final val from: From, final val
     case Ref(e) => to.Ref(rec(e)) -> env
     case Deref(e) => to.Deref(rec(e)) -> env
     case Return(e) => to.Return(rec(e)) -> env
+    case Assert(e) => to.Assert(rec(e)) -> env
     case Break => to.Break -> env
   }
 

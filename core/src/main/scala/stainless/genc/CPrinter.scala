@@ -261,6 +261,7 @@ class CPrinter(
 
     case Return(Lit(UnitLit)) => c"return"
     case Return(value) => c"return $value"
+    case Assert(expr) => c"assert($expr)"
 
     case Cast(expr, typ) => optP { c"($typ)$expr" }
 

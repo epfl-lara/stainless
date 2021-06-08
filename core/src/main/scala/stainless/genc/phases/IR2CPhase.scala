@@ -136,6 +136,8 @@ private class IR2CImpl(val ctx: inox.Context) {
   private def rec(e: Expr, allowFixedArray: Boolean = false): C.Expr = e match {
     case Binding(vd) => C.Binding(rec(vd.id))
 
+    case Assert(e) => C.Assert(rec(e))
+
     case FunRef(e) => rec(e)
     case FunVal(fd) =>
       // We don't recurse on fd here to avoid infinite recursion on recursive functions.
