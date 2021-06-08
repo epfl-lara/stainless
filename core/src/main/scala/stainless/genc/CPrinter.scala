@@ -13,6 +13,7 @@ class CPrinter(
   // `printC` is true when we print the *.c file, false when we print the *.h file
   printC: Boolean,
   headerDependencies: Set[Type],
+  gencIncludes: Seq[String],
   val sb: StringBuffer = new StringBuffer,
 ) {
   def print(tree: Tree) = pp(tree)(PrinterContext(indent = 0, printer = this, previous = None, current = tree))
@@ -309,8 +310,8 @@ class CPrinter(
   private lazy val includes_ = Set("assert.h", "stdbool.h", "stdint.h", "stddef.h") map Include
 
   private def buildIncludes(includes: Set[Include]): Seq[String] =
-    (includes_ ++ includes).toSeq sortBy { _.file } map { i => s"#include <${i.file}>" }
-
+    (includes_ ++ includes).toSeq.sortBy(_.file).map(i => s"#include <${i.file}>") ++
+    gencIncludes.map(f => s"""#include "$f"""")
 
   /** Wrappers to distinguish how the data should be printed **/
   private[genc] sealed abstract class WrapperTree
