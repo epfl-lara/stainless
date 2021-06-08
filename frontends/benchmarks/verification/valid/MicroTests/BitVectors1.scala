@@ -73,4 +73,13 @@ object BitVectors1 {
     assert(m == 2)
   }
 
+  def test15() = {
+    val zero: UInt32 = 0
+    assert(~zero == max[UInt32])
+  }
+
+  def test16(n: UInt32) = {
+    assert(~(~n) == n)
+  }
+
 }
