@@ -51,6 +51,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
       "  - termination: each solver call takes at most n / 100 seconds"),
     optJson -> Description(General, "Output verification and termination reports to a JSON file"),
     genc.optOutputFile -> Description(General, "File name for GenC output"),
+    genc.optIncludes -> Description(General, "Add includes in GenC output"),
     optWatch -> Description(General, "Re-run stainless upon file changes"),
     optCompact -> Description(General, "Print only invalid elements of summaries"),
     frontend.optPersistentCache -> Description(General, "Enable caching of program extraction & analysis"),

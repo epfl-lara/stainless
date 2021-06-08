@@ -29,7 +29,7 @@ object CAST { // C Abstract Syntax Tree
   sealed abstract class Tree {
     override def toString = {
       val sb = new StringBuffer()
-      new CPrinter("stainless.h", true, Set(), sb).print(this)
+      new CPrinter("stainless.h", true, Set(), Seq(), sb).print(this)
       sb.toString
     }
   }
