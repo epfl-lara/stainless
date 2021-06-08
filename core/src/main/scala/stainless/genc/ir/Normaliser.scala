@@ -215,6 +215,15 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
 
       res -> env
 
+    case Assert(expr0) =>
+      val (preExpr, expr) = flatten(expr0, allowTopLevelApp = true, allowArray = false)
+      val res = preExpr match {
+        case Seq() => to.Assert(expr)
+        case _ => to.buildBlock(preExpr :+ to.Assert(expr))
+      }
+
+      res -> env
+
     case IsA(expr0, ct0) =>
       val ct = recCT(ct0)
       val (preExpr, expr) = flatten(expr0, allowTopLevelApp = false, allowArray = false)

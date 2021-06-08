@@ -207,6 +207,8 @@ object CAST { // C Abstract Syntax Tree
     require(value.isValue, s"Return expressions ($value) must be values")
   }
 
+  case class Assert(e: Expr) extends Expr
+
   // This can represent any C cast, however unsafe it can be.
   case class Cast(expr: Expr, typ: Type) extends Expr
 

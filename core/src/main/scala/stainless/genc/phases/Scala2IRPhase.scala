@@ -111,7 +111,7 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
     for (df <- deps.deps) {
       df match {
         case fd: FunDef if fd.isExported =>
-          rec(Outer(fd), Seq())(Map.empty, (Map.empty, Map.empty))
+          rec(Outer(fd), Seq())(Map.empty, Env(Map.empty, Map.empty, fd.isExported))
         case cd: ClassDef if cd.isExported || cd.isGlobal =>
           rec(cd.typed.toType)(Map.empty)
         case _ =>
@@ -142,7 +142,11 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
   // When converting expressions, we keep track of the variable in scope to build Bindings
   // Also, the identifier might not have the correct type (e.g. when generic). We therefore
   // need an external *concrete* type.
-  private type Env = (Map[(ValDef, Type), CIR.ValDef], Map[Identifier, LocalFunDef])
+  case class Env(
+    bindings: Map[(ValDef, Type), CIR.ValDef],
+    lfds: Map[Identifier, LocalFunDef],
+    inExported: Boolean // true when we're inside an exported function
+  )
 
   // Keep track of generic to concrete type mapping
   private type TypeMapping = Map[TypeParameter, Type]
@@ -154,7 +158,7 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
   // Extract the ValDef from the known one
   private def buildBinding(vd: ValDef)(implicit env: Env, tm: TypeMapping): CIR.Binding = {
     val typ = instantiateType(vd.tpe, tm)
-    val newVD = env._1(vd -> typ)
+    val newVD = env.bindings(vd, typ)
     CIR.Binding(newVD)
   }
 
@@ -162,8 +166,8 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
                       (implicit env: Env, tm: TypeMapping): CIR.Expr = {
     val vd = CIR.ValDef(rec(x.id), rec(x.tpe), isVar)
     val decl = CIR.Decl(vd, Some(rec(e)))
-    val newValDefEnv = env._1 + ((x, instantiateType(x.tpe, tm)) -> vd)
-    val rest = rec(body)((newValDefEnv, env._2), tm)
+    val newBindings = env.bindings + ((x, instantiateType(x.tpe, tm)) -> vd)
+    val rest = rec(body)(env.copy(bindings = newBindings), tm)
 
     CIR.buildBlock(Seq(decl, rest))
   }
@@ -306,9 +310,9 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
       val tmpTyp = rec(typ)
       val tmp = CIR.ValDef(tmpId, tmpTyp, isVar = false)
       val pre = CIR.Decl(tmp, Some(rec(value)(env, tm)))
-      val newValDefEnv = env._1 + ((tmp0, instantiateType(typ, tm)) -> tmp)
+      val newBindings = env.bindings + ((tmp0, instantiateType(typ, tm)) -> tmp)
 
-      (tmp0.toVariable, Some(pre), (newValDefEnv, env._2))
+      (tmp0.toVariable, Some(pre), env.copy(bindings = newBindings))
     }
 
     def scrutRec(scrutinee0: Expr): (Expr, Option[CIR.Expr], Env) = scrutinee0 match {
@@ -515,10 +519,10 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
         val paramKeys: Seq[(ValDef, Type)] = newParams map { p => p -> instantiateType(p.getType, tm1) }
         val paramEnv: Seq[((ValDef, Type), CIR.ValDef)] = paramKeys zip params
 
-        val newValDefEnv = env._1 ++ ctxEnv ++ paramEnv
+        val newBindings = env.bindings ++ ctxEnv ++ paramEnv
 
         // Recurse on the FunDef body, and not the TypedFunDef one, in order to keep the correct identifiers.
-        CIR.FunBodyAST(rec(fa.fullBody)((newValDefEnv, env._2), tm1))
+        CIR.FunBodyAST(rec(fa.fullBody)(env.copy(bindings = newBindings), tm1))
       }
 
     // Now that we have a body, we can fully build the FunDef
@@ -638,7 +642,7 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
             )
           }
           for ((field, paramInit) <- fields.zip(paramInits)) {
-            implicit val emptyEnv: Env = (Map(), Map())
+            implicit val emptyEnv = Env(Map(), Map(), false)
             val decl = (CIR.Decl(field, Some(rec(paramInit.fullBody))), false)
             if (declResults.map(_._1.vd).contains(field)) {
               reporter.fatalError(cd.getPos, s"Global variable ${field.id} is defined twice")
@@ -673,6 +677,11 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
       rec(expr1)
 
     /* Ignore static assertions */
+    case Require(pred, body) if env.inExported =>
+      CIR.buildBlock(Seq(
+        CIR.Assert(rec(pred)),
+        rec(body)
+      ))
     case Require(_, body) => rec(body)
     case Decreases(_, body) => rec(body)
     case Ensuring(body, _) => rec(body)
@@ -724,12 +733,19 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
 
     case LetRec(lfds, body) =>
       // We don't have to traverse the nested function now because we already have their contexts
-      rec(body)((env._1, env._2 ++ lfds.map(lfd => lfd.id -> lfd)), tm0)
+      rec(body)(env.copy(lfds = env.lfds ++ lfds.map(lfd => lfd.id -> lfd)), tm0)
 
-    case FunctionInvocation(id, tps, args) =>
+    case fi @ FunctionInvocation(id, tps, args) =>
       val fd = syms.getFunction(id)
+      if (fd.isExported && fd.hasPrecondition) {
+        reporter.warning(fi.getPos,
+          s"Exported functions (${fd.id.asString}) generate C assertions for requires, " +
+          "so invoking them from within Stainless is not recommended as Stainless already checks " +
+          "that the requires are respected"
+        )
+      }
       val tfd = fd.typed(tps)
-      val fun = rec(Outer(fd), tps)
+      val fun = rec(Outer(fd), tps)(tm0, env.copy(inExported = fd.isExported))
       implicit val tm1 = tm0 ++ tfd.tpSubst
       val filteredArgs = args.zip(fd.params).filter {
         case (arg, vd) => !vd.flags.contains(Ghost) && !isGlobal(vd.tpe)
@@ -738,7 +754,7 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
       CIR.App(fun.toVal, Seq(), newArgs)
 
     case ApplyLetRec(id, tparams, tpe, tps, args) =>
-      val lfd = env._2(id)
+      val lfd = env.lfds(id)
       val fun = rec(Inner(lfd), tps)
       val tpSubst: TypeMapping = (lfd.tparams.map(_.tp) zip tps).toMap.filter(tt => tt._1 != tt._2)
       implicit val tm1 = tm0 ++ tpSubst
