@@ -1599,6 +1599,7 @@ trait CodeExtraction extends ASTExtractors {
               Seq(xt.Lambda(Seq(), extractTree(orElse)).setPos(tr.pos))
             ).setPos(c.pos)
 
+          case (StrictBVType(_, _), "unary_~",  Seq())    => xt.BVNot(extractTree(lhs))
           case (StrictBVType(_, _), "unary_-",  Seq())    => xt.UMinus(extractTree(lhs))
           case (StrictBVType(_, _), "+",        Seq(rhs)) => xt.Plus(extractTree(lhs), extractTree(rhs))
           case (StrictBVType(_, _), "-",        Seq(rhs)) => xt.Minus(extractTree(lhs), extractTree(rhs))
