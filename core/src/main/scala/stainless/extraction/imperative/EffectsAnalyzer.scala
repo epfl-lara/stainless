@@ -352,6 +352,9 @@ trait EffectsAnalyzer extends oo.CachingPhase {
    */
   def getTargets(expr: Expr, path: Seq[Accessor], strict: Boolean)(implicit symbols: Symbols): Set[Target] = expr match {
     case _ if variablesOf(expr).forall(v => !symbols.isMutableType(v.tpe)) => Set.empty
+    case _ if isExpressionFresh(expr) => Set.empty
+    case _ if !symbols.isMutableType(expr.getType) => Set.empty
+
     case v: Variable => Set(Target(v, None, Path(path)))
     case ADTSelector(e, id) => getTargets(e, ADTFieldAccessor(id) +: path, strict)
     case ClassSelector(e, id) => getTargets(e, ClassFieldAccessor(id) +: path, strict)
@@ -467,10 +470,6 @@ trait EffectsAnalyzer extends oo.CachingPhase {
         if (be.receiver == vd.toVariable) eEffects.map(_ append be)
         else Set(be)
       }
-
-    case _ if isExpressionFresh(expr) => Set.empty
-
-    case _ if !symbols.isMutableType(expr.getType) => Set.empty
 
     case _ =>
       throw MalformedStainlessCode(expr,
