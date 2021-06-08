@@ -360,6 +360,17 @@ The second one hides the global declarations, which can be useful when interacti
 that declares global variables outside of the Stainless program.
 
 
+Export
+------
+
+Functions and classes can be marked with ``@export``, which affects GenC compilation in several ways.
+First, the names of these functions and classes will not get mangled when generating the C code.
+Second, the signatures of the functions, and the type definitions corresponding to exported classes,
+will go into the header file (by default ``stainless.h``).
+Finally, preconditions of exported functions (which are meant to be called from external C code),
+are transformed into runtime assertions.
+
+
 Custom Conversion
 -----------------
 
