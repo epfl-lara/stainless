@@ -273,7 +273,7 @@ trait AntiAliasing
         private def checkAliasing(expr: Expr, args: Seq[Expr]): Unit = {
           val argTargets: Seq[((Expr, Set[Target]), Int)] =
             args.filter(arg => isMutableType(arg.getType))
-              .map(arg => arg -> Try(getTargets(arg, true)).toOption
+              .map(arg => arg -> Try(getAllTargets(arg)).toOption
                 .getOrElse(
                   exprOps.variablesOf(arg)
                     .filter(v => isMutableType(v.tpe))
@@ -308,9 +308,9 @@ trait AntiAliasing
             val base = array1.getType.asInstanceOf[ArrayType].base
             val temp = ValDef.fresh("temp", base).setPos(swap)
             val ra1 = exprOps.replaceFromSymbols(env.rewritings, array1)
-            val targets1 = getTargets(ra1, false)
+            val targets1 = getDirectTargets(ra1)
             val ra2 = exprOps.replaceFromSymbols(env.rewritings, array2)
-            val targets2 = getTargets(ra2, false)
+            val targets2 = getDirectTargets(ra2)
 
             if (targets1.exists(target => !env.bindings.contains(target.receiver.toVal)))
               throw MalformedStainlessCode(swap, "Unsupported swap (first array)")
@@ -339,7 +339,7 @@ trait AntiAliasing
             // see https://github.com/epfl-lara/stainless/pull/920 for discussion
 
             val newExpr = transform(e, env)
-            val targets = Try(getTargets(newExpr, true))
+            val targets = Try(getAllTargets(newExpr))
 
             if (targets.isSuccess) {
               // This branch handles all cases when targets can be precisely computed, namely when
@@ -366,7 +366,7 @@ trait AntiAliasing
               // for all effects of `b` whose receiver is `vd`
               val copyEffects = effects(b).filter(_.receiver == vd.toVariable).flatMap { case eff @ Effect(receiver1, path1) =>
                 // we go to the corresponding target modified in the bound expression (after transformation)
-                getTargets(newExpr, eff.path.toSeq, true).map { case target @ Target(receiver2, _, path2) =>
+                getDirectTargets(newExpr, eff.path.toSeq).map { case target @ Target(receiver2, _, path2) =>
                   // and we update it
                   val result = eff.wrap.getOrElse(
                     throw MalformedStainlessCode(l, "Unsupported `val` in AntiAliasing (couldn't compute update after aliasing)")
@@ -422,7 +422,7 @@ trait AntiAliasing
 
           case up @ ArrayUpdate(a, i, v) =>
             val ra = exprOps.replaceFromSymbols(env.rewritings, a)
-            val targets = getTargets(ra, false)
+            val targets = getDirectTargets(ra)
 
             if (targets.exists(target => !env.bindings.contains(target.receiver.toVal)))
               throw MalformedStainlessCode(up, "Unsupported form of array update")
@@ -434,7 +434,7 @@ trait AntiAliasing
 
           case up @ MutableMapUpdate(map, k, v) =>
             val rmap = exprOps.replaceFromSymbols(env.rewritings, map)
-            val targets = getTargets(rmap, false)
+            val targets = getDirectTargets(rmap)
 
             if (targets.exists(target => !env.bindings.contains(target.receiver.toVal)))
               throw MalformedStainlessCode(up, "Unsupported form of map update")
@@ -446,7 +446,7 @@ trait AntiAliasing
 
           case as @ FieldAssignment(o, id, v) =>
             val so = exprOps.replaceFromSymbols(env.rewritings, o)
-            val targets = getTargets(so, false)
+            val targets = getDirectTargets(so)
 
             if (targets.exists(target => !env.bindings.contains(target.receiver.toVal)))
               throw MalformedStainlessCode(as, "Unsupported form of field assignment")
