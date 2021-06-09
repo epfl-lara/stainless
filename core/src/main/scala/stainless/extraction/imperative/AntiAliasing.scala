@@ -183,18 +183,6 @@ trait AntiAliasing
                 effects map (e => (e, e on rArg))
               }
 
-            for ((_, effects) <- localEffects.flatMap(_.flatMap(_._2)).groupBy(_.receiver)) {
-              val aliased = effects.tails.flatMap {
-                case e1 +: es => es.collect { case e2 if (e1 prefixOf e2) || (e2 prefixOf e1) => (e1, e2) }
-                case Nil => Nil
-              }
-
-              if (aliased.nonEmpty) {
-                val (e1, _) = aliased.next
-                throw MalformedStainlessCode(e1.receiver, "Illegal passing of aliased parameter")
-              }
-            }
-
             //TODO: The case f(A(x1,x1,x1)) could probably be handled by forbidding creation at any program point of
             //      case class with multiple refs as it is probably not useful
 
