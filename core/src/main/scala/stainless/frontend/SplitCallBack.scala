@@ -176,9 +176,9 @@ class SplitCallBack(components: Seq[Component])(override implicit val context: i
   }
 
   private def processFunctionsSymbols(ids: Set[Identifier], syms: xt.Symbols): Future[Report] = {
-    val errors = TreeSanitizer(xt).enforce(symbols)
+    val errors = TreeSanitizer(xt).enforce(syms)
     if (!errors.isEmpty) {
-      reportErrorFooter(symbols)
+      reportErrorFooter(syms)
     }
 
     try {
