@@ -191,7 +191,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     def wrap(expr: Expr)(implicit symbols: Symbols) = Path.wrap(expr, path)
 
     def on(that: Expr)(implicit symbols: Symbols): Set[Target] = {
-      getDirectTargets(that).map(target => target.appendPath(this))
+      getDirectTargets(that, path)
     }
 
     def prefixOf(that: Path): Boolean = {
