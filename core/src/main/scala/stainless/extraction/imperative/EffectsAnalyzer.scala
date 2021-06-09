@@ -689,6 +689,10 @@ trait EffectsAnalyzer extends oo.CachingPhase {
           val field = getClassField(ct, id).get
           if (isInductive(field.getType, seen)) Seq()
           else fa +: rec(field.getType, xs, seen + ct.id)
+        case (tup: TupleType, (fa @ TupleFieldAccessor(idx)) +: xs) =>
+          val tpe = tup.bases(idx - 1)
+          if (isInductive(tpe, seen)) Seq()
+          else fa +: rec(tpe, xs, seen)
         case (_, ArrayAccessor(_) +: xs) => Seq()
         case _ => Seq()
       }

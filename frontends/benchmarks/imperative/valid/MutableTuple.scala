@@ -32,7 +32,8 @@ object MutableTuple {
   def t4() = {
     val pair = t3()
     pair._2.value = 100
-    val x = t1(pair)
+
+    val x = t1((pair._1, pair._2))
     assert(x == 100)
   }
 }
