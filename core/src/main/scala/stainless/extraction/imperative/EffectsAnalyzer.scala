@@ -191,7 +191,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     def wrap(expr: Expr)(implicit symbols: Symbols) = Path.wrap(expr, path)
 
     def on(that: Expr)(implicit symbols: Symbols): Set[Target] = {
-      wrap(that).toSet.flatMap((expr: Expr) => getTargets(expr, true))
+      wrap(that).toSet.flatMap((expr: Expr) => getDirectTargets(expr))
     }
 
     def prefixOf(that: Path): Boolean = {
@@ -482,6 +482,12 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     getTargets(expr, Seq.empty, strict)
   }
 
+  def getDirectTargets(expr: Expr, path: Seq[Accessor])(implicit symbols: Symbols) = getTargets(expr, path, false)
+  def getAllTargets(expr: Expr, path: Seq[Accessor])(implicit symbols: Symbols) = getTargets(expr, path, true)
+
+  def getDirectTargets(expr: Expr)(implicit symbols: Symbols) = getTargets(expr, Seq.empty, false)
+  def getAllTargets(expr: Expr)(implicit symbols: Symbols) = getTargets(expr, Seq.empty, true)
+
   /* A fresh expression is an expression that is newly created
    * and does not share memory with existing values and variables.
    *
@@ -583,7 +589,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       env.get(effect.receiver).map(e => e.copy(path = e.path ++ effect.path))
 
     def effect(expr: Expr, env: Map[Variable, Effect]): Set[Effect] =
-      getTargets(expr, true) flatMap { (target: Target) =>
+      getDirectTargets(expr) flatMap { (target: Target) =>
         inEnv(target.toEffect, env).toSet
       }
 
@@ -594,7 +600,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
           val newEnv = (variablesOf(b) ++ freeVars).map(v => v -> Effect(v, Path.empty)).toMap
           val effb = rec(b, newEnv)
           effe ++ effb.flatMap { case ef @ Effect(receiver, path) =>
-            if (receiver == vd.toVariable) getTargets(e, path.toSeq, true).map(_.toEffect)
+            if (receiver == vd.toVariable) getDirectTargets(e, path.toSeq).map(_.toEffect)
             else Set(ef)
           }.flatMap(inEnv(_, env))
         }
