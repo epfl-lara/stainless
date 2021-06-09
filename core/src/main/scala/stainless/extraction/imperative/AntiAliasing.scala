@@ -496,6 +496,10 @@ trait AntiAliasing
             val rewrittenArgs = args.map(exprOps.replaceFromSymbols(env.rewritings, _))
             checkAliasing(alr, rewrittenArgs)
 
+            val vis: Set[Variable] = varsInScope(fd)
+            rewrittenArgs.flatMap(exprOps.variablesOf(_)).find(vis contains _)
+              .foreach(v => context.reporter.fatalError(alr.getPos, "Illegal passing of aliased local variable: " + v))
+
             val nfi = ApplyLetRec(
               id, tparams,
               FunctionType(fd.params.map(_.getType), analysis.getReturnType(fd)).copiedFrom(tpe), tps,
