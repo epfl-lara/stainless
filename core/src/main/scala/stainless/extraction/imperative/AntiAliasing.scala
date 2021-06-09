@@ -521,9 +521,11 @@ trait AntiAliasing
             val ft @ FunctionType(from, to) = callee.getType
             val ftEffects = functionTypeEffects(ft)
             if (ftEffects.nonEmpty) {
+              val rewrittenArgs = args.map(exprOps.replaceFromSymbols(env.rewritings, _))
+              checkAliasing(app, rewrittenArgs)
               val nfi = Application(
                 transform(callee, env),
-                args.map(arg => transform(exprOps.replaceFromSymbols(env.rewritings, arg), env))
+                rewrittenArgs.map(transform(_, env))
               ).copiedFrom(app)
 
               val params = from.map(tpe => ValDef.fresh("x", tpe))
