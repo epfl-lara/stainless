@@ -191,7 +191,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     def wrap(expr: Expr)(implicit symbols: Symbols) = Path.wrap(expr, path)
 
     def on(that: Expr)(implicit symbols: Symbols): Set[Target] = {
-      wrap(that).toSet.flatMap((expr: Expr) => getDirectTargets(expr))
+      getDirectTargets(that).map(target => target.appendPath(this))
     }
 
     def prefixOf(that: Path): Boolean = {
@@ -287,8 +287,11 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     }
 
     def prependPath(path: Path): Target = Target(receiver, condition, path ++ this.path)
+    def appendPath(path: Path): Target = Target(receiver, condition, this.path ++ path)
 
     def toEffect: Effect = Effect(receiver, path)
+
+    def wrap(implicit symbols: Symbols): Option[Expr] = path.wrap(receiver)
 
     def asString(implicit printerOpts: PrinterOptions): String =
       s"Target(${receiver.asString}, ${condition.map(_.asString)}, ${path.asString})"
