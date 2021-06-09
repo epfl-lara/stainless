@@ -347,7 +347,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
   /* When `strict` is false, getTargets(expr, Seq()) returns the set of targets such that after `var x = expr`,
    * the direct modifications on `x` (field assignments, array updates, etc.) result in modifications on these targets.
    *
-   * When `strict` is true, we return set of targets, such that the arbitrary modifications on `x`
+   * When `strict` is true, we return the set of targets, such that the arbitrary modifications on `x`
    * (after possibly many field accesses, array updates, etc.) result in modifications on these targets.
    */
   def getTargets(expr: Expr, path: Seq[Accessor], strict: Boolean)(implicit symbols: Symbols): Set[Target] = expr match {
