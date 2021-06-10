@@ -352,6 +352,14 @@ trait EffectsAnalyzer extends oo.CachingPhase {
    *
    * When `strict` is true, we return the set of targets, such that the arbitrary modifications on `x`
    * (after possibly many field accesses, array updates, etc.) result in modifications on these targets.
+   *
+   * The main difference happens when invoking `getTargets` with an empty path on `C(a)`
+   * where `C` is some constructor, and `a` is a variable whose type is mutable.
+   * In non-strict mode, we can return the empty set, because direct modifications to a variable `x`
+   * binding `C(a)` wouldn't modify `a`.
+   * In strict mode, there can be modifications on `x` (through multiple field accessors) that
+   * modify `a`. So `getTargets` crashes in that case, because our `Target` API cannot capture such
+   * correspondence.
    */
   def getTargets(expr: Expr, path: Seq[Accessor], strict: Boolean)(implicit symbols: Symbols): Set[Target] = expr match {
     case _ if variablesOf(expr).forall(v => !symbols.isMutableType(v.tpe)) => Set.empty
@@ -485,9 +493,9 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     getTargets(expr, Seq.empty, strict)
   }
 
+  // See the description above `getTargets` for more information
   def getDirectTargets(expr: Expr, path: Seq[Accessor])(implicit symbols: Symbols) = getTargets(expr, path, false)
   def getAllTargets(expr: Expr, path: Seq[Accessor])(implicit symbols: Symbols) = getTargets(expr, path, true)
-
   def getDirectTargets(expr: Expr)(implicit symbols: Symbols) = getTargets(expr, Seq.empty, false)
   def getAllTargets(expr: Expr)(implicit symbols: Symbols) = getTargets(expr, Seq.empty, true)
 
