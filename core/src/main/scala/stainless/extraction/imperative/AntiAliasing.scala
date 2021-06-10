@@ -274,11 +274,11 @@ trait AntiAliasing
             for (target1 <- targets1)
               for ((arg2, targets2) <- otherTargets)
                 for (target2 <- targets2)
-                  if (target1.toEffect.prefixOf(target2.toEffect) ||
-                      target2.toEffect.prefixOf(target1.toEffect))
+                  if (target1.prefixOf(target2) ||
+                      target2.prefixOf(target1))
                     throw MalformedStainlessCode(expr,
                       s"Illegal passing of aliased parameters ${arg1.asString} (with target: ${target1.asString}) " +
-                      s"and ${arg2.asString} (with target: ${target2.asString}"
+                      s"and ${arg2.asString} (with target: ${target2.asString})"
                     )
           }
         }
@@ -352,14 +352,15 @@ trait AntiAliasing
               val newBody = transform(b, env withBinding vd)
 
               // for all effects of `b` whose receiver is `vd`
-              val copyEffects = effects(b).filter(_.receiver == vd.toVariable).flatMap { case eff @ Effect(receiver1, path1) =>
-                // we go to the corresponding target modified in the bound expression (after transformation)
-                getDirectTargets(newExpr, eff.path.toSeq).map { case target @ Target(receiver2, _, path2) =>
-                  // and we update it
-                  val result = eff.wrap.getOrElse(
-                    throw MalformedStainlessCode(l, "Unsupported `val` in AntiAliasing (couldn't compute update after aliasing)")
+              val copyEffects = effects(b).filter(_.receiver == vd.toVariable).flatMap { eff =>
+                // we apply the effect on the bound expression (after transformation)
+                eff.on(newExpr).map { eff2 =>
+                  Assignment(eff2.receiver,
+                    updatedTarget(
+                      Target(eff2.receiver, None, eff2.path),
+                      eff.wrap.get
+                    ).copiedFrom(l)
                   )
-                  Assignment(receiver2, updatedTarget(target, result)).copiedFrom(l)
                 }
               }
 
@@ -521,7 +522,9 @@ trait AntiAliasing
               ).copiedFrom(app)
 
               val params = from.map(tpe => ValDef.fresh("x", tpe))
-              val appEffects = params.zipWithIndex.collect { case (vd, i) if ftEffects(i) => Effect(vd.toVariable, Path.empty) }
+              val appEffects = params.zipWithIndex.collect {
+                case (vd, i) if ftEffects(i) => ModifyingEffect(vd.toVariable, Path.empty)
+              }
               val to = makeFunctionTypeExplicit(ft).asInstanceOf[FunctionType].to
               mapApplication(params, args, nfi, to, appEffects.toSet, env)
             } else {

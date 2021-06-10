@@ -93,7 +93,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
           fd.params
             .filter(vd => symbols.isMutableType(vd.getType) && !vd.flags.contains(IsPure))
             .map(_.toVariable)
-            .map(Effect(_, Path(Seq.empty)))
+            .map(ModifyingEffect(_, Path(Seq.empty)))
             .toSet
         case _ =>
           Set.empty
@@ -188,11 +188,9 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     def +:(elem: Accessor): Path = Path(elem +: path)
     def ++(that: Path): Path = Path(this.path ++ that.path)
 
-    def wrap(expr: Expr)(implicit symbols: Symbols) = Path.wrap(expr, path)
+    def isEmpty: Boolean = path.isEmpty
 
-    def on(that: Expr)(implicit symbols: Symbols): Set[Target] = {
-      getDirectTargets(that, path)
-    }
+    def wrap(expr: Expr)(implicit symbols: Symbols) = Path.wrap(expr, path)
 
     def prefixOf(that: Path): Boolean = {
       // TODO: more expressions can be added to be "provably different"
@@ -289,7 +287,14 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     def prependPath(path: Path): Target = Target(receiver, condition, path ++ this.path)
     def appendPath(path: Path): Target = Target(receiver, condition, this.path ++ path)
 
-    def toEffect: Effect = Effect(receiver, path)
+    def toEffect(effectKind: EffectKind): Effect = effectKind match {
+      case ReplacementKind => ReplacementEffect(receiver, path)
+      case ModifyingKind => ModifyingEffect(receiver, path)
+      case CombinedKind => CombinedEffect(receiver, path)
+    }
+
+    def prefixOf(that: Target): Boolean =
+      receiver == that.receiver && (path prefixOf that.path)
 
     def wrap(implicit symbols: Symbols): Option[Expr] = path.wrap(receiver)
 
@@ -324,12 +329,46 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     }
   }
 
-  case class Effect(receiver: Variable, path: Path) {
-    def +(elem: Accessor) = Effect(receiver, path :+ elem)
 
-    def on(that: Expr)(implicit symbols: Symbols): Set[Effect] = for {
-      Target(receiver, _, path) <- this.path on that
-    } yield Effect(receiver, path)
+  /* We consider three kinds of effects:
+   * - replacement effects, which assign `receiver.path` to an expression
+   * - modifying effects (`replacement == false`), which make a modification deeper (e.g. `receiver.path.x = e`)
+   * - combined effects, combining replacement and modifying effects
+   */
+  sealed abstract class EffectKind
+  case object ReplacementKind extends EffectKind
+  case object ModifyingKind extends EffectKind
+  case object CombinedKind extends EffectKind
+
+  object Effect {
+    def apply(kind: EffectKind, receiver: Variable, path: Path): Effect = kind match {
+      case ReplacementKind => ReplacementEffect(receiver, path)
+      case ModifyingKind => ModifyingEffect(receiver, path)
+      case CombinedKind => CombinedEffect(receiver, path)
+    }
+  }
+
+  sealed abstract class Effect(val kind: EffectKind) {
+    val receiver: Variable
+    val path: Path
+
+    def +(elem: Accessor): Effect = Effect(kind, receiver, path :+ elem)
+    def ++(path2: Path): Effect = Effect(kind, receiver, path ++ path2)
+    def precise(elem: Accessor) = ReplacementEffect(receiver, path :+ elem)
+
+    def changePath(newPath: Path): Effect = Effect(kind, receiver, newPath)
+    def changeKind(newKind: EffectKind): Effect = Effect(newKind, receiver, path)
+
+    def on(that: Expr)(implicit symbols: Symbols): Set[Effect] = {
+      val res = getAllTargets(that, path.path).map(_.toEffect(kind))
+        .filterNot(e => e.kind == ReplacementKind && e.path.isEmpty) // these have no effect
+      for (e <- res if e.kind == CombinedKind && e.path.isEmpty && !this.path.isEmpty) {
+        context.reporter.fatalError(that.getPos,
+          s"Ambiguous effect ${this.asString} on ${that.asString}"
+        )
+      }
+      res
+    }
 
     def prefixOf(that: Effect): Boolean =
       receiver == that.receiver && (path prefixOf that.path)
@@ -341,11 +380,23 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     def targetString(implicit printerOpts: PrinterOptions): String =
       s"${receiver.asString}${path.asString}"
 
-    def asString(implicit printerOpts: PrinterOptions): String =
-      s"Effect($targetString)"
+    def asString(implicit printerOpts: PrinterOptions): String
 
     override def toString: String = asString
   }
+
+  case class ReplacementEffect(receiver: Variable, path: Path) extends Effect(ReplacementKind) {
+    def asString(implicit printerOpts: PrinterOptions) = s"ReplacementEffect($targetString)"
+  }
+
+  case class ModifyingEffect(receiver: Variable, path: Path) extends Effect(ModifyingKind) {
+    def asString(implicit printerOpts: PrinterOptions) = s"ModifyingEffect($targetString)"
+  }
+
+  case class CombinedEffect(receiver: Variable, path: Path) extends Effect(CombinedKind) {
+    def asString(implicit printerOpts: PrinterOptions) = s"CombinedEffect($targetString)"
+  }
+
 
   /* When `strict` is false, getTargets(expr, Seq()) returns the set of targets such that after `var x = expr`,
    * the direct modifications on `x` (field assignments, array updates, etc.) result in modifications on these targets.
@@ -594,24 +645,24 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     */
   private def expressionEffects(expr: Expr, result: Result)(implicit symbols: Symbols): Set[Effect] = {
     import symbols._
-    val freeVars = variablesOf(expr)
+    val freeVars = variablesOf(expr).filter(vd => isMutableType(vd.tpe) || vd.flags.contains(IsVar))
 
     def inEnv(effect: Effect, env: Map[Variable, Effect]): Option[Effect] =
-      env.get(effect.receiver).map(e => e.copy(path = e.path ++ effect.path))
+      env.get(effect.receiver).map(e => Effect(effect.kind, e.receiver, e.path ++ effect.path))
 
     def effect(expr: Expr, env: Map[Variable, Effect]): Set[Effect] =
-      getDirectTargets(expr) flatMap { (target: Target) =>
-        inEnv(target.toEffect, env).toSet
+      getAllTargets(expr) flatMap { (target: Target) =>
+        inEnv(target.toEffect(ModifyingKind), env).toSet
       }
 
     def rec(expr: Expr, env: Map[Variable, Effect]): Set[Effect] = expr match {
       case Let(vd, e, b) if symbols.isMutableType(vd.tpe) =>
         if ((variablesOf(e) & variablesOf(b)).forall(v => !isMutableType(v.tpe))) {
           val effe = rec(e, env)
-          val newEnv = (variablesOf(b) ++ freeVars).map(v => v -> Effect(v, Path.empty)).toMap
+          val newEnv = (variablesOf(b) ++ freeVars).map(v => v -> ModifyingEffect(v, Path.empty)).toMap
           val effb = rec(b, newEnv)
-          effe ++ effb.flatMap { case ef @ Effect(receiver, path) =>
-            if (receiver == vd.toVariable) getDirectTargets(e, path.toSeq).map(_.toEffect)
+          effe ++ effb.flatMap { ef =>
+            if (ef.receiver == vd.toVariable) ef.on(e)
             else Set(ef)
           }.flatMap(inEnv(_, env))
         }
@@ -628,16 +679,16 @@ trait EffectsAnalyzer extends oo.CachingPhase {
 
       case Swap(array1, index1, array2, index2) =>
         rec(array1, env) ++ rec(index1, env) ++ rec(array2, env) ++ rec(index2, env) ++
-        effect(array1, env).map(_ + ArrayAccessor(index1)) ++
-        effect(array2, env).map(_ + ArrayAccessor(index2))
+        effect(array1, env).map(_.precise(ArrayAccessor(index1))) ++
+        effect(array2, env).map(_.precise(ArrayAccessor(index2)))
 
       case ArrayUpdate(o, idx, v) =>
         rec(o, env) ++ rec(idx, env) ++ rec(v, env) ++
-        effect(o, env).map(_ + ArrayAccessor(idx))
+        effect(o, env).map(_.precise(ArrayAccessor(idx)))
 
       case MutableMapUpdate(map, key, value) =>
         rec(map, env) ++ rec(key, env) ++ rec(value, env) ++
-        effect(map, env).map(_ + MutableMapAccessor(key))
+        effect(map, env).map(_.precise(MutableMapAccessor(key)))
 
       case MutableMapUpdated(map, key, value) =>
         rec(map, env) ++ rec(key, env) ++ rec(value, env)
@@ -647,7 +698,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
 
       case fa @ FieldAssignment(o, id, v) =>
         val accessor = typeToAccessor(o.getType, id)
-        rec(o, env) ++ rec(v, env) ++ effect(o, env).map(_ + accessor)
+        rec(o, env) ++ rec(v, env) ++ effect(o, env).map(_.precise(accessor))
 
       case Application(callee, args) =>
         val ft @ FunctionType(_, _) = callee.getType
@@ -714,7 +765,12 @@ trait EffectsAnalyzer extends oo.CachingPhase {
         case _ => Seq()
       }
 
-      Effect(effect.receiver, Path(rec(effect.receiver.getType, effect.path.toSeq, Set())))
+      val newPath = Path(rec(effect.receiver.getType, effect.path.toSeq, Set()))
+      val newKind =
+        if (effect.path == newPath || effect.kind == CombinedKind) effect.kind
+        else ModifyingKind
+
+      effect.changePath(newPath).changeKind(newKind)
     }
 
     // We merge paths that are prefixes of one another or point to the same array
@@ -727,24 +783,36 @@ trait EffectsAnalyzer extends oo.CachingPhase {
         case _ => None
       }
 
-      val merged = paths.flatMap { t1 =>
+      paths.flatMap { t1 =>
         paths.flatMap { t2 =>
           rec(t1.toSeq, t2.toSeq)
         } + t1
       }
-
-      merged.filterNot(t1 => (merged - t1).exists(t2 => t2 prefixOf t1))
     }
 
-    val mutated = try (rec(expr, freeVars.map(v => v -> Effect(v, Path.empty)).toMap))
+    val mutated = try (rec(expr, freeVars.map(v => v -> ModifyingEffect(v, Path.empty)).toMap))
       catch {
-        case _: MalformedStainlessCode => freeVars.map(v => Effect(v, Path.empty)).toSet
+        case _: MalformedStainlessCode =>
+          freeVars.map(v => ModifyingEffect(v, Path.empty)).toSet
       }
 
-    mutated
-      .map(truncate)
-      .groupBy(_.receiver)
-      .flatMap { case (v, effects) => merge(effects.map(_.path)).map(Effect(v, _)) }.toSet
+    val truncatedEffects = mutated.map(truncate)
+    val mergedEffects = truncatedEffects
+      .groupBy(eff => (eff.receiver, eff.kind))
+      .flatMap { case ((v, kind), effects) => merge(effects.map(_.path)).map(Effect(kind, v, _)) }.toSet
+
+    val combinedEffects = mergedEffects.flatMap { e =>
+      if (mergedEffects.exists(e2 => e.path != e2.path && e2.prefixOf(e)))
+        None // drop effects for which there is a strictly shorter (prefix) effect (regardless of effect kind)
+      else if (mergedEffects.exists(e2 => e.receiver == e2.receiver && e.path == e2.path && e.kind != e2.kind))
+        Some(e.changeKind(CombinedKind)) // different effects with the same receiver/path become combined effects
+      else if (mergedEffects.exists(e2 => e.prefixOf(e2) && e.path != e2.path && e.kind == ReplacementKind))
+        Some(e.changeKind(CombinedKind)) // a top-level replacement, strict prefix of another effect, becomes a combined effect
+      else
+        Some(e)
+    }
+
+    combinedEffects
   }
 
   /** Effects at the level of types for a function
