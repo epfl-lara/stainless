@@ -142,7 +142,7 @@ trait EffectsChecker { self: EffectsAnalyzer =>
 
             super.traverse(adt)
 
-          case MutableMapUpdated(m, k, v) =>
+          case upd @ MutableMapUpdated(m, k, v) =>
             m.getType match {
               case MutableMapType(_, to) if !isMutableType(to) => ()
               case _ =>
@@ -150,13 +150,17 @@ trait EffectsChecker { self: EffectsAnalyzer =>
                   s"Cannot use `updated` on a MutableMap whose range is a mutable type (${m.getType}).")
             }
 
-          case MutableMapDuplicate(m) =>
+            super.traverse(upd)
+
+          case dup @ MutableMapDuplicate(m) =>
             m.getType match {
               case MutableMapType(_, to) if !isMutableType(to) => ()
               case _ =>
                 throw ImperativeEliminationException(e,
                   s"Cannot use `duplicate` on a MutableMap whose range is a mutable type (${m.getType}).")
             }
+
+            super.traverse(dup)
 
           case _ => super.traverse(e)
         }
