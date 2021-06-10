@@ -151,6 +151,15 @@ a precondition.
    to prove the postcondition will have to be provided as part of the precondition
    of a function.
 
+
+Sharing bindings between specifications and function body
+---------------------------------------------------------
+
+The example `ValEnsuring <https://github.com/epfl-lara/stainless/blob/master/frontends/benchmarks/verification/valid/MicroTests/ValEnsuring.scala>`_
+shows that Stainless supports multiple ``require``'s (in functions, but not for ADT invariants), and
+shows how to share a `val` binding between precondition, postcondition, and function body.
+
+
 Loop invariants
 ---------------
 
