@@ -208,6 +208,7 @@ private[genc] sealed trait IR { ir =>
       case Ref(e) => ReferenceType(e.getType)
       case Deref(e) => e.getType.asInstanceOf[ReferenceType].t
       case Return(e) => e.getType
+      case Assert(_) => NoType
       case Break => NoType
     }
   }
