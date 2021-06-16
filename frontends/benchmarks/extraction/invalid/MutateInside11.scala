@@ -12,7 +12,7 @@ object MutateInside11 {
   def main() = {
     val thing = Thing(123)
     val mut = Mut(thing)
-    change_thing(thing2, 789)
+    change_thing(mut, 789)
     assert(thing.field == 123)
   }
 }
