@@ -779,23 +779,6 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       effect.changePath(newPath).changeKind(newKind)
     }
 
-    // We merge paths that are prefixes of one another or point to the same array
-    def merge(paths: Set[Path]): Set[Path] = {
-      // This truncates the path `p2` depending on `p1`
-      def rec(p1: Seq[Accessor], p2: Seq[Accessor]): Option[Path] = (p1, p2) match {
-        case (ArrayAccessor(idx1) +: xs1, ArrayAccessor(idx2) +: xs2) if idx1 != idx2 => Some(Path.empty)
-        case (x1 +: xs1, x2 +: xs2) if x1 == x2 => rec(xs1, xs2).map(x1 +: _)
-        case (Nil, Nil) => Some(Path.empty)
-        case _ => None
-      }
-
-      paths.flatMap { t1 =>
-        paths.flatMap { t2 =>
-          rec(t1.toSeq, t2.toSeq)
-        } + t1
-      }
-    }
-
     val mutated = try (rec(expr, freeVars.map(v => v -> ModifyingEffect(v, Path.empty)).toMap))
       catch {
         case _: MalformedStainlessCode =>
@@ -803,16 +786,13 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       }
 
     val truncatedEffects = mutated.map(truncate)
-    val mergedEffects = truncatedEffects
-      .groupBy(eff => (eff.receiver, eff.kind))
-      .flatMap { case ((v, kind), effects) => merge(effects.map(_.path)).map(Effect(kind, v, _)) }.toSet
 
-    val combinedEffects = mergedEffects.flatMap { e =>
-      if (mergedEffects.exists(e2 => e.path != e2.path && e2.prefixOf(e)))
+    val combinedEffects = truncatedEffects.flatMap { e =>
+      if (truncatedEffects.exists(e2 => e.path != e2.path && e2.prefixOf(e)))
         None // drop effects for which there is a strictly shorter (prefix) effect (regardless of effect kind)
-      else if (mergedEffects.exists(e2 => e.receiver == e2.receiver && e.path == e2.path && e.kind != e2.kind))
+      else if (truncatedEffects.exists(e2 => e.receiver == e2.receiver && e.path == e2.path && e.kind != e2.kind))
         Some(e.changeKind(CombinedKind)) // different effects with the same receiver/path become combined effects
-      else if (mergedEffects.exists(e2 => e.prefixOf(e2) && e.path != e2.path && e.kind == ReplacementKind))
+      else if (truncatedEffects.exists(e2 => e.prefixOf(e2) && e.path != e2.path && e.kind == ReplacementKind))
         Some(e.changeKind(CombinedKind)) // a top-level replacement, strict prefix of another effect, becomes a combined effect
       else
         Some(e)
