@@ -175,6 +175,10 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     def asString(implicit ctx: inox.Context) = s"ArrayAccessor(${index.asString})"
   }
 
+  case object UnknownArrayAccessor extends Accessor {
+    def asString(implicit ctx: inox.Context) = s"UnknownArrayAccessor"
+  }
+
   case class MutableMapAccessor(index: Expr) extends Accessor {
     def asString(implicit ctx: inox.Context) = s"MutableMapAccessor(${index.asString})"
   }
@@ -187,6 +191,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     def :+(elem: Accessor): Path = Path(path :+ elem)
     def +:(elem: Accessor): Path = Path(elem +: path)
     def ++(that: Path): Path = Path(this.path ++ that.path)
+    def length: Int = path.length
 
     def isEmpty: Boolean = path.isEmpty
 
@@ -225,12 +230,12 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     def toSeq: Seq[Accessor] = path
 
     def asString(implicit printerOpts: PrinterOptions): String =
-      if (path.isEmpty) "<empty>"
-      else path.map {
+      path.map {
         case ADTFieldAccessor(id) => s".${id.asString}"
         case ClassFieldAccessor(id) => s".${id.asString}"
         case TupleFieldAccessor(idx) => s"._$idx"
         case ArrayAccessor(idx) => s"(${idx.asString})"
+        case UnknownArrayAccessor => s"(???)"
         case MutableMapAccessor(idx) => s"(${idx.asString})"
       }.mkString("")
 
@@ -359,10 +364,14 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     def changePath(newPath: Path): Effect = Effect(kind, receiver, newPath)
     def changeKind(newKind: EffectKind): Effect = Effect(newKind, receiver, path)
 
+    def removeLastUnknownAccessor: Effect = this match {
+      case ReplacementEffect(receiver, Path(path :+ UnknownArrayAccessor)) => ModifyingEffect(receiver, Path(path))
+      case _ => this
+    }
+
     def on(that: Expr)(implicit symbols: Symbols): Set[Effect] = {
       val res = try {
-        getAllTargets(that, path.path).map(_.toEffect(kind))
-          .filterNot(e => e.kind == ReplacementKind && e.path.isEmpty) // these have no effect
+        getAllTargets(that, path.path, kind).map(_.toEffect(kind))
       } catch {
         case _: MalformedStainlessCode => throw MalformedStainlessCode(that,
           s"Couldn't apply effect ${this.asString} on expression ${that.asString}"
@@ -418,22 +427,23 @@ trait EffectsAnalyzer extends oo.CachingPhase {
    * modify `a`. So `getTargets` crashes in that case, because our `Target` API cannot capture such
    * correspondence.
    */
-  def getTargets(expr: Expr, path: Seq[Accessor], strict: Boolean)(implicit symbols: Symbols): Set[Target] = expr match {
+  def getTargets(expr: Expr, path: Seq[Accessor], strict: Boolean, kind: EffectKind)(implicit symbols: Symbols): Set[Target] = expr match {
     case _ if variablesOf(expr).forall(v => !symbols.isMutableType(v.tpe)) => Set.empty
     case _ if isExpressionFresh(expr) => Set.empty
     case _ if !symbols.isMutableType(expr.getType) => Set.empty
+    case _ if kind == ReplacementKind && path.isEmpty => Set.empty
 
     case v: Variable => Set(Target(v, None, Path(path)))
-    case ADTSelector(e, id) => getTargets(e, ADTFieldAccessor(id) +: path, strict)
-    case ClassSelector(e, id) => getTargets(e, ClassFieldAccessor(id) +: path, strict)
-    case TupleSelect(e, idx) => getTargets(e, TupleFieldAccessor(idx) +: path, strict)
-    case ArraySelect(a, idx) => getTargets(a, ArrayAccessor(idx) +: path, strict)
-    case MutableMapApply(a, idx) => getTargets(a, MutableMapAccessor(idx) +: path, strict)
-    case MutableMapDuplicate(m) => getTargets(m, path, strict)
+    case ADTSelector(e, id) => getTargets(e, ADTFieldAccessor(id) +: path, strict, kind)
+    case ClassSelector(e, id) => getTargets(e, ClassFieldAccessor(id) +: path, strict, kind)
+    case TupleSelect(e, idx) => getTargets(e, TupleFieldAccessor(idx) +: path, strict, kind)
+    case ArraySelect(a, idx) => getTargets(a, ArrayAccessor(idx) +: path, strict, kind)
+    case MutableMapApply(a, idx) => getTargets(a, MutableMapAccessor(idx) +: path, strict, kind)
+    case MutableMapDuplicate(m) => getTargets(m, path, strict, kind)
 
     case ADT(id, _, args) => path match {
       case ADTFieldAccessor(fid) +: rest =>
-        getTargets(args(symbols.getConstructor(id).fields.indexWhere(_.id == fid)), rest, strict)
+        getTargets(args(symbols.getConstructor(id).fields.indexWhere(_.id == fid)), rest, strict, kind)
       case _ =>
         if (strict)
           throw MalformedStainlessCode(expr, s"Couldn't compute effect targets in ADT ${expr.asString}")
@@ -442,7 +452,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
 
     case ClassConstructor(ct, args) => path match {
       case ClassFieldAccessor(fid) +: rest =>
-        getTargets(args(ct.tcd.fields.indexWhere(_.id == fid)), rest, strict)
+        getTargets(args(ct.tcd.fields.indexWhere(_.id == fid)), rest, strict, kind)
       case _ =>
         if (strict)
           throw MalformedStainlessCode(expr, s"Couldn't compute effect targets in class constructor ${expr.asString}")
@@ -451,7 +461,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
 
     case Tuple(exprs) => path match {
       case TupleFieldAccessor(idx) +: rest =>
-        getTargets(exprs(idx - 1), rest, strict)
+        getTargets(exprs(idx - 1), rest, strict, kind)
       case _ =>
         if (strict)
           throw MalformedStainlessCode(expr, s"Couldn't compute effect targets in tuple ${expr.asString}")
@@ -461,19 +471,21 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     case FiniteArray(elems, _) => path match {
       case ArrayAccessor(bv: BVLiteral) +: rest =>
         val i = bv.toBigInt.toInt
-        if (i < elems.size) getTargets(elems(i), rest, strict)
+        if (i < elems.size) getTargets(elems(i), rest, strict, kind)
         else throw MalformedStainlessCode(expr, s"Out of bound array access in ${expr.asString}")
+      case Seq(UnknownArrayAccessor) if kind == ReplacementKind =>
+        Set.empty
       case _ if (path.isEmpty || !path.head.isInstanceOf[ArrayAccessor]) && !strict =>
         Set.empty
       case _ =>
         throw MalformedStainlessCode(expr, s"Couldn't compute effect targets in finite array ${expr.asString}")
     }
 
-    case Assert(_, _, e) => getTargets(e, path, strict)
-    case Annotated(e, _) => getTargets(e, path, strict)
+    case Assert(_, _, e) => getTargets(e, path, strict, kind)
+    case Annotated(e, _) => getTargets(e, path, strict, kind)
 
     case m: MatchExpr =>
-      getTargets(symbols.matchToIfThenElse(m), path, strict)
+      getTargets(symbols.matchToIfThenElse(m), path, strict, kind)
 
     case IfExpr(cnd, thn, els) =>
       def notConj(cnd: Expr, e: Option[Expr])(): Expr = e map { e =>
@@ -485,8 +497,8 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       } getOrElse(cnd)
 
       for {
-        t <- getTargets(thn, path, strict)
-        e <- getTargets(els, path, strict)
+        t <- getTargets(thn, path, strict, kind)
+        e <- getTargets(els, path, strict, kind)
         target <- Set(
           Target(t.receiver, Some(conj(cnd, t.condition)), t.path),
           Target(e.receiver, Some(notConj(cnd, e.condition)), e.path)
@@ -496,7 +508,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     case fi: FunctionInvocation if !symbols.isRecursive(fi.id) =>
       BodyWithSpecs(symbols.simplifyLets(fi.inlined))
         .bodyOpt
-        .map(getTargets(_, path, strict))
+        .map(getTargets(_, path, strict, kind))
         .getOrElse(Set.empty)
 
     case fi: FunctionInvocation => Set.empty
@@ -504,8 +516,8 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     case _: LargeArray | _: ArrayUpdated
       if (path.isEmpty || !path.head.isInstanceOf[ArrayAccessor]) && !strict => Set.empty
     case _: MutableMapUpdated => Set.empty
-    case IsInstanceOf(e, _) => getTargets(e, path, strict)
-    case AsInstanceOf(e, _) => getTargets(e, path, strict)
+    case IsInstanceOf(e, _) => getTargets(e, path, strict, kind)
+    case AsInstanceOf(e, _) => getTargets(e, path, strict, kind)
     case Old(_) => Set.empty
     case Snapshot(_) => Set.empty
     case FreshCopy(_) => Set.empty
@@ -527,14 +539,14 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     case MultiplicityInBag(element, bag) => Set.empty
     case BagAdd(bag, element) => Set.empty
 
-    case Block(_, last) => getTargets(last, path, strict)
+    case Block(_, last) => getTargets(last, path, strict, kind)
 
     case Let(vd, e, b) if !symbols.isMutableType(vd.tpe) =>
-      getTargets(b, path, strict)
+      getTargets(b, path, strict, kind)
 
     case Let(vd, e, b) =>
-      val eEffects = getTargets(e, path, strict)
-      getTargets(b, path, strict).flatMap { be =>
+      val eEffects = getTargets(e, path, strict, kind)
+      getTargets(b, path, strict, kind).flatMap { be =>
         if (be.receiver == vd.toVariable) eEffects.map(_ append be)
         else Set(be)
       }
@@ -546,15 +558,8 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       )
   }
 
-  def getTargets(expr: Expr, strict: Boolean)(implicit symbols: Symbols): Set[Target] = {
-    getTargets(expr, Seq.empty, strict)
-  }
-
-  // See the description above `getTargets` for more information
-  def getDirectTargets(expr: Expr, path: Seq[Accessor])(implicit symbols: Symbols) = getTargets(expr, path, false)
-  def getAllTargets(expr: Expr, path: Seq[Accessor])(implicit symbols: Symbols) = getTargets(expr, path, true)
-  def getDirectTargets(expr: Expr)(implicit symbols: Symbols) = getTargets(expr, Seq.empty, false)
-  def getAllTargets(expr: Expr)(implicit symbols: Symbols) = getTargets(expr, Seq.empty, true)
+  def getAllTargets(expr: Expr, path: Seq[Accessor], kind: EffectKind)(implicit symbols: Symbols) = getTargets(expr, path, true, kind)
+  def getDirectTargets(expr: Expr)(implicit symbols: Symbols) = getTargets(expr, Seq.empty, false, ModifyingKind)
 
   /* A fresh expression is an expression that is newly created
    * and does not share memory with existing values and variables.
@@ -657,7 +662,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       env.get(effect.receiver).map(e => Effect(effect.kind, e.receiver, e.path ++ effect.path))
 
     def effect(expr: Expr, env: Map[Variable, Effect]): Set[Effect] =
-      getAllTargets(expr) flatMap { (target: Target) =>
+      getAllTargets(expr, Seq.empty, ModifyingKind) flatMap { (target: Target) =>
         inEnv(target.toEffect(ModifyingKind), env).toSet
       }
 
@@ -741,8 +746,6 @@ trait EffectsAnalyzer extends oo.CachingPhase {
 
     // We truncate the effects path if it goes through an inductive ADT as
     // such effects can lead to inexistence of the effects fixpoint.
-    // We also truncate array paths as they rely on some index that is not
-    // necessarily well-scoped (and could itself have effects).
     def truncate(effect: Effect): Effect = {
       def isInductive(tpe: Type, seen: Set[Identifier]): Boolean = {
         val deps = s.typeOps.collect {
@@ -767,13 +770,18 @@ trait EffectsAnalyzer extends oo.CachingPhase {
           val tpe = tup.bases(idx - 1)
           if (isInductive(tpe, seen)) Seq()
           else fa +: rec(tpe, xs, seen)
-        case (_, ArrayAccessor(_) +: xs) => Seq()
+        case (ArrayType(base), (aa @ ArrayAccessor(i)) +: xs) if exprOps.variablesOf(i).isEmpty =>
+          if (isInductive(base, seen)) Seq()
+          else aa +: rec(base, xs, seen)
+        case (ArrayType(base), (aa @ ArrayAccessor(i)) +: xs) =>
+          if (isInductive(base, seen)) Seq()
+          else UnknownArrayAccessor +: rec(base, xs, seen)
         case _ => Seq()
       }
 
       val newPath = Path(rec(effect.receiver.getType, effect.path.toSeq, Set()))
       val newKind =
-        if (effect.path == newPath || effect.kind == CombinedKind) effect.kind
+        if (effect.path.length == newPath.length || effect.kind == CombinedKind) effect.kind
         else ModifyingKind
 
       effect.changePath(newPath).changeKind(newKind)
