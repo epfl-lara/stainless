@@ -191,9 +191,11 @@ trait AntiAliasing
             val extractResults = Block(
               for {
                 (effects, index) <- localEffects.zipWithIndex
-                (outerEffect, innerEffects) <- effects
-                effect <- innerEffects
+                (outerEffect0, innerEffects) <- effects
+                effect0 <- innerEffects
               } yield {
+                val outerEffect = outerEffect0.removeLastUnknownAccessor
+                val effect = effect0.removeLastUnknownAccessor
                 val pos = args(index).getPos
                 val resSelect = TupleSelect(freshRes.toVariable, index + 2)
 
@@ -261,7 +263,7 @@ trait AntiAliasing
         private def checkAliasing(expr: Expr, args: Seq[Expr]): Unit = {
           val argTargets: Seq[((Expr, Set[Target]), Int)] =
             args.filter(arg => isMutableType(arg.getType))
-              .map(arg => arg -> Try(getAllTargets(arg)).toOption
+              .map(arg => arg -> Try(getAllTargets(arg, Seq.empty, ModifyingKind)).toOption
                 .getOrElse(
                   exprOps.variablesOf(arg)
                     .filter(v => isMutableType(v.tpe))
@@ -327,7 +329,7 @@ trait AntiAliasing
             // see https://github.com/epfl-lara/stainless/pull/920 for discussion
 
             val newExpr = transform(e, env)
-            val targets = Try(getAllTargets(newExpr))
+            val targets = Try(getAllTargets(newExpr, Seq.empty, ModifyingKind))
 
             if (targets.isSuccess) {
               // This branch handles all cases when targets can be precisely computed, namely when
