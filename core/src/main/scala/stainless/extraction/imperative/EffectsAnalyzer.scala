@@ -360,8 +360,14 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     def changeKind(newKind: EffectKind): Effect = Effect(newKind, receiver, path)
 
     def on(that: Expr)(implicit symbols: Symbols): Set[Effect] = {
-      val res = getAllTargets(that, path.path).map(_.toEffect(kind))
-        .filterNot(e => e.kind == ReplacementKind && e.path.isEmpty) // these have no effect
+      val res = try {
+        getAllTargets(that, path.path).map(_.toEffect(kind))
+          .filterNot(e => e.kind == ReplacementKind && e.path.isEmpty) // these have no effect
+      } catch {
+        case _: MalformedStainlessCode => throw MalformedStainlessCode(that,
+          s"Couldn't apply effect ${this.asString} on expression ${that.asString}"
+        )
+      }
       for (e <- res if e.kind == CombinedKind && e.path.isEmpty && !this.path.isEmpty) {
         context.reporter.fatalError(that.getPos,
           s"Ambiguous effect ${this.asString} on ${that.asString}"
