@@ -194,8 +194,8 @@ trait AntiAliasing
                 (outerEffect0, innerEffects) <- effects
                 effect0 <- innerEffects
               } yield {
-                val outerEffect = outerEffect0.removeLastUnknownAccessor
-                val effect = effect0.removeLastUnknownAccessor
+                val outerEffect = outerEffect0.removeUnknownAccessor
+                val effect = effect0.removeUnknownAccessor
                 val pos = args(index).getPos
                 val resSelect = TupleSelect(freshRes.toVariable, index + 2)
 
@@ -263,7 +263,7 @@ trait AntiAliasing
         private def checkAliasing(expr: Expr, args: Seq[Expr]): Unit = {
           val argTargets: Seq[((Expr, Set[Target]), Int)] =
             args.filter(arg => isMutableType(arg.getType))
-              .map(arg => arg -> Try(getAllTargets(arg, Seq.empty, ModifyingKind)).toOption
+              .map(arg => arg -> Try(getAllTargets(arg, ModifyingKind)).toOption
                 .getOrElse(
                   exprOps.variablesOf(arg)
                     .filter(v => isMutableType(v.tpe))
@@ -329,7 +329,7 @@ trait AntiAliasing
             // see https://github.com/epfl-lara/stainless/pull/920 for discussion
 
             val newExpr = transform(e, env)
-            val targets = Try(getAllTargets(newExpr, Seq.empty, ModifyingKind))
+            val targets = Try(getAllTargets(newExpr, ModifyingKind))
 
             if (targets.isSuccess) {
               // This branch handles all cases when targets can be precisely computed, namely when
@@ -355,13 +355,16 @@ trait AntiAliasing
 
               // for all effects of `b` whose receiver is `vd`
               val copyEffects = effects(b).filter(_.receiver == vd.toVariable).flatMap { eff =>
+
                 // we apply the effect on the bound expression (after transformation)
                 eff.on(newExpr).map { eff2 =>
+                  val result = try {
+                    eff.wrap.get
+                  } catch {
+                    case _: Throwable => throw new MalformedStainlessCode(l, "Unsupported `val` in AntiAliasing")
+                  }
                   Assignment(eff2.receiver,
-                    updatedTarget(
-                      Target(eff2.receiver, None, eff2.path),
-                      eff.wrap.get
-                    ).copiedFrom(l)
+                    updatedTarget(Target(eff2.receiver, None, eff2.path), result).copiedFrom(l)
                   )
                 }
               }
