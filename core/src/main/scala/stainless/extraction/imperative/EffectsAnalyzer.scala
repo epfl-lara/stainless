@@ -415,57 +415,47 @@ trait EffectsAnalyzer extends oo.CachingPhase {
   }
 
 
-  /* When `strict` is false, getTargets(expr, Seq()) returns the set of targets such that after `var x = expr`,
-   * the direct modifications on `x` (field assignments, array updates, etc.) result in modifications on these targets.
-   *
-   * When `strict` is true, we return the set of targets, such that the arbitrary modifications on `x`
-   * (after possibly many field accesses, array updates, etc.) result in modifications on these targets.
-   *
-   * The main difference happens when invoking `getTargets` with an empty path on `C(a)`
-   * where `C` is some constructor, and `a` is a variable whose type is mutable.
-   * In non-strict mode, we can return the empty set, because direct modifications to a variable `x`
-   * binding `C(a)` wouldn't modify `a`.
-   * In strict mode, there can be modifications on `x` (through multiple field accessors) that
-   * modify `a`. So `getTargets` crashes in that case, because our `Target` API cannot capture such
-   * correspondence.
+  /* getTargets(expr, Seq()) returns the set of targets (receiver/path) such that after `var x = expr`,
+   * effects (with `kind`) on `x` (field assignments, array updates, etc.) result in effects on
+   * these targets.
    */
-  def getTargets(expr: Expr, kind: EffectKind, strict: Boolean, path: Seq[Accessor] = Seq.empty)(implicit symbols: Symbols): Set[Target] = expr match {
+  def getTargets(expr: Expr, kind: EffectKind, path: Seq[Accessor] = Seq.empty)(implicit symbols: Symbols): Set[Target] = expr match {
     case _ if variablesOf(expr).forall(v => !symbols.isMutableType(v.tpe)) => Set.empty
     case _ if isExpressionFresh(expr) => Set.empty
     case _ if !symbols.isMutableType(expr.getType) => Set.empty
     case _ if kind == ReplacementKind && path.isEmpty => Set.empty
 
     case v: Variable => Set(Target(v, None, Path(path)))
-    case ADTSelector(e, id) => getTargets(e, kind, strict, ADTFieldAccessor(id) +: path)
-    case ClassSelector(e, id) => getTargets(e, kind, strict, ClassFieldAccessor(id) +: path)
-    case TupleSelect(e, idx) => getTargets(e, kind, strict, TupleFieldAccessor(idx) +: path)
-    case ArraySelect(a, idx) => getTargets(a, kind, strict, ArrayAccessor(idx) +: path)
-    case MutableMapApply(a, idx) => getTargets(a, kind, strict, MutableMapAccessor(idx) +: path)
-    case MutableMapDuplicate(m) => getTargets(m, kind, strict, path)
+    case ADTSelector(e, id) => getTargets(e, kind, ADTFieldAccessor(id) +: path)
+    case ClassSelector(e, id) => getTargets(e, kind, ClassFieldAccessor(id) +: path)
+    case TupleSelect(e, idx) => getTargets(e, kind, TupleFieldAccessor(idx) +: path)
+    case ArraySelect(a, idx) => getTargets(a, kind, ArrayAccessor(idx) +: path)
+    case MutableMapApply(a, idx) => getTargets(a, kind, MutableMapAccessor(idx) +: path)
+    case MutableMapDuplicate(m) => getTargets(m, kind, path)
 
     case ADT(id, _, args) => path match {
       case ADTFieldAccessor(fid) +: rest =>
-        getTargets(args(symbols.getConstructor(id).fields.indexWhere(_.id == fid)), kind, strict, rest)
+        getTargets(args(symbols.getConstructor(id).fields.indexWhere(_.id == fid)), kind, rest)
       case _ =>
-        if (strict)
+        if (kind != ReplacementKind)
           throw MalformedStainlessCode(expr, s"Couldn't compute effect targets in ADT ${expr.asString}")
         else Set.empty
     }
 
     case ClassConstructor(ct, args) => path match {
       case ClassFieldAccessor(fid) +: rest =>
-        getTargets(args(ct.tcd.fields.indexWhere(_.id == fid)), kind, strict, rest)
+        getTargets(args(ct.tcd.fields.indexWhere(_.id == fid)), kind, rest)
       case _ =>
-        if (strict)
+        if (kind != ReplacementKind)
           throw MalformedStainlessCode(expr, s"Couldn't compute effect targets in class constructor ${expr.asString}")
         else Set.empty
     }
 
     case Tuple(exprs) => path match {
       case TupleFieldAccessor(idx) +: rest =>
-        getTargets(exprs(idx - 1), kind, strict, rest)
+        getTargets(exprs(idx - 1), kind, rest)
       case _ =>
-        if (strict)
+        if (kind != ReplacementKind)
           throw MalformedStainlessCode(expr, s"Couldn't compute effect targets in tuple ${expr.asString}")
         else Set.empty
     }
@@ -473,23 +463,23 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     case FiniteArray(elems, _) => path match {
       case ArrayAccessor(bv: BVLiteral) +: rest =>
         val i = bv.toBigInt.toInt
-        if (i < elems.size) getTargets(elems(i), kind, strict, rest)
+        if (i < elems.size) getTargets(elems(i), kind, rest)
         else throw MalformedStainlessCode(expr, s"Out of bound array access in ${expr.asString}")
       case Seq(UnknownArrayAccessor) if kind == ReplacementKind =>
         Set.empty
-      case _ if !strict && path.isEmpty =>
+      case _ if kind == ReplacementKind && path.isEmpty =>
         Set.empty
-      case _ if !strict && !path.head.isInstanceOf[ArrayAccessor] && path.head != UnknownArrayAccessor =>
+      case _ if kind == ReplacementKind && !path.head.isInstanceOf[ArrayAccessor] && path.head != UnknownArrayAccessor =>
         Set.empty
       case _ =>
         throw MalformedStainlessCode(expr, s"Couldn't compute effect targets in finite array ${expr.asString}")
     }
 
-    case Assert(_, _, e) => getTargets(e, kind, strict, path)
-    case Annotated(e, _) => getTargets(e, kind, strict, path)
+    case Assert(_, _, e) => getTargets(e, kind, path)
+    case Annotated(e, _) => getTargets(e, kind, path)
 
     case m: MatchExpr =>
-      getTargets(symbols.matchToIfThenElse(m), kind, strict, path)
+      getTargets(symbols.matchToIfThenElse(m), kind, path)
 
     case IfExpr(cnd, thn, els) =>
       def notConj(cnd: Expr, e: Option[Expr])(): Expr = e map { e =>
@@ -501,8 +491,8 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       } getOrElse(cnd)
 
       for {
-        t <- getTargets(thn, kind, strict, path)
-        e <- getTargets(els, kind, strict, path)
+        t <- getTargets(thn, kind, path)
+        e <- getTargets(els, kind, path)
         target <- Set(
           Target(t.receiver, Some(conj(cnd, t.condition)), t.path),
           Target(e.receiver, Some(notConj(cnd, e.condition)), e.path)
@@ -512,7 +502,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     case fi: FunctionInvocation if !symbols.isRecursive(fi.id) =>
       BodyWithSpecs(symbols.simplifyLets(fi.inlined))
         .bodyOpt
-        .map(getTargets(_, kind, strict, path))
+        .map(getTargets(_, kind, path))
         .getOrElse(Set.empty)
 
     case fi: FunctionInvocation => Set.empty
@@ -522,8 +512,8 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     case _: LargeArray | _: ArrayUpdated if kind == ReplacementKind && !path.head.isInstanceOf[ArrayAccessor] && path.head != UnknownArrayAccessor =>
       Set.empty
     case _: MutableMapUpdated => Set.empty
-    case IsInstanceOf(e, _) => getTargets(e, kind, strict, path)
-    case AsInstanceOf(e, _) => getTargets(e, kind, strict, path)
+    case IsInstanceOf(e, _) => getTargets(e, kind, path)
+    case AsInstanceOf(e, _) => getTargets(e, kind, path)
     case Old(_) => Set.empty
     case Snapshot(_) => Set.empty
     case FreshCopy(_) => Set.empty
@@ -545,14 +535,14 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     case MultiplicityInBag(element, bag) => Set.empty
     case BagAdd(bag, element) => Set.empty
 
-    case Block(_, last) => getTargets(last, kind, strict, path)
+    case Block(_, last) => getTargets(last, kind, path)
 
     case Let(vd, e, b) if !symbols.isMutableType(vd.tpe) =>
-      getTargets(b, kind, strict, path)
+      getTargets(b, kind, path)
 
     case Let(vd, e, b) =>
-      val eEffects = getTargets(e, kind, strict, path)
-      getTargets(b, kind, strict, path).flatMap { be =>
+      val eEffects = getTargets(e, kind, path)
+      getTargets(b, kind, path).flatMap { be =>
         if (be.receiver == vd.toVariable) eEffects.map(_ append be)
         else Set(be)
       }
@@ -564,8 +554,9 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       )
   }
 
-  def getAllTargets(expr: Expr, kind: EffectKind, path: Seq[Accessor] = Seq.empty)(implicit symbols: Symbols) = getTargets(expr, kind, true, path)
-  def getDirectTargets(expr: Expr)(implicit symbols: Symbols) = getTargets(expr, ModifyingKind, false, Seq.empty)
+  def getAllTargets(expr: Expr, kind: EffectKind, path: Seq[Accessor] = Seq.empty)(implicit symbols: Symbols) = getTargets(expr, kind, path)
+  def getDirectTargets(expr: Expr, accessor: Accessor)(implicit symbols: Symbols) =
+    getTargets(expr, ReplacementKind, Seq(accessor))
 
   /* A fresh expression is an expression that is newly created
    * and does not share memory with existing values and variables.
