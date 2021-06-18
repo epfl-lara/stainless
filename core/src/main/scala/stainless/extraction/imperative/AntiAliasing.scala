@@ -298,9 +298,9 @@ trait AntiAliasing
             val base = array1.getType.asInstanceOf[ArrayType].base
             val temp = ValDef.fresh("temp", base).setPos(swap)
             val ra1 = exprOps.replaceFromSymbols(env.rewritings, array1)
-            val targets1 = getDirectTargets(ra1)
+            val targets1 = getDirectTargets(ra1, ArrayAccessor(index1))
             val ra2 = exprOps.replaceFromSymbols(env.rewritings, array2)
-            val targets2 = getDirectTargets(ra2)
+            val targets2 = getDirectTargets(ra2, ArrayAccessor(index2))
 
             if (targets1.exists(target => !env.bindings.contains(target.receiver.toVal)))
               throw MalformedStainlessCode(swap, "Unsupported swap (first array)")
@@ -310,12 +310,12 @@ trait AntiAliasing
 
             val updates1 =
               targets1.toSeq map { target =>
-                val applied = updatedTarget(target + ArrayAccessor(index1), ArraySelect(array2, index2).setPos(swap))
+                val applied = updatedTarget(target, ArraySelect(array2, index2).setPos(swap))
                 transform(Assignment(target.receiver, applied).setPos(swap), env)
               }
             val updates2 =
               targets2.toSeq map { target =>
-                val applied = updatedTarget(target + ArrayAccessor(index2), temp.toVariable)
+                val applied = updatedTarget(target, temp.toVariable)
                 transform(Assignment(target.receiver, applied).setPos(swap), env)
               }
             val updates = updates1 ++ updates2
@@ -416,39 +416,39 @@ trait AntiAliasing
 
           case up @ ArrayUpdate(a, i, v) =>
             val ra = exprOps.replaceFromSymbols(env.rewritings, a)
-            val targets = getDirectTargets(ra)
+            val targets = getDirectTargets(ra, ArrayAccessor(i))
 
             if (targets.exists(target => !env.bindings.contains(target.receiver.toVal)))
               throw MalformedStainlessCode(up, "Unsupported form of array update")
 
             Block(targets.toSeq map { target =>
-              val applied = updatedTarget(target + ArrayAccessor(i), v)
+              val applied = updatedTarget(target, v)
               transform(Assignment(target.receiver, applied).copiedFrom(up), env)
             }, UnitLiteral().copiedFrom(up)).copiedFrom(up)
 
           case up @ MutableMapUpdate(map, k, v) =>
             val rmap = exprOps.replaceFromSymbols(env.rewritings, map)
-            val targets = getDirectTargets(rmap)
+            val targets = getDirectTargets(rmap, MutableMapAccessor(k))
 
             if (targets.exists(target => !env.bindings.contains(target.receiver.toVal)))
               throw MalformedStainlessCode(up, "Unsupported form of map update")
 
             Block(targets.toSeq map { target =>
-              val applied = updatedTarget(target + MutableMapAccessor(k), v)
+              val applied = updatedTarget(target, v)
               transform(Assignment(target.receiver, applied).copiedFrom(up), env)
             }, UnitLiteral().copiedFrom(up)).copiedFrom(up)
 
           case as @ FieldAssignment(o, id, v) =>
             val so = exprOps.replaceFromSymbols(env.rewritings, o)
-            val targets = getDirectTargets(so)
+            val accessor = typeToAccessor(o.getType, id)
+            val targets = getDirectTargets(so, accessor)
 
             if (targets.exists(target => !env.bindings.contains(target.receiver.toVal)))
               throw MalformedStainlessCode(as, "Unsupported form of field assignment")
 
-            val accessor = typeToAccessor(o.getType, id)
 
             Block(targets.toSeq map { target =>
-              val applied = updatedTarget(target + accessor, v)
+              val applied = updatedTarget(target, v)
               transform(Assignment(target.receiver, applied).copiedFrom(as), env)
             }, UnitLiteral().copiedFrom(as)).copiedFrom(as)
 
