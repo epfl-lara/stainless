@@ -78,7 +78,7 @@ trait EffectsChecker { self: EffectsAnalyzer =>
               isMutableType(vd.tpe)
             ) try {
               // Check if precise targets can be computed
-              getAllTargets(e, ModifyingKind)
+              getAllTargets(e)
             } catch {
               case _: MalformedStainlessCode =>
                 throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)

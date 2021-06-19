@@ -267,7 +267,7 @@ trait AntiAliasing
         private def checkAliasing(expr: Expr, args: Seq[Expr]): Unit = {
           val argTargets: Seq[((Expr, Set[Target]), Int)] =
             args.filter(arg => isMutableType(arg.getType))
-              .map(arg => arg -> Try(getAllTargets(arg, ModifyingKind)).toOption
+              .map(arg => arg -> Try(getAllTargets(arg)).toOption
                 .getOrElse(
                   exprOps.variablesOf(arg)
                     .filter(v => isMutableType(v.tpe))
@@ -333,7 +333,7 @@ trait AntiAliasing
             // see https://github.com/epfl-lara/stainless/pull/920 for discussion
 
             val newExpr = transform(e, env)
-            val targets = Try(getAllTargets(newExpr, ModifyingKind))
+            val targets = Try(getAllTargets(newExpr))
 
             if (targets.isSuccess) {
               // This branch handles all cases when targets can be precisely computed, namely when
