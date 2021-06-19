@@ -373,7 +373,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
 
     def on(that: Expr)(implicit symbols: Symbols): Set[Effect] = {
       val res = try {
-        getAllTargets(that, kind, path.path).map(_.toEffect(kind))
+        getTargets(that, kind, path.path).map(_.toEffect(kind))
       } catch {
         case _: MalformedStainlessCode => throw MalformedStainlessCode(that,
           s"Couldn't apply effect ${this.asString} on expression ${that.asString}"
@@ -554,7 +554,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       )
   }
 
-  def getAllTargets(expr: Expr, kind: EffectKind, path: Seq[Accessor] = Seq.empty)(implicit symbols: Symbols) = getTargets(expr, kind, path)
+  def getAllTargets(expr: Expr)(implicit symbols: Symbols) = getTargets(expr, ModifyingKind)
   def getDirectTargets(expr: Expr, accessor: Accessor)(implicit symbols: Symbols) =
     getTargets(expr, ReplacementKind, Seq(accessor))
 
@@ -659,7 +659,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       env.get(effect.receiver).map(e => Effect(effect.kind, e.receiver, e.path ++ effect.path))
 
     def effect(expr: Expr, env: Map[Variable, Effect]): Set[Effect] =
-      getAllTargets(expr, ModifyingKind) flatMap { (target: Target) =>
+      getAllTargets(expr) flatMap { (target: Target) =>
         inEnv(target.toEffect(ModifyingKind), env).toSet
       }
 
@@ -764,18 +764,13 @@ trait EffectsAnalyzer extends oo.CachingPhase {
           if (isInductive(field.getType, seen)) Seq()
           else fa +: rec(field.getType, xs, seen + ct.id)
         case (tup: TupleType, (fa @ TupleFieldAccessor(idx)) +: xs) =>
-          val tpe = tup.bases(idx - 1)
-          if (isInductive(tpe, seen)) Seq()
-          else fa +: rec(tpe, xs, seen)
-        case (ArrayType(base), (aa @ ArrayAccessor(i)) +: xs) if exprOps.variablesOf(i).isEmpty && expressionEffects(i, result).isEmpty =>
-          if (isInductive(base, seen)) Seq()
-          else aa +: rec(base, xs, seen)
-        case (ArrayType(base), ArrayAccessor(i) +: xs) =>
-          if (isInductive(base, seen)) Seq()
-          else UnknownArrayAccessor +: rec(base, xs, seen)
-        case (ArrayType(base), (aa @ UnknownArrayAccessor) +: xs) =>
-          if (isInductive(base, seen)) Seq()
-          else aa +: rec(base, xs, seen)
+          fa +: rec(tup.bases(idx - 1), xs, seen)
+        case (ArrayType(base), (aa @ ArrayAccessor(i)) +: xs) =>
+          val accessor = if (exprOps.variablesOf(i).isEmpty && expressionEffects(i, result).isEmpty) aa
+                         else UnknownArrayAccessor
+          accessor +: rec(base, xs, seen)
+        case (ArrayType(base), UnknownArrayAccessor +: xs) =>
+          UnknownArrayAccessor +: rec(base, xs, seen)
         case _ => Seq()
       }
 
