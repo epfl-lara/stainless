@@ -1061,7 +1061,7 @@ trait ASTExtractors {
             Select(
               Apply(while2invariant, List(rest)),
               invariantSym),
-            List(invariant)) if invariantSym.toString == "weakInvariant" => Some((invariant, rest))
+            List(invariant)) if invariantSym.toString == "noReturnInvariant" => Some((invariant, rest))
           case _ => None
         }
       }

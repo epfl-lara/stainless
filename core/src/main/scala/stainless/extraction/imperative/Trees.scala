@@ -65,7 +65,7 @@ trait Trees extends oo.Trees with Definitions { self =>
     }
   }
 
-  /** $encodingof `(while(cond) { ... }).invariant(pred).weakInvariant(pred2)`*/
+  /** $encodingof `(while(cond) { ... }).invariant(pred).noReturnInvariant(pred2)`*/
   case class While(cond: Expr, body: Expr, pred: Option[Expr], pred2: Option[Expr], flags: Seq[Flag]) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type =
       if (
@@ -238,7 +238,7 @@ trait Printer extends oo.Printer {
     case While(cond, body, inv, weakInv, flags) =>
       inv.foreach(p => p"""|@invariant($p)
                            |""")
-      weakInv.foreach(p => p"""|@weakInvariant($p)
+      weakInv.foreach(p => p"""|@noReturnInvariant($p)
                            |""")
       for (f <- flags) p"""|@${f.asString(ctx.opts)}
                            |"""
