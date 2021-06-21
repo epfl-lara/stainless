@@ -16,6 +16,7 @@
 - Add support for inlining and making opaque while loops (#1009)
 - Library cleanup (#953, #998, #999, #1000)
 - Add fresh copy primitive (#1033)
+- Improve traceInduct and add clustering (#1052)
 - Add no-return invariants for while loops (#1079)
 
 ### SMT solvers
