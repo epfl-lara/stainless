@@ -1,5 +1,36 @@
 # Release Notes
 
+## Version 0.8.1 (2021-06-20)
+
+### Stainless frontend and internals
+
+- Better support for jumping to errors in IDEs (#966, #995, #996)
+- Add support for return keyword (#923, #925, #934)
+- Various fixes and changes in aliasing analysis (#915, #918, #920, #928, #965, #969, #973, #985, #1076, #1094)
+- Support for tuples with mutable types (#1064)
+- Add support for multiple requires in functions (not in ADTs) (#983)
+- Better measure inference for chain processor (#967)
+- Add more support for bitvector operations (#962, #1062)
+- Print verification progress but not all verification conditions by default (#1018)
+- Add support for swap operation for array elements (#946)
+- Add support for inlining and making opaque while loops (#1009)
+- Library cleanup (#953, #998, #999, #1000)
+- Add fresh copy primitive (#1033)
+- Add no-return invariants for while loops (#1079)
+
+### SMT solvers
+
+- Add support for CVC4 1.8 (#833)
+- Add support for Z3 4.8.10 (#1010)
+
+### GenC
+
+- Better support for ``@export`` annotation in GenC (#924, #1008, #1019)
+- Add StructInliningPhase to remove structs with one member in GenC (#1058, #1065)
+- Add support for fixed length arrays in GenC (#1055, #1057)
+- Add compilation of global state in GenC (#1085, #1089)
+
+
 ## Version 0.8.0 (2021-02-24)
 
 ### Features
