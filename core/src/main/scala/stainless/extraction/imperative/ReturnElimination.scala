@@ -120,7 +120,7 @@ trait ReturnElimination
 
           if (optWeakInv.nonEmpty) {
             context.reporter.fatalError(
-              "In ReturnElimination Phase, unexpected `weakInvariant` for a while loop without return"
+              "In ReturnElimination Phase, unexpected `noReturnInvariant` for a while loop without return"
             )
           }
 

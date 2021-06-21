@@ -73,7 +73,7 @@ package object lang {
       u
     }
 
-    def weakInvariant(x: Boolean): Unit = {
+    def noReturnInvariant(x: Boolean): Unit = {
       require(x)
       u
     }

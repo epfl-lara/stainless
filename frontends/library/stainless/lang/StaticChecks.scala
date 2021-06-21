@@ -16,7 +16,7 @@ object StaticChecks {
       u
     }
 
-    def weakInvariant(@ghost x: Boolean): Unit = {
+    def noReturnInvariant(@ghost x: Boolean): Unit = {
       require(x)
       u
     }

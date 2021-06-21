@@ -188,6 +188,9 @@ A loop invariant must hold:
 Stainless will prove the points (1) and (2) above. Together, and by induction, they imply
 that point (3) holds as well.
 
+Stainless also supports ``noReturnInvariant`` (see `ReturnInWhile3 <https://github.com/epfl-lara/stainless/blob/master/frontends/benchmarks/imperative/valid/ReturnInWhile3.scala>`_) to describe loop invariants that are allowed to be broken
+after a :doc:`return <imperative>` (can be combined with ``invariant``).
+
 Decrease annotation in loops
 ----------------------------
 

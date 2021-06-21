@@ -8,6 +8,6 @@ object ReturnInWhile3 {
       x = stainless.math.max(x / 2 - 100 / x, 0)
 
       if (x == 0) return
-    }).weakInvariant(0 < x && x <= 1000) // true except possibly after a return
+    }).noReturnInvariant(0 < x && x <= 1000) // true except possibly after a return
   }
 }
