@@ -10,8 +10,8 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
   import s._
 
   // The function inlining transformation depends on all (transitive) callees
-  override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult]({(fd, symbols) =>
   // that will require inlining.
+  override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult]({(fd, symbols) =>
     FunctionKey(fd) + SetKey(
       symbols.dependencies(fd.id)
         .flatMap(id => symbols.lookupFunction(id))
@@ -43,6 +43,17 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
         case _ => super.transform(expr)
       }
 
+      // values that can be inlined directly, without being let-bound
+      private def isValue(e: Expr): Boolean = e match {
+        case UnitLiteral() => true
+        case BooleanLiteral(_) => true
+        case IntegerLiteral(_) => true
+        case BVLiteral(_, _, _) => true
+        case Tuple(es) => es.forall(isValue)
+        case ADT(_, _, args) => args.forall(isValue)
+        case _ => false
+      }
+
       private def inlineFunctionInvocations(fi: FunctionInvocation): Expr = {
         import exprOps._
         val (tfd, args) = (fi.tfd, fi.args)
@@ -57,67 +68,70 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
         if (!willInline) return fi
 
         val specced = BodyWithSpecs(tfd.fullBody)
+        if (specced.specs.isEmpty && isValue(tfd.fullBody)) {
+          exprOps.freshenLocals(tfd.fullBody)
+        } else {
+          // We need to keep the body as-is for `@synthetic` methods, such as
+          // `copy` or implicit conversions for implicit classes, in order to
+          // later on check that the class invariant is valid.
+          val body = specced.bodyOpt match {
+            case Some(body) if isSynthetic => body
+            case Some(body) if !isOpaque => annotated(body, Unchecked).setPos(fi)
+            case _ => NoTree(tfd.returnType).copiedFrom(tfd.fullBody)
+          }
 
-        // We need to keep the body as-is for `@synthetic` methods, such as
-        // `copy` or implicit conversions for implicit classes, in order to
-        // later on check that the class invariant is valid.
-        val body = specced.bodyOpt match {
-          case Some(body) if isSynthetic => body
-          case Some(body) if !isOpaque => annotated(body, Unchecked).setPos(fi)
-          case _ => NoTree(tfd.returnType).copiedFrom(tfd.fullBody)
+          val pre = specced.specs.filter(spec => spec.kind == LetKind || spec.kind == PreconditionKind)
+          val maxPre = pre.count(_.kind == PreconditionKind)
+          def addPreconditionAssertions(e: Expr): Expr = {
+            pre.foldRight((e, maxPre)) {
+              case (spec @ LetInSpec(vd, e0), (acc, i)) => (Let(vd, annotated(e0, Unchecked), acc).setPos(fi), i)
+              case (spec @ Precondition(cond), (acc, i)) =>
+                val num = if (i == 1) "" else s" ($i)"
+                // the assertion is not itself marked `Unchecked` (as it needs to be checked)
+                // but `cond` should not generate additional VCs and is marked with `Unchecked`
+                val condVal = ValDef.fresh("cond", BooleanType()).setPos(fi)
+                (
+                  Let(condVal, annotated(cond, Unchecked),
+                    Assert(condVal.toVariable.setPos(fi), Some(s"Inlined precondition$num of " + tfd.id.asString), acc
+                  ).copiedFrom(fi)).copiedFrom(fi),
+                  i-1
+                )
+            }._1
+          }
+
+          val post = specced.getSpec(PostconditionKind)
+          def addPostconditionAssumption(e: Expr): Expr = post.map(_.expr) match {
+            // We can't assume the post on @synthetic methods as it won't be checked anywhere.
+            // It is thus inlined into an assertion here.
+            case Some(Lambda(Seq(vd), post)) if isSynthetic =>
+              val err = Some("Inlined postcondition of " + tfd.id.name)
+              val postVal = ValDef.fresh("post", BooleanType()).setPos(fi)
+              Let(vd, e,
+                Let(postVal, annotated(post, Unchecked),
+                  Assert(postVal.toVariable.setPos(fi), err, vd.toVariable.copiedFrom(fi)
+              ).copiedFrom(fi)).copiedFrom(fi)).copiedFrom(fi)
+            case Some(Lambda(Seq(vd), post)) =>
+              Let(vd, e, Assume(annotated(post, Unchecked), vd.toVariable.copiedFrom(fi)).copiedFrom(fi)).copiedFrom(fi)
+            case _ => e
+          }
+
+
+          val res = ValDef.fresh("inlined", tfd.returnType)
+          val inlined = addPreconditionAssertions(addPostconditionAssumption(body))
+
+          // We bind the inlined expression in a let to avoid propagating
+          // the @unchecked annotation to postconditions, etc.
+          val newBody = let(res, inlined, res.toVariable.setPos(fi)).setPos(fi)
+
+          val result = (tfd.params zip args).foldRight(newBody) {
+            case ((vd, e), body) => let(vd, e, body).setPos(fi)
+          }
+
+          val freshened = exprOps.freshenLocals(result)
+
+          val inliner = new Inliner(if (hasInlineOnceFlag) inlinedOnce + tfd.id else inlinedOnce)
+          inliner.transform(freshened)
         }
-
-        val pre = specced.specs.filter(spec => spec.kind == LetKind || spec.kind == PreconditionKind)
-        val maxPre = pre.count(_.kind == PreconditionKind)
-        def addPreconditionAssertions(e: Expr): Expr = {
-          pre.foldRight((e, maxPre)) {
-            case (spec @ LetInSpec(vd, e0), (acc, i)) => (Let(vd, annotated(e0, Unchecked), acc).setPos(fi), i)
-            case (spec @ Precondition(cond), (acc, i)) =>
-              val num = if (i == 1) "" else s" ($i)"
-              // the assertion is not itself marked `Unchecked` (as it needs to be checked)
-              // but `cond` should not generate additional VCs and is marked with `Unchecked`
-              val condVal = ValDef.fresh("cond", BooleanType()).setPos(fi)
-              (
-                Let(condVal, annotated(cond, Unchecked),
-                  Assert(condVal.toVariable.setPos(fi), Some(s"Inlined precondition$num of " + tfd.id.asString), acc
-                ).copiedFrom(fi)).copiedFrom(fi),
-                i-1
-              )
-          }._1
-        }
-
-        val post = specced.getSpec(PostconditionKind)
-        def addPostconditionAssumption(e: Expr): Expr = post.map(_.expr) match {
-          // We can't assume the post on @synthetic methods as it won't be checked anywhere.
-          // It is thus inlined into an assertion here.
-          case Some(Lambda(Seq(vd), post)) if isSynthetic =>
-            val err = Some("Inlined postcondition of " + tfd.id.name)
-            val postVal = ValDef.fresh("post", BooleanType()).setPos(fi)
-            Let(vd, e,
-              Let(postVal, annotated(post, Unchecked),
-                Assert(postVal.toVariable.setPos(fi), err, vd.toVariable.copiedFrom(fi)
-            ).copiedFrom(fi)).copiedFrom(fi)).copiedFrom(fi)
-          case Some(Lambda(Seq(vd), post)) =>
-            Let(vd, e, Assume(annotated(post, Unchecked), vd.toVariable.copiedFrom(fi)).copiedFrom(fi)).copiedFrom(fi)
-          case _ => e
-        }
-
-
-        val res = ValDef.fresh("inlined", tfd.returnType)
-        val inlined = addPreconditionAssertions(addPostconditionAssumption(body))
-
-        // We bind the inlined expression in a let to avoid propagating
-        // the @unchecked annotation to postconditions, etc.
-        val newBody = let(res, inlined, res.toVariable.setPos(fi)).setPos(fi)
-
-        val result = (tfd.params zip args).foldRight(newBody) {
-          case ((vd, e), body) => let(vd, e, body).setPos(fi)
-        }
-
-        val freshened = exprOps.freshenLocals(result)
-
-        val inliner = new Inliner(if (hasInlineOnceFlag) inlinedOnce + tfd.id else inlinedOnce)
-        inliner.transform(freshened)
       }
     }
 

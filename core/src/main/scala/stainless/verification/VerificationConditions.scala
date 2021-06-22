@@ -45,7 +45,7 @@ object VCKind {
   case class  AssertErr(err: String)        extends VCKind("body assertion: " + err, "assert.")
   case object CoqMethod                     extends VCKind("coq function", "coq fun.")
   case class  Error(err: String)            extends VCKind(err, "error")
-  case class  AdtInvariant(inv: Identifier) extends VCKind("adt invariant", "adt inv.")
+  case class  AdtInvariant(inv: Identifier) extends VCKind("class invariant", "class inv.")
 
   def fromErr(optErr: Option[String]) = {
     optErr.map { err =>

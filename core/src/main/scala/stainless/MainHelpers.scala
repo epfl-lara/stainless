@@ -51,6 +51,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
       "  - termination: each solver call takes at most n / 100 seconds"),
     optJson -> Description(General, "Output verification and termination reports to a JSON file"),
     genc.optOutputFile -> Description(General, "File name for GenC output"),
+    genc.optIncludes -> Description(General, "Add includes in GenC output"),
     optWatch -> Description(General, "Re-run stainless upon file changes"),
     optCompact -> Description(General, "Print only invalid elements of summaries"),
     optInteractive -> Description(General, "Whether to run in interactive query mode"),
@@ -209,12 +210,14 @@ trait MainHelpers extends inox.MainHelpers { self =>
         case e @ extraction.MalformedStainlessCode(tree, msg) =>
           reporter.debug(e)(frontend.DebugSectionStack)
           ctx.reporter.error(tree.getPos, msg)
-          reporter.error("There was an error during the watch cycle")
-          reporter.reset()
-          compiler = newCompiler()
+        case e @ inox.FatalError(msg) =>
+          // we don't print the error message in this case because it was already printed before
+          // the `FatalError` was thrown
+          reporter.debug(e)(frontend.DebugSectionStack)
         case e: Throwable =>
           reporter.debug(e)(frontend.DebugSectionStack)
-          reporter.error("There was an error during the watch cycle")
+          reporter.error(e.getMessage)
+      } finally {
           compiler = newCompiler()
       }
 

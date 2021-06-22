@@ -151,6 +151,15 @@ a precondition.
    to prove the postcondition will have to be provided as part of the precondition
    of a function.
 
+
+Sharing bindings between specifications and function body
+---------------------------------------------------------
+
+The example `ValEnsuring <https://github.com/epfl-lara/stainless/blob/master/frontends/benchmarks/verification/valid/MicroTests/ValEnsuring.scala>`_
+shows that Stainless supports multiple ``require``'s (in functions, but not for ADT invariants), and
+shows how to share a `val` binding between precondition, postcondition, and function body.
+
+
 Loop invariants
 ---------------
 
@@ -178,6 +187,9 @@ A loop invariant must hold:
 
 Stainless will prove the points (1) and (2) above. Together, and by induction, they imply
 that point (3) holds as well.
+
+Stainless also supports ``noReturnInvariant`` (see `ReturnInWhile3 <https://github.com/epfl-lara/stainless/blob/master/frontends/benchmarks/imperative/valid/ReturnInWhile3.scala>`_) to describe loop invariants that are allowed to be broken
+after a :doc:`return <imperative>` (can be combined with ``invariant``).
 
 Decrease annotation in loops
 ----------------------------

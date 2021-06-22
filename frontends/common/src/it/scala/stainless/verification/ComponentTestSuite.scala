@@ -27,7 +27,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
   )
 
   final override def createContext(options: inox.Options) = stainless.TestContext(options)
-  
+
   override protected def optionsString(options: inox.Options): String = {
     "solvr=" + options.findOptionOrDefault(inox.optSelectedSolvers).head + " " +
     "lucky=" + options.findOptionOrDefault(inox.solvers.unrolling.optFeelingLucky) + " " +
@@ -52,6 +52,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
         name = file.getName stripSuffix ".scala"
       } test(s"$dir/$name", ctx => filter(ctx, s"$dir/$name")) { implicit ctx =>
         val (structure, program) = loadFiles(Seq(path))
+        assert(ctx.reporter.errorCount == 0, "There should be no error while loading the files")
         assert((structure count { _.isMain }) == 1, "Expecting only one main unit")
 
         val userFiltering = new DebugSymbols {
@@ -79,7 +80,8 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
 
         val defs = inox.utils.fixpoint { (defs: Set[Identifier]) =>
           def derived(flags: Seq[run.trees.Flag]): Boolean =
-            (defs & flags.collect { case run.trees.Derived(id) => id }.toSet).nonEmpty
+            (defs & flags.collect { case run.trees.Derived(Some(id)) => id }.toSet).nonEmpty ||
+            flags.contains(run.trees.Derived(None))
 
           defs ++
           exProgram.symbols.functions.values.filter(fd => derived(fd.flags)).map(_.id) ++
@@ -94,6 +96,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
     } else {
       implicit val ctx = inox.TestContext.empty
       val (structure, program) = loadFiles(fs.map(_.getPath))
+      assert(ctx.reporter.errorCount == 0, "There should be no error while loading the files")
 
       val userFiltering = new DebugSymbols {
         val name = "UserFiltering"
@@ -125,7 +128,8 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
 
         val funs = inox.utils.fixpoint { (defs: Set[Identifier]) =>
           def derived(flags: Seq[run.trees.Flag]): Boolean =
-            (defs & flags.collect { case run.trees.Derived(id) => id }.toSet).nonEmpty
+            (defs & flags.collect { case run.trees.Derived(Some(id)) => id }.toSet).nonEmpty ||
+            flags.contains(run.trees.Derived(None))
 
           defs ++
           exSymbols.functions.values.filter(fd => derived(fd.flags)).map(_.id) ++

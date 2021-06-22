@@ -79,4 +79,22 @@ object cCode {
   @ignore
   class drop() extends StaticAnnotation
 
+  /*
+   * Field accesses of classes annotated with @cCode.global will be mapped to global accesses.
+   * Function parameters whose types are such classes will be dropped.
+   * In GenC, we make sure that at most one instance of such classes is initialized.
+   * Moreover, all fields of such classes must have default values, which will be used as initial
+   * values for global variables when compiling in GenC.
+   */
+  @ignore
+  class global() extends StaticAnnotation
+
+  /* Same as `global`, but variables will be declared without being initialized */
+  @ignore
+  class globalUninitialized() extends StaticAnnotation
+
+  /* Same as `global`, but variables will not be declared */
+  @ignore
+  class globalExternal() extends StaticAnnotation
+
 }

@@ -68,11 +68,6 @@ trait DependencyGraph extends oo.DependencyGraph with CallGraph {
     res
   }
 
-  private def invariant(cd: ClassDef): Option[Identifier] = {
-    def isInvariant(fd: FunDef) = fd.flags.contains(IsInvariant) && fd.flags.contains(IsMethodOf(cd.id))
-    symbols.functions.values.find(isInvariant).map(_.id)
-  }
-
   private def laws(cd: ClassDef): Set[Identifier] = {
     (cd +: cd.ancestors(symbols).map(_.cd)).reverse.foldLeft(Map[Symbol, Identifier]()) {
       case (laws, cd) =>
@@ -107,7 +102,8 @@ trait DependencyGraph extends oo.DependencyGraph with CallGraph {
     var g = super.computeDependencyGraph
 
     for (cd <- symbols.classes.values) {
-      invariant(cd) foreach { inv => g += SimpleEdge(cd.id, inv) }
+      cd.invariant(symbols) foreach { inv => g += SimpleEdge(cd.id, inv.id) }
+      symbols.paramInits(cd.id) foreach { paramInit => g += SimpleEdge(cd.id, paramInit.id) }
 
       if (!(cd.flags contains IsAbstract)) {
         laws(cd) foreach { law => g += SimpleEdge(law, cd.id) }

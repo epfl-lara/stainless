@@ -68,14 +68,6 @@ lazy val artifactSettings: Seq[Setting[_]] = baseSettings ++ Seq(
   buildInfoOptions := Seq(BuildInfoOption.BuildTime),
 )
 
-// FIXME: Uncomment this when we are are able to upgrade sbt version
-// Global / excludeLintKeys ++= Set(
-//   buildInfoPackage,
-//   buildInfoKeys,
-//   buildInfoOptions,
-//   testOptions
-// )
-
 lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
   scalacOptions ++= Seq(
     "-deprecation",

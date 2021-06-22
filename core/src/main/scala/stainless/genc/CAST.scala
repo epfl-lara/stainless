@@ -29,7 +29,7 @@ object CAST { // C Abstract Syntax Tree
   sealed abstract class Tree {
     override def toString = {
       val sb = new StringBuffer()
-      new CPrinter("stainless.h", true, Set(), sb).print(this)
+      new CPrinter("stainless.h", true, Set(), Seq(), sb).print(this)
       sb.toString
     }
   }
@@ -43,6 +43,8 @@ object CAST { // C Abstract Syntax Tree
 
   case class Prog(
     includes: Set[Include],
+    // boolean is set to true when for global declarations that are declared outside of the Stainless program
+    decls: Seq[(Decl, Boolean)],
     typeDefs: Set[TypeDef],
     enums: Set[Enum],
     types: Seq[DataType], // Both structs and unions, order IS important! See NOTE above.
@@ -108,10 +110,8 @@ object CAST { // C Abstract Syntax Tree
 
   case class EnumLiteral(id: Id) extends Expr
 
-  case class Decl(id: Id, typ: Type) extends Expr
-
-  case class DeclInit(id: Id, typ: Type, value: Expr) extends Expr {
-    require(value.isValue, s"Initialisation $id = $value should be done with a value")
+  case class Decl(id: Id, typ: Type, optValue: Option[Expr]) extends Expr {
+    require(optValue.forall(_.isValue), s"Initialisation $id = ${optValue.get} should be done with a value")
   }
 
   case class DeclArrayStatic(id: Id, base: Type, length: Int, values: Seq[Expr]) extends Expr {
@@ -206,6 +206,8 @@ object CAST { // C Abstract Syntax Tree
   case class Return(value: Expr) extends Expr {
     require(value.isValue, s"Return expressions ($value) must be values")
   }
+
+  case class Assert(e: Expr) extends Expr
 
   // This can represent any C cast, however unsafe it can be.
   case class Cast(expr: Expr, typ: Type) extends Expr

@@ -73,6 +73,11 @@ package object lang {
       u
     }
 
+    def noReturnInvariant(x: Boolean): Unit = {
+      require(x)
+      u
+    }
+
     def inline: Unit = { }
     def opaque: Unit = { }
   }

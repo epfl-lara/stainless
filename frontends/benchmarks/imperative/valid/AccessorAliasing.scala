@@ -1,7 +1,7 @@
 case class A(var x: BigInt)
 trait B { var a: A }
 
-object Test {
+object AccessorAliasing {
   def test(b: B): Unit = {
     val a = b.a
     val old = b.a.x
