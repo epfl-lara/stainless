@@ -37,12 +37,13 @@ trait CFileOutputPhase extends UnitPhase[CAST.Prog] {
 
       val headerDependencies = CASTDependencies.headerDependencies(program)(context)
 
-      val ph = new CPrinter(hFileName, false, headerDependencies)
+      val gencIncludes = context.options.findOptionOrDefault(optIncludes)
+      val ph = new CPrinter(hFileName, false, headerDependencies, gencIncludes)
       ph.print(program)
       hout.write(ph.sb.toString)
       hout.close()
 
-      val pc = new CPrinter(hFileName, true, headerDependencies)
+      val pc = new CPrinter(hFileName, true, headerDependencies, Seq())
       pc.print(program)
       cout.write(pc.sb.toString)
       cout.close()

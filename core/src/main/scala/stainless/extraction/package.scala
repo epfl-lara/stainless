@@ -43,6 +43,7 @@ package object extraction {
     "ReturnElimination"         -> "Eliminate `return` expressions",
     "ImperativeCodeElimination" -> "Eliminate while loops and assignments",
     "ImperativeCleanup"         -> "Cleanup after imperative transformations",
+    "InvariantInitialization"   -> "Add initialization for classes where all fields have default values",
     "AdtSpecialization"         -> "Specialize classes into ADTs (when possible)",
     "RefinementLifting"         -> "Lift simple refinements to contracts",
     "TypeEncoding"              -> "Encode non-ADT types",

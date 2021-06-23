@@ -49,11 +49,23 @@ abstract class Transformer[From <: IR, To <: IR](final val from: From, final val
     funCache.update(older, newer)
   }
 
-  protected def rec(prog: Prog)(implicit env: Env): to.Prog =
-    to.Prog(
-      prog.functions.map(rec),
-      prog.classes.map(rec)
-    )
+  protected def rec(prog: Prog)(implicit env: Env): to.Prog = {
+    if (prog.decls.nonEmpty) {
+      val externality = prog.decls.map(_._2)
+      val (to.Block(newDecls), newEnv) = recImpl(Block(prog.decls.map(_._1)))
+      to.Prog(
+        newDecls.map(_.asInstanceOf[to.Decl]).zip(externality),
+        prog.functions.map(rec(_)(newEnv)),
+        prog.classes.map(rec(_)(newEnv)),
+      )
+    } else {
+      to.Prog(
+        Seq(),
+        prog.functions.map(rec),
+        prog.classes.map(rec),
+      )
+    }
+  }
 
   protected final def rec(fd: FunDef)(implicit env: Env): to.FunDef = funCache.getOrElse(fd, recImpl(fd))
 
@@ -109,7 +121,7 @@ abstract class Transformer[From <: IR, To <: IR](final val from: From, final val
 
   protected final def recCallable(fun: Callable)(implicit env: Env): to.Callable = rec(fun).asInstanceOf[to.Callable]
 
-  // We need to propagate the enviornement accross the whole blocks, not simply by recusring
+  // We need to propagate the enviornement accross the whole blocks, not simply by recursing
   protected def recImpl(e: Expr)(implicit env: Env): (to.Expr, Env) = (e: @unchecked) match {
     case Binding(vd) => to.Binding(rec(vd)) -> env
 
@@ -126,8 +138,8 @@ abstract class Transformer[From <: IR, To <: IR](final val from: From, final val
       }
       to.buildBlock(exprs) -> newEnv
 
-    case Decl(vd) => to.Decl(rec(vd)) -> env
-    case DeclInit(vd, value) => to.DeclInit(rec(vd), rec(value)) -> env
+    case Decl(vd, None) => to.Decl(rec(vd), None) -> env
+    case Decl(vd, Some(value)) => to.Decl(rec(vd), Some(rec(value))) -> env
     case App(fun, extra, args) => to.App(recCallable(fun), extra map rec, args map rec) -> env
     case Construct(cd, args) => to.Construct(rec(cd), args map rec) -> env
     case ArrayInit(alloc) => to.ArrayInit(rec(alloc)) -> env
@@ -147,6 +159,7 @@ abstract class Transformer[From <: IR, To <: IR](final val from: From, final val
     case Ref(e) => to.Ref(rec(e)) -> env
     case Deref(e) => to.Deref(rec(e)) -> env
     case Return(e) => to.Return(rec(e)) -> env
+    case Assert(e) => to.Assert(rec(e)) -> env
     case Break => to.Break -> env
   }
 

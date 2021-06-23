@@ -93,30 +93,12 @@ trait ComponentRun { self =>
     val trees: self.trees.type
   } = inox.Program(trees)(extract(program.symbols))
 
-  /** Override this if you need another kind of filtering */
-  protected lazy val dependenciesFinder = new DependenciesFinder {
-    val t: self.trees.type = self.trees
-    protected def traverser(symbols: t.Symbols) = new {
-      val trees: t.type = t
-      val s: t.Symbols = symbols
-    } with DefinitionIdFinder
-  }
-
-  private def filter(ids: Seq[Identifier], symbols: trees.Symbols): trees.Symbols = {
-    dependenciesFinder.findDependencies(ids.toSet, symbols)
-  }
-
   /** Passes the provided symbols through the extraction pipeline and compute all
     * functions to process that are derived from the provided identifiers. */
-  def apply(ids: Seq[Identifier], symbols: xt.Symbols, filterSymbols: Boolean = false): Future[Analysis] = {
+  def apply(ids: Seq[Identifier], symbols: xt.Symbols): Future[Analysis] = {
     val exSymbols = extract(symbols)
-
     val toProcess = extractionFilter.filter(ids, exSymbols, component)
-
-    if (filterSymbols)
-      execute(toProcess, filter(toProcess, exSymbols))
-    else
-      execute(toProcess, exSymbols)
+    execute(toProcess, exSymbols)
   }
 
   def apply(id: Identifier, symbols: xt.Symbols): Future[Analysis] =

@@ -65,13 +65,14 @@ trait Trees extends oo.Trees with Definitions { self =>
     }
   }
 
-  /** $encodingof `(while(cond) { ... }) invariant (pred)` */
-  case class While(cond: Expr, body: Expr, pred: Option[Expr], flags: Seq[Flag]) extends Expr with CachingTyped {
+  /** $encodingof `(while(cond) { ... }).invariant(pred).noReturnInvariant(pred2)`*/
+  case class While(cond: Expr, body: Expr, pred: Option[Expr], pred2: Option[Expr], flags: Seq[Flag]) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type =
       if (
         s.isSubtypeOf(cond.getType, BooleanType()) &&
         body.isTyped &&
-        pred.forall(p => s.isSubtypeOf(p.getType, BooleanType()))
+        pred.forall(p => s.isSubtypeOf(p.getType, BooleanType())) &&
+        pred2.forall(p => s.isSubtypeOf(p.getType, BooleanType()))
       ) UnitType() else Untyped
   }
 
@@ -234,8 +235,10 @@ trait Printer extends oo.Printer {
     case FieldAssignment(obj, selector, value) =>
       p"$obj.$selector = $value"
 
-    case While(cond, body, inv, flags) =>
+    case While(cond, body, inv, weakInv, flags) =>
       inv.foreach(p => p"""|@invariant($p)
+                           |""")
+      weakInv.foreach(p => p"""|@noReturnInvariant($p)
                            |""")
       for (f <- flags) p"""|@${f.asString(ctx.opts)}
                            |"""
@@ -339,9 +342,17 @@ trait TreeDeconstructor extends oo.TreeDeconstructor {
     case s.FieldAssignment(obj, selector, value) =>
       (Seq(selector), Seq(), Seq(obj, value), Seq(), Seq(), (ids, _, es, _, _) => t.FieldAssignment(es(0), ids.head, es(1)))
 
-    case s.While(cond, body, pred, flags) =>
+    case s.While(cond, body, pred, None, flags) =>
       (Seq(), Seq(), Seq(cond, body) ++ pred, Seq(), flags, (_, _, es, _, newFlags) =>
-        t.While(es(0), es(1), es.drop(2).headOption, newFlags))
+        t.While(es(0), es(1), es.drop(2).headOption, None, newFlags))
+
+    case s.While(cond, body, None, pred, flags) =>
+      (Seq(), Seq(), Seq(cond, body) ++ pred, Seq(), flags, (_, _, es, _, newFlags) =>
+        t.While(es(0), es(1), None, es.drop(2).headOption, newFlags))
+
+    case s.While(cond, body, Some(inv), Some(weakInv), flags) =>
+      (Seq(), Seq(), Seq(cond, body, inv, weakInv), Seq(), flags, (_, _, es, _, newFlags) =>
+        t.While(es(0), es(1), Some(es(2)), Some(es(3)), newFlags))
 
     case s.ArrayUpdate(array, index, value) =>
       (Seq(), Seq(), Seq(array, index, value), Seq(), Seq(), (_, _, es, _, _) => t.ArrayUpdate(es(0), es(1), es(2)))

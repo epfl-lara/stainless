@@ -8,7 +8,6 @@ import extraction.throwing.trees._
 import collection.mutable.{ Set => MutableSet }
 
 private[genc] object ExtraOps {
-
   // copied from AdtSpecialization
   def root(id: Identifier)(implicit symbols: Symbols): Identifier = {
     symbols.getClass(id).parents.map(ct => root(ct.id)).headOption.getOrElse(id)
@@ -77,6 +76,10 @@ private[genc] object ExtraOps {
     def isManuallyTyped = hasAnnotation(manualTypeAnnotation)
     def isDropped       = hasAnnotation(droppedAnnotation)
     def isExported      = hasAnnotation("export")
+    def isGlobal        = cd.flags.exists(_.name.startsWith("cCode.global"))
+    def isGlobalDefault = cd.flags.exists(_.name == "cCode.global")
+    def isGlobalUninitialized = cd.flags.exists(_.name == "cCode.globalUninitialized")
+    def isGlobalExternal = cd.flags.exists(_.name == "cCode.globalExternal")
 
     def extAnnotations: Map[String, Seq[Any]] = cd.flags.collect {
       case Annotation(s, args) => s -> args
@@ -160,9 +163,9 @@ private[genc] object ExtraOps {
     private val droppedAnnotation = "cCode.drop"
   }
 
-  // // Extra tools on ClassType, expecially for inheritance
-  // implicit class ClassTypeOps(val ct: ClassType) {
-  //   def getTopParents: Seq[ClassType] = ct.parents flatMap { _.getTopParent } getOrElse { ct }
-  // }
-}
+  def isGlobal(tpe: Type)(implicit symbols: Symbols): Boolean = tpe match {
+    case ct: ClassType => ct.tcd.cd.isGlobal
+    case _ => false
+  }
 
+}

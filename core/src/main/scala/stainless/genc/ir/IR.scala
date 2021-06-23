@@ -39,17 +39,13 @@ private[genc] sealed trait IR { ir =>
    ****************************************************************************************************/
   sealed abstract class Def extends Tree
 
-  case class Prog(functions: Seq[FunDef], classes: Seq[ClassDef]) {
-
-    private def wrapWith(header: String, s: String) = {
-      if (s.isEmpty) ""
-      else "-------------" + header + "-------------\n" + s + "\n\n"
-    }
-
-    override def toString = {
-      wrapWith("Classes", classes.mkString("\n\n")) ++
-      wrapWith("Functions", functions.mkString("\n\n"))
-    }
+  case class Prog(
+    // boolean is set to true when for global declarations that are declared outside of the Stainless program
+    decls: Seq[(Decl, Boolean)],
+    functions: Seq[FunDef],
+    classes: Seq[ClassDef]
+  ) {
+    override def toString: String = printer(this)
   }
 
   // Define a function body as either a regular AST or a manually defined
@@ -178,8 +174,7 @@ private[genc] sealed trait IR { ir =>
       case Binding(vd) => vd.getType
       case c: Callable => c.typ
       case Block(exprs) => exprs.last.getType
-      case Decl(_) => NoType
-      case DeclInit(_, _) => NoType
+      case Decl(_, _) => NoType
       case App(fun, _, _) => fun.typ.ret
       case Construct(cd, _) => ClassType(cd)
       case ArrayInit(alloc) => alloc.typ
@@ -213,6 +208,7 @@ private[genc] sealed trait IR { ir =>
       case Ref(e) => ReferenceType(e.getType)
       case Deref(e) => e.getType.asInstanceOf[ReferenceType].t
       case Return(e) => e.getType
+      case Assert(_) => NoType
       case Break => NoType
     }
   }
@@ -238,20 +234,15 @@ private[genc] sealed trait IR { ir =>
 
   // A non-empty sequence of expressions
   //
-  // NOTE Nested Decl & DeclInit expressions have their ValDef available to following expressions in the block.
+  // NOTE Nested Decl expressions have their ValDef available to following expressions in the block.
   //
   // NOTE Use factory helper `buildBlock` below to flatten blocks together.
   case class Block(exprs: Seq[Expr]) extends Expr {
-    require(exprs.nonEmpty)
+    require(exprs.nonEmpty, "GenC IR blocks must be non-empty")
   }
 
-  // A variable declaration without initialisation
-  //
-  // NOTE DeclInit is not present as such in the input program; it is introduced by normalisation/flattening.
-  case class Decl(vd: ValDef) extends Expr
-
-  // A value/variable declaration & initialisation
-  case class DeclInit(vd: ValDef, value: Expr) extends Expr
+  // A variable declaration with optional initialisation
+  case class Decl(vd: ValDef, optInit: Option[Expr]) extends Expr
 
   // Invoke a function with context & regular arguments
   case class App(fun: Callable, extra: Seq[Expr], args: Seq[Expr]) extends Expr
@@ -302,6 +293,8 @@ private[genc] sealed trait IR { ir =>
   case class Deref(e: Expr) extends Expr {
     require(e.getType.isInstanceOf[ReferenceType])
   }
+
+  case class Assert(e: Expr) extends Expr
 
   case class Return(e: Expr) extends Expr
 

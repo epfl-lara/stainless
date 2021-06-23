@@ -215,6 +215,8 @@ private final class ComputeDependenciesImpl(val ctx: inox.Context)(implicit
         for (tcd2 <- tcd.descendants)
           traverse(tcd2.cd, env)
       }
+      // Visit the parameters initializers
+      syms.paramInits(cd.id).foreach(traverse(_, env))
     }
   }
 

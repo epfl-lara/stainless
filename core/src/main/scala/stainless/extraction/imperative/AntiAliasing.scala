@@ -117,7 +117,6 @@ trait AntiAliasing
      */
     def updateFunction(fd: FunAbstraction, env: Environment): FunAbstraction = {
       val aliasedParams = analysis.getAliasedParams(fd)
-
       val newFd = fd.copy(returnType = analysis.getReturnType(fd))
 
       if (aliasedParams.isEmpty) {
@@ -174,6 +173,56 @@ trait AntiAliasing
         override val t: self.t.type = self.t
         override type Env = Environment
 
+        def select(pos: inox.utils.Position, tpe: Type, expr: Expr, path: Seq[Accessor]): (Expr, Expr) = (tpe, path) match {
+          case (adt: ADTType, ADTFieldAccessor(id) +: xs) =>
+            val constructors = adt.getSort.constructors
+            val constructor = constructors.find(_.fields.exists(_.id == id)).get
+            val field = constructor.fields.find(_.id == id).get
+
+            val condition = if (constructors.size > 1) {
+              IsConstructor(expr, constructor.id).setPos(pos)
+            } else {
+              BooleanLiteral(true).setPos(pos)
+            }
+
+            val (recCond, recSelect) = select(pos, field.tpe, ADTSelector(expr, id).setPos(pos), xs)
+            (and(condition, recCond), recSelect)
+
+          case (ct: ClassType, ClassFieldAccessor(id) +: xs) =>
+            val field = getClassField(ct, id).get
+            val fieldClassType = classForField(ct, id).get.toType
+            val condition = IsInstanceOf(expr, fieldClassType).setPos(pos)
+
+            val (recCond, recSelect) = select(pos, field.tpe, ClassSelector(AsInstanceOf(expr, fieldClassType).setPos(expr), id).setPos(pos), xs)
+            (and(condition, recCond), recSelect)
+
+          case (tt: TupleType, TupleFieldAccessor(idx) +: xs) =>
+            select(pos, tt.bases(idx - 1), TupleSelect(expr, idx).setPos(pos), xs)
+
+          case (ArrayType(base), ArrayAccessor(idx) +: xs) =>
+            select(pos, base, ArraySelect(expr, idx).setPos(pos), xs)
+
+          case (MutableMapType(from, to), MutableMapAccessor(idx) +: xs) =>
+            select(pos, to, MutableMapApply(expr, idx).setPos(pos), xs)
+
+          case (_, Nil) => (BooleanLiteral(true).setPos(pos), expr)
+        }
+
+        def makeAssignment(pos: inox.utils.Position, resSelect: Expr, outerEffect: Effect, effect: Effect): Expr = {
+          val (cond, result) = select(pos, resSelect.getType, resSelect, outerEffect.path.toSeq)
+
+          // We only overwrite the receiver when it is an actual mutable type.
+          // This is necessary to handle immutable types being upcasted to `Any`, which is mutable.
+          val assignment = if (isMutableType(effect.receiver.getType)) {
+            val newValue = updatedTarget(effect.toTarget, Annotated(result, Seq(Unchecked)).setPos(pos))
+            val castedValue = Annotated(AsInstanceOf(newValue, effect.receiver.getType), Seq(Unchecked))
+            Assignment(effect.receiver, castedValue).setPos(pos)
+          } else UnitLiteral().setPos(pos)
+
+          if (cond == BooleanLiteral(true)) assignment
+          else IfExpr(cond, assignment, UnitLiteral().setPos(pos)).setPos(pos)
+        }
+
         def mapApplication(formalArgs: Seq[ValDef], args: Seq[Expr], nfi: Expr, nfiType: Type, fiEffects: Set[Effect], env: Env): Expr = {
           if (fiEffects.exists(e => formalArgs contains e.receiver.toVal)) {
             val localEffects = (formalArgs zip args)
@@ -184,18 +233,6 @@ trait AntiAliasing
                 effects map (e => (e, e on rArg))
               }
 
-            for ((_, effects) <- localEffects.flatMap(_.flatMap(_._2)).groupBy(_.receiver)) {
-              val aliased = effects.tails.flatMap {
-                case e1 +: es => es.collect { case e2 if (e1 prefixOf e2) || (e2 prefixOf e1) => (e1, e2) }
-                case Nil => Nil
-              }
-
-              if (aliased.nonEmpty) {
-                val (e1, _) = aliased.next
-                throw MalformedStainlessCode(e1.receiver, "Illegal passing of aliased parameter")
-              }
-            }
-
             //TODO: The case f(A(x1,x1,x1)) could probably be handled by forbidding creation at any program point of
             //      case class with multiple refs as it is probably not useful
 
@@ -204,59 +241,15 @@ trait AntiAliasing
             val extractResults = Block(
               for {
                 (effects, index) <- localEffects.zipWithIndex
-                (outerEffect, innerEffects) <- effects
-                effect <- innerEffects
+                (outerEffect0, innerEffects) <- effects
+                effect0 <- innerEffects
               } yield {
+                val outerEffect = outerEffect0.removeUnknownAccessor
+                val effect = effect0.removeUnknownAccessor
                 val pos = args(index).getPos
                 val resSelect = TupleSelect(freshRes.toVariable, index + 2)
 
-                def select(tpe: Type, expr: Expr, path: Seq[Accessor]): (Expr, Expr) = (tpe, path) match {
-                  case (adt: ADTType, ADTFieldAccessor(id) +: xs) =>
-                    val constructors = adt.getSort.constructors
-                    val constructor = constructors.find(_.fields.exists(_.id == id)).get
-                    val field = constructor.fields.find(_.id == id).get
-
-                    val condition = if (constructors.size > 1) {
-                      IsConstructor(expr, constructor.id).setPos(pos)
-                    } else {
-                      BooleanLiteral(true).setPos(pos)
-                    }
-
-                    val (recCond, recSelect) = select(field.tpe, ADTSelector(expr, id).setPos(pos), xs)
-                    (and(condition, recCond), recSelect)
-
-                  case (ct: ClassType, ClassFieldAccessor(id) +: xs) =>
-                    val field = getClassField(ct, id).get
-                    val fieldClassType = classForField(ct, id).get.toType
-                    val condition = IsInstanceOf(expr, fieldClassType).setPos(pos)
-
-                    val (recCond, recSelect) = select(field.tpe, ClassSelector(AsInstanceOf(expr, fieldClassType).setPos(expr), id).setPos(pos), xs)
-                    (and(condition, recCond), recSelect)
-
-                  case (tt: TupleType, TupleFieldAccessor(idx) +: xs) =>
-                    select(tt.bases(idx - 1), TupleSelect(expr, idx).setPos(pos), xs)
-
-                  case (ArrayType(base), ArrayAccessor(idx) +: xs) =>
-                    select(base, ArraySelect(expr, idx).setPos(pos), xs)
-
-                  case (MutableMapType(from, to), MutableMapAccessor(idx) +: xs) =>
-                    select(to, MutableMapApply(expr, idx).setPos(pos), xs)
-
-                  case (_, Nil) => (BooleanLiteral(true).setPos(pos), expr)
-                }
-
-                val (cond, result) = select(resSelect.getType, resSelect, outerEffect.path.toSeq)
-
-                // We only overwrite the receiver when it is an actual mutable type.
-                // This is necessary to handle immutable types being upcasted to `Any`, which is mutable.
-                val assignment = if (isMutableType(effect.receiver.getType)) {
-                  val newValue = updatedTarget(effect.toTarget, Annotated(result, Seq(Unchecked)).setPos(pos))
-                  val castedValue = Annotated(AsInstanceOf(newValue, effect.receiver.getType), Seq(Unchecked))
-                  Assignment(effect.receiver, castedValue).setPos(args(index))
-                } else UnitLiteral().setPos(pos)
-
-                if (cond == BooleanLiteral(true)) assignment
-                else IfExpr(cond, assignment, UnitLiteral().setPos(pos)).setPos(pos)
+                makeAssignment(pos, resSelect, outerEffect, effect)
               },
               TupleSelect(freshRes.toVariable, 1))
 
@@ -274,7 +267,7 @@ trait AntiAliasing
         private def checkAliasing(expr: Expr, args: Seq[Expr]): Unit = {
           val argTargets: Seq[((Expr, Set[Target]), Int)] =
             args.filter(arg => isMutableType(arg.getType))
-              .map(arg => arg -> Try(getTargets(arg)).toOption
+              .map(arg => arg -> Try(getAllTargets(arg)).toOption
                 .getOrElse(
                   exprOps.variablesOf(arg)
                     .filter(v => isMutableType(v.tpe))
@@ -287,11 +280,11 @@ trait AntiAliasing
             for (target1 <- targets1)
               for ((arg2, targets2) <- otherTargets)
                 for (target2 <- targets2)
-                  if (target1.toEffect.prefixOf(target2.toEffect) ||
-                      target2.toEffect.prefixOf(target1.toEffect))
+                  if (target1.prefixOf(target2) ||
+                      target2.prefixOf(target1))
                     throw MalformedStainlessCode(expr,
                       s"Illegal passing of aliased parameters ${arg1.asString} (with target: ${target1.asString}) " +
-                      s"and ${arg2.asString} (with target: ${target2.asString}"
+                      s"and ${arg2.asString} (with target: ${target2.asString})"
                     )
           }
         }
@@ -309,9 +302,9 @@ trait AntiAliasing
             val base = array1.getType.asInstanceOf[ArrayType].base
             val temp = ValDef.fresh("temp", base).setPos(swap)
             val ra1 = exprOps.replaceFromSymbols(env.rewritings, array1)
-            val targets1 = getTargets(ra1)
+            val targets1 = getDirectTargets(ra1, ArrayAccessor(index1))
             val ra2 = exprOps.replaceFromSymbols(env.rewritings, array2)
-            val targets2 = getTargets(ra2)
+            val targets2 = getDirectTargets(ra2, ArrayAccessor(index2))
 
             if (targets1.exists(target => !env.bindings.contains(target.receiver.toVal)))
               throw MalformedStainlessCode(swap, "Unsupported swap (first array)")
@@ -321,12 +314,12 @@ trait AntiAliasing
 
             val updates1 =
               targets1.toSeq map { target =>
-                val applied = updatedTarget(target + ArrayAccessor(index1), ArraySelect(array2, index2).setPos(swap))
+                val applied = updatedTarget(target, ArraySelect(array2, index2).setPos(swap))
                 transform(Assignment(target.receiver, applied).setPos(swap), env)
               }
             val updates2 =
               targets2.toSeq map { target =>
-                val applied = updatedTarget(target + ArrayAccessor(index2), temp.toVariable)
+                val applied = updatedTarget(target, temp.toVariable)
                 transform(Assignment(target.receiver, applied).setPos(swap), env)
               }
             val updates = updates1 ++ updates2
@@ -340,7 +333,7 @@ trait AntiAliasing
             // see https://github.com/epfl-lara/stainless/pull/920 for discussion
 
             val newExpr = transform(e, env)
-            val targets = Try(getTargets(newExpr))
+            val targets = Try(getAllTargets(newExpr))
 
             if (targets.isSuccess) {
               // This branch handles all cases when targets can be precisely computed, namely when
@@ -366,14 +359,9 @@ trait AntiAliasing
 
               // for all effects of `b` whose receiver is `vd`
               val copyEffects = effects(b).filter(_.receiver == vd.toVariable).flatMap { eff =>
-                // we go to the corresponding target modified in the bound expression (after transformation)
-                getTargets(newExpr, eff.path.toSeq).map { case Target(receiver, _, path) =>
-                  // and we update it
-                  eff.wrap match {
-                    case None => throw MalformedStainlessCode(l, "Unsupported `val` in AntiAliasing")
-                    case Some(expr) => Assignment(receiver, expr).copiedFrom(l)
-                  }
-                }
+
+                // we apply the effect on the bound expression (after transformation)
+                eff.on(newExpr).map { eff2 => makeAssignment(l.getPos, eff.receiver, eff, eff2) }
               }
 
               val resVd = ValDef.fresh("res", b.getType).copiedFrom(b)
@@ -423,39 +411,39 @@ trait AntiAliasing
 
           case up @ ArrayUpdate(a, i, v) =>
             val ra = exprOps.replaceFromSymbols(env.rewritings, a)
-            val targets = getTargets(ra)
+            val targets = getDirectTargets(ra, ArrayAccessor(i))
 
             if (targets.exists(target => !env.bindings.contains(target.receiver.toVal)))
               throw MalformedStainlessCode(up, "Unsupported form of array update")
 
             Block(targets.toSeq map { target =>
-              val applied = updatedTarget(target + ArrayAccessor(i), v)
+              val applied = updatedTarget(target, v)
               transform(Assignment(target.receiver, applied).copiedFrom(up), env)
             }, UnitLiteral().copiedFrom(up)).copiedFrom(up)
 
           case up @ MutableMapUpdate(map, k, v) =>
             val rmap = exprOps.replaceFromSymbols(env.rewritings, map)
-            val targets = getTargets(rmap)
+            val targets = getDirectTargets(rmap, MutableMapAccessor(k))
 
             if (targets.exists(target => !env.bindings.contains(target.receiver.toVal)))
               throw MalformedStainlessCode(up, "Unsupported form of map update")
 
             Block(targets.toSeq map { target =>
-              val applied = updatedTarget(target + MutableMapAccessor(k), v)
+              val applied = updatedTarget(target, v)
               transform(Assignment(target.receiver, applied).copiedFrom(up), env)
             }, UnitLiteral().copiedFrom(up)).copiedFrom(up)
 
           case as @ FieldAssignment(o, id, v) =>
             val so = exprOps.replaceFromSymbols(env.rewritings, o)
-            val targets = getTargets(so)
+            val accessor = typeToAccessor(o.getType, id)
+            val targets = getDirectTargets(so, accessor)
 
             if (targets.exists(target => !env.bindings.contains(target.receiver.toVal)))
               throw MalformedStainlessCode(as, "Unsupported form of field assignment")
 
-            val accessor = typeToAccessor(o.getType, id)
 
             Block(targets.toSeq map { target =>
-              val applied = updatedTarget(target + accessor, v)
+              val applied = updatedTarget(target, v)
               transform(Assignment(target.receiver, applied).copiedFrom(as), env)
             }, UnitLiteral().copiedFrom(as)).copiedFrom(as)
 
@@ -509,6 +497,10 @@ trait AntiAliasing
             val rewrittenArgs = args.map(exprOps.replaceFromSymbols(env.rewritings, _))
             checkAliasing(alr, rewrittenArgs)
 
+            val vis: Set[Variable] = varsInScope(fd)
+            rewrittenArgs.flatMap(exprOps.variablesOf(_)).find(vis contains _)
+              .foreach(v => context.reporter.fatalError(alr.getPos, "Illegal passing of aliased local variable: " + v))
+
             val nfi = ApplyLetRec(
               id, tparams,
               FunctionType(fd.params.map(_.getType), analysis.getReturnType(fd)).copiedFrom(tpe), tps,
@@ -522,13 +514,17 @@ trait AntiAliasing
             val ft @ FunctionType(from, to) = callee.getType
             val ftEffects = functionTypeEffects(ft)
             if (ftEffects.nonEmpty) {
+              val rewrittenArgs = args.map(exprOps.replaceFromSymbols(env.rewritings, _))
+              checkAliasing(app, rewrittenArgs)
               val nfi = Application(
                 transform(callee, env),
-                args.map(arg => transform(exprOps.replaceFromSymbols(env.rewritings, arg), env))
+                rewrittenArgs.map(transform(_, env))
               ).copiedFrom(app)
 
               val params = from.map(tpe => ValDef.fresh("x", tpe))
-              val appEffects = params.zipWithIndex.collect { case (vd, i) if ftEffects(i) => Effect(vd.toVariable, Path.empty) }
+              val appEffects = params.zipWithIndex.collect {
+                case (vd, i) if ftEffects(i) => ModifyingEffect(vd.toVariable, Path.empty)
+              }
               val to = makeFunctionTypeExplicit(ft).asInstanceOf[FunctionType].to
               mapApplication(params, args, nfi, to, appEffects.toSet, env)
             } else {

@@ -1060,6 +1060,7 @@ object BitVectors {
 
   case class BV[T <: BVKind with Singleton](underlying: BitSet) {
 
+    def unary_~ :           BV[T]   = { ??? }
     def unary_- :           BV[T]   = { ??? }
     def +(other: BV[T]):    BV[T]   = { ??? }
     def -(other: BV[T]):    BV[T]   = { ??? }

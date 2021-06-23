@@ -12,6 +12,13 @@ package object genc {
     val parser = inox.OptionParsers.stringParser
   }
 
+  object optIncludes extends inox.OptionDef[Seq[String]] {
+    val name = "genc-includes"
+    val default = Seq()
+    val usageRhs = "file1.h,file2.h,..."
+    val parser = inox.OptionParsers.seqParser(inox.OptionParsers.stringParser)
+  }
+
   // FIXME: see leon definition
   def pathFromRoot(df: Definition)(implicit syms: Symbols): List[Definition] = List(df)
 }

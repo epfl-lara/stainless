@@ -251,4 +251,14 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
     if (s.isEmpty) ""
     else "-------------" + header + "-------------\n" + s + "\n\n"
   }
+
+  def paramInits(id: Identifier): Seq[FunDef] = {
+    symbols.functions.values.toSeq.filter {
+      case fd => fd.flags.exists {
+        case ClassParamInit(cid) => id == cid
+        case _ => false
+      }
+    }.sortBy(_.id.name.stripPrefix("apply$default$").toInt)
+  }
+
 }

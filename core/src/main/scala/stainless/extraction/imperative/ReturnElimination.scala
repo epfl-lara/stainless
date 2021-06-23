@@ -66,26 +66,31 @@ trait ReturnElimination
     case _ => None
   }(expr)
 
-  // when cf: ControlFlow[A, A]
-  // optimisation for `cf match { case Return(retValue) => retValue case Proceed(value) => value }`
-  def unwrap(expr: t.Expr): t.Expr = expr match {
-    case ControlFlowSort.Return(e) => e
-    case ControlFlowSort.Proceed(e) => e
-    case t.Let(vd, e, body) => t.Let(vd, e, unwrap(body)).setPos(expr)
-    case t.LetVar(vd, e, body) => t.LetVar(vd, e, unwrap(body)).setPos(expr)
-    case t.LetRec(fds, rest) => t.LetRec(fds, unwrap(rest)).setPos(expr)
-    case t.Assert(cond, err, body) => t.Assert(cond, err, unwrap(body)).setPos(expr)
-    case t.Assume(cond, body) => t.Assume(cond, unwrap(body)).setPos(expr)
-    case t.IfExpr(cond, e1, e2) => t.IfExpr(cond, unwrap(e1), unwrap(e2)).setPos(expr)
-    case t.MatchExpr(scrut, cases) => t.MatchExpr(scrut, cases.map {
-      case mc @ t.MatchCase(pat, optGuard, rhs) =>
-      t.MatchCase(pat, optGuard, unwrap(rhs)).copiedFrom(mc)
-    }).setPos(expr)
-    case t.Block(es, last) => t.Block(es, unwrap(last)).setPos(expr)
-    case _ =>
-      context.reporter.internalError(expr.getPos,
-        s"In ReturnElimination phase, ControlFlow unwrapping not supported for ${expr.asString}"
-      )
+  // when expr: ControlFlow[retT, retT]
+  // optimisation for `expr match { case Return(retValue) => retValue case Proceed(value) => value }`
+  def unwrap(expr: t.Expr, retT: t.Type): t.Expr = {
+    def rec(expr: t.Expr): t.Expr = expr match {
+      case ControlFlowSort.Return(e) => e
+      case ControlFlowSort.Proceed(e) => e
+      case t.Let(vd, e, body) => t.Let(vd, e, rec(body)).setPos(expr)
+      case t.LetVar(vd, e, body) => t.LetVar(vd, e, rec(body)).setPos(expr)
+      case t.LetRec(fds, rest) => t.LetRec(fds, rec(rest)).setPos(expr)
+      case t.Assert(cond, err, body) => t.Assert(cond, err, rec(body)).setPos(expr)
+      case t.Assume(cond, body) => t.Assume(cond, rec(body)).setPos(expr)
+      case t.IfExpr(cond, e1, e2) => t.IfExpr(cond, rec(e1), rec(e2)).setPos(expr)
+      case t.MatchExpr(scrut, cases) => t.MatchExpr(scrut, cases.map {
+        case mc @ t.MatchCase(pat, optGuard, rhs) =>
+        t.MatchCase(pat, optGuard, rec(rhs)).copiedFrom(mc)
+      }).setPos(expr)
+      case t.Block(es, last) => t.Block(es, rec(last)).setPos(expr)
+      case _ =>
+        ControlFlowSort.buildMatch(retT, retT, expr,
+          res => res,
+          res => res,
+          expr.getPos
+        )
+    }
+    rec(expr)
   }
 
   override protected def getContext(symbols: s.Symbols) = new TransformerContext(symbols)
@@ -108,10 +113,16 @@ trait ReturnElimination
         case s.Return(_) =>
           context.reporter.fatalError(e.getPos, "Keyword `return` is not allowed here")
 
-        case wh @ s.While(cond, body, optInv, flags) =>
+        case wh @ s.While(cond, body, optInv, optWeakInv, flags) =>
           val transformedCond = transform(cond)
           val transformedBody = transform(body)
           val transformedInv = optInv.map(transform)
+
+          if (optWeakInv.nonEmpty) {
+            context.reporter.fatalError(
+              "In ReturnElimination Phase, unexpected `noReturnInvariant` for a while loop without return"
+            )
+          }
 
           val id = FreshIdentifier(fd.id.name + "While")
           val tpe = t.FunctionType(Seq(), t.UnitType().copiedFrom(wh)).copiedFrom(wh)
@@ -185,7 +196,7 @@ trait ReturnElimination
         val newBody =
           specced.bodyOpt.map { body =>
             if (tc.exprHasReturn.contains(fa.id))
-              unwrap(transform(body, retType)).setPos(body)
+              unwrap(transform(body, retType), retTypeChecked).setPos(body)
             else
               transform(body, retType)
           }
@@ -221,7 +232,7 @@ trait ReturnElimination
       }
 
       override def transform(expr: s.Expr, currentType: s.Type): t.Expr = expr match {
-        case wh @ s.While(cond, body, optInv, flags) if exprHasReturn(expr) =>
+        case wh @ s.While(cond, body, optInv, optWeakInv, flags) if exprHasReturn(expr) =>
 
           val id = FreshIdentifier(fd.id.name + "While")
           val loopType = ControlFlowSort.controlFlow(SimpleWhileTransformer.transform(retType), t.UnitType())
@@ -245,6 +256,7 @@ trait ReturnElimination
           }
 
           val optInvChecked = optInv.map(SimpleWhileTransformer.transform)
+          val optWeakInvChecked = optWeakInv.map(SimpleWhileTransformer.transform)
           val condChecked = SimpleWhileTransformer.transform(cond)
 
           val cfWhileVal = t.ValDef.fresh("cfWhile", loopType.copiedFrom(wh)).copiedFrom(wh)
@@ -264,9 +276,10 @@ trait ReturnElimination
                   }.getOrElse(t.BooleanLiteral(true)),
                 ),
                 // when the while loop terminates without returning, we check the loop condition
-                // is false and that the invariant is true
+                // is false and that the invariant and weak invariant are true
                 _ => t.and(
                   optInvChecked.getOrElse(t.BooleanLiteral(true).copiedFrom(wh)),
+                  optWeakInvChecked.getOrElse(t.BooleanLiteral(true).copiedFrom(wh)),
                   t.Not(getFunctionalResult(condChecked).copiedFrom(cond)).copiedFrom(cond),
                 ),
                 wh.getPos
@@ -275,7 +288,7 @@ trait ReturnElimination
 
           val newSpecs =
             t.exprOps.Postcondition(newPost) +:
-            t.exprOps.Precondition(t.andJoin(optInvChecked.toSeq :+ getFunctionalResult(condChecked))).setPos(wh) +:
+            t.exprOps.Precondition(t.andJoin((optInvChecked.toSeq ++ optWeakInvChecked) :+ getFunctionalResult(condChecked))).setPos(wh) +:
             specs.map(_.transform(SimpleWhileTransformer))
 
           val fullBody = t.exprOps.reconstructSpecs(newSpecs, newBody, t.UnitType()).copiedFrom(wh)

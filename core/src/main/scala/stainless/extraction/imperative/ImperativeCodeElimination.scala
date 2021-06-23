@@ -56,7 +56,7 @@ trait ImperativeCodeElimination
           (bodyRes, scope, newSubst ++ bodyFun)
 
         case Assignment(v, e) =>
-          assert(varsInScope.contains(v))
+          assert(varsInScope.contains(v), s"varsInScope should contain ${v.asString}")
           val newVd = v.toVal.freshen
           val (rhsVal, rhsScope, rhsFun) = toFunction(e)
           val scope = (body: Expr) => rhsScope(Let(newVd, rhsVal, body).copiedFrom(expr))

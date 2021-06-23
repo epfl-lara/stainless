@@ -27,11 +27,12 @@ trait TransformerWithType extends oo.TransformerWithType {
         transform(value, fa.getField.get.getType)
       ).copiedFrom(expr)
 
-    case s.While(cond, body, pred, flags) =>
+    case s.While(cond, body, pred, weakInv, flags) =>
       t.While(
         transform(cond, s.BooleanType()),
         transform(body),
         pred map (transform(_, s.BooleanType())),
+        weakInv map (transform(_, s.BooleanType())),
         flags map (transform)
       ).copiedFrom(expr)
 
@@ -41,6 +42,15 @@ trait TransformerWithType extends oo.TransformerWithType {
         transform(array, at),
         transform(index, s.Int32Type()),
         transform(value, base)
+      ).copiedFrom(expr)
+
+    case s.Swap(array1, index1, array2, index2) =>
+      val at @ s.ArrayType(base) = widen(array1.getType)
+      t.Swap(
+        transform(array1, at),
+        transform(index1, s.Int32Type()),
+        transform(array2, at),
+        transform(index2, s.Int32Type()),
       ).copiedFrom(expr)
 
     case s.MutableMapWithDefault(from, to, default) =>
@@ -72,6 +82,9 @@ trait TransformerWithType extends oo.TransformerWithType {
 
     case s.FreshCopy(e) =>
       t.FreshCopy(transform(e, tpe)).copiedFrom(expr)
+
+    case s.Return(e) =>
+      t.Return(transform(e)).copiedFrom(expr)
 
     case s.BoolBitwiseAnd(lhs, rhs) =>
       t.BoolBitwiseAnd(transform(lhs, s.BooleanType()), transform(rhs, s.BooleanType())).copiedFrom(expr)
