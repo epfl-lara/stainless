@@ -490,14 +490,12 @@ trait EffectsAnalyzer extends oo.CachingPhase {
         And(cnd, e.setPos(cnd)).setPos(cnd)
       } getOrElse(cnd)
 
-      for {
-        t <- getTargets(thn, kind, path)
-        e <- getTargets(els, kind, path)
-        target <- Set(
-          Target(t.receiver, Some(conj(cnd, t.condition)), t.path),
-          Target(e.receiver, Some(notConj(cnd, e.condition)), e.path)
-        ) if target.isValid
-      } yield target
+      getTargets(thn, kind, path).map { t =>
+        Target(t.receiver, Some(conj(cnd, t.condition)),  t.path)
+      }.filter(_.isValid) ++
+      getTargets(els, kind, path).map { t =>
+        Target(t.receiver, Some(notConj(cnd, t.condition)),  t.path)
+      }.filter(_.isValid)
 
     case fi: FunctionInvocation if !symbols.isRecursive(fi.id) =>
       BodyWithSpecs(symbols.simplifyLets(fi.inlined))

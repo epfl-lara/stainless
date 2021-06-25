@@ -287,11 +287,11 @@ trait AssertionInjector extends transformers.TreeTransformer {
 
     case BVTyped(signed, size, BVShift(rhs, recons)) if strictArithmetic =>
       bindIfCannotDuplicate(rhs, "rhs") { rhsx =>
-        val lt = t.LessThan(rhsx, t.BVLiteral(signed, size, size).copiedFrom(rhs)).copiedFrom(rhs)
+        val leq = t.LessEquals(rhsx, t.BVLiteral(signed, size, size).copiedFrom(rhs)).copiedFrom(rhs)
         // positivity check is only relevant for signed bitvectors
         val pos = t.GreaterEquals(rhsx, zero(true, size, rhs.getPos)).copiedFrom(rhs)
         // TODO: explain why `checkOverflow` here and `strictArithmetic` in the guard?
-        val range = if (signed && checkOverflow) t.And(pos, lt).copiedFrom(rhs) else lt
+        val range = if (signed && checkOverflow) t.And(pos, leq).copiedFrom(rhs) else leq
         // Ensure the operation doesn't shift more bits than there are.
         t.Assert(range, Some("Shift semantics"), recons(rhsx)).copiedFrom(e)
       }
