@@ -19,6 +19,8 @@ private[genc] object ExtraOps {
 
   implicit class FunAbsOps(val fa: FunAbstraction)  {
     def isManuallyDefined = hasAnnotation(manualDefAnnotation)
+    def isExtern = fa.flags contains Extern
+    def isDropped = hasAnnotation("cCode.drop") || fa.flags.contains(Ghost)
 
     def extAnnotations: Map[String, Seq[Any]] = fa.flags.collect {
       case Annotation(s, args) => s -> args
