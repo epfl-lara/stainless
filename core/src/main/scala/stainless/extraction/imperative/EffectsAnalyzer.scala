@@ -197,7 +197,9 @@ trait EffectsAnalyzer extends oo.CachingPhase {
 
     def wrap(expr: Expr)(implicit symbols: Symbols) = Path.wrap(expr, path)
 
-    def prefixOf(that: Path): Boolean = {
+    // can return `true` even if `this` is not really a prefix of `that`
+    // (because of array and mutable map accessors)
+    def maybePrefixOf(that: Path): Boolean = {
       // TODO: more expressions can be added to be "provably different"
       def provablyDifferent(index1: Expr, index2: Expr): Boolean = (index1, index2) match {
         case (x1: Variable, Plus(x2: Variable, BVLiteral(_, _, size)))
@@ -220,6 +222,26 @@ trait EffectsAnalyzer extends oo.CachingPhase {
         case (TupleFieldAccessor(id1) +: xs1, TupleFieldAccessor(id2) +: xs2) if id1 == id2 =>
           rec(xs1, xs2)
         case (MutableMapAccessor(_) +: xs1, MutableMapAccessor(_) +: xs2) =>
+          rec(xs1, xs2)
+        case _ => false
+      }
+
+      rec(path, that.path)
+    }
+
+    // can return `false` even if `this` is a prefix of `that`
+    def definitelyPrefixOf(that: Path): Boolean = {
+      def rec(p1: Seq[Accessor], p2: Seq[Accessor]): Boolean = (p1, p2) match {
+        case (Seq(), _) => true
+        case (ArrayAccessor(index1) +: xs1, ArrayAccessor(index2) +: xs2) if index1 == index2 =>
+          rec(xs1, xs2)
+        case (ADTFieldAccessor(id1) +: xs1, ADTFieldAccessor(id2) +: xs2) if id1 == id2 =>
+          rec(xs1, xs2)
+        case (ClassFieldAccessor(id1) +: xs1, ClassFieldAccessor(id2) +: xs2) if id1 == id2 =>
+          rec(xs1, xs2)
+        case (TupleFieldAccessor(id1) +: xs1, TupleFieldAccessor(id2) +: xs2) if id1 == id2 =>
+          rec(xs1, xs2)
+        case (MutableMapAccessor(k1) +: xs1, MutableMapAccessor(k2) +: xs2) if k1 == k2 =>
           rec(xs1, xs2)
         case _ => false
       }
@@ -298,8 +320,11 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       case CombinedKind => CombinedEffect(receiver, path)
     }
 
-    def prefixOf(that: Target): Boolean =
-      receiver == that.receiver && (path prefixOf that.path)
+    def maybePrefixOf(that: Target): Boolean =
+      receiver == that.receiver && (path maybePrefixOf that.path)
+
+    def definitelyPrefixOf(that: Target): Boolean =
+      receiver == that.receiver && (path definitelyPrefixOf that.path)
 
     def wrap(implicit symbols: Symbols): Option[Expr] = path.wrap(receiver)
 
@@ -387,8 +412,11 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       res
     }
 
-    def prefixOf(that: Effect): Boolean =
-      receiver == that.receiver && (path prefixOf that.path)
+    def maybePrefixOf(that: Effect): Boolean =
+      receiver == that.receiver && (path maybePrefixOf that.path)
+
+    def definitelyPrefixOf(that: Effect): Boolean =
+      receiver == that.receiver && (path definitelyPrefixOf that.path)
 
     def toTarget: Target = Target(receiver, None, path)
 
@@ -801,11 +829,11 @@ trait EffectsAnalyzer extends oo.CachingPhase {
      * - a combined effect effect which is strict prefix of other effects remains a combined effect
      */
     val combinedEffects = truncatedEffects.flatMap { e =>
-      if (truncatedEffects.exists(e2 => e.path != e2.path && e2.prefixOf(e)))
+      if (truncatedEffects.exists(e2 => e.path != e2.path && e2.definitelyPrefixOf(e)))
         None // drop effects for which there is a strictly shorter (prefix) effect (regardless of effect kind)
       else if (truncatedEffects.exists(e2 => e.receiver == e2.receiver && e.path == e2.path && e.kind != e2.kind))
         Some(e.withKind(CombinedKind)) // different effects with the same receiver/path become combined effects
-      else if (truncatedEffects.exists(e2 => e.prefixOf(e2) && e.path != e2.path && e.kind == ReplacementKind))
+      else if (truncatedEffects.exists(e2 => e.definitelyPrefixOf(e2) && e.path != e2.path && e.kind == ReplacementKind))
         Some(e.withKind(CombinedKind)) // a top-level replacement, strict prefix of another effect, becomes a combined effect
       else
         Some(e)
