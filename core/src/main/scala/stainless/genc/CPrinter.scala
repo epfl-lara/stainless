@@ -23,7 +23,7 @@ class CPrinter(
       // We need to convert Set to Seq in order to use nary.
       val typeDefs = typeDefs0.toSeq
       val enums = enums0.toSeq.sortBy(_.id.name)
-      val functions = functions0.toSeq.sortBy(_.id.name)
+      val functions = functions0.toSeq.sortBy(_.id.name).filter(_.body != Right(""))
 
       def separator(s: String) = {
         "/* " + "-" * (43 - s.length) + " " + s + " " + "----- */\n\n"
