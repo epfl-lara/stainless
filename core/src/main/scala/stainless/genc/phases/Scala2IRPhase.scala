@@ -727,7 +727,9 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
           CIR.Assign(CIR.Binding(vd), rec(expr))
 
         case ct: ClassType =>
-          CIR.Assign(CIR.FieldAccess(rec(obj), rec(fieldId, withUnique = !ct.tcd.cd.isExported)), rec(expr))
+          val cd = ct.tcd.cd
+          val mangling = !cd.isExported && !cd.isManuallyTyped
+          CIR.Assign(CIR.FieldAccess(rec(obj), rec(fieldId, withUnique = mangling)), rec(expr))
 
         case typ =>
           reporter.fatalError(e.getPos, s"Unexpected type $typ. Only class type are expected to update fields")
@@ -824,7 +826,7 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
         val vd = CIR.ValDef(rec(fieldId, withUnique = false), field2.typ, isVar = field2.isVar)
         CIR.Binding(vd)
       } else {
-        CIR.FieldAccess(rec(obj), rec(fieldId, withUnique = !cd.isExported))
+        CIR.FieldAccess(rec(obj), rec(fieldId, withUnique = !cd.isExported && !cd.isManuallyTyped))
       }
 
     case tuple @ Tuple(args0) =>
