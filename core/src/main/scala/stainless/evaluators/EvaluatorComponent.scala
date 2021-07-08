@@ -93,7 +93,11 @@ class EvaluatorRun(override val pipeline: extraction.StainlessPipeline)
     }
 
     // Build an evaluator once and only if there is something to evaluate
-    lazy val evaluator = p.getSemantics.getEvaluator
+    lazy val evaluator = {
+      val e = p.getSemantics.getEvaluator
+      reporter.info(s"using ${Evaluator.kind}")
+      e
+    }
 
     // Evaluate an expression, logging events
     def evaluate(title: String, e: Expr): Either[String, Expr] = evaluator eval e match {
