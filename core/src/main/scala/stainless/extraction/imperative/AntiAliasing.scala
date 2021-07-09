@@ -603,6 +603,9 @@ trait AntiAliasing
         case Target(receiver, None, path) =>
           rec(receiver, path.toSeq)
 
+        case Target(receiver, Some(condition), path) if effects(condition).nonEmpty =>
+          throw FatalError(s"Effects are not allowed in condition of effects: ${condition.asString}")
+
         case Target(receiver, Some(condition), path) =>
           Annotated(
             AsInstanceOf(

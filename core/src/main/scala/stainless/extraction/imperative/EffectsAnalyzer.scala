@@ -161,30 +161,37 @@ trait EffectsAnalyzer extends oo.CachingPhase {
 
   sealed abstract class Accessor {
     def asString(implicit ctx: inox.Context): String
+    def bind(x: ValDef, e: Expr): Accessor
   }
 
   case class ADTFieldAccessor(selector: Identifier) extends Accessor {
     def asString(implicit ctx: inox.Context) = s"ADTFieldAccessor(${selector.asString})"
+    def bind(x: ValDef, e: Expr): Accessor = this
   }
 
   case class ClassFieldAccessor(selector: Identifier) extends Accessor {
     def asString(implicit ctx: inox.Context) = s"ClassFieldAccessor(${selector.asString})"
+    def bind(x: ValDef, e: Expr): Accessor = this
   }
 
   case class ArrayAccessor(index: Expr) extends Accessor {
     def asString(implicit ctx: inox.Context) = s"ArrayAccessor(${index.asString})"
+    def bind(x: ValDef, e: Expr): Accessor = ArrayAccessor(bindNonValue(x, e, index))
   }
 
   case object UnknownArrayAccessor extends Accessor {
     def asString(implicit ctx: inox.Context) = s"UnknownArrayAccessor"
+    def bind(x: ValDef, e: Expr): Accessor = this
   }
 
   case class MutableMapAccessor(index: Expr) extends Accessor {
     def asString(implicit ctx: inox.Context) = s"MutableMapAccessor(${index.asString})"
+    def bind(x: ValDef, e: Expr): Accessor = ArrayAccessor(bindNonValue(x, e, index))
   }
 
   case class TupleFieldAccessor(index: Int) extends Accessor {
     def asString(implicit ctx: inox.Context) = s"TupleFieldAccessor($index)"
+    def bind(x: ValDef, e: Expr): Accessor = this
   }
 
   case class Path(path: Seq[Accessor]) {
@@ -196,6 +203,8 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     def isEmpty: Boolean = path.isEmpty
 
     def wrap(expr: Expr)(implicit symbols: Symbols) = Path.wrap(expr, path)
+
+    def bind(x: ValDef, e: Expr) = Path(path.map(_.bind(x, e)))
 
     // can return `true` even if `this` is not really a prefix of `that`
     // (because of array and mutable map accessors)
@@ -299,8 +308,28 @@ trait EffectsAnalyzer extends oo.CachingPhase {
 
   }
 
+  // values that do not need binding
+  private def isValue(e: Expr): Boolean = e match {
+    case _: Variable => true
+    case UnitLiteral() => true
+    case BooleanLiteral(_) => true
+    case IntegerLiteral(_) => true
+    case BVLiteral(_, _, _) => true
+    case Tuple(es) => es.forall(isValue)
+    case ADT(_, _, args) => args.forall(isValue)
+    case _ => false
+  }
+
+  def bindNonValue(x: ValDef, e: Expr, body: Expr): Expr = {
+    if (isValue(e)) exprOps.replaceFromSymbols(Map(x -> e), body)
+    else if (exprOps.variablesOf(body).contains(x.toVariable)) Let(x, e, body)
+    else body
+  }
+
   case class Target(receiver: Variable, condition: Option[Expr], path: Path) {
     def +(elem: Accessor): Target = Target(receiver, condition, path :+ elem)
+
+    def bind(x: ValDef, e: Expr) = Target(receiver, condition.map(cond => bindNonValue(x, e, cond)), path.bind(x, e))
 
     def append(that: Target): Target = (condition, that.condition) match {
       case (condition, None) =>
@@ -526,8 +555,9 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       }.filter(_.isValid)
 
     case fi: FunctionInvocation if !symbols.isRecursive(fi.id) =>
-      BodyWithSpecs(symbols.simplifyLets(fi.inlined))
-        .bodyOpt
+      val specced = BodyWithSpecs(symbols.simplifyLets(fi.inlined))
+      specced.bodyOpt
+        .map(specced.wrapLets)
         .map(getTargets(_, kind, path))
         .getOrElse(Set.empty)
 
@@ -564,7 +594,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     case Block(_, last) => getTargets(last, kind, path)
 
     case Let(vd, e, b) if !symbols.isMutableType(vd.tpe) =>
-      getTargets(b, kind, path)
+      getTargets(b, kind, path).map(_.bind(vd, e))
 
     case Let(vd, e, b) =>
       val eEffects = getTargets(e, kind, path)

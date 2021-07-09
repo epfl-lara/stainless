@@ -43,7 +43,7 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
         case _ => super.transform(expr)
       }
 
-      // values that can be inlined directly, without being let-bound
+      // function bodies that can be inlined directly, without bindings
       private def isValue(e: Expr): Boolean = e match {
         case UnitLiteral() => true
         case BooleanLiteral(_) => true
