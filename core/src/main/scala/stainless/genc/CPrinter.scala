@@ -18,6 +18,8 @@ class CPrinter(
 ) {
   def print(tree: Tree) = pp(tree)(PrinterContext(indent = 0, printer = this, previous = None, current = tree))
 
+  private def purity(isPure: Boolean): String = if (isPure) "STAINLESS_FUNC_PURE " else ""
+
   private[genc] def pp(tree: Tree)(implicit pctx: PrinterContext): Unit = tree match {
     case Prog(includes, decls, typeDefs0, enums0, types, functions0) =>
       // We need to convert Set to Seq in order to use nary.
@@ -93,6 +95,22 @@ class CPrinter(
         c"""|#ifndef __${capitalized}__
             |#define __${capitalized}__
             |
+            |/* --------------------------- preprocessor macros ----- */
+            |
+            |#define STAINLESS_FUNC_PURE
+            |#if defined(__cplusplus)
+            |#undef STAINLESS_FUNC_PURE
+            |#define STAINLESS_FUNC_PURE _Pragma("FUNC_IS_PURE;")
+            |#elif __GNUC__>=3
+            |#undef STAINLESS_FUNC_PURE
+            |#define STAINLESS_FUNC_PURE __attribute__((__pure__))
+            |#elif defined(__has_attribute)
+            |#if __has_attribute(pure)
+            |#undef STAINLESS_FUNC_PURE
+            |#define STAINLESS_FUNC_PURE __attribute__((__pure__))
+            |#endif
+            |#endif
+            |
             |${nary(
               buildIncludes(includes),
               opening = separator("includes"),
@@ -128,12 +146,11 @@ class CPrinter(
       }
 
     // Manually defined function
-    case Fun(id, _, _, Right(function), _) =>
+    case Fun(id, _, _, Right(function), _, _) =>
       val fun = function.replaceAllLiterally("__FUNCTION__", id.name)
       c"$fun"
 
-    // Auto-generated function
-    case fun @ Fun(_, _, _, Left(body), _) =>
+    case fun @ Fun(_, _, _, Left(body), _, isPure) =>
       c"""|${FunSign(fun)} {
           |    $body
           |}"""
@@ -284,11 +301,11 @@ class CPrinter(
     case TypeId(FixedArrayType(base, length), id) => c"$base $id[$length]"
     case TypeId(typ, id) => c"$typ $id"
 
-    case FunSign(Fun(id, FunType(retret, retparamTypes), params, _, _)) =>
-      c"$retret (*$id(${FunSignParams(params)}))(${FunSignParams(retparamTypes)})"
+    case FunSign(Fun(id, FunType(retret, retparamTypes), params, _, _, isPure)) =>
+      c"${purity(isPure)}$retret (*$id(${FunSignParams(params)}))(${FunSignParams(retparamTypes)})"
 
-    case FunSign(Fun(id, returnType, params, _, _)) =>
-      c"$returnType $id(${FunSignParams(params)})"
+    case FunSign(Fun(id, returnType, params, _, _, isPure)) =>
+      c"${purity(isPure)}$returnType $id(${FunSignParams(params)})"
 
     case FunSignParams(Seq()) => c"void"
     case FunSignParams(params) => c"${nary(params)}"

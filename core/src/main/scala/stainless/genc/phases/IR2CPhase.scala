@@ -88,7 +88,7 @@ private class IR2CImpl(val ctx: inox.Context) {
     val params = (fd.ctx ++ fd.params).map(rec(_))
     val body = rec(fd.body)
 
-    C.Fun(id, returnType, params, body, fd.isExported)
+    C.Fun(id, returnType, params, body, fd.isExported, fd.isPure)
   })
 
   private def rec(fb: FunBody): Either[C.Block, String] = fb match {
