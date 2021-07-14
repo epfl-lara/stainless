@@ -55,7 +55,7 @@ object CAST { // C Abstract Syntax Tree
 
   // Manually defined function through the cCode.function annotation have a string
   // for signature+body instead of the usual Stmt AST exclusively for the body
-  case class Fun(id: Id, returnType: Type, params: Seq[Var], body: Either[Block, String], isExported: Boolean) extends Def
+  case class Fun(id: Id, returnType: Type, params: Seq[Var], body: Either[Block, String], isExported: Boolean, isPure: Boolean) extends Def
 
   case class Id(name: String) extends Def {
     // TODO add check on name's domain for conformance

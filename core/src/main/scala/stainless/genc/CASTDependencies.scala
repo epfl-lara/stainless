@@ -26,10 +26,10 @@ class CASTTraverser(implicit ctx: inox.Context) {
     case Struct(id, fields, _) =>
       id +: fields
 
-    case Fun(id, returnType, params, Left(block), _) =>
+    case Fun(id, returnType, params, Left(block), _, _) =>
       id +: returnType +: params :+ block
 
-    case Fun(id, returnType, params, _, _) =>
+    case Fun(id, returnType, params, _, _, _) =>
       id +: returnType +: params
 
     case Id(name) =>
@@ -151,7 +151,7 @@ object CASTDependencies {
       }
     }
 
-    for (Fun(_, returnType, params, _, _) <- prog.functions.filter(_.isExported)) {
+    for (Fun(_, returnType, params, _, _, _) <- prog.functions.filter(_.isExported)) {
       typeCollector.traverse(returnType)
       params.foreach(typeCollector.traverse)
     }
