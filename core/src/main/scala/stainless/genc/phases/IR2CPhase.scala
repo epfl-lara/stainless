@@ -98,6 +98,8 @@ private class IR2CImpl(val ctx: inox.Context) {
     case FunBodyManual(includes, body) =>
       includes foreach { i => register(C.Include(i)) }
       Right(body)
+
+    case FunDropped => Right("")
   }
 
   private def rec(cd: ClassDef): Unit = {

@@ -218,7 +218,8 @@ trait MainHelpers extends inox.MainHelpers { self =>
           reporter.debug(e)(frontend.DebugSectionStack)
           reporter.error(e.getMessage)
       } finally {
-          compiler = newCompiler()
+        reporter.reset()
+        compiler = newCompiler()
       }
 
         if (isWatchModeOn(ctx)) {

@@ -280,8 +280,8 @@ trait AntiAliasing
             for (target1 <- targets1)
               for ((arg2, targets2) <- otherTargets)
                 for (target2 <- targets2)
-                  if (target1.prefixOf(target2) ||
-                      target2.prefixOf(target1))
+                  if (target1.maybePrefixOf(target2) ||
+                      target2.maybePrefixOf(target1))
                     throw MalformedStainlessCode(expr,
                       s"Illegal passing of aliased parameters ${arg1.asString} (with target: ${target1.asString}) " +
                       s"and ${arg2.asString} (with target: ${target2.asString})"
@@ -602,6 +602,9 @@ trait AntiAliasing
       target match {
         case Target(receiver, None, path) =>
           rec(receiver, path.toSeq)
+
+        case Target(receiver, Some(condition), path) if effects(condition).nonEmpty =>
+          throw FatalError(s"Effects are not allowed in condition of effects: ${condition.asString}")
 
         case Target(receiver, Some(condition), path) =>
           Annotated(
