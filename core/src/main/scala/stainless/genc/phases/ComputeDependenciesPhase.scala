@@ -82,13 +82,6 @@ trait ComputeDependenciesPhase extends LeonPipeline[Symbols, Dependencies] {
     def validateFunAnnotations(fd: FunDef): Unit = {
       val pos = fd.getPos
 
-      // Those next three tests could be carried out on all functions, not just dependencies
-      if (fd.isExtern && !fd.isManuallyDefined && !fd.isDropped)
-        reporter.fatalError(
-          pos,
-          s"Extern functions (${fd.id.asString}) need to be either manually defined or dropped"
-        )
-
       if (fd.isManuallyDefined && fd.isDropped)
         reporter.fatalError(
           pos,
@@ -105,13 +98,6 @@ trait ComputeDependenciesPhase extends LeonPipeline[Symbols, Dependencies] {
         reporter.fatalError(
           pos,
           s"Generic functions (${fd.id.asString}) cannot be exported"
-        )
-
-      // This last test is specific to dependencies.
-      if (fd.isDropped)
-        reporter.fatalError(
-          pos,
-          s"Dropped functions (${fd.id.asString}) shall not be used"
         )
     }
 

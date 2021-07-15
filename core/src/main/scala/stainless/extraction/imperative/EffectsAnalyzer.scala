@@ -161,30 +161,37 @@ trait EffectsAnalyzer extends oo.CachingPhase {
 
   sealed abstract class Accessor {
     def asString(implicit ctx: inox.Context): String
+    def bind(x: ValDef, e: Expr): Accessor
   }
 
   case class ADTFieldAccessor(selector: Identifier) extends Accessor {
     def asString(implicit ctx: inox.Context) = s"ADTFieldAccessor(${selector.asString})"
+    def bind(x: ValDef, e: Expr): Accessor = this
   }
 
   case class ClassFieldAccessor(selector: Identifier) extends Accessor {
     def asString(implicit ctx: inox.Context) = s"ClassFieldAccessor(${selector.asString})"
+    def bind(x: ValDef, e: Expr): Accessor = this
   }
 
   case class ArrayAccessor(index: Expr) extends Accessor {
     def asString(implicit ctx: inox.Context) = s"ArrayAccessor(${index.asString})"
+    def bind(x: ValDef, e: Expr): Accessor = ArrayAccessor(bindNonValue(x, e, index))
   }
 
   case object UnknownArrayAccessor extends Accessor {
     def asString(implicit ctx: inox.Context) = s"UnknownArrayAccessor"
+    def bind(x: ValDef, e: Expr): Accessor = this
   }
 
   case class MutableMapAccessor(index: Expr) extends Accessor {
     def asString(implicit ctx: inox.Context) = s"MutableMapAccessor(${index.asString})"
+    def bind(x: ValDef, e: Expr): Accessor = ArrayAccessor(bindNonValue(x, e, index))
   }
 
   case class TupleFieldAccessor(index: Int) extends Accessor {
     def asString(implicit ctx: inox.Context) = s"TupleFieldAccessor($index)"
+    def bind(x: ValDef, e: Expr): Accessor = this
   }
 
   case class Path(path: Seq[Accessor]) {
@@ -197,7 +204,11 @@ trait EffectsAnalyzer extends oo.CachingPhase {
 
     def wrap(expr: Expr)(implicit symbols: Symbols) = Path.wrap(expr, path)
 
-    def prefixOf(that: Path): Boolean = {
+    def bind(x: ValDef, e: Expr) = Path(path.map(_.bind(x, e)))
+
+    // can return `true` even if `this` is not really a prefix of `that`
+    // (because of array and mutable map accessors)
+    def maybePrefixOf(that: Path): Boolean = {
       // TODO: more expressions can be added to be "provably different"
       def provablyDifferent(index1: Expr, index2: Expr): Boolean = (index1, index2) match {
         case (x1: Variable, Plus(x2: Variable, BVLiteral(_, _, size)))
@@ -220,6 +231,26 @@ trait EffectsAnalyzer extends oo.CachingPhase {
         case (TupleFieldAccessor(id1) +: xs1, TupleFieldAccessor(id2) +: xs2) if id1 == id2 =>
           rec(xs1, xs2)
         case (MutableMapAccessor(_) +: xs1, MutableMapAccessor(_) +: xs2) =>
+          rec(xs1, xs2)
+        case _ => false
+      }
+
+      rec(path, that.path)
+    }
+
+    // can return `false` even if `this` is a prefix of `that`
+    def definitelyPrefixOf(that: Path): Boolean = {
+      def rec(p1: Seq[Accessor], p2: Seq[Accessor]): Boolean = (p1, p2) match {
+        case (Seq(), _) => true
+        case (ArrayAccessor(index1) +: xs1, ArrayAccessor(index2) +: xs2) if index1 == index2 =>
+          rec(xs1, xs2)
+        case (ADTFieldAccessor(id1) +: xs1, ADTFieldAccessor(id2) +: xs2) if id1 == id2 =>
+          rec(xs1, xs2)
+        case (ClassFieldAccessor(id1) +: xs1, ClassFieldAccessor(id2) +: xs2) if id1 == id2 =>
+          rec(xs1, xs2)
+        case (TupleFieldAccessor(id1) +: xs1, TupleFieldAccessor(id2) +: xs2) if id1 == id2 =>
+          rec(xs1, xs2)
+        case (MutableMapAccessor(k1) +: xs1, MutableMapAccessor(k2) +: xs2) if k1 == k2 =>
           rec(xs1, xs2)
         case _ => false
       }
@@ -277,8 +308,28 @@ trait EffectsAnalyzer extends oo.CachingPhase {
 
   }
 
+  // values that do not need binding
+  private def isValue(e: Expr): Boolean = e match {
+    case _: Variable => true
+    case UnitLiteral() => true
+    case BooleanLiteral(_) => true
+    case IntegerLiteral(_) => true
+    case BVLiteral(_, _, _) => true
+    case Tuple(es) => es.forall(isValue)
+    case ADT(_, _, args) => args.forall(isValue)
+    case _ => false
+  }
+
+  def bindNonValue(x: ValDef, e: Expr, body: Expr): Expr = {
+    if (isValue(e)) exprOps.replaceFromSymbols(Map(x -> e), body)
+    else if (exprOps.variablesOf(body).contains(x.toVariable)) Let(x, e, body)
+    else body
+  }
+
   case class Target(receiver: Variable, condition: Option[Expr], path: Path) {
     def +(elem: Accessor): Target = Target(receiver, condition, path :+ elem)
+
+    def bind(x: ValDef, e: Expr) = Target(receiver, condition.map(cond => bindNonValue(x, e, cond)), path.bind(x, e))
 
     def append(that: Target): Target = (condition, that.condition) match {
       case (condition, None) =>
@@ -298,8 +349,11 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       case CombinedKind => CombinedEffect(receiver, path)
     }
 
-    def prefixOf(that: Target): Boolean =
-      receiver == that.receiver && (path prefixOf that.path)
+    def maybePrefixOf(that: Target): Boolean =
+      receiver == that.receiver && (path maybePrefixOf that.path)
+
+    def definitelyPrefixOf(that: Target): Boolean =
+      receiver == that.receiver && (path definitelyPrefixOf that.path)
 
     def wrap(implicit symbols: Symbols): Option[Expr] = path.wrap(receiver)
 
@@ -387,8 +441,11 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       res
     }
 
-    def prefixOf(that: Effect): Boolean =
-      receiver == that.receiver && (path prefixOf that.path)
+    def maybePrefixOf(that: Effect): Boolean =
+      receiver == that.receiver && (path maybePrefixOf that.path)
+
+    def definitelyPrefixOf(that: Effect): Boolean =
+      receiver == that.receiver && (path definitelyPrefixOf that.path)
 
     def toTarget: Target = Target(receiver, None, path)
 
@@ -490,18 +547,17 @@ trait EffectsAnalyzer extends oo.CachingPhase {
         And(cnd, e.setPos(cnd)).setPos(cnd)
       } getOrElse(cnd)
 
-      for {
-        t <- getTargets(thn, kind, path)
-        e <- getTargets(els, kind, path)
-        target <- Set(
-          Target(t.receiver, Some(conj(cnd, t.condition)), t.path),
-          Target(e.receiver, Some(notConj(cnd, e.condition)), e.path)
-        ) if target.isValid
-      } yield target
+      getTargets(thn, kind, path).map { t =>
+        Target(t.receiver, Some(conj(cnd, t.condition)),  t.path)
+      }.filter(_.isValid) ++
+      getTargets(els, kind, path).map { t =>
+        Target(t.receiver, Some(notConj(cnd, t.condition)),  t.path)
+      }.filter(_.isValid)
 
     case fi: FunctionInvocation if !symbols.isRecursive(fi.id) =>
-      BodyWithSpecs(symbols.simplifyLets(fi.inlined))
-        .bodyOpt
+      val specced = BodyWithSpecs(symbols.simplifyLets(fi.inlined))
+      specced.bodyOpt
+        .map(specced.wrapLets)
         .map(getTargets(_, kind, path))
         .getOrElse(Set.empty)
 
@@ -538,7 +594,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     case Block(_, last) => getTargets(last, kind, path)
 
     case Let(vd, e, b) if !symbols.isMutableType(vd.tpe) =>
-      getTargets(b, kind, path)
+      getTargets(b, kind, path).map(_.bind(vd, e))
 
     case Let(vd, e, b) =>
       val eEffects = getTargets(e, kind, path)
@@ -803,11 +859,11 @@ trait EffectsAnalyzer extends oo.CachingPhase {
      * - a combined effect effect which is strict prefix of other effects remains a combined effect
      */
     val combinedEffects = truncatedEffects.flatMap { e =>
-      if (truncatedEffects.exists(e2 => e.path != e2.path && e2.prefixOf(e)))
+      if (truncatedEffects.exists(e2 => e.path != e2.path && e2.definitelyPrefixOf(e)))
         None // drop effects for which there is a strictly shorter (prefix) effect (regardless of effect kind)
       else if (truncatedEffects.exists(e2 => e.receiver == e2.receiver && e.path == e2.path && e.kind != e2.kind))
         Some(e.withKind(CombinedKind)) // different effects with the same receiver/path become combined effects
-      else if (truncatedEffects.exists(e2 => e.prefixOf(e2) && e.path != e2.path && e.kind == ReplacementKind))
+      else if (truncatedEffects.exists(e2 => e.definitelyPrefixOf(e2) && e.path != e2.path && e.kind == ReplacementKind))
         Some(e.withKind(CombinedKind)) // a top-level replacement, strict prefix of another effect, becomes a combined effect
       else
         Some(e)
