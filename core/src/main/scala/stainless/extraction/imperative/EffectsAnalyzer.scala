@@ -186,7 +186,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
 
   case class MutableMapAccessor(index: Expr) extends Accessor {
     def asString(implicit ctx: inox.Context) = s"MutableMapAccessor(${index.asString})"
-    def bind(x: ValDef, e: Expr): Accessor = ArrayAccessor(bindNonValue(x, e, index))
+    def bind(x: ValDef, e: Expr): Accessor = MutableMapAccessor(bindNonValue(x, e, index))
   }
 
   case class TupleFieldAccessor(index: Int) extends Accessor {

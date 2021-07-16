@@ -604,7 +604,7 @@ trait AntiAliasing
           rec(receiver, path.toSeq)
 
         case Target(receiver, Some(condition), path) if effects(condition).nonEmpty =>
-          throw FatalError(s"Effects are not allowed in condition of effects: ${condition.asString}")
+          throw MalformedStainlessCode(condition, s"Effects are not allowed in condition of effects: ${condition.asString}")
 
         case Target(receiver, Some(condition), path) =>
           Annotated(
