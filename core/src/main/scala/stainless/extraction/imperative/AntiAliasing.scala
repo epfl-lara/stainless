@@ -441,7 +441,6 @@ trait AntiAliasing
             if (targets.exists(target => !env.bindings.contains(target.receiver.toVal)))
               throw MalformedStainlessCode(as, "Unsupported form of field assignment")
 
-
             Block(targets.toSeq map { target =>
               val applied = updatedTarget(target, v)
               transform(Assignment(target.receiver, applied).copiedFrom(as), env)
