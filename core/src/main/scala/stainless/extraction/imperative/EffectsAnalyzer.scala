@@ -598,7 +598,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
 
     case Let(vd, e, b) =>
       val eEffects = getTargets(e, kind, path)
-      getTargets(b, kind, path).flatMap { be =>
+      getTargets(b, kind, path).map(_.bind(vd, e)).flatMap { be =>
         if (be.receiver == vd.toVariable) eEffects.map(_ append be)
         else Set(be)
       }
