@@ -43,13 +43,16 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
         case _ => super.transform(expr)
       }
 
-      // function bodies that can be inlined directly, without bindings
+      // values that can be inlined directly, without being let-bound
       private def isValue(e: Expr): Boolean = e match {
+        case _: Variable => true
         case UnitLiteral() => true
         case BooleanLiteral(_) => true
         case IntegerLiteral(_) => true
         case BVLiteral(_, _, _) => true
         case Tuple(es) => es.forall(isValue)
+        case FiniteArray(args, base) => args.forall(isValue)
+        case LargeArray(elems, default, _, _) => elems.map(_._2).forall(isValue) && isValue(default)
         case ADT(_, _, args) => args.forall(isValue)
         case _ => false
       }
@@ -68,8 +71,9 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
         if (!willInline) return fi
 
         val specced = BodyWithSpecs(tfd.fullBody)
-        if (specced.specs.isEmpty && isValue(tfd.fullBody)) {
-          exprOps.freshenLocals(tfd.fullBody)
+        // simple path for inlining when all arguments are values, and the function's body doesn't contain other function invocations
+        if (specced.specs.isEmpty && args.forall(isValue) && !exprOps.containsFunctionCalls(tfd.fullBody)) {
+          exprOps.replaceFromSymbols(tfd.params.zip(args).toMap, exprOps.freshenLocals(tfd.fullBody))
         } else {
           // We need to keep the body as-is for `@synthetic` methods, such as
           // `copy` or implicit conversions for implicit classes, in order to
