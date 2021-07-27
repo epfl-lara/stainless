@@ -48,6 +48,7 @@ trait LeonInlining extends CachingPhase with extraction.IdentitySorts with oo.Id
 
       // values that can be inlined directly, without being let-bound
       private def isValue(e: Expr): Boolean = e match {
+        case _: Variable => true
         case UnitLiteral() => true
         case BooleanLiteral(_) => true
         case IntegerLiteral(_) => true
@@ -75,8 +76,9 @@ trait LeonInlining extends CachingPhase with extraction.IdentitySorts with oo.Id
         if (!willInline) return fi
 
         val specced = BodyWithSpecs(tfd.fullBody)
-        if (specced.specs.isEmpty && isValue(tfd.fullBody)) {
-          exprOps.freshenLocals(tfd.fullBody)
+        // simple path for inlining when all arguments are values, and the function's body doesn't contain other function invocations
+        if (specced.specs.isEmpty && args.forall(isValue) && !exprOps.containsFunctionCalls(tfd.fullBody)) {
+          exprOps.replaceFromSymbols(tfd.params.zip(args).toMap, exprOps.freshenLocals(tfd.fullBody))
         } else {
           // We need to keep the body as-is for `@synthetic` methods, such as
           // `copy` or implicit conversions for implicit classes, in order to
