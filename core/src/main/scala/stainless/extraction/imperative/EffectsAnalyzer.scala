@@ -597,9 +597,8 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       getTargets(b, kind, path).map(_.bind(vd, e))
 
     case Let(vd, e, b) =>
-      val eEffects = getTargets(e, kind, path)
       getTargets(b, kind, path).map(_.bind(vd, e)).flatMap { be =>
-        if (be.receiver == vd.toVariable) eEffects.map(_ append be)
+        if (be.receiver == vd.toVariable) getTargets(e, kind, be.path.path)
         else Set(be)
       }
 
@@ -721,6 +720,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
 
     def rec(expr: Expr, env: Map[Variable, Effect]): Set[Effect] = expr match {
       case Let(vd, e, b) if symbols.isMutableType(vd.tpe) =>
+
         if ((variablesOf(e) & variablesOf(b)).forall(v => !isMutableType(v.tpe))) {
           val effe = rec(e, env)
           val newEnv = (variablesOf(b) ++ freeVars).map(v => v -> ModifyingEffect(v, Path.empty)).toMap
