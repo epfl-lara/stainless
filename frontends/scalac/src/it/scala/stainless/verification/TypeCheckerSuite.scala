@@ -67,7 +67,7 @@ class SMTZ3TypeCheckerSuite extends TypeCheckerSuite {
 
   override def configurations = super.configurations.map {
     seq => Seq(
-      inox.optSelectedSolvers(Set("smt-z3:z3-4.8.10")),
+      inox.optSelectedSolvers(Set("smt-z3:z3-4.8.12")),
       inox.solvers.optCheckModels(true),
       verification.optVCCache(true),
     ) ++ seq

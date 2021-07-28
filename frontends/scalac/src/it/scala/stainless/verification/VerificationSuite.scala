@@ -40,9 +40,6 @@ trait VerificationSuite extends ComponentTestSuite {
     case "verification/valid/BigIntRing" => Ignore
     case "verification/valid/InnerClasses4" => Ignore
 
-    // Z3 4.8.10 and CVC4 1.8 time out but can't find a counter-example
-    case "verification/invalid/BadConcRope" => Ignore
-
     case _ => super.filter(ctx, name)
   }
 
@@ -64,7 +61,7 @@ trait VerificationSuite extends ComponentTestSuite {
 class SMTZ3VerificationSuite extends VerificationSuite {
   override def configurations = super.configurations.map {
     seq => Seq(
-      inox.optSelectedSolvers(Set("smt-z3:z3-4.8.10")),
+      inox.optSelectedSolvers(Set("smt-z3:z3-4.8.12")),
       inox.solvers.optCheckModels(true)
     ) ++ seq
   }
