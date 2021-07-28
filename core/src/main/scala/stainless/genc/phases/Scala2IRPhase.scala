@@ -889,8 +889,6 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
           if (arrayType.base.containsArray)
             reporter.fatalError(array.getPos, s"VLAs cannot have elements being/containing other array")
 
-          reporter.warning(array.getPos, s"VLAs should be avoid according to MISRA C rules")
-
           val value = rec(default)
           CIR.ArrayAllocVLA(arrayType, length, value)
       }
