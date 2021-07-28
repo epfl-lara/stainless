@@ -77,7 +77,7 @@ abstract class Transformer[From <: IR, To <: IR](final val from: From, final val
   }
 
   protected def rec(fb: FunBody)(implicit env: Env): to.FunBody = (fb: @unchecked) match {
-    case FunDropped => to.FunDropped
+    case FunDropped(isAccessor) => to.FunDropped(isAccessor)
     case FunBodyAST(body) => to.FunBodyAST(rec(body))
     case FunBodyManual(includes, body) => to.FunBodyManual(includes, body)
   }

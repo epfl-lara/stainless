@@ -99,7 +99,7 @@ private class IR2CImpl(val ctx: inox.Context) {
       includes foreach { i => register(C.Include(i)) }
       Right(body)
 
-    case FunDropped => Right("")
+    case FunDropped(_) => Right("")
   }
 
   private def rec(cd: ClassDef): Unit = {
@@ -224,6 +224,8 @@ private class IR2CImpl(val ctx: inox.Context) {
       C.buildBlock(lenDecl :: bufferDecl :: varDecl :: Nil)
 
     case Decl(vd, Some(value)) => C.Decl(rec(vd.id), rec(vd.getType), Some(rec(value)))
+
+    case App(FunVal(fd), Seq(), Seq()) if fd.body == FunDropped(true) => C.Binding(rec(fd.id))
 
     case App(callable, extra, args) => C.Call(rec(callable), (extra ++ args).map(rec(_)))
 
