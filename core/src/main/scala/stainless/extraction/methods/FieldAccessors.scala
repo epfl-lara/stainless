@@ -25,9 +25,7 @@ trait FieldAccessors extends oo.CachingPhase
 
     implicit private val syms = symbols
 
-    def dropAccessor(fd: FunDef): Boolean = isConcreteAccessor(fd) || isExternAccessor(fd)
-    def isConcreteAccessor(fd: FunDef): Boolean = fd.isAccessor && !fd.isAbstract
-    def isExternAccessor(fd: FunDef): Boolean = fd.isAccessor && fd.isExtern
+    def isConcreteAccessor(fd: FunDef): Boolean = fd.isAccessor && !fd.isAbstract && !fd.body.isEmpty
 
     override def transform(e: s.Expr): t.Expr = e match {
       case FunctionInvocation(id, tps, args) if isConcreteAccessor(symbols.getFunction(id)) =>
@@ -52,7 +50,7 @@ trait FieldAccessors extends oo.CachingPhase
   override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult]({
     (fd, ctx) => FunctionKey(fd) + SetKey(ctx.symbols.dependencies(fd.id)
       .flatMap(id => ctx.symbols.lookupFunction(id))
-      .filter(ctx.dropAccessor)
+      .filter(ctx.isConcreteAccessor)
       .map(_.id)
     )(ctx.symbols)
   })
@@ -61,7 +59,7 @@ trait FieldAccessors extends oo.CachingPhase
     symbols.withFunctions(functions.flatten)
 
   override protected def extractFunction(context: TransformerContext, fd: s.FunDef): Option[t.FunDef] =
-    if (context.dropAccessor(fd)) None else Some(context.transform(fd))
+    if (context.isConcreteAccessor(fd)) None else Some(context.transform(fd))
 
   override protected def extractSort(context: TransformerContext, sort: s.ADTSort) = context.transform(sort)
   override protected def extractClass(context: TransformerContext, cd: s.ClassDef) = context.transform(cd)
