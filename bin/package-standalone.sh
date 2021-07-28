@@ -14,7 +14,7 @@ if [[ $(git diff --stat) != '' ]]; then
 fi
 
 SCALA_VERSION="2.12"
-Z3_VERSION="4.8.10"
+Z3_VERSION="4.8.12"
 
 SBT_PACKAGE="sbt stainless-scalac-standalone/assembly"
 STAINLESS_JAR_PATH="./frontends/stainless-scalac-standalone/target/scala-$SCALA_VERSION/stainless-scalac-standalone-$STAINLESS_VERSION.jar"
@@ -22,7 +22,7 @@ SCALAZ3_JAR_LINUX_PATH="./unmanaged/scalaz3-unix-64-$SCALA_VERSION.jar"
 SCALAZ3_JAR_MAC_PATH="./unmanaged/scalaz3-mac-64-$SCALA_VERSION.jar"
 
 Z3_GITHUB_URL="https://github.com/Z3Prover/z3/releases/download/z3-$Z3_VERSION"
-Z3_LINUX_NAME="z3-$Z3_VERSION-x64-ubuntu-18.04.zip"
+Z3_LINUX_NAME="z3-$Z3_VERSION-x64-glibc-2.31.zip"
 Z3_MAC_NAME="z3-$Z3_VERSION-x64-osx-10.15.7.zip"
 
 LOG="./package-standalone.log"
