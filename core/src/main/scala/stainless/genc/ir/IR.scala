@@ -51,7 +51,7 @@ private[genc] sealed trait IR { ir =>
   // Define a function body as either a regular AST or a manually defined
   // function using @cCode.function
   sealed abstract class FunBody
-  case object FunDropped extends FunBody // for @cCode.drop
+  case class FunDropped(isAccessor: Boolean) extends FunBody // for @cCode.drop; `isAccessor` is true for `val`'s to avoid parentheses
   case class FunBodyAST(body: Expr) extends FunBody
   case class FunBodyManual(includes: Seq[String], body: String) extends FunBody // NOTE `body` is actually the whole function!
 

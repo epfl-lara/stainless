@@ -512,7 +512,7 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
         val impl = fa.getManualDefinition
         CIR.FunBodyManual(impl.includes, impl.code)
       } else if (fa.isDropped) {
-        CIR.FunDropped
+        CIR.FunDropped(fa.flags.exists(_.name == "accessor"))
       } else {
         // Build the new environment from context and parameters
         val ctxKeys: Seq[(ValDef, Type)] = ctxDBAbs map { c => c.vd -> instantiateType(c.typ, tm1) }
