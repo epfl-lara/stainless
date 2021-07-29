@@ -649,15 +649,15 @@ private class IR2CImpl(val ctx: inox.Context) {
       FunBodyAST(Return(result))
     }
 
-    private def fold(op: BinaryOperator)(exprs: List[Expr]): Expr = exprs match {
-      case Nil => ctx.reporter.fatalError(s"Unexpected empty sequence of expressions.")
+    private def fold(op: BinaryOperator, default: Expr)(exprs: List[Expr]): Expr = exprs match {
+      case Nil => default
       case expr :: Nil => expr
       case first :: second :: Nil => BinOp(op, first, second)
       case head :: tail => BinOp(op, head, foldAnd(tail))
     }
 
-    private def foldAnd = fold(And) _
-    private def foldOr = fold(Or) _
+    private def foldAnd = fold(And, Lit(BoolLit(true))) _
+    private def foldOr = fold(Or, Lit(BoolLit(false))) _
 
     private def buildLeafClassCmpBody(cd: ClassDef, lhs: Expr, rhs: Expr): Expr = {
       assert(lhs.getType == rhs.getType && ClassType(cd) == lhs.getType && cd.getDirectChildren.isEmpty)
