@@ -12,7 +12,7 @@ object TypeCheckerUtils {
 
   object UncheckedExpr {
     def unapply(e: Expr): Option[Expr] = e match {
-      case Annotated(body, flags) if flags contains Unchecked => Some(body)
+      case Annotated(body, flags) if flags contains DropVCs => Some(body)
       case _ => None
     }
   }
@@ -142,14 +142,6 @@ object TypeCheckerUtils {
     val r = s.replaceAll("\n", " ")
     if (r.length > maxWidth) r.take(maxWidth - 3) + "..."
     else r
-  }
-
-  def simplifyAssertions(expr: Expr): Expr = {
-    exprOps.postMap {
-      case Assert(_, _, e) => Some(e)
-      case Annotated(e, Seq(Unchecked)) => Some(e)
-      case _ => None
-    }(expr)
   }
 
   def stripRefinementsAndAnnotations(t: Type): Type = t match {

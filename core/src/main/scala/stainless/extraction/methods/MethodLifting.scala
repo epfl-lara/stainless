@@ -225,7 +225,7 @@ trait MethodLifting
         val descendant = tcd.descendants.find(_.id == cid).get
         val descType = identity.transform(descendant.toType.copiedFrom(nfd)).asInstanceOf[t.ClassType]
 
-        def unchecked(expr: t.Expr): t.Expr = t.Annotated(expr, Seq(t.Unchecked)).copiedFrom(expr)
+        def unchecked(expr: t.Expr): t.Expr = t.Annotated(expr, Seq(t.DropVCs)).copiedFrom(expr)
         val thiss = unchecked(t.AsInstanceOf(arg.toVariable, descType).copiedFrom(arg))
 
         def wrap(e: t.Expr, tpe: s.Type, expected: s.Type): t.Expr =

@@ -178,7 +178,7 @@ trait DecreasesProcessor extends OrderingProcessor { self =>
 
     transformWithPC(e)((e, path, op) =>
       e match {
-        case Annotated(_, flags) if flags contains Unchecked => e
+        case Annotated(_, flags) if flags contains DropVCs => e
         case _ =>
           lifted(e, path).foreach(results += _)
           op.sup(e, path)

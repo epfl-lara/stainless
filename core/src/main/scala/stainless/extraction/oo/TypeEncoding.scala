@@ -86,9 +86,9 @@ trait TypeEncoding
    * ==================================== */
 
   private[this] def getRefField(e: t.Expr, id: Identifier): t.Expr = e match {
-    case v: t.Variable => t.Annotated(e.getField(id).copiedFrom(e), Seq(Unchecked)).copiedFrom(e)
+    case v: t.Variable => t.Annotated(e.getField(id).copiedFrom(e), Seq(DropVCs)).copiedFrom(e)
     case _ => let(("x" :: ref.copiedFrom(e)).copiedFrom(e), e) { x =>
-      t.Annotated(x.getField(id).copiedFrom(e), Seq(Unchecked)).copiedFrom(e)
+      t.Annotated(x.getField(id).copiedFrom(e), Seq(DropVCs)).copiedFrom(e)
     }.copiedFrom(e)
   }
 
@@ -218,7 +218,7 @@ trait TypeEncoding
         t.ArrayUpdated(convert(a, tpe, expected), i, convert(v, b1, b2))
 
       case (_, s.ArrayType(b1), s.ArrayType(b2)) =>
-        choose(t.ValDef(FreshIdentifier("res"), scope.transform(expected), Seq(t.Unchecked)).copiedFrom(e)) {
+        choose(t.ValDef(FreshIdentifier("res"), scope.transform(expected), Seq(t.DropVCs)).copiedFrom(e)) {
           res => forall(("i" :: t.Int32Type().copiedFrom(e)).copiedFrom(e)) {
             i => t.Equals(
               convert(t.ArraySelect(e, i).copiedFrom(e), b1, b2),
@@ -243,7 +243,7 @@ trait TypeEncoding
         t.SetDifference(convert(lhs, tpe, expected), convert(rhs, tpe, expected))
 
       case (_, s.SetType(b1), s.SetType(b2)) =>
-        choose(t.ValDef(FreshIdentifier("res"), scope.transform(expected), Seq(t.Unchecked)).copiedFrom(e)) {
+        choose(t.ValDef(FreshIdentifier("res"), scope.transform(expected), Seq(t.DropVCs)).copiedFrom(e)) {
           res => forall(("x" :: scope.transform(b1)).copiedFrom(e)) {
             x => t.Equals(
               t.ElementOfSet(x, e).copiedFrom(e),
@@ -268,7 +268,7 @@ trait TypeEncoding
         t.BagDifference(convert(lhs, tpe, expected), convert(rhs, tpe, expected))
 
       case (_, s.BagType(b1), s.BagType(b2)) =>
-        choose(t.ValDef(FreshIdentifier("res"), scope.transform(expected), Seq(t.Unchecked)).copiedFrom(e)) {
+        choose(t.ValDef(FreshIdentifier("res"), scope.transform(expected), Seq(t.DropVCs)).copiedFrom(e)) {
           res => forall(("x" :: scope.transform(b1)).copiedFrom(e)) {
             x => t.Equals(
               t.MultiplicityInBag(x, e).copiedFrom(e),
@@ -285,7 +285,7 @@ trait TypeEncoding
         t.MapUpdated(convert(m, tpe, expected), convert(k, f1, f2), convert(v, t1, t2))
 
       case (_, s.MapType(f1, t1), s.MapType(f2, t2)) =>
-        choose(t.ValDef(FreshIdentifier("res"), scope.transform(expected), Seq(t.Unchecked)).copiedFrom(e)) {
+        choose(t.ValDef(FreshIdentifier("res"), scope.transform(expected), Seq(t.DropVCs)).copiedFrom(e)) {
           res => forall(("x" :: scope.transform(f1)).copiedFrom(e)) {
             x => t.Equals(
               convert(t.MapApply(e, x).copiedFrom(e), t1, t2),
@@ -523,7 +523,7 @@ trait TypeEncoding
     import context.symbols
     val cd = symbols.getClass(id)
     classInstanceCache.cached(cd, context) {
-      mkFunDef(instanceID(id), t.Unchecked, t.Synthetic)() { _ =>
+      mkFunDef(instanceID(id), t.DropVCs, t.Synthetic)() { _ =>
         (("x" :: ref) +: cd.typeArgs.map(_.id.name :: (ref =>: BooleanType())), BooleanType(), {
           case x +: tps =>
             implicit val scope = context.emptyScope.testing(cd.typeArgs zip tps)
@@ -562,7 +562,7 @@ trait TypeEncoding
     val cd = symbols.getClass(id)
     classUnapplyCache.cached(cd, context) {
       import OptionSort._
-      mkFunDef(unapplyID(cd.id), t.Unchecked, t.Synthetic, t.IsUnapply(isEmpty, get))() { _ =>
+      mkFunDef(unapplyID(cd.id), t.DropVCs, t.Synthetic, t.IsUnapply(isEmpty, get))() { _ =>
         val cons = constructors(cd)
         def condition(e: t.Expr): t.Expr = t.orJoin(cons.map(t.IsConstructor(e, _)))
 
@@ -592,7 +592,7 @@ trait TypeEncoding
   private[this] def unapplyAny(implicit context: TransformerContext): t.FunDef = unapplyAnyCache.cached(context.symbols, context) {
     implicit val symbols = context.symbols
     import OptionSort.{value => _, _}
-    mkFunDef(FreshIdentifier("InstanceOf"), t.Unchecked, t.Synthetic, t.IsUnapply(isEmpty, get))("A", "B") {
+    mkFunDef(FreshIdentifier("InstanceOf"), t.DropVCs, t.Synthetic, t.IsUnapply(isEmpty, get))("A", "B") {
       case Seq(a, b) => (
         Seq("p" :: (a =>: t.BooleanType()), "t" :: (a =>: b), "x" :: a),
         T(option)(b), { case Seq(p, t, x) =>
@@ -633,7 +633,7 @@ trait TypeEncoding
 
       new t.FunDef(
         instanceID(id), tin.map(t.TypeParameterDef(_)), x +: fs, t.BooleanType(), fullBody,
-        Seq(t.Unchecked, t.Synthetic)
+        Seq(t.DropVCs, t.Synthetic)
       ).setPos(sort)
     }
   }
@@ -674,7 +674,7 @@ trait TypeEncoding
 
       new t.FunDef(
         convertID(id), (tin ++ tout).map(t.TypeParameterDef(_)), x +: fs, T(id)(tout: _*), fullBody,
-        Seq(t.Unchecked, t.Synthetic)
+        Seq(t.DropVCs, t.Synthetic)
       ).setPos(sort)
     }
   }
@@ -739,20 +739,20 @@ trait TypeEncoding
       case s.AnyType() => ref.copiedFrom(tp)
       case s.NothingType() =>
         refinement(("x" :: ref.copiedFrom(tp)).copiedFrom(tp)) {
-          x => t.Annotated(t.BooleanLiteral(false).copiedFrom(tp), Seq(t.Unchecked)).copiedFrom(tp)
+          x => t.Annotated(t.BooleanLiteral(false).copiedFrom(tp), Seq(t.DropConjunct)).copiedFrom(tp)
         }.copiedFrom(tp)
 
       case s.UnknownType(_) => transform(s.AnyType().copiedFrom(tp))
 
       case ct: s.ClassType =>
         refinement(("x" :: ref.copiedFrom(tp)).copiedFrom(tp)) {
-          x => t.Annotated(instanceOf(x, s.AnyType().copiedFrom(tp), ct), Seq(t.Unchecked)).copiedFrom(tp)
+          x => t.Annotated(instanceOf(x, s.AnyType().copiedFrom(tp), ct), Seq(t.DropConjunct)).copiedFrom(tp)
         }.copiedFrom(tp)
 
       case s.TypeBounds(_, s.AnyType(), _) => ref.copiedFrom(tp)
       case s.TypeBounds(_, upperBound, _) =>
         refinement(("x" :: ref.copiedFrom(tp)).copiedFrom(tp)) {
-          x => t.Annotated(instanceOf(x, s.AnyType().copiedFrom(tp), upperBound), Seq(t.Unchecked)).copiedFrom(tp)
+          x => t.Annotated(instanceOf(x, s.AnyType().copiedFrom(tp), upperBound), Seq(t.DropConjunct)).copiedFrom(tp)
         }.copiedFrom(tp)
 
       case ta: s.TypeApply if ta.isAbstract =>
@@ -763,7 +763,7 @@ trait TypeEncoding
 
       case tp: s.TypeParameter if testers contains tp =>
         refinement(("x" :: ref.copiedFrom(tp)).copiedFrom(tp)) {
-          x => t.Annotated(instanceOf(x, s.AnyType().copiedFrom(tp), tp), Seq(t.Unchecked)).copiedFrom(tp)
+          x => t.Annotated(instanceOf(x, s.AnyType().copiedFrom(tp), tp), Seq(t.DropConjunct)).copiedFrom(tp)
         }.copiedFrom(tp)
 
       case tp: s.TypeParameter if tparams contains tp => ref.copiedFrom(tp)
@@ -959,7 +959,7 @@ trait TypeEncoding
                   t.Annotated(t.and(
                     t.implies(instanceOf(x, tp, lowerBound)(scope), b).copiedFrom(lowerBound),
                     t.implies(b, instanceOf(x, tp, upperBound)(scope)).copiedFrom(upperBound)
-                  ).copiedFrom(tp), Seq(t.Unchecked)).copiedFrom(tp)
+                  ).copiedFrom(tp), Seq(t.DropConjunct)).copiedFrom(tp)
                 }.copiedFrom(tp)
               }.copiedFrom(tp)
             }
@@ -1248,7 +1248,7 @@ trait TypeEncoding
                 encoded.params.drop(reifiedTypeArgsCount).map(_.toVariable.copiedFrom(post))
               ).copiedFrom(post)
             ).copiedFrom(post),
-            Seq(t.Unchecked)
+            Seq(t.DropConjunct)
           ).copiedFrom(post)
         )
       )

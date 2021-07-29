@@ -102,7 +102,7 @@ trait VerificationChecker { self =>
       Future.successful {
         if (stop) None else {
           val simplifiedCondition = simplifyExpr(
-            simplifyLets(simplifyAssertions(vc.condition))
+            simplifyLets(removeAssertions(vc.condition))
           )(PurityOptions.assumeChecked)
 
           val simplifiedVC = (vc.copy(condition = simplifiedCondition): VC).setPos(vc)
@@ -200,17 +200,19 @@ trait VerificationChecker { self =>
     }
   }
 
-  private def simplifyAssertions(expr: Expr): Expr = {
+  private def removeAssertions(expr: Expr): Expr = {
     exprOps.postMap {
       case Assert(_, _, e) => Some(e)
-      case Annotated(e, Seq(Unchecked)) => Some(e)
+      case Annotated(e, Seq(DropVCs)) => Some(e)
+      case Annotated(e, Seq(DropConjunct)) => Some(e)
       case _ => None
     }(expr)
   }
 
   protected def prettify(expr: Expr): Expr = {
     def rec(expr: Expr): Expr = expr match {
-      case Annotated(e, Seq(Unchecked)) => rec(e)
+      case Annotated(e, Seq(DropVCs)) => rec(e)
+      case Annotated(e, Seq(DropConjunct)) => rec(e)
       case Operator(es, recons) => recons(es map rec)
     }
 

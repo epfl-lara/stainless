@@ -999,7 +999,7 @@ trait TypeChecker {
         if (filteredExprs.isEmpty) None
         else if (filteredExprs.size == 1) Some(filteredExprs.head)
         else Some(And(filteredExprs).setPos(e))
-      case Annotated(_, flags) if flags.contains(Unchecked) => None
+      case Annotated(_, flags) if flags.contains(DropConjunct) => None
       case _ => Some(e)
     }
 

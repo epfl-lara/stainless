@@ -37,7 +37,7 @@ trait DefaultTactic extends Tactic {
       case _ =>
         val Lambda(Seq(res), b @ TopLevelAnds(es)) = lambda
         val body = andJoin(es.filterNot {
-          case Annotated(e, flags) => flags contains Unchecked
+          case Annotated(e, flags) => flags contains DropConjunct
           case p: Passes => true
           case _ => false
         }).copiedFrom(b)
@@ -59,7 +59,7 @@ trait DefaultTactic extends Tactic {
   def generatePostconditions(id: Identifier): Seq[VC] = {
     val fd = getFunction(id)
     (fd.postcondition, fd.body) match {
-      case (Some(post @ Lambda(Seq(res), _)), Some(body)) if !res.flags.contains(Unchecked) =>
+      case (Some(post @ Lambda(Seq(res), _)), Some(body)) if !res.flags.contains(DropVCs) =>
         getPostconditions(body, post).map { vc =>
           val vcKind = if (fd.flags.exists(_.name == "law")) VCKind.Law else VCKind.Postcondition
           VC(exprOps.freshenLocals(implies(fd.precOrTrue, vc)), id, vcKind, false).setPos(vc)
@@ -71,7 +71,7 @@ trait DefaultTactic extends Tactic {
   protected def getPrecondition(pre: Expr): Option[Expr] = pre match {
     case TopLevelAnds(es) =>
       val pred = andJoin(es.filterNot {
-        case Annotated(e, flags) => flags contains Unchecked
+        case Annotated(e, flags) => flags contains DropConjunct
         case _ => false
       }).copiedFrom(pre)
 
@@ -115,7 +115,7 @@ trait DefaultTactic extends Tactic {
         val kind = VCKind.fromErr(optErr)
         VC(condition, id, kind, false).setPos(a)
 
-      case (c @ Choose(res, pred), path) if !(res.flags contains Unchecked) =>
+      case (c @ Choose(res, pred), path) if !(res.flags contains DropVCs) =>
         if (path.conditions.isEmpty && exprOps.variablesOf(c).isEmpty) {
           VC(pred, id, VCKind.Info(VCKind.Choose, "check-sat"), true).setPos(c)
         } else {

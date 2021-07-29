@@ -72,15 +72,15 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
 
         val specced = BodyWithSpecs(tfd.fullBody)
         // simple path for inlining when all arguments are values, and the function's body doesn't contain other function invocations
-        if (specced.specs.isEmpty && args.forall(isValue) && !exprOps.containsFunctionCalls(tfd.fullBody)) {
-          exprOps.replaceFromSymbols(tfd.params.zip(args).toMap, exprOps.freshenLocals(tfd.fullBody))
+        if (specced.specs.isEmpty && args.forall(isValue) && !exprOps.containsFunctionCalls(tfd.fullBody) && !isSynthetic) {
+          annotated(exprOps.replaceFromSymbols(tfd.params.zip(args).toMap, exprOps.freshenLocals(tfd.fullBody)), DropVCs)
         } else {
           // We need to keep the body as-is for `@synthetic` methods, such as
           // `copy` or implicit conversions for implicit classes, in order to
           // later on check that the class invariant is valid.
           val body = specced.bodyOpt match {
             case Some(body) if isSynthetic => body
-            case Some(body) if !isOpaque => annotated(body, Unchecked).setPos(fi)
+            case Some(body) if !isOpaque => annotated(body, DropVCs).setPos(fi)
             case _ => NoTree(tfd.returnType).copiedFrom(tfd.fullBody)
           }
 
@@ -88,16 +88,11 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
           val maxPre = pre.count(_.kind == PreconditionKind)
           def addPreconditionAssertions(e: Expr): Expr = {
             pre.foldRight((e, maxPre)) {
-              case (spec @ LetInSpec(vd, e0), (acc, i)) => (Let(vd, annotated(e0, Unchecked), acc).setPos(fi), i)
+              case (spec @ LetInSpec(vd, e0), (acc, i)) => (Let(vd, annotated(e0, DropVCs), acc).setPos(fi), i)
               case (spec @ Precondition(cond), (acc, i)) =>
                 val num = if (i == 1) "" else s" ($i)"
-                // the assertion is not itself marked `Unchecked` (as it needs to be checked)
-                // but `cond` should not generate additional VCs and is marked with `Unchecked`
-                val condVal = ValDef.fresh("cond", BooleanType()).setPos(fi)
                 (
-                  Let(condVal, annotated(cond, Unchecked),
-                    Assert(condVal.toVariable.setPos(fi), Some(s"Inlined precondition$num of " + tfd.id.asString), acc
-                  ).copiedFrom(fi)).copiedFrom(fi),
+                  Assert(annotated(cond, DropVCs), Some(s"Inlined precondition$num of " + tfd.id.asString), acc).copiedFrom(fi),
                   i-1
                 )
             }._1
@@ -111,11 +106,11 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
               val err = Some("Inlined postcondition of " + tfd.id.name)
               val postVal = ValDef.fresh("post", BooleanType()).setPos(fi)
               Let(vd, e,
-                Let(postVal, annotated(post, Unchecked),
+                Let(postVal, annotated(post, DropVCs),
                   Assert(postVal.toVariable.setPos(fi), err, vd.toVariable.copiedFrom(fi)
               ).copiedFrom(fi)).copiedFrom(fi)).copiedFrom(fi)
             case Some(Lambda(Seq(vd), post)) =>
-              Let(vd, e, Assume(annotated(post, Unchecked), vd.toVariable.copiedFrom(fi)).copiedFrom(fi)).copiedFrom(fi)
+              Let(vd, e, Assume(annotated(post, DropVCs), vd.toVariable.copiedFrom(fi)).copiedFrom(fi)).copiedFrom(fi)
             case _ => e
           }
 
@@ -123,11 +118,7 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
           val res = ValDef.fresh("inlined", tfd.returnType)
           val inlined = addPreconditionAssertions(addPostconditionAssumption(body))
 
-          // We bind the inlined expression in a let to avoid propagating
-          // the @unchecked annotation to postconditions, etc.
-          val newBody = let(res, inlined, res.toVariable.setPos(fi)).setPos(fi)
-
-          val result = (tfd.params zip args).foldRight(newBody) {
+          val result = (tfd.params zip args).foldRight(inlined) {
             case ((vd, e), body) => let(vd, e, body).setPos(fi)
           }
 

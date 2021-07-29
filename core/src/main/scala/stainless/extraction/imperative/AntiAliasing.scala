@@ -214,8 +214,8 @@ trait AntiAliasing
           // We only overwrite the receiver when it is an actual mutable type.
           // This is necessary to handle immutable types being upcasted to `Any`, which is mutable.
           val assignment = if (isMutableType(effect.receiver.getType)) {
-            val newValue = updatedTarget(effect.toTarget, Annotated(result, Seq(Unchecked)).setPos(pos))
-            val castedValue = Annotated(AsInstanceOf(newValue, effect.receiver.getType), Seq(Unchecked))
+            val newValue = updatedTarget(effect.toTarget, Annotated(result, Seq(DropVCs)).setPos(pos))
+            val castedValue = Annotated(AsInstanceOf(newValue, effect.receiver.getType), Seq(DropVCs))
             Assignment(effect.receiver, castedValue).setPos(pos)
           } else UnitLiteral().setPos(pos)
 
@@ -553,11 +553,11 @@ trait AntiAliasing
         case ADTFieldAccessor(id) :: fs =>
           val adt @ ADTType(_, tps) = receiver.getType
           val tcons = adt.getSort.constructors.find(_.fields.exists(_.id == id)).get
-          val r = rec(Annotated(ADTSelector(receiver, id).copiedFrom(newValue), Seq(Unchecked)).copiedFrom(newValue), fs)
+          val r = rec(Annotated(ADTSelector(receiver, id).copiedFrom(newValue), Seq(DropVCs)).copiedFrom(newValue), fs)
 
           ADT(tcons.id, tps, tcons.definition.fields.map { vd =>
             if (vd.id == id) r
-            else Annotated(ADTSelector(receiver, vd.id).copiedFrom(receiver), Seq(Unchecked)).copiedFrom(receiver)
+            else Annotated(ADTSelector(receiver, vd.id).copiedFrom(receiver), Seq(DropVCs)).copiedFrom(receiver)
           }).copiedFrom(newValue)
 
         case ClassFieldAccessor(id) :: fs =>
@@ -571,28 +571,28 @@ trait AntiAliasing
           }
 
           val casted = AsInstanceOf(receiver, cd.toType).copiedFrom(receiver)
-          val r = rec(Annotated(ClassSelector(casted, id).copiedFrom(newValue), Seq(Unchecked)).copiedFrom(newValue), fs)
+          val r = rec(Annotated(ClassSelector(casted, id).copiedFrom(newValue), Seq(DropVCs)).copiedFrom(newValue), fs)
 
           ClassConstructor(ct, ct.tcd.fields.map { vd =>
             if (vd.id == id) r
-            else Annotated(ClassSelector(casted, vd.id).copiedFrom(receiver), Seq(Unchecked)).copiedFrom(receiver)
+            else Annotated(ClassSelector(casted, vd.id).copiedFrom(receiver), Seq(DropVCs)).copiedFrom(receiver)
           }).copiedFrom(newValue)
 
         case TupleFieldAccessor(index) :: fs =>
           val tt @ TupleType(_) = receiver.getType
-          val r = rec(Annotated(TupleSelect(receiver, index).copiedFrom(newValue), Seq(Unchecked)).copiedFrom(newValue), fs)
+          val r = rec(Annotated(TupleSelect(receiver, index).copiedFrom(newValue), Seq(DropVCs)).copiedFrom(newValue), fs)
 
           Tuple((1 to tt.dimension).map { i =>
             if (i == index) r
-            else Annotated(TupleSelect(receiver, i).copiedFrom(receiver), Seq(Unchecked)).copiedFrom(receiver)
+            else Annotated(TupleSelect(receiver, i).copiedFrom(receiver), Seq(DropVCs)).copiedFrom(receiver)
           }).copiedFrom(newValue)
 
         case ArrayAccessor(index) :: fs =>
-          val r = rec(Annotated(ArraySelect(receiver, index).copiedFrom(newValue), Seq(Unchecked)).copiedFrom(newValue), fs)
+          val r = rec(Annotated(ArraySelect(receiver, index).copiedFrom(newValue), Seq(DropVCs)).copiedFrom(newValue), fs)
           ArrayUpdated(receiver, index, r).copiedFrom(newValue)
 
         case MutableMapAccessor(index) :: fs =>
-          val r = rec(Annotated(MutableMapApply(receiver, index).copiedFrom(newValue), Seq(Unchecked)).copiedFrom(newValue), fs)
+          val r = rec(Annotated(MutableMapApply(receiver, index).copiedFrom(newValue), Seq(DropVCs)).copiedFrom(newValue), fs)
           MutableMapUpdated(receiver, index, r).copiedFrom(newValue)
 
         case Nil => newValue
@@ -615,7 +615,7 @@ trait AntiAliasing
               ).copiedFrom(newValue),
               receiver.getType
             ).copiedFrom(newValue),
-            Seq(Unchecked)
+            Seq(DropVCs)
           ).copiedFrom(newValue)
       }
     }
