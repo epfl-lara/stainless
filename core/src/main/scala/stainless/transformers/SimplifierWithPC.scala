@@ -11,7 +11,7 @@ trait SimplifierWithPC extends Transformer with inox.transformers.SimplifierWith
   implicit val pp: PathProvider[Env]
 
   override protected def simplify(e: Expr, path: Env): (Expr, Boolean) = e match {
-    case Let(vd, a @ Annotated(ADTSelector(v: Variable, _), Seq(Unchecked)), b) =>
+    case Let(vd, a @ Annotated(ADTSelector(v: Variable, _), flags), b) if flags.contains(DropVCs) =>
       simplify(exprOps.replaceFromSymbols(Map(vd -> a), b), path)
 
     case Let(vd, cs @ ADTSelector(v: Variable, _), b) =>

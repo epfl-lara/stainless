@@ -683,7 +683,7 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
 
     // Casts introduced by Stainless with an assumption
     case Assume(IsInstanceOf(expr1, tpe1), Annotated(AsInstanceOf(expr2, tpe2), flags))
-      if flags.contains(Unchecked) && expr1 == expr2 && tpe1 == tpe2 =>
+      if flags.contains(DropVCs) && expr1 == expr2 && tpe1 == tpe2 =>
       rec(expr1)
 
     /* Ignore static assertions */

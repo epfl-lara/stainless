@@ -18,7 +18,7 @@ trait CheckFilter {
   private def shouldBeChecked(fid: Identifier, flags: Seq[trees.Flag]): Boolean = pathsOpt match {
     case None =>
       val isLibrary = flags exists (_.name == "library")
-      val isUnchecked = flags contains Unchecked
+      val isUnchecked = flags contains DropVCs
       !(isLibrary || isUnchecked)
 
     case Some(paths) =>

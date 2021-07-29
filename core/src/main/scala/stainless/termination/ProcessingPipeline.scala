@@ -210,7 +210,7 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
     )
 
     // Consider @unchecked functions as terminating.
-    val (uncheckedProblems, toCheck) = newProblems.partition(_.forall(_.flags contains Unchecked))
+    val (uncheckedProblems, toCheck) = newProblems.partition(_.forall(_.flags contains DropVCs))
     for (fd <- uncheckedProblems.toSet.flatten) {
       processResult(Cleared(fd, None, None), "Unchecked")
     }

@@ -20,7 +20,7 @@ trait SyntheticSorts extends ExtractionCaches { self: CachingPhase =>
     private[this] val syntheticIsEmpty: s.Symbols => t.FunDef = {
       def createFunction(option: Identifier, none: Identifier): t.FunDef = {
         val isEmpty = ast.SymbolIdentifier("stainless.internal.Option.isEmpty")
-        mkFunDef(isEmpty, t.Unchecked, t.Synthetic)("A") {
+        mkFunDef(isEmpty, t.DropVCs, t.Synthetic)("A") {
           case Seq(aT) => (Seq("x" :: T(option)(aT)), t.BooleanType(), { case Seq(v) => v is none })
         }
       }
@@ -41,7 +41,7 @@ trait SyntheticSorts extends ExtractionCaches { self: CachingPhase =>
     private[this] val syntheticGet: s.Symbols => t.FunDef = {
       def createFunction(option: Identifier, some: Identifier, value: Identifier): t.FunDef = {
         val get = ast.SymbolIdentifier("stainless.internal.Option.get")
-        mkFunDef(get, t.Unchecked, t.Synthetic)("A") {
+        mkFunDef(get, t.DropVCs, t.Synthetic)("A") {
           case Seq(aT) => (Seq("x" :: T(option)(aT)), aT, {
             case Seq(v) => t.Require(v is some, v.getField(value))
           })

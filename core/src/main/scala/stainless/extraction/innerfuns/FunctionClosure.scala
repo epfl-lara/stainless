@@ -49,15 +49,15 @@ trait FunctionClosure
       val freeMap = freshVals.toMap
       val freshParams = freshVals.filterNot(p => pc.bindings exists (_._1.id == p._1.id)).map(_._2)
 
-      // we annotated conjuncts with `Unchecked` so that they are not checked when calling the
+      // we annotated conjuncts with `DropConjunct` so that they are not checked when calling the
       // inner function (as we know these already hold at this point)
       val oldBody = Path.fold[Expr](fullBody, {
         case (vd, e, acc) => Let(vd, e, acc).setPos(fullBody)
       }, {
         case (cond, Require(cond2, acc)) =>
-          Require(And(Annotated(cond, Seq(Unchecked)).setPos(cond), cond2).setPos(cond), acc).setPos(fullBody)
+          Require(And(Annotated(cond, Seq(DropConjunct)).setPos(cond), cond2).setPos(cond), acc).setPos(fullBody)
         case (cond, acc) =>
-          Require(Annotated(cond, Seq(Unchecked)).setPos(cond), acc).setPos(fullBody)
+          Require(Annotated(cond, Seq(DropConjunct)).setPos(cond), acc).setPos(fullBody)
       })(pc.elements)
 
       object bodyTransformer extends SelfTreeTransformer {

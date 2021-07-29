@@ -22,7 +22,7 @@ trait Tactic {
     val lifted = pf.lift
 
     transformWithPC(e, true /* recurse into types */)((e, path, op) => e match {
-      case Annotated(_, flags) if flags contains Unchecked => e
+      case Annotated(_, flags) if flags contains DropVCs => e
       case _ =>
         lifted(e, path).foreach(results += _)
         op.sup(e, path)
