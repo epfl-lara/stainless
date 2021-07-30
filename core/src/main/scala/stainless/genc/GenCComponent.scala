@@ -81,7 +81,7 @@ class GenCRun(override val pipeline: extraction.StainlessPipeline) // pipeline i
       override val results = ids.flatMap { id =>
         val fd = symbols.getFunction(id)
         val pos = fd.getPos.toString
-        if (fd.flags.exists(_.name == "export"))
+        if (fd.flags.exists(_.name == "cCode.export"))
           Some(GenCRun.Result(fd, Compiled, 0))
         else
           None

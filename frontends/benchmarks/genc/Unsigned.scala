@@ -5,7 +5,7 @@ import stainless.io._
 
 object Unsigned {
 
-  @export
+  @cCode.export
   def main(): Unit = {
     val a = fa(16, 84)
     val b = fb(84, 14)

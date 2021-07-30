@@ -107,7 +107,7 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
   def run(): Unit = {
     checkGlobalUsage()
 
-    // Start the transformation from `@exported` (and `@cCode.global`) functions and classes
+    // Start the transformation from `@cCode.export` (and `@cCode.global`) functions and classes
     for (df <- deps.deps) {
       df match {
         case fd: FunDef if fd.isExported =>
@@ -123,7 +123,7 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
    *                                                       Caches                                     *
    ****************************************************************************************************/
 
-  var declResults = new scala.collection.mutable.ListBuffer[(CIR.Decl, Boolean)]()
+  var declResults = new scala.collection.mutable.ListBuffer[(CIR.Decl, DeclarationMode)]()
 
   // For functions, we associate each TypedFunDef to a CIR.FunDef for each "type context" (TypeMapping).
   // This is very important for (non-generic) functions nested in a generic function because for N
@@ -643,18 +643,20 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
               s"We found ${paramInits.length} initializations instead of ${fields.length}."
             )
           }
-          for ((field, paramInit) <- fields.zip(paramInits)) {
+          for (((field, paramInit), static) <- fields.zip(paramInits).zip(nonGhostFields.map(vd => vd.flags.exists(_.name == "cCode.static")))) {
             implicit val emptyEnv = Env(Map(), Map(), false)
-            val decl = (CIR.Decl(field, Some(rec(paramInit.fullBody))), false)
+            val decl = (CIR.Decl(field, Some(rec(paramInit.fullBody))), if (static) Static else Normal)
             if (declResults.map(_._1.vd).contains(field)) {
               reporter.fatalError(cd.getPos, s"Global variable ${field.id} is defined twice")
             }
             declResults.append(decl)
           }
         } else if (cd.isGlobalUninitialized) {
-          for (field <- fields) declResults.append((CIR.Decl(field, None), false))
+          for ((field, static) <- fields.zip(nonGhostFields.map(vd => vd.flags.exists(_.name == "cCode.static")))) {
+            declResults.append((CIR.Decl(field, None), if (static) Static else Normal))
+          }
         } else if (cd.isGlobalExternal) {
-          for (field <- fields) declResults.append((CIR.Decl(field, None), true))
+          for (field <- fields) declResults.append((CIR.Decl(field, None), External))
         }
         newAcc
       } else {

@@ -21,4 +21,10 @@ package object genc {
 
   // FIXME: see leon definition
   def pathFromRoot(df: Definition)(implicit syms: Symbols): List[Definition] = List(df)
+
+  // declaration mode for global variables
+  sealed abstract class DeclarationMode
+  case object Normal extends DeclarationMode
+  case object Static extends DeclarationMode // static annotation
+  case object External extends DeclarationMode // no declaration in the produced code
 }

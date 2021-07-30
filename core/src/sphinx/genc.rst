@@ -135,7 +135,7 @@ See below for a case class with a fixed length array and its transformation in C
   val CONSTANT2: UInt16 = 12
   val CONSTANT3: UInt16 = CONSTANT1 + CONSTANT2
 
-  @export
+  @cCode.export
   case class W(x: Int, a: Array[Int], y: Int) {
     require(
       a.length == CONSTANT3.toInt &&
@@ -340,7 +340,7 @@ make sure that the instance is created using the default values:
 
 .. code-block:: scala
 
-  @export
+  @cCode.export
   def main() {
     implicit val gs = GlobalState()
     StdOut.print(gs.x)

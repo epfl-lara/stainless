@@ -48,7 +48,7 @@ private[genc] object ExtraOps {
 
     def isExtern          = fd.flags contains Extern
     def isDropped         = hasAnnotation("cCode.drop") || fd.flags.contains(Ghost)
-    def isExported        = hasAnnotation("export")
+    def isExported        = hasAnnotation("cCode.export")
     def isManuallyDefined = hasAnnotation(manualDefAnnotation)
 
     def extAnnotations: Map[String, Seq[Any]] = fd.flags.collect {
@@ -77,7 +77,7 @@ private[genc] object ExtraOps {
   implicit class ClassDefOps(val cd: ClassDef) {
     def isManuallyTyped = hasAnnotation(manualTypeAnnotation)
     def isDropped       = hasAnnotation(droppedAnnotation)
-    def isExported      = hasAnnotation("export")
+    def isExported      = hasAnnotation("cCode.export")
     def isGlobal        = cd.flags.exists(_.name.startsWith("cCode.global"))
     def isGlobalDefault = cd.flags.exists(_.name == "cCode.global")
     def isGlobalUninitialized = cd.flags.exists(_.name == "cCode.globalUninitialized")

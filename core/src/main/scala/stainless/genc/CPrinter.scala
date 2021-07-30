@@ -61,7 +61,11 @@ class CPrinter(
               sep = "\n\n")
              }
             |${nary(
-              decls.filter(!_._2).map(_._1),
+              decls.filter(_._2 != External).map {
+                case (decl, Static) => StaticStorage(decl)
+                case (decl, Normal) => decl
+                case _ => sys.error("unreachable code")
+              },
               opening = separator("global variables"),
               closing = ";\n\n",
               sep = ";\n")
@@ -269,8 +273,7 @@ class CPrinter(
   }
 
   private[genc] def pp(wt: WrapperTree)(implicit pctx: PrinterContext): Unit = wt match {
-    case StaticStorage(id) if id.name == "main" => /* Nothing */
-    case StaticStorage(_) => c"static "
+    case StaticStorage(decl) => c"static $decl"
 
     case TypeId(FunType(ret, params), id) => c"$ret (*$id)($params)"
     case TypeId(FixedArrayType(base, length), id) => c"$base $id[$length]"
@@ -316,7 +319,7 @@ class CPrinter(
 
   /** Wrappers to distinguish how the data should be printed **/
   private[genc] sealed abstract class WrapperTree
-  private case class StaticStorage(id: Id) extends WrapperTree
+  private case class StaticStorage(decl: Decl) extends WrapperTree
   private case class TypeId(typ: Type, id: Id) extends WrapperTree
   private case class FunSign(f: Fun) extends WrapperTree
 
