@@ -22,7 +22,7 @@ object Return {
     else StdOut.println("ERROR")
   }
 
-  @export
+  @cCode.export
   def main() = {
     verify(return10 == 10)
     verify(findIndex(Array(0,100,200,250), 0) == 0)

@@ -40,8 +40,7 @@ private[genc] sealed trait IR { ir =>
   sealed abstract class Def extends Tree
 
   case class Prog(
-    // boolean is set to true when for global declarations that are declared outside of the Stainless program
-    decls: Seq[(Decl, Boolean)],
+    decls: Seq[(Decl, DeclarationMode)],
     functions: Seq[FunDef],
     classes: Seq[ClassDef]
   ) {

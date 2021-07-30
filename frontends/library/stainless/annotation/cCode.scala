@@ -2,7 +2,8 @@
 
 package stainless.annotation
 
-import scala.annotation.StaticAnnotation
+import scala.annotation.meta._
+import scala.annotation.{Annotation, StaticAnnotation}
 
 object cCode {
 
@@ -52,6 +53,10 @@ object cCode {
     includes: String
   ) extends StaticAnnotation
 
+  /* Export function into a header file for GenC translation */
+  @ignore
+  class export extends StaticAnnotation
+
   /*
    * Allows the user to define a type (e.g. case class) as a typeDef to an
    * existing type with an optional include file.
@@ -70,11 +75,8 @@ object cCode {
 
 
   /*
-   * Functions or types annotated with @cCode.drop will not be considered by
-   * GenC.
-   *
-   * It is therefore illegal to call such functions or use such types from
-   * within the code that is considered for C code conversion.
+   * Functions or types definitions annotated with @cCode.drop will not be translated by
+   * GenC. This implies the @extern annotation for verification in Stainless.
    */
   @ignore
   class drop() extends StaticAnnotation
@@ -97,4 +99,7 @@ object cCode {
   @ignore
   class globalExternal() extends StaticAnnotation
 
+  /* The `static` annotation can be used to mark variables that appear in `@global` annotated classes */
+  @ignore @field @getter @setter @param
+  class static() extends StaticAnnotation
 }

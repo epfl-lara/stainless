@@ -16,8 +16,8 @@ import ExtraOps._
 import collection.mutable.{Set => MutableSet}
 
 /*
- * Compute the dependencies of the @export functions
- * Generic functions cannot be marked @export (only specialized versions that are
+ * Compute the dependencies of the @cCode.export functions
+ * Generic functions cannot be marked @cCode.export (only specialized versions that are
  * used by exported functions are exported to C).
  *
  * Moreover, the list of dependencies only contains top level functions. For nested
@@ -25,11 +25,6 @@ import collection.mutable.{Set => MutableSet}
  * hoist them. This is done in a later phase. However, if a nested function uses
  * some type T, then T (and all its class hierarchy if T is a class) will be included
  * in the dependency set.
- *
- * This phase also make sures @cCode.drop functions are not used. The same is *NOT*
- * done for dropped types as they might still be present in function signature. They
- * should be removed in a later (transformation) phase. Additionally, this phase
- * ensures that the annotation set on class and function is sane.
  *
  * NOTE We cannot rely on purescala.DependencyFinder as it will traverse functions
  *     annotated with @cCode.function and we don't want that. The same applies for

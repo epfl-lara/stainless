@@ -12,7 +12,7 @@ object ArgumentsEffects {
     StdOut.println(x3)
   }
 
-  @export
+  @cCode.export
   def main(): Unit = {
     var x = 0
 

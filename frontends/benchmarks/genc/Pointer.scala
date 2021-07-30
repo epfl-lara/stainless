@@ -10,7 +10,7 @@ object Pointer {
     r2.x = 250
   }
 
-  @export
+  @cCode.export
   def main(): Unit = {
     val r = Pointer(100)
     val r2 = Pointer(100)
