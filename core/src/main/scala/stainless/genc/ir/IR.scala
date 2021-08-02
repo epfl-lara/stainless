@@ -40,7 +40,7 @@ private[genc] sealed trait IR { ir =>
   sealed abstract class Def extends Tree
 
   case class Prog(
-    decls: Seq[(Decl, DeclarationMode)],
+    decls: Seq[(Decl, Seq[DeclarationMode])],
     functions: Seq[FunDef],
     classes: Seq[ClassDef]
   ) {

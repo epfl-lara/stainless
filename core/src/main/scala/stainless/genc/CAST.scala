@@ -43,8 +43,7 @@ object CAST { // C Abstract Syntax Tree
 
   case class Prog(
     includes: Set[Include],
-    // boolean is set to true when for global declarations that are declared outside of the Stainless program
-    decls: Seq[(Decl, DeclarationMode)],
+    decls: Seq[(Decl, Seq[DeclarationMode])],
     typeDefs: Set[TypeDef],
     enums: Set[Enum],
     types: Seq[DataType], // Both structs and unions, order IS important! See NOTE above.
