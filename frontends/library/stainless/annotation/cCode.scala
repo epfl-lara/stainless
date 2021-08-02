@@ -102,4 +102,8 @@ object cCode {
   /* The `static` annotation can be used to mark variables that appear in `@global` annotated classes */
   @ignore @field @getter @setter @param
   class static() extends StaticAnnotation
+
+  /* The `volatile` annotation can be used to mark variables that appear in `@global` annotated classes */
+  @ignore @field @getter @setter @param
+  class volatile() extends StaticAnnotation
 }

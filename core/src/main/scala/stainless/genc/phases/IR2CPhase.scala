@@ -59,8 +59,8 @@ private class IR2CImpl(val ctx: inox.Context) {
 
   private def rec(prog: Prog): C.Prog = {
 
-    val decls = prog.decls.map { case (decl, external) => rec(decl, allowFixedArray = true) match {
-      case res: C.Decl => (res, external)
+    val decls = prog.decls.map { case (decl, modes) => rec(decl, allowFixedArray = true) match {
+      case res: C.Decl => (res, modes)
       case res =>
         ctx.reporter.fatalError(
           "Only simple values are supported as default values for global variables.\n" +

@@ -24,7 +24,7 @@ package object genc {
 
   // declaration mode for global variables
   sealed abstract class DeclarationMode
-  case object Normal extends DeclarationMode
   case object Static extends DeclarationMode // static annotation
+  case object Volatile extends DeclarationMode // static annotation
   case object External extends DeclarationMode // no declaration in the produced code
 }

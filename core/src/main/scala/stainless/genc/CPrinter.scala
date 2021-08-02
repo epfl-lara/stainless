@@ -61,10 +61,12 @@ class CPrinter(
               sep = "\n\n")
              }
             |${nary(
-              decls.filter(_._2 != External).map {
-                case (decl, Static) => StaticStorage(decl)
-                case (decl, Normal) => decl
-                case _ => sys.error("unreachable code")
+              decls.filter(!_._2.contains(External)).map { case (decl, modes) =>
+                modes.foldLeft(TTree(decl) : WrapperTree) {
+                  case (acc, Static) => StaticStorage(acc)
+                  case (acc, Volatile) => VolatileStorage(acc)
+                  case (acc, _) => acc
+                }
               },
               opening = separator("global variables"),
               closing = ";\n\n",
@@ -273,7 +275,10 @@ class CPrinter(
   }
 
   private[genc] def pp(wt: WrapperTree)(implicit pctx: PrinterContext): Unit = wt match {
+    case TTree(t) => pp(t)
+
     case StaticStorage(decl) => c"static $decl"
+    case VolatileStorage(decl) => c"volatile $decl"
 
     case TypeId(FunType(ret, params), id) => c"$ret (*$id)($params)"
     case TypeId(FixedArrayType(base, length), id) => c"$base $id[$length]"
@@ -319,7 +324,9 @@ class CPrinter(
 
   /** Wrappers to distinguish how the data should be printed **/
   private[genc] sealed abstract class WrapperTree
-  private case class StaticStorage(decl: Decl) extends WrapperTree
+  private case class TTree(t: Tree) extends WrapperTree
+  private case class StaticStorage(wt: WrapperTree) extends WrapperTree
+  private case class VolatileStorage(wt: WrapperTree) extends WrapperTree
   private case class TypeId(typ: Type, id: Id) extends WrapperTree
   private case class FunSign(f: Fun) extends WrapperTree
 
