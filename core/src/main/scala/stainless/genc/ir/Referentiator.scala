@@ -42,7 +42,7 @@ import collection.mutable.{ Stack => MutableStack, Set => MutableSet }
 final class Referentiator(val ctx: inox.Context) extends Transformer(LIR, RIR) {
   import from._
 
-  case class Env(vds: Map[ValDef, to.ValDef], mutableParams: Set[to.ValDef]) {
+  case class Env(vds: Map[ValDef, to.ValDef], mutableParams: Set[to.ValDef], inGlobalDeclarations: Boolean) {
     def apply(vd: ValDef) = vds(vd)
 
     def +(mapping: (ValDef, to.ValDef)) = copy(vds = vds + mapping)
@@ -53,7 +53,7 @@ final class Referentiator(val ctx: inox.Context) extends Transformer(LIR, RIR) {
     }
   }
 
-  val Ø = Env(Map.empty, Set.empty)
+  val Ø = Env(Map.empty, Set.empty, false)
 
   // Registry of ValDef declared using Decl and which are references.
   private val knownDeclRef = MutableSet[to.ValDef]()
@@ -63,8 +63,26 @@ final class Referentiator(val ctx: inox.Context) extends Transformer(LIR, RIR) {
     knownDeclRef(to) || env.mutableParams(to)
   }
 
-  private def addRef(t: Type): Boolean = !t.isArray && t.isMutable
-  private def addRef2(t: RIR.Type): Boolean = !t.isArray && t.isMutable
+  private def addRef(t: Type)(implicit env: Env): Boolean = !t.isArray && t.isMutable && !env.inGlobalDeclarations
+  private def addRef2(t: RIR.Type)(implicit env: Env): Boolean = !t.isArray && t.isMutable && !env.inGlobalDeclarations
+
+  override def rec(prog: Prog)(implicit env: Env): to.Prog = {
+    if (prog.decls.nonEmpty) {
+      val modes = prog.decls.map(_._2)
+      val (to.Block(newDecls), newEnv) = recImpl(Block(prog.decls.map(_._1)))(env.copy(inGlobalDeclarations = true))
+      to.Prog(
+        newDecls.map(_.asInstanceOf[to.Decl]).zip(modes),
+        prog.functions.map(rec(_)(newEnv)),
+        prog.classes.map(rec(_)(newEnv)),
+      )
+    } else {
+      to.Prog(
+        Seq(),
+        prog.functions.map(rec),
+        prog.classes.map(rec),
+      )
+    }
+  }
 
   override def recImpl(fd: FunDef)(implicit env: Env): to.FunDef = {
     val id = fd.id
