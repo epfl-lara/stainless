@@ -7,6 +7,7 @@ object Unsigned {
 
   @cCode.export
   def main(): Unit = {
+    @ghost implicit val state = newState
     val a = fa(16, 84)
     val b = fb(84, 14)
     val c = fc(5, 7)

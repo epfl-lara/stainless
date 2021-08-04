@@ -128,6 +128,11 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
       )
     }
 
+    private def symbolIndex(tree: Tree): Int = tree match {
+      case Apply(fun, args) => symbolIndex(fun) + 1
+      case _ => 0
+    }
+
     override def traverse(tree: Tree): Unit = {
       val sym = tree.symbol
       tree match {
@@ -160,10 +165,10 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
           withinGhostContext(traverseTrees(args))
 
         case Apply(fun, args) if patternContext =>
-          super.traverse(fun)
+          traverse(fun)
 
           // pattern match variables need to get the ghost annotation from their case class argument
-          for ((param, arg) <- fun.tpe.params.zip(args))
+          for ((param, arg) <- fun.tpe.paramLists(symbolIndex(fun)).zip(args))
             if (param.hasAnnotation(ghostAnnotation)) {
               arg match {
                 case b@Bind(_, body) =>
@@ -172,11 +177,13 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
                 case _ =>
                   traverse(arg)
               }
-            } else traverse(arg)
+            } else
+              traverse(arg)
 
         case f @ Apply(fun, args) =>
-          super.traverse(fun)
-          for ((param, arg) <- f.symbol.info.params.zip(args))
+          traverse(fun)
+
+          for ((param, arg) <- f.symbol.info.paramLists(symbolIndex(fun)).zip(args))
             if (param.hasAnnotation(ghostAnnotation))
               withinGhostContext(traverse(arg))
             else

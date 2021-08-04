@@ -6,7 +6,7 @@ import stainless.lang._
 import stainless.io.{
   FileInputStream => FIS,
   FileOutputStream => FOS,
-  StdOut
+  _
 }
 import stainless.util.{ TimePoint }
 
@@ -93,7 +93,7 @@ object ImageProcessing {
   case class WriteError()               extends Status
   case class NotImplementedError()      extends Status
 
-  def statusCode(s: Status): Int = s match {
+  def statusCode(s: Status)(implicit @ghost state: State): Int = s match {
     case Success()                  => StdOut.println("success");                          0
     case OpenError()                => StdOut.println("couldn't open file");               1
     case ReadError()                => StdOut.println("couldn't read some expected data"); 2
@@ -547,32 +547,21 @@ object ImageProcessing {
    *                                             Logging Facilities     *
    **********************************************************************/
 
-  def log(msg: String, x: Int) {
+  def log(msg: String, x: Int)(implicit @ghost state: State) {
     StdOut.print(msg)
     StdOut.print(": ")
     StdOut.println(x)
   }
 
-  def log(h: FileHeader) {
+  def log(h: FileHeader)(implicit @ghost state: State) {
     log("size", h.size)
     log("offset", h.offset)
   }
 
-  def log(h: BitmapHeader) {
+  def log(h: BitmapHeader)(implicit @ghost state: State) {
     log("width", h.width)
     log("height", h.height)
   }
-
-  @extern
-  @cCode.function(
-    code = """
-      |void __FUNCTION__(int8_t x) {
-      |  printf("%u\n", x);
-      |}
-      """,
-    includes = "inttypes.h:stdio.h"
-  )
-  def printAsInt(x: Byte): Unit = (??? : Unit)
 
   /**********************************************************************
    *                            Kernel & Image Processing Algorithm     *
@@ -671,7 +660,7 @@ object ImageProcessing {
    *                                                   Main Program     *
    **********************************************************************/
 
-  def printBool(b: Boolean): Unit = {
+  def printBool(b: Boolean)(implicit @ghost state: State): Unit = {
     if (b) StdOut.println("true")
     else StdOut.println("false")
   }

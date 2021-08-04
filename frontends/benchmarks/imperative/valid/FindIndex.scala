@@ -58,7 +58,7 @@ object FindIndex {
   }
 
   @extern
-  def main(args: Array[String]) {
+  def main(args: Array[String])(implicit @ghost state: State): Unit = {
     val a = Array(0, 100, 150, 300)
     StdOut.println(findIndex(a, 150))
   }
