@@ -33,6 +33,7 @@ object GlobalUninitialized {
 
   @cCode.export
   def main() {
+    @ghost implicit val state = newState
     implicit val gs = GlobalState(Array.fill(100)(0), false, 0, 0)
     gs.x = 8
     gs.y = 4

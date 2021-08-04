@@ -17,12 +17,12 @@ object StdOut {
      """,
     includes = "inttypes.h:stdio.h"
   )
-  def printU8(x: UInt8): Unit = {
+  def printU8(x: UInt8)(implicit @ghost state: State): Unit = {
     scala.Predef.print(x)
   }
 
   @library
-  def printlnU8(x: UInt8): Unit = {
+  def printlnU8(x: UInt8)(implicit @ghost state: State): Unit = {
     printU8(x)
     println()
   }
@@ -37,12 +37,12 @@ object StdOut {
      """,
     includes = "inttypes.h:stdio.h"
   )
-  def printU16(x: UInt16): Unit = {
+  def printU16(x: UInt16)(implicit @ghost state: State): Unit = {
     scala.Predef.print(x)
   }
 
   @library
-  def printlnU16(x: UInt16): Unit = {
+  def printlnU16(x: UInt16)(implicit @ghost state: State): Unit = {
     printU16(x)
     println()
   }
@@ -57,12 +57,12 @@ object StdOut {
      """,
     includes = "inttypes.h:stdio.h"
   )
-  def printU32(x: UInt32): Unit = {
+  def printU32(x: UInt32)(implicit @ghost state: State): Unit = {
     scala.Predef.print(x)
   }
 
   @library
-  def printlnU32(x: UInt32): Unit = {
+  def printlnU32(x: UInt32)(implicit @ghost state: State): Unit = {
     printU32(x)
     println()
   }
@@ -77,12 +77,12 @@ object StdOut {
      """,
     includes = "inttypes.h:stdio.h"
   )
-  def printU64(x: UInt64): Unit = {
+  def printU64(x: UInt64)(implicit @ghost state: State): Unit = {
     scala.Predef.print(x)
   }
 
   @library
-  def printlnU64(x: UInt64): Unit = {
+  def printlnU64(x: UInt64)(implicit @ghost state: State): Unit = {
     printU64(x)
     println()
   }
@@ -97,12 +97,12 @@ object StdOut {
       """,
     includes = "stdio.h"
   )
-  def print(x: String): Unit = {
+  def print(x: String)(implicit @ghost state: State): Unit = {
     scala.Predef.print(x)
   }
 
   @library
-  def println(s: String): Unit = {
+  def println(s: String)(implicit @ghost state: State): Unit = {
     print(s)
     println()
   }
@@ -121,13 +121,13 @@ object StdOut {
       """,
     includes = "inttypes.h:stdio.h"
   )
-  def print(x: Byte): Unit = {
+  def print(x: Byte)(implicit @ghost state: State): Unit = {
     val b = Array[Byte](x)
     System.out.write(b, 0, 1)
   }
 
   @library
-  def println(x: Byte): Unit = {
+  def println(x: Byte)(implicit @ghost state: State): Unit = {
     print(x)
     println()
   }
@@ -142,12 +142,12 @@ object StdOut {
      """,
     includes = "inttypes.h:stdio.h"
   )
-  def print(x: Int): Unit = {
+  def print(x: Int)(implicit @ghost state: State): Unit = {
     scala.Predef.print(x)
   }
 
   @library
-  def println(x: Int): Unit = {
+  def println(x: Int)(implicit @ghost state: State): Unit = {
     print(x)
     println()
   }
@@ -162,24 +162,23 @@ object StdOut {
       """,
     includes = "stdio.h"
   )
-  def print(c: Char): Unit = {
+  def print(c: Char)(implicit @ghost state: State): Unit = {
     scala.Predef.print(c)
   }
 
   @library
-  def println(c: Char): Unit = {
+  def println(c: Char)(implicit @ghost state: State): Unit = {
     print(c)
     println()
   }
 
   @library
-  def println(): Unit = {
+  def println()(implicit @ghost state: State): Unit = {
     print('\n')
   }
 
   @extern
   @library
-  @pure
   @cCode.function(
     code = """
       |void __FUNCTION__(void* s) {
@@ -188,13 +187,12 @@ object StdOut {
       """,
     includes = "stdio.h"
   )
-  def print(x: Any): Unit = {
+  def print(x: Any)(implicit @ghost state: State): Unit = {
     scala.Predef.print(x)
   }
 
   @extern
   @library
-  @pure
   @cCode.function(
     code = """
       |void __FUNCTION__(void* s) {
@@ -203,7 +201,7 @@ object StdOut {
       """,
     includes = "stdio.h"
   )
-  def println(x: Any): Unit = {
+  def println(x: Any)(implicit @ghost state: State): Unit = {
     scala.Predef.println(x)
   }
 }

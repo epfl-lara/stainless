@@ -33,6 +33,7 @@ object Global {
 
   @cCode.export
   def main() {
+    @ghost implicit val state = newState
     implicit val gs = GlobalState()
     StdOut.print(gs.x)
     StdOut.print(gs.y)

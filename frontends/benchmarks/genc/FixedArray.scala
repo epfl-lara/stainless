@@ -40,6 +40,7 @@ object FixedArray {
 
   @cCode.export
   def main(): Unit = {
+    @ghost implicit val state = newState
     val w = W(30, Array(10, 20, 30, 20, 42), 100)
     val w2 = W(30, Array(10, 20, 30, 20, 42), { w.a(0) += 1; 100 })
     g(w.a)

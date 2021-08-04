@@ -16,6 +16,7 @@ object Normalisation {
 
   @cCode.export
   def main(): Unit = {
+    @ghost implicit val state = newState
     val a = A(100, 9, 200)
     val x = a.sum + a.sum
     val y = x + a.sum

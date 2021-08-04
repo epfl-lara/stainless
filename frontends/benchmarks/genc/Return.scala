@@ -16,7 +16,7 @@ object Return {
     0
   }
 
-  def verify(b: Boolean) = {
+  def verify(b: Boolean)(implicit @ghost state: State) = {
     require(b)
     if (b) StdOut.println("OK")
     else StdOut.println("ERROR")
@@ -24,6 +24,7 @@ object Return {
 
   @cCode.export
   def main() = {
+    @ghost implicit val state = newState
     verify(return10 == 10)
     verify(findIndex(Array(0,100,200,250), 0) == 0)
     verify(findIndex(Array(0,100,200,250), 100) == 1)
