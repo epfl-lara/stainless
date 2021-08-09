@@ -167,6 +167,8 @@ trait ExprOps extends inox.ast.ExprOps { self =>
         case _ => sys.error("shouldn't happen thanks to the filtering above")
       }
 
+    val letsAndBody: Expr = wrapLets(body)
+
     def reconstructed: Expr = specs.foldRight(body)(applySpec)
 
     def addSpec(optSpec: Option[Specification]): BodyWithSpecs = {

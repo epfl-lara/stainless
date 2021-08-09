@@ -106,4 +106,8 @@ object cCode {
   /* The `volatile` annotation can be used to mark variables that appear in `@global` annotated classes */
   @ignore @field @getter @setter @param
   class volatile() extends StaticAnnotation
+
+  /* Inlining in GenC pipeline */
+  @ignore
+  class inline extends Annotation
 }

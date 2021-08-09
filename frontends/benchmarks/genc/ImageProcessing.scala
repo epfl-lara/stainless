@@ -33,17 +33,17 @@ object ImageProcessing {
    **********************************************************************/
 
   // Sizes in bytes of several Windows numerical types
-  @inline
+  @inline @cCode.inline
   val WordSize  = 2 // 16 bits, unsigned
-  @inline
+  @inline @cCode.inline
   val DwordSize = 4 // 32 bits, unsigned
-  @inline
+  @inline @cCode.inline
   val LongSize  = 4 // 32 bits, signed
 
   // Maximum size of images
-  @inline
+  @inline @cCode.inline
   val MaxSize        = 512
-  @inline
+  @inline @cCode.inline
   val MaxSurfaceSize = 512 * 512 // handwritten here to inline the values
 
 
@@ -236,7 +236,7 @@ object ImageProcessing {
     )
   }
 
-  @inline // <- in order to "return" the image
+  @inline @cCode.inline // <- in order to "return" the image
   def createImage(width: Int, height: Int) = {
     require(
       inRange(width,  0, MaxSize) &&

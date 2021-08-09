@@ -23,11 +23,11 @@ object LZWa {
   // The dictionary is an array of Buffer where the index is the key;
 
   // We limit the size of the dictionary to an arbitrary size, less than or equals to 2^16.
-  @inline
+  @inline @cCode.inline
   val DictionarySize = 8192
 
   // We use fix-sized buffers
-  @inline
+  @inline @cCode.inline
   val BufferSize = 64 // characters
 
   val AlphabetSize = Byte.MaxValue + -Byte.MinValue
@@ -298,7 +298,7 @@ object LZWa {
 
   }
 
-  @inline // very important because we cannot return arrays
+  @inline @cCode.inline // very important because we cannot return arrays
   def createBuffer(): Buffer = {
     Buffer(Array.fill(BufferSize)(0), 0)
   } ensuring { b => b.isEmpty && b.nonFull && b.isValid }
@@ -452,7 +452,7 @@ object LZWa {
     }
   }
 
-  @inline // in order to "return" the arrays
+  @inline @cCode.inline // in order to "return" the arrays
   def createDictionary() = {
     Dictionary(Array.fill(DictionarySize){ createBuffer() }, 0)
   } ensuring { res => res.isEmpty }

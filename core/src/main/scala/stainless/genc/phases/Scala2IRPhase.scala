@@ -714,7 +714,13 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
     case CharLiteral(v) => CIR.Lit(L.CharLit(v))
     case StringLiteral(v) => CIR.Lit(L.StringLit(v))
 
-    case Block(es, last) => CIR.buildBlock((es :+ last) map rec)
+    case Block(es, last) => CIR.buildBlock((es.filterNot {
+      case fi: FunctionInvocation if syms.getFunction(fi.id).flags.contains(Ghost) => true
+      case fi: FunctionInvocation =>
+        val fd = syms.getFunction(fi.id)
+        fd.id.name == "ghost" && fd.params.length == 1 && fd.params.head.flags.contains(Ghost)
+      case _ => false
+    } :+ last) map rec)
 
     case v: Variable => buildBinding(v.toVal)
 

@@ -116,12 +116,16 @@ trait GlobalStateChecker { self =>
                 args.length != paramInits.length ||
                 !(args.zip(paramInits).forall {
                   case (arg, paramInit) => arg == paramInit.fullBody
-                  case _ => false
                 })
-              )
+              ) {
+                println(args.length != paramInits.length)
+                println(args.zip(paramInits).find {
+                  case (arg, paramInit) => arg != paramInit.fullBody
+                })
                 context.reporter.fatalError(vd.getPos,
                   "Creating an instance of a state marked `@cCode.global` is only allowed by invoking the default constructor (with the default arguments)"
                 )
+              }
             } else
               context.reporter.warning(vd.getPos,
                 "Initialization of global state in Scala might not correspond to default initialization of C"
