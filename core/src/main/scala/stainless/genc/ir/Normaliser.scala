@@ -134,12 +134,12 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
 
       combine(preIndex ++ preRhs :+ assign) -> env
 
-    case Assign(lhs0, rhs0) =>
+    case assign0 @ Assign(lhs0, rhs0) =>
       val (preLhs, lhs) = flatten(lhs0, allowTopLevelApp = false, allowArray = false)
 
       if (preLhs.nonEmpty) {
         ctx.reporter.debug(s"When processing:\n$e")
-        ctx.reporter.fatalError(s"Assumed to be invalid Scala code is apparently present in the AST")
+        ctx.reporter.fatalError(s"Assumed to be invalid Scala code is apparently present in the AST:\n$assign0")
       }
 
       val (preRhs, rhs) = flatten(rhs0, allowTopLevelApp = false, allowArray = false)
