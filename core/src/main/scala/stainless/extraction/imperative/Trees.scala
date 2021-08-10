@@ -508,11 +508,6 @@ trait ExprOps extends oo.ExprOps { self =>
       case _ => false
     }
 
-    def isTrivial: Boolean = expr match {
-      case FiniteSet(Seq(), _) => true
-      case _ => false
-    }
-
     def letWrapped(specced: BodyWithSpecs): ReadsContract =
       ReadsContract(specced.wrapLets(expr)).setPos(this.getPos)
   }
@@ -535,11 +530,6 @@ trait ExprOps extends oo.ExprOps { self =>
 
     def traverse(tr: TreeTraverser { val trees: self.trees.type }): Unit =
       tr.traverse(expr)
-
-    def isTrivial: Boolean = expr match {
-      case FiniteSet(Seq(), _) => true
-      case _ => false
-    }
 
     def isTrivial: Boolean = expr match {
       case FiniteSet(Seq(), _) => true
