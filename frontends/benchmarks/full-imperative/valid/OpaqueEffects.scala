@@ -5,7 +5,7 @@ import stainless.lang.Option._
 import stainless.lang.StaticChecks._
 import stainless.proof.check
 
-object TreeImmutMapGenericExample {
+object OpaqueEffectsExample {
   case class Cell(var value: Int) extends AnyHeapRef
 
   case class Leaf(data: Cell) extends Tree
