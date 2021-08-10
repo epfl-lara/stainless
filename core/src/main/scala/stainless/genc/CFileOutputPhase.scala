@@ -20,6 +20,7 @@ trait CFileOutputPhase extends UnitPhase[CAST.Prog] {
     val cOutputFile = new File(cFileName)
     val hFileName = cFileName.stripSuffix(".c") + ".h"
     val hOutputFile = new File(hFileName)
+    val hInclude = cOutputFile.getName.stripSuffix(".c") + ".h"
 
     val parent = cOutputFile.getParentFile()
     try {
@@ -38,12 +39,12 @@ trait CFileOutputPhase extends UnitPhase[CAST.Prog] {
       val headerDependencies = CASTDependencies.headerDependencies(program)(context)
 
       val gencIncludes = context.options.findOptionOrDefault(optIncludes)
-      val ph = new CPrinter(hFileName, false, headerDependencies, gencIncludes)
+      val ph = new CPrinter(hInclude, false, headerDependencies, gencIncludes)
       ph.print(program)
       hout.write(ph.sb.toString)
       hout.close()
 
-      val pc = new CPrinter(hFileName, true, headerDependencies, Seq())
+      val pc = new CPrinter(hInclude, true, headerDependencies, Seq())
       pc.print(program)
       cout.write(pc.sb.toString)
       cout.close()
