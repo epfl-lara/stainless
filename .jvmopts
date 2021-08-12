@@ -1,0 +1,7 @@
+-Dsbt.io.implicit.relative.glob.conversion=allow
+-Xss512M
+-Xms1024M
+-Xmx12G
+-XX:MaxMetaspaceSize=512M
+-XX:+UseCodeCacheFlushing
+-XX:ReservedCodeCacheSize=256M
