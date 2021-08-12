@@ -266,6 +266,7 @@ trait TreeSanitizer { self =>
 
    def isOrHasNonSealedAncestors(ct: ClassType): Boolean = {
       val ancestors = (ct.tcd +: ct.tcd.ancestors)
+      // TODO(gsps): Speed up the check on anyHeapRef (at least move last?)
       ancestors.exists(tcd => !tcd.cd.flags.exists(_.name == "anyHeapRef") && tcd.cd.isAbstract && !tcd.cd.isSealed)
     }
 

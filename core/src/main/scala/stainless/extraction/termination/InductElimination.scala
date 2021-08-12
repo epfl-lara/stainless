@@ -155,6 +155,8 @@ trait InductElimination
       }
     )
 
+    // TODO(gsps): Clean all this up (inductionParams is never empty!)
+
     val newMeasure: Option[Specification] =
       if (inductionParams.isEmpty) None
       else if (inductionParams.size == 1) Some(Measure((inductionParams.head.toVariable)))

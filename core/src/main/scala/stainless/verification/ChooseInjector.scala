@@ -17,14 +17,14 @@ trait ChooseInjector extends inox.transformers.SymbolTransformer {
       .withFunctions(symbols.functions.values.toSeq.map { fd =>
 
         val specced = BodyWithSpecs(fd.fullBody)
-        val post = specced.getSpec(PostconditionKind).map(s => s.expr)
+        val post = specced.getSpec(PostconditionKind)
 
         def injectChooses(e: Expr): Expr = e match {
           case NoTree(tpe) =>
             val vd = ValDef(FreshIdentifier("res"), tpe, Seq(DropVCs)).copiedFrom(e)
             // FIXME: Use `specced.wrapLets` as below, so `choose` refers to function parameters?
-            val pred = specced.getSpec(PostconditionKind)
-              .map(pc => symbols.application(pc.expr, Seq(vd.toVariable)))
+            val pred = post
+              .map(post => symbols.application(post.expr, Seq(vd.toVariable)))
               .getOrElse(BooleanLiteral(true))
               .copiedFrom(tpe)
             Choose(vd, pred).copiedFrom(e)
@@ -44,7 +44,7 @@ trait ChooseInjector extends inox.transformers.SymbolTransformer {
         }
 
         val newSpecced = if ((fd.flags contains Extern) || (fd.flags contains Opaque)) {
-          val choose = specced.getSpec(PostconditionKind)
+          val choose = post
             .map { case Postcondition(Lambda(Seq(vd), post)) =>
               Choose(vd, freshenLocals(specced.wrapLets(post)))
             }
