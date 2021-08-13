@@ -5,6 +5,12 @@ enablePlugins(GitBranchPrompt)
 
 git.useGitDescribe := true
 
+Global / excludeLintKeys += buildInfoKeys
+Global / excludeLintKeys += buildInfoOptions
+Global / excludeLintKeys += buildInfoPackage
+Global / excludeLintKeys += testOptions
+Global / excludeLintKeys += publishArtifact
+
 val osInf = Option(System.getProperty("os.name")).getOrElse("")
 
 val isUnix    = osInf.indexOf("nix") >= 0 || osInf.indexOf("nux") >= 0
@@ -51,7 +57,7 @@ lazy val stainlessBuildInfoKeys = Seq[BuildInfoKey](
 lazy val noPublishSettings: Seq[Setting[_]] = Seq(
   publish         := {},
   publishM2       := {},
-  skip in publish := true,
+  publish / skip := true,
 )
 
 lazy val baseSettings: Seq[Setting[_]] = Seq(
@@ -147,7 +153,7 @@ lazy val assemblySettings: Seq[Setting[_]] = {
 lazy val libFilesFile = "libfiles.txt" // file storing list of library file names
 
 lazy val regenFilesFile = false
-  
+
 lazy val libraryFiles: Seq[(String, File)] = {
   val libFiles = ((root.base / "frontends" / "library") ** "*.scala").get
   val dropCount = (libFiles.head.getPath indexOfSlice "library") + ("library".size + 1 /* for separator */)
@@ -166,24 +172,24 @@ lazy val commonFrontendSettings: Seq[Setting[_]] = Defaults.itSettings ++ Seq(
     * NOTE: IntelliJ seems to have trouble including sources located outside the base directory of an
     *   sbt project. You can temporarily disable the following four lines when importing the project.
     */
-  unmanagedResourceDirectories in IntegrationTest += (root.base / "frontends" / "benchmarks"),
-  unmanagedSourceDirectories   in Compile         += (root.base.getAbsoluteFile / "frontends" / "common" / "src" / "main" / "scala"),
-  unmanagedSourceDirectories   in Test            += (root.base.getAbsoluteFile / "frontends" / "common" / "src" / "test" / "scala"),
-  unmanagedSourceDirectories   in IntegrationTest += (root.base.getAbsoluteFile / "frontends" / "common" / "src" / "it" / "scala"),
+  IntegrationTest / unmanagedResourceDirectories += (root.base / "frontends" / "benchmarks"),
+  Compile / unmanagedSourceDirectories           += (root.base.getAbsoluteFile / "frontends" / "common" / "src" / "main" / "scala"),
+  Test / unmanagedSourceDirectories              += (root.base.getAbsoluteFile / "frontends" / "common" / "src" / "test" / "scala"),
+  IntegrationTest / unmanagedSourceDirectories   += (root.base.getAbsoluteFile / "frontends" / "common" / "src" / "it" / "scala"),
 
   // We have to use managed resources here to keep sbt's source watcher happy
-  resourceGenerators in Compile += Def.task {
+  Compile / resourceGenerators += Def.task {
     for ((libPath, libFile) <- libraryFiles) yield {
-      val resourceFile = (resourceManaged in Compile).value / libPath
+      val resourceFile = (Compile / resourceManaged).value / libPath
       IO.write(resourceFile, IO.read(libFile))
       resourceFile
     }
   }.taskValue,
 
-  test in assembly := {}, // Skip the test during assembly
+  assembly / test := {}, // Skip the test during assembly
 
-  sourceGenerators in Compile += Def.task {
-    val main = (sourceManaged in Compile).value / "stainless" / "Main.scala"
+  Compile / sourceGenerators += Def.task {
+    val main = (Compile / sourceManaged).value / "stainless" / "Main.scala"
     def removeSlashU(in: String): String =
       in.replaceAll("\\\\" + "u", "\\\\\"\"\"+\"\"\"u")
       .replaceAll("\\\\" + "U", "\\\\\"\"\"+\"\"\"U")
@@ -216,7 +222,7 @@ lazy val commonFrontendSettings: Seq[Setting[_]] = Defaults.itSettings ++ Seq(
 
 val scriptSettings: Seq[Setting[_]] = Seq(
   extraClasspath := {
-    ((classDirectory in Compile).value.getAbsolutePath +: (dependencyClasspath in Compile).value.map(_.data.absolutePath))
+    ((Compile / classDirectory).value.getAbsolutePath +: (Compile / dependencyClasspath).value.map(_.data.absolutePath))
       .mkString(System.getProperty("path.separator"))
   }
 )
@@ -247,9 +253,9 @@ lazy val `stainless-library` = (project in file("frontends") / "library")
     name := "stainless-library",
 
     // don't publish binaries - stainless-library is only consumed as a sources component
-    publishArtifact in packageBin := false,
+    packageBin / publishArtifact := false,
     crossVersion := CrossVersion.binary,
-    scalaSource in Compile := baseDirectory.value
+    Compile / scalaSource := baseDirectory.value
   )
 
 lazy val `stainless-algebra` = (project in file("frontends") / "algebra")
@@ -260,9 +266,9 @@ lazy val `stainless-algebra` = (project in file("frontends") / "algebra")
     version := "0.1.2",
 
     // don't publish binaries - stainless-algebra is only consumed as a sources component
-    publishArtifact in packageBin := false,
+    packageBin / publishArtifact := false,
     crossVersion := CrossVersion.binary,
-    scalaSource in Compile := baseDirectory.value,
+    Compile / scalaSource := baseDirectory.value,
   )
   .dependsOn(`stainless-library`)
 
@@ -277,9 +283,9 @@ lazy val `stainless-scalac` = (project in file("frontends") / "scalac")
     frontendClass := "scalac.ScalaCompiler",
     libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value,
     buildInfoKeys ++= Seq[BuildInfoKey]("useJavaClassPath" -> false),
-    assemblyOption in assembly := (assemblyOption in assembly).value.copy(includeScala = false),
-    assemblyExcludedJars in assembly := {
-      val cp = (fullClasspath in assembly).value
+    assembly / assemblyOption := (assembly / assemblyOption).value.copy(includeScala = false),
+    assembly / assemblyExcludedJars := {
+      val cp = (assembly / fullClasspath).value
       // Don't include scalaz3 dependency because it is OS dependent
       cp filter {_.data.getName.startsWith("scalaz3")}
     },
@@ -294,7 +300,7 @@ lazy val `stainless-scalac-plugin` = (project in file("frontends") / "stainless-
   .settings(
     name := "stainless-scalac-plugin",
     crossVersion := CrossVersion.full, // because compiler api is not binary compatible
-    packageBin in Compile := (assembly in (`stainless-scalac`, Compile)).value
+    Compile / packageBin := (assembly in (`stainless-scalac`, Compile)).value
   )
 
 lazy val `stainless-scalac-standalone` = (project in file("frontends") / "stainless-scalac-standalone")
@@ -304,8 +310,8 @@ lazy val `stainless-scalac-standalone` = (project in file("frontends") / "stainl
   .settings(
     name := "stainless-scalac-standalone",
     buildInfoKeys ++= Seq[BuildInfoKey]("useJavaClassPath" -> true),
-    (mainClass in assembly) := Some("stainless.Main"),
-    (assemblyJarName in assembly) := (name.value + "-" + version.value + ".jar"),
+    (assembly / mainClass) := Some("stainless.Main"),
+    (assembly / assemblyJarName) := (name.value + "-" + version.value + ".jar"),
     (unmanagedJars in Runtime) := (unmanagedJars in (`stainless-scalac`, Runtime)).value
   )
   .dependsOn(`stainless-scalac`)
@@ -356,14 +362,14 @@ lazy val `sbt-stainless` = (project in file("sbt-plugin"))
       "-Xmx768m",
       "-XX:MaxMetaspaceSize=384m",
       "-Dplugin.version=" + version.value,
-      "-Dscala.version=" + sys.props.get("scripted.scala.version").getOrElse((scalaVersion in `stainless-scalac`).value)
+      "-Dscala.version=" + sys.props.get("scripted.scala.version").getOrElse((`stainless-scalac` / scalaVersion).value)
     ),
     scriptedBufferLog := false,
     scriptedDependencies := {
       publishLocal.value
-      (update       in `stainless-library`).value
-      (publishLocal in `stainless-library`).value
-      (publishLocal in `stainless-scalac-plugin`).value
+      (`stainless-library` / update).value
+      (`stainless-library` / publishLocal).value
+      (`stainless-scalac-plugin` / publishLocal).value
     }
   )
 
@@ -371,7 +377,7 @@ lazy val root = (project in file("."))
   .disablePlugins(AssemblyPlugin)
   .settings(artifactSettings, noPublishSettings)
   .settings(
-    sourcesInBase in Compile := false,
+    Compile / sourcesInBase := false,
   )
   .dependsOn(`stainless-scalac`, `stainless-library`/*, `stainless-dotty`*/, `sbt-stainless`)
   .aggregate(`stainless-core`, `stainless-library`, `stainless-scalac`/*, `stainless-dotty`*/, `sbt-stainless`, `stainless-scalac-plugin`)
