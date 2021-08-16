@@ -319,10 +319,7 @@ The following instructions will invoke sbt while using a stainless sub-directory
 
 **Where to find generated files**
 
-The compilation will automatically generate the following two bash scripts:
-
-1. ``frontends/scalac/target/universal/stage/bin/stainless-scalac`` that will use the ``scalac`` compiler as frontend,
-2. ``frontends/stainless-dotty/target/universal/stage/bin/stainless-dotty`` that uses the ``dotc`` compiler as frontend (experimental).
+The compilation will automatically generate the bash script ``frontends/scalac/target/universal/stage/bin/stainless-scalac`` that uses the ``scalac`` compiler as frontend.
 
 You may want to introduce a soft-link from ``frontends/scalac/target/universal/stage/bin/stainless-scalac`` to a file called ``stainless``:
 
@@ -341,9 +338,11 @@ Note that Stainless is organized as a structure of several projects. The main pr
 Build from Source on Windows 10
 -------------------------------
 
-Before following the infrequently updated instructions in this section, considering running Ubuntu on Windows 10  and following the instructions for Linux. That said, Stainless is just a JVM application that invokes binaries that are also available for Windows, so it is not too difficult to build a version that runs without a VM.
+Before following the infrequently updated instructions in this section, considering running Ubuntu on Windows 10 and following the instructions for Linux.
 
 Get the sources of Stainless by cloning the official Stainless repository. You will need a Git shell for windows, e.g.  `Git for Windows <https://git-for-windows.github.io/>`_.
+On Windows, please do not use ``sbt universal:stage`` as this generates a Windows batch file which is unusable, because it contains commands that are too long for Windows.
+Instead, please use ``sbt stainless-scalac-standalone/assembly`` as follows:
 
 .. code-block:: bash
 
@@ -351,13 +350,10 @@ Get the sources of Stainless by cloning the official Stainless repository. You w
   Cloning into 'stainless'...
   // ...
   $ cd stainless
-  $ sbt clean universal:stage
+  $ sbt stainless-scalac-standalone/assembly
   // takes about 1 minutes
- 
-Compilation will automatically generate the following two bash scripts:
 
-1. ``frontends/scalac/target/universal/stage/bin/stainless-scalac.bat`` that will use the ``scalac`` compiler as frontend,
-2. ``frontends/stainless-dotty/target/universal/stage/bin/stainless-dotty.bat`` that uses the ``dotc`` compiler as frontend (experimental).
+Running Stainless can then be done with the command: ``java -jar frontends\stainless-scalac-standalone\target\scala-2.12\stainless-scalac-standalone-{VERSION}.jar``, where ``VERSION`` denotes Stainless version.
 
 Running Tests
 -------------
