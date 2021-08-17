@@ -6,8 +6,7 @@ Generating C Code
 Stainless can generate from Scala code an equivalent and safe C99 code. Using the verification, repair and
 synthesis features of Stainless this conversion can be made safely. Additionally, the produced code can be
 compiled with any standard-compliant C99 compiler to target the desired hardware architecture
-without extra dependencies. The motivation, detailed supported features, design decisions and performance
-benchmarks can be found in `Extending Safe C Support In Leon
+without extra dependencies. The initial description of GenC, which has evolved since then, can be found in `Extending Safe C Support In Leon
 <https://infoscience.epfl.ch/record/227942/files/Extending%20Safe%20C%20Support%20In%20Leon.pdf>`_.
 Furthermore, this Master Thesis Report explains how to achieve compliance under the `MISRA C
 <https://en.wikipedia.org/wiki/MISRA_C>`_ guidelines.
@@ -27,23 +26,35 @@ Requirements
 
 The following is required from the Scala program fed to GenC:
 
- - Any functions reachable from the ``main`` function, and the types they use,
+ - Functions compiled to C, and the types they use,
    should be exclusively in the set of features described below, with the
-   exceptions of the code used for verification conditions;
+   exceptions of the (ghost) code used for verification conditions;
 
- - The program should be successfully verified with the ``--strict-arithmetic``
+ - The program should be successfully verified with the ``--strict-arithmetic`` (enabled by default)
    flag to ensure that arithmetic operations, array accesses, function
    preconditions and so on, are safely converted into C code.
 
 
 The generated C code should be compiled with a C99-compliant compiler that
-satisfy these extra conditions:
+satisfies these extra conditions:
 
  - ``CHAR_BITS`` is defined to be 8;
 
  - The ``int8_t``, ``int16_t``, ``int32_t``, ``int64_t`` and ``uint8_t``, ``uint16_t``, ``uint32_t``, ``uint64_t`` types are available (see :doc:`Pure Scala <purescala>` for description);
 
  - Casting from unsigned to signed integer, and vice-versa, is not well supported at the moment.
+
+
+Export
+------
+
+Functions and classes can be marked with ``@cCode.export`` (``import stainless.annotation._``), 
+which affects GenC compilation in several ways.
+First, the names of these functions and classes will not get mangled when generating the C code.
+Second, the signatures of the functions, and the type definitions corresponding to exported classes,
+will go into the header file (by default ``stainless.h``).
+Finally, preconditions of exported functions (which are meant to be called from external C code),
+are transformed into runtime assertions.
 
 Supported Features
 ------------------
@@ -52,9 +63,6 @@ The supported subset of Scala includes part of the core languages features, as w
 imperative features, while ensuring the same expression execution order in both
 languages.
 
-The input program can use types and functions defined in other units; Stainless will scan each dependency
-in turn starting from the main unit. It is therefore mandatory that every dependency use exclusively
-supported features to allow the conversion to succeed.
 
 Types
 *****
@@ -87,7 +95,7 @@ The following raw types and their corresponding literals are supported:
   * - ``UInt64`` (64-bit integer)
     - ``uint64_t``
 
-Additionally, GenC has a partial support for character and string literals made
+Additionally, GenC has partial support for character and string literals made
 of ASCII characters only but it has no API to manipulate strings at the moment:
 ``Char`` is mapped to ``char`` and ``String`` is mapped to ``char*``.
 
@@ -117,7 +125,7 @@ For ``Array[Int]`` we get:
 
   Arrays live on the stack and therefore cannot be returned by functions. This limitation is
   extended to other types having an array as field. In some cases, it is acceptable to use the
-  ``@inline`` annotation from Stainless's library to workaround this limitation.
+  ``@cCode.inline`` annotation from Stainless's library to workaround this limitation.
 
 For case classes containing arrays whose length is known at compile time, we avoid
 using a ``struct`` wrapper for the array, and instead directly inline the array
@@ -205,14 +213,15 @@ following language features are available:
     + see ``@cCode.function`` below;
 
 Since strings of characters are currently not (fully) available, in order to generate an executable
-program, one has to define a main function without any argument, that can optionally return an
-integer, as follows: ``def _main(): Int = ...``. Moreover, an extern ``main`` function of the
-following form is required in order to preserve the executability of the Scala program:
+program, one has to define a main function without any argument, whose return type can be ``Int``
+or ``Unit``:
 
 .. code-block:: scala
 
-    @extern
-    def main(args: Array[String]): Unit = _main()
+    @cCode.export
+    def main(): Unit = {
+      // main code goes here
+    }
 
 
 Constructs
@@ -360,17 +369,6 @@ The second one hides the global declarations, which can be useful when interacti
 that declares global variables outside of the Stainless program.
 
 
-Export
-------
-
-Functions and classes can be marked with ``@export``, which affects GenC compilation in several ways.
-First, the names of these functions and classes will not get mangled when generating the C code.
-Second, the signatures of the functions, and the type definitions corresponding to exported classes,
-will go into the header file (by default ``stainless.h``).
-Finally, preconditions of exported functions (which are meant to be called from external C code),
-are transformed into runtime assertions.
-
-
 Custom Conversion
 -----------------
 
@@ -378,7 +376,7 @@ When it comes to function using system calls, such as I/Os, no automated convers
 those situations the user can define his own implementation for functions, add manual conversion
 from Scala types to C types or even drop some functions and types from the translation, with
 ``@cCode.function``, ``@cCode.typedef`` and ``@cCode.drop`` annotations from the package
-``stainless.annotation``, respectively. Their usage is described below.
+``stainless.annotation``. Their usage is described below.
 
 
 Custom Function Implementation
