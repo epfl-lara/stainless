@@ -41,6 +41,11 @@ trait GhostAccessRewriter extends Transform {
       (!sym.isConstructor &&
         sym.ownersIterator.exists(_.hasAnnotation(ghostAnnotation)))
 
+    private def symbolIndex(tree: Tree): Int = tree match {
+      case Apply(fun, args) => symbolIndex(fun) + 1
+      case _ => 0
+    }
+
     override def transform(tree: Tree): Tree = tree match {
       case Ident(_) if effectivelyGhost(tree.symbol) =>
         gen.mkZero(tree.tpe)
@@ -64,7 +69,7 @@ trait GhostAccessRewriter extends Transform {
 
       case f @ Apply(fun, args) =>
         val fun1 = super.transform(fun)
-        val symParams0 = f.symbol.info.params
+        val symParams0 = f.symbol.info.paramLists(symbolIndex(fun))
 
         // if the function has a repeated parameter the lengths of the two lists don't match
         // so we fill params up to the argument list length with the last parameter
