@@ -1006,6 +1006,7 @@ trait TypeChecker {
         else if (filteredExprs.size == 1) Some(filteredExprs.head)
         else Some(And(filteredExprs).setPos(e))
       case Annotated(_, flags) if flags.contains(DropConjunct) => None
+      case Annotated(body, flags) => filterUnchecked(body).map(Annotated(_, flags).setPos(e))
       case _ => Some(e)
     }
 
