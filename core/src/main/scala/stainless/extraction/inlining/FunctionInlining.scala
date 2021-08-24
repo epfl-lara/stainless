@@ -104,11 +104,9 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
             // It is thus inlined into an assertion here.
             case Some(Lambda(Seq(vd), post)) if isSynthetic =>
               val err = Some("Inlined postcondition of " + tfd.id.name)
-              val postVal = ValDef.fresh("post", BooleanType()).setPos(fi)
               Let(vd, e,
-                Let(postVal, annotated(post, DropVCs),
-                  Assert(postVal.toVariable.setPos(fi), err, vd.toVariable.copiedFrom(fi)
-              ).copiedFrom(fi)).copiedFrom(fi)).copiedFrom(fi)
+                  Assert(annotated(post, DropVCs), err, vd.toVariable.copiedFrom(fi)
+              ).copiedFrom(fi)).copiedFrom(fi)
             case Some(Lambda(Seq(vd), post)) =>
               Let(vd, e, Assume(annotated(post, DropVCs), vd.toVariable.copiedFrom(fi)).copiedFrom(fi)).copiedFrom(fi)
             case _ => e
