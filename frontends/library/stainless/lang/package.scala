@@ -155,12 +155,6 @@ package object lang {
     scala.Predef.print(x)
   }
 
-  @extern @library @mutable @anyHeapRef
-  trait AnyHeapRef {
-    @refEq
-    def refEq(that: AnyHeapRef): Boolean = true
-  }
-
   @library
   def specialize[T](call: T): T = call
 
@@ -182,6 +176,12 @@ package object lang {
     val t = a1(i1)
     a1(i1) = a2(i2)
     a2(i2) = t
+  }
+
+  @extern @library @mutable @anyHeapRef
+  trait AnyHeapRef {
+    @refEq
+    def refEq(that: AnyHeapRef): Boolean = true
   }
 
   @ignore

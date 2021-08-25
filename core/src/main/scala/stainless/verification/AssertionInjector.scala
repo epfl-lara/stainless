@@ -77,7 +77,6 @@ trait AssertionInjector extends transformers.TreeTransformer {
       }}}
 
     case sel @ s.ADTSelector(recv, selector) =>
-      // TODO(gsps): Murky change? Try to revert and see results.
       if (sel.constructor.sort.constructors.size == 1)
         t.ADTSelector(transform(recv), selector).copiedFrom(e)
       else
