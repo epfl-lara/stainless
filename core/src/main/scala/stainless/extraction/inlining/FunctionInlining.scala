@@ -92,7 +92,7 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
               case (spec @ Precondition(cond), (acc, i)) =>
                 val num = if (i == 1) "" else s" ($i)"
                 (
-                  Assert(annotated(cond, DropVCs), Some(s"Inlined precondition$num of " + tfd.id.asString), acc).copiedFrom(fi),
+                  Assert(annotated(cond.setPos(fi), DropVCs), Some(s"Inlined precondition$num of " + tfd.id.asString), acc).setPos(fi),
                   i-1
                 )
             }._1
