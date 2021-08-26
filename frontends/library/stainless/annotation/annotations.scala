@@ -27,6 +27,10 @@ class traceInduct(fun: String) extends Annotation
 @ignore @field @getter @setter @param
 class extern extends Annotation
 
+/** Do not generate verification conditions for the annotated function. */
+@ignore
+class dropVCs extends Annotation
+
 /** Don't unfold the function's body during verification. */
 @ignore
 class opaque extends Annotation
