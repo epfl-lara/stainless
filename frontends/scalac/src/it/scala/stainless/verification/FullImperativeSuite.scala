@@ -20,9 +20,13 @@ class FullImperativeSuite extends ComponentTestSuite with inox.MainHelpers {
   override protected def optionsString(options: inox.Options): String = ""
 
   override def filter(ctx: inox.Context, name: String): FilterStatus = name match {
-    // FIXME(gsps):
+    // FIXME(gsps): Incomplete
     case "full-imperative/valid/CellDataStructuresAndRepr" => Skip
+    // FIXME(gsps): Time-out?
     case "full-imperative/invalid/OpaqueEffectsGeneric" => Skip
+
+    // FIXME(gsps): Works locally, but flaky on CI
+    case "full-imperative/valid/AllocatorMono" => Skip
 
     case _ => super.filter(ctx, name)
   }
