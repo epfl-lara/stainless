@@ -23,7 +23,6 @@ object TreeImmutMapGenericExample {
       this match {
         case Leaf(data) => Set[AnyHeapRef](data)
         case Branch(left, right) => left.repr ++ right.repr
-        //totry: Set[AnyHeapRef]() 
       }
     @opaque
     def tmap(f: T => T): Unit = {
@@ -40,20 +39,19 @@ object TreeImmutMapGenericExample {
       }
     }
   }
+
   /* gives counterexample, such as:
-
 [info] [Warning ] Found counter-example:
-[info] [Warning ]   t: Tree[Int]                -> Leaf[Int](HeapRef(4))
-[info] [Warning ]   c: HeapRef                  -> HeapRef(4)
-[info] [Warning ]   heap0: Map[HeapRef, Object] -> {HeapRef(4) -> Cell(Cell[Object](SignedBitvector32(0))), * -> SignedBitvector32(2)}
-
+[info] [Warning ]   t: Tree[T]                  -> Leaf[Object](HeapRef(12))
+[info] [Warning ]   c: HeapRef                  -> HeapRef(12)
+[info] [Warning ]   y: T                        -> Open(10)
+[info] [Warning ]   heap0: Map[HeapRef, Object] -> {HeapRef(12) -> Cell(Cell[Object](Open(7))), * -> SignedBitvector32(2)}
 */
 
-  def test(t: Tree[Int], c: Cell[Int]) = {
-    require(c.value == 0)
+  def test[T](t: Tree[T], c: Cell[T], y: T) = {
     reads(t.repr ++ Set[AnyHeapRef](c))
     modifies(t.repr)
-    
-    t.tmap(x => (x | 1))
-  } ensuring(_ => c.value == 0)
+
+    t.tmap(x => y)
+  } ensuring(_ => c.value == old(c.value))
 }
