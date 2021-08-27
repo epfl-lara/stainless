@@ -1,5 +1,26 @@
 # Release Notes
 
+## Version 0.9.0 (2021-08-27)
+
+### Stainless frontend and internals
+
+- Add `--full-imperative` phase, for an imperative phase without aliasing restrictions (#1140)
+- Bug fixes in imperative phase (#1108, #1103, #1116, #1121, #1123)
+- Split `Unchecked` annotation into `DropVCs` and `DropConjunct` (#1125)
+- Fix ghost elimination for multiple parameter groups (#1138)
+- Fix timeout sometimes not being respected with non-incremental mode (`no-inc:` solver prefix) (#1141)
+- Bump sbt to `1.5.5` and add documentation for Windows (#1134)
+
+### GenC
+
+- Drop extern functions in GenC (#1114)
+- Disable mangling of fields for classes that are defined outside Stainless (#1115)
+- Add pure attribute to pure functions when compiling to C (#1119)
+- Split `inline` (for verification) and `cCode.inline` (for compilation) annotations (#1132)
+- Reorganize GenC annotations (#1129)
+- Bug fixes (#1124, #1133)
+
+
 ## Version 0.8.1 (2021-06-20)
 
 ### Stainless frontend and internals
