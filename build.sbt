@@ -301,7 +301,7 @@ lazy val `stainless-scalac-plugin` = (project in file("frontends") / "stainless-
   .settings(
     name := "stainless-scalac-plugin",
     crossVersion := CrossVersion.full, // because compiler api is not binary compatible
-    Compile / packageBin := (assembly in (`stainless-scalac`, Compile)).value
+    Compile / packageBin := (`stainless-scalac` / Compile / assembly).value
   )
 
 lazy val `stainless-scalac-standalone` = (project in file("frontends") / "stainless-scalac-standalone")
@@ -311,9 +311,9 @@ lazy val `stainless-scalac-standalone` = (project in file("frontends") / "stainl
   .settings(
     name := "stainless-scalac-standalone",
     buildInfoKeys ++= Seq[BuildInfoKey]("useJavaClassPath" -> true),
-    (assembly / mainClass) := Some("stainless.Main"),
-    (assembly / assemblyJarName) := (name.value + "-" + version.value + ".jar"),
-    (unmanagedJars in Runtime) := (unmanagedJars in (`stainless-scalac`, Runtime)).value
+    assembly / mainClass := Some("stainless.Main"),
+    assembly / assemblyJarName := (name.value + "-" + version.value + ".jar"),
+    Runtime / unmanagedJars := (`stainless-scalac` / Runtime / unmanagedJars).value
   )
   .dependsOn(`stainless-scalac`)
 
