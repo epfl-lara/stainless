@@ -67,7 +67,7 @@ object Queue {
       snocNoDuplicate(oldAsList, n)
       check(ListOps.noDuplicate(asList))
       check(inv(asList, 0)) // needs induction, that inv was true, and noDuplicate
-    } ensuring (_ => asList == old(asList) :+ n && valid)    
+    } ensuring (_ => asList == old(asList) :+ n && valid)
 
     def peek: Node = {
       require(asList.size >= 2 && valid)
