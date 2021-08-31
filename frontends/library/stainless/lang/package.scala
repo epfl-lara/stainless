@@ -193,7 +193,7 @@ package object lang {
   @extern @library
   def objectId[T <: AnyHeapRef](x: T): BigInt = ???
 
-  @extern @library
+  @library
   case class Heap(/*opaque*/) {
     // Evaluates a value expression in the given heap.
     // Caveat: Reads and modifies clauses are currently unchecked in the value expression.
