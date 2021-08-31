@@ -59,6 +59,7 @@ trait EffectElaboration
         case ObjectIdentity.Id() => true
         case HeapGet.Id() => true
         case HeapUnchanged.Id() => true
+        case HeapEval.Id() => true
         case _ => false
       }
 
@@ -417,6 +418,17 @@ trait RefTransform
             val mm = MapMerge(transform(objs, env), transform(heap2, env), heapBase).setPos(e)
             Equals(mm, heapBase).setPos(e)
           }
+
+        case HeapEval(heap, value) =>
+          // FIXME(gsps): Reads and modifies should also be checked within HeapRun.
+          val heapVd: ValDef = "heapInEval" :: HeapMapType
+          val envInEval = Env(
+            readsVdOptOpt = Some(None), // unchecked reads!
+            modifiesVdOptOpt = Some(None), // unchecked writes!
+            heapVdOpt = Some(heapVd))
+          val heap1 = transform(heap, env)
+          val value1 = transform(value, envInEval)
+          LetVar(heapVd, heap1, value1).setPos(e)
 
         case fi @ FunctionInvocation(id, targs, vargs) =>
           val targs1 = targs.map(transform(_, env))

@@ -16,4 +16,12 @@ object FirstClassHeapExample {
     assert(Heap.unchanged(Set(c2), heapA, heapB))
     assert(Heap.unchanged(Set(c1), heapB, heapC))
   }
+
+  def g(c: Cell): BigInt = {
+    reads(Set(c))
+    modifies(Set(c))
+    val heapA = Heap.get
+    c.value += 1
+    heapA.eval { c.value }
+  } ensuring (_ == old(c.value))
 }

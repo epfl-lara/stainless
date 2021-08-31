@@ -194,7 +194,12 @@ package object lang {
   def objectId[T <: AnyHeapRef](x: T): BigInt = ???
 
   @extern @library
-  case class Heap(/*opaque*/)
+  case class Heap(/*opaque*/) {
+    // Evaluates a value expression in the given heap.
+    // Caveat: Reads and modifies clauses are currently unchecked in the value expression.
+    @extern @library
+    def eval[T](value: T): T = ???
+  }
 
   object Heap {
     // Returns a snapshot of the current heap.
