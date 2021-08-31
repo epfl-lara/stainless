@@ -53,11 +53,27 @@ trait EffectElaboration
   override protected def getContext(symbols: Symbols) = new TransformerContext(symbols)
 
   override protected def extractSymbols(tctx: TransformerContext, symbols: s.Symbols): t.Symbols = {
+    def shouldDropFun(fd: FunDef)(implicit symbols: s.Symbols): Boolean =
+      fd.id match {
+        case RefEq.Id() => true
+        case ObjectIdentity.Id() => true
+        case HeapGet.Id() => true
+        case HeapUnchanged.Id() => true
+        case _ => false
+      }
+
+    def shouldDropClass(cd: ClassDef)(implicit symbols: s.Symbols): Boolean =
+      cd.typed.toType match {
+        case AnyHeapRefType() => true
+        case HeapType() => true
+        case _ => false
+      }
+
     // We filter out the definitions related to AnyHeapRef since they are only needed for inferring
     // which types live on the heap.
     val newSymbols = NoSymbols
-      .withFunctions(symbols.functions.values.filterNot(fd => hasFlag(fd, "refEq")).toSeq)
-      .withClasses(symbols.classes.values.filterNot(cd => hasFlag(cd, "anyHeapRef")).toSeq)
+      .withFunctions(symbols.functions.values.filterNot(fd => shouldDropFun(fd)(symbols)).toSeq)
+      .withClasses(symbols.classes.values.filterNot(cd => shouldDropClass(cd)(symbols)).toSeq)
       .withSorts(symbols.sorts.values.toSeq)
       .withTypeDefs(symbols.typeDefs.values.toSeq)
 
@@ -133,7 +149,10 @@ trait SyntheticHeapFunctions { self =>
 }
 */
 
-trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with SyntheticHeapFunctions*/ { self =>
+trait RefTransform
+  extends oo.CachingPhase
+     with utils.SyntheticSorts
+     with HeapASTExtractors { self =>
   val s: Trees
   val t: s.type
 
@@ -159,21 +178,12 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
     lazy val HeapRefSetType: Type = SetType(HeapRefType)
     lazy val EmptyHeapRefSet: Expr = FiniteSet(Seq.empty, HeapRefType)
 
-    lazy val anyHeapRefOpt: Option[ClassDef] = AnyHeapRef.classDefOpt
-
     // This caches whether types live in the heap or not
     lazy val erasesToHeapRef = new utils.ConcurrentCached[Type, Boolean](computeErasesToHeapRef(_))
 
     protected lazy val effectLevel = new utils.ConcurrentCached[Identifier, exprOps.EffectLevel]({
       id => exprOps.getEffectLevel(symbols.getFunction(id))
     })
-
-    object AnyHeapRefType {
-      def unapply(tpe: Type): Boolean = tpe match {
-        case ct: ClassType => anyHeapRefOpt.isDefined && ct.id == anyHeapRefOpt.get.id
-        case _ => false
-      }
-    }
 
     private def computeErasesToHeapRef(tpe: Type): Boolean = tpe match {
       case AnyHeapRefType() => true
@@ -234,6 +244,8 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
       val t: self.s.type = self.s
 
       override def transform(tpe: Type, env: Env): Type = tpe match {
+        case HeapType() =>
+          HeapMapType
         case ct: ClassType if erasesToHeapRef(ct) =>
           HeapRefType
         // case FunctionType(_, _) =>
@@ -325,10 +337,6 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
         }
 
       override def transform(e: Expr, env: Env): Expr = e match {
-        // Reference equality is transformed into value equality on references
-        case RefEq(e1, e2) =>
-          Equals(transform(e1, env), transform(e2, env)).copiedFrom(e)
-
         case ClassConstructor(ct, args) if erasesToHeapRef(ct) =>
           // TODO: Add mechanism to keep freshly allocated objects apart from older ones
           val heapVd = env.expectHeapVd(e.getPos, "allocate heap object")
@@ -388,9 +396,27 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
             checkedRecv(recvRef, readsDom, "runtime type-checked object in reads set", iio, e)
           }
 
+        case e: Old =>
+          // Will be translated separately in postconditions
+          // TODO(gsps): Add ability to refer back to old state snapshots for any ghost code
+          e
+
+        case RefEq(e1, e2) =>
+          // Reference equality is transformed into value equality on references
+          Equals(transform(e1, env), transform(e2, env)).copiedFrom(e)
+
         case ObjectIdentity(recv) =>
           val fieldId = heapRefSort.constructors.head.fields.head.id
           ADTSelector(transform(recv, env), fieldId).copiedFrom(e)
+
+        case HeapGet() =>
+          env.expectHeapVd(e.getPos, "heap snapshot").toVariable
+
+        case HeapUnchanged(objs, heap1, heap2) =>
+          smartLet("heapBase" :: HeapRefType, transform(heap1, env)) { heapBase =>
+            val mm = MapMerge(transform(objs, env), transform(heap2, env), heapBase).setPos(e)
+            Equals(mm, heapBase).setPos(e)
+          }
 
         case fi @ FunctionInvocation(id, targs, vargs) =>
           val targs1 = targs.map(transform(_, env))
@@ -424,11 +450,6 @@ trait RefTransform extends oo.CachingPhase with utils.SyntheticSorts /*with Synt
                 call
               }
           }
-
-        case e: Old =>
-          // Will be translated separately in postconditions
-          // TODO(gsps): Add ability to refer back to old state snapshots for any ghost code
-          e
 
         case _ => super.transform(e, env)
       }
