@@ -262,12 +262,12 @@ trait Trees extends oo.Trees with Definitions { self =>
 
   private[this] lazy val dummyHeapId: Identifier = ast.SymbolIdentifier("stainless.lang.dummyHeap")
   lazy val dummyHeap: FunDef = dsl.mkFunDef(dummyHeapId, Synthetic, Extern)() { _ =>
-    (Seq(), HeapType, { _ => NoTree(HeapType) })
+    (Seq(), HeapMapType, { _ => NoTree(HeapMapType) })
   }
 
   lazy val HeapRefType: Type = ADTType(heapRefId, Seq.empty)
   lazy val HeapRefSetType: Type = SetType(HeapRefType)
-  lazy val HeapType: MapType = MapType(HeapRefType, AnyType())
+  lazy val HeapMapType: MapType = MapType(HeapRefType, AnyType())
 
   object ObjectIdentity {
     def unapply(e: Expr): Option[Expr] = e match {
