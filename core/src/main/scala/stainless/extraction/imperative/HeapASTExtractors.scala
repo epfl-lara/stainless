@@ -79,4 +79,19 @@ trait HeapASTExtractors {
       case _ => None
     }
   }
+
+  /** An extractor for the eval method on stainless.lang.Heap */
+  object HeapEval {
+    object Id {
+      def unapply(id: Identifier): Boolean = id match {
+        case ast.SymbolIdentifier("stainless.lang.Heap.eval") => true
+        case _ => false
+      }
+    }
+
+    def unapply(e: Expr): Option[(Expr, Expr)] = e match {
+      case FunctionInvocation(Id(), Seq(_), Seq(heap, value)) => Some((heap, value))
+      case _ => None
+    }
+  }
 }
