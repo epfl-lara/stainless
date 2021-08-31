@@ -192,4 +192,18 @@ package object lang {
 
   @extern @library
   def objectId[T <: AnyHeapRef](x: T): BigInt = ???
+
+  @extern @library
+  case class Heap(/*opaque*/)
+
+  object Heap {
+    // Returns a snapshot of the current heap.
+    @extern @library
+    def get: Heap = ???
+
+    // Returns whether two heaps are equal on all the given objects.
+    @extern @library
+    def unchanged(objs: Set[AnyHeapRef], h0: Heap, h1: Heap): Boolean =
+      /* objs.mapMerge(h1, h0) == h0 */ ???
+  }
 }

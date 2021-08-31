@@ -161,31 +161,25 @@ trait Trees extends oo.Trees with Definitions { self =>
       checkAllTypes(Seq(lhs, rhs), BooleanType(), BooleanType())
   }
 
-  /** This checks the given definition for a flag */
-  def hasFlag(df: Definition, flag: String): Boolean = df.flags.exists(_.name == flag)
-
-  /** This is an extractor for the AnyHeapRef type in the stainless.lang package */
-  object AnyHeapRef {
+  /** An extractor for the AnyHeapRef type in the stainless.lang package */
+  object AnyHeapRefType {
     // TODO(gsps): Cache this ClassDef
     def classDefOpt(implicit s: Symbols): Option[ClassDef] =
       s.lookup.get[ClassDef]("stainless.lang.AnyHeapRef")
 
     def apply()(implicit s: Symbols): Type =
       classDefOpt.get.typed.toType
-  }
 
-  /** This is an extractor for the refEq method in the stainless.lang package */
-  object RefEq {
-    def unapply(expr: Expr)(implicit s: Symbols): Option[(Expr, Expr)] = expr match {
-      case fi @ FunctionInvocation(_, _, Seq(e1, e2)) if (hasFlag(fi.tfd.fd, "refEq")) => Some((e1, e2))
-      case _ => None
+    def unapply(tpe: Type)(implicit s: Symbols): Boolean = tpe match {
+      case ct: ClassType => classDefOpt.map(_.id == ct.id).getOrElse(false)
+      case _ => false
     }
   }
 
   /** Represents a `reads(objs)` contract. `objs` should be a set of references, and the body is what follows the contract. */
   case class Reads(objs: Expr, body: Expr) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type = objs.getType match {
-      case SetType(objTpe) if s.isSubtypeOf(objTpe, AnyHeapRef()) => body.getType
+      case SetType(objTpe) if s.isSubtypeOf(objTpe, AnyHeapRefType()) => body.getType
       case _ => Untyped
     }
   }
@@ -193,7 +187,7 @@ trait Trees extends oo.Trees with Definitions { self =>
   /** Represents a `modifies(objs)` contract. `objs` should be a set of references, and the body is what follows the contract. */
   case class Modifies(objs: Expr, body: Expr) extends Expr with CachingTyped {
     protected def computeType(implicit s: Symbols): Type = objs.getType match {
-      case SetType(objTpe) if s.isSubtypeOf(objTpe, AnyHeapRef()) => body.getType
+      case SetType(objTpe) if s.isSubtypeOf(objTpe, AnyHeapRefType()) => body.getType
       case _ => Untyped
     }
   }
@@ -268,15 +262,6 @@ trait Trees extends oo.Trees with Definitions { self =>
   lazy val HeapRefType: Type = ADTType(heapRefId, Seq.empty)
   lazy val HeapRefSetType: Type = SetType(HeapRefType)
   lazy val HeapMapType: MapType = MapType(HeapRefType, AnyType())
-
-  object ObjectIdentity {
-    def unapply(e: Expr): Option[Expr] = e match {
-      case FunctionInvocation(
-        ast.SymbolIdentifier("stainless.lang.objectId"), Seq(_), Seq(obj)
-      ) => Some(obj)
-      case _ => None
-    }
-  }
 }
 
 trait Printer extends oo.Printer {
