@@ -55,6 +55,8 @@ trait EffectElaboration
   override protected def extractSymbols(tctx: TransformerContext, symbols: s.Symbols): t.Symbols = {
     def shouldDropFun(fd: FunDef)(implicit symbols: s.Symbols): Boolean =
       fd.id match {
+        case AsHeapRefSet.WrapperId() => true
+        case AsHeapRefSet.Id() => true
         case RefEq.Id() => true
         case ObjectIdentity.Id() => true
         case HeapGet.Id() => true
@@ -401,6 +403,9 @@ trait RefTransform
           // Will be translated separately in postconditions
           // TODO(gsps): Add ability to refer back to old state snapshots for any ghost code
           e
+
+        case AsHeapRefSet(objs) =>
+          transform(objs, env)
 
         case RefEq(e1, e2) =>
           // Reference equality is transformed into value equality on references
