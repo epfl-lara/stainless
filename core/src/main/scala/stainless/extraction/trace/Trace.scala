@@ -62,11 +62,14 @@ trait Trace extends CachingPhase with IdentityFunctions with IdentitySorts { sel
         val newParamTps = eqLemma.tparams.map{tparam => tparam.tp}
         val newParamVars = eqLemma.params.map{param => param.toVariable}
 
-        val specsMap = (fd1.params zip newParamVars).toMap
+        val subst = (fd1.params.map(_.id) zip newParamVars).toMap
+        val tsubst = (fd1.tparams zip newParamTps).map { case (tparam, targ) => tparam.tp.id -> targ }.toMap
+        val specializer = new Specializer(eqLemma, eqLemma.id, tsubst, subst)
+
         val specs = BodyWithSpecs(fd1.fullBody).specs.filter(s => s.kind == LetKind || s.kind == PreconditionKind) 
         val pre = specs.map(spec => spec match {
-          case Precondition(cond) => Precondition(exprOps.replaceFromSymbols(specsMap, cond))
-          case LetInSpec(vd, expr) => LetInSpec(vd, exprOps.replaceFromSymbols(specsMap, expr))
+          case Precondition(cond) => Precondition(specializer.transform(cond))
+          case LetInSpec(vd, expr) => LetInSpec(vd, specializer.transform(expr))
         })
 
         val fun1 = s.FunctionInvocation(fd1.id, newParamTps, newParamVars)
@@ -88,7 +91,7 @@ trait Trace extends CachingPhase with IdentityFunctions with IdentitySorts { sel
 
         eqLemma.copy(
           fullBody = BodyWithSpecs(withPre).withSpec(post).reconstructed,
-          flags = Seq(s.Derived(fd1.id), s.Annotation("traceInduct",List(StringLiteral(fd1.id.name)))),
+          flags = Seq(s.Derived(Some(fd1.id)), s.Annotation("traceInduct",List(StringLiteral(fd1.id.name)))),
           returnType = s.UnitType()
         ).copiedFrom(eqLemma)
       }
@@ -180,13 +183,56 @@ trait Trace extends CachingPhase with IdentityFunctions with IdentitySorts { sel
     import exprOps._
 
     val indPattern = exprOps.freshenSignature(model).copy(id = FreshIdentifier(lemma.id+"$induct"))
-
     val newParamTps = indPattern.tparams.map{tparam => tparam.tp}
     val newParamVars = indPattern.params.map{param => param.toVariable}
 
     val fi = FunctionInvocation(model.id, newParamTps, newParamVars)
 
-    class Specializer(
+    val tpairs = model.tparams zip fi.tps
+    val tsubst = tpairs.map { case (tparam, targ) => tparam.tp.id -> targ } .toMap
+    val subst = (model.params.map(_.id) zip fi.args).toMap
+    val specializer = new Specializer(model, indPattern.id, tsubst, subst)
+    
+    val fullBodySpecialized = specializer.transform(exprOps.withoutSpecs(model.fullBody).get)
+
+    val specsSubst = (lemma.params.map(_.id) zip newParamVars).toMap ++ (model.params.map(_.id) zip newParamVars).toMap
+    val specsTsubst = ((lemma.tparams zip fi.tps) ++ (model.tparams zip fi.tps)).map { case (tparam, targ) => tparam.tp.id -> targ }.toMap
+    val specsSpecializer = new Specializer(indPattern, indPattern.id, specsTsubst, specsSubst)
+
+    val specs = BodyWithSpecs(model.fullBody).specs ++ BodyWithSpecs(lemma.fullBody).specs.filterNot(_.kind == MeasureKind)
+    val pre = specs.filterNot(_.kind == PostconditionKind).map(spec => spec match {
+      case Precondition(cond) => Precondition(specsSpecializer.transform(cond)).setPos(spec)
+      case LetInSpec(vd, expr) => LetInSpec(vd, specsSpecializer.transform(expr)).setPos(spec)
+      case Measure(measure) => Measure(specsSpecializer.transform(measure)).setPos(spec)
+      case s => context.reporter.fatalError(s"Unsupported specs: $s")
+    })
+
+    val withPre = exprOps.reconstructSpecs(pre, Some(fullBodySpecialized), indPattern.returnType)
+
+    val speccedLemma = BodyWithSpecs(lemma.fullBody).addPost
+    val speccedOrig = BodyWithSpecs(model.fullBody).addPost
+    val postLemma = speccedLemma.getSpec(PostconditionKind).map(post => 
+      specsSpecializer.transform(post.expr))
+    val postOrig = speccedOrig.getSpec(PostconditionKind).map(post => specsSpecializer.transform(post.expr))
+    
+    (postLemma, postOrig) match {
+      case (Some(Lambda(Seq(res1), cond1)), Some(Lambda(Seq(res2), cond2))) => 
+        val res = ValDef.fresh("res", indPattern.returnType)
+        val freshCond1 = exprOps.replaceFromSymbols(Map(res1 -> res.toVariable), cond1)
+        val freshCond2 = exprOps.replaceFromSymbols(Map(res2 -> res.toVariable), cond2)
+
+        val cond = andJoin(Seq(freshCond1, freshCond2))
+        val post = Postcondition(Lambda(Seq(res), cond))
+
+        indPattern.copy(
+          fullBody = BodyWithSpecs(withPre).withSpec(post).reconstructed,
+          flags = Seq(s.Derived(Some(lemma.id)), s.Derived(Some(model.id)))
+        ).copiedFrom(indPattern)
+    }
+
+  }
+
+  class Specializer(
       origFd: FunDef,
       newId: Identifier,
       tsubst: Map[Identifier, Type],
@@ -211,51 +257,6 @@ trait Trace extends CachingPhase with IdentityFunctions with IdentitySorts { sel
         case _ => super.transform(tpe)
       }
     }
-
-    val tpairs = model.tparams zip fi.tps
-    val tsubst = tpairs.map { case (tparam, targ) => tparam.tp.id -> targ } .toMap
-
-    val subst = (model.params.map(_.id) zip fi.args).toMap
-    val specializer = new Specializer(model, indPattern.id, tsubst, subst)
-    
-    val fullBodySpecialized = specializer.transform(exprOps.withoutSpecs(model.fullBody).get)
-
-    val specsMap = (lemma.params zip newParamVars).toMap ++ (model.params zip newParamVars).toMap
-    val specs = BodyWithSpecs(model.fullBody).specs ++ BodyWithSpecs(lemma.fullBody).specs.filterNot(_.kind == MeasureKind)
-
-    val pre = specs.filterNot(_.kind == PostconditionKind).map(spec => spec match {
-      case Precondition(cond) => Precondition(exprOps.replaceFromSymbols(specsMap, cond)).setPos(spec)
-      case LetInSpec(vd, expr) => LetInSpec(vd, exprOps.replaceFromSymbols(specsMap, expr)).setPos(spec)
-      case Measure(measure) => Measure(exprOps.replaceFromSymbols(specsMap, measure)).setPos(spec)
-      case s => context.reporter.fatalError(s"Unsupported specs: $s")
-    })
-
-    val withPre = exprOps.reconstructSpecs(pre, Some(fullBodySpecialized), indPattern.returnType)
-
-    val specsSpecializer = new Specializer(indPattern, indPattern.id, (lemma.tparams zip fi.tps).map { case (tparam, targ) => tparam.tp.id -> targ }.toMap, Map())
-
-    val speccedLemma = BodyWithSpecs(lemma.fullBody).addPost
-    val speccedOrig = BodyWithSpecs(model.fullBody).addPost
-    val postLemma = speccedLemma.getSpec(PostconditionKind).map(post => 
-      specsSpecializer.transform(exprOps.replaceFromSymbols(specsMap, post.expr)))
-    val postOrig = speccedOrig.getSpec(PostconditionKind).map(post => exprOps.replaceFromSymbols(specsMap, post.expr))
-    
-    (postLemma, postOrig) match {
-      case (Some(Lambda(Seq(res1), cond1)), Some(Lambda(Seq(res2), cond2))) => 
-        val res = ValDef.fresh("res", indPattern.returnType)
-        val freshCond1 = exprOps.replaceFromSymbols(Map(res1 -> res.toVariable), cond1)
-        val freshCond2 = exprOps.replaceFromSymbols(Map(res2 -> res.toVariable), cond2)
-
-        val cond = andJoin(Seq(freshCond1, freshCond2))
-        val post = Postcondition(Lambda(Seq(res), cond))
-
-        indPattern.copy(
-          fullBody = BodyWithSpecs(withPre).withSpec(post).reconstructed,
-          flags = Seq(s.Derived(lemma.id), s.Derived(model.id))
-        ).copiedFrom(indPattern)
-    }
-
-  }
 
   type Path = Seq[String]
 
