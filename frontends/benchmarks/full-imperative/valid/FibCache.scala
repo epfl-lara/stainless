@@ -21,14 +21,18 @@ object FibCacheExample {
         case Some(result) =>
           result
       }
-    } ensuring { _ => forall((m: BigInt) => cache.contains(m) ==> (cache(m) == fibPure(m))) }
+    } ensuring (res =>
+      res == fibPure(n) &&
+      forall((m: BigInt) => cache.contains(m) ==> (cache(m) == fibPure(m)))
+    )
 
-    /* --- Everything up to here passes, the rest is make-believe. --- */
-
-    // Let's pretend we have first-class heaps and a construct `at(heap)(e)` that
-    // translates `e` at state `h`.
-    // def lemmaHeapIsIrrelevant(h0: Heap, h1: Heap, n: BigInt): Boolean = {
-    //   at(h0)(apply(n)) == at(h1)(apply(n))
-    // }.holds
+    def lemmaHeapIsIrrelevant(h0: Heap, h1: Heap, n: BigInt): Unit = {
+      require(
+        0 <= n &&
+        h0.eval { forall((m: BigInt) => cache.contains(m) ==> (cache(m) == fibPure(m))) } &&
+        h1.eval { forall((m: BigInt) => cache.contains(m) ==> (cache(m) == fibPure(m))) }
+      )
+      ()
+    } ensuring (_ => h0.eval { apply(n) } == h1.eval { apply(n) })
   }
 }
