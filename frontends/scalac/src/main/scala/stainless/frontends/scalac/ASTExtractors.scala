@@ -353,6 +353,24 @@ trait ASTExtractors {
       }
     }
 
+    /** Matches `lhs &&& rhs` and returns (lhs, rhs)*/
+    object ExSplitAnd {
+      def unapply(tree: Apply) : Option[(Tree, Tree)] = tree match {
+        case
+          Apply(
+            Select(
+              Apply(
+                ExSymbol("stainless", "lang", "BooleanDecorations"),
+                lhs :: Nil
+              ),
+              ExNamed("$amp$amp$amp")
+            ),
+            rhs :: Nil
+          ) => Some((lhs, rhs))
+        case _ => None
+      }
+    }
+
     /** Extracts the 'require' contract from an expression (only if it's the
      * first call in the block). */
     object ExRequiredExpression {

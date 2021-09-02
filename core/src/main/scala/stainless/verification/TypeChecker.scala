@@ -998,43 +998,45 @@ trait TypeChecker {
       return TyperResult.valid
     }
 
-    def filterUnchecked(e: Expr): Option[Expr] = e match {
-      case Let(vd, expr, body) => filterUnchecked(body).map(Let(vd, expr, _).setPos(e))
+    def splitAndFilterUnchecked(e: Expr): Seq[Expr] = e match {
+      case Let(vd, expr, body) => splitAndFilterUnchecked(body).map(Let(vd, expr, _).setPos(e))
       case And(exprs) =>
-        val filteredExprs = exprs.flatMap(filterUnchecked)
-        if (filteredExprs.isEmpty) None
-        else if (filteredExprs.size == 1) Some(filteredExprs.head)
-        else Some(And(filteredExprs).setPos(e))
-      case Annotated(_, flags) if flags.contains(DropConjunct) => None
-      case Annotated(body, flags) => filterUnchecked(body).map(Annotated(_, flags).setPos(e))
-      case _ => Some(e)
+        val filteredExprs = exprs.flatMap(splitAndFilterUnchecked)
+        if (filteredExprs.isEmpty) Seq()
+        else if (filteredExprs.size == 1) Seq(filteredExprs.head)
+        else Seq(And(filteredExprs).setPos(e))
+      case Annotated(_, flags) if flags.contains(DropConjunct) => Seq()
+      case Annotated(And(exprs), flags) if flags.contains(SplitVC) =>
+        exprs.flatMap(splitAndFilterUnchecked)
+      case Annotated(body, flags) => splitAndFilterUnchecked(body).map(Annotated(_, flags).setPos(e))
+      case _ => Seq(e)
     }
 
-    val filtered = filterUnchecked(e)
+    val exprs = splitAndFilterUnchecked(e)
 
-    if (filtered.isEmpty) {
+    if (exprs.isEmpty) {
       return TyperResult.valid
     }
 
-    val condition = vcFromContext(tc.termVariables, filtered.get)
+    val conditions = exprs.map(vcFromContext(tc.termVariables, _))
 
-    val vc: StainlessVC = VC(
+    val vcs: Seq[StainlessVC] = conditions.map(condition => VC(
       condition,
       tc.currentFid.get,
       tc.vcKind,
       tc.checkSAT,
-    ).setPos(tc)
+    ).setPos(tc)).filter(vc => vcFilter(vc))
 
-    if (!vcFilter(vc)) {
+    if (vcs.isEmpty) {
       return TyperResult.valid
     }
 
     reporter.debug(
-      s"Created VC in context:\n${tc.asString()}\nfor expression: ${e.asString}\n\n" +
-      s"VC:\n${condition.asString}\n\n\n"
+      s"Created VCs in context:\n${tc.asString()}\nfor expression: ${e.asString}\n\n" +
+      s"VCs:\n${conditions.map(_.asString).mkString("\n")}\n\n\n"
     )(DebugSectionTypeCheckerVCs)
 
-    TyperResult(Seq(vc), Seq(NodeTree(JVC(tc, filtered.get), Seq())))
+    TyperResult(vcs, exprs.map(expr => NodeTree(JVC(tc, expr): Judgment, Seq())))
   }
 
   /** The `checkType` function checks that an expression `e` has type `tpe` by

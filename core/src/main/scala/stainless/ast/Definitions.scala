@@ -24,6 +24,7 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
   case object Final extends Flag("final", Seq.empty)
   case object DropVCs extends Flag("DropVCs", Seq.empty)
   case object DropConjunct extends Flag("dropConjunct", Seq.empty)
+  case object SplitVC extends Flag("splitVC", Seq.empty)
   case object Library extends Flag("library", Seq.empty)
   case object Synthetic extends Flag("synthetic", Seq())
   case object PartialEval extends Flag("partialEval", Seq())
