@@ -103,48 +103,6 @@ object EffectElaboration {
 
 /** The actual Ref transformation **/
 
-/*
-trait SyntheticHeapFunctions { self =>
-  val s: Trees
-  val t: s.trees
-
-  import t._
-  import dsl._
-
-  protected lazy val heapReadId: Identifier = ast.SymbolIdentifier("stainless.lang.HeapRef.read")
-  protected lazy val heapModifyId: Identifier = ast.SymbolIdentifier("stainless.lang.HeapRef.modify")
-
-  protected def heapFunctions: Seq[FunDef] = {
-    val readFd = mkFunDef(heapReadId, Unchecked, Synthetic, Inline)() { _ =>
-      (Seq("heap" :: HeapMapType, "x" :: HeapRefType), AnyType(), {
-        case Seq(heap, x) =>
-          Require(
-            heap.select(heapReadableId).contains(x),
-            MapApply(heap.select(heapMapId), x)
-          )
-      })
-    }
-    val modifyFd = mkFunDef(heapModifyId, Unchecked, Synthetic, Inline)() { _ =>
-      (Seq("heap" :: HeapMapType, "x" :: HeapRefType, "v" :: AnyType()), UnitType(), {
-        case Seq(heap, x) =>
-          Require(
-            heap.select(heapModifiableId).contains(x),
-            heapWithMap(heap, MapUpdated(heap.select(heapMapId), x, v))
-          )
-      })
-    }
-    Seq(readFd, modifyFd)
-  }
-
-  protected def heapWithMap(oldHeap: Expr, newMap: Expr): Expr =
-    C(heapCons)(
-      newMap,
-      oldHeap.select(heapReadableId),
-      oldHeap.select(heapModifiableId)
-    )
-}
-*/
-
 trait RefTransform
   extends oo.CachingPhase
      with utils.SyntheticSorts
