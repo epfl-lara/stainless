@@ -367,7 +367,11 @@ trait RefTransform
           ADTSelector(transform(recv, env), fieldId).copiedFrom(e)
 
         case HeapGet() =>
-          env.expectHeapVd(e.getPos, "heap snapshot").toVariable
+          val heap = env.expectHeapVd(e.getPos, "heap snapshot").toVariable
+          val readsDom = env.expectReadsV(e.getPos, "heap snapshot")
+          readsDom
+            .map(readsDom => MapMerge(readsDom, heap, E(dummyHeap.id)()).copiedFrom(e))
+            .getOrElse(heap)
 
         case HeapUnchanged(objs, heap1, heap2) =>
           smartLet("heapBase" :: HeapRefType, transform(heap1, env)) { heapBase =>
