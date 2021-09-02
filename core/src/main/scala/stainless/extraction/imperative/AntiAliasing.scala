@@ -17,6 +17,7 @@ trait AntiAliasing
      with EffectsChecker
      with GhostChecker { self =>
   import s._
+  import exprOps._
 
   // Function rewriting depends on the effects analysis which relies on all dependencies
   // of the function, so we use a dependency cache here.
@@ -191,9 +192,12 @@ trait AntiAliasing
           case (ct: ClassType, ClassFieldAccessor(id) +: xs) =>
             val field = getClassField(ct, id).get
             val fieldClassType = classForField(ct, id).get.toType
-            val condition = IsInstanceOf(expr, fieldClassType).setPos(pos)
+            val condition = if (ct.tcd.cd.parents.isEmpty && ct.tcd.cd.children.isEmpty) BooleanLiteral(true).setPos(pos)
+              else IsInstanceOf(expr, fieldClassType).setPos(pos)
+            val casted = if (ct.tcd.cd.parents.isEmpty && ct.tcd.cd.children.isEmpty) expr
+              else AsInstanceOf(expr, fieldClassType).setPos(expr)
 
-            val (recCond, recSelect) = select(pos, field.tpe, ClassSelector(AsInstanceOf(expr, fieldClassType).setPos(expr), id).setPos(pos), xs)
+            val (recCond, recSelect) = select(pos, field.tpe, ClassSelector(casted, id).setPos(pos), xs)
             (and(condition, recCond), recSelect)
 
           case (tt: TupleType, TupleFieldAccessor(idx) +: xs) =>
@@ -215,7 +219,12 @@ trait AntiAliasing
           // This is necessary to handle immutable types being upcasted to `Any`, which is mutable.
           val assignment = if (isMutableType(effect.receiver.getType)) {
             val newValue = updatedTarget(effect.toTarget, Annotated(result, Seq(DropVCs)).setPos(pos))
-            val castedValue = Annotated(AsInstanceOf(newValue, effect.receiver.getType), Seq(DropVCs))
+            val adt = effect.receiver.getType
+            val castedValue =
+              if (adt.isInstanceOf[ADTType] && adt.asInstanceOf[ADTType].getSort.constructors.size == 1)
+                newValue
+              else
+                Annotated(AsInstanceOf(newValue, effect.receiver.getType), Seq(DropVCs)).copiedFrom(newValue)
             Assignment(effect.receiver, castedValue).setPos(pos)
           } else UnitLiteral().setPos(pos)
 
@@ -229,7 +238,7 @@ trait AntiAliasing
               .map { case (vd, arg) => (fiEffects.filter(_.receiver == vd.toVariable), arg) }
               .filter { case (effects, _) => effects.nonEmpty }
               .map { case (effects, arg) =>
-                val rArg = exprOps.replaceFromSymbols(env.rewritings, arg)
+                val rArg = freshenLocals(replaceFromSymbols(env.rewritings, arg))
                 effects map (e => (e, e on rArg))
               }
 
@@ -291,7 +300,7 @@ trait AntiAliasing
 
         override def transform(e: Expr, env: Env): Expr = (e match {
           case v: Variable if env.rewritings.contains(v.toVal) =>
-            env.rewritings(v.toVal)
+            freshenLocals(env.rewritings(v.toVal))
 
           case ret @ Return(_) if freshLocals.isEmpty => super.transform(e, env)
 
@@ -301,9 +310,9 @@ trait AntiAliasing
           case swap @ Swap(array1, index1, array2, index2) =>
             val base = array1.getType.asInstanceOf[ArrayType].base
             val temp = ValDef.fresh("temp", base).setPos(swap)
-            val ra1 = exprOps.replaceFromSymbols(env.rewritings, array1)
+            val ra1 = freshenLocals(replaceFromSymbols(env.rewritings, array1))
             val targets1 = getDirectTargets(ra1, ArrayAccessor(index1))
-            val ra2 = exprOps.replaceFromSymbols(env.rewritings, array2)
+            val ra2 = freshenLocals(replaceFromSymbols(env.rewritings, array2))
             val targets2 = getDirectTargets(ra2, ArrayAccessor(index2))
 
             if (targets1.exists(target => !env.bindings.contains(target.receiver.toVal)))
@@ -410,7 +419,7 @@ trait AntiAliasing
             }
 
           case up @ ArrayUpdate(a, i, v) =>
-            val ra = exprOps.replaceFromSymbols(env.rewritings, a)
+            val ra = freshenLocals(replaceFromSymbols(env.rewritings, a))
             val targets = getDirectTargets(ra, ArrayAccessor(i))
 
             if (targets.exists(target => !env.bindings.contains(target.receiver.toVal)))
@@ -422,7 +431,7 @@ trait AntiAliasing
             }, UnitLiteral().copiedFrom(up)).copiedFrom(up)
 
           case up @ MutableMapUpdate(map, k, v) =>
-            val rmap = exprOps.replaceFromSymbols(env.rewritings, map)
+            val rmap = freshenLocals(replaceFromSymbols(env.rewritings, map))
             val targets = getDirectTargets(rmap, MutableMapAccessor(k))
 
             if (targets.exists(target => !env.bindings.contains(target.receiver.toVal)))
@@ -434,7 +443,7 @@ trait AntiAliasing
             }, UnitLiteral().copiedFrom(up)).copiedFrom(up)
 
           case as @ FieldAssignment(o, id, v) =>
-            val so = exprOps.replaceFromSymbols(env.rewritings, o)
+            val so = freshenLocals(replaceFromSymbols(env.rewritings, o))
             val accessor = typeToAccessor(o.getType, id)
             val targets = getDirectTargets(so, accessor)
 
@@ -481,7 +490,11 @@ trait AntiAliasing
 
           case fi @ FunctionInvocation(id, tps, args) =>
             val fd = Outer(fi.tfd.fd)
-            val rewrittenArgs = args.map(exprOps.replaceFromSymbols(env.rewritings, _))
+            val rewrittenArgs = args.map(arg =>
+              freshenLocals(replaceFromSymbols(
+                env.rewritings.mapValues(e => Annotated(e, Seq(DropVCs)).setPos(e)),
+                arg
+              )))
             if (!fi.tfd.flags.exists(_.name == "accessor") && !fi.tfd.flags.contains(IsPure))
               checkAliasing(fi, rewrittenArgs)
 
@@ -493,7 +506,7 @@ trait AntiAliasing
 
           case alr @ ApplyLetRec(id, tparams, tpe, tps, args) =>
             val fd = Inner(env.locals(id))
-            val rewrittenArgs = args.map(exprOps.replaceFromSymbols(env.rewritings, _))
+            val rewrittenArgs = args.map(arg => freshenLocals(replaceFromSymbols(env.rewritings, arg)))
             checkAliasing(alr, rewrittenArgs)
 
             val vis: Set[Variable] = varsInScope(fd)
@@ -513,7 +526,7 @@ trait AntiAliasing
             val ft @ FunctionType(from, to) = callee.getType
             val ftEffects = functionTypeEffects(ft)
             if (ftEffects.nonEmpty) {
-              val rewrittenArgs = args.map(exprOps.replaceFromSymbols(env.rewritings, _))
+              val rewrittenArgs = args.map(arg => freshenLocals(replaceFromSymbols(env.rewritings, arg)))
               checkAliasing(app, rewrittenArgs)
               val nfi = Application(
                 transform(callee, env),
@@ -556,8 +569,8 @@ trait AntiAliasing
           val r = rec(Annotated(ADTSelector(receiver, id).copiedFrom(newValue), Seq(DropVCs)).copiedFrom(newValue), fs)
 
           ADT(tcons.id, tps, tcons.definition.fields.map { vd =>
-            if (vd.id == id) r
-            else Annotated(ADTSelector(receiver, vd.id).copiedFrom(receiver), Seq(DropVCs)).copiedFrom(receiver)
+            if (vd.id == id) freshenLocals(r)
+            else freshenLocals(Annotated(ADTSelector(receiver, vd.id).copiedFrom(receiver), Seq(DropVCs)).copiedFrom(receiver))
           }).copiedFrom(newValue)
 
         case ClassFieldAccessor(id) :: fs =>
@@ -570,12 +583,15 @@ trait AntiAliasing
             throw FatalError(s"Could find class for type ${receiver.getType}")
           }
 
-          val casted = AsInstanceOf(receiver, cd.toType).copiedFrom(receiver)
-          val r = rec(Annotated(ClassSelector(casted, id).copiedFrom(newValue), Seq(DropVCs)).copiedFrom(newValue), fs)
+          val casted = if (cd.parents.isEmpty && cd.children.isEmpty) receiver
+            else AsInstanceOf(receiver, cd.toType).copiedFrom(receiver)
+          val annotated = if (cd.parents.isEmpty && cd.children.isEmpty) rec(ClassSelector(casted, id), fs)
+            else rec(Annotated(ClassSelector(casted, id).copiedFrom(newValue), Seq(DropVCs)).copiedFrom(newValue), fs)
 
           ClassConstructor(ct, ct.tcd.fields.map { vd =>
-            if (vd.id == id) r
-            else Annotated(ClassSelector(casted, vd.id).copiedFrom(receiver), Seq(DropVCs)).copiedFrom(receiver)
+            if (vd.id == id) freshenLocals(annotated)
+            else if (cd.parents.isEmpty && cd.children.isEmpty) ClassSelector(freshenLocals(casted), vd.id)
+            else freshenLocals(Annotated(ClassSelector(casted, vd.id).copiedFrom(receiver), Seq(DropVCs)).copiedFrom(receiver))
           }).copiedFrom(newValue)
 
         case TupleFieldAccessor(index) :: fs =>
@@ -583,17 +599,17 @@ trait AntiAliasing
           val r = rec(Annotated(TupleSelect(receiver, index).copiedFrom(newValue), Seq(DropVCs)).copiedFrom(newValue), fs)
 
           Tuple((1 to tt.dimension).map { i =>
-            if (i == index) r
-            else Annotated(TupleSelect(receiver, i).copiedFrom(receiver), Seq(DropVCs)).copiedFrom(receiver)
+            if (i == index) freshenLocals(r)
+            else freshenLocals(Annotated(TupleSelect(receiver, i).copiedFrom(receiver), Seq(DropVCs)).copiedFrom(receiver))
           }).copiedFrom(newValue)
 
         case ArrayAccessor(index) :: fs =>
-          val r = rec(Annotated(ArraySelect(receiver, index).copiedFrom(newValue), Seq(DropVCs)).copiedFrom(newValue), fs)
-          ArrayUpdated(receiver, index, r).copiedFrom(newValue)
+          val r = freshenLocals(rec(Annotated(ArraySelect(receiver, index).copiedFrom(newValue), Seq(DropVCs)).copiedFrom(newValue), fs))
+          freshenLocals(ArrayUpdated(receiver, index, r).copiedFrom(newValue))
 
         case MutableMapAccessor(index) :: fs =>
-          val r = rec(Annotated(MutableMapApply(receiver, index).copiedFrom(newValue), Seq(DropVCs)).copiedFrom(newValue), fs)
-          MutableMapUpdated(receiver, index, r).copiedFrom(newValue)
+          val r = freshenLocals(rec(Annotated(MutableMapApply(receiver, index).copiedFrom(newValue), Seq(DropVCs)).copiedFrom(newValue), fs))
+          freshenLocals(MutableMapUpdated(receiver, freshenLocals(index), r).copiedFrom(newValue))
 
         case Nil => newValue
       }
