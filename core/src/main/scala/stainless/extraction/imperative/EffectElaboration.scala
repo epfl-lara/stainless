@@ -53,38 +53,31 @@ trait EffectElaboration
   override protected def getContext(symbols: Symbols) = new TransformerContext(symbols)
 
   override protected def extractSymbols(tctx: TransformerContext, symbols: s.Symbols): t.Symbols = {
-    def shouldDropFun(fd: FunDef)(implicit symbols: s.Symbols): Boolean =
-      fd.id match {
-        case AsHeapRefSet.WrapperId() => true
-        case AsHeapRefSet.Id() => true
-        case RefEq.Id() => true
-        case ObjectIdentity.Id() => true
-        case HeapGet.Id() => true
-        case HeapUnchanged.Id() => true
-        case HeapEval.Id() => true
-        case _ => false
-      }
+    val isOldImperative = !context.options.findOptionOrDefault(optFullImperative)
 
-    def shouldDropClass(cd: ClassDef)(implicit symbols: s.Symbols): Boolean =
-      cd.typed.toType match {
-        case AnyHeapRefType() => true
-        case HeapType() => true
-        case _ => false
-      }
+    val anyHeapRefCdOpt = AnyHeapRefType.classDefOpt(symbols)
+    val heapCdOpt = HeapType.classDefOpt(symbols)
 
-    // We filter out the definitions related to AnyHeapRef since they are only needed for inferring
-    // which types live on the heap.
+    def shouldDrop(defn: Definition): Boolean =
+      (
+        anyHeapRefCdOpt.isDefined && symbols.dependsOn(defn.id, anyHeapRefCdOpt.get.id) ||
+        heapCdOpt.isDefined && symbols.dependsOn(defn.id, heapCdOpt.get.id)
+      ) && (isOldImperative || defn.flags.contains(Library))
+
+    // We filter out the definitions related to AnyHeapRef and Heap.
     val newSymbols = NoSymbols
-      .withFunctions(symbols.functions.values.filterNot(fd => shouldDropFun(fd)(symbols)).toSeq)
-      .withClasses(symbols.classes.values.filterNot(cd => shouldDropClass(cd)(symbols)).toSeq)
+      .withFunctions(symbols.functions.values.filterNot(shouldDrop).toSeq)
+      .withClasses(symbols.classes.values.filterNot(shouldDrop).toSeq)
       .withSorts(symbols.sorts.values.toSeq)
       .withTypeDefs(symbols.typeDefs.values.toSeq)
+
+    // If we're not using the new imperative phase, we're done.
+    if (isOldImperative)
+      return newSymbols
 
     super.extractSymbols(tctx, newSymbols)
       .withSorts(Seq(heapRefSort) ++ OptionSort.sorts(newSymbols))
       .withFunctions(Seq(dummyHeap) ++ OptionSort.functions(newSymbols))
-      // .withSorts(Seq(heapRefSort, heapSort) ++ OptionSort.sorts(newSymbols))
-      // .withFunctions(heapFunctions ++ OptionSort.functions(newSymbols))
   }
 
   override protected def extractFunction(tctx: TransformerContext, fd: FunDef): FunctionResult =

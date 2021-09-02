@@ -28,6 +28,7 @@ package object imperative {
   }
 
   def oldImperative(implicit ctx: inox.Context) = {
+    utils.DebugPipeline("EffectElaboration", EffectElaboration(trees)) andThen  // only drops definitions
     utils.DebugPipeline("AntiAliasing", AntiAliasing(trees)) andThen
     utils.DebugPipeline("ReturnElimination", ReturnElimination(trees)) andThen
     utils.DebugPipeline("ImperativeCodeElimination", ImperativeCodeElimination(trees)) andThen
