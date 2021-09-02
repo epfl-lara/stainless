@@ -685,7 +685,7 @@ trait RefTransform
           newShimParams,
           newReturnType,
           freshenLocals(fullBody),
-          (newFlags ++ Seq(Synthetic, DropVCs, InlineOnce)).distinct
+          (newFlags.filterNot(_ == Inline) ++ Seq(Synthetic, DropVCs, InlineOnce)).distinct
         ).copiedFrom(fd))
       }
 
