@@ -640,7 +640,10 @@ trait RefTransform
             }
             val fiProjected = fi.copy(args = heapArg +: fi.args.tail).copiedFrom(fi)
             Assume(
-              unchecked(Equals(res, fiProjected).copiedFrom(fd)),
+              unchecked(
+                if (writes) Equals(res._1, fiProjected._1).copiedFrom(fd)
+                else        Equals(res, fiProjected).copiedFrom(fd)
+              ),
               result
             ).copiedFrom(fd)
           }
