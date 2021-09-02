@@ -83,10 +83,11 @@ object TreeImmutMapExample {
           @ghost val (oldList1, oldList2) = (left.toList, right.toList)
           left.map(f)
           right.map(f)
-
           ghost {
+            assert(left.toList == oldList1.map(f))
+            assert(right.toList == oldList2.map(f))
             lemmaMapConcat(oldList1, oldList2, f)
-            check(toList == oldList.map(f))
+            assert(toList == oldList.map(f))
           }
       }
     } ensuring (_ => toList == old(toList.map(f)))

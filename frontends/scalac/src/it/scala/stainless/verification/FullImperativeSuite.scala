@@ -28,6 +28,9 @@ class FullImperativeSuite extends ComponentTestSuite with inox.MainHelpers {
     // FIXME(gsps): Works locally, but flaky on CI
     case "full-imperative/valid/AllocatorMono" => Skip
 
+    // FIXME(gsps): Works, but slow
+    case "full-imperative/valid/TreeImmutMap" => Skip
+
     case _ => super.filter(ctx, name)
   }
 
