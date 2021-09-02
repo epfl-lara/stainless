@@ -53,6 +53,13 @@ trait LeonInlining extends CachingPhase with extraction.IdentitySorts with oo.Id
         case BooleanLiteral(_) => true
         case IntegerLiteral(_) => true
         case BVLiteral(_, _, _) => true
+        case ClassSelector(obj, id) if isValue(obj) =>
+          val ct = obj.getType
+          if (ct.isInstanceOf[ClassType]) {
+            val cd = ct.asInstanceOf[ClassType].tcd.cd
+            cd.parents.isEmpty && cd.children.isEmpty
+          } else
+            false
         case Tuple(es) => es.forall(isValue)
         case FiniteArray(args, base) => args.forall(isValue)
         case LargeArray(elems, default, _, _) => elems.map(_._2).forall(isValue) && isValue(default)
@@ -78,6 +85,7 @@ trait LeonInlining extends CachingPhase with extraction.IdentitySorts with oo.Id
         val specced = BodyWithSpecs(tfd.fullBody)
         // simple path for inlining when all arguments are values, and the function's
         // body doesn't contain other function invocations.
+
         if (args.forall(isValue) && !exprOps.exists {
           case fi: FunctionInvocation => symbols.getFunction(fi.id).flags.exists(_.name == "cCode.inline")
           case _ => false

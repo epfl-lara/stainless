@@ -30,6 +30,11 @@ package object lang {
     def ==>(that: => Boolean): Boolean = {
       if (underlying) that else true
     }
+
+    // Use this "and" operator instead of `&&` when you want verification conditions to be split
+    def &&&(that: => Boolean): Boolean = {
+      if (underlying) that else false
+    }
   }
 
   @library

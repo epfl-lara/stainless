@@ -294,11 +294,6 @@ private class IR2CImpl(val ctx: inox.Context) {
      *      See comment in CmpFactory.
      */
     case BinOp(op @ (Equals | NotEquals), lhs, rhs) if !(lhs.getType.isLogical || lhs.getType.isIntegral) =>
-      // if (lhs.getType != rhs.getType)
-        // ctx.reporter.warning("Comparing ${lhs} (type ${lhs.getType}) and ${rhs} (type ${rhs.getType}) which have different types")
-      assert(lhs.getType == rhs.getType,
-        s"Operands $lhs and $rhs of equality operator must have the same type (here, ${lhs.getType} and ${rhs.getType})"
-      )
       val cmp = CmpFactory(lhs.getType)
       val equals = App(cmp, Seq(), Seq(lhs, rhs))
       val test = if (op == Equals) equals else UnOp(Not, equals)
