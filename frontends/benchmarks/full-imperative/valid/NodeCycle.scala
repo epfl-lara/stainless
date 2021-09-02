@@ -47,6 +47,7 @@ object NodeCycleExample {
   def cyclic(nodes: List[Node], i: BigInt = 0): Boolean = {
     reads(nodes.content.asRefs)
     require(0 <= i && i < nodes.size)
+    ListLemmas.applyContent(nodes, i)
     if (i == nodes.size - 1)
       nodes(i).next == Some(nodes(0))
     else

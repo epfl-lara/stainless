@@ -399,10 +399,19 @@ trait RefTransform
               val readsDom = env.expectReadsV(e.getPos, "call heap-reading function")
               lazy val modifiesDom = env.expectModifiesV(e.getPos, "call heap-modifying function")
 
-              // FIXME: Properly encode the *any reads* and *any writes* cases (when *Dom is None)
-              val extraArgs = Seq(heapVd.toVariable, readsDom.getOrElse(EmptyHeapRefSet)) ++
-                (if (writes) Some(modifiesDom.getOrElse(EmptyHeapRefSet)) else None)
-              val call = FunctionInvocation(shimId(id), targs1, extraArgs ++ vargs1).copiedFrom(e)
+              val call =
+                if (readsDom.isEmpty && modifiesDom.isEmpty) {
+                  // NOTE: Workaround for the case where both readsDom and modifiesDom is None,
+                  //   i.e. all reads and modifications are permitted.
+                  FunctionInvocation(id, targs1, Seq(heapVd.toVariable) ++ vargs1).copiedFrom(e)
+                } else {
+                  // FIXME: Encode the *any reads* and *any writes* cases (when *Dom is None).
+                  //   Currently we have no way of signalling this case to the shim.
+                  //   We could move from `Set[AnyHeapRef]` to `Option[Set[AnyHeapRef]]`.
+                  val extraArgs = Seq(heapVd.toVariable, readsDom.getOrElse(EmptyHeapRefSet)) ++
+                    (if (writes) Some(modifiesDom.getOrElse(EmptyHeapRefSet)) else None)
+                  FunctionInvocation(shimId(id), targs1, extraArgs ++ vargs1).copiedFrom(e)
+                }
 
               if (writes) {
                 // Update the local heap variable and project out the the function result
