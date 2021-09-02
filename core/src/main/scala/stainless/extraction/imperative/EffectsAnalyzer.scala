@@ -293,7 +293,10 @@ trait EffectsAnalyzer extends oo.CachingPhase {
         for {
           ct  <- asClassType(expr.getType)
           tcd <- symbols.classForField(ct, id)
-          res <- wrap(ClassSelector(AsInstanceOf(expr, tcd.toType), id), xs)
+          res <- if (tcd.cd.parents.isEmpty && tcd.cd.children.isEmpty)
+            wrap(ClassSelector(expr, id), xs)
+          else
+            wrap(ClassSelector(AsInstanceOf(expr, tcd.toType), id), xs)
         } yield res
 
       case ArrayAccessor(idx) +: xs =>
