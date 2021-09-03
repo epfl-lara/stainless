@@ -8,40 +8,54 @@ import stainless.proof._
 object Queue {
   final case class Node(val value: BigInt, var nextOpt: Option[Node]) extends AnyHeapRef
 
-  def inv(asList: List[AnyHeapRef], i: BigInt): Boolean = {
+  def inv(asList: List[Node], i: BigInt): Boolean = {
     require(0 <= i && i <= asList.size - 1)
-    reads(asList.content)
+    reads(asList.content.asRefs)
     decreases(asList.size - 1 - i)
     
     i == asList.size - 1 ||
     {
       applyContent(asList, i);
-      (asList(i).isInstanceOf[Node] && asList(i).asInstanceOf[Node].nextOpt == Some(asList(i + 1)) &&
-       inv(asList, i + 1))
+      asList(i).nextOpt == Some(asList(i + 1)) &&
+      inv(asList, i + 1)
     }
   }
 
-  def invTail(asList: List[AnyHeapRef], i: BigInt): Unit = {
+  def invTail(asList: List[Node], i: BigInt): Unit = {
     require(0 <= i && i <= asList.size - 2 && inv(asList, i))
-    reads(asList.content)
+    reads(asList.content.asRefs)
     decreases(asList.size - 1 - i)
 
     check(inv(asList, i + 1))
     tailIndex(asList, i)
     if (i < asList.size - 2) invTail(asList, i + 1) else ()
   } ensuring(_ => inv(asList.tail, i))
+
+  def invAgain(h0: Heap, oldAsList: List[Node], oldLast: Node, newNode: Node, i: BigInt): Unit = {
+    require(0 <= i && i <= oldAsList.size - 1)
+    require(h0.eval(inv(oldAsList, i)))
+    
+    reads(oldAsList.content.asRefs)
+    require(oldAsList.content.contains(oldLast))
+    require(oldLast == oldAsList(oldAsList.size - 1))
+    require(oldLast.nextOpt == Some(newNode))
+
+    require(Heap.unchanged((oldAsList.content -- Set(oldLast)).asRefs, h0, Heap.get))
+
+    // TODO
+  } ensuring (_ => inv(oldAsList :+ newNode, i))
   
   final case class Q(var first: Node,
                      var last: Node,
-                     var asList: List[AnyHeapRef])
+                     var asList: List[Node])
              extends AnyHeapRef
   {
-    // first node is not used, tis only a sentinel
+    // first node is not used to store data, it's only a sentinel
 
     @inlineOnce
     def valid: Boolean = {
-      reads(asList.content ++ Set(this))
-      !asList.content.contains(this) &&
+      reads(asList.content.asRefs ++ Set(this))
+      !asList.content.asRefs.contains(this) &&
       asList.size >= 1 &&
       asList(0) == first &&      
       asList(asList.size - 1) == last &&
@@ -53,12 +67,15 @@ object Queue {
 
     def enqueue(n: Node): Unit = {
       require(!asList.content.contains(n) && n.nextOpt == None[Node] && valid)
-      reads(asList.content ++ Set(this, n))
+      reads(asList.content.asRefs ++ Set(this, n))
       modifies(Set(this, last, n))
 
+      val h0: Heap = Heap.get
+      assert(h0.eval(valid))
       n.nextOpt = None[Node]()
       assert(last.nextOpt == None[Node]())
-      last.nextOpt = Some(n) // the only modification of nextOpt in this method
+      val oldLast = last
+      oldLast.nextOpt = Some(n) // the only modification of nextOpt in this method
       last = n
       val oldAsList = asList
       asList = oldAsList :+ n
@@ -66,12 +83,13 @@ object Queue {
       applyContent(asList, asList.size - 1)
       snocNoDuplicate(oldAsList, n)
       check(ListOps.noDuplicate(asList))
-      check(inv(asList, 0)) // needs induction, that inv was true, and noDuplicate
+
+      invAgain(h0, oldAsList, oldLast, n, 0)
     } ensuring (_ => asList == old(asList) :+ n && valid)
 
     def peek: Node = {
       require(asList.size >= 2 && valid)
-      reads(asList.content ++ Set(this))
+      reads(asList.content.asRefs ++ Set(this))
       first.nextOpt match {
         case Some(nn) => nn
       }
@@ -79,7 +97,7 @@ object Queue {
   
     def dequeue: Node = {
       require(asList.size >= 2 && valid)
-      reads(asList.content ++ Set(this))
+      reads(asList.content.asRefs ++ Set(this))
       modifies(Set(this))
 
       first.nextOpt match {
