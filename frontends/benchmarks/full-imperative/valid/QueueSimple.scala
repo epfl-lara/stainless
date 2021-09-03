@@ -32,15 +32,13 @@ object Queue {
   } ensuring(_ => inv(asList.tail, i))
 
   def invAgain(h0: Heap, oldAsList: List[Node], oldLast: Node, newNode: Node, i: BigInt): Unit = {
-    require(0 <= i && i <= oldAsList.size - 1)
-    require(h0.eval(inv(oldAsList, i)))
-    
-    reads(oldAsList.content.asRefs)
-    require(oldAsList.content.contains(oldLast))
-    require(oldLast == oldAsList(oldAsList.size - 1))
-    require(oldLast.nextOpt == Some(newNode))
-
-    require(Heap.unchanged((oldAsList.content -- Set(oldLast)).asRefs, h0, Heap.get))
+    reads((oldAsList.content ++ Set(newNode)).asRefs)
+    require(0 <= i && i <= oldAsList.size - 1 &&
+            h0.eval(inv(oldAsList, i)) &&    
+            oldAsList.content.contains(oldLast) &&
+            oldLast == oldAsList(oldAsList.size - 1) &&
+            oldLast.nextOpt == Some(newNode) &&
+            Heap.unchanged((oldAsList.content -- Set(oldLast)).asRefs, h0, Heap.get))
 
     // TODO
   } ensuring (_ => inv(oldAsList :+ newNode, i))
