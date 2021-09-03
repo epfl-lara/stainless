@@ -41,8 +41,8 @@ object Queue {
             Heap.unchanged((oldAsList.content -- Set(oldLast)).asRefs, h0, Heap.get))
     decreases(oldAsList.size - 1 - i)
 
+    val asList = oldAsList :+ newNode
     if (i == oldAsList.size - 1) {
-      val asList = oldAsList :+ newNode
       snocIndex(oldAsList, newNode, oldAsList.size)
       applyContent(asList, i)
       snocIndex(oldAsList, newNode, oldAsList.size - 1)
@@ -51,9 +51,21 @@ object Queue {
       check(asList(i).nextOpt == Some(asList(i + 1)))
       check(inv(asList, i))
     } else {
-      assert(false, "Recursive case")
-      check(false)
       invAgain(h0, oldAsList, oldLast, newNode, i+1)
+      assert(inv(asList, i + 1))
+      assert(i < oldAsList.size - 1)
+      snocIndex(oldAsList, newNode, i)
+      snocIndex(oldAsList, newNode, i+1)
+      applyContent(oldAsList, i)
+      applyContent(oldAsList, i+1)
+      assert(asList(i) == oldAsList(i), "asList(i) in oldAsList")
+      assert(asList(i+1) == oldAsList(i+1), "asList(i+1) in oldAsList")
+      assert(h0.eval(oldAsList(i).nextOpt == Some(oldAsList(i+1))), "link was there")
+      noDuplicateDistinct(oldAsList, i, oldAsList.size - 1)
+      assert(oldAsList(i) != oldLast, "last is later")
+      assert((oldAsList.content -- Set(oldLast)).contains(oldAsList(i)), "node is unchanged")
+      assert(asList(i).nextOpt == Some(asList(i + 1)), "link still there")
+      check(inv(asList, i))
     }
   } ensuring (_ => inv(oldAsList :+ newNode, i))
   
@@ -174,4 +186,12 @@ object Queue {
       case Cons(_, xs) => if (index > 0) applyContent[T](xs, index-1) else ()
     }
   } ensuring(_ => list.content.contains(list.apply(index)))
+
+  def noDuplicateDistinct[T](list: List[T], i: BigInt, j: BigInt): Unit = {
+    require(ListOps.noDuplicate(list) &&
+            0 <= i && i < list.size &&
+            0 <= j && j < list.size &&
+            i != j)
+    ()
+  } ensuring(_ => list(i) != list(j))
 }
