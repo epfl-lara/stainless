@@ -34,13 +34,27 @@ object Queue {
   def invAgain(h0: Heap, oldAsList: List[Node], oldLast: Node, newNode: Node, i: BigInt): Unit = {
     reads((oldAsList.content ++ Set(newNode)).asRefs)
     require(0 <= i && i <= oldAsList.size - 1 &&
-            h0.eval(inv(oldAsList, i)) &&    
+            h0.eval(inv(oldAsList, i)) &&            
             oldAsList.content.contains(oldLast) &&
             oldLast == oldAsList(oldAsList.size - 1) &&
             oldLast.nextOpt == Some(newNode) &&
             Heap.unchanged((oldAsList.content -- Set(oldLast)).asRefs, h0, Heap.get))
+    decreases(oldAsList.size - 1 - i)
 
-    // TODO
+    if (i == oldAsList.size - 1) {
+      val asList = oldAsList :+ newNode
+      snocIndex(oldAsList, newNode, oldAsList.size)
+      applyContent(asList, i)
+      snocIndex(oldAsList, newNode, oldAsList.size - 1)
+      check(asList(i) == oldLast)
+      applyContent(asList, i + 1)
+      check(asList(i).nextOpt == Some(asList(i + 1)))
+      check(inv(asList, i))
+    } else {
+      assert(false, "Recursive case")
+      check(false)
+      invAgain(h0, oldAsList, oldLast, newNode, i+1)
+    }
   } ensuring (_ => inv(oldAsList :+ newNode, i))
   
   final case class Q(var first: Node,
