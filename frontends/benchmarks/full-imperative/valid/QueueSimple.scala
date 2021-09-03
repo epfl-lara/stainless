@@ -33,7 +33,8 @@ object Queue {
 
   def invAgain(h0: Heap, oldAsList: List[Node], oldLast: Node, newNode: Node, i: BigInt): Unit = {
     reads((oldAsList.content ++ Set(newNode)).asRefs)
-    require(0 <= i && i <= oldAsList.size - 1 &&
+    require(ListSpecs.noDuplicate(oldAsList) &&
+            0 <= i && i <= oldAsList.size - 1 &&
             h0.eval(inv(oldAsList, i)) &&            
             oldAsList.content.contains(oldLast) &&
             oldLast == oldAsList(oldAsList.size - 1) &&
@@ -195,7 +196,17 @@ object Queue {
     list match {
       case Nil() => ()
         case Cons(h, t) => {
-          if ((i > 0) && (j > 0)) noDuplicateDistinct(t, i - 1, j - 1)
+          if (i == 0) {
+            applyContent(list, j)
+          } else if (j == 0) {
+            applyContent(list, i)
+          } else {
+            assert(0 < i && 0 < j)
+            assert(list(i) == t(i-1))
+            assert(list(j) == t(j-1))
+            assert(t.size == list.size - 1)
+            noDuplicateDistinct(t, i - 1, j - 1)
+          }
       }          
     }
   } ensuring(_ => list(i) != list(j))
