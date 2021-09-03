@@ -192,6 +192,11 @@ object Queue {
             0 <= i && i < list.size &&
             0 <= j && j < list.size &&
             i != j)
-    ()
+    list match {
+      case Nil() => ()
+        case Cons(h, t) => {
+          if ((i > 0) && (j > 0)) noDuplicateDistinct(t, i - 1, j - 1)
+      }          
+    }
   } ensuring(_ => list(i) != list(j))
 }
