@@ -5,7 +5,7 @@ import stainless.annotation._
 import stainless.collection.List._
 import stainless.proof._
 
-object Queue {
+object QueueExample {
   final case class Node(val value: BigInt, var nextOpt: Option[Node]) extends AnyHeapRef {
   }
 
@@ -20,7 +20,7 @@ object Queue {
 
     def valid: Boolean = {
       reads(rep ++ Set(this))
-      size >= 0 && size == asList.size &&      
+      size >= 0 && size == asList.size &&
       rep.contains(first) && rep.contains(last) &&
       last.nextOpt == None[Node]() &&
       (asList match {
@@ -34,7 +34,7 @@ object Queue {
     def inv(nodes: List[Node], current: Node): Boolean = {
       reads(rep ++ Set(this))
       decreases(nodes.size)
-      
+
       rep.contains(current) &&
       (nodes match {
         case Nil() => current == last
@@ -45,7 +45,7 @@ object Queue {
           }
       })
     }
-  
+
     def enqueue(n: Node): Unit = {
       require(!rep.contains(n) && valid)
       reads(rep ++ Set(this, n))
@@ -75,11 +75,11 @@ object Queue {
           nn
         }
       }
-    } ensuring ((res:Node) => 
+    } ensuring ((res:Node) =>
                 asList == old(asList).tail &&
                 res == old(asList).head)
   }
-  
+
   @extern
   def main(args: Array[String]): Unit = {
     val n = Node(-1, None[Node]())
