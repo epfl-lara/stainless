@@ -5,7 +5,7 @@ import stainless.annotation._
 import stainless.proof._
 import stainless.lang.StaticChecks._
 
-object BigIntArray {
+object ArraySimpleExample {
   final case class SArray[T](var content: List[T]) extends AnyHeapRef
   {
     def fill(n: BigInt)(default: T): Unit = {
@@ -15,7 +15,7 @@ object BigIntArray {
       modifies(Set(this))
       content = List.fill(n)(default)
     }
-  
+
     def apply(i: BigInt): T = {
       reads(Set(this))
       require(0 <= i && i < content.size)
