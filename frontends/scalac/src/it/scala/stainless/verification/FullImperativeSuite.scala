@@ -25,9 +25,6 @@ class FullImperativeSuite extends ComponentTestSuite with inox.MainHelpers {
     // FIXME(gsps): Time-out?
     case "full-imperative/invalid/OpaqueEffectsGeneric" => Skip
 
-    // FIXME(gsps): Works locally, but flaky on CI
-    case "full-imperative/valid/AllocatorMono" => Skip
-
     // FIXME(gsps): Works, but slow
     case "full-imperative/valid/TreeImmutMap" => Skip
 
