@@ -5,7 +5,8 @@ import stainless.annotation._
 import stainless.collection.List._
 import stainless.proof._
 
-object QueueExample {
+// Slightly less comprehensive proof of Queue correctness (doesn't reestablish `valid` invariant).
+object QueueWeakerExample {
   final case class Node(val value: BigInt, var nextOpt: Option[Node]) extends AnyHeapRef {
   }
 
