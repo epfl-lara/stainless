@@ -641,8 +641,26 @@ trait RefTransform
             val fiProjected = fi.copy(args = heapArg +: fi.args.tail).copiedFrom(fi)
             Assume(
               unchecked(
-                if (writes) Equals(res._1, fiProjected._1).copiedFrom(fd)
-                else        Equals(res, fiProjected).copiedFrom(fd)
+                if (writes) {
+                  // resR := f(reads.mapMerge(heap, dummyHeap), x)
+                  let("resR" :: newReturnType, fiProjected) { resR =>
+                    And(
+                      // res._1 == resR._1
+                      Equals(res._1, resR._1).copiedFrom(fd),
+                      // Heap.unchanged(modifies, res._2, resR._2)
+                      Equals(
+                        res._2,
+                        MapMerge(
+                          modifiesVdOpt.get.toVariable,
+                          resR._2,
+                          res._2
+                        ).copiedFrom(fd)
+                      ).copiedFrom(fd)
+                    ).copiedFrom(fd)
+                  }
+                } else {
+                  Equals(res, fiProjected).copiedFrom(fd)
+                }
               ),
               result
             ).copiedFrom(fd)
