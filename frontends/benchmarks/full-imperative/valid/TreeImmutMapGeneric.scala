@@ -18,9 +18,9 @@ object TreeImmutMapGenericExample {
   case class Cell[T](var value: T) extends AnyHeapRef
 
   sealed abstract class Tree[T] {
-    @ghost def repr: Set[AnyHeapRef] =
+    @ghost def repr: Set[Cell[T]] =
       this match {
-        case Leaf(data) => Set[AnyHeapRef](data)
+        case Leaf(data) => Set[Cell[T]](data)
         case Branch(left, right) => left.repr ++ right.repr
       }
 
@@ -28,12 +28,12 @@ object TreeImmutMapGenericExample {
       this match {
         case Leaf(data) => true
         case Branch(left, right) =>
-          (left.repr & right.repr) == Set[AnyHeapRef]() &&
+          (left.repr & right.repr) == Set[Cell[T]]() &&
           left.valid && right.valid
       }
 
     def toList: List[T] = {
-      reads(repr)
+      reads(repr.asRefs)
       this match {
         case Leaf(data) => List(data.value)
         case Branch(left, right) => left.toList ++ right.toList
@@ -41,8 +41,8 @@ object TreeImmutMapGenericExample {
     }
 
     def map(f: T => T): Unit = {
-      reads(repr)
-      modifies(repr)
+      reads(repr.asRefs)
+      modifies(repr.asRefs)
       require(valid)
       decreases(this)
       @ghost val oldList = toList
