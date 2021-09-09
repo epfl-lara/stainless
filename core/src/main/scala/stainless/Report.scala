@@ -118,7 +118,7 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
     val rows  = processRows(full)
     val width = if (rows.isEmpty) 1 else rows.head.cellsSize // all rows must have the same size
     val color = if (isSuccess) Console.GREEN else Console.RED
-
+    
     val footer =
       f"total: ${stats.total}%-4d " +
       f"valid: ${stats.valid}%-4d (${stats.validFromCache} from cache) " +

@@ -37,45 +37,71 @@ trait Trace extends CachingPhase with IdentityFunctions with IdentitySorts { sel
       Trace.nextFunction
     }
 
+    if (Trace.getNorm.isEmpty) {
+      val normOpt = symbols.functions.values.toList.find(elem => isNorm(elem.id)).map(elem => elem.id)
+
+      def checkArgs(model: Identifier, norm: Identifier) = {
+        val m = symbols.functions(model)
+        val n = symbols.functions(norm)
+
+        n.params.size >= 1 && n.params.init.size == m.params.size && n.tparams.size == m.tparams.size
+      }
+
+      (Trace.getModel, normOpt) match {
+        case (Some(model), Some(norm)) if checkArgs(model, norm) =>
+          Trace.setNorm(normOpt)
+        case _ =>
+      }
+    }
+
     def generateEqLemma: Option[s.FunDef] = {
       def equivalenceChek(fd1: s.FunDef, fd2: s.FunDef): s.FunDef = {
-        val id = FreshIdentifier(CheckFilter.fixedFullName(fd1.id)+"$"+CheckFilter.fixedFullName(fd2.id))
+        val freshId = FreshIdentifier(CheckFilter.fixedFullName(fd1.id) + "$" + CheckFilter.fixedFullName(fd2.id))
+        val eqLemma = exprOps.freshenSignature(fd1).copy(id = freshId)
+        
+        val newParamTps = eqLemma.tparams.map{tparam => tparam.tp}
+        val newParamVars = eqLemma.params.map{param => param.toVariable}
 
-        val newParams = fd1.params.map{param => param.freshen}
-        val newParamVars = newParams.map{param => param.toVariable}
-        val newParamTypes = fd1.tparams.map{tparam => tparam.freshen}
-        val newParamTps = newParamTypes.map{tparam => tparam.tp}
+        val subst = (fd1.params.map(_.id) zip newParamVars).toMap
+        val tsubst = (fd1.tparams zip newParamTps).map { case (tparam, targ) => tparam.tp.id -> targ }.toMap
+        val specializer = new Specializer(eqLemma, eqLemma.id, tsubst, subst)
 
-        val body = s.UnitLiteral()
-        val returnType = s.UnitType()
-
-        val specsMap = (fd1.params zip newParamVars).toMap
         val specs = BodyWithSpecs(fd1.fullBody).specs.filter(s => s.kind == LetKind || s.kind == PreconditionKind) 
         val pre = specs.map(spec => spec match {
-          case Precondition(cond) => Precondition(exprOps.replaceFromSymbols(specsMap, cond))
-          case LetInSpec(vd, expr) => LetInSpec(vd, exprOps.replaceFromSymbols(specsMap, expr))
+          case Precondition(cond) => Precondition(specializer.transform(cond))
+          case LetInSpec(vd, expr) => LetInSpec(vd, specializer.transform(expr))
         })
 
+        val fun1 = s.FunctionInvocation(fd1.id, newParamTps, newParamVars)
+        val fun2 = s.FunctionInvocation(fd2.id, newParamTps, newParamVars)
+
+        val (normFun1, normFun2) = Trace.getNorm match {
+          case Some(n) => (
+            s.FunctionInvocation(n, newParamTps, newParamVars :+ fun1), 
+            s.FunctionInvocation(n, newParamTps, newParamVars :+ fun2))
+          case None => (fun1, fun2)
+        }
+
         val res = s.ValDef.fresh("res", s.UnitType())
-        val cond = s.Equals(s.FunctionInvocation(fd1.id, newParamTps, newParamVars), s.FunctionInvocation(fd2.id, newParamTps, newParamVars))
+        val cond = s.Equals(normFun1, normFun2)
         val post = Postcondition(Lambda(Seq(res), cond))
 
+        val body = s.UnitLiteral()
         val withPre = exprOps.reconstructSpecs(pre, Some(body), s.UnitType())
-        val fullBody = BodyWithSpecs(withPre).withSpec(post).reconstructed
 
-        val flags: Seq[s.Flag] = Seq(s.Derived(Some(fd1.id)), s.Annotation("traceInduct",List(StringLiteral(fd1.id.name))))
-
-        new s.FunDef(id, newParamTypes, newParams, returnType, fullBody, flags)
+        eqLemma.copy(
+          fullBody = BodyWithSpecs(withPre).withSpec(post).reconstructed,
+          flags = Seq(s.Derived(Some(fd1.id)), s.Annotation("traceInduct",List(StringLiteral(fd1.id.name)))),
+          returnType = s.UnitType()
+        ).copiedFrom(eqLemma)
       }
 
       (Trace.getModel, Trace.getFunction) match {
         case (Some(model), Some(function)) => {
           val m = symbols.functions(model)
           val f = symbols.functions(function)
-          if (m.params.size == f.params.size) {
-            val newFun = equivalenceChek(m, f)
-            Some(newFun)
-          }
+          if (m.params.size == f.params.size)
+            Some(equivalenceChek(m, f))
           else {
             Trace.resetTrace
             None
@@ -99,7 +125,7 @@ trait Trace extends CachingPhase with IdentityFunctions with IdentitySorts { sel
             case Some(Postcondition(post)) => 
               s.exprOps.preTraversal {
                 case _ if funInv.isDefined => // do nothing
-                case fi @ s.FunctionInvocation(tfd, _, args) if symbols.isRecursive(tfd) && (fun.contains(StringLiteral(tfd.name)) || fun.contains(StringLiteral("")))
+                case fi @ s.FunctionInvocation(tfd, tps, args) if symbols.isRecursive(tfd) && (fun.contains(StringLiteral(tfd.name)) || fun.contains(StringLiteral("")))
                 => {
                       val paramVars = fd.params.map(_.toVariable)
                       val argCheck = args.forall(paramVars.contains) && args.toSet.size == args.size
@@ -118,9 +144,12 @@ trait Trace extends CachingPhase with IdentityFunctions with IdentitySorts { sel
           val helper = inductPattern(symbols, symbols.functions(finv.id), fd).setPos(fd.getPos)
 
           // transform the main lemma
-          val proof = FunctionInvocation(helper.id, fd.tparams.map(_.tp), fd.params.map(_.toVariable))
-          val body = Let(s.ValDef.fresh("ind$proof", helper.returnType), proof, exprOps.withoutSpecs(fd.fullBody).get)
+          val proof = FunctionInvocation(helper.id, finv.tps, fd.params.map(_.toVariable))
+          val returnType = typeOps.instantiateType(helper.returnType, (helper.typeArgs zip fd.typeArgs).toMap)
+
+          val body = Let(s.ValDef.fresh("ind$proof", returnType), proof, exprOps.withoutSpecs(fd.fullBody).get)
           val withPre = exprOps.reconstructSpecs(BodyWithSpecs(fd.fullBody).specs, Some(body), fd.returnType)
+
           val lemma = fd.copy(
             fullBody = BodyWithSpecs(withPre).reconstructed,
             flags = (s.Derived(Some(fd.id)) +: s.Derived(Some(finv.id)) +: (fd.flags.filterNot(f => f.name == "traceInduct"))).distinct
@@ -153,24 +182,60 @@ trait Trace extends CachingPhase with IdentityFunctions with IdentitySorts { sel
     import symbols._
     import exprOps._
 
-    val id = FreshIdentifier(lemma.id+"$induct")
-
-    val newParams = model.params.map{param => param.freshen}
-    val newParamVars = newParams.map{param => param.toVariable}
-    val newParamTypes = model.tparams.map{tparam => tparam.freshen}
-    val newParamTps = newParamTypes.map{tparam => tparam.tp}
-
-    val returnType = model.returnType
-    val flags = Seq(s.Derived(Some(lemma.id)), s.Derived(Some(model.id)))
-
-    val body = FunctionInvocation(model.id, newParamTps, newParamVars)
-    val indPattern = new s.FunDef(id, newParamTypes, newParams, returnType, body, flags)
+    val indPattern = exprOps.freshenSignature(model).copy(id = FreshIdentifier(lemma.id+"$induct"))
+    val newParamTps = indPattern.tparams.map{tparam => tparam.tp}
+    val newParamVars = indPattern.params.map{param => param.toVariable}
 
     val fi = FunctionInvocation(model.id, newParamTps, newParamVars)
 
-    class Specializer(
+    val tpairs = model.tparams zip fi.tps
+    val tsubst = tpairs.map { case (tparam, targ) => tparam.tp.id -> targ } .toMap
+    val subst = (model.params.map(_.id) zip fi.args).toMap
+    val specializer = new Specializer(model, indPattern.id, tsubst, subst)
+    
+    val fullBodySpecialized = specializer.transform(exprOps.withoutSpecs(model.fullBody).get)
+
+    val specsSubst = (lemma.params.map(_.id) zip newParamVars).toMap ++ (model.params.map(_.id) zip newParamVars).toMap
+    val specsTsubst = ((lemma.tparams zip fi.tps) ++ (model.tparams zip fi.tps)).map { case (tparam, targ) => tparam.tp.id -> targ }.toMap
+    val specsSpecializer = new Specializer(indPattern, indPattern.id, specsTsubst, specsSubst)
+
+    val specs = BodyWithSpecs(model.fullBody).specs ++ BodyWithSpecs(lemma.fullBody).specs.filterNot(_.kind == MeasureKind)
+    val pre = specs.filterNot(_.kind == PostconditionKind).map(spec => spec match {
+      case Precondition(cond) => Precondition(specsSpecializer.transform(cond)).setPos(spec)
+      case LetInSpec(vd, expr) => LetInSpec(vd, specsSpecializer.transform(expr)).setPos(spec)
+      case Measure(measure) => Measure(specsSpecializer.transform(measure)).setPos(spec)
+      case s => context.reporter.fatalError(s"Unsupported specs: $s")
+    })
+
+    val withPre = exprOps.reconstructSpecs(pre, Some(fullBodySpecialized), indPattern.returnType)
+
+    val speccedLemma = BodyWithSpecs(lemma.fullBody).addPost
+    val speccedOrig = BodyWithSpecs(model.fullBody).addPost
+    val postLemma = speccedLemma.getSpec(PostconditionKind).map(post => 
+      specsSpecializer.transform(post.expr))
+    val postOrig = speccedOrig.getSpec(PostconditionKind).map(post => specsSpecializer.transform(post.expr))
+    
+    (postLemma, postOrig) match {
+      case (Some(Lambda(Seq(res1), cond1)), Some(Lambda(Seq(res2), cond2))) => 
+        val res = ValDef.fresh("res", indPattern.returnType)
+        val freshCond1 = exprOps.replaceFromSymbols(Map(res1 -> res.toVariable), cond1)
+        val freshCond2 = exprOps.replaceFromSymbols(Map(res2 -> res.toVariable), cond2)
+
+        val cond = andJoin(Seq(freshCond1, freshCond2))
+        val post = Postcondition(Lambda(Seq(res), cond))
+
+        indPattern.copy(
+          fullBody = BodyWithSpecs(withPre).withSpec(post).reconstructed,
+          flags = Seq(s.Derived(Some(lemma.id)), s.Derived(Some(model.id)))
+        ).copiedFrom(indPattern)
+    }
+
+  }
+
+  class Specializer(
       origFd: FunDef,
       newId: Identifier,
+      tsubst: Map[Identifier, Type],
       vsubst: Map[Identifier, Expr]
     ) extends s.SelfTreeTransformer {
 
@@ -184,44 +249,14 @@ trait Trace extends CachingPhase with IdentityFunctions with IdentitySorts { sel
 
         case _ => super.transform(expr)
       }
+
+      override def transform(tpe: s.Type): t.Type = tpe match {
+        case tp: TypeParameter =>
+          tsubst.getOrElse(tp.id, super.transform(tp))
+
+        case _ => super.transform(tpe)
+      }
     }
-
-    val subst = (model.params.map(_.id) zip fi.args).toMap
-    val specializer = new Specializer(model, indPattern.id, subst)
-    
-    val fullBodySpecialized = specializer.transform(exprOps.withoutSpecs(model.fullBody).get)
-
-    val specsMap = (lemma.params zip newParamVars).toMap ++ (model.params zip newParamVars).toMap
-    val specs = BodyWithSpecs(model.fullBody).specs ++ BodyWithSpecs(lemma.fullBody).specs.filterNot(_.kind == MeasureKind)
-
-    val pre = specs.filterNot(_.kind == PostconditionKind).map(spec => spec match {
-      case Precondition(cond) => Precondition(exprOps.replaceFromSymbols(specsMap, cond)).setPos(spec)
-      case LetInSpec(vd, expr) => LetInSpec(vd, exprOps.replaceFromSymbols(specsMap, expr)).setPos(spec)
-      case Measure(measure) => Measure(exprOps.replaceFromSymbols(specsMap, measure)).setPos(spec)
-      case s => context.reporter.fatalError(s"Unsupported specs: $s")
-    })
-
-    val withPre = exprOps.reconstructSpecs(pre, Some(fullBodySpecialized), indPattern.returnType)
-
-    val speccedLemma = BodyWithSpecs(lemma.fullBody).addPost
-    val speccedOrig = BodyWithSpecs(model.fullBody).addPost
-    val postLemma = speccedLemma.getSpec(PostconditionKind).map(post => exprOps.replaceFromSymbols(specsMap, post.expr))
-    val postOrig = speccedOrig.getSpec(PostconditionKind).map(post => exprOps.replaceFromSymbols(specsMap, post.expr))
-    
-    (postLemma, postOrig) match {
-      case (Some(Lambda(Seq(res1), cond1)), Some(Lambda(Seq(res2), cond2))) => 
-        val res = ValDef.fresh("res", indPattern.returnType)
-        val freshCond1 = exprOps.replaceFromSymbols(Map(res1 -> res.toVariable), cond1)
-        val freshCond2 = exprOps.replaceFromSymbols(Map(res2 -> res.toVariable), cond2)
-        val cond = andJoin(Seq(freshCond1, freshCond2))
-        val post = Postcondition(Lambda(Seq(res), cond))
-
-        indPattern.copy(
-          fullBody = BodyWithSpecs(withPre).withSpec(post).reconstructed
-        ).copiedFrom(indPattern)
-    }
-
-  }
 
   type Path = Seq[String]
 
@@ -233,8 +268,12 @@ trait Trace extends CachingPhase with IdentityFunctions with IdentitySorts { sel
     functions map CheckFilter.fullNameToPath
   }
 
+  private lazy val pathsOptNorm: Option[Seq[Path]] = 
+    Some(Seq(context.options.findOptionOrDefault(optNorm)).map(CheckFilter.fullNameToPath))
+
   private def shouldBeChecked(fid: Identifier): Boolean = shouldBeChecked(pathsOpt, fid)
   private def isModel(fid: Identifier): Boolean = shouldBeChecked(pathsOptModels, fid)
+  private def isNorm(fid: Identifier): Boolean = shouldBeChecked(pathsOptNorm, fid)
 
   private def shouldBeChecked(paths: Option[Seq[Path]], fid: Identifier): Boolean = paths match {
     case None => false
@@ -257,15 +296,26 @@ object Trace {
   var unknowns: List[Identifier] = List()
   var wrong: List[Identifier] = List() //bad signature
 
+  object Status extends Enumeration {
+    type Status = Value
+    val Valid, Unknown, Errorneus, Wrong = Value
+  }
+
+  import Status._
+
+  case class State(var status: Status, var path: List[Identifier])
+
+  var state: Map[Identifier, State] = Map()
+
   def optionsError(implicit ctx: inox.Context): Boolean = 
     !ctx.options.findOptionOrDefault(frontend.optBatchedProgram) && 
     (!ctx.options.findOptionOrDefault(optModels).isEmpty || !ctx.options.findOptionOrDefault(optCompareFuns).isEmpty)
-        
+      
   def printEverything(implicit ctx: inox.Context) = {
     import ctx.{ reporter, timers }
     if(!clusters.isEmpty || !errors.isEmpty || !unknowns.isEmpty || !wrong.isEmpty) {
       reporter.info(s"Printing equivalence checking results:")  
-      allModels.foreach(model => {
+      allModels.foreach(model => if (!clusters(model).isEmpty) {
         val l = clusters(model).map(CheckFilter.fixedFullName).mkString(", ")
         val m = CheckFilter.fixedFullName(model)
         reporter.info(s"List of functions that are equivalent to model $m: $l")
@@ -277,7 +327,15 @@ object Trace {
       reporter.info(s"List of timed-out functions: $timeouts")
       val wrongs = wrong.map(CheckFilter.fixedFullName).mkString(", ")
       reporter.info(s"List of wrong functions: $wrongs")
+
+      reporter.info(s"Printing the final state:")  
+      allFunctions.foreach(f => {
+        val l = state(f).path.map(CheckFilter.fixedFullName).mkString(", ")
+        val m = CheckFilter.fixedFullName(f)
+        reporter.info(s"Path for the function $m: $l")
+      })
     }
+
   }
 
   var allModels: List[Identifier] = List()
@@ -288,6 +346,7 @@ object Trace {
 
   var model: Option[Identifier] = None
   var function: Option[Identifier] = None
+  var norm: Option[Identifier] = None
   var trace: Option[Identifier] = None
   var proof: Option[Identifier] = None
 
@@ -304,11 +363,13 @@ object Trace {
     allModels = m
     tmpModels = m
     clusters = (m zip m.map(_ => Nil)).toMap
+    state = state ++ (m zip m.map(_ => State(Valid, List()))).toMap
   }
 
   def setFunctions(f: List[Identifier]) = {
     allFunctions = f
     tmpFunctions = f
+    state = state ++ (f zip f.map(_ => State(Unknown, List()))).toMap
   }
 
   def getModels = allModels
@@ -321,9 +382,12 @@ object Trace {
   //function to check in the current iteration
   def getFunction = function
 
+  def getNorm = norm
+
   def setTrace(t: Identifier) = trace = Some(t)
   def setProof(p: Identifier) = proof = Some(p)
 
+  def setNorm(n: Option[Identifier]) = norm = n
 
   def resetTrace = {
     trace = None
@@ -360,12 +424,12 @@ object Trace {
     (function, proof, trace) match {
       case (Some(f), Some(p), Some(t)) => {
         if (report.hasError(f) || report.hasError(p) || report.hasError(t)) reportError
-        else if (report.hasUnknown(f) || report.hasUnknown(p) || report.hasError(t)) reportUnknown
+        else if (report.hasUnknown(f) || report.hasUnknown(p) || report.hasUnknown(t)) reportUnknown
         else reportValid
       }
       case (Some(f), _, Some(t)) => {
         if (report.hasError(f) || report.hasError(t)) reportError
-        else if (report.hasUnknown(f) || report.hasError(t)) reportUnknown
+        else if (report.hasUnknown(f) || report.hasUnknown(t)) reportUnknown
         else reportValid
       }
       case _ => reportWrong
@@ -389,7 +453,15 @@ object Trace {
   }
 
   private def reportValid = {
-    clusters = clusters + (model.get -> (function.get::clusters(model.get)))
+    if (!allModels.contains(function.get)) {
+      state(function.get).status = Valid
+      state(function.get).path = model.get +: state(model.get).path
+      allModels = allModels :+ function.get
+      clusters = clusters + (function.get -> List())
+    }
+
+    clusters = clusters + (model.get -> (function.get::clusters.getOrElse(model.get, List())))
+
     nextFunction
   }
 
