@@ -5,14 +5,14 @@ import stainless.annotation._
 import stainless.collection.List._
 import stainless.proof._
 
-object Queue {
+object QueueExample {
   final case class Node(val value: BigInt, var nextOpt: Option[Node]) extends AnyHeapRef
 
   def inv(asList: List[Node], i: BigInt): Boolean = {
     require(0 <= i && i <= asList.size - 1)
     reads(asList.content.asRefs)
     decreases(asList.size - 1 - i)
-    
+
     i == asList.size - 1 ||
     {
       applyContent(asList, i);
@@ -35,7 +35,7 @@ object Queue {
     reads((oldAsList.content ++ Set(newNode)).asRefs)
     require(ListSpecs.noDuplicate(oldAsList) &&
             0 <= i && i <= oldAsList.size - 1 &&
-            h0.eval(inv(oldAsList, i)) &&            
+            h0.eval(inv(oldAsList, i)) &&
             oldAsList.content.contains(oldLast) &&
             oldLast == oldAsList(oldAsList.size - 1) &&
             oldLast.nextOpt == Some(newNode) &&
@@ -69,7 +69,7 @@ object Queue {
       check(inv(asList, i))
     }
   } ensuring (_ => inv(oldAsList :+ newNode, i))
-  
+
   final case class Q(var first: Node,
                      var last: Node,
                      var asList: List[Node])
@@ -82,7 +82,7 @@ object Queue {
       reads(asList.content.asRefs ++ Set(this))
       !asList.content.asRefs.contains(this) &&
       asList.size >= 1 &&
-      asList(0) == first &&      
+      asList(0) == first &&
       asList(asList.size - 1) == last &&
       asList.content.contains(last) && // follows by applyContent(asList, asList.size - 1)
       last.nextOpt == None[Node]() &&
@@ -104,7 +104,7 @@ object Queue {
       last = n
       val oldAsList = asList
       asList = oldAsList :+ n
-      snocIndex(oldAsList, n, oldAsList.size) 
+      snocIndex(oldAsList, n, oldAsList.size)
       applyContent(asList, asList.size - 1)
       snocNoDuplicate(oldAsList, n)
       check(ListOps.noDuplicate(asList))
@@ -119,7 +119,7 @@ object Queue {
         case Some(nn) => nn
       }
     } ensuring ((res:Node) => res == asList(1))
-  
+
     def dequeue: Node = {
       require(asList.size >= 2 && valid)
       reads(asList.content.asRefs ++ Set(this))
@@ -138,11 +138,11 @@ object Queue {
           check(asList.content.contains(last))
           check(last.nextOpt == None[Node]())
           invTail(oldAsList, 0) // for the inv(asList, 0)
-          check(inv(asList, 0)) 
+          check(inv(asList, 0))
           nn
         }
       }
-    } ensuring ((res:Node) => 
+    } ensuring ((res:Node) =>
                 asList == old(asList).tail &&
                 res == old(asList).apply(1) &&
                 valid)
@@ -172,7 +172,7 @@ object Queue {
     }
   } ensuring(_ => ListOps.noDuplicate(l :+ t))
 
-  
+
   def tailIndex[T](l: List[T], i: BigInt): Unit = {
     require(0 < l.size && 0 <= i && i < l.size - 1)
     decreases(l)
@@ -180,7 +180,7 @@ object Queue {
       case Cons(x, xs) => if (i > 0) tailIndex[T](xs, i-1) else ()
     }
   } ensuring(_ => l.tail(i) == l(i + 1))
-  
+
   def applyContent[T](list: List[T], index: BigInt): Unit = {
     require(0 <= index && index < list.size)
     list match {
@@ -207,7 +207,7 @@ object Queue {
             assert(t.size == list.size - 1)
             noDuplicateDistinct(t, i - 1, j - 1)
           }
-      }          
+      }
     }
   } ensuring(_ => list(i) != list(j))
 }
