@@ -328,18 +328,26 @@ trait ImperativeCodeElimination
           val (predVal, predScope, predFun) = toFunction(pred)
           (Choose(res, predScope(predVal)).copiedFrom(c), (e: Expr) => e, Map())
 
-        case And(args) =>
-          val ifExpr = args.reduceRight((el, acc) => IfExpr(el, acc, BooleanLiteral(false)))
-          toFunction(ifExpr)
+        case and @ And(exprs) =>
+          val results = exprs.map(toFunction)
+          (
+            And(results.map(r => r._2(r._1))).setPos(and),
+            e => e,
+            results.map(_._3).foldLeft(Map[Variable, Variable]())(_ ++ _)
+          )
 
-        case Or(args) =>
-          val ifExpr = args.reduceRight((el, acc) => IfExpr(el, BooleanLiteral(true), acc))
-          toFunction(ifExpr)
+        case or @ Or(exprs) =>
+          val results = exprs.map(toFunction)
+          (
+            Or(results.map(r => r._2(r._1))).setPos(or),
+            e => e,
+            results.map(_._3).foldLeft(Map[Variable, Variable]())(_ ++ _)
+          )
 
-        // @romac: Implies needs to be transform into if-else statements, much like Or and And,
-        //         as otherwise assertions get lifted outside of the implication. See #425.
         case i @ Implies(lhs, rhs) =>
-          toFunction(Or(Not(lhs).copiedFrom(lhs), rhs).copiedFrom(i))
+          val (lVal, lScope, lFun) = toFunction(lhs)
+          val (rVal, rScope, rFun) = toFunction(rhs)
+          (Implies(lScope(lVal), rScope(rVal)).setPos(i), e => e, lFun ++ rFun)
 
         //TODO: this should be handled properly by the Operator case, but there seems to be a subtle bug in the way Let's are lifted
         //      which leads to Assert refering to the wrong value of a var in some cases.
