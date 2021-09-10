@@ -243,6 +243,28 @@ trait EffectsChecker { self: EffectsAnalyzer =>
         if (eff.nonEmpty)
           throw ImperativeEliminationException(v, "Stainless does not support effects in lazy val's on: " + eff.head.receiver.asString)
 
+      case And(exprs) =>
+        for (expr <- exprs) {
+          val exprEffects = effects(expr)
+          if (exprEffects.nonEmpty)
+            throw ImperativeEliminationException(expr, "Operand of '&&' has effect on: " + exprEffects.head.receiver.asString)
+        }
+
+      case Or(exprs) =>
+        for (expr <- exprs) {
+          val exprEffects = effects(expr)
+          if (exprEffects.nonEmpty)
+            throw ImperativeEliminationException(expr, "Operand of '||' has effect on: " + exprEffects.head.receiver.asString)
+        }
+
+      case Implies(lhs, rhs) =>
+        val lEffects = effects(lhs)
+        val rEffects = effects(rhs)
+        if (lEffects.nonEmpty)
+          throw ImperativeEliminationException(lhs, "Left-hand-side of '==>' has effect on: " + lEffects.head.receiver.asString)
+        if (rEffects.nonEmpty)
+          throw ImperativeEliminationException(rhs, "Right-hand-side of '==>' has effect on: " + rEffects.head.receiver.asString)
+
       case _ => ()
     }(fd.fullBody)
 
