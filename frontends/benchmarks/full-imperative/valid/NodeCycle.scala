@@ -2,15 +2,10 @@ import stainless.lang._
 import stainless.annotation._
 import stainless.collection._
 import stainless.proof._
+import ListOps.noDuplicate
 
 object NodeCycleExample {
   /* Auxiliary definitions and lemmas */
-
-  def allDifferent[T](xs: List[T]): Boolean =
-    xs match {
-      case Nil() => true
-      case Cons(x, xs0) => !xs0.content.contains(x) && allDifferent(xs0)
-    }
 
   object ListLemmas {
     def lastByIndex[T](xs: List[T]): Unit = {
@@ -33,9 +28,9 @@ object NodeCycleExample {
       }
     } ensuring (_ => xs.content.contains(xs.apply(i)))
 
-    @extern
-    def allDifferentLast[T](xs: List[T]): Unit = {
-      require(xs.nonEmpty && allDifferent(xs))
+    def noDuplicateLast[T](xs: List[T]): Unit = {
+      require(xs.nonEmpty && noDuplicate(xs))
+      if (xs.size > 1) noDuplicateLast(xs.tail)
       ()
     } ensuring (_ => !xs.init.content.contains(xs.last))
   }
@@ -76,15 +71,15 @@ object NodeCycleExample {
   def prepend(nodes: List[Node], node: Node): List[Node] = {
     reads(nodes.content.asRefs ++ Set(node))
     modifies(nodes.content.asRefs ++ Set(node))
-    require(nodes.nonEmpty && cyclic(nodes) && allDifferent(nodes) && !nodes.content.contains(node))
+    require(nodes.nonEmpty && cyclic(nodes) && noDuplicate(nodes) && !nodes.content.contains(node))
     val h0 = Heap.get
 
     node.next = Some(nodes.head)
     nodes.last.next = Some(node)
 
     val h1 = Heap.get
-    ListLemmas.allDifferentLast(nodes)  // Heap.unchanged(nodes.init.content.asRefs, h0, h1)
+    ListLemmas.noDuplicateLast(nodes)  // Heap.unchanged(nodes.init.content.asRefs, h0, h1)
     cyclicPrependLemma(h0, h1, nodes, node)
     node :: nodes
-  } ensuring (newNodes => newNodes == node :: nodes && cyclic(newNodes) && allDifferent(newNodes))
+  } ensuring (newNodes => newNodes == node :: nodes && cyclic(newNodes) && noDuplicate(newNodes))
 }

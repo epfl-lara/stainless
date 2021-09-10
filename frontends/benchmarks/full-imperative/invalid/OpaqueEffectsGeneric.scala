@@ -1,11 +1,6 @@
-/*
-This benchmark is important because it shows a nice counterexample.
+// This benchmark is important because it shows a nice counterexample.
 
-However, frame condition checks time out, which is why a CI might
-not realize that there is a properly failing counterexample.
-*/
-
-  import stainless.annotation._
+import stainless.annotation._
 import stainless.collection._
 import stainless.lang._
 import stainless.lang.Option._
@@ -24,6 +19,7 @@ object TreeImmutMapGenericExample {
         case Leaf(data) => Set[AnyHeapRef](data)
         case Branch(left, right) => left.repr ++ right.repr
       }
+
     @opaque
     def tmap(f: T => T): Unit = {
       reads(repr)
