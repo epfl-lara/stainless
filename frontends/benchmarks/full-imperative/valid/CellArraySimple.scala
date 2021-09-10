@@ -7,18 +7,18 @@ import stainless.lang.StaticChecks._
 object CellArraySimpleExample {
   final case class Ref[T](var unref: T) extends AnyHeapRef
 
-  final case class CellArray[T](content: List[Ref[T]]) {
+  final case class CellArray[T](list: List[Ref[T]]) {
     def apply(i: BigInt): Unit = {
-      require(0 <= i && i < content.size)
-      reads(Set(content(i)))
-      content(i).unref
+      require(0 <= i && i < list.size)
+      reads(Set(list(i)))
+      list(i).unref
     }
 
     def update(i: BigInt, v: T): Unit = {
-      require(0 <= i && i < content.size)
-      reads(Set(content(i)))
-      modifies(Set(content(i)))
-      content(i).unref = v
+      require(0 <= i && i < list.size)
+      reads(Set(list(i)))
+      modifies(Set(list(i)))
+      list(i).unref = v
     }
   }
 }

@@ -1,42 +1,32 @@
 import stainless.lang._
 import stainless.collection._
-import stainless.lang.Option._
 import stainless.annotation._
 import stainless.proof._
 import stainless.lang.StaticChecks._
 
 object SimpleStackExample {
-  final case class Stack[T](var content: List[T]) extends AnyHeapRef
-  {
+  case class Stack[T](private var data: List[T]) extends AnyHeapRef {
+    def list = {
+      reads(Set(this))
+      data
+    }
+
     def push(a: T): Unit = {
       reads(Set(this))
       modifies(Set(this))
 
-      content = a :: content
-    }
+      data = a :: data
+    } ensuring(_ => list == a :: old(list))
 
     def pop: T = {
       reads(Set(this))
-      require(!content.isEmpty)
+      require(!list.isEmpty)
       modifies(Set(this))
 
-      val n = content.head
-      content = content.tail
+      val n = data.head
+      data = data.tail
       n
-    }
-  }
-
-  @extern
-  def main(args: Array[String]): Unit = {
-    val s = Stack[BigInt](List[BigInt]())
-    println("Stack with nodes")
-    s.push(5)
-    s.push(10)
-    s.push(14)
-    println("Stack is: " + s)
-    println(s.pop)
-    println(s.pop)
-    println(s.pop)
-    println("Stack is: " + s)
+    } ensuring (res => res == old(list).head &&
+                       list == old(list).tail)
   }
 }

@@ -6,27 +6,27 @@ import stainless.proof._
 import stainless.lang.StaticChecks._
 
 object ArraySimpleExample {
-  final case class SArray[T](var content: List[T]) extends AnyHeapRef
+  final case class SArray[T](var list: List[T]) extends AnyHeapRef
   {
     def fill(n: BigInt)(default: T): Unit = {
       // should become a constructor eventually instead of a method
       reads(Set(this))
       require(0 <= n)
       modifies(Set(this))
-      content = List.fill(n)(default)
+      list = List.fill(n)(default)
     }
 
     def apply(i: BigInt): T = {
       reads(Set(this))
-      require(0 <= i && i < content.size)
-      content(i)
+      require(0 <= i && i < list.size)
+      list(i)
     }
 
     def update(i: BigInt, v: T): Unit = {
       reads(Set(this))
-      require(0 <= i && i < content.size)
+      require(0 <= i && i < list.size)
       modifies(Set(this))
-      content = content.updated(i, v)
+      list = list.updated(i, v)
     }
   }
 
