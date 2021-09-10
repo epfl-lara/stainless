@@ -146,7 +146,7 @@ trait ReturnElimination
           val newPost =
             t.Lambda(
               Seq(t.ValDef.fresh("_res", t.UnitType().copiedFrom(wh)).copiedFrom(wh)),
-              t.and(
+              t.SplitAnd.many(
                 transformedInv.getOrElse(t.BooleanLiteral(true).copiedFrom(wh)),
                 t.Not(getFunctionalResult(transformedCond).copiedFrom(cond)).copiedFrom(cond),
               ).copiedFrom(wh)
@@ -266,7 +266,7 @@ trait ReturnElimination
               ControlFlowSort.buildMatch(retTypeChecked, t.UnitType(), cfWhileVal.toVariable,
                 // when the while loop returns, we check that the while loop invariant and the
                 // postcondition of the top-level function hold
-                v => t.and(
+                v => t.SplitAnd.many(
                   optInvChecked.getOrElse(t.BooleanLiteral(true).copiedFrom(wh)),
                   topLevelPost.map { case s.exprOps.Postcondition(s.Lambda(Seq(postVd), postBody)) =>
                     t.exprOps.replaceFromSymbols(
@@ -277,7 +277,7 @@ trait ReturnElimination
                 ),
                 // when the while loop terminates without returning, we check the loop condition
                 // is false and that the invariant and weak invariant are true
-                _ => t.and(
+                _ => t.SplitAnd.many(
                   optInvChecked.getOrElse(t.BooleanLiteral(true).copiedFrom(wh)),
                   optWeakInvChecked.getOrElse(t.BooleanLiteral(true).copiedFrom(wh)),
                   t.Not(getFunctionalResult(condChecked).copiedFrom(cond)).copiedFrom(cond),

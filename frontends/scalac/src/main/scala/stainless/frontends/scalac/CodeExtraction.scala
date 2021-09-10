@@ -1452,7 +1452,7 @@ trait CodeExtraction extends ASTExtractors {
       xt.Implies(extractTree(lhs), extractTree(rhs))
 
     case ExSplitAnd(lhs, rhs) =>
-      xt.Annotated(xt.And(extractTree(lhs), extractTree(rhs)), Seq(xt.SplitVC))
+      xt.SplitAnd(extractTree(lhs), extractTree(rhs))
 
     case c @ ExCall(rec, sym, tps, args) => rec match {
       case None if sym.owner.isModuleClass && sym.owner.isCase =>

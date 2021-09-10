@@ -1006,8 +1006,7 @@ trait TypeChecker {
         else if (filteredExprs.size == 1) Seq(filteredExprs.head)
         else Seq(And(filteredExprs).setPos(e))
       case Annotated(_, flags) if flags.contains(DropConjunct) => Seq()
-      case Annotated(And(exprs), flags) if flags.contains(SplitVC) =>
-        exprs.flatMap(splitAndFilterUnchecked)
+      case SplitAnd(exprs) => exprs.flatMap(splitAndFilterUnchecked)
       case Annotated(body, flags) => splitAndFilterUnchecked(body).map(Annotated(_, flags).setPos(e))
       case _ => Seq(e)
     }

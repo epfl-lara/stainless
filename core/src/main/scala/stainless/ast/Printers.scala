@@ -27,6 +27,7 @@ trait Printer extends inox.ast.Printer {
     case (FunctionOperator("|", _, _))                                 => 1
     case (FunctionOperator("^", _, _))                                 => 2
     case (FunctionOperator("&", _, _))                                 => 3
+    case (FunctionOperator("&&&", _, _))                               => 3
     case (FunctionOperator("<", _, _) | FunctionOperator(">", _, _))   => 4
     case (FunctionOperator("<<", _, _) | FunctionOperator(">>", _, _)) => 4
     case (FunctionOperator("<=", _, _) | FunctionOperator(">=", _, _)) => 4
@@ -67,6 +68,10 @@ trait Printer extends inox.ast.Printer {
           |} ensuring {
           |  $post
           |}"""
+
+    case SplitAnd(exprs) => optP {
+      p"${nary(exprs, " &&& ")}"
+    }
 
     case Annotated(body, flags) =>
       for (f <- flags) p"@${f.asString(ctx.opts)} "
@@ -201,6 +206,10 @@ trait ScalaPrinter extends Printer {
 
     case Error(tpe, desc) =>
       p"""stainless.lang.error[$tpe]("$desc")"""
+
+    case SplitAnd(exprs) => optP {
+      p"${nary(exprs, " &&& ")}"
+    }
 
     case Annotated(body, flags) if flags.nonEmpty =>
       p"($body):"

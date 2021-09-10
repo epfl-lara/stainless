@@ -290,6 +290,27 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
     }
   }
 
+  object SplitAnd {
+    def apply(lhs: Expr, rhs: Expr): Expr = Annotated(And(lhs, rhs), Seq(SplitVC))
+
+    def many(exprs: Expr*): Expr = {
+      val conjuncts = exprs.filter(_ != BooleanLiteral(true))
+      if (conjuncts.isEmpty) {
+        if (exprs.isEmpty) BooleanLiteral(true) else exprs.head // exprs.head is `true` and might have a position
+      }
+      else if (conjuncts.size == 1) conjuncts.head
+      else conjuncts.tail.foldLeft(conjuncts.head) {
+        case (acc, expr) => SplitAnd(acc, expr).setPos(acc)
+      }
+    }
+
+    def unapply(expr: Expr): Option[Seq[Expr]] = expr match {
+      case Annotated(And(exprs), flags) if flags.contains(SplitVC) => Some(exprs.toSeq)
+      case _ => None
+    }
+
+  }
+
   /* Recursive Types */
 
   /** $encodingof of `ADTType(id,tps)<n>` */
