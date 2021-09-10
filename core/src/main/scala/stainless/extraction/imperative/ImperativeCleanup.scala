@@ -56,51 +56,49 @@ trait ImperativeCleanup
     object ReconstructTuple {
       def unapply(e: s.Expr): Option[s.Expr] = e match {
         case s.Let(vd, tuple, Lets(lets, s.Tuple(es))) =>
-          val letsMap = lets.toMap
+          val letsMap = lets.map { case (vd, e) => (vd.id, e) }.toMap
           if (
             vd.getType.isInstanceOf[s.TupleType] &&
             es.length == vd.getType.asInstanceOf[s.TupleType].bases.length &&
             es.zipWithIndex.forall {
-            case (e0 : s.Variable, i) =>
-              letsMap.contains(e0.toVal) &&
-              letsMap(e0.toVal) == s.TupleSelect(vd.toVariable, i + 1)
-            case (e0, i) =>
-              e0 == s.TupleSelect(vd.toVariable, i + 1)
-          })
+              case (e0 : s.Variable, i) =>
+                letsMap.contains(e0.id) &&
+                letsMap(e0.id) == s.TupleSelect(vd.toVariable, i + 1)
+              case (e0, i) =>
+                e0 == s.TupleSelect(vd.toVariable, i + 1)
+            }
+          )
             Some(tuple)
           else
             None
+
+        case s.Let(vd, e, Lets(Seq(), v)) if v == vd.toVariable =>
+          Some(e)
+
         case _ => None
       }
     }
 
-    override def transform(expr: s.Expr): t.Expr = expr match {
-      // Desugar Boolean bitwise operations &, | and ^
-      case (_: s.BoolBitwiseAnd | _: s.BoolBitwiseOr | _: s.BoolBitwiseXor) =>
-        val (lhs, rhs, recons): (s.Expr, s.Expr, (t.Expr, t.Expr) => t.Expr) = expr match {
-          case s.BoolBitwiseAnd(lhs, rhs) => (lhs, rhs, t.And(_, _).copiedFrom(expr))
-          case s.BoolBitwiseOr(lhs, rhs) => (lhs, rhs, t.Or(_, _).copiedFrom(expr))
-          case s.BoolBitwiseXor(lhs, rhs) => (lhs, rhs, (l,r) => t.Not(t.Equals(l, r).copiedFrom(expr)).copiedFrom(expr))
-        }
+    override def transform(expr: s.Expr): t.Expr = {
+      super.transform(s.exprOps.postMap { expr => expr match {
+        case s.BoolBitwiseAnd(lhs, rhs) => Some(s.And(lhs, rhs).copiedFrom(expr))
+        case s.BoolBitwiseOr(lhs, rhs) => Some(s.Or(lhs, rhs).copiedFrom(expr))
+        case s.BoolBitwiseXor(lhs, rhs) => Some(s.Not(s.Equals(lhs, rhs).copiedFrom(expr)).copiedFrom(expr))
 
-        val l = t.ValDef(FreshIdentifier("lhs"), transform(lhs.getType)).copiedFrom(lhs)
-        val r = t.ValDef(FreshIdentifier("rhs"), transform(rhs.getType)).copiedFrom(rhs)
-        t.Let(l, transform(lhs),
-          t.Let(r, transform(rhs),
-            recons(l.toVariable, r.toVariable)).copiedFrom(expr)).copiedFrom(expr)
+        case s.Variable(id, tpe, flags) =>
+          Some(s.Variable(id, tpe, flags filterNot isImperativeFlag).copiedFrom(expr))
 
-      case s.Variable(id, tpe, flags) =>
-        t.Variable(id, transform(tpe), flags filterNot isImperativeFlag map transform).copiedFrom(expr)
+        case s.MutableMapWithDefault(from, to, default) =>
+          Some(s.FiniteMap(Seq(), s.Application(default, Seq()), from, to))
+        case s.MutableMapApply(map, index) => Some(s.MapApply(map, index))
+        case s.MutableMapUpdated(map, key, value) => Some(s.MapUpdated(map, key, value))
+        case s.MutableMapDuplicate(map) => Some(map)
 
-      case s.MutableMapWithDefault(from, to, default) =>
-        t.FiniteMap(Seq(), t.Application(transform(default), Seq()), transform(from), transform(to))
-      case s.MutableMapApply(map, index) => t.MapApply(transform(map), transform(index))
-      case s.MutableMapUpdated(map, key, value) => t.MapUpdated(transform(map), transform(key), transform(value))
-      case s.MutableMapDuplicate(map) => transform(map)
+        case ReconstructTuple(tuple) => Some(tuple)
 
-      case ReconstructTuple(tuple) => transform(tuple)
+        case _ => None
+      } } (expr))
 
-      case _ => super.transform(expr)
     }
 
     override def transform(vd: s.ValDef): t.ValDef = {
