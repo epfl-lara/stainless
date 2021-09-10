@@ -273,17 +273,16 @@ trait ImperativeCodeElimination
                 val newSpecs = specs.map {
                   case Postcondition(post @ Lambda(Seq(res), postBody)) =>
                     val newRes = ValDef(res.id.freshen, newReturnType)
-
-                    val newBody = replaceSingle(
+                    val subst =
                       modifiedVars.zip(freshVars).map { case (ov, nv) => Old(ov) -> nv }.toMap ++
                       modifiedVars.zipWithIndex.map { case (v, i) =>
                         (v -> TupleSelect(newRes.toVariable, i+2)): (Expr, Expr)
-                      }.toMap + (res.toVariable -> TupleSelect(newRes.toVariable, 1)),
-                      postBody
-                    )
+                      }.toMap + (res.toVariable -> TupleSelect(newRes.toVariable, 1))
 
+                    val newBody = replaceSingle(subst, postBody)
                     val (r, scope, _) = toFunction(newBody)
-                    Postcondition(Lambda(Seq(newRes), scope(r)).setPos(post))
+
+                    Postcondition(Lambda(Seq(newRes), replaceSingle(subst, scope(r))).setPos(post))
 
                   case spec => spec.transform { cond =>
                     val fresh = replaceFromSymbols((modifiedVars zip freshVars).toMap, cond)
