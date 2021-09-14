@@ -85,12 +85,12 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
           }
 
           val pre = specced.specs.filter(spec => spec.kind == LetKind || spec.kind == PreconditionKind)
-          val maxPre = pre.count(_.kind == PreconditionKind)
+          val n = pre.count(_.kind == PreconditionKind)
           def addPreconditionAssertions(e: Expr): Expr = {
-            pre.foldRight((e, maxPre)) {
+            pre.foldRight((e, n)) {
               case (spec @ LetInSpec(vd, e0), (acc, i)) => (Let(vd, annotated(e0, DropVCs), acc).setPos(fi), i)
               case (spec @ Precondition(cond), (acc, i)) =>
-                val num = if (i == 1) "" else s" ($i)"
+                val num = if (n == 1) "" else s" ($i/$n)"
                 (
                   Assert(annotated(cond.setPos(fi), DropVCs), Some(s"Inlined precondition$num of " + tfd.id.asString), acc).setPos(fi),
                   i-1
