@@ -304,6 +304,8 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
       }
     }
 
+    def manyJoin(exprs: Seq[Expr]): Expr = many(exprs: _*)
+
     def unapply(expr: Expr): Option[Seq[Expr]] = expr match {
       case Annotated(And(exprs), flags) if flags.contains(SplitVC) => Some(exprs.toSeq)
       case _ => None
