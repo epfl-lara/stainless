@@ -157,7 +157,7 @@ trait ReturnElimination
 
           val newSpecs =
             t.exprOps.Postcondition(newPost) +:
-            t.exprOps.Precondition(t.andJoin(transformedInv.toSeq :+ getFunctionalResult(transformedCond))).setPos(wh) +:
+            t.exprOps.Precondition(t.SplitAnd.manyJoin(transformedInv.toSeq :+ getFunctionalResult(transformedCond))).setPos(wh) +:
             specs
 
           val fullBody = t.exprOps.reconstructSpecs(newSpecs, newBody, t.UnitType()).copiedFrom(wh)
@@ -288,7 +288,7 @@ trait ReturnElimination
 
           val newSpecs =
             t.exprOps.Postcondition(newPost) +:
-            t.exprOps.Precondition(t.andJoin((optInvChecked.toSeq ++ optWeakInvChecked) :+ getFunctionalResult(condChecked))).setPos(wh) +:
+            t.exprOps.Precondition(t.SplitAnd.manyJoin((optInvChecked.toSeq ++ optWeakInvChecked) :+ getFunctionalResult(condChecked))).setPos(wh) +:
             specs.map(_.transform(SimpleWhileTransformer))
 
           val fullBody = t.exprOps.reconstructSpecs(newSpecs, newBody, t.UnitType()).copiedFrom(wh)
