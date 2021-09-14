@@ -758,15 +758,16 @@ trait TypeChecker {
 
         val (tc2, freshener2) = tc.freshBindWithValues(calleeTfd.params, args)
         val specced = BodyWithSpecs(freshener2.transform(freshenLocals(calleeTfd.fullBody)))
+        val n = specced.specs.count(_.kind == PreconditionKind)
         val trPre = specced.letsAndSpecs(PreconditionKind).foldLeft(
-          (tc2, TyperResult.valid, 0)
+          (tc2, TyperResult.valid, 1)
         ) {
           case ((tcAcc, trAcc, i), LetInSpec(vd0, e0)) => (tcAcc.bindWithValue(vd0, e0), trAcc, i)
           case ((tcAcc, trAcc, i), Precondition(cond)) =>
-            val kind = if (i == 0)
+            val kind = if (n == 1)
               VCKind.Info(VCKind.Precondition, s"call $fiS")
             else
-              VCKind.Info(VCKind.Precondition, s"call $fiS (require ${i+1}")
+              VCKind.Info(VCKind.Precondition, s"call $fiS (require $i/$n)")
             (
               tcAcc.withTruth(cond),
               trAcc ++ buildVC(tcAcc.withVCKind(kind).setPos(e), cond),
