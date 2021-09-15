@@ -61,7 +61,7 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
         import exprOps._
         val (tfd, args) = (fi.tfd, fi.args)
 
-        val isOpaque = tfd.fd.flags contains Opaque
+        val isOpaque = tfd.fd.flags.contains(Opaque) || tfd.fd.flags.contains(Extern)
         val isSynthetic = tfd.fd.flags contains Synthetic
         val hasInlineFlag = tfd.fd.flags contains Inline
         val hasInlineOnceFlag = tfd.fd.flags contains InlineOnce
@@ -72,7 +72,7 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
 
         val specced = BodyWithSpecs(tfd.fullBody)
         // simple path for inlining when all arguments are values, and the function's body doesn't contain other function invocations
-        if (specced.specs.isEmpty && args.forall(isValue) && !exprOps.containsFunctionCalls(tfd.fullBody) && !isSynthetic) {
+        if (specced.specs.isEmpty && args.forall(isValue) && !exprOps.containsFunctionCalls(tfd.fullBody) && !isSynthetic && !isOpaque) {
           annotated(exprOps.replaceFromSymbols(tfd.params.zip(args).toMap, exprOps.freshenLocals(tfd.fullBody)), DropVCs)
         } else {
           // We need to keep the body as-is for `@synthetic` methods, such as
