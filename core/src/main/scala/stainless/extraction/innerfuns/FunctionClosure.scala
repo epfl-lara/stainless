@@ -49,15 +49,18 @@ trait FunctionClosure
       val freeMap = freshVals.toMap
       val freshParams = freshVals.filterNot(p => pc.bindings exists (_._1.id == p._1.id)).map(_._2)
 
-      // we annotate outer path conditions with `DropConjunct` so that they are not checked when
-      // calling the inner function (as we know they already hold at this point)
+      // We annotate outer path conditions with `DropConjunct` so that they are not checked when
+      // calling the inner function (as we know they already hold at this point).
+      // And we annotated bound expressions and path conditions with `DropVCs` so that they
+      // don't generate verification conditions (e.g. index within bounds), as these would be
+      // already checked in the outer function.
       val oldBody = Path.fold[Expr](fullBody, {
-        case (vd, e, acc) => Let(vd, e, acc).setPos(fullBody)
+        case (vd, e, acc) => Let(vd, annotated(e, DropVCs), acc).setPos(fullBody)
       }, {
         case (cond, Require(cond2, acc)) =>
-          Require(SplitAnd(Annotated(cond, Seq(DropConjunct)).setPos(cond), cond2).setPos(cond), acc).setPos(fullBody)
+          Require(SplitAnd(Annotated(cond, Seq(DropConjunct, DropVCs)).setPos(cond), cond2).setPos(cond), acc).setPos(fullBody)
         case (cond, acc) =>
-          Require(Annotated(cond, Seq(DropConjunct)).setPos(cond), acc).setPos(fullBody)
+          Require(Annotated(cond, Seq(DropConjunct, DropVCs)).setPos(cond), acc).setPos(fullBody)
       })(pc.elements)
 
       object bodyTransformer extends SelfTreeTransformer {
