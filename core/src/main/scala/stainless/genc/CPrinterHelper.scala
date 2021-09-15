@@ -33,7 +33,7 @@ object CPrinterHelpers {
       var firstElem = true
 
       while(strings.hasNext) {
-        val s = strings.next.stripMargin
+        val s = strings.next().stripMargin
 
         // Compute indentation
         val start = s.lastIndexOf('\n')
@@ -53,7 +53,7 @@ object CPrinterHelpers {
         val nctx = ctx.copy(indent = ctx.indent + extraInd)
 
         if (expressions.hasNext) {
-          val e = expressions.next
+          val e = expressions.next()
 
           e match {
             case ts: Seq[Any] =>

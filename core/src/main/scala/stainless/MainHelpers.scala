@@ -143,7 +143,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
     // Override config options with command-line options
     val options = (cmdOptions ++ configOptions)
       .groupBy(_.optionDef.name)
-      .mapValues(_.head)
+      .view.mapValues(_.head)
       .values
       .toSeq
 

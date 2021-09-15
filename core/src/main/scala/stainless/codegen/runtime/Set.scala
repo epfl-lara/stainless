@@ -27,7 +27,7 @@ final class Set private(private val underlying: MutableSet[AnyRef]) {
 
   def intersect(that: Set): Set = new Set(underlying intersect that.underlying)
 
-  def difference(that: Set): Set = new Set(underlying -- that.underlying)
+  def difference(that: Set): Set = new Set(MutableSet.from(underlying.toSet -- that.underlying.toSet))
 
   override def equals(that: Any): Boolean = that match {
     case s: Set => underlying.toSet == s.underlying.toSet // the conversion to Set is mandatory!

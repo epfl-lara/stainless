@@ -10,7 +10,14 @@ trait DependencyGraph extends ast.DependencyGraph {
   protected val trees: oo.Trees
   import trees._
 
-  protected class ClassCollector extends Collector with TreeTraverser {
+
+  // We first extend TreeTraverser and then Collector, otherwise we get the following error:
+  //
+  //   cannot override final member:
+  //      final override def traverse(e: Expr, env: Env): Unit (defined in trait TreeTraverser)
+  //      with  override def traverse(e: Expr, env: Env): Unit (defined in trait Traverser)
+  //
+  protected class ClassCollector extends TreeTraverser with Collector {
     def traverseDef(defn: Definition): Unit = defn match {
       case as: ADTSort => traverse(as)
       case fd: FunDef => traverse(fd)

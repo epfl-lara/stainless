@@ -129,7 +129,7 @@ trait MethodLifting
       typeDefs += typeDefCache.cached(td, symbols)(identity.transform(td))
     }
 
-    t.NoSymbols.withFunctions(functions).withClasses(classes).withTypeDefs(typeDefs)
+    t.NoSymbols.withFunctions(functions.toSeq).withClasses(classes.toSeq).withTypeDefs(typeDefs.toSeq)
   }
 
   private[this] type Metadata = (Seq[s.FunDef], Map[Identifier, Override])

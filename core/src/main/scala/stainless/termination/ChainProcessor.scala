@@ -183,7 +183,8 @@ trait ChainProcessor extends OrderingProcessor {
       /* Annotation map with format: f -> (index -> Seq(values)) */
       val indexedByFun = 
         annotationMap.groupBy(_._1._1)
-                    .mapValues(_.map{ case (k,v) => k._2 -> v })
+          .view.mapValues(_.map{ case (k,v) => k._2 -> v })
+          .toMap
 
       for((k,v) <- indexedByFun.toSeq) yield {
         val orderedMeasures: List[(Int, Seq[(Expr,Expr)])] = v.toList.sortBy(_._1)

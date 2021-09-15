@@ -147,7 +147,7 @@ class CPrinter(
 
     // Manually defined function
     case Fun(id, _, _, Right(function), _, _) =>
-      val fun = function.replaceAllLiterally("__FUNCTION__", id.name)
+      val fun = function.replace("__FUNCTION__", id.name)
       c"$fun"
 
     case fun @ Fun(_, _, _, Left(body), _, isPure) =>

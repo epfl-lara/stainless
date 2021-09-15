@@ -131,11 +131,11 @@ class VerificationRun(override val pipeline: StainlessPipeline)
         if (context.options.findOptionOrDefault(optAdmitVCs)) {
           Future(vcs.map(vc => vc -> VCResult(VCStatus.Admitted, None, None)).toMap)
         } else {
-          VerificationChecker.verify(fullEncoder.targetProgram, context)(vcs).map(_.mapValues {
+          VerificationChecker.verify(fullEncoder.targetProgram, context)(vcs).map(_.view.mapValues {
             case VCResult(VCStatus.Invalid(VCStatus.CounterExample(model)), s, t) =>
               VCResult(VCStatus.Invalid(VCStatus.CounterExample(model.encode(fullEncoder.reverse))), s, t)
             case res => res.asInstanceOf[VCResult[p.Model]]
-          })
+          }.toMap)
         }
 
       res.map(r => new VerificationAnalysis {

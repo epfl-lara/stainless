@@ -96,7 +96,7 @@ final class BitVector(private val signed: Boolean, private val bits: Array[Boole
   def cast(newSize: Int): BitVector = {
     val newBits: Seq[Boolean] =
       if (newSize > size) ((size to newSize) map { _ => bits.head }) ++ bits
-      else bits.drop(size - newSize)
+      else bits.toIndexedSeq.drop(size - newSize)
     new BitVector(signed, newBits.toArray)
   }
 

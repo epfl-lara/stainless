@@ -125,20 +125,34 @@ trait ExprOps extends imperative.ExprOps { self =>
   case class Exceptions(expr: Lambda) extends Specification(ExceptionsKind) {
     def transform(tr: Transformer { val s: trees.type; val t: stainless.ast.Trees })(env: tr.Env): tr.t.exprOps.Specification = tr.t match {
       case tt: throwing.Trees =>
-        tt.exprOps.Exceptions(tr.transform(expr, env).asInstanceOf[tt.Lambda]).setPos(this).asInstanceOf[tr.t.exprOps.Specification]
-      case _ =>
-        throw new java.lang.IllegalArgumentException("Can't transform exceptions into non-throwing trees")
-    }
-    def transform(tr: TreeTransformer { val s: trees.type; val t: stainless.ast.Trees }): tr.t.exprOps.Specification = tr.t match {
-      case tt: throwing.Trees =>
-        tt.exprOps.Exceptions(tr.transform(expr).asInstanceOf[tt.Lambda]).setPos(this).asInstanceOf[tr.t.exprOps.Specification]
+        // The goal is to work-around the following expression that causes scalac 2.13 to fail codegen
+        // for the cast of tr.transform(expr, env) into tt.Lambda (probably due to `tt` being bound by a pattern match):
+        //
+        //      tt.exprOps.Exceptions(tr.transform(expr, env).asInstanceOf[tt.Lambda])
+        //          .setPos(this).asInstanceOf[tr.t.exprOps.Specification]
+        //
+        val tLambda: tt.Lambda = tr.transform(expr, env) match {
+          // doing case lam: tt.Lambda triggers a compile-time error, but not if we mix it with tr.t.Lambda...
+          case lam: tr.t.Lambda with tt.Lambda => lam
+        }
+        tt.exprOps.Exceptions(tLambda).setPos(this).asInstanceOf[tr.t.exprOps.Specification]
       case _ =>
         throw new java.lang.IllegalArgumentException("Can't transform exceptions into non-throwing trees")
     }
 
-    def traverse(tr: TreeTraverser { val trees: self.trees.type }): Unit = {
-      tr.traverse(expr)
+    def transform(tr: TreeTransformer { val s: trees.type; val t: stainless.ast.Trees }): tr.t.exprOps.Specification = tr.t match {
+      case tt: throwing.Trees =>
+        // Same story here
+        val tLambda: tt.Lambda = tr.transform(expr) match {
+          case lam: tr.t.Lambda with tt.Lambda => lam
+        }
+        tt.exprOps.Exceptions(tLambda).setPos(this).asInstanceOf[tr.t.exprOps.Specification]
+      case _ =>
+        throw new java.lang.IllegalArgumentException("Can't transform exceptions into non-throwing trees")
     }
+
+    def traverse(tr: TreeTraverser { val trees: self.trees.type }): Unit =
+      tr.traverse(expr)
 
     def isTrivial: Boolean = false
   }

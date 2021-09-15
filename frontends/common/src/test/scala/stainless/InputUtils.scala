@@ -107,7 +107,7 @@ trait InputUtils {
         throw new extraction.MalformedStainlessCode(defn, e.getMessage)
     }
 
-    (units.sortBy(_.id.name), inox.Program(xt)(syms))
+    (units.sortBy(_.id.name).toSeq, inox.Program(xt)(syms))
   }
 
 }

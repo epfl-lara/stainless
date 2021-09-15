@@ -20,7 +20,7 @@ trait ChainBuilder extends RelationBuilder { self: Strengthener with OrderingRel
     }
 
     private lazy val identifier: Map[(Relation, Relation), Int] = {
-      (relations zip (relations.tail :+ relations.head)).view.groupBy(p => p).mapValues(_.size).toMap
+      (relations zip (relations.tail :+ relations.head)).view.groupBy(p => p).view.mapValues(_.size).toMap
     }
 
     override def equals(obj: Any): Boolean = obj match {
@@ -49,8 +49,9 @@ trait ChainBuilder extends RelationBuilder { self: Strengthener with OrderingRel
       val map = relations.zipWithIndex
         .map(p => p._1.call.tfd.fd -> ((p._2 + 1) % relations.size))
         .groupBy(_._1)
-        .mapValues(_.map(_._2))
-      val tmap = that.relations.zipWithIndex.map(p => p._1.fd -> p._2).groupBy(_._1).mapValues(_.map(_._2))
+        .view.mapValues(_.map(_._2))
+        .toMap
+      val tmap = that.relations.zipWithIndex.map(p => p._1.fd -> p._2).groupBy(_._1).view.mapValues(_.map(_._2)).toMap
       val keys = map.keys.toSet & tmap.keys.toSet
 
       for {

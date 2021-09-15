@@ -30,7 +30,7 @@ case class MutableMap[A, @mutable B] (theMap: scala.collection.mutable.Map[A,B],
   // To avoid the creation of aliases on the elements of `B`,
   // `updated` and `duplicate` can only be used when `B` is an immutable type
   def updated(k: A, v: B) = {
-    MutableMap(theMap.updated(k, v), default)
+    MutableMap(theMap.clone() += ((k, v)), default)
   }
 
   def duplicate() = {

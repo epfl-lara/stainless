@@ -35,7 +35,7 @@ trait FrontendFactory {
       val Array(_, filepath) = path split "!/"
       
       // Path should always use '/' as a separator (because of the replacement above in `getResource`)
-      val filename = filepath.replaceAllLiterally("/", "_")
+      val filename = filepath.replace("/", "_")
       val splitPos = filename lastIndexOf '.'
       val (prefix, suffix) = filename splitAt splitPos
       val tmpFilePath = Files.createTempFile(prefix, suffix)

@@ -551,10 +551,10 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       } getOrElse(cnd)
 
       getTargets(thn, kind, path).map { t =>
-        Target(t.receiver, Some(conj(cnd, t.condition)),  t.path)
+        Target(t.receiver, Some(conj(cnd, t.condition)()),  t.path)
       }.filter(_.isValid) ++
       getTargets(els, kind, path).map { t =>
-        Target(t.receiver, Some(notConj(cnd, t.condition)),  t.path)
+        Target(t.receiver, Some(notConj(cnd, t.condition)()),  t.path)
       }.filter(_.isValid)
 
     case fi: FunctionInvocation if !symbols.isRecursive(fi.id) =>

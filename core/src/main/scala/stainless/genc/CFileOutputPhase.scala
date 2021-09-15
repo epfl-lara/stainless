@@ -12,7 +12,7 @@ trait CFileOutputPhase extends UnitPhase[CAST.Prog] {
   val name = "C File Output"
   val description = "Output converted C program to the specified file (default leon.c)"
 
-  def apply(program: CAST.Prog) {
+  def apply(program: CAST.Prog): Unit = {
     val timer = context.timers.genc.print.start()
 
     // Get the output file name from command line options, or use default

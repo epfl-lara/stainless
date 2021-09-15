@@ -31,19 +31,19 @@ object JsonConvertions {
 
   implicit val positionDecoder: Decoder[Position] = Decoder.instance[Position] { cursor =>
     def impl(c: ACursor): Decoder.Result[Position] = for {
-      line <- c.get[Int]("line").right
-      col <- c.get[Int]("col").right
-      point <- c.get[Int]("point").right
-      file <- c.get[String]("file").right
+      line <- c.get[Int]("line")
+      col <- c.get[Int]("col")
+      point <- c.get[Int]("point")
+      file <- c.get[String]("file")
     } yield OffsetPosition(line, col, point, new File(file))
 
-    cursor.downField("kind").as[Kind].right flatMap {
+    cursor.downField("kind").as[Kind] flatMap {
       case Unknown => Right(NoPosition)
       case Offset => impl(cursor)
       case Range =>
         for {
-          begin <- impl(cursor.downField("begin")).right
-          end <- impl(cursor.downField("end")).right
+          begin <- impl(cursor.downField("begin"))
+          end <- impl(cursor.downField("end"))
         } yield Position.between(begin, end)
     }
   }
@@ -74,7 +74,7 @@ object JsonConvertions {
   }
 
   implicit val identifierDecoder: Decoder[Identifier] =
-    Decoder.forProduct3[String, Int, Int, Identifier]("name", "gid", "id") {
+    Decoder.forProduct3[Identifier, String, Int, Int]("name", "gid", "id") {
       case (name, gid, id) => new Identifier(name, gid, id)
     }
 

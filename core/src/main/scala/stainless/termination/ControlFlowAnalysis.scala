@@ -85,7 +85,7 @@ trait CICFA {
     }
 
     override def toString = {
-      store.map { case (k, v) => k + "-->" + v }.mkString("\n")
+      store.map { case (k, v) => s"$k-->$v" }.mkString("\n")
     }
   }
 
@@ -212,7 +212,7 @@ trait CICFA {
             appliedLambdas += lam
 
             // create a new store with mapping for arguments and escaping variables
-            val argstore = in.store.filterKeys(escapingVars) ++
+            val argstore = in.store.view.filterKeys(escapingVars).toMap ++
               (lam.params.map(_.toVariable) zip absargs) ++
               escenv.store ++
               argescenv.store
@@ -246,12 +246,12 @@ trait CICFA {
         val capvars = variablesOf(lam)
         escapingVars ++= capvars // make all captured variables as escaping
         val currSummary = getTabulation(lam)
-        val capenv = AbsEnv(in.store.filterKeys(capvars))
+        val capenv = AbsEnv(in.store.view.filterKeys(capvars).toMap)
         if (!currSummary.in.greaterEquals(capenv)) {
           val join = currSummary.in.join(capenv)
           tabulation.update(lam, Summary(join, currSummary.out, currSummary.ret))
         }
-        (Set(Closure(lam)), AbsEnv(in.store.filterKeys(capvars)))
+        (Set(Closure(lam)), AbsEnv(in.store.view.filterKeys(capvars).toMap))
 
       case fi @ FunctionInvocation(_, _, args) =>
         val fd = fi.tfd.fd
@@ -263,7 +263,7 @@ trait CICFA {
         val absargs = absres.map(_._1)
         val argesc = flatten(absres.map(_._2))
         val newenv = in ++ argesc
-        val argstore = newenv.store.filterKeys(escapingVars) ++
+        val argstore = newenv.store.view.filterKeys(escapingVars).toMap ++
           (fd.params.map(_.toVariable) zip absargs)
         val argenv = AbsEnv(argstore)
 

@@ -409,7 +409,7 @@ trait AntiAliasing
               val newScrut = transform(scrut, env)
               val newCases = cses.map { case mc @ MatchCase(pattern, guard, rhs) =>
                 val newRewritings =
-                  mapForPattern(newScrut, pattern).filterKeys(v => isMutableType(v.getType))
+                  mapForPattern(newScrut, pattern).view.filterKeys(v => isMutableType(v.getType)).toMap
 
                 val newGuard = guard.map(transform(_, env withRewritings newRewritings))
                 val newRhs = transform(rhs, env withRewritings newRewritings)
@@ -492,7 +492,7 @@ trait AntiAliasing
             val fd = Outer(fi.tfd.fd)
             val rewrittenArgs = args.map(arg =>
               freshenLocals(replaceFromSymbols(
-                env.rewritings.mapValues(e => Annotated(e, Seq(DropVCs)).setPos(e)),
+                env.rewritings.view.mapValues(e => Annotated(e, Seq(DropVCs)).setPos(e)).toMap,
                 arg
               )))
             if (!fi.tfd.flags.exists(_.name == "accessor") && !fi.tfd.flags.contains(IsPure))

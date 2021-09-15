@@ -275,7 +275,7 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
 
       tree match {
         case od @ ExObjectDef(_, tmpl) =>
-          if (tmpl.parents.exists(p => !ignoredClasses.contains(p.tpe))) {
+          if (tmpl.parents.exists(p => !isIgnored(p.tpe))) {
             reportError(tree.pos, "Objects cannot extend classes or implement traits, use a case object instead")
           }
           super.traverse(od)
@@ -294,7 +294,7 @@ trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
             reportError(tree.pos, "Only abstract classes, case classes, anonymous classes, and objects are allowed in Stainless.")
           }
 
-          val parents = impl.parents.map(_.tpe).filterNot(ignoredClasses)
+          val parents = impl.parents.map(_.tpe).filterNot(isIgnored)
           if (parents.length > 1) {
             reportError(tree.pos, s"Stainless supports only simple type hierarchies: Classes can only inherit from a single class/trait")
           }

@@ -699,9 +699,9 @@ trait TypeEncoding
     def apply(p: (s.Type, s.Type)): t.Expr = underlying apply (p._1 -> Some(p._2))
     def apply(tpe: s.Type): t.Expr = underlying apply (tpe -> None)
 
-    def ++(ps: Traversable[((s.Type, s.Type), t.Expr)]): ExprMapping =
+    def ++(ps: Iterable[((s.Type, s.Type), t.Expr)]): ExprMapping =
       new ExprMapping(underlying ++ ps.map { case ((t1, t2), e) => ((t1, Some(t2)), e) })
-    def ++(ps: Traversable[(s.Type, t.Expr)])(implicit dummyImplicit: DummyImplicit): ExprMapping =
+    def ++(ps: Iterable[(s.Type, t.Expr)])(implicit dummyImplicit: DummyImplicit): ExprMapping =
       new ExprMapping(underlying ++ ps.map { case (tpe, e) => ((tpe, None), e) })
 
     override def toString = underlying.toString
@@ -725,12 +725,12 @@ trait TypeEncoding
 
     import symbols.{let => _, forall => _, _}
 
-    def converting(ps: Traversable[((s.Type, s.Type), t.Expr)]): Scope =
+    def converting(ps: Iterable[((s.Type, s.Type), t.Expr)]): Scope =
       new Scope(functions, tparams, testers, converters ++ ps)
 
-    def testing(ps: Traversable[((s.Type, s.Type), t.Expr)]): Scope =
+    def testing(ps: Iterable[((s.Type, s.Type), t.Expr)]): Scope =
       new Scope(functions, tparams, testers ++ ps, converters)
-    def testing(ps: Traversable[(s.Type, t.Expr)])(implicit dummy: DummyImplicit): Scope =
+    def testing(ps: Iterable[(s.Type, t.Expr)])(implicit dummy: DummyImplicit): Scope =
       new Scope(functions, tparams, testers ++ ps, converters)
     def testing(p: (s.Type, t.Expr)): Scope =
       new Scope(functions, tparams, testers ++ Seq(p), converters)

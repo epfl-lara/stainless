@@ -14,7 +14,7 @@ trait StructuralSize { self: SolverProvider =>
 
   val sizes: SizeFunctions { val trees: checker.program.trees.type }
 
-  def functions: Seq[FunDef] = sizes.getFunctions(checker.program.symbols)
+  def functions: Seq[FunDef] = sizes.getFunctions(checker.program.symbols).toSeq
 
   registerTransformer(new inox.transformers.SymbolTransformer {
     val s: trees.type = trees
@@ -45,8 +45,8 @@ trait StructuralSize { self: SolverProvider =>
   }
 
   def flatTypesPowerset(tpe: Type): Set[Expr => Expr] = {
-    def powerSetToFunSet(l: TraversableOnce[Expr => Expr]): Set[Expr => Expr] = {
-      l.toSet.subsets.filter(_.nonEmpty).map{
+    def powerSetToFunSet(l: IterableOnce[Expr => Expr]): Set[Expr => Expr] = {
+      l.iterator.to(Set).subsets().filter(_.nonEmpty).map{
         (reconss: Set[Expr => Expr]) => (e : Expr) =>
           tupleWrap(reconss.toSeq map { f => f(e) })
       }.toSet

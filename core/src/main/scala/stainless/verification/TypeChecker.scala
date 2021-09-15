@@ -11,7 +11,7 @@ import TypeCheckerContext._
 
 import stainless.termination.optCheckMeasures
 
-import scala.collection._
+import scala.collection.{immutable, mutable}
 
 object DebugSectionTypeChecker extends inox.DebugSection("type-checker")
 object DebugSectionTypeCheckerVCs extends inox.DebugSection("type-checker-vcs")
@@ -345,7 +345,7 @@ trait TypeChecker {
     reporter.debug(s"\n${tc0.indent}Checking that: ${t.asString} (${t.getPos})")
     reporter.debug(s"${tc0.indent}is a type in context:")
     reporter.debug(tc0.asString(tc0.indent))
-    val tc = tc0.inc
+    val tc = tc0.inc()
     val res: TyperResult = t match {
       case UnitType() => TyperResult.valid
       case BooleanType() => TyperResult.valid
@@ -456,7 +456,7 @@ trait TypeChecker {
     reporter.debug(s"\n${tc0.indent}Inferring type of: ${e.asString} (${e.getPos})")
     reporter.debug(s"${tc0.indent}in context:")
     reporter.debug(tc0.asString(tc0.indent))
-    val tc = tc0.inc
+    val tc = tc0.inc()
     val (t, tr): (Type, TyperResult) = e match {
       case UnitLiteral() => (UnitType(), TyperResult.valid)
       case BooleanLiteral(_) => (BooleanType(), TyperResult.valid)
@@ -1049,7 +1049,7 @@ trait TypeChecker {
     reporter.debug(s"${tc0.indent}in context")
     reporter.debug(tc0.asString(tc0.indent))
 
-    val tc = tc0.inc
+    val tc = tc0.inc()
     val res = (e, tpe) match {
 
       // High-priority rules for `Top`.
@@ -1152,7 +1152,7 @@ trait TypeChecker {
     reporter.debug(s"${tc0.indent}is a subtype of: ${tp2.asString}")
     reporter.debug(s"${tc0.indent}in context:")
     reporter.debug(tc0.asString(tc0.indent))
-    val tc = tc0.inc
+    val tc = tc0.inc()
     val res = if (tp1 == tp2) TyperResult.valid
     else (tp1, tp2) match {
       case (_, Top()) => TyperResult.valid
@@ -1246,7 +1246,7 @@ trait TypeChecker {
     reporter.debug(s"${tc0.indent}in context:")
     reporter.debug(tc0.asString(tc0.indent))
 
-    val tc = tc0.inc
+    val tc = tc0.inc()
     val tr = if (t1 == t2) TyperResult.valid else {
       isSubtype(tc, t1, t2) ++ isSubtype(tc, t2, t1)
     }
