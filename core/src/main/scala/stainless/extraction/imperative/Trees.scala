@@ -484,16 +484,32 @@ trait ExprOps extends oo.ExprOps { self =>
   case class ReadsContract(expr: Expr) extends Specification(ReadsKind) {
     def transform(tr: Transformer { val s: trees.type; val t: ast.Trees })(env: tr.Env): tr.t.exprOps.Specification = tr.t match {
       case ot: imperative.Trees =>
-        ot.exprOps.ReadsContract(tr.transform(expr, env).asInstanceOf[ot.Expr]).setPos(this).asInstanceOf[tr.t.exprOps.Specification]
+        // The goal is to work-around the following expression that causes scalac 2.13 to fail codegen
+        // for the cast of tr.transform(expr, env) into ot.Expr (probably due to `ot` being bound by a pattern match):
+        //
+        //      ot.exprOps.ReadsContract(tr.transform(expr, env).asInstanceOf[ot.Expr])
+        //          .setPos(this).asInstanceOf[tr.t.exprOps.Specification]
+        //
+        val otExpr: ot.Expr = tr.transform(expr, env) match {
+          // doing case e: ot.Expr triggers a compile-time error, but not if we mix it with tr.t.Expr...
+          case e: tr.t.Expr with ot.Expr => e
+        }
+        ot.exprOps.ReadsContract(otExpr).setPos(this).asInstanceOf[tr.t.exprOps.Specification]
       case _ =>
         throw new java.lang.IllegalArgumentException("Can't transform imperative into non-imperative trees")
     }
 
-    def transform(tr: TreeTransformer { val s: trees.type; val t: ast.Trees }): tr.t.exprOps.Specification = tr.t match {
-      case ot: imperative.Trees =>
-        ot.exprOps.ReadsContract(tr.transform(expr).asInstanceOf[ot.Expr]).setPos(this).asInstanceOf[tr.t.exprOps.Specification]
-      case _ =>
-        throw new java.lang.IllegalArgumentException("Can't transform imperative into non-imperative trees")
+    def transform(tr: TreeTransformer { val s: trees.type; val t: ast.Trees }): tr.t.exprOps.Specification = {
+      tr.t match {
+        case ot: imperative.Trees =>
+          // Same story here
+          val otExpr: ot.Expr = tr.transform(expr) match {
+            case e: tr.t.Expr with ot.Expr => e
+          }
+          ot.exprOps.ReadsContract(otExpr).asInstanceOf[tr.t.exprOps.Specification]
+        case _ =>
+          throw new java.lang.IllegalArgumentException("Can't transform imperative into non-imperative trees")
+      }
     }
 
     def traverse(tr: TreeTraverser { val trees: self.trees.type }): Unit =
@@ -512,14 +528,22 @@ trait ExprOps extends oo.ExprOps { self =>
   case class ModifiesContract(expr: Expr) extends Specification(ModifiesKind) {
     def transform(tr: Transformer { val s: trees.type; val t: ast.Trees })(env: tr.Env): tr.t.exprOps.Specification = tr.t match {
       case ot: imperative.Trees =>
-        ot.exprOps.ModifiesContract(tr.transform(expr, env).asInstanceOf[ot.Expr]).setPos(this).asInstanceOf[tr.t.exprOps.Specification]
+        // See ReadsContract#transform for the reasons of this strange pattern match.
+        val otExpr: ot.Expr = tr.transform(expr, env) match {
+          case e: tr.t.Expr with ot.Expr => e
+        }
+        ot.exprOps.ModifiesContract(otExpr).setPos(this).asInstanceOf[tr.t.exprOps.Specification]
       case _ =>
         throw new java.lang.IllegalArgumentException("Can't transform imperative into non-imperative trees")
     }
 
     def transform(tr: TreeTransformer { val s: trees.type; val t: ast.Trees }): tr.t.exprOps.Specification = tr.t match {
       case ot: imperative.Trees =>
-        ot.exprOps.ModifiesContract(tr.transform(expr).asInstanceOf[ot.Expr]).setPos(this).asInstanceOf[tr.t.exprOps.Specification]
+        // Ditto
+        val otExpr: ot.Expr = tr.transform(expr) match {
+          case e: tr.t.Expr with ot.Expr => e
+        }
+        ot.exprOps.ModifiesContract(otExpr).setPos(this).asInstanceOf[tr.t.exprOps.Specification]
       case _ =>
         throw new java.lang.IllegalArgumentException("Can't transform imperative into non-imperative trees")
     }

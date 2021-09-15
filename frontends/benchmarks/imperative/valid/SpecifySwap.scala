@@ -1,6 +1,6 @@
 import stainless.lang._
 import stainless.annotation._
-import scala.Predef.{ genericArrayOps => _, genericWrapArray => _, _ }
+import scala.Predef.{ genericArrayOps => _, genericWrapArray => _, copyArrayToImmutableIndexedSeq => _, _ }
 
 object SpecifySwap {
 

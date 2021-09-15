@@ -30,7 +30,7 @@ trait RecursiveEvaluator extends inox.evaluators.RecursiveEvaluator {
 
     case MatchExpr(scrut, cases) =>
       val rscrut = e(scrut)
-      cases.toStream.map(c => matchesCase(rscrut, c).map(c -> _)).find(_.nonEmpty) match {
+      cases.to(LazyList).map(c => matchesCase(rscrut, c).map(c -> _)).find(_.nonEmpty) match {
         case Some(Some((c, mapping))) => e(c.rhs)(rctx.withNewVars(mapping), gctx)
         case _ => throw RuntimeError("MatchError: " + rscrut + " did not match any of the cases:\n" + cases)
       }

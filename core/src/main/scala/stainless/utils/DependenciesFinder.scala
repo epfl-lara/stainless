@@ -42,9 +42,9 @@ trait DependenciesFinder {
     var toExplore = roots
 
     while(toExplore.nonEmpty) {
-      val fIds = s.functions.values.view.force.filter(f => toExplore(f.id))
+      val fIds = s.functions.values.view.filter(f => toExplore(f.id))
         .flatMap((fd: t.FunDef) => tr.doTraverse(fd)).toSet
-      val sIds = s.sorts.values.view.force.filter(s => toExplore(s.id))
+      val sIds = s.sorts.values.view.filter(s => toExplore(s.id))
         .flatMap((s: t.ADTSort) => tr.doTraverse(s)).toSet
       found ++= toExplore
       toExplore = (fIds ++ sIds) -- found

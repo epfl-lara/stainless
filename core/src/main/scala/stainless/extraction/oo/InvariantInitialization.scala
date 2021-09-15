@@ -50,7 +50,7 @@ trait InvariantInitialization
       ) yield {
         val adtType = t.ADTType(sort2.id, Seq())
         new t.FunDef(
-          FreshIdentifier(constructor.id + "RequireForDefault"),
+          FreshIdentifier(s"${constructor.id}RequireForDefault"),
           Seq(),
           Seq(),
           t.UnitType().setPos(constructor),

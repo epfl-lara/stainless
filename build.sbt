@@ -22,7 +22,7 @@ val osArch = System.getProperty("sun.arch.data.model")
 
 val dottyLibrary = "dotty-compiler_2.12"
 val dottyVersion = "0.12.0-RC1-nonbootstrapped"
-val circeVersion = "0.10.0-M2"
+val circeVersion = "0.14.1"
 
 lazy val nParallel = {
   val p = System.getProperty("parallel")
@@ -37,7 +37,9 @@ lazy val nParallel = {
   }
 }
 
-val SupportedScalaVersions = Seq("2.12.13")
+val SupportedScalaVersions = Seq("2.13.6")
+
+scalaVersion := "2.13.6"
 
 lazy val frontendClass = settingKey[String]("The name of the compiler wrapper used to extract stainless trees")
 
@@ -66,7 +68,7 @@ lazy val baseSettings: Seq[Setting[_]] = Seq(
 )
 
 lazy val artifactSettings: Seq[Setting[_]] = baseSettings ++ Seq(
-  scalaVersion := crossScalaVersions.value.head,
+  scalaVersion := "2.13.6",
   crossScalaVersions := SupportedScalaVersions,
 
   buildInfoPackage := "stainless",
@@ -89,13 +91,13 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
   libraryDependencies ++= Seq(
     // "ch.epfl.lara"    %% "inox"          % inoxVersion,
     // "ch.epfl.lara"    %% "inox"          % inoxVersion % "test" classifier "tests",
-    "ch.epfl.lara"    %% "cafebabe"      % "1.2",
-    "uuverifiers"     %% "princess"      % "2018-02-26" ,
-    "io.circe"        %% "circe-core"    % circeVersion,
-    "io.circe"        %% "circe-generic" % circeVersion,
-    "io.circe"        %% "circe-parser"  % circeVersion,
-    "io.get-coursier" %% "coursier"      % "2.0.0-RC4-1",
-    "com.typesafe"     % "config"        % "1.3.4",
+    "org.scala-lang.modules" %% "scala-parallel-collections" % "1.0.3",
+    "uuverifiers"            %% "princess"                   % "2020-03-12",
+    "io.circe"               %% "circe-core"                 % circeVersion,
+    "io.circe"               %% "circe-generic"              % circeVersion,
+    "io.circe"               %% "circe-parser"               % circeVersion,
+    "io.get-coursier"        %% "coursier"                   % "2.0.0-RC4-1",
+    "com.typesafe"            % "config"                     % "1.3.4",
 
     "org.scalatest"   %% "scalatest"     % "3.2.7" % "test",
   ),
@@ -206,7 +208,7 @@ lazy val commonFrontendSettings: Seq[Setting[_]] = Defaults.itSettings ++ Seq(
           |  val defaultPaths = List(${removeSlashU(libraryFiles.map(_._1).mkString("\"\"\"", "\"\"\",\n \"\"\"", "\"\"\""))})
           |  val libPaths = try {
           |    val source = scala.io.Source.fromFile(\"${libFilesFile}\")
-          |    try source.getLines.toList finally source.close()
+          |    try source.getLines().toList finally source.close()
           |  } catch {
           |     case (_:Throwable) => defaultPaths
           |  }
@@ -232,7 +234,8 @@ val scriptSettings: Seq[Setting[_]] = Seq(
 def ghProject(repo: String, version: String) = RootProject(uri(s"${repo}#${version}"))
 
 // lazy val inox = RootProject(file("../inox"))
-lazy val inox = ghProject("https://github.com/epfl-lara/inox.git", "5a175ff18edb8cccf2415f2e0dc4cb21e73a0dc1")
+lazy val inox = ghProject("https://github.com/epfl-lara/inox.git", "e74baa7fdb9a941f4e4ce8e880b96a32a96c8b59")
+lazy val cafebabe = ghProject("https://github.com/epfl-lara/cafebabe.git", "7efbf6341ecc7474e7a8c6999d97bf3d810fa5c8")
 //lazy val dotty = ghProject("git://github.com/lampepfl/dotty.git", "b3194406d8e1a28690faee12257b53f9dcf49506")
 
 // Allow integration test to use facilities from regular tests
@@ -246,6 +249,7 @@ lazy val `stainless-core` = (project in file("core"))
   .settings(commonSettings, publishMavenSettings)
   //.settings(site.settings)
   .dependsOn(inox % "compile->compile;test->test")
+  .dependsOn(cafebabe % "compile->compile;test->test")
 
 lazy val `stainless-library` = (project in file("frontends") / "library")
   .disablePlugins(AssemblyPlugin)

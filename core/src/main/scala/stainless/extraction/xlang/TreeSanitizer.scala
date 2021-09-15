@@ -39,7 +39,7 @@ trait TreeSanitizer { self =>
       new AbstractValsOverride(symbols, ctx),
     )
 
-    checks.flatMap(_.sanitize.distinct).sortBy(_.tree.getPos)
+    checks.flatMap(_.sanitize().distinct).sortBy(_.tree.getPos)
   }
 
   def enforce(symbols: Symbols)(implicit ctx: inox.Context): Seq[MalformedStainlessCode] = {

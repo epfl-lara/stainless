@@ -81,16 +81,16 @@ object CheckFilter {
 
   // TODO this is probably done somewhere else in a cleaner fasion...
   def fixedFullName(id: Identifier): String = id.fullName
-    .replaceAllLiterally("$bar", "|")
-    .replaceAllLiterally("$up", "^")
-    .replaceAllLiterally("$eq", "=")
-    .replaceAllLiterally("$plus", "+")
-    .replaceAllLiterally("$minus", "-")
-    .replaceAllLiterally("$times", "*")
-    .replaceAllLiterally("$div", "/")
-    .replaceAllLiterally("$less", "<")
-    .replaceAllLiterally("$geater", ">")
-    .replaceAllLiterally("$colon", ":")
-    .replaceAllLiterally("$amp", "&")
-    .replaceAllLiterally("$tilde", "~")
+    .replace("$bar", "|")
+    .replace("$up", "^")
+    .replace("$eq", "=")
+    .replace("$plus", "+")
+    .replace("$minus", "-")
+    .replace("$times", "*")
+    .replace("$div", "/")
+    .replace("$less", "<")
+    .replace("$geater", ">")
+    .replace("$colon", ":")
+    .replace("$amp", "&")
+    .replace("$tilde", "~")
 }

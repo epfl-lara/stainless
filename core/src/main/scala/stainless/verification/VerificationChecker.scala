@@ -221,7 +221,7 @@ trait VerificationChecker { self =>
 
   protected def checkVC(vc: VC, origVC: VC, sf: SolverFactory { val program: self.program.type }): VCResult = {
     import SolverResponses._
-    val s = sf.getNewSolver
+    val s = sf.getNewSolver()
 
     try {
       val cond = vc.condition

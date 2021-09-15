@@ -415,9 +415,16 @@ trait ExprOps extends inox.ast.ExprOps { self =>
    * Freshening of local variables
    * ============================= */
 
+  // Freshener may not directly inherits transformers.Transformer as
+  // it causes overrides conflict. For that, we introduce an intermediate trait where
+  // we redefine s and t accordingly.
+  trait Intermediate extends transformers.Transformer {
+    override val s: self.trees.type = self.trees
+    override val t: self.trees.type = self.trees
+  }
   protected class Freshener(freshenChooses: Boolean)
     extends super.Freshener(freshenChooses)
-    with transformers.Transformer {
+    with Intermediate {
 
     override def transformCase(cse: MatchCase, env: Env): MatchCase = {
       val MatchCase(pat, guard, rhs) = cse

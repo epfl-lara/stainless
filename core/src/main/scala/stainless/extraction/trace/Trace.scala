@@ -153,7 +153,7 @@ trait Trace extends CachingPhase with IdentityFunctions with IdentitySorts { sel
     import symbols._
     import exprOps._
 
-    val id = FreshIdentifier(lemma.id+"$induct")
+    val id = FreshIdentifier(s"${lemma.id}$$induct")
 
     val newParams = model.params.map{param => param.freshen}
     val newParamVars = newParams.map{param => param.toVariable}

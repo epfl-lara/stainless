@@ -210,9 +210,9 @@ trait MeasureInference
       }
 
       val postCache: Map[Identifier, t.Lambda] = 
-        posts.mapValues{ (v: s.Lambda) => 
+        posts.view.mapValues{ (v: s.Lambda) =>
           postTransformer.transform(v).asInstanceOf[t.Lambda] 
-        }
+        }.toMap
       postCache.get(original.id) match {
         case Some(post@t.Lambda(Seq(nlarg), nbody)) => 
           val newVd = t.ValDef.fresh("arg", original.returnType)

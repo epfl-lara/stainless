@@ -152,7 +152,7 @@ trait Strengthener { self: OrderingRelation =>
         v -> ((soft, hard))
       }
 
-      val formulaMap = allFormulas.groupBy(_._1).mapValues(_.map(_._2).unzip).toMap
+      val formulaMap = allFormulas.groupBy(_._1).view.mapValues(_.map(_._2).unzip).toMap
 
       val constraints = for ((v, (weakFormulas, strongFormulas)) <- formulaMap) yield v -> {
         if (api.solveVALID(andJoin(weakFormulas.toSeq)).contains(true)) {
@@ -179,7 +179,7 @@ trait Strengthener { self: OrderingRelation =>
       val var2invocations: Seq[(Variable, ((Identifier, Identifier), Path, Seq[Expr]))] =
         for ((path, args, mapping) <- invocations; (v, p) <- mapping) yield v -> (p, path, args)
       val invocationMap: Map[Variable, Seq[((Identifier, Identifier), Path, Seq[Expr])]] =
-        var2invocations.groupBy(_._1).mapValues(_.map(_._2))
+        var2invocations.groupBy(_._1).view.mapValues(_.map(_._2)).toMap
 
       def constraint(
           v: Variable,
@@ -211,12 +211,12 @@ trait Strengthener { self: OrderingRelation =>
           }
       }
 
-      val outers = invocationMap.mapValues(_.filter(_._1._1 != fd))
+      val outers = invocationMap.view.mapValues(_.filter(_._1._1 != fd)).toMap
       for (v <- fdHOArgs) {
         appConstraint(fd.id -> v.id) = constraint(v, outers.getOrElse(v, Seq.empty))
       }
 
-      val selfs = invocationMap.mapValues(_.filter(_._1._1 == fd))
+      val selfs = invocationMap.view.mapValues(_.filter(_._1._1 == fd)).toMap
       for (v <- fdHOArgs) {
         appConstraint(fd.id -> v.id) = constraint(v, selfs.getOrElse(v, Seq.empty))
       }

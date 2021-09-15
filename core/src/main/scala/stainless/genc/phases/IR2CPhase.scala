@@ -41,17 +41,17 @@ private class IR2CImpl(val ctx: inox.Context) {
 
   private var dataTypes = Seq[C.DataType]() // For struct & union, keeps track of definition order!
 
-  private def register(dt: C.DataType) {
+  private def register(dt: C.DataType): Unit = {
     require(!(dataTypes contains dt))
 
     dataTypes = dataTypes :+ dt
   }
 
-  private def register(i: C.Include) {
+  private def register(i: C.Include): Unit = {
     includes += i
   }
 
-  private def register(td: C.TypeDef) {
+  private def register(td: C.TypeDef): Unit = {
     typdefs += td
   }
 
@@ -415,7 +415,7 @@ private class IR2CImpl(val ctx: inox.Context) {
 
   private val markedAsEmpty = MutableSet[ClassDef]()
 
-  private def markAsEmpty(cd: ClassDef) {
+  private def markAsEmpty(cd: ClassDef): Unit = {
     markedAsEmpty += cd
   }
 

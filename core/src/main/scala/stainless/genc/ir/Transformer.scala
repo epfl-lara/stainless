@@ -45,7 +45,7 @@ abstract class Transformer[From <: IR, To <: IR](final val from: From, final val
   // See note above about caching & partial function definition
   private val funCache = MutableMap[FunDef, to.FunDef]()
 
-  protected final def registerFunction(older: FunDef, newer: to.FunDef) {
+  protected final def registerFunction(older: FunDef, newer: to.FunDef): Unit = {
     funCache.update(older, newer)
   }
 

@@ -275,10 +275,10 @@ trait ImperativeCodeElimination
                     val newRes = ValDef(res.id.freshen, newReturnType)
 
                     val newBody = replaceSingle(
-                      modifiedVars.zip(freshVars).map { case (ov, nv) => Old(ov) -> nv }.toMap ++
+                      (modifiedVars.zip(freshVars).map { case (ov, nv) => Old(ov) -> nv } ++
                       modifiedVars.zipWithIndex.map { case (v, i) =>
                         (v -> TupleSelect(newRes.toVariable, i+2)): (Expr, Expr)
-                      }.toMap + (res.toVariable -> TupleSelect(newRes.toVariable, 1)),
+                      } :+ (res.toVariable -> TupleSelect(newRes.toVariable, 1))).toMap,
                       postBody
                     )
 

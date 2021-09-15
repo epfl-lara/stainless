@@ -29,7 +29,7 @@ trait RelationBuilder { self: Strengthener =>
       val freshSubst = (instPath.bound map { vd =>
         vd -> vd.freshen
       }).toMap
-      val newSubst = subst ++ freshSubst.mapValues(_.toVariable)
+      val newSubst = subst ++ freshSubst.view.mapValues(_.toVariable)
       val newPath = instPath.map(freshSubst, exprOps.replaceFromSymbols(newSubst, _))
 
       val newCall =

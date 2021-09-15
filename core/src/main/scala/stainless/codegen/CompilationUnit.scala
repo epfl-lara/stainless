@@ -323,14 +323,14 @@ trait CompilationUnit extends CodeGeneration {
         case Some(cons) =>
           val exFields = (fields zip getConstructor(cons.id, adt.tps).fields.map(_.getType)).map {
             case (e, tpe) => jvmToValue(e, tpe)
-          }
+          }.toSeq
           ADT(cons.id, adt.tps, exFields)
         case _ =>
           throw CompilationException("Unable to identify class "+cons.getClass.getName+" to descendant of "+adt)
       }
 
     case (tpl: runtime.Tuple, tpe) =>
-      val stpe = unwrapTupleType(tpe, tpl.getArity)
+      val stpe = unwrapTupleType(tpe, tpl.getArity())
       val elems = stpe.zipWithIndex.map { case (tpe, i) =>
         jvmToValue(tpl.get(i), tpe)
       }
@@ -344,7 +344,7 @@ trait CompilationUnit extends CodeGeneration {
       FiniteSet(set.getElements.map(jvmToValue(_, b)).toSeq, b)
 
     case (bag: runtime.Bag, BagType(b)) =>
-      FiniteBag(bag.getElements.map { case (key, value) =>
+      FiniteBag(bag.getElements().map { case (key, value) =>
         (jvmToValue(key, b), jvmToValue(value, IntegerType()))
       }.toSeq, b)
 

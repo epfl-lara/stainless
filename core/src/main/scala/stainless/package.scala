@@ -152,7 +152,7 @@ package object stainless {
 
   private lazy val currentThreadExecutionContext: ExecutionContext =
     ExecutionContext.fromExecutor(new java.util.concurrent.Executor {
-      def execute(runnable: Runnable) { runnable.run() }
+      def execute(runnable: Runnable): Unit = { runnable.run() }
     })
 
   private lazy val multiThreadedExecutor: java.util.concurrent.ExecutorService =

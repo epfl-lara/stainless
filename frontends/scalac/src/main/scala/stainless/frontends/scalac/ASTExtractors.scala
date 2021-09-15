@@ -46,8 +46,8 @@ trait ASTExtractors {
     (for {
       a <- (selfs ++ owners ++ companions)
       name = a.atp.safeToString
-        .replaceAllLiterally(".package.", ".")
-        .replaceAllLiterally(" @scala.annotation.meta.field", "")
+        .replace(".package.", ".")
+        .replace(" @scala.annotation.meta.field", "")
     } yield {
       if (name startsWith "stainless.annotation.") {
         val shortName = name drop "stainless.annotation.".length
@@ -92,7 +92,7 @@ trait ASTExtractors {
   protected lazy val stringSym          = classFromName("java.lang.String")
 
   protected def functionTraitSym(i:Int) = {
-    require(0 <= i && i <= 22)
+    require(0 <= i && i <= 22, s"$i must be between 0 and 22")
     classFromName("scala.Function" + i)
   }
 
@@ -965,9 +965,9 @@ trait ASTExtractors {
                Apply(
                  TypeApply(Select(Apply(ExSymbol("scala", "Predef", arrayOps), Seq(array)), update), _),
                  Seq(index, value)),
-               List(Apply(_, _))
+               List(Typed(_, _))
              )
-             if (arrayOps.toString endsWith "ArrayOps") && (update.toString == "updated")
+             if (arrayOps endsWith "ArrayOps") && (update.toString == "updated")
              => Some((array, index, value))
 
         case Apply(

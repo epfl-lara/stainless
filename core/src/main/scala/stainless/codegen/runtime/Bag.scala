@@ -48,5 +48,5 @@ final class Bag private(private val underlying: MutableMap[AnyRef, BigInt]) {
 
   override def hashCode: Int = underlying.hashCode
 
-  override def toString: String = underlying.map(p => p._1 + " -> " + p._2).mkString("Bag(", ", ", ")")
+  override def toString: String = underlying.map(p => s"${p._1} -> ${p._2}").mkString("Bag(", ", ", ")")
 }

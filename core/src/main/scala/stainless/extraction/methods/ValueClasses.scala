@@ -66,7 +66,7 @@ trait ValueClasses
 
     val valueClasses = symbols.classes.filter(_._2.isValueClass)
 
-    val invariants = valueClasses.mapValues { cd =>
+    val invariants = valueClasses.view.mapValues { cd =>
       cd.flags.collectFirst {
         case HasADTInvariant(id) => symbols.getFunction(id)
       }

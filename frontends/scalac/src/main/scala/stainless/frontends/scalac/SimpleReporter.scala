@@ -35,7 +35,7 @@ class SimpleReporter(val settings: Settings, reporter: inox.Reporter) extends Fi
     StringOps.countElementsAsString(count(severity), label(severity))
 
   /** Prints the message. */
-  def printMessage(msg: String, pos: inox.utils.Position, severity: Severity) {
+  def printMessage(msg: String, pos: inox.utils.Position, severity: Severity): Unit = {
     severity match {
       case ERROR =>
         reporter.error(pos, msg)
@@ -49,7 +49,7 @@ class SimpleReporter(val settings: Settings, reporter: inox.Reporter) extends Fi
   }
 
   /** Prints the message with the given position indication. */
-  def printMessage(posIn: Position, msg: String, severity: Severity) {
+  def printMessage(posIn: Position, msg: String, severity: Severity): Unit = {
     val pos = if (posIn eq null) NoPosition
               else if (posIn.isDefined) posIn.finalPosition
               else posIn
@@ -64,11 +64,11 @@ class SimpleReporter(val settings: Settings, reporter: inox.Reporter) extends Fi
     }
   }
 
-  def print(pos: Position, msg: String, severity: Severity) {
+  def print(pos: Position, msg: String, severity: Severity): Unit = {
     printMessage(pos, clabel(severity) + msg, severity)
   }
 
-  def display(pos: Position, msg: String, severity: Severity) {
+  def display(pos: Position, msg: String, severity: Severity): Unit = {
     count(severity) += 1
     if (severity != ERROR || count(severity) <= ERROR_LIMIT)
       print(pos, msg, severity)

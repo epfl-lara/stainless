@@ -124,7 +124,7 @@ object DependencyResolver {
   }
 
   def unjar(jar: File, destPath: Path): Unit = {
-    import scala.collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
 
     var archive: ZipFile = null
 
@@ -146,7 +146,7 @@ object DependencyResolver {
   }
 
   def allScalaSources(folders: Seq[Path]): Seq[File] = {
-    import scala.collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
 
     @tailrec
     def go(sourcesSoFar: Seq[File])(folders: Seq[Path]): Seq[File] = folders match {
@@ -154,13 +154,13 @@ object DependencyResolver {
         sourcesSoFar
       case folder +: rest =>
         val paths = Files.list(folder).collect(Collectors.toList()).asScala
-        val dirs = paths.filter(_.toFile.isDirectory)
+        val dirs = paths.filter(_.toFile.isDirectory).toSeq
         val sources = for {
           path <- paths
           file = path.toFile
           if file.getName.endsWith("scala")
         } yield file
-        go(sources ++ sourcesSoFar)(dirs ++ rest)
+        go(sources.toSeq ++ sourcesSoFar)(dirs ++ rest)
     }
     go(Nil)(folders)
   }

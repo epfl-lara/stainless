@@ -39,7 +39,7 @@ private[genc] object Literals {
       case UInt64Lit(v) => s"$v"
       case BoolLit(v) => s"$v"
       case UnitLit => s"()"
-      case StringLit(v) => '"' + escape(v) + '"'
+      case StringLit(v) => "\"" + escape(v) + "\""
     }
   }
 

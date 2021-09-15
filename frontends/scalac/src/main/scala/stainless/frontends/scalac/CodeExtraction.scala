@@ -34,11 +34,15 @@ trait CodeExtraction extends ASTExtractors {
   lazy val ignoredClasses = Set(
     ObjectClass.tpe,
     SerializableClass.tpe,
-    JavaSerializableClass.tpe,
     ProductRootClass.tpe,
     AnyRefClass.tpe,
     AnyValClass.tpe,
   )
+
+  def isIgnored(tp: Type): Boolean = {
+    // `normalize` ensures we go through aliases, such as scala.Serializable ~> java.io.Serializable
+    ignoredClasses.contains(tp.normalize)
+  }
 
   /** Extract the classes and functions from the given compilation unit. */
   def extractUnit(u: CompilationUnit): (xt.UnitDef, Seq[xt.ClassDef], Seq[xt.FunDef], Seq[xt.TypeDef]) = {
@@ -138,7 +142,7 @@ trait CodeExtraction extends ASTExtractors {
 
     def isVariable(s: Symbol) = (vars contains s) || (mutableVars contains s)
 
-    def withNewTypeParams(ntparams: Traversable[(Symbol, xt.TypeParameter)]) = {
+    def withNewTypeParams(ntparams: Iterable[(Symbol, xt.TypeParameter)]) = {
       copy(tparams = tparams ++ ntparams)
     }
 
@@ -146,7 +150,7 @@ trait CodeExtraction extends ASTExtractors {
       copy(tparams = tparams + tparam)
     }
 
-    def withNewVars(nvars: Traversable[(Symbol, () => xt.Expr)]) = {
+    def withNewVars(nvars: Iterable[(Symbol, () => xt.Expr)]) = {
       copy(vars = vars ++ nvars)
     }
 
@@ -397,7 +401,7 @@ trait CodeExtraction extends ASTExtractors {
     val tpCtx = dctx.copy(tparams = dctx.tparams ++ (tparamsSyms zip tparams).toMap)
 
     val parents = cd.impl.parents.flatMap(p => p.tpe match {
-      case tpe if ignoredClasses contains tpe => None
+      case tpe if isIgnored(tpe) => None
       case tpe if tpe =:= ThrowableTpe && (flags exists (_.name == "library")) => None
       case tp @ TypeRef(_, _, _) =>
         extractType(tp)(tpCtx, p.pos) match {
@@ -542,7 +546,7 @@ trait CodeExtraction extends ASTExtractors {
       case _ =>
         ctx.reporter.internalError("getSelectChain: unexpected Tree:\n" + e.toString)
     }
-    rec(e).reverseMap(_.toString)
+    rec(e).reverseIterator.map(_.toString).toList
   }
 
   private def extractRef(ref: RefTree): List[String] = {
@@ -558,7 +562,7 @@ trait CodeExtraction extends ASTExtractors {
 
     // Make a different import for each selector at the end of the chain
     allSels flatMap { selectors =>
-      assert(selectors.nonEmpty)
+      assert(selectors.nonEmpty, "selectors is actually empty")
       val (thePath, isWild) = selectors.last match {
         case "_" => (selectors.dropRight(1), true)
         case _   => (selectors, false)
@@ -1858,7 +1862,7 @@ trait CodeExtraction extends ASTExtractors {
     val tparams = extractTypeParams(tparamsSyms)
 
     val tpCtx = dctx.copy(tparams = dctx.tparams ++ (tparamsSyms zip tparams).toMap)
-    val parents = sym.tpe.parents.filterNot(ignoredClasses).map(extractType(_)(tpCtx, pos))
+    val parents = sym.tpe.parents.filterNot(isIgnored).map(extractType(_)(tpCtx, pos))
 
     xt.LocalClassType(cid, tparams.map(xt.TypeParameterDef(_)), tps, parents)
   }
@@ -1986,7 +1990,7 @@ trait CodeExtraction extends ASTExtractors {
        * Scala might infer a type for C such as: Product with Serializable with C
        * we generalize to the first known type, e.g. C.
        */
-      parents.find(ptpe => !ignoredClasses.contains(ptpe)).map(extractType) match {
+      parents.find(ptpe => !isIgnored(ptpe)).map(extractType) match {
         case Some(tpe) =>
           tpe
 
