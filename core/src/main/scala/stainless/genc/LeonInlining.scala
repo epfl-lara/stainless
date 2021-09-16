@@ -34,8 +34,8 @@ trait LeonInlining extends CachingPhase with extraction.IdentitySorts with oo.Id
   override protected def registerFunctions(symbols: t.Symbols, functions: Seq[Option[t.FunDef]]): t.Symbols =
     symbols.withFunctions(functions.flatten)
 
-  override protected def extractFunction(symbols: s.Symbols, fd: s.FunDef): Option[t.FunDef] = {
-    import symbols._
+  override protected def extractFunction(syms: s.Symbols, fd: s.FunDef): Option[t.FunDef] = {
+    import syms._
 
     object Inliner extends s.SelfTreeTransformer {
 
@@ -71,7 +71,6 @@ trait LeonInlining extends CachingPhase with extraction.IdentitySorts with oo.Id
         import exprOps._
         val (tfd, args) = (fi.tfd, fi.args)
 
-        val isOpaque = tfd.fd.flags contains Opaque
         val isGhost = tfd.fd.flags contains Ghost
         val isSynthetic = tfd.fd.flags contains Synthetic
         val hasInlineFlag = tfd.fd.flags contains Inline
@@ -86,18 +85,30 @@ trait LeonInlining extends CachingPhase with extraction.IdentitySorts with oo.Id
         // simple path for inlining when all arguments are values, and the function's
         // body doesn't contain other function invocations.
 
-        if (args.forall(isValue) && !exprOps.exists {
-          case fi: FunctionInvocation => symbols.getFunction(fi.id).flags.exists(_.name == "cCode.inline")
-          case _ => false
-        }(specced.letsAndBody)) {
+
+        // We check with this ghost traverser that there is no function call to a `cCode.inline`
+        // function outside of a ghost context. In which case we can do the `simple` inlining.
+        var simple = true
+        val gt = new oo.GhostTraverser {
+          override val trees: self.s.type = self.s
+          override val symbols = syms
+          override def traverse(e: Expr, ctx: GhostContext): Unit = e match {
+            case fi: FunctionInvocation if !ctx.isGhost && syms.getFunction(fi.id).flags.exists(_.name == "cCode.inline") =>
+              simple = false
+            case _ =>
+              super.traverse(e, ctx)
+          }
+        }
+        gt.traverse(specced.letsAndBody, gt.initEnv)
+
+        if (args.forall(isValue) && simple) {
           exprOps.replaceFromSymbols(tfd.params.zip(args).toMap, exprOps.freshenLocals(specced.letsAndBody))
         } else {
           // We need to keep the body as-is for `@synthetic` methods, such as
           // `copy` or implicit conversions for implicit classes, in order to
           // later on check that the class invariant is valid.
           val body = specced.bodyOpt match {
-            case Some(body) if isSynthetic => body
-            case Some(body) if !isOpaque => body
+            case Some(body) => body
             case _ => NoTree(tfd.returnType).copiedFrom(tfd.fullBody)
           }
 
