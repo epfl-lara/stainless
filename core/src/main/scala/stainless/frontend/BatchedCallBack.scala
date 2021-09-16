@@ -89,6 +89,10 @@ class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Con
       reportErrorFooter(symbols)
     }
 
+    if (context.reporter.isDebugEnabled(DebugSectionCallGraph)) {
+      CallGraphPrinter(symbols)
+    }
+
     try {
       symbols.ensureWellFormed
     } catch {

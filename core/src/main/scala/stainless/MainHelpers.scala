@@ -85,6 +85,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
     extraction.inlining.DebugSectionFunctionSpecialization,
     extraction.utils.DebugSectionTrees,
     extraction.utils.DebugSectionPositions,
+    frontend.DebugSectionCallGraph,
     frontend.DebugSectionExtraction,
     frontend.DebugSectionFrontend,
     frontend.DebugSectionStack,
