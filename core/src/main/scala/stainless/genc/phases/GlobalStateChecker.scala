@@ -48,8 +48,9 @@ trait GlobalStateChecker { self =>
       // This is the only global state declaration (for `cid`) which is allowed
       case (Let(vd, _, _), _) if vd.id == globalStateId => expr
 
-      // Global state accesses are allowed on `id`
+      // Global state accesses are allowed on `id` or `old(id)`
       case (ClassSelector(Variable(`globalStateId`, _, _), _), _) => expr
+      case (ClassSelector(Old(Variable(`globalStateId`, _, _)), _), _) => expr
 
       // Global state assignments are allowed on `id`
       case (FieldAssignment(Variable(`globalStateId`, _, _), _, expr2), _) => transform(expr2)
