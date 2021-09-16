@@ -17,6 +17,8 @@ package object frontend {
 
   object DebugSectionStack extends inox.DebugSection("stack")
 
+  object DebugSectionCallGraph extends inox.DebugSection("call-graph")
+
   /**
    * The persistent caches are stored in the same directory, denoted by this option.
    */
@@ -70,8 +72,12 @@ package object frontend {
     val activeComponents = getActiveComponents(ctx)
     if (batchSymbols(activeComponents))
       new BatchedCallBack(activeComponents)
-    else
+    else {
+      if (ctx.reporter.isDebugEnabled(DebugSectionCallGraph)) {
+        ctx.reporter.fatalError("--debug=callgraph may only be used with --batched")
+      }
       new SplitCallBack(activeComponents)
+    }
   }
 
   private def batchSymbols(activeComponents: Seq[Component])(implicit ctx: inox.Context): Boolean = {
