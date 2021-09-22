@@ -89,7 +89,7 @@ trait GhostChecker { self: EffectsAnalyzer =>
         () // Synthetic functions should always be fine with respect to ghost flow
       } else if (fun.flags contains Ghost) {
         effects(fun).find(!isGhostEffect(_)) match {
-          case Some(eff) => throw ImperativeEliminationException(fun, s"Ghost function cannot have effect on non-ghost state: ${eff.targetString}")
+          case Some(eff) => throw ImperativeEliminationException(fun, s"Ghost function ${fun.id.asString} cannot have effect on non-ghost state: ${eff.targetString}")
           case None => ()
         }
         new Checker(true).traverse(fun)
