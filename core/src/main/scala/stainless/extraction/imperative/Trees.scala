@@ -564,6 +564,7 @@ trait ExprOps extends oo.ExprOps { self =>
   override def peelSpec(expr: Expr): Option[(Specification, Expr)] = expr match {
     case Reads(objs, body) => Some((ReadsContract(objs).setPos(expr), body))
     case Modifies(objs, body) => Some((ModifiesContract(objs).setPos(expr), body))
+    case LetVar(vd, e, body) => Some((LetInSpec(vd, e).setPos(expr), body))
     case _ => super.peelSpec(expr)
   }
 
