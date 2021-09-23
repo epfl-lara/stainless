@@ -39,6 +39,7 @@ trait VerificationSuite extends ComponentTestSuite {
     case "verification/valid/BigIntMonoidLaws" => Ignore
     case "verification/valid/BigIntRing" => Ignore
     case "verification/valid/InnerClasses4" => Ignore
+    case "verification/valid/PropositionalLogic" => Ignore
 
     case _ => super.filter(ctx, name)
   }
