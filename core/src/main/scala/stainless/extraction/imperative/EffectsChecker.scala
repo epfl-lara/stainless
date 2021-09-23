@@ -208,6 +208,17 @@ trait EffectsChecker { self: EffectsAnalyzer =>
         if (predEffects.nonEmpty)
           throw ImperativeEliminationException(pred, "Assertion has effects on: " + predEffects.head.receiver.asString)
 
+      case ArrayUpdated(arr, k, v) =>
+        val arrEffects = effects(arr)
+        val kEffects = effects(k)
+        val vEffects = effects(v)
+        if (arrEffects.nonEmpty)
+          throw ImperativeEliminationException(arr, "ArrayUpdated operand has effects on: " + arrEffects.head.receiver.asString)
+        if (kEffects.nonEmpty)
+          throw ImperativeEliminationException(k, "ArrayUpdated key has effects on: " + kEffects.head.receiver.asString)
+        if (vEffects.nonEmpty)
+          throw ImperativeEliminationException(v, "ArrayUpdated value has effects on: " + vEffects.head.receiver.asString)
+
       case Forall(_, pred) =>
         val predEffects = effects(pred)
         if (predEffects.nonEmpty)
