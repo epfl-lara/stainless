@@ -6,13 +6,14 @@ package frontend
 import extraction._
 import xlang.{ trees => xt }
 
-import stainless.utils.LibraryFilter
+import stainless.utils.CheckFilter
 
-trait UserFiltering extends inox.transformers.SymbolTransformer {
+trait UserFiltering extends inox.transformers.SymbolTransformer with CheckFilter {
   val context: inox.Context
   val s: xt.type = xt
   val t: xt.type = xt
-  import trees._
+  override val trees: xt.type = xt
+  import xt._
   import exprOps._
 
   override def transform(symbols: s.Symbols): t.Symbols = {
@@ -20,7 +21,7 @@ trait UserFiltering extends inox.transformers.SymbolTransformer {
 
     val userIds =
       symbols.classes.values.filterNot(cd => cd.flags.exists(notUserFlag)).map(_.id) ++
-      symbols.functions.values.filterNot(fd => fd.flags.exists(notUserFlag)).map(_.id) ++
+      symbols.functions.values.filterNot(fd => fd.flags.exists(notUserFlag)).filter(isInOptions).map(_.id) ++
       symbols.typeDefs.values.filterNot(td => td.flags.exists(notUserFlag)).map(_.id)
 
     val userDependencies = (userIds.flatMap(symbols.dependencies) ++ userIds).toSeq
