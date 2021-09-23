@@ -10,8 +10,9 @@ import phases._
 object GenerateC {
 
   def pipeline(implicit ctx: inox.Context) =
+    NamedLeonPhase("GhostEliminationPhase", GhostEliminationPhase(ctx)) andThen
     NamedLeonPhase("ComputeDependencies", ComputeDependenciesPhase(ctx)) andThen
-    NamedLeonPhase("ComputeFunCtxPhase", LeonPipeline.both(NoopPhase[Dependencies], ComputeFunCtxPhase(ctx))) andThen
+    NamedLeonPhase("ComputeFunCtxPhase", LeonPipeline.both(NoopPhase[Symbols], ComputeFunCtxPhase(ctx))) andThen
     NamedLeonPhase("Scala2IRPhase", Scala2IRPhase(ctx)) andThen
     NamedLeonPhase("NormalisationPhase", NormalisationPhase(ctx)) andThen
     NamedLeonPhase("LiftingPhase", LiftingPhase(ctx)) andThen

@@ -62,6 +62,7 @@ package object extraction {
 
     "ComputeDependencies"       -> "(GenC) Compute the dependencies of a given definition",
     "ComputeFunCtxPhase"        -> "(GenC) Compute the context of each given function definition",
+    "GhostEliminationPhase"     -> "(GenC) Remove ghost code",
     "Scala2IRPhase"             -> "(GenC) Convert the Stainless AST into GenC's IR",
     "StructInliningPhase"       -> "(GenC) Inline structs which have just one member",
     "NormalisationPhase"        -> "(GenC) Normalise IR to match the C execution model",
