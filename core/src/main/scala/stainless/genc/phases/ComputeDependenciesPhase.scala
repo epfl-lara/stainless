@@ -31,13 +31,13 @@ import collection.mutable.{Set => MutableSet}
  *     classes annotated with @cCode.typdef. We therefore implement a simpler version
  *     of it here based on a TreeTraverser.
  */
-trait ComputeDependenciesPhase extends LeonPipeline[Symbols, Dependencies] {
+trait ComputeDependenciesPhase extends LeonPipeline[Symbols, Symbols] {
   val name = "Dependency computer"
 
   implicit val context: inox.Context
   import context._
 
-  def run(syms: Symbols): Dependencies = {
+  def run(syms: Symbols): Symbols = {
     implicit val symbols = syms
     implicit val printerOpts = PrinterOptions.fromContext(context)
 
@@ -103,14 +103,15 @@ trait ComputeDependenciesPhase extends LeonPipeline[Symbols, Dependencies] {
 
     val deps = finder(exportedObjects)
 
-    // Ensure all annotations are sane on all dependencies, including nested functions.
     deps foreach {
       case fd: FunDef   => validateFunAnnotations(fd)
       case cd: ClassDef => validateClassAnnotations(cd)
       case _            => ()
     }
 
-    Dependencies(syms, deps)
+    NoSymbols
+      .withFunctions(symbols.functions.values.toSeq.filter(deps))
+      .withClasses(symbols.classes.values.toSeq.filter(deps))
   }
 }
 
@@ -217,7 +218,7 @@ private final class ComputeDependenciesImpl(val ctx: inox.Context)(implicit
 }
 
 object ComputeDependenciesPhase {
-  def apply(implicit ctx: inox.Context): LeonPipeline[Symbols, Dependencies] = new {
+  def apply(implicit ctx: inox.Context): LeonPipeline[Symbols, Symbols] = new {
     val context = ctx
   } with ComputeDependenciesPhase
 }

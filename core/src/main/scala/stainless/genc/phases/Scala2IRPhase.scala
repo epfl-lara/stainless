@@ -18,7 +18,7 @@ import ir.IRs.{ CIR }
 import scala.collection.mutable.{ Map => MutableMap, Set => MutableSet }
 
 /*
- * This phase takes a set of definitions (the Dependencies) and the fonction context database (FunCtxDB)
+ * This phase takes symbols and the function context database (FunCtxDB)
  * and produces an equivalent program expressed in the intermediate representation without generic types (CIR).
  *
  * NOTE This phase also rejects fragment of Scala that are not supported by GenC, such as returning
@@ -26,26 +26,26 @@ import scala.collection.mutable.{ Map => MutableMap, Set => MutableSet }
  *      the >> operator, some forms of membership tests, the unapply pattern matching construct,
  *      and more.
  */
-trait Scala2IRPhase extends LeonPipeline[(Dependencies, FunCtxDB), CIR.Prog] {
+trait Scala2IRPhase extends LeonPipeline[(Symbols, FunCtxDB), CIR.Prog] {
   val name = "Scala to IR converter"
 
   implicit val debugSection = DebugSectionGenC
 
-  def run(input: (Dependencies, FunCtxDB)): CIR.Prog = {
-    val (deps, ctxDB) = input
+  def run(input: (Symbols, FunCtxDB)): CIR.Prog = {
+    val (syms, ctxDB) = input
 
-    val impl = new S2IRImpl(context, ctxDB, deps)
+    val impl = new S2IRImpl(context, ctxDB, syms)
     impl.run()
 
     CIR.Prog(
       impl.declResults.toList,
       impl.funResults.values.toList,
-      impl.classResults.filter { case ((ct, _), _) => !isGlobal(ct)(deps.syms) }.values.toList,
+      impl.classResults.filter { case ((ct, _), _) => !isGlobal(ct)(syms) }.values.toList,
     )
   }
 }
 
-private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps: Dependencies)
+private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val syms: Symbols)
   extends extraction.imperative.EffectsAnalyzer
   with GlobalStateChecker
   with IdentityFunctions
@@ -53,8 +53,8 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
   with oo.IdentityClasses
   with oo.IdentityTypeDefs { self =>
 
-  implicit val syms = deps.syms
-  override implicit val printerOpts: tt.PrinterOptions = tt.PrinterOptions.fromSymbols(syms, context)
+  implicit val symbols = syms
+  override implicit val printerOpts: tt.PrinterOptions = tt.PrinterOptions.fromSymbols(symbols, context)
 
   import context._
   import typeOps._
@@ -108,15 +108,11 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
     checkGlobalUsage()
 
     // Start the transformation from `@cCode.export` (and `@cCode.global`) functions and classes
-    for (df <- deps.deps) {
-      df match {
-        case fd: FunDef if fd.isExported =>
-          rec(Outer(fd), Seq())(Map.empty, Env(Map.empty, Map.empty, fd.isExported))
-        case cd: ClassDef if cd.isExported || cd.isGlobal =>
-          rec(cd.typed.toType)(Map.empty)
-        case _ =>
-      }
-    }
+    for (fd <- symbols.functions.values if fd.isExported)
+      rec(Outer(fd), Seq())(Map.empty, Env(Map.empty, Map.empty, fd.isExported))
+
+    for (cd <- symbols.classes.values if cd.isExported || cd.isGlobal)
+      rec(cd.typed.toType)(Map.empty)
   }
 
   /****************************************************************************************************
@@ -485,8 +481,8 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
     implicit val tm1: TypeMapping = tm0 ++ tpSubst
 
     // Make sure to get the id from the function definition, not the typed one, as they don't always match.
-    // Remove ghost parameters, and remove global parameters
-    val newParams = fa.params.filter(vd => !vd.flags.contains(Ghost) && !isGlobal(vd.tpe))
+    // Remove global parameters
+    val newParams = fa.params.filter(vd => !isGlobal(vd.tpe))
     val paramTypes = newParams map { p => rec(p.getType)(tm1) }
     val paramIds = newParams map { p => rec(p.id) }
     val params = (paramIds zip paramTypes) map { case (id, typ) => CIR.ValDef(id, typ, isVar = false) }
@@ -604,9 +600,6 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
       // disable name mangling for fields of exported and global classes
       val mangling = !cd.isExported && !cd.isGlobal
 
-      // Use the class definition id, not the typed one as they might not match.
-      val nonGhostFields = tcd.fields.filter(!_.flags.contains(Ghost))
-
       val arrayLengths: Seq[(Identifier, Int)] = cd.flags
         .find(_.isInstanceOf[HasADTInvariant]).toSeq.flatMap {
           case HasADTInvariant(inv) =>
@@ -615,7 +608,7 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
             val TopLevelAnds(conjuncts) = invFd.fullBody
             conjuncts.collect(e => e match {
               case Equals(ArrayLength(ClassSelector(tthis: Variable, array)), EvalBV(bv))
-                if tthisVd.id == tthis.id && nonGhostFields.map(_.id).contains(array) =>
+                if tthisVd.id == tthis.id && tcd.fields.map(_.id).contains(array) =>
 
                 array -> bv.toBigInt.toInt
             })
@@ -627,7 +620,7 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
 
       val arrayLengthsMap: Map[Identifier, Int] = arrayLengths.toMap
 
-      val fields = nonGhostFields.map(vd => vd.tpe match {
+      val fields = tcd.fields.map(vd => vd.tpe match {
         case ArrayType(base) if arrayLengthsMap.contains(vd.id) =>
           CIR.ValDef(rec(vd.id, withUnique = mangling), CIR.ArrayType(rec(base), Some(arrayLengthsMap(vd.id))), vd.flags.contains(IsVar))
         case typ =>
@@ -649,7 +642,7 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
               s"We found ${paramInits.length} initializations instead of ${fields.length}."
             )
           }
-          for (((field, paramInit), vd) <- fields.zip(paramInits).zip(nonGhostFields)) {
+          for (((field, paramInit), vd) <- fields.zip(paramInits).zip(tcd.fields)) {
             implicit val emptyEnv = Env(Map(), Map(), false)
             val decl = (CIR.Decl(field, Some(rec(paramInit.fullBody))), flagsToModes(vd.flags))
             if (declResults.map(_._1.vd).contains(field)) {
@@ -658,7 +651,7 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
             declResults.append(decl)
           }
         } else if (cd.isGlobalUninitialized) {
-          for ((field, vd) <- fields.zip(nonGhostFields)) {
+          for ((field, vd) <- fields.zip(tcd.fields)) {
             declResults.append((CIR.Decl(field, None), flagsToModes(vd.flags)))
           }
         } else if (cd.isGlobalExternal) {
@@ -724,7 +717,6 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
 
     case v: Variable => buildBinding(v.toVal)
 
-    case Let(x, e, body) if x.flags.contains(Ghost) => rec(body)
     case Let(x, e, body) if isGlobal(x.getType) => rec(body)
     case Let(x, e, body) => buildLet(x, e, body, isVar = false)
     case LetVar(x, e, body) => buildLet(x, e, body, isVar = true)
@@ -766,7 +758,7 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
       val fun = rec(Outer(fd), tps)(tm0, env.copy(inExported = fd.isExported))
       implicit val tm1 = tm0 ++ tfd.tpSubst
       val filteredArgs = args.zip(fd.params).filter {
-        case (arg, vd) => !vd.flags.contains(Ghost) && !isGlobal(vd.tpe)
+        case (arg, vd) => !isGlobal(vd.tpe)
       }.map(_._1)
       val newArgs = filteredArgs map { a0 => rec(a0)(env, tm1) }
       CIR.App(fun.toVal, Seq(), newArgs)
@@ -777,8 +769,7 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
       val tpSubst: TypeMapping = (lfd.tparams.map(_.tp) zip tps).toMap.filter(tt => tt._1 != tt._2)
       implicit val tm1 = tm0 ++ tpSubst
       val extra = ctxDB(lfd) map { c => convertVarInfoToParam(c)(tm1) }
-      val nonGhostArgs = args.zip(lfd.params).filter(!_._2.flags.contains(Ghost)).map(_._1)
-      val args2 = nonGhostArgs map { a0 => rec(a0)(env, tm1) }
+      val args2 = args map { a0 => rec(a0)(env, tm1) }
       CIR.App(fun.toVal, extra, args2)
 
     case Application(fun0, args0) =>
@@ -821,10 +812,8 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
     case ClassConstructor(ct, args) =>
       val cd = syms.getClass(ct.id)
       val ct2 = rec(ct)
-      val nonGhostArgs = args.zip(cd.fields).filter(!_._2.flags.contains(Ghost)).map(_._1)
-
-      val args2 = nonGhostArgs map rec
-      val positions = nonGhostArgs map { _.getPos }
+      val args2 = args map rec
+      val positions = args map { _.getPos }
 
       checkConstructArgs(args2 zip positions)
 
@@ -970,7 +959,7 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val deps:
 }
 
 object Scala2IRPhase {
-  def apply(implicit ctx: inox.Context): LeonPipeline[(Dependencies, FunCtxDB), CIR.Prog] = new {
+  def apply(implicit ctx: inox.Context): LeonPipeline[(Symbols, FunCtxDB), CIR.Prog] = new {
     val context = ctx
   } with Scala2IRPhase
 }
