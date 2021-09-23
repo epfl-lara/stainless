@@ -571,6 +571,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     case _: LargeArray | _: ArrayUpdated if kind == ReplacementKind && !path.head.isInstanceOf[ArrayAccessor] && path.head != UnknownArrayAccessor =>
       Set.empty
     case _: MutableMapUpdated => Set.empty
+    case _: ArrayUpdated => Set.empty
     case IsInstanceOf(e, _) => getTargets(e, kind, path)
     case AsInstanceOf(e, _) => getTargets(e, kind, path)
     case Old(_) => Set.empty
@@ -759,6 +760,9 @@ trait EffectsAnalyzer extends oo.CachingPhase {
 
       case MutableMapUpdated(map, key, value) =>
         rec(map, env) ++ rec(key, env) ++ rec(value, env)
+
+      case ArrayUpdated(arr, key, value) =>
+        rec(arr, env) ++ rec(key, env) ++ rec(value, env)
 
       case MutableMapDuplicate(map) =>
         rec(map, env)
