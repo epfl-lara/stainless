@@ -80,8 +80,8 @@ trait ChooseInjector extends CachingPhase with IdentitySorts { self =>
         }
         .copiedFrom(fd)
       val newSpecced = specced.copy(body = choose)
-      val res = fd.copy(id = context.newIdentifier(fd.id), fullBody = newSpecced.reconstructed).setPos(fd)
-      Seq(context.transform(res), context.transform(fd))
+      val fdCopy = fd.copy(id = context.newIdentifier(fd.id), fullBody = newSpecced.reconstructed, flags = fd.flags :+ DropVCs).setPos(fd)
+      Seq(context.transform(fdCopy), context.transform(fd))
     } else {
       val newSpecced = specced.copy(body = injectChooses(specced.body))
       val res = fd.copy(fullBody = newSpecced.reconstructed).setPos(fd)

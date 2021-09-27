@@ -86,6 +86,7 @@ trait TrimSymbols extends LeonPipeline[tt.Symbols, tt.Symbols] {
     }
 
     val trim = new Trimmer {
+      override val symbols = syms
       override val s: tt.type = tt
       override val t: tt.type = tt
       val ctx = context
@@ -103,6 +104,7 @@ trait Trimmer extends inox.transformers.TreeTransformer {
   override val s: tt.type = tt // to get `FunAbsOps` implicit class for `fa.isManuallyDefined` and `fa.isDropped`
   override val t: extraction.throwing.Trees
   val ctx: inox.Context
+  implicit val symbols: s.Symbols
 
   val kept = MutableSet[Identifier]()
 
@@ -174,6 +176,15 @@ trait Trimmer extends inox.transformers.TreeTransformer {
   override def transform(expr: s.Expr): t.Expr = expr match {
     case s.FunctionInvocation(id, _, _) =>
       kept += id
+      super.transform(expr)
+
+    case s.ClassConstructor(ct, _) =>
+      val cd = symbols.getClass(ct.id)
+      val rootId = root(ct.id)
+      val rootCd = symbols.getClass(rootId)
+      kept += ct.id
+      kept += rootId
+      kept ++= rootCd.descendants.map(_.id)
       super.transform(expr)
 
     case s.LetRec(lfds, body) =>
