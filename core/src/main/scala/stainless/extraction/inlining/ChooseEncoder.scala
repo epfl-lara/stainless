@@ -39,7 +39,9 @@ trait ChooseEncoder extends CachingPhase with SimplyCachedFunctions with Identit
 
         val newFd = new FunDef(
           FreshIdentifier("choose", true), fd.tparams, freshParams,
-          returnType, Choose(c.res.copy(tpe = returnType), newPred).copiedFrom(c), Seq.empty
+          returnType,
+          Choose(c.res.copy(tpe = returnType), newPred).copiedFrom(c),
+          Seq(Derived(Some(fd.id)))
         ).setPos(fd)
 
         fdChooses :+= newFd

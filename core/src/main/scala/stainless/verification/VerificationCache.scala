@@ -40,7 +40,7 @@ trait VerificationCache extends VerificationChecker { self =>
   private lazy val vccache = CacheLoader.get(context)
 
   override def checkVC(vc: VC, origVC: VC, sf: SolverFactory { val program: self.program.type }) = {
-    reporter.debug(s" - Checking cache: '${vc.kind}' VC for ${vc.fd} @${vc.getPos}...")(DebugSectionVerification)
+    reporter.debug(s" - Checking cache: '${vc.kind}' VC for ${vc.fid} @${vc.getPos}...")(DebugSectionVerification)
 
     // NOTE This algorithm is not 100% perfect: it is possible that two equivalent VCs in
     //      the same program are both computed concurrently (contains return false twice),
@@ -56,7 +56,7 @@ trait VerificationCache extends VerificationChecker { self =>
       val key = serializer.serialize((vc.satisfiability, canonicalSymbols, canonicalExpr))
 
       if (vccache contains key) {
-        reporter.debug(s"Cache hit: '${vc.kind}' VC for ${vc.fd.asString} @${vc.getPos}...")(DebugSectionVerification)
+        reporter.debug(s"Cache hit: '${vc.kind}' VC for ${vc.fid.asString} @${vc.getPos}...")(DebugSectionVerification)
         implicit val debugSection = DebugSectionCacheHit
         reporter.synchronized {
           reporter.debug("The following VC has already been verified:")
@@ -66,7 +66,7 @@ trait VerificationCache extends VerificationChecker { self =>
         VCResult(VCStatus.ValidFromCache, None, None)
       } else {
         reporter.synchronized {
-          reporter.debug(s"Cache miss: '${vc.kind}' VC for ${vc.fd.asString} @${vc.getPos}...")
+          reporter.debug(s"Cache miss: '${vc.kind}' VC for ${vc.fid.asString} @${vc.getPos}...")
           reporter.ifDebug { debug =>
             implicit val debugSection = DebugSectionCacheMiss
             implicit val printerOpts = new PrinterOptions(printUniqueIds = true, printTypes = true, symbols = Some(canonicalSymbols))

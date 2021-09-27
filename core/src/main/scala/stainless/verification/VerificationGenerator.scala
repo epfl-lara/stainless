@@ -27,7 +27,7 @@ trait VerificationGenerator { self =>
       }
     }).flatten
 
-    vcs.sortBy(vc => (getFunction(vc.fd),
+    vcs.sortBy(vc => (getFunction(vc.fid),
       if (vc.kind.underlying == VCKind.Precondition) 0
       else if (vc.kind.underlying == VCKind.Assert) 1
       else 2

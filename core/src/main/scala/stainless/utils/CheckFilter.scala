@@ -28,13 +28,16 @@ trait CheckFilter {
       }
   }
 
-  private def shouldBeChecked(fid: Identifier, flags: Seq[trees.Flag]): Boolean = pathsOpt match {
-    case None =>
-      val isLibrary = flags exists (_.name == "library")
-      val isUnchecked = flags contains DropVCs
-      !(isLibrary || isUnchecked)
+  private def shouldBeChecked(fid: Identifier, flags: Seq[trees.Flag]): Boolean = {
+    val isUnchecked = flags.contains(DropVCs)
+    pathsOpt match {
+      case None =>
+        val isLibrary = flags exists (_.name == "library")
+        val isUnchecked = flags contains DropVCs
+        !(isLibrary || isUnchecked)
 
-    case Some(paths) => isInOptions(fid)
+      case Some(paths) => !isUnchecked && isInOptions(fid)
+    }
   }
 
   def filter(ids: Seq[Identifier], symbols: trees.Symbols, component: Component): Seq[Identifier] = {

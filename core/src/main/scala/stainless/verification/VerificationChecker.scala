@@ -227,7 +227,7 @@ trait VerificationChecker { self =>
       val cond = vc.condition
 
       reporter.synchronized {
-        reporter.debug(s" - Now solving '${vc.kind}' VC for ${vc.fd.asString} @${vc.getPos}...")
+        reporter.debug(s" - Now solving '${vc.kind}' VC for ${vc.fid.asString} @${vc.getPos}...")
         debugVC(vc, origVC)
         reporter.debug("Solving with: " + s.name)
       }
@@ -289,7 +289,7 @@ trait VerificationChecker { self =>
       reporter.debug(vcResultMsg)
 
       reporter.synchronized {
-        val descr = s" - Result for '${vc.kind}' VC for ${vc.fd.asString} @${vc.getPos}:"
+        val descr = s" - Result for '${vc.kind}' VC for ${vc.fid.asString} @${vc.getPos}:"
 
         vcres.status match {
           case VCStatus.Valid =>
