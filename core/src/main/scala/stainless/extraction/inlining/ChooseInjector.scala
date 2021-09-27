@@ -4,48 +4,73 @@ package stainless
 package extraction
 package inlining
 
-trait ChooseInjector extends CachingPhase with SimplyCachedFunctions with SimpleFunctions with IdentitySorts { self =>
+trait ChooseInjector extends CachingPhase with IdentitySorts { self =>
 
   implicit val context: inox.Context
 
   val s: inlining.Trees
-  val t: s.type
+  val t: inlining.Trees
 
   import s._
   import exprOps._
 
-  type TransformerContext = Symbols
-  def getContext(symbols: Symbols) = symbols
 
-  override def extractFunction(symbols: TransformerContext, fd: s.FunDef): t.FunDef = {
+  override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult]((fd, context) =>
+    getDependencyKey(fd.id)(context.symbols)
+  )
+
+  override protected type FunctionResult = Seq[t.FunDef]
+  override protected def registerFunctions(symbols: t.Symbols, functions: Seq[Seq[t.FunDef]]): t.Symbols =
+    symbols.withFunctions(functions.flatten)
+
+  override def getContext(symbols: s.Symbols) = new TransformerContext(symbols)
+  protected class TransformerContext(val symbols: s.Symbols) extends inox.transformers.TreeTransformer {
+    override final val s: self.s.type = self.s
+    override final val t: self.t.type = self.t
+
+    val newIdentifier: Map[Identifier,Identifier] = {
+      symbols.functions.values.filter { fd => fd.flags.contains(Extern) || fd.flags.contains(Opaque) }.map { fd =>
+        fd.id -> fd.id.freshen
+      }.toMap
+    }
+
+    override def transform(e: s.Expr): t.Expr = e match {
+      case fi @ s.FunctionInvocation(id, tps, args) if newIdentifier.contains(id) =>
+        t.FunctionInvocation(newIdentifier(id), tps.map(transform), args.map(transform))
+      case _ => super.transform(e)
+    }
+  }
+
+  override def extractFunction(context: TransformerContext, fd: s.FunDef): Seq[t.FunDef] = {
+    val symbols = context.symbols
     val specced = BodyWithSpecs(fd.fullBody)
     val post = specced.getSpec(PostconditionKind)
 
-    def injectChooses(e: Expr): Expr = e match {
-      case NoTree(tpe) =>
+    def injectChooses(e: s.Expr): s.Expr = e match {
+      case s.NoTree(tpe) =>
         val vd = ValDef(FreshIdentifier("res"), tpe, Seq(DropVCs)).copiedFrom(e)
         // FIXME: Use `specced.wrapLets` as below, so `choose` refers to function parameters?
         val pred = post
           .map(post => symbols.application(post.expr, Seq(vd.toVariable)))
-          .getOrElse(BooleanLiteral(true))
+          .getOrElse(s.BooleanLiteral(true))
           .copiedFrom(tpe)
-        Choose(vd, pred).copiedFrom(e)
+        s.Choose(vd, pred).copiedFrom(e)
 
-      case ie @ IfExpr(c, t, e) =>
-        IfExpr(c, injectChooses(t), injectChooses(e)).copiedFrom(ie)
+      case ie @ s.IfExpr(c, t, e) =>
+        s.IfExpr(c, injectChooses(t), injectChooses(e)).copiedFrom(ie)
 
-      case me @ MatchExpr(scrut, cases) =>
-        MatchExpr(scrut, cases.map {
+      case me @ s.MatchExpr(scrut, cases) =>
+        s.MatchExpr(scrut, cases.map {
           cse => cse.copy(rhs = injectChooses(cse.rhs)).copiedFrom(cse)
         }).copiedFrom(me)
 
-      case let @ Let(x, v, b) =>
-        Let(x, v, injectChooses(b)).copiedFrom(let)
+      case let @ s.Let(x, v, b) =>
+        s.Let(x, v, injectChooses(b)).copiedFrom(let)
 
       case _ => e
     }
 
-    val newSpecced = if ((fd.flags contains Extern) || (fd.flags contains Opaque)) {
+    if ((fd.flags contains Extern) || (fd.flags contains Opaque)) {
       val choose = post
         .map { case Postcondition(Lambda(Seq(vd), post)) =>
           Choose(vd, freshenLocals(specced.wrapLets(post)))
@@ -54,12 +79,14 @@ trait ChooseInjector extends CachingPhase with SimplyCachedFunctions with Simple
           Choose(ValDef(FreshIdentifier("res", true), fd.returnType), BooleanLiteral(true))
         }
         .copiedFrom(fd)
-      specced.copy(body = choose)
+      val newSpecced = specced.copy(body = choose)
+      val res = fd.copy(id = context.newIdentifier(fd.id), fullBody = newSpecced.reconstructed).setPos(fd)
+      Seq(context.transform(res), context.transform(fd))
     } else {
-      specced.copy(body = injectChooses(specced.body))
+      val newSpecced = specced.copy(body = injectChooses(specced.body))
+      val res = fd.copy(fullBody = newSpecced.reconstructed).setPos(fd)
+      Seq(context.transform(res))
     }
-
-    fd.copy(fullBody = newSpecced.reconstructed).setPos(fd)
   }
 }
 
