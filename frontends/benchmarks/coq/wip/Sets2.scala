@@ -1,5 +1,7 @@
 /* Copyright 2009-2021 EPFL, Lausanne */
 
+import scala.language.postfixOps
+
 import stainless.lang._
 
 object Sets2 {

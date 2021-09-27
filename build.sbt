@@ -351,6 +351,7 @@ lazy val `sbt-stainless` = (project in file("sbt-plugin"))
   .settings(baseSettings)
   .settings(publishSbtSettings)
   .settings(
+    // Note: sbt-stainless is itself compiled with Scala 2.12 (as is SBT 1.x)
     description := "Plugin integrating Stainless in sbt",
     sbtPlugin := true,
     publishMavenStyle := false,
