@@ -75,13 +75,6 @@ class VerificationRun(override val pipeline: StainlessPipeline)
     val t: self.trees.type = self.trees
   }
 
-  private[this] val debugChooses = new DebugSymbols {
-    val name = "ChooseInjector"
-    val context = self.context
-    val s: self.trees.type = self.trees
-    val t: self.trees.type = self.trees
-  }
-
   private[stainless] def execute(functions: Seq[Identifier], symbols: trees.Symbols): Future[VerificationAnalysis] = {
     import context._
 
@@ -92,20 +85,10 @@ class VerificationRun(override val pipeline: StainlessPipeline)
     } else {
 
       val assertions = AssertionInjector(p, context)
-      val chooses = ChooseInjector(p)
-      // We do not need to encode empty trees as chooses when generating the VCs,
-      // as we rely on having empty trees to filter out some VCs.
       val assertionEncoder = inox.transformers.ProgramEncoder(p)(assertions)
 
       if (debugAssertions.isEnabled) {
         debugAssertions.debugEncoder(assertionEncoder)
-      }
-
-      // We need the full encoder when verifying VCs otherwise we might end up evaluating empty trees.
-      val chooseEncoder = inox.transformers.ProgramEncoder(p)(chooses)
-
-      if (debugChooses.isEnabled) {
-        debugChooses.debugEncoder(chooseEncoder)
       }
 
       if (!functions.isEmpty) {
@@ -125,15 +108,13 @@ class VerificationRun(override val pipeline: StainlessPipeline)
         reporter.debug(s"Finished generating VCs")
       }
 
-      val fullEncoder = chooseEncoder
-
       val res =
         if (context.options.findOptionOrDefault(optAdmitVCs)) {
           Future(vcs.map(vc => vc -> VCResult(VCStatus.Admitted, None, None)).toMap)
         } else {
-          VerificationChecker.verify(fullEncoder.targetProgram, context)(vcs).map(_.view.mapValues {
+          VerificationChecker.verify(assertionEncoder.targetProgram, context)(vcs).map(_.view.mapValues {
             case VCResult(VCStatus.Invalid(VCStatus.CounterExample(model)), s, t) =>
-              VCResult(VCStatus.Invalid(VCStatus.CounterExample(model.encode(fullEncoder.reverse))), s, t)
+              VCResult(VCStatus.Invalid(VCStatus.CounterExample(model.encode(assertionEncoder.reverse))), s, t)
             case res => res.asInstanceOf[VCResult[p.Model]]
           }.toMap)
         }
