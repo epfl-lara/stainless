@@ -104,7 +104,7 @@ class TerminationSuite extends ComponentTestSuite {
 
     val mustHaveValidVCs = guaranteed.map(_._1.id)
 
-    for ((vc, vr) <- analysis.vrs if mustHaveValidVCs.contains(vc.fd.id)) {
+    for ((vc, vr) <- analysis.vrs if mustHaveValidVCs.contains(vc.fid.id)) {
       if (vr.isInvalid) fail(s"The following verification condition was invalid: $vc @${vc.getPos}")
       if (vr.isInconclusive) fail(s"The following verification condition was inconclusive: $vc @${vc.getPos}")
     }

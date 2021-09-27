@@ -1423,7 +1423,7 @@ trait TypeChecker {
     }).flatten
     vcs.sortBy { vc =>
       (
-        getFunction(vc.fd),
+        getFunction(vc.fid),
         vc.kind.underlying match {
           case VCKind.Law          => 0
           case VCKind.Precondition => 1
