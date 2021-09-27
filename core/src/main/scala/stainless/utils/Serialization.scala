@@ -161,7 +161,6 @@ class XLangSerializer(override val trees: extraction.xlang.Trees, serializeProdu
       classSerializer[NothingType]      (208),
       // `UnionType` and `IntersectionType` are package-private to `oo`
       classSerializer[TypeBounds]       (209),
-      // classSerializer[RefinementType]   (210), -> now in Inox
       classSerializer[ClassDef]         (222),
       classSerializer[IsInvariant.type] (223),
       classSerializer[IsAbstract.type]  (224),
