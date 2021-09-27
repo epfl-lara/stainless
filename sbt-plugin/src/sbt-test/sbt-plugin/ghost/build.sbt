@@ -16,5 +16,5 @@ lazy val `actor-tests` = (project in file("actor-tests"))
   .settings(commonSettings)
   .settings(
     Compile / run / mainClass := Some("Counter"),
-    libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.5.14"
+    libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.5.32"
   )

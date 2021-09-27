@@ -1,3 +1,5 @@
+import scala.language.postfixOps
+
 import stainless.lang._
 
 object SetTest {
