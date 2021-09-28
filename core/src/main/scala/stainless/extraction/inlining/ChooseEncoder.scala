@@ -26,7 +26,7 @@ trait ChooseEncoder extends CachingPhase with SimplyCachedFunctions with Identit
 
       case l: Lambda => l.copy(body = rec(l.body, params ++ l.params)).copiedFrom(l)
 
-      case c: Choose =>
+      case c @ Choose(vd, pred) =>
         val (substMap, freshParams) = params.foldLeft((Map[ValDef, Expr](), Seq[ValDef]())) {
           case ((substMap, vds), vd) =>
             val ntpe = typeOps.replaceFromSymbols(substMap, vd.tpe)
@@ -34,29 +34,32 @@ trait ChooseEncoder extends CachingPhase with SimplyCachedFunctions with Identit
             (substMap + (vd -> nvd.toVariable), vds :+ nvd)
         }
 
-        val newPred = exprOps.replaceFromSymbols(substMap, rec(c.pred, params :+ c.res))
-        val returnType = typeOps.replaceFromSymbols(substMap, c.res.tpe)
+        val returnType = typeOps.replaceFromSymbols(substMap, vd.tpe)
+        val newVd = vd.copy(tpe = returnType).setPos(vd)
+        val newPred = exprOps.replaceFromSymbols(substMap, rec(pred, params :+ vd))
+        val newChoose = Choose(newVd, newPred).copiedFrom(c)
 
         val newFd = new FunDef(
           FreshIdentifier("choose", true), fd.tparams, freshParams,
           returnType,
-          Choose(c.res.copy(tpe = returnType), newPred).copiedFrom(c),
-          Seq(Derived(Some(fd.id)))
+          newChoose,
+          Seq(Derived(Some(fd.id)), DropVCs),
         ).setPos(fd)
 
-        fdChooses :+= newFd
+        fdChooses = fdChooses :+ newFd
 
-        FunctionInvocation(newFd.id, newFd.tparams.map(_.tp), params.map(_.toVariable)).copiedFrom(c)
+        Assert(
+          Not(Forall(Seq(vd), Not(pred).setPos(c)).setPos(c)).setPos(c),
+          Some("Choose satisfiability"),
+          FunctionInvocation(newFd.id, newFd.tparams.map(_.tp), params.map(_.toVariable)).copiedFrom(c)
+        ).setPos(c)
 
       case Operator(es, recons) => recons(es.map(rec(_, params))).copiedFrom(e)
     }
 
-    val res = fd.copy(fullBody = fd.fullBody match {
-      // case c: Choose => c.copy(pred = rec(c.pred, fd.params)).copiedFrom(c)
-      case body => rec(body, fd.params)
-    }).setPos(fd)
-
-    fdChooses :+ res
+    // bind `newFd` before returning so that `fdChooses` gets filled with the new `choose` functions
+    val newFd = fd.copy(fullBody = rec(fd.fullBody, fd.params)).setPos(fd)
+    fdChooses :+ newFd
   }
 
 }

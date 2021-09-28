@@ -14,7 +14,7 @@ object GuessNumber {
     assert(between(min, min, max))
     choose((x: Int) => between(min, x, max))
   }
-  
+
   def main()(implicit state: State): Unit = {
     val choice = random(0, 10)
 
