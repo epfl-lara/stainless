@@ -495,7 +495,14 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val syms:
     if (returnType.containsArray)
       reporter.fatalError(fa.getPos, "Returning arrays from function is not supported by GenC")
 
-    val isPure = fa.flags.contains(IsPure) || (analysis.effects(fa.fullBody).isEmpty && !fa.isExtern)
+    val isPure = fa.flags.contains(IsPure) || (
+      analysis.effects(fa.fullBody).isEmpty &&
+      !fa.isExtern &&
+      !symbols.dependencies(fa.id).exists { (fid: Identifier) => symbols.lookupFunction(fid) match {
+        case Some(fd) => fd.isExtern && !fd.flags.contains(IsPure)
+        case None => false
+      }}
+    )
 
     // Build a partial function without body in order to support recursive functions
     val fun = CIR.FunDef(id, returnType, funCtx, params, null, export, isPure)
