@@ -149,7 +149,8 @@ trait Trimmer extends extraction.imperative.TransformerWithType {
   }
 
   override def transform(fd: s.FunDef): t.FunDef = {
-    if (fd.isExported) kept += fd.id
+    val isParamInit = fd.flags.exists(_.isInstanceOf[s.ClassParamInit])
+    if (fd.isExported || isParamInit) kept += fd.id
     val ret = transform(fd.returnType)
 
     if (fd.isManuallyDefined || fd.isDropped)

@@ -119,10 +119,6 @@ trait GlobalStateChecker { self =>
                   case (arg, paramInit) => arg == paramInit.fullBody
                 })
               ) {
-                println(args.length != paramInits.length)
-                println(args.zip(paramInits).find {
-                  case (arg, paramInit) => arg != paramInit.fullBody
-                })
                 context.reporter.fatalError(vd.getPos,
                   "Creating an instance of a state marked `@cCode.global` is only allowed by invoking the default constructor (with the default arguments)"
                 )
