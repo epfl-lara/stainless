@@ -75,9 +75,10 @@ class VerificationRun(override val pipeline: StainlessPipeline)
     val t: self.trees.type = self.trees
   }
 
-  private[stainless] def execute(functions: Seq[Identifier], symbols: trees.Symbols): Future[VerificationAnalysis] = {
+  private[stainless] def execute(functions0: Seq[Identifier], symbols: trees.Symbols): Future[VerificationAnalysis] = {
     import context._
 
+    val functions = functions0.filterNot(fid => symbols.getFunction(fid).flags.contains(trees.DropVCs))
     val p = inox.Program(trees)(symbols)
 
     if (context.options.findOptionOrDefault(optCoq)) {
