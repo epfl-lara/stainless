@@ -31,10 +31,12 @@ trait Scala2IRPhase extends LeonPipeline[(Symbols, FunCtxDB), CIR.Prog] {
 
   implicit val debugSection = DebugSectionGenC
 
+  val arrayLengthsMap: Map[Identifier, Int]
+
   def run(input: (Symbols, FunCtxDB)): CIR.Prog = {
     val (syms, ctxDB) = input
 
-    val impl = new S2IRImpl(context, ctxDB, syms)
+    val impl = new S2IRImpl(context, ctxDB, syms, arrayLengthsMap)
     impl.run()
 
     CIR.Prog(
@@ -45,7 +47,7 @@ trait Scala2IRPhase extends LeonPipeline[(Symbols, FunCtxDB), CIR.Prog] {
   }
 }
 
-private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val syms: Symbols)
+private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val syms: Symbols, arrayLengthsMap: Map[Identifier, Int])
   extends extraction.imperative.EffectsAnalyzer
   with GlobalStateChecker
   with IdentityFunctions
@@ -63,42 +65,13 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val syms:
   val t: tt.type = tt
 
   implicit val debugSection = DebugSectionGenC
-  private val prog = inox.Program(extraction.throwing.trees)(syms)
-  private val evaluator = new {
-    val context = self.context
-    val program: prog.type = prog
-    val semantics = new inox.Semantics {
-      val trees: throwing.trees.type = throwing.trees
-      val symbols: syms.type = syms
-      val program: prog.type = prog
-      def createEvaluator(ctx: inox.Context) = ???
-      def createSolver(ctx: inox.Context) = ???
-    }
-  } with evaluators.RecursiveEvaluator
-    with inox.evaluators.HasDefaultGlobalContext
-    with inox.evaluators.HasDefaultRecContext
+
 
   type TransformerContext = EffectsAnalysis
-  private val analysis = new {
+  val analysis = new {
     val symbols = syms
   } with EffectsAnalysis
   def getContext(sym: Symbols) = analysis
-
-  object TopLevelAnds {
-    def unapply(e: Expr): Option[Seq[Expr]] = e match {
-      case And(exprs) => Some(exprs.flatMap(unapply).flatten)
-      case e => Some(Seq(e))
-    }
-  }
-
-  object EvalBV {
-    def unapply(expr: Expr): Option[BVLiteral] = {
-      evaluator.eval(expr) match {
-        case inox.evaluators.EvaluationResults.Successful(bv: BVLiteral) => Some(bv)
-        case _ => None
-      }
-    }
-  }
 
   /****************************************************************************************************
    *                                                       Entry point of conversion                  *
@@ -607,26 +580,6 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val syms:
       // disable name mangling for fields of exported and global classes
       val mangling = !cd.isExported && !cd.isGlobal
 
-      val arrayLengths: Seq[(Identifier, Int)] = cd.flags
-        .find(_.isInstanceOf[HasADTInvariant]).toSeq.flatMap {
-          case HasADTInvariant(inv) =>
-            val invFd = syms.getFunction(inv)
-            val Seq(tthisVd) = invFd.params
-            val TopLevelAnds(conjuncts) = invFd.fullBody
-            conjuncts.collect(e => e match {
-              case Equals(ArrayLength(ClassSelector(tthis: Variable, array)), EvalBV(bv))
-                if tthisVd.id == tthis.id && tcd.fields.map(_.id).contains(array) =>
-
-                array -> bv.toBigInt.toInt
-            })
-        }
-
-      if (arrayLengths.map(_._1).toSet.size != arrayLengths.length) {
-        reporter.fatalError(cd.getPos, "Cannot specify two lengths for an array in a class invariant")
-      }
-
-      val arrayLengthsMap: Map[Identifier, Int] = arrayLengths.toMap
-
       val fields = tcd.fields.map(vd => vd.tpe match {
         case ArrayType(base) if arrayLengthsMap.contains(vd.id) =>
           CIR.ValDef(rec(vd.id, withUnique = mangling), CIR.ArrayType(rec(base), Some(arrayLengthsMap(vd.id))), vd.flags.contains(IsVar))
@@ -966,7 +919,8 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val syms:
 }
 
 object Scala2IRPhase {
-  def apply(implicit ctx: inox.Context): LeonPipeline[(Symbols, FunCtxDB), CIR.Prog] = new {
+  def apply(arrayLengths: Map[Identifier, Int])(implicit ctx: inox.Context): LeonPipeline[(Symbols, FunCtxDB), CIR.Prog] = new {
     val context = ctx
+    val arrayLengthsMap = arrayLengths
   } with Scala2IRPhase
 }
