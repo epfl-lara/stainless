@@ -13,7 +13,7 @@ if [[ $(git diff --stat) != '' ]]; then
   STAINLESS_VERSION="$STAINLESS_VERSION-SNAPSHOT"
 fi
 
-SCALA_VERSION="2.12"
+SCALA_VERSION="2.13"
 Z3_VERSION="4.8.12"
 
 SBT_PACKAGE="sbt stainless-scalac-standalone/assembly"
