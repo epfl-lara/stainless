@@ -100,13 +100,22 @@ trait TrimSymbols extends LeonPipeline[tt.Symbols, tt.Symbols] {
   }
 }
 
-trait Trimmer extends inox.transformers.TreeTransformer {
+trait Trimmer extends extraction.imperative.TransformerWithType {
   override val s: tt.type = tt // to get `FunAbsOps` implicit class for `fa.isManuallyDefined` and `fa.isDropped`
   override val t: extraction.throwing.Trees
   val ctx: inox.Context
   implicit val symbols: s.Symbols
 
   val kept = MutableSet[Identifier]()
+
+  private def register(cid: Identifier): Unit = {
+    val cd = symbols.getClass(cid)
+    val rootId = root(cid)
+    val rootCd = symbols.getClass(rootId)
+    kept += cid
+    kept += rootId
+    kept ++= rootCd.descendants.map(_.id)
+  }
 
   def transform(syms: s.Symbols): t.Symbols = {
     val newFunctions = syms.functions.values.map(transform)
@@ -115,16 +124,6 @@ trait Trimmer extends inox.transformers.TreeTransformer {
     t.NoSymbols
       .withFunctions(newFunctions.toSeq.filter(fd => kept.contains(fd.id)))
       .withClasses(newClasses.toSeq.filter(cd => kept.contains(cd.id)))
-  }
-
-  def transform(cd: s.ClassDef): t.ClassDef = {
-    new t.ClassDef(
-      cd.id,
-      cd.tparams.map(transform),
-      cd.parents.map(transform).map(_.asInstanceOf[t.ClassType]),
-      cd.fields.map(transform),
-      cd.flags.map(transform)
-    ).setPos(cd)
   }
 
   def transform(lfd: s.LocalFunDef): t.LocalFunDef = {
@@ -173,24 +172,22 @@ trait Trimmer extends inox.transformers.TreeTransformer {
       ).setPos(fd)
   }
 
-  override def transform(expr: s.Expr): t.Expr = expr match {
+  override def transform(expr: s.Expr, tpe: s.Type): t.Expr = expr match {
     case s.FunctionInvocation(id, _, _) =>
       kept += id
-      super.transform(expr)
+      super.transform(expr, tpe)
 
     case s.ClassConstructor(ct, _) =>
-      val cd = symbols.getClass(ct.id)
-      val rootId = root(ct.id)
-      val rootCd = symbols.getClass(rootId)
-      kept += ct.id
-      kept += rootId
-      kept ++= rootCd.descendants.map(_.id)
-      super.transform(expr)
+      register(ct.id)
+      super.transform(expr, tpe)
 
     case s.LetRec(lfds, body) =>
       t.LetRec(lfds.map(transform), transform(body))
 
-    case _ => super.transform(expr)
+    case _ =>
+      if (tpe.isInstanceOf[s.ClassType])
+        register(tpe.asInstanceOf[s.ClassType].id)
+      super.transform(expr, tpe)
   }
 }
 
