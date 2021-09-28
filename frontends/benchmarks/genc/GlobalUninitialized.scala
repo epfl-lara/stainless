@@ -32,7 +32,7 @@ object GlobalUninitialized {
   }.ensuring(_ => state.stable)
 
   @cCode.export
-  def main() {
+  def main(): Unit = {
     @ghost implicit val state = newState
     implicit val gs = GlobalState(Array.fill(100)(0), false, 0, 0)
     gs.x = 8

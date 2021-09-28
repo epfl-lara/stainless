@@ -710,7 +710,8 @@ trait RefTransform
           newShimParams,
           newReturnType,
           freshenLocals(fullBody),
-          (newFlags.filterNot(_ == Inline) ++ Seq(Synthetic, DropVCs, InlineOnce)).distinct
+          (newFlags.filter(flag => flag != Inline && flag != Opaque && flag != Extern) ++
+            Seq(Synthetic, DropVCs, InlineOnce)).distinct
         ).copiedFrom(fd))
       }
 
