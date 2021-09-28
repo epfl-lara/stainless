@@ -23,19 +23,19 @@ trait ChooseInjector extends CachingPhase with IdentitySorts { self =>
   override protected def registerFunctions(symbols: t.Symbols, functions: Seq[Seq[t.FunDef]]): t.Symbols =
     symbols.withFunctions(functions.flatten)
 
+  protected lazy val newIdentifier = new utils.ConcurrentCached[Identifier, Identifier](_.freshen)
+
   override def getContext(symbols: s.Symbols) = new TransformerContext(symbols)
   protected class TransformerContext(val symbols: s.Symbols) extends inox.transformers.TreeTransformer {
     override final val s: self.s.type = self.s
     override final val t: self.t.type = self.t
 
-    val newIdentifier: Map[Identifier,Identifier] = {
-      symbols.functions.values.filter { fd => fd.flags.contains(Extern) || fd.flags.contains(Opaque) }.map { fd =>
-        fd.id -> fd.id.freshen
-      }.toMap
-    }
+    val toReplace: Set[Identifier] = symbols.functions.values.filter {
+      fd => fd.flags.contains(Extern) || fd.flags.contains(Opaque)
+    }.map(_.id).toSet
 
     override def transform(e: s.Expr): t.Expr = e match {
-      case fi @ s.FunctionInvocation(id, tps, args) if newIdentifier.contains(id) =>
+      case fi @ s.FunctionInvocation(id, tps, args) if toReplace(id) =>
         t.FunctionInvocation(newIdentifier(id), tps.map(transform), args.map(transform))
       case _ => super.transform(e)
     }
@@ -70,7 +70,7 @@ trait ChooseInjector extends CachingPhase with IdentitySorts { self =>
       case _ => e
     }
 
-    if ((fd.flags contains Extern) || (fd.flags contains Opaque)) {
+    if (context.toReplace.contains(fd.id)) {
       val choose = post
         .map { case Postcondition(Lambda(Seq(vd), post)) =>
           Choose(vd, freshenLocals(specced.wrapLets(post)))
@@ -80,7 +80,7 @@ trait ChooseInjector extends CachingPhase with IdentitySorts { self =>
         }
         .copiedFrom(fd)
       val newSpecced = specced.copy(body = choose)
-      val fdCopy = fd.copy(id = context.newIdentifier(fd.id), fullBody = newSpecced.reconstructed, flags = fd.flags :+ DropVCs).setPos(fd)
+      val fdCopy = fd.copy(id = newIdentifier(fd.id), fullBody = newSpecced.reconstructed, flags = fd.flags :+ DropVCs).setPos(fd)
       Seq(context.transform(fdCopy), context.transform(fd))
     } else {
       val newSpecced = specced.copy(body = injectChooses(specced.body))
