@@ -1,5 +1,20 @@
 # Release Notes
 
+## Version 0.9.1 (2021-09-28)
+
+### Stainless frontend and internals
+
+- Add the `&&&` operator, which splits verification conditions.
+- Improve reporting when there are multiple `require` in inlined function
+- Add some benchmarks for `full-imperative` phase
+- Upgrade to Scala 2.13 (#1173)
+
+### GenC
+
+- Allow reference to old global state
+- Ignore `opaque` keyword in GenC inlining
+
+
 ## Version 0.9.0 (2021-08-27)
 
 ### Stainless frontend and internals
@@ -327,7 +342,7 @@
 
 ### Features
 
-- Indexed recursive types and type-checking based VC generation (#479) 
+- Indexed recursive types and type-checking based VC generation (#479)
 - Display counter-examples when using metals (#579)
 - Add --no-colors option, for use via metals in VS Code
 - Add FAQ extracted from the C4DT newsletter (#570)
