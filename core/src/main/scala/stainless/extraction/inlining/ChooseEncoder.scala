@@ -48,11 +48,15 @@ trait ChooseEncoder extends CachingPhase with SimplyCachedFunctions with Identit
 
         fdChooses = fdChooses :+ newFd
 
-        Assert(
-          Not(Forall(Seq(vd), Not(pred).setPos(c)).setPos(c)).setPos(c),
-          Some("Choose satisfiability"),
-          FunctionInvocation(newFd.id, newFd.tparams.map(_.tp), params.map(_.toVariable)).copiedFrom(c)
-        ).setPos(c)
+        val fi = FunctionInvocation(newFd.id, newFd.tparams.map(_.tp), params.map(_.toVariable)).copiedFrom(c)
+        if (vd.flags.contains(DropVCs))
+          fi
+        else
+          Assert(
+            Not(Forall(Seq(vd), Not(pred).setPos(c)).setPos(c)).setPos(c),
+            Some("Choose satisfiability"),
+            fi
+          ).setPos(c)
 
       case Operator(es, recons) => recons(es.map(rec(_, params))).copiedFrom(e)
     }
