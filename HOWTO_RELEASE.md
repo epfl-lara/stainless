@@ -12,27 +12,6 @@ How to release
 6. Create a new release on GitHub, add the release notes for that version and attach the two archives. Make sure to not rename the archives.
 7. Release the Docker image with `./bin/docker-release.sh VERSION`, where `VERSION` is of the form `X.X.X` (without a leading `v`).
 
-## Publish to Bintray
-
-### Precondition
-
-1. You need to be part of the [epfl-lara bintray organization](https://bintray.com/epfl-lara) (ask Nicolas Voirol - [@samarion](https://github.com/samarion) - if you need to be added to the organization).
-2. You have created a `.credentials` file under the `~/.bintray` folder, e.g.,
-
-```
-$ cat .bintray/.credentials
-realm = Bintray API Realm
-host = api.bintray.com
-user = <your-bintray-username>
-password = <your-bintray-api-token>
-```
-
-Read the [bintray documentation](https://bintray.com/docs/usermanual/interacting/interacting_interacting.html#anchorAPIKEY) for how to obtain an API token.
-
-### Publishing
-
-To cut a release simply execute `sbt publish`. All artifacts are going to be published under https://bintray.com/epfl-lara.
-
 ## Notes
 
 #### Versioning
