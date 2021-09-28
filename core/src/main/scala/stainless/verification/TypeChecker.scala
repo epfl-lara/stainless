@@ -946,19 +946,8 @@ trait TypeChecker {
       case Forall(vds, pred) =>
         (BooleanType(), checkType(tc.bind(vds).setPos(pred), pred, BooleanType()))
 
-      case c @ Choose(vd, pred) =>
-        val trPred = checkType(tc.bind(vd).setPos(pred), pred, BooleanType())
-
-        val trVC = if (!tc.termVariables.exists(isPathCondition) && exprOps.variablesOf(c).isEmpty) {
-          val tc1 = tc.withVCKind(VCKind.Info(VCKind.Choose, "check-sat")).withCheckSAT(true).setPos(c)
-          buildVC(tc1, pred)
-        } else {
-          val tc1 = tc.withVCKind(VCKind.Choose).withCheckSAT(false).setPos(c)
-          val condition = Not(Forall(Seq(vd), Not(pred)))
-          buildVC(tc1, condition)
-        }
-
-        (RefinementType(vd, pred), trPred ++ trVC)
+      case c: Choose =>
+        reporter.fatalError(c.getPos, s"The type-checker shouldn't encounter `choose`, as these are hidden under functions by the `ChooseEncoder` phase.")
 
       case _ =>
         reporter.fatalError(e.getPos, s"The type-checker doesn't support expressions: ${e.getClass}")
