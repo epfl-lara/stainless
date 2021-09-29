@@ -21,6 +21,17 @@ package object termination {
     val lowering = ExtractionPipeline(new CheckingTransformer {
       override val s: trees.type = trees
       override val t: extraction.trees.type = extraction.trees
+
+      // We remove `Induct` flags that may appear in let bindings and in variables after FunctionInlining
+      override def transform(vd: s.ValDef): t.ValDef = {
+        t.ValDef(vd.id, transform(vd.tpe), vd.flags.filter(_ != s.Induct).map(transform)).copiedFrom(vd)
+      }
+
+      override def transform(e: s.Expr): t.Expr = e match {
+        case s.Variable(id, tpe, flags) =>
+          t.Variable(id, transform(tpe), flags.filter(_ != s.Induct).map(transform)).copiedFrom(e)
+        case _ => super.transform(e)
+      }
     })
 
     utils.DebugPipeline("SizedADTExtraction", SizedADTExtraction(trees)) andThen
