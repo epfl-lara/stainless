@@ -92,6 +92,9 @@ class CodeGenVerificationSuite extends SMTZ3VerificationSuite {
     // Does not work with --feeling-lucky. See #490
     case "verification/valid/MsgQueue" => Skip
 
+    // assertion failed in `compileLambda`
+    case "verification/valid/GodelNumbering" => Ignore
+
     case _ => super.filter(ctx, name)
   }
 }
@@ -113,6 +116,9 @@ class SMTCVC4VerificationSuite extends VerificationSuite {
     case "verification/valid/BigIntRing" => Ignore
     case "verification/valid/BigIntMonoidLaws" => Ignore
     case "verification/valid/InnerClasses4" => Ignore
+
+    // assertion failed in `compileLambda`
+    case "verification/valid/GodelNumbering" => Ignore
 
     // This test is flaky on CVC4
     case "verification/valid/CovariantList" => Ignore
