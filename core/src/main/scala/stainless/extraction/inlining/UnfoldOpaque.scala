@@ -4,17 +4,15 @@ package stainless
 package extraction
 package inlining
 
-trait CallSiteInline extends CachingPhase with SimpleFunctions with IdentitySorts { self =>
+trait UnfoldOpaque extends CachingPhase with SimpleFunctions with IdentitySorts { self =>
 
   implicit val context: inox.Context
   val s: Trees
   val t: Trees
-  import s._
 
   override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult]((fd, context) =>
     getDependencyKey(fd.id)(context.symbols)
   )
-
 
   protected class TransformerContext(val symbols: s.Symbols) extends inox.transformers.TreeTransformer {
     override final val s: self.s.type = self.s
@@ -23,19 +21,23 @@ trait CallSiteInline extends CachingPhase with SimpleFunctions with IdentitySort
     import s._
     import symbols._
 
-    object InlineCall {
-      def unapply(e: Expr): Option[FunctionInvocation] = e match {
-        case FunctionInvocation(
-          ast.SymbolIdentifier("stainless.lang.inline"),
+    object UnfoldOpaque {
+      def unapply(e: s.Expr): Option[s.FunctionInvocation] = e match {
+        case s.FunctionInvocation(
+          ast.SymbolIdentifier("stainless.lang.unfold"),
           Seq(_),
-          Seq(fi: FunctionInvocation)
+          Seq(fi: s.FunctionInvocation)
         ) => Some(fi)
         case _ => None
       }
     }
 
     override def transform(e: Expr): t.Expr = e match {
-      case InlineCall(fi) => t.annotated(transform(fi.inlined), t.DropVCs)
+      case UnfoldOpaque(fi) =>
+        val newFi = transform(fi)
+        val inlined = transform(fi.inlined)
+        val specced = t.exprOps.BodyWithSpecs(inlined)
+        t.Assume(t.Equals(newFi, t.annotated(specced.letsAndBody, t.DropVCs)).setPos(e), t.UnitLiteral().setPos(e)).setPos(e)
       case _ => super.transform(e)
     }
 
@@ -49,11 +51,11 @@ trait CallSiteInline extends CachingPhase with SimpleFunctions with IdentitySort
 
 }
 
-object CallSiteInline {
+object UnfoldOpaque {
   def apply(it: inlining.Trees)(implicit ctx: inox.Context): ExtractionPipeline {
     val s: it.type
     val t: it.type
-  } = new CallSiteInline {
+  } = new UnfoldOpaque {
     override val context = ctx
     override val s: it.type = it
     override val t: it.type = it

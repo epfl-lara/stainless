@@ -18,6 +18,7 @@ package object inlining {
 
   def extractor(implicit ctx: inox.Context) = {
     utils.DebugPipeline("FunctionSpecialization", FunctionSpecialization(trees)) andThen
+    utils.DebugPipeline("UnfoldOpaque", UnfoldOpaque(trees)) andThen
     utils.DebugPipeline("CallSiteInline", CallSiteInline(trees)) andThen
     utils.DebugPipeline("ChooseInjector", ChooseInjector(trees)) andThen
     utils.DebugPipeline("ChooseEncoder", ChooseEncoder(trees)) andThen
