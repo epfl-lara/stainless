@@ -659,8 +659,8 @@ object LZWa {
           else EncodeError()
         } else OpenError()
 
-      encoded.close
-      input.close
+      encoded.close()
+      input.close()
 
       res
     }
@@ -675,8 +675,8 @@ object LZWa {
           else DecodeError()
         } else OpenError()
 
-      decoded.close
-      encoded.close
+      decoded.close()
+      encoded.close()
 
       res
     }

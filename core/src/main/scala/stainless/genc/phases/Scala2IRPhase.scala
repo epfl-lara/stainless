@@ -471,9 +471,10 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val syms:
     val isPure = fa.flags.contains(IsPure) || (
       analysis.effects(fa.fullBody).isEmpty &&
       !fa.isExtern &&
+      !fa.isManuallyDefined &&
       !symbols.dependencies(fa.id).exists { (fid: Identifier) => symbols.lookupFunction(fid) match {
-        case Some(fd) => fd.isExtern && !fd.flags.contains(IsPure)
-        case None => false
+        case Some(fd) if !fd.flags.contains(IsPure) => fd.isExtern || fd.isManuallyDefined
+        case _ => false
       }}
     )
 
