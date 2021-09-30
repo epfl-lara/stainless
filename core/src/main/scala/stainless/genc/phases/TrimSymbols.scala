@@ -173,6 +173,14 @@ trait Trimmer extends extraction.imperative.TransformerWithType {
       ).setPos(fd)
   }
 
+  override def transform(tpe: s.Type): t.Type = tpe match {
+    case ct: s.ClassType =>
+      register(ct.id)
+      super.transform(tpe)
+
+    case _ => super.transform(tpe)
+  }
+
   override def transform(expr: s.Expr, tpe: s.Type): t.Expr = expr match {
     case s.FunctionInvocation(id, _, _) =>
       kept += id
