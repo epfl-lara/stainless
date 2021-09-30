@@ -56,7 +56,6 @@ trait MainHelpers extends inox.MainHelpers { self =>
     genc.optIncludes -> Description(General, "Add includes in GenC output"),
     optWatch -> Description(General, "Re-run stainless upon file changes"),
     optCompact -> Description(General, "Print only invalid elements of summaries"),
-    frontend.optPersistentCache -> Description(General, "Enable caching of program extraction & analysis"),
     frontend.optBatchedProgram -> Description(General, "Process the whole program together, skip dependency analysis"),
     frontend.optKeep -> Description(General, "Keep library objects marked by @keepFor(g) for some g in g1,g2,... (implies --batched)"),
     frontend.optExtraDeps -> Description(General, "Fetch the specified extra source dependencies and add their source files to the session"),

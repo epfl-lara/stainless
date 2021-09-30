@@ -19,11 +19,6 @@ package object frontend {
 
   object DebugSectionCallGraph extends inox.DebugSection("call-graph")
 
-  /**
-   * The persistent caches are stored in the same directory, denoted by this option.
-   */
-  object optPersistentCache extends inox.FlagOptionDef("cache", false)
-
   /** Do not use registry to create minimal partial programs,
     * do a dependency analysis after collecting the whole program
     */
