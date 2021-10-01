@@ -279,4 +279,3 @@ As an example, the following code should issue a warning with Scala:
 
 But Stainless will prove that the pattern matching is actually exhaustive,
 relying on the given precondition.
-
