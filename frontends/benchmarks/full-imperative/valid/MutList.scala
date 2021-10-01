@@ -54,6 +54,7 @@ object MutListExample {
       require(valid && node.valid && (repr.content & node.repr.content).isEmpty)
       decreases(size)
 
+      @ghost val oldRepr = repr
       @ghost val oldReprConcat = repr ++ node.repr
       @ghost val oldReprConcatContents = repr.content ++ node.repr.content
 
@@ -68,6 +69,8 @@ object MutListExample {
         case Some(next) =>
           assert(next.valid)
           assert(next.repr.content subsetOf repr.content)
+
+          @ghost val oldReprNext = next.repr
           @ghost val oldReprC = next.repr.content ++ node.repr.content
 
           next.append(node)
@@ -78,11 +81,11 @@ object MutListExample {
           repr = this :: next.repr
 
           assert(next.repr.content subsetOf repr.content)
-          @ghost val unused1 = check(valid)
-          @ghost val unused2 = check(repr == oldReprConcat)
-          @ghost val unused3 = check(repr.content == oldReprConcatContents)
+          assert(repr == this :: (oldReprNext ++ node.repr))
+          assert(repr == (this :: oldReprNext) ++ node.repr)
+          ghost { check(repr == oldRepr ++ node.repr) }
       }
-    } ensuring { _ => valid && repr == old(repr ++ node.repr) && repr.content == old(repr.content ++ node.repr.content) }
+    } ensuring { _ => valid &&& repr == old(repr ++ node.repr) &&& repr.content == old(repr.content ++ node.repr.content) }
   }
 
   def readInvariant(l1: Node, l2: Node): Unit = {
