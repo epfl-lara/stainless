@@ -125,6 +125,9 @@ class CASTTraverser(implicit ctx: inox.Context) {
     case Cast(expr, typ) =>
       Seq(expr, typ)
 
+    case Include(file) =>
+      Seq()
+
     case _ =>
       ctx.reporter.fatalError(s"Cannot deconstruct CAST tree of type ${t.getClass}")
   }

@@ -19,7 +19,7 @@ trait IR2CPhase extends LeonPipeline[SIR.Prog, CAST.Prog] {
   val name = "CASTer"
   val description = "Translate the IR tree into the final C AST"
 
-  def run(ir: SIR.Prog): CAST.Prog = new IR2CImpl(context)(ir)
+  def run(ir: SIR.Prog): CAST.Prog = new IR2CImpl()(context)(ir)
 }
 
 // This implementation is basically a Transformer that produce something which isn't an IR tree.
@@ -27,7 +27,7 @@ trait IR2CPhase extends LeonPipeline[SIR.Prog, CAST.Prog] {
 //
 // Function conversion is pretty straighforward at this point of the pipeline. Expression conversion
 // require little care. But class conversion is harder; see detailed procedure below.
-private class IR2CImpl(val ctx: inox.Context) {
+private class IR2CImpl()(implicit val ctx: inox.Context) {
   def apply(ir: Prog): C.Prog = rec(ir)
 
   // We use a cache to keep track of the C function, struct, ...

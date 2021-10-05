@@ -14,6 +14,10 @@ trait NamedLeonPhase[F, T] extends LeonPipeline[F, T] {
     (phases.isEmpty || phases.exists(_.contains(name))) &&
     context.reporter.debugSections.contains(DebugSectionTrees)
 
+  lazy val debugSizes: Boolean =
+    (phases.isEmpty || phases.exists(_.contains(name))) &&
+    context.reporter.debugSections.contains(DebugSectionSizes)
+
   private implicit val debugSection = DebugSectionTrees
 
   override def run(p: F): T = {
@@ -33,6 +37,21 @@ trait NamedLeonPhase[F, T] extends LeonPipeline[F, T] {
       context.reporter.debug(res)
       context.reporter.debug("=" * 100)
       context.reporter.debug("\n" * 4)
+    }
+    if (debugSizes) {
+      val lines = res.toString.count(_ == '\n') + 1
+      val size = res match {
+        case symbols: stainless.extraction.throwing.trees.Symbols => symbols.astSize
+        case prog: ir.IRs.SIR.Prog => prog.size(context)
+        case prog: ir.IRs.CIR.Prog => prog.size(context)
+        case prog: ir.IRs.RIR.Prog => prog.size(context)
+        case prog: ir.IRs.NIR.Prog => prog.size(context)
+        case prog: ir.IRs.LIR.Prog => prog.size(context)
+        case prog: CAST.Tree => prog.size(context)
+        case _ => 0
+      }
+      context.reporter.debug(s"Total number of lines after phase $name: $size")(DebugSectionSizes)
+      context.reporter.debug(s"Total number of AST nodes after phase $name: $size")(DebugSectionSizes)
     }
     res
   }

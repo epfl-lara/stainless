@@ -5,6 +5,7 @@ package extraction
 package utils
 
 object DebugSectionTrees extends inox.DebugSection("trees")
+object DebugSectionSizes extends inox.DebugSection("sizes")
 
 object optDebugObjects extends inox.OptionDef[Seq[String]] {
   val name = "debug-objects"
@@ -48,6 +49,7 @@ trait DebugSymbols extends PositionChecker { self =>
   // Moreover, we only print when the corresponding debug sections are active
   lazy val debugTrees: Boolean = isEnabled && context.reporter.debugSections.contains(DebugSectionTrees)
   lazy val debugPos: Boolean   = isEnabled && context.reporter.debugSections.contains(DebugSectionPositions)
+  lazy val debugSizes: Boolean = isEnabled && context.reporter.debugSections.contains(DebugSectionSizes)
 
   def debug[A](run: s.Symbols => t.Symbols)(symbols: s.Symbols): t.Symbols = {
     implicit val debugSection = DebugSectionTrees
@@ -94,6 +96,13 @@ trait DebugSymbols extends PositionChecker { self =>
 
     if (debugPos) {
       res.functions.values foreach(positions.traverse)
+    }
+
+    if (debugSizes) {
+      val lines = res.asString(tPrinterOpts).count(_ == '\n') + 1
+      val size = res.astSize
+      context.reporter.debug(s"Total number of lines after phase $name: $lines")(DebugSectionSizes)
+      context.reporter.debug(s"Total number of AST nodes after phase $name: $size")(DebugSectionSizes)
     }
 
     res

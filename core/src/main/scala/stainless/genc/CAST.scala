@@ -32,6 +32,14 @@ object CAST { // C Abstract Syntax Tree
       new CPrinter("stainless.h", true, Set(), Seq(), sb).print(this)
       sb.toString
     }
+
+    def size(implicit ctx: inox.Context): Int = {
+      var result = 0
+      new CASTTraverser {
+        override def traverse(t: Tree): Unit = { result += 1; super.traverse(t) }
+      }.traverse(this)
+      result
+    }
   }
 
   /* ----------------------------------------------------- Definitions  ----- */
