@@ -93,6 +93,29 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
       case ArrayType(base) => FiniteArray(Seq(), base)
       case _ => super.simplestValue(tpe, seen, allowSolver, inLambda)
     }
+
+    def astSize: Int = {
+      var result = 0
+      val counter = new stainless.transformers.TreeTraverser {
+        val trees: self.type = self
+
+        override def traverse(fd: FunDef) = { result += 1; super.traverse(fd) }
+        override def traverse(sort: ADTSort) = { result += 1; super.traverse(sort) }
+        override def traverse(e: Expr) = { result += 1; super.traverse(e) }
+        override def traverse(tpe: Type) = { result += 1; super.traverse(tpe) }
+        override def traverse(pattern: Pattern) = { result += 1; super.traverse(pattern) }
+        override def traverse(vd: ValDef) = { result += 1; super.traverse(vd) }
+        override def traverse(id: Identifier): Unit = { result += 1; super.traverse(id) }
+        override def traverse(tpd: TypeParameterDef): Unit = { result += 1; super.traverse(tpd) }
+        override def traverse(flag: Flag): Unit = { result += 1; super.traverse(flag) }
+      }
+
+      symbols.functions.values.foreach(counter.traverse)
+      symbols.sorts.values.foreach(counter.traverse)
+
+      result
+    }
+
   }
 
   implicit class StainlessFunDef(fd: FunDef) {

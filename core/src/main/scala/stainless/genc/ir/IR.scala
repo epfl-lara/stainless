@@ -4,6 +4,8 @@ package stainless
 package genc
 package ir
 
+import scala.collection.mutable.{ Set => MutableSet }
+
 /*
  * A relatively immutable Intermediary Representation for the Scala to C conversion.
  *
@@ -45,6 +47,22 @@ private[genc] sealed trait IR { ir =>
     classes: Seq[ClassDef]
   ) {
     override def toString: String = printer(this)
+
+    def size(implicit ctx: inox.Context): Int = {
+      var result = 0
+      new Visitor[ir.type](ir) {
+        private val classCache = MutableSet[ClassDef]()
+        override def visit(prog: Prog): Unit = { result += 1; super.visit(prog) }
+        override def visit(fd: FunDef): Unit = { result += 1; super.visit(fd) }
+        override def visit(cd: ClassDef): Unit = { result += 1; super.visit(cd) }
+        override def visit(vd: ValDef): Unit = { result += 1; super.visit(vd) }
+        override def visit(fb: FunBody): Unit = { result += 1; super.visit(fb) }
+        override def visit(alloc: ArrayAlloc): Unit = { result += 1; super.visit(alloc) }
+        override def visit(e: Expr): Unit = { result += 1; super.visit(e) }
+        override def visit(typ: Type): Unit = { result += 1; super.visit(typ) }
+      }.apply(this)
+      result
+    }
   }
 
   // Define a function body as either a regular AST or a manually defined
