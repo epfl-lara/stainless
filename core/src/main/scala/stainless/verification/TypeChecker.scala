@@ -961,13 +961,13 @@ trait TypeChecker {
   def vcFromContext(l: Seq[Variable], e: Expr): Expr = l.map(v => v -> v.tpe) match {
     case Seq() => e
     case (x1, _) +: (_, LetEquality(x2: Variable, e2)) +: _ if x1.id == x2.id =>
-      let(x2.toVal, e2, vcFromContext(l.tail.tail, e))
+      Let(x2.toVal, e2, vcFromContext(l.tail.tail, e))
     case (_, LetEquality(e1: Variable, e2)) +: _ =>
-      let(e1.toVal, e2, vcFromContext(l.tail, e))
+      Let(e1.toVal, e2, vcFromContext(l.tail, e))
     case (_, Truth(t)) +: _ =>
-      implies(t, vcFromContext(l.tail, e))
+      Implies(t, vcFromContext(l.tail, e))
     case (x, RefinementType(vd, pred)) +: _ =>
-      implies(substVar(pred, vd.id, x), vcFromContext(l.tail, e))
+      Implies(substVar(pred, vd.id, x), vcFromContext(l.tail, e))
     case _ =>
       vcFromContext(l.tail, e)
   }
