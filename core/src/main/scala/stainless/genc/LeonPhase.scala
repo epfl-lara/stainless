@@ -50,7 +50,7 @@ trait NamedLeonPhase[F, T] extends LeonPipeline[F, T] {
         case prog: CAST.Tree => prog.size(context)
         case _ => 0
       }
-      context.reporter.debug(s"Total number of lines after phase $name: $size")(DebugSectionSizes)
+      context.reporter.debug(s"Total number of lines after phase $name: $lines")(DebugSectionSizes)
       context.reporter.debug(s"Total number of AST nodes after phase $name: $size")(DebugSectionSizes)
     }
     res
