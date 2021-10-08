@@ -12,12 +12,10 @@ import scala.util.{Try, Success, Failure}
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-import scala.language.existentials
-
-class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Context) extends CallBack with StainlessReports { self =>
+class BatchedCallBack(components: Seq[Component])(using val context: inox.Context) extends CallBack with StainlessReports { self =>
   import context.reporter
 
-  private implicit val debugSection = DebugSectionFrontend
+  private given givenDebugSection: DebugSectionFrontend.type = DebugSectionFrontend
 
   private var currentClasses = Seq[xt.ClassDef]()
   private var currentFunctions = Seq[xt.FunDef]()
@@ -89,7 +87,7 @@ class BatchedCallBack(components: Seq[Component])(implicit val context: inox.Con
       reportErrorFooter(symbols)
     }
 
-    if (context.reporter.isDebugEnabled(DebugSectionCallGraph)) {
+    if (context.reporter.isDebugEnabled(using DebugSectionCallGraph)) {
       CallGraphPrinter(symbols)
     }
 

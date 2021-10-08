@@ -3,16 +3,17 @@
 package stainless
 package transformers
 
-import scala.language.existentials
 import scala.concurrent.duration._
 
 import inox.solvers.optCheckModels
 
 trait SimplifierWithSolver extends inox.transformers.SimplifierWithPC { self =>
   import trees._
-  import symbols._
+  import symbols.{given, _}
+  import inox.solvers.factoryToTimeoutableFactory
 
-  implicit val context: inox.Context
+  val context: inox.Context
+  import context.given
 
   protected val semantics: inox.SemanticsProvider {
     val trees: self.trees.type
@@ -23,9 +24,9 @@ trait SimplifierWithSolver extends inox.transformers.SimplifierWithPC { self =>
     val symbols: self.symbols.type
   } = inox.Program(trees)(symbols)
 
-  protected val solver =
+  protected lazy val solver =
     semantics.getSemantics(program)
-      .getSolver(context.withOpts(optCheckModels(false)))
+      .getSolver(using context.withOpts(optCheckModels(false)))
       .withTimeout(150.millis)
       .toAPI
       .asInstanceOf[inox.solvers.SimpleSolverAPI {
@@ -45,9 +46,23 @@ trait SimplifierWithSolver extends inox.transformers.SimplifierWithPC { self =>
     override def withCond(e: Expr): Env = new Env(path withCond e)
 
     override def toString: String = path.toString
+
+    override def in(that: inox.transformers.SimplifierWithPC {
+      val trees: self.trees.type
+      val symbols: self.symbols.type
+    }) = that match {
+      // The `& that.type` trick allows to convince Scala that `sp` and `that` are actually equal...
+      case sp: (inox.transformers.SimplifierWithPath & that.type) =>
+        path.elements.foldLeft(sp.initEnv) {
+          case (spEnvAcc, Path.CloseBound(vd, v)) => spEnvAcc.withBinding((vd, v))
+          case (spEnvAcc, Path.OpenBound(vd)) => spEnvAcc.withBound(vd)
+          case (spEnvAcc, Path.Condition(e)) => spEnvAcc.withCond(e)
+        }
+      case _ => super.in(that)
+    }
   }
 
-  implicit object Env extends PathProvider[Env] {
+  object Env extends PathProvider[Env] {
     override val empty = new Env(Path.empty)
     override def apply(path: Path) = new Env(path)
   }

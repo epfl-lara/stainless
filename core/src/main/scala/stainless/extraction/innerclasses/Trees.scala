@@ -6,12 +6,19 @@ package innerclasses
 
 trait Trees extends methods.Trees with Definitions with Types { self =>
 
-  type Symbols >: Null <: AbstractSymbols
+  type Symbols >: Null <: InnerClassesAbstractSymbols
 
-  trait AbstractSymbols
-    extends super.AbstractSymbols
-    with DependencyGraph
-    with TypeOps { self0: Symbols =>
+  trait InnerClassesAbstractSymbols
+    extends MethodsAbstractSymbols
+       with innerclasses.DependencyGraph
+       with innerclasses.TypeOps { self0: Symbols =>
+
+    // The only value that can be assigned to `trees`, but that has to be
+    // done in a concrete class explicitly overriding `trees`
+    // Otherwise, we can run into initialization issue.
+    protected val trees: self.type
+    // More or less the same here
+    protected val symbols: this.type
 
     @inline def localClasses: Seq[LocalClassDef] = _localClasses.get
     private[this] val _localClasses = inox.utils.Lazy({
@@ -52,19 +59,19 @@ trait Trees extends methods.Trees with Definitions with Types { self =>
   }
 
   case class LetClass(classes: Seq[LocalClassDef], body: Expr) extends Expr with CachingTyped {
-    protected def computeType(implicit s: Symbols): Type = body.getType
+    protected def computeType(using Symbols): Type = body.getType
   }
 
   case class LocalThis(lct: LocalClassType) extends Expr with CachingTyped {
-    protected def computeType(implicit s: Symbols): LocalClassType = lct
+    protected def computeType(using Symbols): LocalClassType = lct
   }
 
   case class LocalClassConstructor(lct: LocalClassType, args: Seq[Expr]) extends Expr with CachingTyped {
-    protected def computeType(implicit s: Symbols): LocalClassType = lct
+    protected def computeType(using Symbols): LocalClassType = lct
   }
 
   case class LocalClassSelector(expr: Expr, selector: Identifier, tpe: Type) extends Expr with CachingTyped {
-    protected def computeType(implicit s: Symbols): Type = expr.getType match {
+    protected def computeType(using Symbols): Type = expr.getType match {
       case lct: LocalClassType => tpe
       case _ => Untyped
     }
@@ -77,7 +84,7 @@ trait Trees extends methods.Trees with Definitions with Types { self =>
     tps: Seq[Type],
     args: Seq[Expr]
   ) extends Expr with CachingTyped {
-    protected def computeType(implicit s: Symbols): Type = {
+    protected def computeType(using Symbols): Type = {
       receiver.getType match {
         case lct: LocalClassType =>
           method.tpe match {
@@ -93,39 +100,38 @@ trait Trees extends methods.Trees with Definitions with Types { self =>
     }
   }
 
-  override val exprOps: ExprOps { val trees: Trees.this.type } = new {
-    protected val trees: Trees.this.type = Trees.this
-  } with ExprOps
+  override val exprOps: innerclasses.ExprOps { val trees: self.type } = {
+    class ExprOpsImpl(override val trees: self.type) extends innerclasses.ExprOps(trees)
+    new ExprOpsImpl(self)
+  }
 
   override def getDeconstructor(that: inox.ast.Trees): inox.ast.TreeDeconstructor { val s: self.type; val t: that.type } = that match {
-    case tree: Trees => new innerclasses.TreeDeconstructor {
-      protected val s: self.type = self
-      protected val t: tree.type = tree
-    }.asInstanceOf[TreeDeconstructor { val s: self.type; val t: that.type }]
+    case tree: (Trees & that.type) => // The `& that.type` trick allows to convince scala that `tree` and `that` are actually equal...
+      class DeconstructorImpl(override val s: self.type, override val t: tree.type & that.type) extends ConcreteTreeDeconstructor(s, t)
+      new DeconstructorImpl(self, tree)
 
     case _ => super.getDeconstructor(that)
   }
-
 }
 
 trait Printer extends methods.Printer {
   protected val trees: Trees
   import trees._
 
-  protected def localMethods(methods: Seq[LocalMethodDef]): PrintWrapper = {
-    implicit pctx: PrinterContext => withSymbols(methods.map(fd => Left(fd)), "def")
+  protected def localMethods(methods: Seq[LocalMethodDef]): PrintWrapper = PrintWrapper {
+    withSymbols(methods.map(fd => Left(fd)), "def")
   }
 
-  protected def localTypeDefs(typeDefs: Seq[LocalTypeDef]): PrintWrapper = {
-    implicit pctx: PrinterContext => withSymbols(typeDefs.map(td => Left(td)), "type")
+  protected def localTypeDefs(typeDefs: Seq[LocalTypeDef]): PrintWrapper = PrintWrapper {
+    withSymbols(typeDefs.map(td => Left(td)), "type")
   }
 
-  override def ppBody(tree: Tree)(implicit ctx: PrinterContext): Unit = tree match {
+  override def ppBody(tree: Tree)(using ctx: PrinterContext): Unit = tree match {
     case cd: LocalClassDef =>
       if (cd.flags contains IsSealed) p"sealed "
       if (cd.flags contains IsAbstract) p"abstract " else p"case "
       for (an <- cd.flags) {
-        p"""|@${an.asString(ctx.opts)}
+        p"""|@${an.asString(using ctx.opts)}
             |"""
       }
       p"class ${cd.id}"
@@ -240,6 +246,8 @@ trait DefinitionTransformer extends oo.DefinitionTransformer {
 
 trait TreeTransformer extends transformers.TreeTransformer with DefinitionTransformer
 
+class ConcreteTreeTransformer(override val s: Trees, override val t: Trees) extends TreeTransformer
+
 trait DefinitionTraverser extends oo.DefinitionTraverser {
   val trees: Trees
   import trees._
@@ -278,10 +286,8 @@ trait TreeDeconstructor extends methods.TreeDeconstructor { self =>
   protected val s: Trees
   protected val t: Trees
 
-  object transformer extends TreeTransformer {
-    val s: self.s.type = self.s
-    val t: self.t.type = self.t
-  }
+  class TransformerImpl(override val s: self.s.type, override val t: self.t.type) extends ConcreteTreeTransformer(s, t)
+  val transformer = new TransformerImpl(self.s, self.t)
 
   override def deconstruct(tpe: s.Type): Deconstructed[t.Type] = tpe match {
     case s.LocalClassType(id, tparams, tps, parents) =>
@@ -357,3 +363,5 @@ trait TreeDeconstructor extends methods.TreeDeconstructor { self =>
     case _ => super.deconstruct(e)
   }
 }
+
+class ConcreteTreeDeconstructor(override val s: Trees, override val t: Trees) extends TreeDeconstructor

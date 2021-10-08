@@ -5,17 +5,24 @@ package termination
 
 import scala.annotation.tailrec
 
-trait RecursionProcessor extends OrderingProcessor {
-  val ordering: OrderingRelation with Strengthener with RelationBuilder {
-    val checker: RecursionProcessor.this.checker.type
-  }
+class RecursionProcessor(override val checker: ProcessingPipeline)
+                        // Alias for checker, as we cannot use it to define ordering
+                        (override val chker: checker.type)
+                        (override val ordering: OrderingRelation with Strengthener with RelationBuilder {
+                          val checker: chker.type
+                        })
+  extends OrderingProcessor("Recursion Processor", checker, ordering) {
 
-  val name: String = "Recursion Processor"
+  def this(chker: ProcessingPipeline,
+           ordering: OrderingRelation with Strengthener with RelationBuilder {
+             val checker: chker.type
+           }) =
+    this(chker)(chker)(ordering)
 
   import checker._
   import checker.context._
   import checker.program.trees._
-  import checker.program.symbols._
+  import checker.program.symbols.{given, _}
   import ordering._
 
   private def isSubtreeOf(expr: Expr, v: Variable): Boolean = {

@@ -7,7 +7,7 @@ package methods
 import inox.utils.Position
 
 import stainless.ast.{Symbol, SymbolIdentifier}
-import stainless.ast.SymbolIdentifier.IdentifierOps
+import SymbolIdentifier.unsafeToSymbolIdentifier
 
 /** This phase transforms super calls into concrete method calls.
  *
@@ -58,17 +58,15 @@ import stainless.ast.SymbolIdentifier.IdentifierOps
  * }
  * }}}
  */
-trait SuperCalls
+class SuperCalls(override val s: Trees, override val t: Trees)
+                (using override val context: inox.Context)
   extends oo.CachingPhase
-    with SimpleSorts
-    with oo.IdentityTypeDefs
-    with oo.SimpleClasses { self =>
-
-  val s: Trees
-  val t: Trees
+     with SimpleSorts
+     with oo.IdentityTypeDefs
+     with oo.SimpleClasses  { self =>
 
   private[this] val superCache = new utils.ConcurrentCache[SymbolIdentifier, SymbolIdentifier]
-  private[this] def superID(id: SymbolIdentifier)(implicit symbols: s.Symbols): SymbolIdentifier =
+  private[this] def superID(id: SymbolIdentifier)(using symbols: s.Symbols): SymbolIdentifier =
     superCache.cached(id) {
       val cid = symbols.getFunction(id).flags.collectFirst { case s.IsMethodOf(cid) => cid }.get
       val last = s"${cid.name}$$${id.symbol.path.last}"
@@ -76,12 +74,13 @@ trait SuperCalls
       SymbolIdentifier(newSymbol)
     }
 
-  private class SuperCollector(implicit symbols: s.Symbols) extends s.SelfTreeTraverser {
+  private class SuperCollector(using val symbols: self.s.Symbols) extends self.s.ConcreteOOSelfTreeTraverser {
+
     private[this] var supers: Set[Identifier] = Set.empty
     def getSupers: Set[Identifier] = supers
 
-    override def traverse(e: s.Expr): Unit = e match {
-      case s.MethodInvocation(s.Super(ct), id, _, _) =>
+    override def traverse(e: self.s.Expr): Unit = e match {
+      case self.s.MethodInvocation(self.s.Super(ct), id, _, _) =>
         supers += id
         super.traverse(e)
       case _ => super.traverse(e)
@@ -94,24 +93,22 @@ trait SuperCalls
 
   override protected final val sortCache = new ExtractionCache[s.ADTSort, SortResult]({ (sort, context) =>
     val symbols = context.symbols
-    val collector = new SuperCollector()(symbols)
+    val collector = new SuperCollector()(using symbols)
     collector.traverse(sort)
-    SortKey(sort) + SetKey(collector.getSupers)(symbols)
+    SortKey(sort) + SetKey(collector.getSupers)(using symbols)
   })
 
   override protected final val classCache = new ExtractionCache[s.ClassDef, ClassResult]({ (cd, context) =>
     val symbols = context.symbols
-    val collector = new SuperCollector()(symbols)
+    val collector = new SuperCollector()(using symbols)
     collector.traverse(cd)
-    ClassKey(cd) + SetKey(collector.getSupers)(symbols)
+    ClassKey(cd) + SetKey(collector.getSupers)(using symbols)
   })
 
-  override protected def getContext(symbols: s.Symbols) = new TransformerContext()(symbols)
+  override protected def getContext(symbols: s.Symbols) = new TransformerContext(self.s, self.t)(using symbols)
 
-  protected class TransformerContext(implicit val symbols: s.Symbols) extends oo.TreeTransformer {
-    override val s: self.s.type = self.s
-    override val t: self.t.type = self.t
-
+  protected class TransformerContext(override val s: self.s.type, override val t: self.t.type)
+                                    (using val symbols: s.Symbols) extends oo.ConcreteTreeTransformer(s, t) {
     import s._
     import symbols._
 
@@ -176,12 +173,11 @@ trait SuperCalls
 }
 
 object SuperCalls {
-  def apply(ts: Trees)(implicit ctx: inox.Context): ExtractionPipeline {
+  def apply(ts: Trees)(using inox.Context): ExtractionPipeline {
     val s: ts.type
     val t: ts.type
-  } = new SuperCalls {
-    override val s: ts.type = ts
-    override val t: ts.type = ts
-    override val context = ctx
+  } = {
+    class Impl(override val s: ts.type, override val t: ts.type) extends SuperCalls(s, t)
+    new Impl(ts, ts)
   }
 }

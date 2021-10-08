@@ -7,9 +7,9 @@ trait VerificationGenerator { self =>
   val program: Program
 
   import program._
-  import program.symbols._
+  import program.symbols.{given, _}
   import program.trees._
-  import CallGraphOrderings._
+  import CallGraphOrderings.{given, _}
 
   type VC = verification.VC[program.trees.type]
 

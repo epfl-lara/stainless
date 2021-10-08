@@ -3,8 +3,6 @@
 package stainless
 package extraction
 
-import scala.language.existentials
-
 package object xlang {
 
   object trees extends xlang.Trees with oo.ClassSymbols {
@@ -12,36 +10,40 @@ package object xlang {
       functions: Map[Identifier, FunDef], sorts: Map[Identifier, ADTSort],
       classes: Map[Identifier, ClassDef],
       typeDefs: Map[Identifier, TypeDef],
-    ) extends ClassSymbols with AbstractSymbols
+    ) extends ClassSymbols with InnerClassesAbstractSymbols {
+      override val symbols: this.type = this
+    }
+
+    override def mkSymbols(
+      functions: Map[Identifier, FunDef],
+      sorts: Map[Identifier, ADTSort],
+      classes: Map[Identifier, ClassDef],
+      typeDefs: Map[Identifier, TypeDef],
+    ): Symbols = {
+      Symbols(functions, sorts, classes, typeDefs)
+    }
 
     object printer extends Printer { val trees: xlang.trees.type = xlang.trees }
   }
 
   /** As `xlang.Trees` don't extend the supported ASTs, the transformation from
     * these trees to `oo.Trees` simply consists in an identity mapping. */
-  def extractor(implicit ctx: inox.Context) = {
-    val lowering: ExtractionPipeline {
-      val s: trees.type
-      val t: innerclasses.trees.type
-    } = new oo.SimplePhase
-          with SimplyCachedFunctions
-          with SimplyCachedSorts
-          with oo.IdentityTypeDefs
-          with oo.SimplyCachedClasses { self =>
-
-      override val s: trees.type = trees
-      override val t: innerclasses.trees.type = innerclasses.trees
-      override val context = ctx
+  def extractor(using ctx: inox.Context) = {
+    class Lowering(override val s: trees.type, override val t: innerclasses.trees.type)(using override val context: inox.Context)
+      extends oo.SimplePhase
+         with SimplyCachedFunctions
+         with SimplyCachedSorts
+         with oo.IdentityTypeDefs
+         with oo.SimplyCachedClasses { self =>
 
       override protected type TransformerContext = identity.type
       override protected def getContext(symbols: s.Symbols) = identity
 
       private def keepFlag(flag: s.Flag): Boolean = flag != s.Ignore && flag != s.StrictBV
 
-      protected final object identity extends oo.TreeTransformer {
-        override val s: self.s.type = self.s
-        override val t: self.t.type = self.t
+      protected val identity = new Identity(self.s, self.t)
 
+      protected class Identity(override val s: self.s.type, override val t: self.t.type) extends oo.ConcreteTreeTransformer(self.s, self.t) {
         override def transform(tpe: s.Type): t.Type = tpe match {
           case s.AnnotatedType(tpe, flags) if flags.exists(keepFlag) =>
             t.AnnotatedType(super.transform(tpe), flags.filter(keepFlag).map(super.transform))
@@ -64,18 +66,19 @@ package object xlang {
         transformer.transform(cd.copy(flags = cd.flags.filter(keepFlag)))
     }
 
+    val lowering = new Lowering(trees, innerclasses.trees)
     utils.DebugPipeline("PartialFunctions", PartialFunctions(trees)) andThen
     utils.DebugPipeline("XlangLowering", lowering)
   }
 
-  def fullExtractor(implicit ctx: inox.Context) = extractor andThen nextExtractor
-  def nextExtractor(implicit ctx: inox.Context) = innerclasses.fullExtractor
+  def fullExtractor(using inox.Context) = extractor andThen nextExtractor
+  def nextExtractor(using inox.Context) = innerclasses.fullExtractor
 
-  def phaseSemantics(implicit ctx: inox.Context): inox.SemanticsProvider { val trees: xlang.trees.type } = {
+  def phaseSemantics(using inox.Context): inox.SemanticsProvider { val trees: xlang.trees.type } = {
     extraction.phaseSemantics(xlang.trees)(fullExtractor)
   }
 
-  def nextPhaseSemantics(implicit ctx: inox.Context): inox.SemanticsProvider { val trees: innerclasses.trees.type } = {
+  def nextPhaseSemantics(using inox.Context): inox.SemanticsProvider { val trees: innerclasses.trees.type } = {
     innerclasses.phaseSemantics
   }
 }

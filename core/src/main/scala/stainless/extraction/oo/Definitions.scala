@@ -22,7 +22,7 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
     def isAbstract: Boolean = flags.contains(IsAbstract)
     def isSealed: Boolean = flags.contains(IsSealed)
 
-    def ancestors(implicit s: Symbols): Seq[TypedClassDef] = {
+    def ancestors(using s: Symbols): Seq[TypedClassDef] = {
       val allAncestors = parents.flatMap(_.lookupClass).flatMap(tcd => tcd +: tcd.ancestors)
       val typedMap = allAncestors.groupBy(_.cd).map { case (cd, tcds) =>
         val tps = cd.typeArgs.zipWithIndex.map { case (tp, i) =>
@@ -38,21 +38,21 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
       allAncestors.map(_.cd).distinct.map(typedMap)
     }
 
-    def children(implicit s: Symbols): Seq[ClassDef] =
+    def children(using s: Symbols): Seq[ClassDef] =
       s.classes.values.filter(_.parents.exists(_.id == id)).toSeq
 
-    def descendants(implicit s: Symbols): Seq[ClassDef] =
+    def descendants(using s: Symbols): Seq[ClassDef] =
       children.flatMap(cd => cd +: cd.descendants).distinct
 
-    def typeMembers(implicit s: Symbols): Seq[SymbolIdentifier] =
+    def typeMembers(using s: Symbols): Seq[SymbolIdentifier] =
       s.typeDefs.values
         .filter(_.flags contains IsTypeMemberOf(id))
         .map(_.id.asInstanceOf[SymbolIdentifier]).toSeq
 
     def typeArgs = tparams map (_.tp)
 
-    def typed(tps: Seq[Type])(implicit s: Symbols): TypedClassDef = TypedClassDef(this, tps)
-    def typed(implicit s: Symbols): TypedClassDef = typed(typeArgs)
+    def typed(tps: Seq[Type])(using Symbols): TypedClassDef = TypedClassDef(this, tps)
+    def typed(using Symbols): TypedClassDef = typed(typeArgs)
 
     def copy(
       id: Identifier = this.id,
@@ -63,7 +63,7 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
     ): ClassDef = new ClassDef(id, tparams, parents, fields, flags).setPos(this)
   }
 
-  case class TypedClassDef(cd: ClassDef, tps: Seq[Type])(implicit val symbols: Symbols) extends Tree {
+  case class TypedClassDef(cd: ClassDef, tps: Seq[Type])(using val symbols: Symbols) extends Tree {
     copiedFrom(cd)
 
     @inline def id: Identifier = cd.id
@@ -133,10 +133,10 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
     def lowerBound: Type = bounds.lo
     def upperBound: Type = bounds.hi
 
-    def typed(tps: Seq[Type])(implicit s: Symbols): AppliedTypeDef =
+    def typed(tps: Seq[Type])(using Symbols): AppliedTypeDef =
       AppliedTypeDef(this, tps)
 
-    def typed(implicit s: Symbols): AppliedTypeDef =
+    def typed(using Symbols): AppliedTypeDef =
       typed(tparams.map(_.tp))
 
     def copy(
@@ -153,7 +153,7 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
     def isAbstract: Boolean = td.isAbstract
     def isFinal: Boolean = td.isFinal
 
-    def bounds(implicit s: Symbols): TypeBounds = {
+    def bounds(using Symbols): TypeBounds = {
       val tpSubst = td.tparams.map(_.tp) zip tps
       typeOps.instantiateType(td.bounds, tpSubst.toMap) match {
         case tb: TypeBounds => tb
@@ -161,12 +161,10 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
       }
     }
 
-    def lowerBound(implicit s: Symbols): Type =
-      bounds.lo
-    def upperBound(implicit s: Symbols): Type =
-      bounds.hi
+    def lowerBound(using Symbols): Type = bounds.lo
+    def upperBound(using Symbols): Type = bounds.hi
 
-    def resolve(implicit s: Symbols): Type = {
+    def resolve(using Symbols): Type = {
       require(!isAbstract)
       val tpSubst = td.tparams.map(_.tp) zip tps
       typeOps.instantiateType(td.rhs, tpSubst.toMap)
@@ -178,25 +176,34 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
   case class TypeDefLookupException(id: Identifier) extends LookupException(id, "type def")
 
 
-  type Symbols >: Null <: AbstractSymbols
+  type Symbols >: Null <: OOAbstractSymbols
 
-  trait AbstractSymbols
-    extends super.AbstractSymbols
-       with DependencyGraph
-       with TypeOps
-       with SymbolOps { self0: Symbols =>
+  trait OOAbstractSymbols
+    extends InnerFunsAbstractSymbols
+       with oo.DependencyGraph
+       with oo.TypeOps
+       with oo.SymbolOps { self0: Symbols =>
+
+    // The only value that can be assigned to `trees`, but that has to be
+    // done in a concrete class explicitly overriding `trees`
+    // Otherwise, we can run into initialization issue.
+    protected val trees: self.type
+    // More or less the same here
+    protected val symbols: this.type
+    import symbols.given
 
     val classes: Map[Identifier, ClassDef]
     val typeDefs: Map[Identifier, TypeDef]
 
     private val typedClassCache: MutableMap[(Identifier, Seq[Type]), Option[TypedClassDef]] = MutableMap.empty
     def lookupClass(id: Identifier): Option[ClassDef] = classes.get(id)
-    def lookupClass(id: Identifier, tps: Seq[Type]): Option[TypedClassDef] =
+    def lookupClass(id: Identifier, tps: Seq[Type]): Option[TypedClassDef] = {
       typedClassCache.getOrElse(id -> tps, {
         val res = lookupClass(id).map(_.typed(tps))
         typedClassCache(id -> tps) = res
         res
       })
+    }
 
     def getClass(id: Identifier): ClassDef =
       lookupClass(id).getOrElse(throw ClassLookupException(id))
@@ -206,12 +213,13 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
     private val appliedTypeDefCache: MutableMap[(Identifier, Seq[Type]), Option[AppliedTypeDef]] = MutableMap.empty
 
     def lookupTypeDef(id: Identifier): Option[TypeDef] = typeDefs.get(id)
-    def lookupTypeDef(id: Identifier, tps: Seq[Type]): Option[AppliedTypeDef] =
+    def lookupTypeDef(id: Identifier, tps: Seq[Type]): Option[AppliedTypeDef] = {
       appliedTypeDefCache.getOrElse(id -> tps, {
         val res = lookupTypeDef(id).map(_.typed(tps))
         appliedTypeDefCache(id -> tps) = res
         res
       })
+    }
 
     def getTypeDef(id: Identifier): TypeDef =
       lookupTypeDef(id).getOrElse(throw TypeDefLookupException(id))
@@ -228,7 +236,7 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
         .withTypeDefs(typeDefs.values.filterNot(isLibrary).toSeq)
     }
 
-    override def asString(implicit opts: PrinterOptions): String = {
+    override def asString(using opts: PrinterOptions): String = {
       typeDefs.map(p => prettyPrint(p._2, opts)).mkString("\n\n") +
         "\n\n-----------\n\n" +
       classes.map(p => prettyPrint(p._2, opts)).mkString("\n\n") +
@@ -252,7 +260,8 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
     }
 
     protected def ensureWellFormedClass(cd: ClassDef): Unit = {
-      cd.parents.find(ct => !ct.isTyped(this)).foreach { pcd =>
+      import symbols.given
+      cd.parents.find(ct => !ct.isTyped(using this)).foreach { pcd =>
         throw NotWellFormedException(cd, Some(s"the parent ${pcd.id} of class ${cd.id} is not well typed."))
       }
 
@@ -274,7 +283,7 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
     }
 
     override def equals(that: Any): Boolean = super.equals(that) && (that match {
-      case sym: AbstractSymbols => classes == sym.classes && typeDefs == sym.typeDefs
+      case sym: OOAbstractSymbols => classes == sym.classes && typeDefs == sym.typeDefs
       case _ => false
     })
 
@@ -288,7 +297,7 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
     def withClasses(classes: Seq[ClassDef]): Symbols
     def withTypeDefs(typeDefs: Seq[TypeDef]): Symbols
 
-    protected class Lookup extends super.Lookup {
+    protected class OOLookup extends Lookup {
       override def get[T <: Definition : ClassTag](name: String): Option[T] = ({
         if (classTag[ClassDef].runtimeClass.isAssignableFrom(classTag[T].runtimeClass)) find(name, classes)
         else if (classTag[TypeDef].runtimeClass.isAssignableFrom(classTag[T].runtimeClass)) find(name, typeDefs)
@@ -306,7 +315,7 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
       }
     }
 
-    override val lookup = new Lookup
+    override val lookup = new OOLookup
   }
 
   case object IsInvariant extends Flag("invariant", Seq.empty)
@@ -322,7 +331,7 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
     case _ => super.extractFlag(name, args)
   }
 
-  implicit class TypeParameterWrapper(tp: TypeParameter) {
+  extension (tp: TypeParameter) {
     def bounds: TypeBounds = {
       val flags = tp.flags.filter { case Bounds(_, _) => false case _ => true }
       tp.flags.collectFirst { case Bounds(lo, hi) => TypeBounds(lo, hi, flags) }

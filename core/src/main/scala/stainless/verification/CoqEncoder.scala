@@ -7,14 +7,14 @@ import CoqExpression._
 object optAdmitAll extends inox.FlagOptionDef("admit-all", false)
 
 trait CoqEncoder {
-  implicit val debugSection = DebugSectionCoq
+  given givenDebugSection: DebugSectionCoq.type = DebugSectionCoq
 
   val p: StainlessProgram
   val ctx: inox.Context
   val st: stainless.trees.type = stainless.trees
 
   import st._
-  import p.symbols._
+  import p.symbols.{given, _}
   import p.symbols.CallGraphOrderings._
 
   // collect the types for which we have no definitions
@@ -219,12 +219,12 @@ trait CoqEncoder {
       ignoreFlags(p.toString, flags)
       ctx.reporter.warning(s"Ignoring type $tpe in the wildcard pattern $p.")
       VariablePattern(Some(makeFresh(id)))
-      case TuplePattern(None, ps) => CoqTuplePattern(ps.map(transformPattern))
-      case TuplePattern(Some(ValDef(id,tpe,flags)), ps) =>
-        ignoreFlags(p.toString, flags)
-        ctx.reporter.warning(s"Ignoring type $tpe in the wildcard pattern $p.")
-        //TODO not tested
-        CoqTuplePatternVd(ps.map(transformPattern), VariablePattern(Some(makeFresh(id))))
+    case TuplePattern(None, ps) => CoqTuplePattern(ps.map(transformPattern))
+    case TuplePattern(Some(ValDef(id,tpe,flags)), ps) =>
+      ignoreFlags(p.toString, flags)
+      ctx.reporter.warning(s"Ignoring type $tpe in the wildcard pattern $p.")
+      //TODO not tested
+      CoqTuplePatternVd(ps.map(transformPattern), VariablePattern(Some(makeFresh(id))))
     case _ => ctx.reporter.fatalError(s"Coq does not support patterns such as `$p` (${p.getClass}) yet.")
   }
 
@@ -415,7 +415,7 @@ trait CoqEncoder {
     val rcg = CoqApplication(recognizer(ctor.id), ids.map(id => CoqUnboundIdentifier(id)))
     val label = poseNew(Mark(ids, ctor.id.name + "_exists"))
     val h = makeFresh("H")
-    val pose = {hyp: CoqExpression =>
+    val pose = {(hyp: CoqExpression) =>
       PoseProof(CoqApplication(proj1(CoqApplication(existsCtor, Seq(CoqUnknown, CoqUnknown))), Seq(hyp)))
     }
     val h1 = makeFresh("H1")

@@ -5,6 +5,5 @@ package extraction
 package imperative
 
 trait TypeOps extends oo.TypeOps {
-  override protected val trees: Trees
+  protected val trees: Trees
 }
-

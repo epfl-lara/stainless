@@ -36,10 +36,10 @@ abstract class Transformer[From <: IR, To <: IR](final val from: From, final val
   val Ø: Env // empty env
 
   // Entry point of the transformation
-  final def apply(prog: Prog): to.Prog = rec(prog)(Ø)
-  final def apply(vd: ValDef): to.ValDef = rec(vd)(Ø)
-  final def apply(e: Expr): to.Expr = rec(e)(Ø)
-  final def apply(typ: Type): to.Type = rec(typ)(Ø)
+  final def apply(prog: Prog): to.Prog = rec(prog)(using Ø)
+  final def apply(vd: ValDef): to.ValDef = rec(vd)(using Ø)
+  final def apply(e: Expr): to.Expr = rec(e)(using Ø)
+  final def apply(typ: Type): to.Type = rec(typ)(using Ø)
 
 
   // See note above about caching & partial function definition
@@ -49,14 +49,14 @@ abstract class Transformer[From <: IR, To <: IR](final val from: From, final val
     funCache.update(older, newer)
   }
 
-  protected def rec(prog: Prog)(implicit env: Env): to.Prog = {
+  protected def rec(prog: Prog)(using Env): to.Prog = {
     if (prog.decls.nonEmpty) {
       val modes = prog.decls.map(_._2)
       val (to.Block(newDecls), newEnv) = recImpl(Block(prog.decls.map(_._1)))
       to.Prog(
         newDecls.map(_.asInstanceOf[to.Decl]).zip(modes),
-        prog.functions.map(rec(_)(newEnv)),
-        prog.classes.map(rec(_)(newEnv)),
+        prog.functions.map(rec(_)(using newEnv)),
+        prog.classes.map(rec(_)(using newEnv)),
       )
     } else {
       to.Prog(
@@ -67,16 +67,16 @@ abstract class Transformer[From <: IR, To <: IR](final val from: From, final val
     }
   }
 
-  protected final def rec(fd: FunDef)(implicit env: Env): to.FunDef = funCache.getOrElse(fd, recImpl(fd))
+  protected final def rec(fd: FunDef)(using Env): to.FunDef = funCache.getOrElse(fd, recImpl(fd))
 
-  protected def recImpl(fd: FunDef)(implicit env: Env): to.FunDef = {
+  protected def recImpl(fd: FunDef)(using Env): to.FunDef = {
     val newer = to.FunDef(fd.id, rec(fd.returnType), fd.ctx map rec, fd.params map rec, null, fd.isExported, fd.isPure)
     registerFunction(fd, newer)
     newer.body = rec(fd.body)
     newer
   }
 
-  protected def rec(fb: FunBody)(implicit env: Env): to.FunBody = (fb: @unchecked) match {
+  protected def rec(fb: FunBody)(using Env): to.FunBody = (fb: @unchecked) match {
     case FunDropped(isAccessor) => to.FunDropped(isAccessor)
     case FunBodyAST(body) => to.FunBodyAST(rec(body))
     case FunBodyManual(headerIncludes, cIncludes, body) => to.FunBodyManual(headerIncludes, cIncludes, body)
@@ -84,7 +84,7 @@ abstract class Transformer[From <: IR, To <: IR](final val from: From, final val
 
   // NOTE Due to the mutability nature of ClassDef and its children registration process,
   //      we need to traverse class hierarchies in a top down fashion. See recImpl.
-  protected final def rec(cd: ClassDef)(implicit env: Env): to.ClassDef = {
+  protected final def rec(cd: ClassDef)(using Env): to.ClassDef = {
     type ClassTranslation = Map[from.ClassDef, to.ClassDef]
 
     def topDown(transformedParent: Option[to.ClassDef], current: from.ClassDef, acc: ClassTranslation): ClassTranslation = {
@@ -102,12 +102,12 @@ abstract class Transformer[From <: IR, To <: IR](final val from: From, final val
     transformed
   }
 
-  protected def recImpl(cd: ClassDef, parent: Option[to.ClassDef])(implicit env: Env): to.ClassDef =
+  protected def recImpl(cd: ClassDef, parent: Option[to.ClassDef])(using env: Env): to.ClassDef =
     to.ClassDef(cd.id, parent, cd.fields map rec, cd.isAbstract, cd.isExported, cd.isPacked)
 
-  protected def rec(vd: ValDef)(implicit env: Env): to.ValDef = to.ValDef(vd.id, rec(vd.typ), vd.isVar)
+  protected def rec(vd: ValDef)(using Env): to.ValDef = to.ValDef(vd.id, rec(vd.typ), vd.isVar)
 
-  protected def rec(alloc: ArrayAlloc)(implicit env: Env): to.ArrayAlloc = (alloc: @unchecked) match {
+  protected def rec(alloc: ArrayAlloc)(using Env): to.ArrayAlloc = (alloc: @unchecked) match {
     case ArrayAllocStatic(ArrayType(base, optLength), length, Right(values)) =>
       to.ArrayAllocStatic(to.ArrayType(rec(base), optLength), length, Right(values map rec))
 
@@ -118,12 +118,12 @@ abstract class Transformer[From <: IR, To <: IR](final val from: From, final val
       to.ArrayAllocVLA(to.ArrayType(rec(base), optLength), rec(length), rec(valueInit))
   }
 
-  protected final def rec(e: Expr)(implicit env: Env): to.Expr = recImpl(e)._1
+  protected final def rec(e: Expr)(using Env): to.Expr = recImpl(e)._1
 
-  protected final def recCallable(fun: Callable)(implicit env: Env): to.Callable = rec(fun).asInstanceOf[to.Callable]
+  protected final def recCallable(fun: Callable)(using Env): to.Callable = rec(fun).asInstanceOf[to.Callable]
 
   // We need to propagate the enviornement accross the whole blocks, not simply by recursing
-  protected def recImpl(e: Expr)(implicit env: Env): (to.Expr, Env) = (e: @unchecked) match {
+  protected def recImpl(e: Expr)(using env: Env): (to.Expr, Env) = (e: @unchecked) match {
     case Binding(vd) => to.Binding(rec(vd)) -> env
 
     case FunVal(fd) => to.FunVal(rec(fd)) -> env
@@ -133,7 +133,7 @@ abstract class Transformer[From <: IR, To <: IR](final val from: From, final val
     case Block(exprs0) =>
       var newEnv = env
       val exprs = for { e0 <- exprs0 } yield {
-        val (e, nextEnv) = recImpl(e0)(newEnv)
+        val (e, nextEnv) = recImpl(e0)(using newEnv)
         newEnv = nextEnv
         e
       }
@@ -167,13 +167,13 @@ abstract class Transformer[From <: IR, To <: IR](final val from: From, final val
     case Break => to.Break -> env
   }
 
-  protected def rec(typ: Type)(implicit env: Env): to.Type = (typ: @unchecked) match {
+  protected def rec(typ: Type)(using Env): to.Type = (typ: @unchecked) match {
     case PrimitiveType(pt) => to.PrimitiveType(pt)
     case FunType(ctx, params, ret) => to.FunType(ctx map rec, params map rec, rec(ret))
     case ClassType(clazz) => to.ClassType(rec(clazz))
     case ArrayType(base, optLength) => to.ArrayType(rec(base), optLength)
     case ReferenceType(t) => to.ReferenceType(rec(t))
-    case TypeDefType(original, alias, include, export) => to.TypeDefType(original, alias, include, export)
+    case TypeDefType(original, alias, include, exprt) => to.TypeDefType(original, alias, include, exprt)
     case DroppedType => to.DroppedType
     case NoType => to.NoType
   }

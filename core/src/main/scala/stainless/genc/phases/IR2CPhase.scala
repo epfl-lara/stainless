@@ -15,11 +15,11 @@ import SIR._
 
 import collection.mutable.{ Map => MutableMap, Set => MutableSet }
 
-trait IR2CPhase extends LeonPipeline[SIR.Prog, CAST.Prog] {
+class IR2CPhase(using override val context: inox.Context) extends LeonPipeline[SIR.Prog, CAST.Prog](context) {
   val name = "CASTer"
   val description = "Translate the IR tree into the final C AST"
 
-  def run(ir: SIR.Prog): CAST.Prog = new IR2CImpl()(context)(ir)
+  def run(ir: SIR.Prog): CAST.Prog = new IR2CImpl()(using context)(ir)
 }
 
 // This implementation is basically a Transformer that produce something which isn't an IR tree.
@@ -27,7 +27,7 @@ trait IR2CPhase extends LeonPipeline[SIR.Prog, CAST.Prog] {
 //
 // Function conversion is pretty straighforward at this point of the pipeline. Expression conversion
 // require little care. But class conversion is harder; see detailed procedure below.
-private class IR2CImpl()(implicit val ctx: inox.Context) {
+private class IR2CImpl()(using ctx: inox.Context) {
   def apply(ir: Prog): C.Prog = rec(ir)
 
   // We use a cache to keep track of the C function, struct, ...
@@ -128,9 +128,9 @@ private class IR2CImpl()(implicit val ctx: inox.Context) {
     case array @ ArrayType(base, Some(length)) => C.FixedArrayType(rec(base), length)
     case ReferenceType(t) => C.Pointer(rec(t))
 
-    case TypeDefType(original, alias, include, export) =>
+    case TypeDefType(original, alias, include, exprt) =>
       include foreach { i => registerHeaderInclude(C.Include(i)) }
-      val td = C.TypeDef(rec(original), rec(alias), export)
+      val td = C.TypeDef(rec(original), rec(alias), exprt)
       register(td)
       td
 
@@ -679,10 +679,4 @@ private class IR2CImpl()(implicit val ctx: inox.Context) {
     }
   }
 
-}
-
-object IR2CPhase {
-  def apply(implicit ctx: inox.Context): LeonPipeline[SIR.Prog, CAST.Prog] = new {
-    val context = ctx
-  } with IR2CPhase
 }

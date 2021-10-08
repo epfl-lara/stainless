@@ -4,19 +4,16 @@ package stainless
 package extraction
 package inlining
 
-trait ChooseInjector extends CachingPhase with IdentitySorts { self =>
-
-  implicit val context: inox.Context
-
-  val s: inlining.Trees
-  val t: inlining.Trees
+class ChooseInjector(override val s: inlining.Trees,
+                     override val t: inlining.Trees)
+                    (using override val context: inox.Context)
+  extends CachingPhase with IdentitySorts { self =>
 
   import s._
   import exprOps._
 
-
   override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult]((fd, context) =>
-    getDependencyKey(fd.id)(context.symbols)
+    getDependencyKey(fd.id)(using context.symbols)
   )
 
   override protected type FunctionResult = Seq[t.FunDef]
@@ -91,12 +88,11 @@ trait ChooseInjector extends CachingPhase with IdentitySorts { self =>
 }
 
 object ChooseInjector {
-  def apply(it: inlining.Trees)(implicit ctx: inox.Context): ExtractionPipeline {
+  def apply(it: inlining.Trees)(using inox.Context): ExtractionPipeline {
     val s: it.type
     val t: it.type
-  } = new {
-    override val context = ctx
-    override val s: it.type = it
-    override val t: it.type = it
-  } with ChooseInjector
+  } = {
+    class Impl(override val s: it.type, override val t: it.type) extends ChooseInjector(s, t)
+    new Impl(it, it)
+  }
 }

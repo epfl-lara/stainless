@@ -7,7 +7,6 @@ import extraction.xlang.{trees => xt}
 import io.circe._
 
 import scala.concurrent.Future
-import scala.language.existentials
 
 trait Component { self =>
   val name: String
@@ -21,7 +20,7 @@ trait Component { self =>
     val t: extraction.trees.type
   }
 
-  def run(pipeline: extraction.StainlessPipeline)(implicit context: inox.Context): ComponentRun { val component: self.type }
+  def run(pipeline: extraction.StainlessPipeline)(using inox.Context): ComponentRun { val component: self.type }
 }
 
 object optFunctions extends inox.OptionDef[Seq[String]] {
@@ -48,10 +47,10 @@ object optModels extends inox.OptionDef[Seq[String]] {
 trait ComponentRun { self =>
   val component: Component
   val trees: ast.Trees
-  implicit val context: inox.Context
+  val context: inox.Context
   protected val pipeline: extraction.StainlessPipeline
 
-  import context._
+  import context.{given, _}
   import component.{Report, Analysis}
 
   def parse(json: Json): Report
@@ -62,10 +61,9 @@ trait ComponentRun { self =>
   } = {
     val otherComponents = MainHelpers.components.filterNot(_ == component)
     if (otherComponents.isEmpty) {
-      val transformer = new transformers.TreeTransformer {
-        override val s: extraction.trees.type = extraction.trees
-        override val t: extraction.trees.type = extraction.trees
-      }
+      class TransformerImpl(override val s: extraction.trees.type, override val t: extraction.trees.type)
+        extends transformers.ConcreteTreeTransformer(s, t)
+      val transformer = new TransformerImpl(extraction.trees, extraction.trees)
       extraction.ExtractionPipeline(transformer)
     } else {
       val transformer = otherComponents.map(_.lowering).reduceLeft(_ andThen _)

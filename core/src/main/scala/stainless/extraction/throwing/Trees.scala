@@ -10,7 +10,7 @@ import stainless.transformers.TreeTraverser
 
 trait Trees extends imperative.Trees { self =>
 
-  protected def getExceptionType(implicit s: Symbols): Option[Type] =
+  protected def getExceptionType(using s: Symbols): Option[Type] =
     s.lookup.get[ClassDef]("stainless.lang.Exception").map(cd => ClassType(cd.id, Seq()))
 
   /** Throwing clause of an [[ast.Expressions.Expr]]. Corresponds to the Stainless keyword *throwing*
@@ -21,7 +21,7 @@ trait Trees extends imperative.Trees { self =>
     *             is `stainless.lang.Exception` and defines the exceptional cases of this function.
     */
   sealed case class Throwing(body: Expr, pred: Lambda) extends Expr with CachingTyped {
-    override protected def computeType(implicit s: Symbols): Type = (pred.getType, getExceptionType) match {
+    override protected def computeType(using Symbols): Type = (pred.getType, getExceptionType) match {
       case (FunctionType(Seq(expType), BooleanType()), Some(tpe)) => checkParamType(tpe, expType, body.getType)
       case _ => Untyped
     }
@@ -32,7 +32,7 @@ trait Trees extends imperative.Trees { self =>
     * @param ex The exception to be thrown.
     */
   sealed case class Throw(ex: Expr) extends Expr with CachingTyped {
-    override protected def computeType(implicit s: Symbols): Type = getExceptionType match {
+    override protected def computeType(using Symbols): Type = getExceptionType match {
       case Some(tpe) => checkParamType(ex.getType, tpe, NothingType())
       case _ => Untyped
     }
@@ -40,7 +40,7 @@ trait Trees extends imperative.Trees { self =>
 
   /** Try-catch-finally block. Corresponds to Scala's *try { ... } catch { ... } finally { ... }* */
   sealed case class Try(body: Expr, cases: Seq[MatchCase], finallizer: Option[Expr]) extends Expr with CachingTyped {
-    override protected def computeType(implicit s: Symbols): Type = getExceptionType match {
+    override protected def computeType(using s: Symbols): Type = getExceptionType match {
       case Some(tpe) if (
         cases.forall { case MatchCase(pat, guard, rhs) =>
           s.patternIsTyped(tpe, pat) &&
@@ -52,15 +52,15 @@ trait Trees extends imperative.Trees { self =>
     }
   }
 
-  override val exprOps: ExprOps { val trees: Trees.this.type } = new {
-    protected val trees: Trees.this.type = Trees.this
-  } with ExprOps
+  override val exprOps: ExprOps { val trees: self.type } = {
+    class ExprOpsImpl(override val trees: self.type) extends ExprOps(trees)
+    new ExprOpsImpl(self)
+  }
 
   override def getDeconstructor(that: inox.ast.Trees): inox.ast.TreeDeconstructor { val s: self.type; val t: that.type } = that match {
-    case tree: Trees => new TreeDeconstructor {
-      protected val s: self.type = self
-      protected val t: tree.type = tree
-    }.asInstanceOf[TreeDeconstructor { val s: self.type; val t: that.type }]
+    case tree: (Trees & that.type) => // The `& that.type` trick allows to convince scala that `tree` and `that` are actually equal...
+      class DeconstructorImpl(override val s: self.type, override val t: tree.type & that.type) extends ConcreteTreeDeconstructor(s, t)
+      new DeconstructorImpl(self, tree)
 
     case _ => super.getDeconstructor(that)
   }
@@ -70,7 +70,7 @@ trait Printer extends imperative.Printer {
   protected val trees: Trees
   import trees._
 
-  override def ppBody(tree: Tree)(implicit ctx: PrinterContext): Unit = tree match {
+  override def ppBody(tree: Tree)(using PrinterContext): Unit = tree match {
     case Throwing(Ensuring(body, post), pred) =>
       p"""|{
           |  $body
@@ -116,8 +116,7 @@ trait Printer extends imperative.Printer {
   }
 }
 
-trait ExprOps extends imperative.ExprOps { self =>
-  protected val trees: Trees
+class ExprOps(override val trees: Trees) extends imperative.ExprOps(trees) { self =>
   import trees._
 
   object ExceptionsKind extends SpecKind("exceptions") { type Spec = Exceptions }
@@ -191,3 +190,5 @@ trait TreeDeconstructor extends imperative.TreeDeconstructor {
     case _ => super.deconstruct(e)
   }
 }
+
+class ConcreteTreeDeconstructor(override val s: Trees, override val t: Trees) extends TreeDeconstructor

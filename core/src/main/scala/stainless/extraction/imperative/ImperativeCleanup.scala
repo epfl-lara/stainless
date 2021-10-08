@@ -14,20 +14,18 @@ package imperative
   * We also eliminate expressions that deconstruct a tuple just to
   * reconstruct it right after.
   */
-trait ImperativeCleanup
+class ImperativeCleanup(override val s: Trees, override val t: oo.Trees)
+                       (using override val context: inox.Context)
   extends oo.SimplePhase
      with SimplyCachedFunctions
      with SimplyCachedSorts
      with oo.SimplyCachedTypeDefs
      with oo.SimplyCachedClasses { self =>
 
-  val s: Trees
-  val t: oo.Trees
+  override protected def getContext(symbols: s.Symbols) = new TransformerContext(self.s, self.t)(using symbols)
 
-  override protected def getContext(symbols: s.Symbols) = new TransformerContext(symbols)
-  protected class TransformerContext(val symbols: s.Symbols) extends oo.TreeTransformer { // CheckingTransformer {
-    val s: self.s.type = self.s
-    val t: self.t.type = self.t
+  protected class TransformerContext(override val s: self.s.type, override val t: self.t.type)
+                                    (using val symbols: s.Symbols) extends oo.ConcreteTreeTransformer(s, t) { // CheckingTransformer {
     import symbols._
 
     def isImperativeFlag(f: s.Flag): Boolean = f match {
@@ -156,12 +154,11 @@ trait ImperativeCleanup
 }
 
 object ImperativeCleanup {
-  def apply(ts: Trees, tt: oo.Trees)(implicit ctx: inox.Context): ExtractionPipeline {
+  def apply(ts: Trees, tt: oo.Trees)(using inox.Context): ExtractionPipeline {
     val s: ts.type
     val t: tt.type
-  } = new ImperativeCleanup {
-    override val s: ts.type = ts
-    override val t: tt.type = tt
-    override val context = ctx
+  } = {
+    class Impl(override val s: ts.type, override val t: tt.type) extends ImperativeCleanup(s, t)
+    new Impl(ts, tt)
   }
 }

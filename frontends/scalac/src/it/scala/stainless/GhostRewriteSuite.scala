@@ -12,7 +12,6 @@ class GhostRewriteSuite extends AnyFunSpec {
   val settings = new Settings()
   settings.stopAfter.value = List("refchecks")
   settings.usejavacp.value = false
-  settings.classpath.value = Main.extraClasspath
 
   val reporter = new StoreReporter(settings)
 
@@ -20,13 +19,14 @@ class GhostRewriteSuite extends AnyFunSpec {
     new CheckingGlobal(settings)
   }
 
-  class CheckingGlobal(settings: Settings) extends Global(settings, reporter) {
+  class CheckingGlobal(settings: Settings) extends Global(settings, reporter) { glob =>
 
     private val ctx: inox.Context = stainless.TestContext.empty
 
-    override def loadPlugins() = List(
-      new { override val stainlessContext = ctx } with StainlessPlugin(this)
-    )
+    override def loadPlugins() = {
+      class Impl(override val stainlessContext: inox.Context) extends StainlessPlugin(this)
+      List(new Impl(ctx))
+    }
 
     class GhostChecks extends Traverser {
       val ghostAnnotation = rootMirror.getRequiredClass("stainless.annotation.ghost")
@@ -34,11 +34,11 @@ class GhostRewriteSuite extends AnyFunSpec {
         val sym = tree.symbol
         tree match {
           case Ident(_) if sym.hasAnnotation(ghostAnnotation) && !currentOwner.isSynthetic =>
-            reporter.error(tree.pos, s"Access to ghost symbol leftover after rewrite.")
+            glob.reporter.error(tree.pos, s"Access to ghost symbol leftover after rewrite.")
 
           case Select(qual, _) if sym.hasAnnotation(ghostAnnotation) && !currentOwner.isSynthetic =>
             if (!currentOwner.isAccessor)
-              reporter.error(tree.pos, s"Access to ghost symbol leftover after rewrite.")
+              glob.reporter.error(tree.pos, s"Access to ghost symbol leftover after rewrite.")
             super.traverse(tree)
 
           case Assign(Ident(_), rhs) =>

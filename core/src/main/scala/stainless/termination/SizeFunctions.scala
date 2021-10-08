@@ -5,8 +5,7 @@ package termination
 
 import scala.collection.mutable.{Map => MutableMap, ListBuffer}
 
-trait SizeFunctions {
-  val trees: Trees
+class SizeFunctions(val trees: Trees) {
   import trees._
   import dsl._
 
@@ -14,7 +13,7 @@ trait SizeFunctions {
 
   def getFunctions(symbols: Symbols) = synchronized {
     val sortIds = symbols.sorts.values.map { sort =>
-      fullSizeFun(sort)(symbols).id
+      fullSizeFun(sort)(using symbols).id
     }.toSet
 
     val fullSizeIds = fullCache.values.toSet
@@ -54,7 +53,7 @@ trait SizeFunctions {
 
   private val bvCache: MutableMap[BVType, FunDef] = MutableMap.empty
 
-  def bvAbs(tpe: BVType)(implicit symbols: Symbols): FunDef = synchronized {
+  def bvAbs(tpe: BVType)(using Symbols): FunDef = synchronized {
     val zero = BVLiteral(tpe.signed, 0, tpe.size)
     bvCache.getOrElseUpdate(tpe, {
       val fd = mkFunDef(FreshIdentifier("bvAbs" + tpe.size))()(_ =>
@@ -89,11 +88,11 @@ trait SizeFunctions {
    * }) ensuring (_ >= 0)
    */
 
-  def bvAbs2Integer(tpe: BVType)(implicit symbols: Symbols): FunDef = {
+  def bvAbs2Integer(tpe: BVType)(using Symbols): FunDef = {
     if (tpe.signed) signedBVAbs2Integer(tpe) else unsignedBVAbs2Integer(tpe)
   }
 
-  def unsignedBVAbs2Integer(tpe: BVType)(implicit symbols: Symbols): FunDef = synchronized {
+  def unsignedBVAbs2Integer(tpe: BVType)(using Symbols): FunDef = synchronized {
     require(!tpe.signed)
 
     bv2IntegerCache.getOrElseUpdate(tpe, {
@@ -119,7 +118,7 @@ trait SizeFunctions {
     )
   }
 
-  def signedBVAbs2Integer(tpe: BVType)(implicit symbols: Symbols): FunDef = synchronized {
+  def signedBVAbs2Integer(tpe: BVType)(using Symbols): FunDef = synchronized {
     require(tpe.signed)
 
     bv2IntegerCache.getOrElseUpdate(tpe, {
@@ -155,7 +154,7 @@ trait SizeFunctions {
     fullCache.getOrElseUpdate(sort, FreshIdentifier(s"${sort.id.name}PrimitiveSize"))
   }
 
-  private def fullSizeFun(sort: ADTSort)(implicit symbols: Symbols): FunDef = synchronized {
+  private def fullSizeFun(sort: ADTSort)(using Symbols): FunDef = synchronized {
     val id = fullSizeId(sort)
     val tparams = sort.tparams.map(_.tp)
 
@@ -186,7 +185,7 @@ trait SizeFunctions {
    * Computes (positive) size of Stainless types by summing up all sub-elements
    * accessible in the type definition.
    */
-  def fullSize(expr: Expr)(implicit symbols: Symbols): Expr = synchronized {
+  def fullSize(expr: Expr)(using symbols: Symbols): Expr = synchronized {
     expr.getType match {
       case adt: ADTType =>
         val id = fullSizeId(adt.getSort.definition)

@@ -6,9 +6,10 @@ package transformers
 trait SimplifierWithPC extends Transformer with inox.transformers.SimplifierWithPC {
   val trees: ast.Trees
   import trees._
-  import symbols._
+  import symbols.{given, _}
 
-  implicit val pp: PathProvider[Env]
+  val pp: PathProvider[Env]
+  given givenPP: pp.type = pp
 
   override protected def simplify(e: Expr, path: Env): (Expr, Boolean) = e match {
     case Let(vd, a @ Annotated(ADTSelector(v: Variable, _), flags), b) if flags.contains(DropVCs) =>

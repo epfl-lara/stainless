@@ -52,7 +52,7 @@ class DependencyResolver(ctx: inox.Context, repositories: Set[Repository]) {
     Repositories.bintray("epfl-lara", "maven")
   )
 
-  implicit private val debugSection = DebugSectionExtraDeps
+  private given givenDebugSection: DebugSectionExtraDeps.type = DebugSectionExtraDeps
 
   def fetchAll(deps: Set[Dependency]): Seq[String] = {
     val repos = defaultRepositories ++ repositories

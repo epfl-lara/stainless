@@ -2,8 +2,6 @@
 
 package stainless
 
-import scala.language.existentials
-
 /** Provides definitions for a hierarchy of languages above stainless,
   * topped by xlang, which is the extended input language of stainless.
   *
@@ -81,17 +79,17 @@ package object extraction {
     case object Uncached extends Flag("uncached", Seq.empty)
 
     override def getDeconstructor(that: inox.ast.Trees): inox.ast.TreeDeconstructor { val s: self.type; val t: that.type } = that match {
-      case tree: Trees => new TreeDeconstructor {
-        protected val s: self.type = self
-        protected val t: tree.type = tree
-      }.asInstanceOf[TreeDeconstructor { val s: self.type; val t: that.type }]
+      case tree: (Trees & that.type) => // The `& that.type` trick allows to convince scala that `tree` and `that` are actually equal...
+        class DeconstructorImpl(override val s: self.type, override val t: tree.type & that.type) extends ConcreteTreeDeconstructor(s, t)
+        new DeconstructorImpl(self, tree)
 
       case _ => super.getDeconstructor(that)
     }
 
-    override val exprOps: ExprOps { val trees: self.type } = new {
-      protected val trees: self.type = self
-    } with ExprOps
+    override val exprOps: ExprOps { val trees: self.type } = {
+      class ExprOpsImpl(override val trees: self.type) extends ExprOps(trees)
+      new ExprOpsImpl(self)
+    }
   }
 
   /** Unifies all stainless tree printers */
@@ -103,14 +101,22 @@ package object extraction {
     protected val t: Trees
   }
 
+  class ConcreteTreeDeconstructor(override val s: Trees, override val t: Trees) extends TreeDeconstructor
+
   /** Unifies all stainless expression operations */
-  trait ExprOps extends ast.ExprOps
+  class ExprOps(override val trees: Trees) extends ast.ExprOps(trees)
 
   object trees extends Trees with inox.ast.SimpleSymbols {
     case class Symbols(
       functions: Map[Identifier, FunDef],
       sorts: Map[Identifier, ADTSort]
-    ) extends SimpleSymbols with AbstractSymbols
+    ) extends SimpleSymbols with StainlessAbstractSymbols {
+      override val symbols: this.type = this
+    }
+
+    override def mkSymbols(functions: Map[Identifier, FunDef], sorts: Map[Identifier, ADTSort]): Symbols = {
+      Symbols(functions, sorts)
+    }
 
     object printer extends Printer { val trees: extraction.trees.type = extraction.trees }
   }
@@ -118,7 +124,7 @@ package object extraction {
   case class MalformedStainlessCode(tree: inox.ast.Trees#Tree, msg: String)
     extends Exception(msg)
 
-  def pipeline(implicit ctx: inox.Context): StainlessPipeline = {
+  def pipeline(using inox.Context): StainlessPipeline = {
     xlang.extractor        andThen
     innerclasses.extractor andThen
     methods.extractor      andThen
@@ -132,19 +138,20 @@ package object extraction {
   }
 
   private[this] def completeSymbols(symbols: trees.Symbols)(to: ast.Trees): to.Symbols = {
-    symbols.transform(new CheckingTransformer {
-      override val s: extraction.trees.type = extraction.trees
-      override val t: to.type = to
-    })
+    class CompleteSymbolsImpl(override val s: extraction.trees.type, override val t: to.type) extends CheckingTransformer
+    symbols.transform(new CompleteSymbolsImpl(extraction.trees, to))
   }
 
-  def completer(to: ast.Trees)(implicit ctx: inox.Context) = new ExtractionPipeline { self =>
-    override val s: extraction.trees.type = extraction.trees
-    override val t: to.type = to
-    override val context = ctx
+  def completer(to: ast.Trees)(using inox.Context) = {
+    class CompleterImpl(override val s: extraction.trees.type,
+                        override val t: to.type)
+                       (using override val context: inox.Context)
+      extends ExtractionPipeline { self =>
 
-    override def invalidate(id: Identifier): Unit = ()
-    override def extract(symbols: s.Symbols): t.Symbols = completeSymbols(symbols)(to)
+      override def invalidate(id: Identifier): Unit = ()
+      override def extract(symbols: s.Symbols): t.Symbols = completeSymbols(symbols)(to)
+    }
+    new CompleterImpl(extraction.trees, to)
   }
 
   type StainlessPipeline = ExtractionPipeline {
@@ -152,9 +159,11 @@ package object extraction {
     val t: trees.type
   }
 
-  implicit val extractionSemantics: inox.SemanticsProvider { val trees: extraction.trees.type } = {
+  val extractionSemantics: inox.SemanticsProvider { val trees: extraction.trees.type } = {
     getSemantics(extraction.trees)(syms => syms)
   }
+
+  given givenExtractionSemantics: extractionSemantics.type = extractionSemantics
 
   def phaseSemantics(tr: ast.Trees)
                     (pipeline: ExtractionPipeline { val s: tr.type; val t: extraction.trees.type }):
@@ -176,25 +185,24 @@ package object extraction {
         private[this] val targetSymbols = completeSymbols(processSymbols(symbols))(stainless.trees)
         private[this] val targetProgram = inox.Program(stainless.trees)(targetSymbols)
 
-        private object encoder extends inox.transformers.ProgramTransformer {
-          override val sourceProgram: self.program.type = self.program
-          override val targetProgram = self.targetProgram
+        private class ProgramEncoderImpl(override val sourceProgram: self.program.type,
+                                         override val targetProgram: self.targetProgram.type )
+          extends inox.transformers.ProgramTransformer {
 
-          override object encoder extends transformers.TreeTransformer {
-            val s: trees.type = trees
-            val t: stainless.trees.type = stainless.trees
-          }
+          class EncoderImpl(override val s: trees.type, override val t: stainless.trees.type)
+            extends transformers.ConcreteTreeTransformer(s, t)
+          override val encoder = new EncoderImpl(trees, stainless.trees)
 
-          override object decoder extends transformers.TreeTransformer {
-            val s: stainless.trees.type = stainless.trees
-            val t: trees.type = trees
-          }
+          class DecoderImpl(override val s: stainless.trees.type, override val t: trees.type)
+            extends transformers.ConcreteTreeTransformer(s, t)
+          override val decoder = new DecoderImpl(stainless.trees, trees)
         }
+        private val encoder = new ProgramEncoderImpl(self.program, self.targetProgram)
 
         protected def createSolver(ctx: inox.Context): inox.solvers.SolverFactory {
           val program: self.program.type
           type S <: inox.solvers.combinators.TimeoutSolver { val program: self.program.type }
-        } = solvers.SolverFactory.getFromSettings(self.program, ctx)(encoder)(self.asInstanceOf[self.program.Semantics])
+        } = solvers.SolverFactory.getFromSettings(self.program, ctx)(encoder)(using self.asInstanceOf[self.program.Semantics])
 
         protected def createEvaluator(ctx: inox.Context): inox.evaluators.DeterministicEvaluator {
           val program: self.program.type

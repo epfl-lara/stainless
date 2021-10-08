@@ -4,8 +4,6 @@ package stainless
 package extraction
 package methods
 
-import scala.language.existentials
-
 /** Add `IsMutable` flag to classes that are mutable.
   *
   * Compute a fixpoint of all classes that are mutable by taking into account:
@@ -15,14 +13,12 @@ import scala.language.existentials
   * - descendants that are mutable
   * - classes that are already marked mutable
   */
-
 trait MutabilityAnalyzer extends oo.ExtractionPipeline { self =>
-
   val s: Trees
   val t: s.type
   import s._
 
-  protected class MutabilityAnalysis(implicit val symbols: Symbols) {
+  protected class MutabilityAnalysis(using val symbols: Symbols) {
 
     // This function is used in the fixpoint below to gather ClassType's that
     // contain a getter whose return type is mutable.

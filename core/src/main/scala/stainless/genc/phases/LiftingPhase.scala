@@ -13,16 +13,10 @@ import ir.{ ClassLifter }
  *
  * This is done in order to use tagged union to represent classes in C.
  */
-trait LiftingPhase extends LeonPipeline[NIR.Prog, LIR.Prog] {
+class LiftingPhase(using override val context: inox.Context) extends LeonPipeline[NIR.Prog, LIR.Prog](context) {
   val name = "Lifter"
 
-  private implicit val debugSection = DebugSectionGenC
+  private given givenDebugSection: DebugSectionGenC.type = DebugSectionGenC
 
   def run(nprog: NIR.Prog): LIR.Prog = new ClassLifter(context)(nprog)
-}
-
-object LiftingPhase {
-  def apply(implicit ctx: inox.Context): LeonPipeline[NIR.Prog, LIR.Prog] = new {
-    val context = ctx
-  } with LiftingPhase
 }

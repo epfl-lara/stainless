@@ -33,7 +33,7 @@ class FullImperativeSuite extends ComponentTestSuite with inox.MainHelpers {
     case _ => super.filter(ctx, name)
   }
 
-  val component = VerificationComponent
+  override val component: VerificationComponent.type = VerificationComponent
 
   // This method was copied from the super class and overriden to filter out the 'copy' method from the extracted symbols,
   // since it involves allocations, and that isn't supported yet.
@@ -51,7 +51,7 @@ class FullImperativeSuite extends ComponentTestSuite with inox.MainHelpers {
         file <- fs.sortBy(_.getPath)
         path = file.getPath
         name = file.getName stripSuffix ".scala"
-      } test(s"$dir/$name", ctx => filter(ctx, s"$dir/$name")) { implicit ctx =>
+      } test(s"$dir/$name", ctx => filter(ctx, s"$dir/$name")) { ctx ?=>
         val (structure, program) = loadFiles(Seq(path))
         assert((structure count { _.isMain }) == 1, "Expecting only one main unit")
         val errors = TreeSanitizer(xt).enforce(program.symbols)
@@ -77,7 +77,7 @@ class FullImperativeSuite extends ComponentTestSuite with inox.MainHelpers {
           defs ++
           exProgram.symbols.functions.values.filter(fd => derived(fd.flags)).map(_.id) ++
           exProgram.symbols.sorts.values.filter(sort => derived(sort.flags)).map(_.id)
-        } (unit.allFunctions(program.symbols).toSet ++ unit.allClasses)
+        } (unit.allFunctions(using program.symbols).toSet ++ unit.allClasses)
 
         val funs = defs.filter(exProgram.symbols.functions contains _).toSeq.filterNot(_.name.startsWith("copy")) // we filter out the copy methods
 
@@ -85,7 +85,7 @@ class FullImperativeSuite extends ComponentTestSuite with inox.MainHelpers {
         block(report, ctx.reporter)
       }
     } else {
-      implicit val ctx = inox.TestContext.empty
+      given ctx: inox.Context = inox.TestContext.empty
       val (structure, program) = loadFiles(fs.map(_.getPath))
       program.symbols.ensureWellFormed
 
@@ -95,8 +95,8 @@ class FullImperativeSuite extends ComponentTestSuite with inox.MainHelpers {
         unit <- structure
         if unit.isMain
         name = unit.id.name
-      } test(s"$dir/$name", ctx => filter(ctx, s"$dir/$name")) { implicit ctx =>
-        val defs = (unit.allFunctions(program.symbols).toSet ++ unit.allClasses).filterNot(_.name.startsWith("copy")) // we filter out the copy methods
+      } test(s"$dir/$name", ctx => filter(ctx, s"$dir/$name")) { ctx ?=>
+        val defs = (unit.allFunctions(using program.symbols).toSet ++ unit.allClasses).filterNot(_.name.startsWith("copy")) // we filter out the copy methods
 
         val deps = defs.flatMap(id => program.symbols.dependencies(id) + id)
         val symbols = extraction.xlang.trees.NoSymbols

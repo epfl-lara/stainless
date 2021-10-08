@@ -11,7 +11,7 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
     * respective type for value types.
     */
   sealed case class NoTree(tpe: Type) extends Expr with Terminal {
-    override def getType(implicit s: Symbols): Type = tpe.getType
+    override def getType(using Symbols): Type = tpe.getType
   }
 
 
@@ -26,7 +26,7 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
     * @param description The description of the error
     */
   sealed case class Error(tpe: Type, description: String) extends Expr with Terminal {
-    override def getType(implicit s: Symbols): Type = tpe.getType
+    override def getType(using Symbols): Type = tpe.getType
   }
 
 
@@ -36,7 +36,7 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
     * @param body The body following the ``require(...)``
     */
   sealed case class Require(pred: Expr, body: Expr) extends Expr with CachingTyped {
-    override protected def computeType(implicit s: Symbols): Type = {
+    override protected def computeType(using s: Symbols): Type = {
       if (s.isSubtypeOf(pred.getType, BooleanType())) body.getType
       else Untyped
     }
@@ -47,7 +47,7 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
     * @param body
     */
   sealed case class Annotated(body: Expr, flags: Seq[Flag]) extends Expr with CachingTyped {
-    override protected def computeType(implicit s: Symbols): Type = body.getType
+    override protected def computeType(using s: Symbols): Type = body.getType
   }
 
   /** Postcondition of an [[Expressions.Expr]]. Corresponds to the Stainless keyword *ensuring*
@@ -56,7 +56,7 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
     * @param pred The predicate to satisfy. It should be a function whose argument's type can handle the type of the body
     */
   sealed case class Ensuring(body: Expr, pred: Lambda) extends Expr with CachingTyped {
-    override protected def computeType(implicit s: Symbols): Type = pred.getType match {
+    override protected def computeType(using s: Symbols): Type = pred.getType match {
       case FunctionType(Seq(bodyType), BooleanType()) if s.isSubtypeOf(body.getType, bodyType) =>
         body.getType
       case _ =>
@@ -64,7 +64,7 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
     }
 
     /** Converts this ensuring clause to the body followed by an assert statement */
-    def toAssert(implicit s: Symbols): Expr = {
+    def toAssert(using s: Symbols): Expr = {
       val res = ValDef(FreshIdentifier("res", true), getType)
       Let(res, body, Assert(
         s.application(pred, Seq(res.toVariable)),
@@ -81,7 +81,7 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
     * @param body The expression following `assert(..., ...)`
     */
   sealed case class Assert(pred: Expr, error: Option[String], body: Expr) extends Expr with CachingTyped {
-    override protected def computeType(implicit s: Symbols): Type = {
+    override protected def computeType(using s: Symbols): Type = {
       if (s.isSubtypeOf(pred.getType, BooleanType())) body.getType
       else Untyped
     }
@@ -100,7 +100,7 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
   sealed case class MatchExpr(scrutinee: Expr, cases: Seq[MatchCase]) extends Expr with CachingTyped {
     require(cases.nonEmpty)
 
-    override protected def computeType(implicit s: Symbols): Type =
+    override protected def computeType(using s: Symbols): Type =
       if (cases forall { case MatchCase(pat, guard, rhs) =>
         s.patternIsTyped(scrutinee.getType, pat) &&
         guard.forall(_.getType == BooleanType())
@@ -157,11 +157,11 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
     val subPatterns = Seq()
   }
 
-  protected def unapplyScrut(scrut: Expr, up: UnapplyPattern)(implicit s: Symbols): Expr = {
+  protected def unapplyScrut(scrut: Expr, up: UnapplyPattern)(using s: Symbols): Expr = {
     FunctionInvocation(up.id, up.tps, up.recs :+ scrut)
   }
 
-  protected def unapplyAccessor(unapplied: Expr, id: Identifier, up: UnapplyPattern)(implicit s: Symbols): Expr = {
+  protected def unapplyAccessor(unapplied: Expr, id: Identifier, up: UnapplyPattern)(using s: Symbols): Expr = {
     val fd = s.lookupFunction(id)
       .filter(_.params.size == 1)
       .getOrElse(throw extraction.MalformedStainlessCode(up, "Invalid unapply accessor"))
@@ -173,26 +173,26 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
 
   /** A custom pattern defined through an object's `unapply` function */
   sealed case class UnapplyPattern(binder: Option[ValDef], recs: Seq[Expr], id: Identifier, tps: Seq[Type], subPatterns: Seq[Pattern]) extends Pattern {
-    def getFunction(implicit s: Symbols): TypedFunDef = s.getFunction(id, tps)
+    def getFunction(using s: Symbols): TypedFunDef = s.getFunction(id, tps)
 
-    private def getIsEmpty(implicit s: Symbols): Identifier =
+    private def getIsEmpty(using s: Symbols): Identifier =
       getFunction.flags.collectFirst { case IsUnapply(isEmpty, _) => isEmpty }
         .getOrElse(throw extraction.MalformedStainlessCode(this, "Unapply pattern on non-unapply method (isEmpty)"))
 
-    private def getGet(implicit s: Symbols): Identifier =
+    private def getGet(using s: Symbols): Identifier =
       getFunction.flags.collectFirst { case IsUnapply(_, get) => get }
         .getOrElse(throw extraction.MalformedStainlessCode(this, "Unapply pattern on non-unapply method (get)"))
 
-    def isEmptyUnapplied(unapp: Expr)(implicit s: Symbols): Expr = unapplyAccessor(unapp, getIsEmpty, this).copiedFrom(this)
-    def getUnapplied(unapp: Expr)(implicit s: Symbols): Expr = unapplyAccessor(unapp, getGet, this).copiedFrom(this)
+    def isEmptyUnapplied(unapp: Expr)(using s: Symbols): Expr = unapplyAccessor(unapp, getIsEmpty, this).copiedFrom(this)
+    def getUnapplied(unapp: Expr)(using s: Symbols): Expr = unapplyAccessor(unapp, getGet, this).copiedFrom(this)
 
-    def isEmpty(scrut: Expr)(implicit s: Symbols): Expr =
+    def isEmpty(scrut: Expr)(using s: Symbols): Expr =
       isEmptyUnapplied(unapplyScrut(scrut, this).copiedFrom(this))
 
-    def get(scrut: Expr)(implicit s: Symbols): Expr =
+    def get(scrut: Expr)(using s: Symbols): Expr =
       getUnapplied(unapplyScrut(scrut, this).copiedFrom(this))
 
-    def subTypes(in: Type)(implicit s: Symbols): Seq[Type] =
+    def subTypes(in: Type)(using s: Symbols): Seq[Type] =
       unwrapTupleType(s.unapplyAccessorResultType(getGet, getFunction.returnType).get, subPatterns.size)
   }
 
@@ -208,7 +208,7 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
   case class Passes(in: Expr, out: Expr, cases: Seq[MatchCase]) extends Expr with CachingTyped {
     require(cases.nonEmpty)
 
-    override protected def computeType(implicit s: Symbols) = {
+    override protected def computeType(using s: Symbols) = {
       if (in.getType == Untyped || out.getType == Untyped) Untyped
       else if (s.leastUpperBound(cases.map(_.rhs.getType)) == Untyped) Untyped
       else BooleanType()
@@ -225,7 +225,7 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
 
   /** $encodingof `Array(elems...)` */
   sealed case class FiniteArray(elems: Seq[Expr], base: Type) extends Expr with CachingTyped {
-    override protected def computeType(implicit s: Symbols): Type = {
+    override protected def computeType(using s: Symbols): Type = {
       checkParamTypes(elems.map(_.getType), List.fill(elems.size)(base), unveilUntyped(ArrayType(base)))
     }
   }
@@ -236,7 +236,7 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
     * @param size    Array length
     */
   sealed case class LargeArray(elems: Map[Int, Expr], default: Expr, size: Expr, base: Type) extends Expr with CachingTyped {
-    override protected def computeType(implicit s: Symbols): Type = {
+    override protected def computeType(using s: Symbols): Type = {
       if (s.isSubtypeOf(size.getType, Int32Type())) {
         unveilUntyped(ArrayType(checkParamTypes(
           (default +: elems.values.toSeq).map(_.getType),
@@ -251,7 +251,7 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
 
   /** $encodingof `array(index)` */
   sealed case class ArraySelect(array: Expr, index: Expr) extends Expr with CachingTyped {
-    override protected def computeType(implicit s: Symbols): Type = (array.getType, index.getType) match {
+    override protected def computeType(using s: Symbols): Type = (array.getType, index.getType) match {
       case (ArrayType(base), Int32Type()) => base
       case _ => Untyped
     }
@@ -259,7 +259,7 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
 
   /** $encodingof `array.updated(index, value)` */
   sealed case class ArrayUpdated(array: Expr, index: Expr, value: Expr) extends Expr with CachingTyped {
-    override protected def computeType(implicit s: Symbols): Type = (array.getType, index.getType) match {
+    override protected def computeType(using s: Symbols): Type = (array.getType, index.getType) match {
       case (ArrayType(base), Int32Type()) => unveilUntyped(ArrayType(s.leastUpperBound(base, value.getType)))
       case _ => Untyped
     }
@@ -267,7 +267,7 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
 
   /** $encodingof `array.length` */
   sealed case class ArrayLength(array: Expr) extends Expr with CachingTyped {
-    override protected def computeType(implicit s: Symbols): Type = array.getType match {
+    override protected def computeType(using s: Symbols): Type = array.getType match {
       case ArrayType(_) => Int32Type()
       case _ => Untyped
     }
@@ -275,7 +275,7 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
 
   /** $encodingof `decreases(measure); body` */
   case class Decreases(measure: Expr, body: Expr) extends Expr with CachingTyped {
-    protected def computeType(implicit s: Symbols): Type = measure.getType match {
+    protected def computeType(using s: Symbols): Type = measure.getType match {
       case Untyped => Untyped
       case _ => body.getType
     }
@@ -285,7 +285,7 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
   case class Max(exprs: Seq[Expr]) extends Expr with CachingTyped {
     require(exprs.nonEmpty)
 
-    protected def computeType(implicit s: Symbols): Type = {
+    protected def computeType(using s: Symbols): Type = {
       checkAllTypes(exprs.map(_.getType), IntegerType(), IntegerType())
     }
   }
@@ -317,26 +317,26 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
 
   /** $encodingof of `ADTType(id,tps)<n>` */
   sealed case class RecursiveType(id: Identifier, tps: Seq[Type], index: Expr) extends Type {
-    override protected def computeType(implicit s: Symbols): Type = ADTType(id, tps).getType
+    override protected def computeType(using s: Symbols): Type = ADTType(id, tps).getType
   }
 
 
   /** $encodingof of `Constructor<size>[tps](args)` */
   sealed case class SizedADT(id: Identifier, tps: Seq[Type], args: Seq[Expr], size: Expr) extends Expr with CachingTyped {
-    def getConstructor(implicit s: Symbols) = s.getConstructor(id, tps)
-    override protected def computeType(implicit s: Symbols): Type = ADT(id, tps, args).getType
+    def getConstructor(using s: Symbols) = s.getConstructor(id, tps)
+    override protected def computeType(using s: Symbols): Type = ADT(id, tps, args).getType
   }
 
   /* Top type */
 
   /** $encodingof of Top (with underlying Inox type `tpe`) */
   sealed case class ValueType(tpe: Type) extends Type {
-    override protected def computeType(implicit s: Symbols): Type = tpe.getType
+    override protected def computeType(using s: Symbols): Type = tpe.getType
   }
 
   /* Annotation on types */
   sealed case class AnnotatedType(tpe: Type, flags: Seq[Flag]) extends Type {
-    override protected def computeType(implicit s: Symbols): Type = tpe.getType
+    override protected def computeType(using s: Symbols): Type = tpe.getType
   }
 
 }

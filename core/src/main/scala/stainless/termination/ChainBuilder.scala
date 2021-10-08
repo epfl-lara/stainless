@@ -9,7 +9,7 @@ trait ChainBuilder extends RelationBuilder { self: Strengthener with OrderingRel
 
   import checker._
   import program.trees._
-  import program.symbols._
+  import program.symbols.{given, _}
   import program.trees.exprOps._
 
   case class Chain(relations: List[Relation]) {

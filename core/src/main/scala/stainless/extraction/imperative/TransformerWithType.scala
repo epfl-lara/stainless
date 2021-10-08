@@ -8,7 +8,7 @@ trait TransformerWithType extends oo.TransformerWithType {
   val s: Trees
   val t: Trees
   val symbols: s.Symbols
-  import symbols._
+  import symbols.{given, _}
 
   override def transform(expr: s.Expr, tpe: s.Type): t.Expr = expr match {
     case s.Block(es, last) =>

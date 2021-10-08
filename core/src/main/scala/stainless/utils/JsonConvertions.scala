@@ -23,13 +23,13 @@ object JsonConvertions {
     case object Offset extends Kind
     case object Range extends Kind
 
-    implicit val kindEncoder: Encoder[Kind] = deriveEncoder
-    implicit val kindDecoder: Decoder[Kind] = deriveDecoder
+    given kindEncoder: Encoder[Kind] = deriveEncoder
+    given kindDecoder: Decoder[Kind] = deriveDecoder
   }
 
   import PositionHelpers._
 
-  implicit val positionDecoder: Decoder[Position] = Decoder.instance[Position] { cursor =>
+  given positionDecoder: Decoder[Position] = Decoder.instance[Position] { cursor =>
     def impl(c: ACursor): Decoder.Result[Position] = for {
       line <- c.get[Int]("line")
       col <- c.get[Int]("col")
@@ -48,7 +48,7 @@ object JsonConvertions {
     }
   }
 
-  implicit val positionEncoder: Encoder[Position] = Encoder.instance[Position] { pos =>
+  given positionEncoder: Encoder[Position] = Encoder.instance[Position] { pos =>
     def impl(p: OffsetPosition): Seq[(String, Json)] = Seq(
       "line" -> p.line.asJson,
       "col" -> p.col.asJson,
@@ -73,15 +73,13 @@ object JsonConvertions {
     }
   }
 
-  implicit val identifierDecoder: Decoder[Identifier] =
+  given identifierDecoder: Decoder[Identifier] =
     Decoder.forProduct3[Identifier, String, Int, Int]("name", "gid", "id") {
       case (name, gid, id) => new Identifier(name, gid, id)
     }
 
-  implicit val identifierEncoder: Encoder[Identifier] =
+  given identifierEncoder: Encoder[Identifier] =
     Encoder.forProduct3("name", "gid", "id") {
-      id: Identifier => (id.name, id.globalId, id.id)
+      (id: Identifier) => (id.name, id.globalId, id.id)
     }
-
 }
-

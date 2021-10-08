@@ -20,15 +20,14 @@ import collection.mutable.{Set => MutableSet}
  *     classes annotated with @cCode.typdef. We therefore implement a simpler version
  *     of it here based on a TreeTraverser.
  */
-trait TrimSymbols extends LeonPipeline[tt.Symbols, tt.Symbols] {
+class TrimSymbols(using override val context: inox.Context) extends LeonPipeline[tt.Symbols, tt.Symbols](context) {
   val name = "Symbol trimmer"
 
-  implicit val context: inox.Context
   import context._
 
   def run(syms: tt.Symbols): tt.Symbols = {
-    implicit val symbols = syms
-    implicit val printerOpts = tt.PrinterOptions.fromContext(context)
+    import syms.given
+    given tt.PrinterOptions = tt.PrinterOptions.fromContext(context)
 
     def validateClassAnnotations(cd: tt.ClassDef): Unit = {
 
@@ -85,12 +84,7 @@ trait TrimSymbols extends LeonPipeline[tt.Symbols, tt.Symbols] {
         )
     }
 
-    val trim = new Trimmer {
-      override val symbols = syms
-      override val s: tt.type = tt
-      override val t: tt.type = tt
-      val ctx = context
-    }
+    val trim = new Trimmer(syms)
     val newSymbols = trim.transform(syms)
 
     for (fd <- newSymbols.functions.values) validateFunAnnotations(fd)
@@ -100,11 +94,15 @@ trait TrimSymbols extends LeonPipeline[tt.Symbols, tt.Symbols] {
   }
 }
 
-trait Trimmer extends extraction.imperative.TransformerWithType {
-  override val s: tt.type = tt // to get `FunAbsOps` implicit class for `fa.isManuallyDefined` and `fa.isDropped`
-  override val t: extraction.throwing.Trees
-  val ctx: inox.Context
-  implicit val symbols: s.Symbols
+class Trimmer(override val s: tt.type, // to get `FunAbsOps` implicit class for `fa.isManuallyDefined` and `fa.isDropped`
+              override val t: tt.type,
+              override val symbols: tt.Symbols)
+             (using val context: inox.Context) extends extraction.imperative.TransformerWithType {
+
+  def this(symbols: tt.Symbols)(using inox.Context) =
+    this(tt, tt, symbols)
+
+  import symbols.given
 
   val kept = MutableSet[Identifier]()
 
@@ -198,10 +196,4 @@ trait Trimmer extends extraction.imperative.TransformerWithType {
         register(tpe.asInstanceOf[s.ClassType].id)
       super.transform(expr, tpe)
   }
-}
-
-object TrimSymbols {
-  def apply(implicit ctx: inox.Context): LeonPipeline[tt.Symbols, tt.Symbols] = new {
-    val context = ctx
-  } with TrimSymbols
 }

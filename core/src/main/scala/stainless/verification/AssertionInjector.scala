@@ -8,13 +8,9 @@ package verification
  * casts are legal, no division by zero occur and, when using the [[strictArithmetic]] mode,
  * that the program is exempt of integer overflow and unexpected behaviour.
  */
-trait AssertionInjector extends transformers.TreeTransformer {
-  val s: ast.Trees
-  val t: ast.Trees
-
-  implicit val symbols: s.Symbols
-
-  val strictArithmetic: Boolean
+class AssertionInjector(override val s: ast.Trees, override val t: ast.Trees, val strictArithmetic: Boolean)
+                       (using val symbols: s.Symbols)
+  extends transformers.ConcreteTreeTransformer(s, t) {
 
   private[this] var inWrappingMode: Boolean = false
   private[this] def checkOverflow: Boolean = strictArithmetic && !inWrappingMode
@@ -334,34 +330,35 @@ object AssertionInjector {
   def apply(p: Program, ctx: inox.Context): inox.transformers.SymbolTransformer {
     val s: p.trees.type
     val t: p.trees.type
-  } = new inox.transformers.SymbolTransformer {
-    val s: p.trees.type = p.trees
-    val t: p.trees.type = p.trees
+  } = {
+    class InjectorImpl(override val s: p.trees.type,
+                       override val t: p.trees.type)
+                      (using override val symbols: p.symbols.type)
+      extends AssertionInjector(s, t, ctx.options.findOptionOrDefault(optStrictArithmetic))
+    val injector = new InjectorImpl(p.trees, p.trees)(using p.symbols)
 
-    import s._
+    class TransformerImpl(override val s: p.trees.type, override val t: p.trees.type)
+      extends inox.transformers.SymbolTransformer {
+      import s._
 
-    def transform(syms: Symbols): Symbols = {
-      object injector extends AssertionInjector {
-        val s: p.trees.type = p.trees
-        val t: p.trees.type = p.trees
-        val symbols: p.symbols.type = p.symbols
-        val strictArithmetic: Boolean = ctx.options.findOptionOrDefault(optStrictArithmetic)
+      def transform(syms: Symbols): Symbols = {
+        NoSymbols
+          .withFunctions(syms.functions.values.toSeq.map { fd =>
+            injector.wrapping(fd.flags.contains(s.Wrapping)) {
+              new FunDef(
+                fd.id,
+                fd.tparams map injector.transform,
+                fd.params map injector.transform,
+                injector.transform(fd.returnType),
+                injector.transform(fd.fullBody),
+                fd.flags map injector.transform
+              ).copiedFrom(fd)
+            }
+          })
+          .withSorts(syms.sorts.values.toSeq.map(injector.transform))
       }
-
-      NoSymbols
-        .withFunctions(syms.functions.values.toSeq.map { fd =>
-          injector.wrapping(fd.flags.contains(s.Wrapping)) {
-            new FunDef(
-              fd.id,
-              fd.tparams map injector.transform,
-              fd.params map injector.transform,
-              injector.transform(fd.returnType),
-              injector.transform(fd.fullBody),
-              fd.flags map injector.transform
-            ).copiedFrom(fd)
-          }
-        })
-        .withSorts(syms.sorts.values.toSeq.map(injector.transform))
     }
+
+    new TransformerImpl(p.trees, p.trees)
   }
 }

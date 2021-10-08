@@ -5,8 +5,8 @@ import org.scalatest._
 class ScalacGhostChecks extends ExtractionSuite {
 
   def testFilePos(fileName: String): Unit = {
-    implicit val ctx = stainless.TestContext.empty
-    import ctx.reporter
+    val ctx: inox.Context = stainless.TestContext.empty
+    import ctx.{reporter, given}
 
     val tryProgram = scala.util.Try(loadFiles(Seq(fileName))._2)
     it(s"$fileName should be successful") {
@@ -15,8 +15,8 @@ class ScalacGhostChecks extends ExtractionSuite {
   }
 
   def testFileNeg(fileName: String, failures: Int): Unit = {
-    implicit val ctx = stainless.TestContext.empty
-    import ctx.reporter
+    val ctx: inox.Context = stainless.TestContext.empty
+    import ctx.{reporter, given}
 
     it(s"$fileName should fail") {
       val tryProgram = scala.util.Try(loadFiles(Seq(fileName))._2)

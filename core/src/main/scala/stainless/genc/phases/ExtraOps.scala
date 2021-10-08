@@ -9,16 +9,16 @@ import collection.mutable.{ Set => MutableSet }
 
 private[genc] object ExtraOps {
   // copied from AdtSpecialization
-  def root(id: Identifier)(implicit symbols: Symbols): Identifier = {
+  def root(id: Identifier)(using symbols: Symbols): Identifier = {
     symbols.getClass(id).parents.map(ct => root(ct.id)).headOption.getOrElse(id)
   }
 
   val manualDefAnnotation = "cCode.function"
 
-  implicit class FunAbsOps(val fa: FunAbstraction)  {
-    def isManuallyDefined = hasAnnotation(manualDefAnnotation)
-    def isExtern = fa.flags contains Extern
-    def isDropped = hasAnnotation("cCode.drop") || fa.flags.contains(Ghost)
+  extension (fa: FunAbstraction)  {
+    def isManuallyDefined: Boolean = hasAnnotation(manualDefAnnotation)
+    def isExtern: Boolean = fa.flags contains Extern
+    def isDropped: Boolean = hasAnnotation("cCode.drop") || fa.flags.contains(Ghost)
     def isVal: Boolean = fa.isInstanceOf[Outer] && fa.asInstanceOf[Outer].fd.isVal
 
     def extAnnotations: Map[String, Seq[Any]] = fa.flags.collect {
@@ -26,17 +26,17 @@ private[genc] object ExtraOps {
     }.toMap
     def annotations: Set[String] = extAnnotations.keySet
 
-    private def hasAnnotation(annot: String) = annotations contains annot
+    private def hasAnnotation(annot: String): Boolean = annotations contains annot
   }
 
   // Extra tools on FunDef, especially for annotations
-  implicit class FunDefOps(val fd: FunDef) {
-    def isMain = fd.id.name == "main"
+  extension (fd: FunDef) {
+    def isMain: Boolean = fd.id.name == "main"
 
-    def isExtern          = fd.flags contains Extern
-    def isDropped         = hasAnnotation("cCode.drop") || fd.flags.contains(Ghost)
-    def isExported        = hasAnnotation("cCode.export")
-    def isManuallyDefined = hasAnnotation(manualDefAnnotation)
+    def isExtern: Boolean          = fd.flags contains Extern
+    def isDropped : Boolean        = hasAnnotation("cCode.drop") || fd.flags.contains(Ghost)
+    def isExported : Boolean       = hasAnnotation("cCode.export")
+    def isManuallyDefined: Boolean = hasAnnotation(manualDefAnnotation)
     def isVal             =
       (fd.flags.exists(_.name == "accessor") || fd.flags.exists { case IsField(_) => true case _ => false }) &&
       fd.tparams.isEmpty && fd.params.isEmpty
@@ -48,26 +48,32 @@ private[genc] object ExtraOps {
 
     def isGeneric = fd.tparams.length > 0
 
-    def hasAnnotation(annot: String) = annotations contains annot
+    def hasAnnotation(annot: String): Boolean = annotations contains annot
   }
 
+
+  case class ManualType(alias: String, include: Option[String])
+
+  private val manualTypeAnnotation = "cCode.typedef"
+  private val droppedAnnotation = "cCode.drop"
+
   // Extra tools on ClassDef, especially for annotations, inheritance & generics
-  implicit class ClassDefOps(val cd: ClassDef) {
-    def isManuallyTyped = hasAnnotation(manualTypeAnnotation)
-    def isDropped       = hasAnnotation(droppedAnnotation)
-    def isExported      = hasAnnotation("cCode.export")
-    def isPacked        = hasAnnotation("cCode.pack")
-    def isGlobal        = cd.flags.exists(_.name.startsWith("cCode.global"))
-    def isGlobalDefault = cd.flags.exists(_.name == "cCode.global")
-    def isGlobalUninitialized = cd.flags.exists(_.name == "cCode.globalUninitialized")
-    def isGlobalExternal = cd.flags.exists(_.name == "cCode.globalExternal")
+  extension (cd: ClassDef) {
+    def isManuallyTyped: Boolean       = hasAnnotation(manualTypeAnnotation)
+    def isDropped: Boolean             = hasAnnotation(droppedAnnotation)
+    def isExported: Boolean            = hasAnnotation("cCode.export")
+    def isPacked: Boolean              = hasAnnotation("cCode.pack")
+    def isGlobal: Boolean              = cd.flags.exists(_.name.startsWith("cCode.global"))
+    def isGlobalDefault: Boolean       = cd.flags.exists(_.name == "cCode.global")
+    def isGlobalUninitialized: Boolean = cd.flags.exists(_.name == "cCode.globalUninitialized")
+    def isGlobalExternal: Boolean      = cd.flags.exists(_.name == "cCode.globalExternal")
 
     def extAnnotations: Map[String, Seq[Any]] = cd.flags.collect {
       case Annotation(s, args) => s -> args
     }.toMap
     def annotations: Set[String] = extAnnotations.keySet
 
-    def getManualType = {
+    def getManualType: ManualType = {
       assert(isManuallyTyped)
 
       val Seq(StringLiteral(alias), StringLiteral(includes0)) = cd.extAnnotations(manualTypeAnnotation)
@@ -76,13 +82,11 @@ private[genc] object ExtraOps {
       ManualType(alias, include)
     }
 
-    case class ManualType(alias: String, include: Option[String])
+    def isCandidateForInheritance: Boolean = cd.isAbstract || !cd.parents.isEmpty
 
-    def isCandidateForInheritance = cd.isAbstract || !cd.parents.isEmpty
+    def isGeneric: Boolean = cd.tparams.length > 0
 
-    def isGeneric = cd.tparams.length > 0
-
-    def isRecursive(implicit sym: Symbols): Boolean = {
+    def isRecursive(using Symbols): Boolean = {
       val defs: Set[ClassDef] = cd.parents.map(_.tcd.cd).toSet + cd
 
       val seens = MutableSet[ClassType]()
@@ -110,7 +114,7 @@ private[genc] object ExtraOps {
     }
 
     // copied from AdtSpecialization
-    def isCandidate(implicit symbols: Symbols): Boolean = {
+    def isCandidate(using symbols: Symbols): Boolean = {
       val id = cd.id
 
       cd.parents match {
@@ -131,20 +135,18 @@ private[genc] object ExtraOps {
     }
 
     // copied from AdtSpecialization
-    def isCaseObject(implicit symbols: Symbols): Boolean = {
+    def isCaseObject(using symbols: Symbols): Boolean = {
       val id = cd.id
       isCandidate && (symbols.getClass(id).flags contains IsCaseObject)
     }
 
     // Check whether the class has some fields or not
-    def isEmpty = cd.fields.isEmpty
+    def isEmpty: Boolean = cd.fields.isEmpty
 
-    def hasAnnotation(annot: String) = cd.annotations contains annot
-    private val manualTypeAnnotation = "cCode.typedef"
-    private val droppedAnnotation = "cCode.drop"
+    def hasAnnotation(annot: String): Boolean = cd.annotations contains annot
   }
 
-  def isGlobal(tpe: Type)(implicit symbols: Symbols): Boolean = tpe match {
+  def isGlobal(tpe: Type)(using Symbols): Boolean = tpe match {
     case ct: ClassType => ct.tcd.cd.isGlobal
     case _ => false
   }

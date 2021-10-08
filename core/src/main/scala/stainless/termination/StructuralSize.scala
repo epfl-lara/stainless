@@ -6,24 +6,23 @@ package termination
 import scala.collection.mutable.{Map => MutableMap, Set => MutableSet, ListBuffer}
 
 trait StructuralSize { self: SolverProvider =>
-
   val checker: ProcessingPipeline
+
   import checker.program.trees._
-  import checker.program.symbols._
+  import checker.program.symbols.{given, _}
   import dsl._
 
   val sizes: SizeFunctions { val trees: checker.program.trees.type }
 
   def functions: Seq[FunDef] = sizes.getFunctions(checker.program.symbols).toSeq
 
-  registerTransformer(new inox.transformers.SymbolTransformer {
-    val s: trees.type = trees
-    val t: trees.type = trees
-
+  class TransformerImpl(override val s: checker.program.trees.type, override val t: checker.program.trees.type)
+    extends inox.transformers.SymbolTransformer {
     def transform(s: Symbols): Symbols = {
       s.withFunctions(functions.toSeq)
     }
-  })
+  }
+  registerTransformer(new TransformerImpl(checker.program.trees, checker.program.trees))
 
   def integerAbs: FunDef = sizes.integerAbs
 

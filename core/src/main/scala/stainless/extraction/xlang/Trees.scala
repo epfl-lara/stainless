@@ -29,7 +29,7 @@ trait Trees extends innerclasses.Trees { self =>
   ) extends Tree {
     def allClasses: Seq[Identifier] = modules.flatMap(_.allClasses) ++ classes
 
-    def allFunctions(implicit s: Symbols): Seq[Identifier] =
+    def allFunctions(using s: Symbols): Seq[Identifier] =
       classes.flatMap(s.getClass(_).methods) ++
       modules.flatMap(_.allFunctions)
 
@@ -47,7 +47,7 @@ trait Trees extends innerclasses.Trees { self =>
   ) extends Tree {
     def allClasses: Seq[Identifier] = modules.flatMap(_.allClasses) ++ classes
 
-    def allFunctions(implicit s: Symbols): Seq[Identifier] =
+    def allFunctions(using s: Symbols): Seq[Identifier] =
       classes.flatMap(s.getClass(_).methods) ++
       modules.flatMap(_.allFunctions) ++
       functions
@@ -56,10 +56,9 @@ trait Trees extends innerclasses.Trees { self =>
   }
 
   override def getDeconstructor(that: inox.ast.Trees): inox.ast.TreeDeconstructor { val s: self.type; val t: that.type } = that match {
-    case tree: Trees => new TreeDeconstructor {
-      protected val s: self.type = self
-      protected val t: tree.type = tree
-    }.asInstanceOf[TreeDeconstructor { val s: self.type; val t: that.type }]
+    case tree: (Trees & that.type) => // The `& that.type` trick allows to convince scala that `tree` and `that` are actually equal...
+      class DeconstructorImpl(override val s: self.type, override val t: tree.type & that.type) extends ConcreteTreeDeconstructor(s, t)
+      new DeconstructorImpl(self, tree)
 
     case _ => super.getDeconstructor(that)
   }
@@ -70,15 +69,15 @@ trait Printer extends innerclasses.Printer {
   val trees: Trees
   import trees._
 
-  protected def classes(cls: Seq[Identifier]): PrintWrapper = {
-    implicit pctx: PrinterContext =>
+  protected def classes(cls: Seq[Identifier]): PrintWrapper = PrintWrapper {
+    pctx ?=>
       withSymbols(cls.map(id => pctx.opts.symbols.flatMap(_.lookupClass(id)) match {
         case Some(cd) => Left(cd)
         case None => Right(id)
       }), "class")
   }
 
-  override def ppBody(tree: Tree)(implicit ctx: PrinterContext): Unit = tree match {
+  override def ppBody(tree: Tree)(using PrinterContext): Unit = tree match {
     case Import(path, isWildcard) =>
       p"import ${path.mkString(".")}"
       if (isWildcard) p"._"
@@ -135,3 +134,5 @@ trait TreeDeconstructor extends innerclasses.TreeDeconstructor {
     case _ => super.deconstruct(f)
   }
 }
+
+class ConcreteTreeDeconstructor(override val s: Trees, override val t: Trees) extends TreeDeconstructor

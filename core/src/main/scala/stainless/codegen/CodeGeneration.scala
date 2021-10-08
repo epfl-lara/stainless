@@ -21,13 +21,11 @@ object optInstrumentFields extends inox.FlagOptionDef("instrument", false)
 object optSmallArrays extends inox.FlagOptionDef("small-arrays", false)
 
 trait CodeGeneration { self: CompilationUnit =>
-  import context._
+  import context.{given, _}
   import program._
   import program.trees._
-  import program.symbols._
+  import program.symbols.{given, _}
   import program.trees.exprOps._
-
-  val maxSteps: Int
 
   lazy val ignoreContracts = options.findOptionOrDefault(inox.evaluators.optIgnoreContracts)
   lazy val doInstrument = options.findOptionOrDefault(optInstrumentFields)
@@ -115,15 +113,15 @@ trait CodeGeneration { self: CompilationUnit =>
   }
 
   private def defToJVMName(id: Identifier): String = "Stainless$CodeGen$Def$" + idToSafeJVMName(id)
-  def defToJVMName(sort: ADTSort): String = defToJVMName(sort.id)
-  def defToJVMName(cons: ADTConstructor): String = defToJVMName(cons.id)
-  def defToJVMName(fd: FunDef): String = defToJVMName(fd.id)
+  def defSortToJVMName(sort: ADTSort): String = defToJVMName(sort.id)
+  def defConsToJVMName(cons: ADTConstructor): String = defToJVMName(cons.id)
+  def defFnToJVMName(fd: FunDef): String = defToJVMName(fd.id)
 
   private[this] val sortClassFiles : MutableMap[ADTSort, ClassFile] = MutableMap.empty
   private[this] val classToSort    : MutableMap[String, ADTSort]    = MutableMap.empty
 
-  def getClass(sort: ADTSort): ClassFile = synchronized(sortClassFiles.getOrElse(sort, {
-    val cf = new ClassFile(defToJVMName(sort), None)
+  def getClassSort(sort: ADTSort): ClassFile = synchronized(sortClassFiles.getOrElse(sort, {
+    val cf = new ClassFile(defSortToJVMName(sort), None)
     classToSort += cf.className -> sort
     sortClassFiles(sort) = cf
     cf
@@ -132,8 +130,8 @@ trait CodeGeneration { self: CompilationUnit =>
   private[this] val consClassFiles : MutableMap[ADTConstructor, ClassFile] = MutableMap.empty
   private[this] val classToCons    : MutableMap[String, ADTConstructor]    = MutableMap.empty
 
-  def getClass(cons: ADTConstructor): ClassFile = synchronized(consClassFiles.getOrElse(cons, {
-    val cf = new ClassFile(defToJVMName(cons), Some(defToJVMName(cons.getSort)))
+  def getClassCons(cons: ADTConstructor): ClassFile = synchronized(consClassFiles.getOrElse(cons, {
+    val cf = new ClassFile(defConsToJVMName(cons), Some(defSortToJVMName(cons.getSort)))
     classToCons += cf.className -> cons
     consClassFiles(cons) = cf
     cf
@@ -162,7 +160,7 @@ trait CodeGeneration { self: CompilationUnit =>
 
   protected def getSortInfo(sort: ADTSort): (String, String) = sortInfos.getOrElse(sort, {
     val tpeParam = if (sort.tparams.isEmpty) "" else "[I"
-    val res = (getClass(sort).className, "(L"+MonitorClass+";" + tpeParam + ")V")
+    val res = (getClassSort(sort).className, "(L"+MonitorClass+";" + tpeParam + ")V")
     sortInfos(sort) = res
     res
   })
@@ -170,7 +168,7 @@ trait CodeGeneration { self: CompilationUnit =>
   protected def getConsInfo(cons: ADTConstructor): (String, String) = consInfos.getOrElse(cons, {
     val tpeParam = if (cons.getSort.tparams.isEmpty) "" else "[I"
     val sig = "(L"+MonitorClass+";" + tpeParam + cons.fields.map(f => typeToJVM(f.getType)).mkString("") + ")V"
-    val res = (getClass(cons).className, sig)
+    val res = (getClassCons(cons).className, sig)
     consInfos(cons) = res
     res
   })
@@ -326,11 +324,11 @@ trait CodeGeneration { self: CompilationUnit =>
       .withTypeParameters(funDef.tparams.map(_.tp))
 
     if (recordInvocations) {
-      load(monitorID, ch)(locals)
+      loadImpl(monitorID, ch)(using locals)
       ch << InvokeVirtual(MonitorClass, "onInvocation", "()V")
     }
 
-    mkExpr(body, ch)(locals)
+    mkExpr(body, ch)(using locals)
 
     funDef.getType match {
       case JvmIType() =>
@@ -370,16 +368,18 @@ trait CodeGeneration { self: CompilationUnit =>
       fresh
     })
 
-    object normalizer extends {
-      val s: program.trees.type = program.trees
-      val t: program.trees.type = program.trees
-    } with transformers.TreeTransformer {
+    class LambdaNormalizer(override val s: program.trees.type, override val t: program.trees.type)
+      extends transformers.ConcreteTreeTransformer(s, t) {
+
+      def this() = this(program.trees, program.trees)
+
       override def transform(tpe: Type): Type = tpe match {
         case tp: TypeParameter => subst(tp)
         case _ => super.transform(tpe)
       }
     }
 
+    val normalizer = new LambdaNormalizer
     val lambda = normalizer.transform(l).asInstanceOf[Lambda]
     val (tparams, tps) = tpSubst.toSeq.sortBy(_._2.id.id).unzip
 
@@ -452,7 +452,7 @@ trait CodeGeneration { self: CompilationUnit =>
 
           val apch = apm.codeHandler
 
-          mkBoxedExpr(lambda.body, apch)(newLocals)
+          mkBoxedExpr(lambda.body, apch)(using newLocals)
 
           apch << ARETURN
 
@@ -547,7 +547,7 @@ trait CodeGeneration { self: CompilationUnit =>
   }
 
   // also makes tuples with 0/1 args
-  private def mkTuple(es: Seq[Expr], ch: CodeHandler)(implicit locals: Locals) : Unit = {
+  private def mkTuple(es: Seq[Expr], ch: CodeHandler)(using locals: Locals) : Unit = {
     ch << New(TupleClass) << DUP
     ch << Ldc(es.size)
     ch << NewArray(s"$ObjectClass")
@@ -560,7 +560,7 @@ trait CodeGeneration { self: CompilationUnit =>
     ch << InvokeSpecial(TupleClass, constructorName, s"([L$ObjectClass;)V")
   }
 
-  private def loadTypes(tps: Seq[Type], ch: CodeHandler)(implicit locals: Locals): Unit = {
+  private def loadTypes(tps: Seq[Type], ch: CodeHandler)(using locals: Locals): Unit = {
     if (tps.nonEmpty) {
       ch << Ldc(tps.size)
       ch << NewArray.primitive("T_INT")
@@ -569,7 +569,7 @@ trait CodeGeneration { self: CompilationUnit =>
 
         val vars = typeOps.variablesOf(tpe)
         if (vars.nonEmpty) {
-          load(monitorID, ch)
+          loadImpl(monitorID, ch)
           ch << Ldc(registerType(tpe))
 
           ch << Ldc(vars.size) << NewArray(s"$ObjectClass")
@@ -588,7 +588,7 @@ trait CodeGeneration { self: CompilationUnit =>
       }
 
       if (locals.tparams.nonEmpty) {
-        load(monitorID, ch)
+        loadImpl(monitorID, ch)
         ch << SWAP
 
         ch << Ldc(locals.tparams.size)
@@ -598,14 +598,14 @@ trait CodeGeneration { self: CompilationUnit =>
         }
 
         ch << SWAP
-        load(tpsID, ch)
+        loadImpl(tpsID, ch)
         ch << InvokeVirtual(MonitorClass, "typeParams", s"([I[I[I)[I")
       }
     }
   }
 
   private[codegen] def mkExpr(e: Expr, ch: CodeHandler, canDelegateToMkBranch: Boolean = true)
-                             (implicit locals: Locals): Unit = e match {
+                             (using locals: Locals): Unit = e match {
     case v: Variable =>
       load(v, ch)
 
@@ -639,7 +639,7 @@ trait CodeGeneration { self: CompilationUnit =>
         case Int64Type() => LStore(slot)
         case _ => AStore(slot)
       })
-      mkExpr(b, ch)(locals.withVar(vd.id -> slot))
+      mkExpr(b, ch)(using locals.withVar(vd.id -> slot))
 
     case Int8Literal(v) =>
       ch << Ldc(v)
@@ -693,7 +693,7 @@ trait CodeGeneration { self: CompilationUnit =>
       val cons = tcons.definition
       val (adtName, adtApplySig) = getConsInfo(cons)
       ch << New(adtName) << DUP
-      load(monitorID, ch)
+      loadImpl(monitorID, ch)
       loadTypes(tps, ch)
 
       for ((a, vd) <- as zip cons.fields) {
@@ -713,7 +713,7 @@ trait CodeGeneration { self: CompilationUnit =>
         val tfd = tcons.sort.invariant.get
         val (cn, mn, ms) = getFunDefInfo(tfd.fd)
 
-        load(monitorID, ch)
+        loadImpl(monitorID, ch)
         ch << SWAP // stack: (monitor, adt)
 
         if (tfd.tps.nonEmpty) {
@@ -867,7 +867,7 @@ trait CodeGeneration { self: CompilationUnit =>
       val tfd = getFunction(id, tps)
       val (cn, mn, ms) = getFunDefInfo(tfd.fd)
 
-      load(monitorID, ch)
+      loadImpl(monitorID, ch)
       loadTypes(tfd.tps, ch)
 
       for ((a, vd) <- as zip tfd.fd.params) {
@@ -945,6 +945,7 @@ trait CodeGeneration { self: CompilationUnit =>
             case Int16Type() => ("S", "toShort", 16)
             case Int32Type() => ("I", "toInt", 32)
             case Int64Type() => ("J", "toLong", 64)
+            case _ => sys.error("Unreachable") // To silence false positive warning
           }
 
           // stack: (l, r)
@@ -981,7 +982,7 @@ trait CodeGeneration { self: CompilationUnit =>
         ch << LXOR
       }
 
-      mkArithmeticUnary(e, ch, iopGen, lopGen, "not", bvOnly = true)
+      mkArithmeticUnaryImpl(e, ch, iopGen, lopGen, "not", bvOnly = true)
 
     case BVAnd(l, r) => mkArithmeticBinary(l, r, ch, IAND, LAND, "and", bvOnly = true)
     case BVOr(l, r)  => mkArithmeticBinary(l, r, ch, IOR, LOR, "or", bvOnly = true)
@@ -1161,10 +1162,10 @@ trait CodeGeneration { self: CompilationUnit =>
       val id = registerForall(forall, locals.tparams)
       val args = variablesOf(forall).toSeq.sortBy(_.id.uniqueName)
 
-      load(monitorID, ch)
+      loadImpl(monitorID, ch)
       ch << Ldc(id)
       if (locals.tparams.nonEmpty) {
-        load(tpsID, ch)
+        loadImpl(tpsID, ch)
       } else {
         ch << Ldc(0) << NewArray.primitive("T_INT")
       }
@@ -1185,10 +1186,10 @@ trait CodeGeneration { self: CompilationUnit =>
     case choose: Choose =>
       val id = registerChoose(choose, locals.params, locals.tparams)
 
-      load(monitorID, ch)
+      loadImpl(monitorID, ch)
       ch << Ldc(id)
       if (locals.tparams.nonEmpty) {
-        load(tpsID, ch)
+        loadImpl(tpsID, ch)
       } else {
         ch << Ldc(0) << NewArray.primitive("T_INT")
       }
@@ -1241,7 +1242,7 @@ trait CodeGeneration { self: CompilationUnit =>
     case _ => throw CompilationException("Unsupported expr " + e + " : " + e.getClass)
   }
 
-  private[codegen] def mkLambda(lambda: Lambda, ch: CodeHandler)(implicit locals: Locals): Unit = {
+  private[codegen] def mkLambda(lambda: Lambda, ch: CodeHandler)(using locals: Locals): Unit = {
     val vars = variablesOf(lambda).toSeq
     val freshVars = vars.map(_.freshen)
 
@@ -1273,7 +1274,7 @@ trait CodeGeneration { self: CompilationUnit =>
           depsSlot += id -> slot
           locals.withVar(id -> slot)
       })
-      mkExpr(e, ch)(depLocals)
+      mkExpr(e, ch)(using depLocals)
     }
 
     ch << New(afName) << DUP
@@ -1283,7 +1284,7 @@ trait CodeGeneration { self: CompilationUnit =>
       } else if (depsMap contains id) {
         mkExprWithDeps(depsMap(id))
       } else {
-        load(id, ch, closureTypes.get(id))(freshLocals)
+        loadImpl(id, ch, closureTypes.get(id))(using freshLocals)
       }
     }
     ch << InvokeSpecial(afName, constructorName, consSig)
@@ -1307,7 +1308,7 @@ trait CodeGeneration { self: CompilationUnit =>
 
   // Leaves on the stack a value equal to `e`, always of a type compatible with java.lang.Object.
   private[codegen] def mkBoxedExpr(e: Expr, ch: CodeHandler)
-                                  (implicit locals: Locals): Unit = e.getType match {
+                                  (using locals: Locals): Unit = e.getType match {
     case Int8Type() =>
       ch << New(BoxedByteClass) << DUP
       mkExpr(e, ch)
@@ -1448,7 +1449,7 @@ trait CodeGeneration { self: CompilationUnit =>
   }
 
   private[codegen] def mkBranch(cond: Expr, thenn: String, elze: String, ch: CodeHandler, canDelegateToMkExpr: Boolean = true)
-                               (implicit locals: Locals): Unit = cond match {
+                               (using locals: Locals): Unit = cond match {
     case BooleanLiteral(true) =>
       ch << Goto(thenn)
 
@@ -1578,7 +1579,7 @@ trait CodeGeneration { self: CompilationUnit =>
 
   private def mkBVShift(l: Expr, r: Expr, ch: CodeHandler,
                         iop: ByteCode, lop: ByteCode, op: String)
-                       (implicit locals: Locals): Unit = {
+                       (using locals: Locals): Unit = {
     // NOTE for shift operations on Byte/Short/Int/Long:
     //      the lhs operand can be either Int or Long,
     //      the rhs operand must be an Int.
@@ -1594,12 +1595,12 @@ trait CodeGeneration { self: CompilationUnit =>
       ch << opcode
     }
 
-    mkArithmeticBinary(l, r, ch, opGen(iop), opGen(lop), op, bvOnly = true)
+    mkArithmeticBinaryImpl(l, r, ch, opGen(iop), opGen(lop), op, bvOnly = true)
   }
 
   private def mkCmpJump(cond: Expr, thenn: String, elze: String, l: Expr, r: Expr, ch: CodeHandler,
                         iop: String => ControlOperator, lop: String => ControlOperator, op: String)
-                       (implicit locals: Locals): Unit = {
+                       (using locals: Locals): Unit = {
     mkExpr(l, ch)
     mkExpr(r, ch)
     l.getType match {
@@ -1624,13 +1625,13 @@ trait CodeGeneration { self: CompilationUnit =>
 
   private def mkArithmeticBinary(l: Expr, r: Expr, ch: CodeHandler,
                                  iop: ByteCode, lop: ByteCode, op: String, bvOnly: Boolean)
-                                (implicit locals: Locals): Unit = {
-    mkArithmeticBinary(l, r, ch, { ch => ch << iop }, { ch => ch << lop }, op, bvOnly)
+                                (using locals: Locals): Unit = {
+    mkArithmeticBinaryImpl(l, r, ch, { ch => ch << iop }, { ch => ch << lop }, op, bvOnly)
   }
 
-  private def mkArithmeticBinary(l: Expr, r: Expr, ch: CodeHandler,
-                                 iopGen: AbstractByteCodeGenerator, lopGen: AbstractByteCodeGenerator, op: String, bvOnly: Boolean)
-                                (implicit locals: Locals): Unit = {
+  private def mkArithmeticBinaryImpl(l: Expr, r: Expr, ch: CodeHandler,
+                                     iopGen: AbstractByteCodeGenerator, lopGen: AbstractByteCodeGenerator, op: String, bvOnly: Boolean)
+                                    (using locals: Locals): Unit = {
     ch << Comment(s"mkArithmeticBinary($op)")
     mkExpr(l, ch)
     mkExpr(r, ch)
@@ -1649,6 +1650,7 @@ trait CodeGeneration { self: CompilationUnit =>
         val (param, extract, size) = t match {
           case Int8Type()  => ("B", "toByte", 8)
           case Int16Type() => ("S", "toShort", 16)
+          case _ => sys.error("Unreachable") // To silence false positive warning
         }
 
         // stack: (l, r)
@@ -1686,13 +1688,13 @@ trait CodeGeneration { self: CompilationUnit =>
 
   private def mkArithmeticUnary(e: Expr, ch: CodeHandler,
                                 iop: ByteCode, lop: ByteCode, op: String, bvOnly: Boolean)
-                               (implicit locals: Locals): Unit = {
-    mkArithmeticUnary(e, ch, { ch => ch << iop }, { ch => ch << lop }, op, bvOnly)
+                               (using locals: Locals): Unit = {
+    mkArithmeticUnaryImpl(e, ch, { ch => ch << iop }, { ch => ch << lop }, op, bvOnly)
   }
 
-  private def mkArithmeticUnary(e: Expr, ch: CodeHandler,
-                                iopGen: AbstractByteCodeGenerator, lopGen: AbstractByteCodeGenerator, op: String, bvOnly: Boolean)
-                               (implicit locals: Locals): Unit = {
+  private def mkArithmeticUnaryImpl(e: Expr, ch: CodeHandler,
+                                    iopGen: AbstractByteCodeGenerator, lopGen: AbstractByteCodeGenerator, op: String, bvOnly: Boolean)
+                                   (using locals: Locals): Unit = {
     ch << Comment(s"mkArithmeticUnary($op)")
     mkExpr(e, ch)
 
@@ -1710,6 +1712,7 @@ trait CodeGeneration { self: CompilationUnit =>
         val (param, extract, size) = t match {
           case Int8Type()  => ("B", "toByte", 8)
           case Int16Type() => ("S", "toShort", 16)
+          case _ => sys.error("Unreachable") // To silence false positive warning
         }
 
         mkNewBV(ch, param, size)
@@ -1739,9 +1742,9 @@ trait CodeGeneration { self: CompilationUnit =>
   }
 
 
-  private def load(v: Variable, ch: CodeHandler)(implicit locals: Locals): Unit = load(v.id, ch, Some(v.getType))
+  private def load(v: Variable, ch: CodeHandler)(using locals: Locals): Unit = loadImpl(v.id, ch, Some(v.getType))
 
-  private def load(id: Identifier, ch: CodeHandler, tpe: Option[Type] = None)(implicit locals: Locals): Unit = {
+  private def loadImpl(id: Identifier, ch: CodeHandler, tpe: Option[Type] = None)(using locals: Locals): Unit = {
     locals.varToArg(id) match {
       case Some(slot) =>
         ch << ALoad(1) << Ldc(slot) << AALOAD
@@ -1763,8 +1766,8 @@ trait CodeGeneration { self: CompilationUnit =>
   }
 
   def compileADTSort(sort: ADTSort): Unit = {
-    val cName = defToJVMName(sort)
-    val cf = getClass(sort)
+    val cName = defSortToJVMName(sort)
+    val cf = getClassSort(sort)
 
     cf.setFlags((
       CLASS_ACC_SUPER |
@@ -1813,12 +1816,12 @@ trait CodeGeneration { self: CompilationUnit =>
   val instrumentedField = "__read"
 
   def instrumentedGetField(ch: CodeHandler, cons: TypedADTConstructor, id: Identifier)
-                          (implicit locals: Locals): Unit = {
+                          (using locals: Locals): Unit = {
     cons.definition.fields.zipWithIndex.find(_._1.id == id) match {
       case Some((f, i)) =>
         val expType = cons.fields(i).getType
 
-        val cName = defToJVMName(cons.definition)
+        val cName = defConsToJVMName(cons.definition)
         if (doInstrument) {
           ch << DUP << DUP
           ch << GetField(cName, instrumentedField, "I")
@@ -1841,11 +1844,11 @@ trait CodeGeneration { self: CompilationUnit =>
   }
 
   def compileADTConstructor(cons: ADTConstructor): Unit = {
-    val cName = defToJVMName(cons)
-    val pName = defToJVMName(cons.getSort)
+    val cName = defConsToJVMName(cons)
+    val pName = defSortToJVMName(cons.getSort)
     val tcons = cons.typed
 
-    val cf = getClass(cons)
+    val cf = getClassCons(cons)
 
     cf.setFlags((
       CLASS_ACC_SUPER |
@@ -1951,7 +1954,7 @@ trait CodeGeneration { self: CompilationUnit =>
         pech << DUP
         pech << Ldc(i)
         pech << ALoad(0)
-        instrumentedGetField(pech, tcons, f.id)(newLocs)
+        instrumentedGetField(pech, tcons, f.id)(using newLocs)
         mkBox(f.getType, pech)
         pech << AASTORE
       }
@@ -1986,11 +1989,11 @@ trait CodeGeneration { self: CompilationUnit =>
 
         for (vd <- cons.fields) {
           ech << ALoad(0)
-          instrumentedGetField(ech, tcons, vd.id)(newLocs)
+          instrumentedGetField(ech, tcons, vd.id)(using newLocs)
           mkArrayBox(vd.getType, ech)
 
           ech << ALoad(castSlot)
-          instrumentedGetField(ech, tcons, vd.id)(newLocs)
+          instrumentedGetField(ech, tcons, vd.id)(using newLocs)
 
           vd.getType match {
             case JvmIType() =>

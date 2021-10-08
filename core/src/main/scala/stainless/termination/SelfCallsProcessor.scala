@@ -5,15 +5,12 @@ package termination
 
 import scala.collection.mutable.{Set => MutableSet}
 
-trait SelfCallsProcessor extends Processor {
-
-  val name: String = "Self Calls Processor"
-
+class SelfCallsProcessor(chker: ProcessingPipeline) extends Processor("Self Calls Processor", chker) {
   import checker._
   import checker.context._
   import checker.program._
   import checker.program.trees._
-  import checker.program.symbols._
+  import checker.program.symbols.{given, _}
 
   def run(problem: Problem) = timers.termination.processors.`self-calls`.run {
     reporter.debug("- Self calls processor...")

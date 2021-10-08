@@ -11,7 +11,7 @@ trait UncheckedSuite extends ComponentTestSuite {
     seq => Seq(optFailEarly(true), inox.solvers.optCheckModels(false)) ++ seq
   }
 
-  val component = VerificationComponent
+  override val component: VerificationComponent.type = VerificationComponent
 
   testAll("verification/unchecked") { (analysis, _) =>
     val report = analysis.toReport

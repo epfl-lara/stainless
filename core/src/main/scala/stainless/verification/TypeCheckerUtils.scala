@@ -9,6 +9,8 @@ import TypeCheckerContext._
 object TypeCheckerUtils {
 
   type StainlessVC = verification.VC[stainless.trees.type]
+  def StainlessVC(condition: stainless.trees.Expr, fd: Identifier, kind: VCKind, satisfiability: Boolean): StainlessVC =
+    verification.VC(stainless.trees)(condition, fd, kind, satisfiability)
 
   object UncheckedExpr {
     def unapply(e: Expr): Option[Expr] = e match {
@@ -72,7 +74,7 @@ object TypeCheckerUtils {
   }
 
   def substVar(expr: Expr, id: Identifier, replacement: Expr): Expr = {
-    new SelfTreeTransformer {
+    new ConcreteStainlessSelfTreeTransformer {
       override def transform(e: Expr) = e match {
         case Variable(id2, _, _) if id2 == id => replacement
         case _ => super.transform(e)
@@ -81,7 +83,7 @@ object TypeCheckerUtils {
   }
 
   // TODO: implement ite for more types (PiType, SigmaType, etc.)
-  def ite(b: Expr, t1: Type, t2: Type)(implicit opts: PrinterOptions, ctx: inox.Context): Type = (t1, t2) match {
+  def ite(b: Expr, t1: Type, t2: Type)(using opts: PrinterOptions, ctx: inox.Context): Type = (t1, t2) match {
     case _ if (t1 == t2) => t1
 
     case (RefinementType(vd1, prop1), RefinementType(vd2, prop2)) =>
@@ -113,7 +115,7 @@ object TypeCheckerUtils {
   //   vds.zip(es).foldLeft(expr) { case (acc, (vd, e)) => Let(vd, e, acc) }
   // }
 
-  def freshLets(vds: Seq[ValDef], es: Seq[Expr], expr: Expr)(implicit opts: PrinterOptions, ctx: inox.Context): Expr = {
+  def freshLets(vds: Seq[ValDef], es: Seq[Expr], expr: Expr)(using opts: PrinterOptions, ctx: inox.Context): Expr = {
     vds.zip(es).foldRight(expr, new Substituter(Map())) {
       case ((vd, e), (acc, freshener)) =>
         val substVd = freshener.transform(vd)
@@ -132,8 +134,8 @@ object TypeCheckerUtils {
   //   }.transform(t)
   // }
 
-  def insertFreshLets(vds: Seq[ValDef], es: Seq[Expr], t: Type)(implicit opts: PrinterOptions, ctx: inox.Context): Type = {
-    new SelfTreeTransformer {
+  def insertFreshLets(vds: Seq[ValDef], es: Seq[Expr], t: Type)(using opts: PrinterOptions, ctx: inox.Context): Type = {
+    new ConcreteStainlessSelfTreeTransformer {
       override def transform(e: Expr) = freshLets(vds, es, e)
     }.transform(t)
   }
@@ -150,7 +152,7 @@ object TypeCheckerUtils {
     case _ => t
   }
 
-  def pp(v: Variable)(implicit opts: PrinterOptions): String = v.tpe match {
+  def pp(v: Variable)(using PrinterOptions): String = v.tpe match {
     case Truth(e) => e.asString
     case _ => v.asString + ": " + v.tpe.asString
   }
@@ -170,7 +172,7 @@ object TypeCheckerUtils {
     case _ => false
   }
 
-  def lessThan(tpe: Type, e1: Expr, e2: Expr)(implicit ctx: inox.Context, opts: PrinterOptions): Expr = (tpe match {
+  def lessThan(tpe: Type, e1: Expr, e2: Expr)(using ctx: inox.Context, opts: PrinterOptions): Expr = (tpe match {
     case IntegerType() => LessThan(e1, e2)
     case BVType(_, _) => LessThan(e1, e2)
     case TupleType(tps) =>
@@ -187,7 +189,7 @@ object TypeCheckerUtils {
       ctx.reporter.fatalError(e2.getPos, s"Type ${tpe.asString} is not supported for measures")
   }).setPos(e1)
 
-  def positive(tpe: Type, e: Expr)(implicit ctx: inox.Context, opts: PrinterOptions): Expr = (tpe match {
+  def positive(tpe: Type, e: Expr)(using ctx: inox.Context, opts: PrinterOptions): Expr = (tpe match {
     case IntegerType() => GreaterEquals(e, IntegerLiteral(0))
     case BVType(signed, size) => GreaterEquals(e, BVLiteral(signed, 0, size))
     case TupleType(tps) => and((1 to tps.length).map(i => positive(tps(i-1), TupleSelect(e,i))): _*)
@@ -196,7 +198,7 @@ object TypeCheckerUtils {
       ctx.reporter.fatalError(e.getPos, s"Type ${tpe.asString} is not supported for measures")
   }).setPos(e)
 
-  case class Substituter(subst: Map[Identifier, Identifier]) extends SelfTreeTransformer {
+  case class Substituter(subst: Map[Identifier, Identifier]) extends ConcreteStainlessSelfTreeTransformer {
     override def transform(id: Identifier) = subst.getOrElse(id, id)
     def transformTp(tp: TypeParameter): TypeParameter = transform(tp).asInstanceOf[TypeParameter]
     def enrich(id1: Identifier, id2: Identifier): Substituter = {

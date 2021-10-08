@@ -3,8 +3,6 @@
 package stainless
 package extraction
 
-import scala.language.existentials
-
 package object throwing {
 
   object trees extends throwing.Trees with oo.ClassSymbols {
@@ -13,29 +11,38 @@ package object throwing {
       sorts: Map[Identifier, ADTSort],
       classes: Map[Identifier, ClassDef],
       typeDefs: Map[Identifier, TypeDef],
-    ) extends ClassSymbols with AbstractSymbols
+    ) extends ClassSymbols with ImperativeAbstractSymbols {
+      override val symbols: this.type = this
+    }
+
+    override def mkSymbols(
+      functions: Map[Identifier, FunDef],
+      sorts: Map[Identifier, ADTSort],
+      classes: Map[Identifier, ClassDef],
+      typeDefs: Map[Identifier, TypeDef],
+    ): Symbols = {
+      Symbols(functions, sorts, classes, typeDefs)
+    }
 
     object printer extends Printer {
       val trees: throwing.trees.type = throwing.trees
     }
   }
 
-  def extractor(implicit ctx: inox.Context) = {
+  def extractor(using inox.Context) = {
+    class ExtractorImpl(override val s: trees.type, override val t: imperative.trees.type) extends CheckingTransformer
     // utils.DebugPipeline("ExceptionLifting", ExceptionLifting(trees, imperative.trees))
-    ExtractionPipeline(new CheckingTransformer {
-      override val s: trees.type = trees
-      override val t: imperative.trees.type = imperative.trees
-    })
+    ExtractionPipeline(new ExtractorImpl(trees, imperative.trees))
   }
 
-  def fullExtractor(implicit ctx: inox.Context) = extractor andThen nextExtractor
-  def nextExtractor(implicit ctx: inox.Context) = imperative.fullExtractor
+  def fullExtractor(using inox.Context) = extractor andThen nextExtractor
+  def nextExtractor(using inox.Context) = imperative.fullExtractor
 
-  def phaseSemantics(implicit ctx: inox.Context): inox.SemanticsProvider { val trees: throwing.trees.type } = {
+  def phaseSemantics(using inox.Context): inox.SemanticsProvider { val trees: throwing.trees.type } = {
     extraction.phaseSemantics(throwing.trees)(fullExtractor)
   }
 
-  def nextPhaseSemantics(implicit ctx: inox.Context): inox.SemanticsProvider { val trees: imperative.trees.type } = {
+  def nextPhaseSemantics(using inox.Context): inox.SemanticsProvider { val trees: imperative.trees.type } = {
     imperative.phaseSemantics
   }
 }

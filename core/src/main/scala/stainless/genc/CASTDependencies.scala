@@ -5,7 +5,7 @@ package genc
 
 import CAST._
 
-class CASTTraverser(implicit ctx: inox.Context) {
+class CASTTraverser(using ctx: inox.Context) {
 
   def deconstruct(t: Tree): Seq[Tree] = t match {
     case Prog(headerIncludes, cIncludes, decls, typeDefs, enums, types, functions) =>
@@ -144,7 +144,7 @@ class CASTTraverser(implicit ctx: inox.Context) {
 
 object CASTDependencies {
 
-  def headerDependencies(prog: Prog)(implicit ctx: inox.Context): Set[Type] = {
+  def headerDependencies(prog: Prog)(using inox.Context): Set[Type] = {
     var res = scala.collection.mutable.Set[Type]()
 
     object typeCollector extends CASTTraverser {

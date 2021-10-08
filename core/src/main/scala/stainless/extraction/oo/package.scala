@@ -3,8 +3,6 @@
 package stainless
 package extraction
 
-import scala.language.existentials
-
 package object oo {
 
   object trees extends oo.Trees with ClassSymbols {
@@ -13,20 +11,29 @@ package object oo {
       sorts: Map[Identifier, ADTSort],
       classes: Map[Identifier, ClassDef],
       typeDefs: Map[Identifier, TypeDef],
-    ) extends ClassSymbols
+    ) extends ClassSymbols with OOAbstractSymbols {
+      override val symbols: this.type = this
+    }
+
+    override def mkSymbols(
+      functions: Map[Identifier, FunDef],
+      sorts: Map[Identifier, ADTSort],
+      classes: Map[Identifier, ClassDef],
+      typeDefs: Map[Identifier, TypeDef],
+    ): Symbols = {
+      Symbols(functions, sorts, classes, typeDefs)
+    }
 
     object printer extends Printer { val trees: oo.trees.type = oo.trees }
   }
 
-  def extractor(implicit ctx: inox.Context) = {
-    val lowering = ExtractionPipeline(new CheckingTransformer {
-      override val s: trees.type = trees
-      override val t: innerfuns.trees.type = innerfuns.trees
-
+  def extractor(using inox.Context) = {
+    class LoweringImpl(override val s: trees.type, override val t: innerfuns.trees.type) extends CheckingTransformer {
       override def transform(fd: s.FunDef): t.FunDef = {
         super.transform(fd.copy(flags = fd.flags.filterNot(_ == s.IsInvariant)))
       }
-    })
+    }
+    val lowering = ExtractionPipeline(new LoweringImpl(trees, innerfuns.trees))
 
     utils.DebugPipeline("AdtSpecialization", AdtSpecialization(trees, trees)) andThen
     utils.DebugPipeline("RefinementLifting", RefinementLifting(trees, trees)) andThen
@@ -35,14 +42,14 @@ package object oo {
     lowering
   }
 
-  def fullExtractor(implicit ctx: inox.Context) = extractor andThen nextExtractor
-  def nextExtractor(implicit ctx: inox.Context) = innerfuns.fullExtractor
+  def fullExtractor(using inox.Context) = extractor andThen nextExtractor
+  def nextExtractor(using inox.Context) = innerfuns.fullExtractor
 
-  def phaseSemantics(implicit ctx: inox.Context): inox.SemanticsProvider { val trees: oo.trees.type } = {
+  def phaseSemantics(using inox.Context): inox.SemanticsProvider { val trees: oo.trees.type } = {
     extraction.phaseSemantics(oo.trees)(fullExtractor)
   }
 
-  def nextPhaseSemantics(implicit ctx: inox.Context): inox.SemanticsProvider { val trees: innerfuns.trees.type } = {
+  def nextPhaseSemantics(using inox.Context): inox.SemanticsProvider { val trees: innerfuns.trees.type } = {
     innerfuns.phaseSemantics
   }
 }

@@ -8,21 +8,19 @@ import inox.evaluators._
 class CodeGenEvaluatorSuite extends EvaluatorSuite {
 
   override def evaluator(ctx: inox.Context): DeterministicEvaluator { val program: inox.InoxProgram } = {
-    object lifter extends inox.transformers.ProgramEncoder {
-      val sourceProgram: program.type = program
-      val t: stainless.trees.type = stainless.trees
+    class Encoder(override val s: inox.trees.type, override val t: stainless.trees.type)
+      extends inox.transformers.ConcreteTreeTransformer(s, t)
 
-      object encoder extends inox.transformers.TreeTransformer {
-        val s: inox.trees.type = inox.trees
-        val t: stainless.trees.type = stainless.trees
-      }
+    class Decoder(override val s: stainless.trees.type, override val t: inox.trees.type)
+      extends inox.transformers.ConcreteTreeTransformer(s, t)
 
-      object decoder extends inox.transformers.TreeTransformer {
-        val s: stainless.trees.type = stainless.trees
-        val t: inox.trees.type = inox.trees
-      }
-    }
+    class Lifter(override val sourceProgram: program.type,
+                 override val t: stainless.trees.type,
+                 override val encoder: Encoder,
+                 override val decoder: Decoder)
+      extends inox.transformers.ProgramEncoder(t, sourceProgram, encoder, decoder)()
 
+    val lifter = new Lifter(program, stainless.trees, new Encoder(inox.trees, stainless.trees), new Decoder(stainless.trees, inox.trees))
     EncodingEvaluator(program)(lifter)(CodeGenEvaluator(lifter.targetProgram, ctx))
   }
 }

@@ -13,12 +13,12 @@ object TypeCheckerDerivation {
 
   sealed abstract class Judgment(val tc: TypingContext) extends inox.utils.Positioned {
     override def getPos = tc.getPos
-    def asString(implicit opts: PrinterOptions, raw: Boolean = false): String
+    def asString(using opts: PrinterOptions, raw: Boolean = false): String
     def htmlClass: String
   }
 
   case class IsType(override val tc: TypingContext, t: Type) extends Judgment(tc) {
-    override def asString(implicit opts: PrinterOptions, raw: Boolean = false) = {
+    override def asString(using opts: PrinterOptions, raw: Boolean = false) = {
       if (raw)
         s"⊢ ${t.asString} is a type"
       else
@@ -28,7 +28,7 @@ object TypeCheckerDerivation {
   }
 
   case class CheckType(override val tc: TypingContext, e: Expr, t: Type) extends Judgment(tc) {
-    override def asString(implicit opts: PrinterOptions, raw: Boolean = false) = (t, raw) match {
+    override def asString(using opts: PrinterOptions, raw: Boolean = false) = (t, raw) match {
       case (TrueBoolean(), false) => s"⊢ ${termColor(shortString(e.asString))} is true"
       case (_, false) => s"⊢ ${termColor(shortString(e.asString))} ⇓ ${typeColor(shortString(t.asString))}"
       case (TrueBoolean(), true) => s"⊢ ${e.asString} is true"
@@ -38,7 +38,7 @@ object TypeCheckerDerivation {
   }
 
   case class InferType(override val tc: TypingContext, e: Expr, t: Type) extends Judgment(tc) {
-    override def asString(implicit opts: PrinterOptions, raw: Boolean = false) = {
+    override def asString(using opts: PrinterOptions, raw: Boolean = false) = {
       if (raw)
         s"⊢ ${e.asString} ⇑ ${t.asString}"
       else
@@ -48,7 +48,7 @@ object TypeCheckerDerivation {
   }
 
   case class IsSubtype(override val tc: TypingContext, t1: Type, t2: Type) extends Judgment(tc) {
-    override def asString(implicit opts: PrinterOptions, raw: Boolean = false) = {
+    override def asString(using opts: PrinterOptions, raw: Boolean = false) = {
       if (raw)
         s"⊢ ${t1.asString} <: ${t2.asString}"
       else
@@ -58,7 +58,7 @@ object TypeCheckerDerivation {
   }
 
   case class AreEqualTypes(override val tc: TypingContext, t1: Type, t2: Type) extends Judgment(tc) {
-    override def asString(implicit opts: PrinterOptions, raw: Boolean = false) = {
+    override def asString(using opts: PrinterOptions, raw: Boolean = false) = {
       if (raw)
         s"⊢ ${t1.asString} =:= ${t2.asString}"
       else
@@ -68,7 +68,7 @@ object TypeCheckerDerivation {
   }
 
   case class JVC(override val tc: TypingContext, e: Expr) extends Judgment(tc) {
-    override def asString(implicit opts: PrinterOptions, raw: Boolean = false) = {
+    override def asString(using opts: PrinterOptions, raw: Boolean = false) = {
       if (raw)
         s"${e.asString} is true (VC: ${tc.vcKind})"
       else
@@ -78,7 +78,7 @@ object TypeCheckerDerivation {
   }
 
   case class OKFunction(id: Identifier) extends Judgment(TypingContext.empty) {
-    override def asString(implicit opts: PrinterOptions, raw: Boolean = false) = {
+    override def asString(using opts: PrinterOptions, raw: Boolean = false) = {
       if (raw)
         s"⊢ ${id.asString} OK"
       else
@@ -88,7 +88,7 @@ object TypeCheckerDerivation {
   }
 
   case class OKADT(id: Identifier) extends Judgment(TypingContext.empty) {
-    override def asString(implicit opts: PrinterOptions, raw: Boolean = false) = {
+    override def asString(using opts: PrinterOptions, raw: Boolean = false) = {
       if (raw)
         s"⊢ ${id.asString} OK"
       else
@@ -114,13 +114,13 @@ object TypeCheckerDerivation {
     }
   }
 
-  def prettyPrint(l: Seq[NodeTree[Judgment]], depth: Int)(implicit opts: PrinterOptions): String = {
+  def prettyPrint(l: Seq[NodeTree[Judgment]], depth: Int)(using PrinterOptions): String = {
     "<ul style='list-style-type: none;'>\n" +
       l.map(t => prettyPrint(t, depth + 1)).mkString("\n") +
     "</ul>"
   }
 
-  def prettyPrint(t: NodeTree[Judgment], depth: Int)(implicit opts: PrinterOptions): String = {
+  def prettyPrint(t: NodeTree[Judgment], depth: Int)(using opts: PrinterOptions): String = {
     val indentation = "  " * depth
     val childrenString = prettyPrint(t.children, depth + 1)
     indentation +
@@ -128,7 +128,7 @@ object TypeCheckerDerivation {
         s"${t.node.asString}" +
         s"""<span class=full-context><pre><code class="language-scala">${t.node.getPos.fullString}""" +
         s"\n\n${t.node.tc.asString()}\n\n" +
-        s"${t.node.asString(opts, raw = true)}" +
+        s"${t.node.asString(using opts, raw = true)}" +
       "</code></pre></span></span>\n" +
       childrenString +
     indentation + "</li>"
@@ -138,7 +138,7 @@ object TypeCheckerDerivation {
   def termColor(s: String) = color("#007c46", s)
   def typeColor(s: String) = color("#9b2600", s)
 
-  def makeHTMLFile(fileName: String, trees: Seq[NodeTree[Judgment]])(implicit opts: PrinterOptions): Unit = {
+  def makeHTMLFile(fileName: String, trees: Seq[NodeTree[Judgment]])(using PrinterOptions): Unit = {
     val fw = new FileWriter(fileName)
     fw.write("<!DOCTYPE html>")
     fw.write("<html lang=\"en\">")

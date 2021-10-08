@@ -22,17 +22,17 @@ import scala.util.Try
 import scala.collection.JavaConverters._
 import scala.collection.mutable.{Map => MutableMap}
 
-trait CodeGenEvaluator
-  extends CompilationUnit
+class CodeGenEvaluator(override val program: Program,
+                       override val context: inox.Context)
+                      (using override val semantics: program.Semantics)
+  extends CompilationUnit(program, context)
      with inox.evaluators.DeterministicEvaluator
      with inox.evaluators.SolvingEvaluator { self =>
 
-  val program: Program
-
-  import context._
+  import context.{given, _}
   import program._
   import program.trees._
-  import program.symbols._
+  import program.symbols.{given, _}
 
   class Monitor(model: program.Model) extends runtime.Monitor {
     private[this] var calls = 0
@@ -108,7 +108,7 @@ trait CodeGenEvaluator
       }
 
 
-      valueToJVM(res)(this)
+      valueToJVM(res)(using this)
     }
 
     def onForallInvocation(id: Int, tps: Array[Int], inputs: Array[AnyRef]): Boolean = {
@@ -184,11 +184,9 @@ trait CodeGenEvaluator
 object CodeGenEvaluator {
   def apply(p: StainlessProgram, ctx: inox.Context): DeterministicEvaluator { val program: p.type } = {
     val split = FunctionSplitting(p, size = 5000, slots = 100)
-    EncodingEvaluator(p)(split)(new {
-      val program: split.targetProgram.type = split.targetProgram
-      val context = ctx
-    } with CodeGenEvaluator {
-      lazy val semantics = split.targetProgram.getSemantics
-    })
+    class Impl(override val program: split.targetProgram.type)
+      extends CodeGenEvaluator(program, ctx)(using split.targetProgram.getSemantics)
+
+    EncodingEvaluator(p)(split)(new Impl(split.targetProgram))
   }
 }

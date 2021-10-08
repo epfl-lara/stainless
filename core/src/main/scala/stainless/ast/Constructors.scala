@@ -13,7 +13,7 @@ trait Constructors extends inox.ast.Constructors { self: Trees =>
   /** $encodingof the I/O example specification
     * @see [[ast.Expressions.Passes Passes]]
     */
-  def passes(in: Expr, out: Expr, cases: Seq[MatchCase])(implicit s: Symbols): Expr = {
+  def passes(in: Expr, out: Expr, cases: Seq[MatchCase])(using Symbols): Expr = {
     Passes(in, out, cases)
   }
 }

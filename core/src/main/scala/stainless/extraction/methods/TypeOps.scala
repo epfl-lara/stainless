@@ -7,7 +7,7 @@ package methods
 trait TypeOps extends oo.TypeOps { self =>
   protected val trees: Trees
   import trees._
-  import symbols._
+  import symbols.{given, _}
 
   override def unapplyAccessorResultType(id: Identifier, inType: Type): Option[Type] =
     lookupFunction(id)

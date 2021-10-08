@@ -12,23 +12,22 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future, TimeoutException}
 import scala.util.{Failure, Success}
 
-import scala.language.existentials
-
 object DebugSectionCoq extends inox.DebugSection("coq")
 
 trait CoqVerificationChecker { self =>
   val program: StainlessProgram
   val context: inox.Context
 
-  import context._
+  import context.{given, _}
   import program._
   import program.trees._
-  import program.symbols._
+  import program.symbols.{given, _}
 
-  implicit val debugSection = DebugSectionCoq
+  given givenDebugSection: DebugSectionCoq.type = DebugSectionCoq
 
   type VC = verification.VC[program.trees.type]
-  val VC = verification.VC
+  def VC(condition: program.trees.Expr, fd: Identifier, kind: VCKind, satisfiability: Boolean): VC =
+    verification.VC(program.trees)(condition, fd, kind, satisfiability)
 
   type VCStatus = verification.VCStatus[program.Model]
 
@@ -87,7 +86,6 @@ trait CoqVerificationChecker { self =>
       override val results = initMap ++ res
       override val context = self.context
     })
-
   }
 }
 

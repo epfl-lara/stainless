@@ -6,13 +6,14 @@ import java.nio.file.StandardCopyOption
 import java.util.stream.Collectors
 import java.util.zip.ZipFile
 import java.util.zip.ZipEntry
-
 import sbt._
 import sbt.Keys._
 
 object StainlessPlugin extends sbt.AutoPlugin {
-
   private val IssueTracker = "https://github.com/epfl-lara/stainless/issues"
+  private val stainlessScalaVersion = BuildInfo.stainlessScalaVersion
+  // e.g. for 2.13.6, this would yield 2.13
+  private val stainlessProgScalaBinaryVersion = CrossVersion.binaryScalaVersion(BuildInfo.stainlessProgScalaVersion)
 
   override def requires: Plugins = plugins.JvmPlugin
   override def trigger: PluginTrigger = noTrigger // This plugin needs to be manually enabled
@@ -48,7 +49,7 @@ object StainlessPlugin extends sbt.AutoPlugin {
       (id, proj) <- allBuildProjects
       if proj.autoPlugins.toSet.contains(StainlessPlugin)
       projRef = ProjectRef(extracted.currentUnit.unit.uri, id)
-      sv <- (scalaVersion in projRef).get(extracted.structure.data)
+      sv <- (projRef / scalaVersion).get(extracted.structure.data)
       if !BuildInfo.supportedScalaVersions.contains(sv)
     } state.log.error(
       s"Project uses unsupported Scala version: $sv. " +
@@ -81,8 +82,8 @@ object StainlessPlugin extends sbt.AutoPlugin {
     inConfig(Compile)(compileSettings)            // overrides settings that are scoped (by sbt) at the `Compile` configuration
 
   private def stainlessModules: Def.Initialize[Seq[ModuleID]] = Def.setting {
-    val pluginRef  = "ch.epfl.lara" % s"stainless-scalac-plugin_${scalaVersion.value}" % stainlessVersion.value
-    val libraryRef = "ch.epfl.lara" % s"stainless-library_${scalaBinaryVersion.value}" % stainlessVersion.value
+    val pluginRef  = "ch.epfl.lara" % s"stainless-scalac-plugin_$stainlessScalaVersion" % stainlessVersion.value
+    val libraryRef = "ch.epfl.lara" % s"stainless-library_$stainlessProgScalaBinaryVersion" % stainlessVersion.value
 
     val sourceDeps = (libraryRef +: stainlessExtraDeps.value).map { dep =>
       dep.intransitive().sources() % StainlessLibSources
@@ -97,18 +98,18 @@ object StainlessPlugin extends sbt.AutoPlugin {
   )
 
   private def stainlessSourcesLocation = Def.setting {
-    target.value / s"stainless_${scalaBinaryVersion.value}"
+    target.value / s"stainless_$stainlessProgScalaBinaryVersion"
   }
 
   private def fetchAndUnzipSourceDeps: Def.Initialize[Task[Seq[File]]] = Def.task {
     val log = streams.value.log
-    val projectName = (name in thisProject).value
+    val projectName = (thisProject / name).value
 
     val config = StainlessLibSources
-    var sourceJars = fetchJars(
+    val sourceJars = fetchJars(
       updateClassifiers.value,
       config,
-      artifact => artifact.classifier == Some(Artifact.SourceClassifier)
+      artifact => artifact.classifier.contains(Artifact.SourceClassifier)
     ).distinct
 
     log.debug(s"[$projectName] Configuration ${config.name} has modules: ${sourceJars.mkString(", ")}")

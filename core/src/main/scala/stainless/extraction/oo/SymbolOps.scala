@@ -4,9 +4,9 @@ package stainless
 package extraction
 package oo
 
-trait SymbolOps extends innerfuns.SymbolOps { self: TypeOps =>
+trait SymbolOps extends TypeOps with innerfuns.SymbolOps { self =>
   import trees._
-  import symbols._
+  import symbols.{given, _}
 
   /** Converts the pattern applied to an input to a map between identifiers and expressions */
   override def mapForPattern(in: Expr, pattern: Pattern): Map[ValDef, Expr] = {
@@ -33,8 +33,8 @@ trait SymbolOps extends innerfuns.SymbolOps { self: TypeOps =>
     }
   }
 
-  protected class PatternConditions[P <: PathLike[P]](includeBinders: Boolean)(implicit pp: PathProvider[P])
-    extends super.PatternConditions[P](includeBinders) {
+  protected class OOPatternConditions[P <: PathLike[P]](includeBinders: Boolean)(using pp: PathProvider[P])
+    extends PatternConditions[P](includeBinders) {
 
     override def apply(in: Expr, pattern: Pattern): P = pattern match {
       case ClassPattern(b, ct, subPatterns) =>
@@ -49,9 +49,8 @@ trait SymbolOps extends innerfuns.SymbolOps { self: TypeOps =>
     }
   }
 
-  override protected def patternConditions[P <: PathLike[P]](includeBinders: Boolean)
-                                                            (implicit pp: PathProvider[P]) = 
-                                                              new PatternConditions[P](includeBinders)
+  override protected def patternConditions[P <: PathLike[P]](includeBinders: Boolean)(using PathProvider[P]) =
+    new OOPatternConditions[P](includeBinders)
 
   /** $encodingof expr.asInstanceOf[tpe], returns `expr` if it already is of type `tpe`.  */
   def asInstOf(expr: Expr, tpe: Type) = {
@@ -72,7 +71,7 @@ trait SymbolOps extends innerfuns.SymbolOps { self: TypeOps =>
     case _ => IsInstanceOf(expr, tpe).copiedFrom(expr)
   }
 
-  override def debugString(filter: String => Boolean)(implicit pOpts: PrinterOptions): String = {
+  override def debugString(filter: String => Boolean)(using PrinterOptions): String = {
     super.debugString(filter) ++
     wrapWith("Classes", objectsToString(classes.values, filter)) ++
     wrapWith("Type definitions", objectsToString(typeDefs.values, filter))

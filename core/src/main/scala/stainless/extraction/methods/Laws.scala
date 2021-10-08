@@ -5,26 +5,23 @@ package extraction
 package methods
 
 import stainless.ast.{Symbol, SymbolIdentifier}
-import stainless.ast.SymbolIdentifier.IdentifierOps
+import SymbolIdentifier.unsafeToSymbolIdentifier
 
-trait Laws
+class Laws(override val s: Trees, override val t: Trees)
+          (using override val context: inox.Context)
   extends oo.CachingPhase
      with oo.IdentityTypeDefs
      with IdentitySorts { self =>
-
-  val s: Trees
-  val t: Trees
-
-  import s.ClassDefWrapper // implicit wrapper for cd.methods
-
+  
   private[this] val lawID = new utils.ConcurrentCached[SymbolIdentifier, SymbolIdentifier](
     id => SymbolIdentifier(id.symbol.name)
   )
 
-  override protected final def getContext(symbols: s.Symbols) = new TransformerContext()(symbols)
-  protected final class TransformerContext(implicit val symbols: s.Symbols) extends oo.DefinitionTransformer {
-    override val s: self.s.type = self.s
-    override val t: self.t.type = self.t
+  override protected final def getContext(symbols: s.Symbols) = new TransformerContext(self.s, self.t)(using symbols)
+
+  protected final class TransformerContext(override val s: self.s.type, override val t: self.t.type)
+                                          (using val symbols: s.Symbols)
+    extends oo.DefinitionTransformer {
 
     override type Env = Option[Symbol]
     override def initEnv: Env = None
@@ -93,8 +90,7 @@ trait Laws
   }
 
   override protected final def extractFunction(context: TransformerContext, fd: s.FunDef): FunctionResult = {
-    import context.{s => _, t => _, _}
-    import s.FunDefWrapper
+    import context.{s => _, t => _, given, _}
 
     if (fd.flags contains s.Law) {
       // Some sanity checks
@@ -269,13 +265,11 @@ trait Laws
 }
 
 object Laws {
-  def apply(tr: Trees)(implicit ctx: inox.Context): ExtractionPipeline {
+  def apply(tr: Trees)(using inox.Context): ExtractionPipeline {
     val s: tr.type
     val t: tr.type
-  } = new {
-    override val s: tr.type = tr
-    override val t: tr.type = tr
-  } with Laws {
-    override val context = ctx
+  } = {
+    class Impl(override val s: tr.type, override val t: tr.type) extends Laws(s, t)
+    new Impl(tr, tr)
   }
 }

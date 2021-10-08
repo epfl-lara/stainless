@@ -4,14 +4,12 @@ package stainless
 package extraction
 package termination
 
-trait InductElimination
-    extends CachingPhase
-    with SimpleFunctions
-    with SimplyCachedFunctions
-    with IdentitySorts { self =>
-
-  val s: Trees
-  val t: s.type
+class InductElimination(override val s: Trees)(override val t: s.type)
+                       (using override val context: inox.Context)
+  extends CachingPhase
+     with SimpleFunctions
+     with SimplyCachedFunctions
+     with IdentitySorts { self =>
 
   /* ====================================
    *       Context and caches setup
@@ -21,11 +19,12 @@ trait InductElimination
   import s.exprOps._
   import dsl._
 
-  protected class TransformerContext(implicit val symbols: Symbols)
-  override protected def getContext(syms: Symbols) = new TransformerContext()(syms)
+  protected class TransformerContext(using val symbols: Symbols)
+  override protected def getContext(syms: Symbols) = new TransformerContext()(using syms)
 
   override protected def extractFunction(tcontext: TransformerContext, fd: FunDef): FunDef = {
-    implicit val syms = tcontext.symbols
+    val syms = tcontext.symbols
+    import syms.given
 
     def canInductOn(tpe: Type): Boolean = tpe match {
       case ADTType(_, _) => true
@@ -184,12 +183,11 @@ trait InductElimination
 }
 
 object InductElimination {
-  def apply(tt: Trees)(implicit ctx: inox.Context): ExtractionPipeline {
+  def apply(tt: Trees)(using inox.Context): ExtractionPipeline {
     val s: tt.type
     val t: tt.type
-  } = new InductElimination {
-    override val s: tt.type = tt
-    override val t: tt.type = tt
-    override val context = ctx
+  } = {
+    class Impl(override val s: tt.type, override val t: tt.type) extends InductElimination(s)(t)
+    new Impl(tt, tt)
   }
 }

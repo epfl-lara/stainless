@@ -15,11 +15,11 @@ trait PositionChecker {
   val name: String
   val context: inox.Context
 
-  final class PositionTraverser extends t.SelfTreeTraverser { self =>
+  final class PositionTraverser extends t.ConcreteStainlessSelfTreeTraverser { self =>
     import t._
 
-    implicit val popts = t.PrinterOptions.fromContext(context)
-    implicit val debugSection = DebugSectionPositions
+    given givenPopts: t.PrinterOptions = t.PrinterOptions.fromContext(context)
+    given givenDebugSection: DebugSectionPositions.type = DebugSectionPositions
 
     private var lastKnownPosition: Position = NoPosition
 

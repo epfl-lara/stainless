@@ -6,15 +6,16 @@ package inlining
 
 object DebugSectionFunctionSpecialization extends inox.DebugSection("fun-specialization")
 
-trait FunctionSpecialization extends CachingPhase with IdentitySorts { self =>
-  val s: Trees
-  val t: s.type
+class FunctionSpecialization(override val s: Trees)(override val t: s.type)
+                            (using override val context: inox.Context)
+  extends CachingPhase
+     with IdentitySorts { self =>
   import s._
 
-  implicit val debugSection = DebugSectionFunctionSpecialization
+  given givenDebugSection: DebugSectionFunctionSpecialization.type = DebugSectionFunctionSpecialization
 
   override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult](
-    (fd, symbols) => getDependencyKey(fd.id)(symbols)
+    (fd, symbols) => getDependencyKey(fd.id)(using symbols)
   )
 
   override protected type FunctionResult = Option[t.FunDef]
@@ -34,7 +35,7 @@ trait FunctionSpecialization extends CachingPhase with IdentitySorts { self =>
     symbols.withFunctions(functions.flatten)
 
   override protected def extractFunction(symbols: s.Symbols, fd: s.FunDef): Option[t.FunDef] = {
-    import symbols._
+    import symbols.{given, _}
     import exprOps._
 
     if (fd.flags.contains(Template))
@@ -71,9 +72,9 @@ trait FunctionSpecialization extends CachingPhase with IdentitySorts { self =>
       vargsExtra: Seq[Variable], // Extra value parameters to be passed through
       specialized: Set[Identifier], // Original parameters that are being specialized and thus be dropped
       pinned: Set[Identifier], // Original parameters that must not vary on recursive calls
-    ) extends s.SelfTreeTransformer {
+    ) extends s.ConcreteStainlessSelfTreeTransformer {
 
-      override def transform(expr: s.Expr): t.Expr = expr match {
+      override def transform(expr: self.s.Expr): self.t.Expr = expr match {
         case v: Variable =>
           vsubst.getOrElse(v.id, super.transform(v))
 
@@ -102,7 +103,7 @@ trait FunctionSpecialization extends CachingPhase with IdentitySorts { self =>
         case _ => super.transform(expr)
       }
 
-      override def transform(tpe: s.Type): t.Type = tpe match {
+      override def transform(tpe: self.s.Type): self.t.Type = tpe match {
         case tp: TypeParameter =>
           tsubst.getOrElse(tp.id, super.transform(tp))
 
@@ -188,7 +189,7 @@ trait FunctionSpecialization extends CachingPhase with IdentitySorts { self =>
         val specialized = tspecialized ++ vspecialized
         val pinned = newPinnedInArgs.map(newToOrig) ++ specialized
 
-        if (context.reporter.isDebugEnabled(debugSection)) {
+        if (context.reporter.isDebugEnabled) {
           val specArgsStr =
             tspecialized.map(id => s"$id:=${tsubst(id).asString}").mkString(", ") + "; " +
             vspecialized.map(id => s"$id:=${vsubst(id).asString}").mkString(", ")
@@ -236,7 +237,7 @@ trait FunctionSpecialization extends CachingPhase with IdentitySorts { self =>
 
     val fullBody1 = specced2.reconstructed
     val fullBody2 = exprOps.freshenLocals(fullBody1)
-    val fullBody3 = symbols.simplifyExpr(fullBody2)(inox.solvers.PurityOptions(context))
+    val fullBody3 = symbols.simplifyExpr(fullBody2)(using inox.solvers.PurityOptions(context))
 
     check(fullBody3)
 
@@ -247,12 +248,11 @@ trait FunctionSpecialization extends CachingPhase with IdentitySorts { self =>
 }
 
 object FunctionSpecialization {
-  def apply(trees: Trees)(implicit ctx: inox.Context): ExtractionPipeline {
+  def apply(trees: Trees)(using inox.Context): ExtractionPipeline {
     val s: trees.type
     val t: trees.type
-  } = new FunctionSpecialization {
-    override val s: trees.type = trees
-    override val t: trees.type = trees
-    override val context = ctx
+  } = {
+    class Impl(override val s: trees.type, override val t: trees.type) extends FunctionSpecialization(s)(t)
+    new Impl(trees, trees)
   }
 }

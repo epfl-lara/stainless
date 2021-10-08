@@ -8,7 +8,7 @@ trait TransformerWithType extends TreeTransformer {
   val s: Trees
   val t: Trees
   val symbols: s.Symbols
-  import symbols._
+  import symbols.{given, _}
 
   private def getArithmeticType(lhs: s.Expr, expectedType: s.Type): s.Type = expectedType match {
     case s.AnyType() => lhs.getType

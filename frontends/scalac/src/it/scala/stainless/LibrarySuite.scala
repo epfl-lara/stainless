@@ -27,8 +27,8 @@ abstract class AbstractLibrarySuite(opts: Seq[inox.OptionValue[_]]) extends AnyF
   }
 
   describe("stainless library") {
-    implicit val ctx = stainless.TestContext(options)
-    import ctx.reporter
+    val ctx: inox.Context = stainless.TestContext(options)
+    import ctx.{reporter, given}
 
     val tryProgram = scala.util.Try(loadFiles(Seq.empty)._2)
     it("should be extractable") {

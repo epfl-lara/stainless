@@ -5,31 +5,27 @@ package extraction
 package methods
 
 import stainless.ast.{Symbol, SymbolIdentifier}
-import stainless.ast.SymbolIdentifier.IdentifierOps
+import SymbolIdentifier.unsafeToSymbolIdentifier
 
 /** Ensures invariants of ancestors are enforced by
  *  conjoining call to parent invariant in each invariant.
  */
-trait SuperInvariants
+class SuperInvariants(override val s: Trees, override val t: Trees)
+                     (using override val context: inox.Context)
   extends oo.CachingPhase
-    with IdentitySorts
-    with SimpleFunctions
-    with oo.IdentityTypeDefs
-    with oo.IdentityClasses { self =>
-
-  val s: Trees
-  val t: Trees
+     with IdentitySorts
+     with SimpleFunctions
+     with oo.IdentityTypeDefs
+     with oo.IdentityClasses { self =>
 
   override protected final val funCache = new ExtractionCache({ (fd, context) =>
     FunctionKey(fd) + SetKey(context.ancestorsInvariants(fd).map(FunctionKey(_)))
   })
 
-  override protected def getContext(symbols: s.Symbols) = new TransformerContext()(symbols)
+  override protected def getContext(symbols: s.Symbols) = new TransformerContext(self.s, self.t)(using symbols)
 
-  protected class TransformerContext(implicit val symbols: s.Symbols) extends oo.TreeTransformer {
-    override val s: self.s.type = self.s
-    override val t: self.t.type = self.t
-
+  protected class TransformerContext(override val s: self.s.type, override val t: self.t.type)
+                                    (using val symbols: s.Symbols) extends oo.ConcreteTreeTransformer(s, t) {
     import s._
     import symbols._
 
@@ -90,13 +86,12 @@ trait SuperInvariants
 }
 
 object SuperInvariants {
-  def apply(ts: Trees)(implicit ctx: inox.Context): ExtractionPipeline {
+  def apply(ts: Trees)(using inox.Context): ExtractionPipeline {
     val s: ts.type
     val t: ts.type
-  } = new SuperInvariants {
-    override val s: ts.type = ts
-    override val t: ts.type = ts
-    override val context = ctx
+  } = {
+    class Impl(override val s: ts.type, override val t: ts.type) extends SuperInvariants(s, t)
+    new Impl(ts, ts)
   }
 }
 

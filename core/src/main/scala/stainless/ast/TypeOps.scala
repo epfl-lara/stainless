@@ -6,7 +6,7 @@ package ast
 trait TypeOps extends inox.ast.TypeOps {
   protected val trees: Trees
   import trees._
-  import symbols._
+  import symbols.{given, _}
 
   def unapplyAccessorResultType(id: Identifier, inType: Type): Option[Type] =
     lookupFunction(id)
@@ -73,7 +73,7 @@ trait TypeOps extends inox.ast.TypeOps {
   }
 
   def replaceKeepPositions(subst: Map[Variable, Expr], tpe: Type): Type = {
-    new SelfTreeTransformer {
+    new ConcreteStainlessSelfTreeTransformer {
       override def transform(expr: Expr): Expr = expr match {
         case v: Variable => subst.getOrElse(v, v).copiedFrom(v)
         case _ => super.transform(expr)

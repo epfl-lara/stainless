@@ -4,9 +4,10 @@ package stainless
 package extraction
 package inlining
 
-trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
-  val s: Trees
-  val t: trace.Trees
+class FunctionInlining(override val s: Trees, override val t: trace.Trees)
+                      (using override val context: inox.Context)
+  extends CachingPhase
+     with IdentitySorts { self =>
   import s._
 
   // The function inlining transformation depends on all (transitive) callees
@@ -23,20 +24,20 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
   override protected type TransformerContext = s.Symbols
   override protected def getContext(symbols: s.Symbols) = symbols
 
-  private[this] object identity extends transformers.TreeTransformer {
-    override val s: self.s.type = self.s
-    override val t: self.t.type = self.t
-  }
+  private[this] class FnInliningIdentityImpl(override val s: self.s.type, override val t: self.t.type)
+    extends transformers.ConcreteTreeTransformer(s, t)
+
+  private[this] val identity = new FnInliningIdentityImpl(self.s, self.t)
 
   override protected def registerFunctions(symbols: t.Symbols, functions: Seq[Option[t.FunDef]]): t.Symbols =
     symbols.withFunctions(functions.flatten)
 
   override protected def extractFunction(symbols: s.Symbols, fd: s.FunDef): Option[t.FunDef] = {
-    import symbols._
+    import symbols.{given, _}
 
-    class Inliner(inlinedOnce: Set[Identifier] = Set()) extends s.SelfTreeTransformer {
+    class Inliner(inlinedOnce: Set[Identifier] = Set()) extends s.ConcreteStainlessSelfTreeTransformer {
 
-      override def transform(expr: s.Expr): t.Expr = expr match {
+      override def transform(expr: Expr): Expr = expr match {
         case fi: FunctionInvocation =>
           inlineFunctionInvocations(fi.copy(args = fi.args map transform).copiedFrom(fi)).copiedFrom(fi)
 
@@ -177,12 +178,11 @@ trait FunctionInlining extends CachingPhase with IdentitySorts { self =>
 }
 
 object FunctionInlining {
-  def apply(ts: Trees, tt: trace.Trees)(implicit ctx: inox.Context): ExtractionPipeline {
+  def apply(ts: Trees, tt: trace.Trees)(using inox.Context): ExtractionPipeline {
     val s: ts.type
     val t: tt.type
-  } = new FunctionInlining {
-    override val s: ts.type = ts
-    override val t: tt.type = tt
-    override val context = ctx
+  } = {
+    class Impl(override val s: ts.type, override val t: tt.type) extends FunctionInlining(s, t)
+    new Impl(ts, tt)
   }
 }

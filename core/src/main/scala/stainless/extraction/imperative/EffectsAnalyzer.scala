@@ -54,9 +54,10 @@ trait EffectsAnalyzer extends oo.CachingPhase {
   val t: s.type
   import s._
   import exprOps._
+  import context.given
 
   private[this] val effectsCache = new ExtractionCache[FunDef, Result]((fd, context) =>
-    getDependencyKey(fd.id)(context.symbols)
+    getDependencyKey(fd.id)(using context.symbols)
   )
 
   protected case class Result(
@@ -65,7 +66,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
 
     def merge(that: Result): Result = Result(effects ++ that.effects, locals ++ that.locals)
 
-    def asString(implicit printerOpts: PrinterOptions): String = {
+    def asString(using PrinterOptions): String = {
       val effectsString = effects.map(e => "  " + e._1.id.asString + " -> " + e._2.map(_.asString)).toList.sorted.mkString("\n")
       val localsString = locals.map(p => "  " + p._1.asString + "," + p._2.asString).toList.sorted.mkString("\n")
       s"""|effects:
@@ -83,7 +84,8 @@ trait EffectsAnalyzer extends oo.CachingPhase {
   protected type TransformerContext <: EffectsAnalysis
 
   trait EffectsAnalysis { self: TransformerContext =>
-    implicit val symbols: s.Symbols
+    val symbols: s.Symbols
+    import symbols.given
 
     private[this] def functionEffects(fd: FunAbstraction, current: Result): Set[Effect] =
       BodyWithSpecs(fd.fullBody).bodyOpt match {
@@ -153,44 +155,44 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       tupleTypeWrap(fd.returnType +: aliasedParams.map(_.tpe))
     }
 
-    def asString(implicit printerOpts: PrinterOptions): String =
+    def asString(using PrinterOptions): String =
       s"EffectsAnalysis(\n${result.asString}\n)"
 
     override def toString: String = asString
   }
 
   sealed abstract class Accessor {
-    def asString(implicit ctx: inox.Context): String
+    def asString(using inox.Context): String
     def bind(x: ValDef, e: Expr): Accessor
   }
 
   case class ADTFieldAccessor(selector: Identifier) extends Accessor {
-    def asString(implicit ctx: inox.Context) = s"ADTFieldAccessor(${selector.asString})"
+    def asString(using inox.Context) = s"ADTFieldAccessor(${selector.asString})"
     def bind(x: ValDef, e: Expr): Accessor = this
   }
 
   case class ClassFieldAccessor(selector: Identifier) extends Accessor {
-    def asString(implicit ctx: inox.Context) = s"ClassFieldAccessor(${selector.asString})"
+    def asString(using inox.Context) = s"ClassFieldAccessor(${selector.asString})"
     def bind(x: ValDef, e: Expr): Accessor = this
   }
 
   case class ArrayAccessor(index: Expr) extends Accessor {
-    def asString(implicit ctx: inox.Context) = s"ArrayAccessor(${index.asString})"
+    def asString(using inox.Context) = s"ArrayAccessor(${index.asString})"
     def bind(x: ValDef, e: Expr): Accessor = ArrayAccessor(bindNonValue(x, e, index))
   }
 
   case object UnknownArrayAccessor extends Accessor {
-    def asString(implicit ctx: inox.Context) = s"UnknownArrayAccessor"
+    def asString(using inox.Context) = s"UnknownArrayAccessor"
     def bind(x: ValDef, e: Expr): Accessor = this
   }
 
   case class MutableMapAccessor(index: Expr) extends Accessor {
-    def asString(implicit ctx: inox.Context) = s"MutableMapAccessor(${index.asString})"
+    def asString(using inox.Context) = s"MutableMapAccessor(${index.asString})"
     def bind(x: ValDef, e: Expr): Accessor = MutableMapAccessor(bindNonValue(x, e, index))
   }
 
   case class TupleFieldAccessor(index: Int) extends Accessor {
-    def asString(implicit ctx: inox.Context) = s"TupleFieldAccessor($index)"
+    def asString(using inox.Context) = s"TupleFieldAccessor($index)"
     def bind(x: ValDef, e: Expr): Accessor = this
   }
 
@@ -202,7 +204,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
 
     def isEmpty: Boolean = path.isEmpty
 
-    def wrap(expr: Expr)(implicit symbols: Symbols) = Path.wrap(expr, path)
+    def wrap(expr: Expr)(using Symbols) = Path.wrap(expr, path)
 
     def bind(x: ValDef, e: Expr) = Path(path.map(_.bind(x, e)))
 
@@ -260,7 +262,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
 
     def toSeq: Seq[Accessor] = path
 
-    def asString(implicit printerOpts: PrinterOptions): String =
+    def asString(using PrinterOptions): String =
       path.map {
         case ADTFieldAccessor(id) => s".${id.asString}"
         case ClassFieldAccessor(id) => s".${id.asString}"
@@ -276,7 +278,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
   object Path {
     def empty: Path = Path(Seq.empty)
 
-    def wrap(expr: Expr, path: Seq[Accessor])(implicit symbols: Symbols): Option[Expr] = path match {
+    def wrap(expr: Expr, path: Seq[Accessor])(using symbols: Symbols): Option[Expr] = path match {
       case ADTFieldAccessor(id) +: xs =>
         wrap(ADTSelector(expr, id), xs)
 
@@ -358,14 +360,14 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     def definitelyPrefixOf(that: Target): Boolean =
       receiver == that.receiver && (path definitelyPrefixOf that.path)
 
-    def wrap(implicit symbols: Symbols): Option[Expr] = path.wrap(receiver)
+    def wrap(using Symbols): Option[Expr] = path.wrap(receiver)
 
-    def asString(implicit printerOpts: PrinterOptions): String =
+    def asString(using PrinterOptions): String =
       s"Target(${receiver.asString}, ${condition.map(_.asString)}, ${path.asString})"
 
     override def toString: String = asString
 
-    def isValid(implicit syms: Symbols): Boolean = {
+    def isValid(using syms: Symbols): Boolean = {
       def rec(tpe: Type, path: Seq[Accessor]): Boolean = (tpe, path) match {
         case (adt: ADTType, ADTFieldAccessor(id) +: xs) =>
           val constructors = adt.getSort.constructors
@@ -428,7 +430,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       else this
     }
 
-    def on(that: Expr)(implicit symbols: Symbols): Set[Effect] = {
+    def on(that: Expr)(using symbols: Symbols): Set[Effect] = {
       val res = try {
         getTargets(that, kind, path.path).map(_.toEffect(kind))
       } catch {
@@ -452,26 +454,26 @@ trait EffectsAnalyzer extends oo.CachingPhase {
 
     def toTarget: Target = Target(receiver, None, path)
 
-    def wrap(implicit symbols: Symbols): Option[Expr] = path.wrap(receiver)
+    def wrap(using Symbols): Option[Expr] = path.wrap(receiver)
 
-    def targetString(implicit printerOpts: PrinterOptions): String =
+    def targetString(using PrinterOptions): String =
       s"${receiver.asString}${path.asString}"
 
-    def asString(implicit printerOpts: PrinterOptions): String
+    def asString(using PrinterOptions): String
 
     override def toString: String = asString
   }
 
   case class ReplacementEffect(receiver: Variable, path: Path) extends Effect(ReplacementKind) {
-    def asString(implicit printerOpts: PrinterOptions) = s"ReplacementEffect($targetString)"
+    def asString(using PrinterOptions) = s"ReplacementEffect($targetString)"
   }
 
   case class ModifyingEffect(receiver: Variable, path: Path) extends Effect(ModifyingKind) {
-    def asString(implicit printerOpts: PrinterOptions) = s"ModifyingEffect($targetString)"
+    def asString(using PrinterOptions) = s"ModifyingEffect($targetString)"
   }
 
   case class CombinedEffect(receiver: Variable, path: Path) extends Effect(CombinedKind) {
-    def asString(implicit printerOpts: PrinterOptions) = s"CombinedEffect($targetString)"
+    def asString(using PrinterOptions) = s"CombinedEffect($targetString)"
   }
 
 
@@ -479,7 +481,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
    * effects (with `kind`) on `x` (field assignments, array updates, etc.) result in effects on
    * these targets.
    */
-  def getTargets(expr: Expr, kind: EffectKind, path: Seq[Accessor] = Seq.empty)(implicit symbols: Symbols): Set[Target] = expr match {
+  def getTargets(expr: Expr, kind: EffectKind, path: Seq[Accessor] = Seq.empty)(using symbols: Symbols): Set[Target] = expr match {
     case _ if variablesOf(expr).forall(v => !symbols.isMutableType(v.tpe)) => Set.empty
     case _ if isExpressionFresh(expr) => Set.empty
     case _ if !symbols.isMutableType(expr.getType) => Set.empty
@@ -613,8 +615,8 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       )
   }
 
-  def getAllTargets(expr: Expr)(implicit symbols: Symbols) = getTargets(expr, ModifyingKind)
-  def getDirectTargets(expr: Expr, accessor: Accessor)(implicit symbols: Symbols) =
+  def getAllTargets(expr: Expr)(using Symbols) = getTargets(expr, ModifyingKind)
+  def getDirectTargets(expr: Expr, accessor: Accessor)(using Symbols) =
     getTargets(expr, ReplacementKind, Seq(accessor))
 
   /* A fresh expression is an expression that is newly created
@@ -627,7 +629,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
    * It turns out that an expression of non-mutable type is always fresh,
    * as it can not contain references to a mutable object, by definition
    */
-  def isExpressionFresh(expr: Expr)(implicit symbols: Symbols): Boolean = {
+  def isExpressionFresh(expr: Expr)(using symbols: Symbols): Boolean = {
     import symbols._
 
     def rec(expr: Expr, bindings: Set[ValDef]): Boolean = !isMutableType(expr.getType) || (expr match {
@@ -690,7 +692,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     rec(expr, Set.empty)
   }
 
-  protected def typeToAccessor(tpe: Type, id: Identifier)(implicit s: Symbols): Accessor = tpe match {
+  protected def typeToAccessor(tpe: Type, id: Identifier)(using Symbols): Accessor = tpe match {
     case at: ADTType   => ADTFieldAccessor(id)
     case ct: ClassType => ClassFieldAccessor(id)
     case ta: TypeApply => typeToAccessor(ta.getType, id)
@@ -710,7 +712,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     *
     * We are assuming no aliasing.
     */
-  private def expressionEffects(expr: Expr, result: Result)(implicit symbols: Symbols): Set[Effect] = {
+  private def expressionEffects(expr: Expr, result: Result)(using symbols: Symbols): Set[Effect] = {
     import symbols._
     val freeVars = variablesOf(expr).filter(vd => isMutableType(vd.tpe) || vd.flags.contains(IsVar))
 
@@ -889,7 +891,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     *
     * In theory this can be overridden to use a different behaviour.
     */
-  def functionTypeEffects(ft: FunctionType)(implicit symbols: Symbols): Set[Int] = {
+  def functionTypeEffects(ft: FunctionType)(using symbols: Symbols): Set[Int] = {
     ft.from.zipWithIndex.flatMap { case (tpe, i) =>
       if (symbols.isMutableType(tpe)) Some(i) else None
     }.toSet

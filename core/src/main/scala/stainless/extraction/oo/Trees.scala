@@ -14,7 +14,7 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
 
   /** $encodingof `new id(args)` */
   case class ClassConstructor(ct: ClassType, args: Seq[Expr]) extends Expr with CachingTyped {
-    protected def computeType(implicit s: Symbols): Type = ct.lookupClass match {
+    protected def computeType(using Symbols): Type = ct.lookupClass match {
       case Some(tcd) => checkParamTypes(args.map(_.getType), tcd.fields.map(_.tpe), ct)
       case _ => Untyped
     }
@@ -22,12 +22,12 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
 
   /** $encodingof `expr.selector` */
   case class ClassSelector(expr: Expr, selector: Identifier) extends Expr with CachingTyped {
-    def field(implicit s: Symbols): Option[ValDef] = getClassType(expr) match {
+    def field(using Symbols): Option[ValDef] = getClassType(expr) match {
       case ct: ClassType => ct.getField(selector)
       case _ => None
     }
 
-    protected def computeType(implicit s: Symbols): Type = expr.getType match {
+    protected def computeType(using s: Symbols): Type = expr.getType match {
       case ct: ClassType =>
         field.map(_.tpe).orElse((s.lookupFunction(selector), s.lookupClass(ct.id, ct.tps)) match {
           case (Some(fd), Some(tcd)) =>
@@ -42,14 +42,14 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
 
   /** $encodingof `expr.isInstanceOf[tpe]` */
   case class IsInstanceOf(expr: Expr, tpe: Type) extends Expr with CachingTyped {
-    override protected def computeType(implicit s: Symbols): Type = {
+    override protected def computeType(using s: Symbols): Type = {
       if (s.typesCompatible(expr.getType, tpe)) BooleanType() else Untyped
     }
   }
 
   /** $encodingof `expr.asInstanceOf[tpe]` */
   case class AsInstanceOf(expr: Expr, tpe: Type) extends Expr with CachingTyped {
-    override protected def computeType(implicit s: Symbols): Type = {
+    override protected def computeType(using s: Symbols): Type = {
       if (s.typesCompatible(expr.getType, tpe)) tpe.getType else Untyped
     }
   }
@@ -77,25 +77,25 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
    *                 TYPES
    * ======================================== */
 
-  protected def getField(tpe: Type, selector: Identifier)(implicit s: Symbols): Option[ValDef] =
+  protected def getField(tpe: Type, selector: Identifier)(using Symbols): Option[ValDef] =
     tpe match {
       case ct: ClassType => ct.getField(selector)
       case _ => None
     }
 
   /** Type associated to instances of [[ClassConstructor]] */
-   case class ClassType(id: Identifier, tps: Seq[Type]) extends Type {
-    def lookupClass(implicit s: Symbols): Option[TypedClassDef] = s.lookupClass(id, tps)
-    def tcd(implicit s: Symbols): TypedClassDef = s.getClass(id, tps)
+  case class ClassType(id: Identifier, tps: Seq[Type]) extends Type {
+    def lookupClass(using s: Symbols): Option[TypedClassDef] = s.lookupClass(id, tps)
+    def tcd(using s: Symbols): TypedClassDef = s.getClass(id, tps)
 
-    def getField(selector: Identifier)(implicit s: Symbols): Option[ValDef] = {
+    def getField(selector: Identifier)(using s: Symbols): Option[ValDef] = {
       def rec(tcd: TypedClassDef): Option[ValDef] =
         tcd.fields.collectFirst { case vd @ ValDef(`selector`, _, _) => vd }
           .orElse(tcd.parents.view.reverse.flatMap(rec).headOption)
       lookupClass.flatMap(rec)
     }
 
-    def getTypeMember(selector: Identifier)(implicit s: Symbols): Option[TypeDef] = {
+    def getTypeMember(selector: Identifier)(using Symbols): Option[TypeDef] = {
       def rec(tcd: TypedClassDef): Option[TypeDef] = {
         tcd.typeMembers.find(_.id.name == selector.name)
           .orElse(tcd.parents.view.reverse.flatMap(rec).headOption)
@@ -120,7 +120,7 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
   case class TypeSelect(expr: Option[Expr], selector: Identifier) extends Type {
     val isPathDependent = expr.isDefined
 
-    def lookupTypeDef(implicit s: Symbols): Option[TypeDef] = expr match {
+    def lookupTypeDef(using s: Symbols): Option[TypeDef] = expr match {
       case None => s.lookupTypeDef(selector)
       case Some(expr) => expr.getType match {
         case ct: ClassType =>
@@ -130,63 +130,63 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
       }
     }
 
-    def getTypeDef(implicit s: Symbols): TypeDef = lookupTypeDef.get
+    def getTypeDef(using Symbols): TypeDef = lookupTypeDef.get
   }
 
   /** $encodingof `expr.Type[A, B, ...]` */
   case class TypeApply(selector: TypeSelect, tps: Seq[Type]) extends Type {
-    override protected def computeType(implicit s: Symbols): Type = {
+    override protected def computeType(using Symbols): Type = {
       if (!wellKinded) Untyped
       else if (applied.isAbstract) this
       else resolve.getType
     }
 
-    def wellKinded(implicit s: Symbols): Boolean =
+    def wellKinded(using Symbols): Boolean =
       lookupTypeDef.exists(_.tparams.length == tps.length)
 
     val isPathDependent = selector.isPathDependent
-    def isAbstract(implicit s: Symbols) = getTypeDef.isAbstract
+    def isAbstract(using Symbols) = getTypeDef.isAbstract
 
-    def bounds(implicit s: Symbols): TypeBounds = applied.bounds
-    def lowerBound(implicit s: Symbols): Type = bounds.lo
-    def upperBound(implicit s: Symbols): Type = bounds.hi
+    def bounds(using Symbols): TypeBounds = applied.bounds
+    def lowerBound(using Symbols): Type = bounds.lo
+    def upperBound(using Symbols): Type = bounds.hi
 
-    def lookupTypeDef(implicit s: Symbols): Option[TypeDef] = selector.lookupTypeDef
-    def getTypeDef(implicit s: Symbols): TypeDef = lookupTypeDef.get
+    def lookupTypeDef(using Symbols): Option[TypeDef] = selector.lookupTypeDef
+    def getTypeDef(using Symbols): TypeDef = lookupTypeDef.get
 
-    def applied(implicit s: Symbols): AppliedTypeDef = getTypeDef.typed(tps)
-    def resolve(implicit s: Symbols): Type = applied.resolve
+    def applied(using Symbols): AppliedTypeDef = getTypeDef.typed(tps)
+    def resolve(using Symbols): Type = applied.resolve
   }
 
-  protected def widenTypeParameter(tpe: Typed)(implicit s: Symbols): Type = tpe.getType match {
+  protected def widenTypeParameter(tpe: Typed)(using Symbols): Type = tpe.getType match {
     case tp: TypeParameter => widenTypeParameter(tp.upperBound)
     case ta: TypeApply => widenTypeParameter(ta.upperBound)
     case tpe => tpe
   }
 
-  protected def getClassType(tpe: Typed, tpes: Typed*)(implicit s: Symbols): Type =
+  protected def getClassType(tpe: Typed, tpes: Typed*)(using Symbols): Type =
     widenTypeParameter(tpe.getType) match {
       case ct: ClassType => checkAllTypes(tpes, ct, ct)
       case _ => Untyped
     }
 
-  override protected def getBVType(tpe: Typed, tpes: Typed*)(implicit s: Symbols): Type =
+  override protected def getBVType(tpe: Typed, tpes: Typed*)(using Symbols): Type =
     super.getBVType(widenTypeParameter(tpe), tpes: _*)
 
-  override protected def getADTType(tpe: Typed, tpes: Typed*)(implicit s: Symbols): Type = {
+  override protected def getADTType(tpe: Typed, tpes: Typed*)(using Symbols): Type = {
     super.getADTType(widenTypeParameter(tpe), tpes: _*)
   }
 
-  override protected def getTupleType(tpe: Typed, tpes: Typed*)(implicit s: Symbols): Type =
+  override protected def getTupleType(tpe: Typed, tpes: Typed*)(using Symbols): Type =
     super.getTupleType(widenTypeParameter(tpe), tpes: _*)
 
-  override protected def getSetType(tpe: Typed, tpes: Typed*)(implicit s: Symbols): Type =
+  override protected def getSetType(tpe: Typed, tpes: Typed*)(using Symbols): Type =
     super.getSetType(widenTypeParameter(tpe), tpes: _*)
 
-  override protected def getBagType(tpe: Typed, tpes: Typed*)(implicit s: Symbols): Type =
+  override protected def getBagType(tpe: Typed, tpes: Typed*)(using Symbols): Type =
     super.getBagType(widenTypeParameter(tpe), tpes: _*)
 
-  override protected def getMapType(tpe: Typed, tpes: Typed*)(implicit s: Symbols): Type =
+  override protected def getMapType(tpe: Typed, tpes: Typed*)(using s: Symbols): Type =
     widenTypeParameter(s.leastUpperBound(tpe +: tpes map (_.getType))) match {
       case mt: MapType => mt
       case _ => Untyped
@@ -197,10 +197,9 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
    * ======================================== */
 
   override def getDeconstructor(that: inox.ast.Trees): inox.ast.TreeDeconstructor { val s: self.type; val t: that.type } = that match {
-    case tree: Trees => new TreeDeconstructor {
-      protected val s: self.type = self
-      protected val t: tree.type = tree
-    }.asInstanceOf[TreeDeconstructor { val s: self.type; val t: that.type }]
+    case tree: (Trees & that.type) => // The `& that.type` trick allows to convince scala that `tree` and `that` are actually equal...
+      class DeconstructorImpl(override val s: self.type, override val t: tree.type & that.type) extends ConcreteTreeDeconstructor(s, t)
+      new DeconstructorImpl(self, tree)
 
     case _ => super.getDeconstructor(that)
   }
@@ -210,9 +209,19 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
    *            TREE TRANSFORMERS
    * ======================================== */
 
-  trait SelfTreeTransformer extends TreeTransformer with super.SelfTreeTransformer
+  trait OOSelfTreeTransformer extends TreeTransformer with StainlessSelfTreeTransformer
 
-  trait SelfTreeTraverser extends TreeTraverser with super.SelfTreeTraverser
+  trait OOSelfTreeTraverser extends TreeTraverser with StainlessSelfTreeTraverser
+
+  class ConcreteOOSelfTreeTransformer(override val s: self.type, override val t: self.type)
+    extends OOSelfTreeTransformer {
+    def this() = this(self, self)
+  }
+
+  class ConcreteOOSelfTreeTraverser(override val trees: self.type)
+    extends OOSelfTreeTraverser {
+    def this() = this(self)
+  }
 }
 
 trait Printer extends innerfuns.Printer {
@@ -220,37 +229,36 @@ trait Printer extends innerfuns.Printer {
   import trees._
 
   protected def withSymbols[T <: Tree](elems: Seq[Either[T, Identifier]], header: String)
-                                      (implicit ctx: PrinterContext): Unit = {
+                                      (using PrinterContext): Unit = {
     new StringContext("" +: (List.fill(elems.size - 1)("\n\n") :+ "") : _*).p((for (e <- elems) yield e match {
       case Left(d) => d
-      case Right(id) => {
-        implicit pctx2: PrinterContext =>
-          p"<unknown> $header $id"(pctx2)
-      }: PrintWrapper
+      case Right(id) => PrintWrapper {
+        p"<unknown> $header $id"
+      }
     }) : _*)
   }
 
-  protected def functions(funs: Seq[Identifier]): PrintWrapper = {
-    implicit pctx: PrinterContext =>
+  protected def functions(funs: Seq[Identifier]): PrintWrapper = PrintWrapper {
+    pctx ?=>
       withSymbols(funs.map(id => pctx.opts.symbols.flatMap(_.lookupFunction(id)) match {
         case Some(cd) => Left(cd)
         case None => Right(id)
       }), "def")
   }
 
-  protected def typeDefs(tps: Seq[Identifier]): PrintWrapper = {
-    implicit pctx: PrinterContext =>
+  protected def typeDefs(tps: Seq[Identifier]): PrintWrapper = PrintWrapper {
+    pctx ?=>
       withSymbols(tps.map(id => pctx.opts.symbols.flatMap(_.lookupTypeDef(id)) match {
         case Some(td) => Left(td)
         case None => Right(id)
       }), "type")
   }
 
-  override protected def ppBody(tree: Tree)(implicit ctx: PrinterContext): Unit = tree match {
+  override protected def ppBody(tree: Tree)(using ctx: PrinterContext): Unit = tree match {
 
     case cd: ClassDef =>
       for (an <- cd.flags) {
-        p"""|@${an.asString(ctx.opts)}
+        p"""|@${an.asString(using ctx.opts)}
             |"""
       }
 
@@ -266,7 +274,7 @@ trait Printer extends innerfuns.Printer {
 
     case td: TypeDef =>
       for (an <- td.flags if an.name != "bounds") {
-        p"""|@${an.asString(ctx.opts)}
+        p"""|@${an.asString(using ctx.opts)}
             |"""
       }
 
@@ -316,7 +324,7 @@ trait Printer extends innerfuns.Printer {
 
     case TypeParameter(id, flags) =>
       p"$id"
-      for (f <- flags if f.name != "variance" && f.name != "bounds") p" @${f.asString(ctx.opts)}"
+      for (f <- flags if f.name != "variance" && f.name != "bounds") p" @${f.asString(using ctx.opts)}"
 
     case ClassConstructor(ct, args) =>
       p"$ct($args)"
@@ -353,13 +361,14 @@ trait Printer extends innerfuns.Printer {
   }
 }
 
-trait ExprOps extends innerfuns.ExprOps {
-  protected val trees: Trees
+class ExprOps(override val trees: Trees) extends innerfuns.ExprOps(trees) {
   import trees._
 
-  protected class TypeFreshener(mapping: Map[TypeParameter, TypeParameter]) extends oo.TreeTransformer {
-    val s: trees.type = trees
-    val t: trees.type = trees
+  protected class TypeFreshener(override val s: trees.type,
+                                override val t: trees.type,
+                                mapping: Map[TypeParameter, TypeParameter]) extends oo.ConcreteTreeTransformer(s, t) {
+
+    def this(mapping: Map[TypeParameter, TypeParameter]) = this(trees, trees, mapping)
 
     override def transform(tpe: s.Type): t.Type = tpe match {
       case tp: TypeParameter if mapping contains tp => mapping(tp)
@@ -420,8 +429,8 @@ trait ExprOps extends innerfuns.ExprOps {
    * Freshening of local variables
    * ============================= */
 
-  protected class Freshener(freshenChooses: Boolean)
-    extends super.Freshener(freshenChooses) {
+  protected class OOFreshener(freshenChooses: Boolean)
+    extends InnerFunsFreshener(freshenChooses) {
 
       override def transformAndGetEnv(pat: Pattern, env: Env): (Pattern, Env) = pat match {
 
@@ -449,7 +458,7 @@ trait ExprOps extends innerfuns.ExprOps {
   }
 
   override def freshenLocals(expr: Expr, freshenChooses: Boolean = false): Expr = {
-    new Freshener(freshenChooses).transform(expr, Map.empty[Identifier, Identifier])
+    new OOFreshener(freshenChooses).transform(expr, Map.empty[Identifier, Identifier])
   }
 }
 
@@ -513,6 +522,8 @@ trait TreeDeconstructor extends innerfuns.TreeDeconstructor {
   }
 }
 
+class ConcreteTreeDeconstructor(override val s: Trees, override val t: Trees) extends TreeDeconstructor
+
 trait DefinitionTransformer extends inox.transformers.DefinitionTransformer with transformers.Transformer {
   val s: Trees
   val t: Trees
@@ -542,6 +553,8 @@ trait DefinitionTransformer extends inox.transformers.DefinitionTransformer with
 }
 
 trait TreeTransformer extends transformers.TreeTransformer with DefinitionTransformer
+
+class ConcreteTreeTransformer(override val s: Trees, override val t: Trees) extends TreeTransformer
 
 trait DefinitionTraverser extends inox.transformers.DefinitionTraverser with transformers.Traverser {
   val trees: Trees
@@ -586,33 +599,34 @@ object SymbolTransformer {
   }): inox.transformers.SymbolTransformer {
     val s: trans.s.type
     val t: trans.t.type
-  } = new SimpleSymbolTransformer {
-    val s: trans.s.type = trans.s
-    val t: trans.t.type = trans.t
+  } = {
+    class Impl(override val s: trans.s.type, override val t: trans.t.type) extends SimpleSymbolTransformer {
+      protected def transformFunction(fd: s.FunDef): t.FunDef = trans.transform(fd)
+      protected def transformSort(sort: s.ADTSort): t.ADTSort = trans.transform(sort)
+      protected def transformClass(cd: s.ClassDef): t.ClassDef = {
+        val env = trans.initEnv
 
-    protected def transformFunction(fd: s.FunDef): t.FunDef = trans.transform(fd)
-    protected def transformSort(sort: s.ADTSort): t.ADTSort = trans.transform(sort)
-    protected def transformClass(cd: s.ClassDef): t.ClassDef = {
-      val env = trans.initEnv
+        new t.ClassDef(
+          trans.transform(cd.id, env),
+          cd.tparams.map(tdef => trans.transform(tdef, env)),
+          cd.parents.map(ct => trans.transform(ct, env).asInstanceOf[t.ClassType]),
+          cd.fields.map(vd => trans.transform(vd, env)),
+          cd.flags.map(f => trans.transform(f, env))
+        ).copiedFrom(cd)
+      }
 
-      new t.ClassDef(
-        trans.transform(cd.id, env),
-        cd.tparams.map(tdef => trans.transform(tdef, env)),
-        cd.parents.map(ct => trans.transform(ct, env).asInstanceOf[t.ClassType]),
-        cd.fields.map(vd => trans.transform(vd, env)),
-        cd.flags.map(f => trans.transform(f, env))
-      ).copiedFrom(cd)
+      protected def transformTypeDef(td: s.TypeDef): t.TypeDef = {
+        val env = trans.initEnv
+
+        new t.TypeDef(
+          trans.transform(td.id, env),
+          td.tparams.map(tdef => trans.transform(tdef, env)),
+          trans.transform(td.rhs, env),
+          td.flags.map(f => trans.transform(f, env))
+        ).copiedFrom(td)
+      }
     }
 
-    protected def transformTypeDef(td: s.TypeDef): t.TypeDef = {
-      val env = trans.initEnv
-
-      new t.TypeDef(
-        trans.transform(td.id, env),
-        td.tparams.map(tdef => trans.transform(tdef, env)),
-        trans.transform(td.rhs, env),
-        td.flags.map(f => trans.transform(f, env))
-      ).copiedFrom(td)
-    }
+    new Impl(trans.s, trans.t)
   }
 }

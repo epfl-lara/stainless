@@ -9,13 +9,12 @@ import extraction.throwing. { trees => tt }
 
 import genc.ExtraOps._
 
-trait GhostElimination extends inox.transformers.Transformer {
-  override val s: tt.type = tt // to use `isExported` from `genc.ExtraOps.FunDefOps`
-  override val t: throwing.Trees
-  val symbols: s.Symbols
-  val context: inox.Context
+class GhostElimination(override val s: tt.type, // to use `isExported` from `genc.ExtraOps.FunDefOps`
+                       override val t: throwing.Trees)
+                      (val symbols: tt.Symbols,
+                       val context: inox.Context) extends inox.transformers.Transformer {
 
-  implicit val sPrinterOptions = s.PrinterOptions.fromContext(context)
+  given sPrinterOptions: s.PrinterOptions = s.PrinterOptions.fromContext(context)
 
   case class Env(lfds: Map[Identifier, s.LocalFunDef])
 
@@ -140,26 +139,16 @@ trait GhostElimination extends inox.transformers.Transformer {
 
 }
 
-
-trait GhostEliminationPhase extends LeonPipeline[tt.Symbols, tt.Symbols] { self =>
+class GhostEliminationPhase(using override val context: inox.Context) extends LeonPipeline[tt.Symbols, tt.Symbols](context) {
   val name = "Ghost Code Elimination"
 
-  implicit val debugSection = DebugSectionGenC
+  given givenDebugSection: DebugSectionGenC.type = DebugSectionGenC
   import tt._
 
   def run(syms: Symbols): Symbols = {
-    val ge = new  {
-      override val s: tt.type = tt
-      override val t: tt.type = tt
-      override val symbols = syms
-      override val context = self.context
-    } with GhostElimination
+    class Impl(override val s: tt.type, override val t: tt.type)
+      extends GhostElimination(s, t)(syms, context)
+    val ge = new Impl(tt, tt)
     ge.transform(syms)
   }
-}
-
-object GhostEliminationPhase {
-  def apply(implicit ctx: inox.Context): LeonPipeline[tt.Symbols, tt.Symbols] = new {
-    val context = ctx
-  } with GhostEliminationPhase
 }

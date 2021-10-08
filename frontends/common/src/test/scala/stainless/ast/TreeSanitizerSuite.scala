@@ -5,24 +5,23 @@ package ast
 import scala.language.experimental.macros
 import org.scalatest.funspec.AnyFunSpec
 
-import stainless.macros.FileProvider
 import stainless.extraction.xlang.{trees => xt, TreeSanitizer}
 
 class TreeSanitizerSuite extends AnyFunSpec with InputUtils {
 
-  val ID = 2 // Change this to trigger re-compilation
+  def getFileContents(file: String): String = scala.io.Source.fromFile(file).mkString
 
   val sources = Map(
-    "AbstractValOverrides" -> FileProvider.getFileContents(
+    "AbstractValOverrides" -> getFileContents(
       "frontends/common/src/test/resources/AbstractValOverrides.scala"
     ),
-    "GhostOverrides" -> FileProvider.getFileContents(
+    "GhostOverrides" -> getFileContents(
       "frontends/common/src/test/resources/GhostOverrides.scala"
     ),
-    "SoundEquality" -> FileProvider.getFileContents(
+    "SoundEquality" -> getFileContents(
       "frontends/common/src/test/resources/SoundEquality.scala"
     ),
-    "SoundInvariants" -> FileProvider.getFileContents(
+    "SoundInvariants" -> getFileContents(
       "frontends/common/src/test/resources/SoundInvariants.scala"
     )
   )
@@ -33,7 +32,8 @@ class TreeSanitizerSuite extends AnyFunSpec with InputUtils {
   makeTest("SoundInvariants",       Seq(11, 22, 45))
 
   def makeTest(name: String, expected: Seq[Int]): Unit = {
-    implicit val ctx = stainless.TestContext.empty
+    val ctx: inox.Context = stainless.TestContext.empty
+    import ctx.given
     val (_, program) = load(Seq(sources(name)), sanitize = false)
 
     val errors = TreeSanitizer(xt).check(program.symbols)

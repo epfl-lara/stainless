@@ -4,20 +4,17 @@ package stainless
 package extraction
 package oo
 
-trait InvariantInitialization
+class InvariantInitialization(override val s: Trees, override val t: Trees)
+                             (using override val context: inox.Context)
   extends CachingPhase
      with IdentityFunctions
      with IdentityClasses
      with IdentityTypeDefs { self =>
 
-  val s: Trees
-  val t: Trees
+  override protected final def getContext(symbols: s.Symbols) = new TransformerContext(self.s, self.t)(using symbols)
 
-  override protected final def getContext(symbols: s.Symbols) = new TransformerContext()(symbols)
-  protected final class TransformerContext(implicit val symbols: s.Symbols) extends oo.TreeTransformer {
-    override val s: self.s.type = self.s
-    override val t: self.t.type = self.t
-
+  protected final class TransformerContext(override val s: self.s.type, override val t: self.t.type)
+                                          (using val symbols: s.Symbols) extends oo.ConcreteTreeTransformer(s, t) {
     val paramInitsMap: Map[s.ADTConstructor, Seq[s.FunDef]] = {
       symbols.sorts.values.flatMap { sort =>
         sort.constructors.map { constructor =>
@@ -69,13 +66,11 @@ trait InvariantInitialization
 }
 
 object InvariantInitialization {
-  def apply(ts: Trees, tt: Trees)(implicit ctx: inox.Context): ExtractionPipeline {
+  def apply(ts: Trees, tt: Trees)(using inox.Context): ExtractionPipeline {
     val s: ts.type
     val t: tt.type
-  } = new {
-    override val s: ts.type = ts
-    override val t: tt.type = tt
-  } with InvariantInitialization {
-    override val context = ctx
+  } = {
+    class Impl(override val s: ts.type, override val t: tt.type) extends InvariantInitialization(s, t)
+    new Impl(ts, tt)
   }
 }

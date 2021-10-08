@@ -5,31 +5,37 @@ package termination
 
 import scala.collection.mutable.{Map => MutableMap}
 
-trait LoopProcessor extends OrderingProcessor {
+class LoopProcessor(override val checker: ProcessingPipeline)
+                   // Alias for checker, as we cannot use it to define ordering
+                   (override val chker: checker.type)
+                   (override val ordering: OrderingRelation with ChainBuilder with Strengthener {
+                     val checker: chker.type
+                   })
+  extends OrderingProcessor("Loop Processor", checker, ordering) {
 
-  val ordering: OrderingRelation with ChainBuilder with Strengthener {
-    val checker: LoopProcessor.this.checker.type
-  }
+  def this(chker: ProcessingPipeline,
+           ordering: OrderingRelation with ChainBuilder with Strengthener {
+             val checker: chker.type
+           }) =
+    this(chker)(chker)(ordering)
 
   val depth: Int = 2
-
-  val name: String = "Loop Processor"
 
   import checker._
   import ordering._
   import checker.context._
   import checker.program.trees._
-  import checker.program.symbols._
+  import checker.program.symbols.{given, _}
 
-  object withoutPosts extends inox.transformers.SimpleSymbolTransformer {
-    val s: program.trees.type = program.trees
-    val t: program.trees.type = program.trees
+  class WithoutPosts(override val s: program.trees.type, override val t: program.trees.type)
+    extends inox.transformers.SimpleSymbolTransformer {
 
     protected def transformFunction(fd: FunDef): FunDef =
       fd.copy(fullBody = exprOps.withPostcondition(fd.fullBody, None)).copiedFrom(fd)
 
     protected def transformSort(sort: ADTSort): ADTSort = sort
   }
+  val withoutPosts = new WithoutPosts(program.trees, program.trees)
 
   def run(problem: Problem) = timers.termination.processors.loops.run {
     strengthenApplications(problem.funSet)

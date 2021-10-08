@@ -22,17 +22,17 @@ trait VerificationChecker { self =>
   val context: inox.Context
   val semantics: program.Semantics
 
-  import context._
+  import context.{given, _}
   import program._
   import program.trees._
-  import program.symbols._
+  import program.symbols.{given, _}
 
   private lazy val failEarly = options.findOptionOrDefault(optFailEarly)
   private lazy val failInvalid = options.findOptionOrDefault(optFailInvalid)
   private lazy val checkModels = options.findOptionOrDefault(optCheckModels)
 
-  implicit val debugSection = DebugSectionVerification
-
+  given givenDebugSection: DebugSectionVerification.type = DebugSectionVerification
+  
   type VC = verification.VC[program.trees.type]
   val VC = verification.VC
 
@@ -46,7 +46,7 @@ trait VerificationChecker { self =>
     type S <: inox.solvers.combinators.TimeoutSolver { val program: self.program.type }
   }
 
-  lazy val evaluator = semantics.getEvaluator(context)
+  lazy val evaluator = semantics.getEvaluator(using context)
 
   protected def createFactory(opts: Options): TimeoutSolverFactory
 
@@ -103,9 +103,10 @@ trait VerificationChecker { self =>
         if (stop) None else {
           val simplifiedCondition = simplifyExpr(
             simplifyLets(removeAssertions(vc.condition))
-          )(PurityOptions.assumeChecked)
+          )(using PurityOptions.assumeChecked)
 
-          val simplifiedVC = (vc.copy(condition = simplifiedCondition): VC).setPos(vc)
+          // For some reasons, the synthethized copy method lacks default parameters...
+          val simplifiedVC = (vc.copy()(condition = simplifiedCondition, fid = vc.fid, kind = vc.kind, satisfiability = vc.satisfiability): VC).setPos(vc)
 
           val sf = getFactoryForVC(vc)
           val res = checkVC(simplifiedVC, vc, sf)
@@ -187,7 +188,7 @@ trait VerificationChecker { self =>
     }
 
     val newAdt = ADT(adt.id, adt.tps, newArgs)
-    val adtVar = Variable(FreshIdentifier("adt"), adt.getType(symbols), Seq())
+    val adtVar = Variable(FreshIdentifier("adt"), adt.getType(using symbols), Seq())
     val newInv = FunctionInvocation(invId, inv.tps, Seq(adtVar))
     val newModel = inox.Model(program)(model.vars + (adtVar.toVal -> newAdt), model.chooses)
     val newCondition = exprOps.replace(Map(inv -> newInv), vc.condition)
@@ -299,7 +300,7 @@ trait VerificationChecker { self =>
           case VCStatus.Invalid(reason) =>
             reporter.warning(descr)
             // avoid reprinting VC if --debug=verification is enabled
-            if (!reporter.isDebugEnabled(DebugSectionVerification))
+            if (!reporter.isDebugEnabled(using DebugSectionVerification))
               reporter.warning(prettify(vc.condition).asString)
             reporter.warning(vc.getPos, " => INVALID")
             reason match {
@@ -314,7 +315,7 @@ trait VerificationChecker { self =>
           case status =>
             reporter.warning(descr)
             // avoid reprinting VC if --debug=verification is enabled
-            if (!reporter.isDebugEnabled(DebugSectionVerification))
+            if (!reporter.isDebugEnabled(using DebugSectionVerification))
               reporter.warning(prettify(vc.condition).asString)
             reporter.warning(vc.getPos, " => " + status.name.toUpperCase)
         }
@@ -326,11 +327,11 @@ trait VerificationChecker { self =>
     }
   }
 
-  protected def debugVC(simplifiedVC: VC, origVC: VC)(implicit debugSection: inox.DebugSection): Unit = {
+  protected def debugVC(simplifiedVC: VC, origVC: VC)(using inox.DebugSection): Unit = {
     import stainless.utils.StringUtils.indent
 
-    if (reporter.isDebugEnabled(debugSection)) {
-      if (!reporter.isDebugEnabled(DebugSectionFullVC)) {
+    if (reporter.isDebugEnabled) {
+      if (!reporter.isDebugEnabled(using DebugSectionFullVC)) {
         reporter.debug(prettify(simplifiedVC.condition).asString)
       } else {
         reporter.whenDebug(DebugSectionFullVC) { debug =>

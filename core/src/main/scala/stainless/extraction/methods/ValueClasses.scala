@@ -14,13 +14,11 @@ import inox.utils.Position
   * - Erase value classes themselves
   * - Erase implicit conversions to value classes
   */
-trait ValueClasses
+class ValueClasses(override val s: Trees, override val t: Trees)
+                  (using override val context: inox.Context)
   extends oo.CachingPhase
-    with IdentitySorts
-    with oo.SimpleTypeDefs { self =>
-
-  val s: Trees
-  val t: Trees
+      with IdentitySorts
+      with oo.SimpleTypeDefs { self =>
 
   override protected type ClassResult    = Option[t.ClassDef]
   override protected type FunctionResult = Option[t.FunDef]
@@ -55,12 +53,10 @@ trait ValueClasses
     )
   })
 
-  override protected def getContext(symbols: s.Symbols) = new TransformerContext()(symbols)
+  override protected def getContext(symbols: s.Symbols) = new TransformerContext(self.s, self.t)(using symbols)
 
-  protected class TransformerContext(implicit val symbols: s.Symbols) extends oo.TreeTransformer {
-    override val s: self.s.type = self.s
-    override val t: self.t.type = self.t
-
+  protected class TransformerContext(override val s: self.s.type, override val t: self.t.type)
+                                    (using val symbols: s.Symbols) extends oo.ConcreteTreeTransformer(s, t) {
     import s._
     import symbols._
 
@@ -179,13 +175,11 @@ trait ValueClasses
 }
 
 object ValueClasses {
-  def apply(ts: Trees)(implicit ctx: inox.Context): ExtractionPipeline {
+  def apply(ts: Trees)(using inox.Context): ExtractionPipeline {
     val s: ts.type
     val t: ts.type
-  } = new ValueClasses {
-    override val s: ts.type = ts
-    override val t: ts.type = ts
-    override val context = ctx
+  } = {
+    class Impl(override val s: ts.type, override val t: ts.type) extends ValueClasses(s, t)
+    new Impl(ts, ts)
   }
 }
-

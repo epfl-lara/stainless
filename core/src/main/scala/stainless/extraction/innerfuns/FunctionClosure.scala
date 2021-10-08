@@ -4,13 +4,11 @@ package stainless
 package extraction
 package innerfuns
 
-trait FunctionClosure
+class FunctionClosure(override val s: Trees, override  val t: ast.Trees)
+                     (using override val context: inox.Context)
   extends CachingPhase
      with SimplyCachedFunctions
      with IdentitySorts { self =>
-
-  val s: Trees
-  val t: ast.Trees
 
   override protected type FunctionResult = Seq[t.FunDef]
   override protected type TransformerContext = s.Symbols
@@ -21,7 +19,7 @@ trait FunctionClosure
 
   override protected def extractFunction(symbols: s.Symbols, fd: s.FunDef): Seq[t.FunDef] = {
     import s._
-    import symbols._
+    import symbols.{given, _}
 
     // Represents a substitution to a new function, along with parameter and type parameter mappings
     case class FunSubst(
@@ -63,7 +61,7 @@ trait FunctionClosure
           Require(Annotated(cond, Seq(DropConjunct, DropVCs)).setPos(cond), acc).setPos(fullBody)
       })(pc.elements)
 
-      object bodyTransformer extends SelfTreeTransformer {
+      object bodyTransformer extends ConcreteStainlessSelfTreeTransformer {
         override def transform(e: Expr): Expr = e match {
           case v: Variable if freeMap.contains(v.toVal) =>
             freeMap(v.toVal).toVariable.copiedFrom(v)
@@ -156,11 +154,11 @@ trait FunctionClosure
         case (inner, pc) => inner.id -> closeFd(inner, fd, pc, transFree(inner.id).map(_.toVal))
       }
 
-      trait ClosingTransformer extends transformers.TreeTransformer {
-        val s: self.s.type = self.s
-        val subst: FunSubst
-
-        lazy val FunSubst(_, callerMap, callerTMap) = subst
+      class ClosingTransformer(override val s: self.s.type,
+                               override val t: ast.Trees,
+                               val subst: FunSubst)
+        extends transformers.ConcreteTreeTransformer(s, t) {
+        val FunSubst(_, callerMap, callerTMap) = subst
 
         override def transform(e: s.Expr): t.Expr = e match {
           case app @ ApplyLetRec(id, tparams, tpe, tps, args) if closed contains id =>
@@ -200,23 +198,20 @@ trait FunctionClosure
         Map.empty.withDefault(id => id)
       )
 
-      object closing extends ClosingTransformer {
-        val t: self.t.type = self.t
-        val subst = FunSubst(fd, Map.empty.withDefault(id => id), Map.empty.withDefault(id => id))
-
-        override def transform(e: s.Expr): t.Expr = e match {
-          case s.LetRec(_, bd) => transform(bd)
+      val closingSubst = FunSubst(fd, Map.empty.withDefault(id => id), Map.empty.withDefault(id => id))
+      class Closing(override val t: self.t.type) extends ClosingTransformer(self.s, t, closingSubst) { closingSelf =>
+        override def transform(e: closingSelf.s.Expr): closingSelf.t.Expr = e match {
+          case closingSelf.s.LetRec(_, bd) => transform(bd)
           case _ => super.transform(e)
         }
       }
-
+      val closing = new Closing(self.t)
       val newFd = closing.transform(fd)
 
-      val closedFds = closed.values.toList.map { case fs @ FunSubst(fd, _, _) =>
-        fd.copy(fullBody = new ClosingTransformer {
-          val t: self.s.type = self.s
-          val subst = fs
-        }.transform(fd.fullBody))
+      class ClosedFd(override val t: self.s.type, override val subst: FunSubst) extends ClosingTransformer(self.s, t, subst)
+      val closedFds = closed.values.toList.map {
+        case fs @ FunSubst(fd, _, _) =>
+          fd.copy(fullBody = new ClosedFd(self.s, fs).transform(fd.fullBody))
       }
 
       // Recursively close new functions
@@ -228,12 +223,11 @@ trait FunctionClosure
 }
 
 object FunctionClosure {
-  def apply(ts: Trees, tt: inlining.Trees)(implicit ctx: inox.Context): ExtractionPipeline {
+  def apply(ts: Trees, tt: inlining.Trees)(using inox.Context): ExtractionPipeline {
     val s: ts.type
     val t: tt.type
-  } = new FunctionClosure {
-    override val s: ts.type = ts
-    override val t: tt.type = tt
-    override val context = ctx
+  } = {
+    class Impl(override val s: ts.type, override val t: tt.type) extends FunctionClosure(s, t)
+    new Impl(ts, tt)
   }
 }

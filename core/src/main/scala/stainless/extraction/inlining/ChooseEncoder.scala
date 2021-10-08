@@ -4,11 +4,9 @@ package stainless
 package extraction
 package inlining
 
-trait ChooseEncoder extends CachingPhase with SimplyCachedFunctions with IdentitySorts { self =>
-
-  implicit val context: inox.Context
-  val s: Trees
-  val t: Trees
+class ChooseEncoder(override val s: Trees, override val t: Trees)
+                   (using override val context: inox.Context)
+  extends CachingPhase with SimplyCachedFunctions with IdentitySorts { self =>
 
   type TransformerContext = s.Symbols
   override def getContext(symbols: s.Symbols) = symbols
@@ -100,12 +98,11 @@ trait ChooseEncoder extends CachingPhase with SimplyCachedFunctions with Identit
 }
 
 object ChooseEncoder {
-  def apply(it: inlining.Trees)(implicit ctx: inox.Context): ChooseEncoder {
+  def apply(it: inlining.Trees)(using inox.Context): ChooseEncoder {
     val s: it.type
     val t: it.type
-  } = new ChooseEncoder {
-    override val context = ctx
-    override val s: it.type = it
-    override val t: it.type = it
+  } = {
+    class Impl(override val s: it.type, override val t: it.type) extends ChooseEncoder(s, t)
+    new Impl(it, it)
   }
 }

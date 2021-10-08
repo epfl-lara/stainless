@@ -34,7 +34,8 @@ class InliningOnceSuite extends AnyFunSpec with InputUtils {
          |  }
          |}""".stripMargin
 
-    implicit val ctx = stainless.TestContext.empty
+    val ctx: inox.Context = stainless.TestContext.empty
+    import ctx.given
     val (funs, xlangProgram) = load(List(source))
     val run = VerificationComponent.run(extraction.pipeline)
     val program = inox.Program(run.trees)(run extract xlangProgram.symbols)

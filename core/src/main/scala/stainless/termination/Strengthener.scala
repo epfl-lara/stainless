@@ -4,29 +4,28 @@ package stainless
 package termination
 
 import scala.collection.mutable.{Set => MutableSet, Map => MutableMap}
-import scala.language.existentials
 
 object optIgnorePosts extends inox.FlagOptionDef("ignore-posts", false)
 
 trait Strengthener { self: OrderingRelation =>
-
   val checker: ProcessingPipeline
+
   import checker._
   import checker.context._
   import checker.program._
   import checker.program.trees._
-  import checker.program.symbols._
-  import CallGraphOrderings._
+  import checker.program.symbols.{given, _}
+  import CallGraphOrderings.{given, _}
   import exprOps._
 
   private val strengthenedPost: MutableMap[Identifier, Option[Lambda]] = MutableMap.empty
 
-  def getPostconditions: MutableMap[Identifier, Lambda] = 
+  def getPostconditions: MutableMap[Identifier, Lambda] =
     strengthenedPost.collect{ case (k,Some(v)) => k -> v }
 
   private lazy val ignorePosts = options.findOptionOrDefault(optIgnorePosts)
 
-  private object postStrengthener extends IdentitySymbolTransformer {
+  private object postStrengthener extends ConcreteIdentitySymbolTransformer {
     override def transform(syms: Symbols): Symbols =
       syms.withFunctions(syms.functions.toSeq.map {
         case (id, fd) =>
@@ -39,7 +38,7 @@ trait Strengthener { self: OrderingRelation =>
 
   registerTransformer(postStrengthener)
 
-  def strengthenPostconditions(funDefs: Set[FunDef])(implicit dbg: inox.DebugSection): Unit = {
+  def strengthenPostconditions(funDefs: Set[FunDef])(using dbg: inox.DebugSection): Unit = {
     reporter.debug("- Strengthening postconditions")
 
     // Strengthen postconditions on all accessible functions by adding size constraints
@@ -77,7 +76,7 @@ trait Strengthener { self: OrderingRelation =>
           case _ => sys.error("shouldn't happen thanks to the filtering above")
         }
 
-        val strengthener = new IdentitySymbolTransformer {
+        val strengthener = new ConcreteIdentitySymbolTransformer {
           override def transform(syms: Symbols): Symbols = super.transform(syms).withFunctions {
             Seq(fd.copy(fullBody = exprOps.withPostcondition(fd.fullBody, Some(postcondition))).copiedFrom(fd))
           }
@@ -130,7 +129,7 @@ trait Strengthener { self: OrderingRelation =>
       case _                      => BooleanLiteral(true)
     }
 
-  def strengthenApplications(funDefs: Set[FunDef])(implicit dbg: inox.DebugSection): Unit = {
+  def strengthenApplications(funDefs: Set[FunDef])(using dbg: inox.DebugSection): Unit = {
     reporter.debug("- Strengthening applications")
 
     val api = getAPI

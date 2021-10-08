@@ -3,7 +3,7 @@
 package stainless
 package evaluators
 
-import stainless.utils.JsonConvertions._
+import stainless.utils.JsonConvertions.given
 
 import io.circe._
 import io.circe.syntax._
@@ -18,8 +18,8 @@ object EvaluatorReport {
   case class PostHeld(bodyValue: String) extends Status
   case class NoPost(bodyValue: String) extends Status
 
-  implicit val statusDecoder: Decoder[Status] = deriveDecoder
-  implicit val statusEncoder: Encoder[Status] = deriveEncoder
+  given statusDecoder: Decoder[Status] = deriveDecoder
+  given statusEncoder: Encoder[Status] = deriveEncoder
 
   /**
    * Hold the information relative to the evaluation of a function.
@@ -34,8 +34,8 @@ object EvaluatorReport {
     override val derivedFrom = id
   }
 
-  implicit val recordDecoder: Decoder[Record] = deriveDecoder
-  implicit val recordEncoder: Encoder[Record] = deriveEncoder
+  given recordDecoder: Decoder[Record] = deriveDecoder
+  given recordEncoder: Encoder[Record] = deriveEncoder
 
   def parse(json: Json) = json.as[(Seq[Record], Set[Identifier])] match {
     case Right((records, sources)) => new EvaluatorReport(records, sources)
@@ -45,7 +45,7 @@ object EvaluatorReport {
 
 class EvaluatorReport(val results: Seq[EvaluatorReport.Record], val sources: Set[Identifier])
   extends BuildableAbstractReport[EvaluatorReport.Record, EvaluatorReport] {
-  import EvaluatorReport._
+  import EvaluatorReport.{given, _}
 
   override val encoder = recordEncoder
 

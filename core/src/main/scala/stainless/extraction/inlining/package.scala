@@ -3,20 +3,24 @@
 package stainless
 package extraction
 
-import scala.language.existentials
-
 package object inlining {
 
   object trees extends Trees with inox.ast.SimpleSymbols {
     case class Symbols(
       functions: Map[Identifier, FunDef],
       sorts: Map[Identifier, ADTSort]
-    ) extends SimpleSymbols with AbstractSymbols
+    ) extends SimpleSymbols with StainlessAbstractSymbols {
+      override val symbols: this.type = this
+    }
+
+    override def mkSymbols(functions: Map[Identifier, FunDef], sorts: Map[Identifier, ADTSort]): Symbols = {
+      Symbols(functions, sorts)
+    }
 
     object printer extends Printer { val trees: inlining.trees.type = inlining.trees }
   }
 
-  def extractor(implicit ctx: inox.Context) = {
+  def extractor(using inox.Context) = {
     utils.DebugPipeline("FunctionSpecialization", FunctionSpecialization(trees)) andThen
     utils.DebugPipeline("UnfoldOpaque", UnfoldOpaque(trees)) andThen
     utils.DebugPipeline("CallSiteInline", CallSiteInline(trees)) andThen
@@ -25,14 +29,14 @@ package object inlining {
     utils.DebugPipeline("FunctionInlining", FunctionInlining(trees, trace.trees))
   }
 
-  def fullExtractor(implicit ctx: inox.Context) = extractor andThen nextExtractor
-  def nextExtractor(implicit ctx: inox.Context) = trace.fullExtractor
+  def fullExtractor(using inox.Context) = extractor andThen nextExtractor
+  def nextExtractor(using inox.Context) = trace.fullExtractor
 
-  def phaseSemantics(implicit ctx: inox.Context): inox.SemanticsProvider { val trees: inlining.trees.type } = {
+  def phaseSemantics(using inox.Context): inox.SemanticsProvider { val trees: inlining.trees.type } = {
     extraction.phaseSemantics(inlining.trees)(fullExtractor)
   }
 
-  def nextPhaseSemantics(implicit ctx: inox.Context): inox.SemanticsProvider { val trees: trace.trees.type } = {
+  def nextPhaseSemantics(using inox.Context): inox.SemanticsProvider { val trees: trace.trees.type } = {
     trace.phaseSemantics
   }
 }

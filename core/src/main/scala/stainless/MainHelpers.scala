@@ -15,7 +15,7 @@ object MainHelpers {
 
 trait MainHelpers extends inox.MainHelpers { self =>
 
-  final object optVersion extends inox.FlagOptionDef("version", false)
+  object optVersion extends inox.FlagOptionDef("version", false)
 
   case object Pipelines extends Category
   case object Verification extends Category
@@ -122,11 +122,11 @@ trait MainHelpers extends inox.MainHelpers { self =>
   protected def newReporter(debugSections: Set[inox.DebugSection]): inox.Reporter =
     new stainless.DefaultReporter(debugSections)
 
-  def getConfigOptions(options: inox.Options)(implicit initReporter: inox.Reporter): Seq[inox.OptionValue[_]] = {
+  def getConfigOptions(options: inox.Options)(using inox.Reporter): Seq[inox.OptionValue[_]] = {
     Configuration.get(options, self.options.keys.toSeq)
   }
 
-  def getConfigContext(options: inox.Options)(implicit initReporter: inox.Reporter): inox.Context = {
+  def getConfigContext(options: inox.Options)(using inox.Reporter): inox.Context = {
     val ctx = super.processOptions(Seq.empty, getConfigOptions(options))
 
     if (ctx.options.findOptionOrDefault(inox.optNoColors)) {
@@ -137,7 +137,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
 
   override
   protected def processOptions(files: Seq[File], cmdOptions: Seq[inox.OptionValue[_]])
-                              (implicit initReporter: inox.Reporter): inox.Context = {
+                              (using inox.Reporter): inox.Context = {
     val configOptions = getConfigOptions(inox.Options(cmdOptions))
 
     // Override config options with command-line options
@@ -156,21 +156,20 @@ trait MainHelpers extends inox.MainHelpers { self =>
   }
 
   def main(args: Array[String]): Unit = {
-    implicit val ctx: inox.Context = try {
+    val ctx: inox.Context = try {
       setup(args)
     } catch {
       case e: Throwable =>
-        topLevelErrorHandler(e)(Context.empty)
+        topLevelErrorHandler(e)(using Context.empty)
     }
-
+    import ctx.given
     try {
-
       if (ctx.options.findOptionOrDefault(optVersion)) {
         displayVersion(ctx.reporter)
         System.exit(0)
       }
 
-      import ctx.{ reporter, timers }
+      import ctx.{reporter, timers}
 
       if (extraction.trace.Trace.optionsError) {
         reporter.fatalError(s"Equivalence checking for --comparefuns and --models only works in batched mode.")
@@ -199,24 +198,24 @@ trait MainHelpers extends inox.MainHelpers { self =>
         baseRunCycle()
       } catch {
         case e @ extraction.MalformedStainlessCode(tree, msg) =>
-          reporter.debug(e)(frontend.DebugSectionStack)
+          reporter.debug(e)(using frontend.DebugSectionStack)
           ctx.reporter.error(tree.getPos, msg)
         case e @ inox.FatalError(msg) =>
           // we don't print the error message in this case because it was already printed before
           // the `FatalError` was thrown
-          reporter.debug(e)(frontend.DebugSectionStack)
+          reporter.debug(e)(using frontend.DebugSectionStack)
         case e: Throwable =>
-          reporter.debug(e)(frontend.DebugSectionStack)
+          reporter.debug(e)(using frontend.DebugSectionStack)
           reporter.error(e.getMessage)
       } finally {
         reporter.reset()
         compiler = newCompiler()
       }
 
-      val watchMode = isWatchModeOn(ctx)
+      val watchMode = isWatchModeOn
       if (watchMode) {
         val files: Set[File] = compiler.sources.toSet map {
-          file: String => new File(file).getAbsoluteFile
+          (file: String) => new File(file).getAbsoluteFile
         }
         val watcher = new utils.FileWatcher(ctx, files, action = () => watchRunCycle())
 

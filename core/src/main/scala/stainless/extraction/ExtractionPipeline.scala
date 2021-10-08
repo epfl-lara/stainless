@@ -8,9 +8,12 @@ import transformers._
 trait ExtractionPipeline { self =>
   val s: ast.Trees
   val t: ast.Trees
+  val context: inox.Context
 
-  implicit val context: inox.Context
-  protected implicit def printerOpts: s.PrinterOptions = s.PrinterOptions.fromContext(context)
+  import context.given
+
+  protected val printerOpts: s.PrinterOptions = s.PrinterOptions.fromContext(context)
+  given givenPipelinePrinterOpts: printerOpts.type = printerOpts
 
   def extract(symbols: s.Symbols): t.Symbols
 
@@ -19,52 +22,55 @@ trait ExtractionPipeline { self =>
   def andThen(that: ExtractionPipeline { val s: self.t.type }): ExtractionPipeline {
     val s: self.s.type
     val t: that.t.type
-  } = new ExtractionPipeline {
-    override val s: self.s.type = self.s
-    override val t: that.t.type = that.t
-    override val context = self.context
+  } = {
+    class AndThenImpl(override val s: self.s.type,
+                      override val t: that.t.type)
+                     (using override val context: inox.Context) extends ExtractionPipeline {
+      override def extract(symbols: s.Symbols): t.Symbols = {
+        that.extract(self.extract(symbols))
+      }
 
-    override def extract(symbols: s.Symbols): t.Symbols = {
-      that.extract(self.extract(symbols))
+      override def invalidate(id: Identifier): Unit = {
+        self.invalidate(id)
+        that.invalidate(id)
+      }
     }
-
-    override def invalidate(id: Identifier): Unit = {
-      self.invalidate(id)
-      that.invalidate(id)
-    }
+    new AndThenImpl(self.s, that.t)
   }
 }
 
 object ExtractionPipeline {
   def apply(transformer: DefinitionTransformer { val s: Trees; val t: ast.Trees })
-           (implicit ctx: inox.Context): ExtractionPipeline {
+           (using inox.Context): ExtractionPipeline {
     val s: transformer.s.type
     val t: transformer.t.type
-  } = new ExtractionPipeline { self =>
-    override val s: transformer.s.type = transformer.s
-    override val t: transformer.t.type = transformer.t
-    override val context = ctx
+  } = {
+    class Impl(override val s: transformer.s.type,
+               override val t: transformer.t.type)
+              (using override val context: inox.Context) extends ExtractionPipeline { self =>
+      override def extract(symbols: s.Symbols): t.Symbols =
+        symbols.transform(transformer.asInstanceOf[DefinitionTransformer {
+          val s: self.s.type
+          val t: self.t.type
+        }])
 
-    override def extract(symbols: s.Symbols): t.Symbols =
-      symbols.transform(transformer.asInstanceOf[DefinitionTransformer {
-        val s: self.s.type
-        val t: self.t.type
-      }])
-
-    override def invalidate(id: Identifier): Unit = ()
+      override def invalidate(id: Identifier): Unit = ()
+    }
+    new Impl(transformer.s, transformer.t)
   }
 
   def apply(transformer: inox.transformers.SymbolTransformer { val s: Trees; val t: ast.Trees })
-           (implicit ctx: inox.Context): ExtractionPipeline {
+           (using inox.Context): ExtractionPipeline {
     val s: transformer.s.type
     val t: transformer.t.type
-  } = new ExtractionPipeline {
-    override val s: transformer.s.type = transformer.s
-    override val t: transformer.t.type = transformer.t
-    override val context = ctx
-
-    override def extract(symbols: s.Symbols): t.Symbols = transformer.transform(symbols)
-    override def invalidate(id: Identifier): Unit = ()
+  } = {
+    class Impl(override val s: transformer.s.type,
+               override val t: transformer.t.type)
+              (using override val context: inox.Context) extends ExtractionPipeline {
+      override def extract(symbols: s.Symbols): t.Symbols = transformer.transform(symbols)
+      override def invalidate(id: Identifier): Unit = ()
+    }
+    new Impl(transformer.s, transformer.t)
   }
 }
 
@@ -114,10 +120,9 @@ trait SimplyCachedSorts extends CachingPhase {
 }
 
 trait IdentitySorts extends SimpleSorts with SimplyCachedSorts { self =>
-  private[this] final object identity extends TreeTransformer {
-    override val s: self.s.type = self.s
-    override val t: self.t.type = self.t
-  }
+  private[this] class IdentitySortsImpl(override val s: self.s.type, override val t: self.t.type)
+    extends ConcreteTreeTransformer(s, t)
+  private[this] val identity = new IdentitySortsImpl(self.s, self.t)
 
   override protected def extractSort(context: TransformerContext, sort: s.ADTSort): t.ADTSort = identity.transform(sort)
 }
@@ -132,10 +137,9 @@ trait SimplyCachedFunctions extends CachingPhase {
 }
 
 trait IdentityFunctions extends SimpleFunctions with SimplyCachedFunctions { self =>
-  private[this] final object identity extends TreeTransformer {
-    override val s: self.s.type = self.s
-    override val t: self.t.type = self.t
-  }
+  private[this] class IdentityFunctionsImpl(override val s: self.s.type, override val t: self.t.type)
+    extends ConcreteTreeTransformer(s, t)
+  private[this] val identity = new IdentityFunctionsImpl(self.s, self.t)
 
   override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = identity.transform(fd)
 }

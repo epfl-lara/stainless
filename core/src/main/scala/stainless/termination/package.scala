@@ -2,8 +2,6 @@
 
 package stainless
 
-import scala.language.existentials
-
 import stainless.utils.YesNoOnly
 
 package object termination {

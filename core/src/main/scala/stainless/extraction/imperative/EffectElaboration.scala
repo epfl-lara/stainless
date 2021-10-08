@@ -21,19 +21,19 @@ trait EffectElaboration
   // Function rewriting depends on the effects analysis which relies on all dependencies
   // of the function, so we use a dependency cache here.
   override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult](
-    (fd, context) => getDependencyKey(fd.id)(context.symbols)
+    (fd, context) => getDependencyKey(fd.id)(using context.symbols)
   )
 
   // Function types are rewritten by the transformer depending on the result of the
   // effects analysis, so we again use a dependency cache here.
   override protected final val sortCache = new ExtractionCache[s.ADTSort, SortResult](
-    (sort, context) => getDependencyKey(sort.id)(context.symbols)
+    (sort, context) => getDependencyKey(sort.id)(using context.symbols)
   )
 
   // Function types are rewritten by the transformer depending on the result of the
   // effects analysis, so we again use a dependency cache here.
   override protected final val classCache = new ExtractionCache[s.ClassDef, ClassResult](
-    (cd, context) => ClassKey(cd) + OptionSort.key(context.symbols)
+    (cd, context) => ClassKey(cd) + OptionSort.key(using context.symbols)
   )
 
   override protected type FunctionResult = Seq[t.FunDef]
@@ -55,8 +55,8 @@ trait EffectElaboration
   override protected def extractSymbols(tctx: TransformerContext, symbols: s.Symbols): t.Symbols = {
     val isOldImperative = !context.options.findOptionOrDefault(optFullImperative)
 
-    val anyHeapRefCdOpt = AnyHeapRefType.classDefOpt(symbols)
-    val heapCdOpt = HeapType.classDefOpt(symbols)
+    val anyHeapRefCdOpt = AnyHeapRefType.classDefOpt(using symbols)
+    val heapCdOpt = HeapType.classDefOpt(using symbols)
 
     def shouldDrop(defn: Definition): Boolean =
       (
@@ -76,8 +76,8 @@ trait EffectElaboration
       return newSymbols
 
     super.extractSymbols(tctx, newSymbols)
-      .withSorts(Seq(heapRefSort) ++ OptionSort.sorts(newSymbols))
-      .withFunctions(Seq(dummyHeap) ++ OptionSort.functions(newSymbols))
+      .withSorts(Seq(heapRefSort) ++ OptionSort.sorts(using newSymbols))
+      .withFunctions(Seq(dummyHeap) ++ OptionSort.functions(using newSymbols))
   }
 
   override protected def extractFunction(tctx: TransformerContext, fd: FunDef): FunctionResult =
@@ -91,13 +91,12 @@ trait EffectElaboration
 }
 
 object EffectElaboration {
-  def apply(trees: Trees)(implicit ctx: inox.Context): ExtractionPipeline {
+  def apply(trees: Trees)(using inox.Context): ExtractionPipeline {
     val s: trees.type
     val t: trees.type
-  } = new EffectElaboration {
-    override val s: trees.type = trees
-    override val t: trees.type = trees
-    override val context = ctx
+  } = {
+    class Impl(override val s: trees.type, override val t: trees.type)(using override val context: inox.Context) extends EffectElaboration
+    new Impl(trees, trees)
   }
 }
 
@@ -127,7 +126,8 @@ trait RefTransform
   protected type TransformerContext <: RefTransformContext
 
   trait RefTransformContext { context: TransformerContext =>
-    implicit val symbols: s.Symbols
+    val symbols: s.Symbols
+    import symbols.given
 
     lazy val HeapRefSetType: Type = SetType(HeapRefType)
     lazy val EmptyHeapRefSet: Expr = FiniteSet(Seq.empty, HeapRefType)
@@ -193,9 +193,10 @@ trait RefTransform
 
     // Reduce all mutation to assignments of a local heap variable
     // TODO: Handle mutable types other than classes
-    abstract class RefTransformer extends oo.DefinitionTransformer {
-      val s: self.s.type = self.s
-      val t: self.s.type = self.s
+    abstract class RefTransformer(override val s: self.s.type, override val t: self.s.type)
+      extends oo.DefinitionTransformer {
+
+      def this() = this(self.s, self.s)
 
       override def transform(tpe: Type, env: Env): Type = tpe match {
         case HeapType() =>
@@ -422,8 +423,8 @@ trait RefTransform
                 val resTpe = T(typeOnlyRefTransformer.transform(fi.tfd.returnType), HeapMapType)
                 let("res" :: resTpe, call) { res =>
                   Block(
-                    Seq(Assignment(heapVd.toVariable, res._2).copiedFrom(e)),
-                    res._1
+                    Seq(Assignment(heapVd.toVariable, res._ts2).copiedFrom(e)),
+                    res._ts1
                   ).copiedFrom(e)
                 }
               } else {
@@ -525,8 +526,8 @@ trait RefTransform
             val valueVd: ValDef = "resV" :: resVd1.tpe
             val heapVd1: ValDef = "heap1" :: HeapMapType
             val resVd2 = resVd1.copy(tpe = T(resVd1.tpe, HeapMapType))
-            val post2 = Let(valueVd, resVd2.toVariable._1,
-              Let(heapVd1, resVd2.toVariable._2,
+            val post2 = Let(valueVd, resVd2.toVariable._ts1,
+              Let(heapVd1, resVd2.toVariable._ts2,
                 transformPost(post, resVd1, valueVd, heapVdOpt0, Some(heapVd1))))
             (resVd2, post2)
           } else {
@@ -626,10 +627,10 @@ trait RefTransform
             val result = if (writes) {
               Assume(
                 unchecked(Equals(
-                  res._2,
+                  res._ts2,
                   MapMerge(
                     modifiesVdOpt.get.toVariable,
-                    res._2,
+                    res._ts2,
                     heapVdOpt0.get.toVariable
                   ).copiedFrom(fd)
                 ).copiedFrom(fd)),
@@ -645,15 +646,15 @@ trait RefTransform
                   // resR := f(reads.mapMerge(heap, dummyHeap), x)
                   let("resR" :: newReturnType, fiProjected) { resR =>
                     And(
-                      // res._1 == resR._1
-                      Equals(res._1, resR._1).copiedFrom(fd),
-                      // Heap.unchanged(modifies, res._2, resR._2)
+                      // res._ts1 == resR._ts1
+                      Equals(res._ts1, resR._ts1).copiedFrom(fd),
+                      // Heap.unchanged(modifies, res._ts2, resR._ts2)
                       Equals(
-                        res._2,
+                        res._ts2,
                         MapMerge(
                           modifiesVdOpt.get.toVariable,
-                          resR._2,
-                          res._2
+                          resR._ts2,
+                          res._ts2
                         ).copiedFrom(fd)
                       ).copiedFrom(fd)
                     ).copiedFrom(fd)

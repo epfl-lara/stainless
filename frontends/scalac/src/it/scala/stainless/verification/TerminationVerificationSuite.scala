@@ -7,7 +7,7 @@ import stainless.utils.YesNoOnly
 
 class TerminationVerificationSuite extends ComponentTestSuite {
 
-  val component = VerificationComponent
+  override val component: VerificationComponent.type = VerificationComponent
 
   override def configurations = super.configurations.map { seq =>
     Seq(

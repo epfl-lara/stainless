@@ -7,14 +7,12 @@ package methods
 import inox.utils.Position
 
 /** Merge all invariants of a class into a single method */
-trait MergeInvariants
+class MergeInvariants(override val s: Trees, override val t: Trees)
+                     (using override val context: inox.Context)
   extends oo.CachingPhase
-    with IdentitySorts
-    with SimpleFunctions
-    with oo.IdentityTypeDefs { self =>
-
-  val s: Trees
-  val t: Trees
+     with IdentitySorts
+     with SimpleFunctions
+     with oo.IdentityTypeDefs { self =>
 
   override protected type ClassResult    = (t.ClassDef, Option[t.FunDef])
 
@@ -33,12 +31,10 @@ trait MergeInvariants
     FunctionKey(fd)
   })
 
-  override protected def getContext(symbols: s.Symbols) = new TransformerContext()(symbols)
+  override protected def getContext(symbols: s.Symbols) = new TransformerContext(self.s, self.t)(using symbols)
 
-  protected class TransformerContext(implicit val symbols: s.Symbols) extends oo.TreeTransformer {
-    override val s: self.s.type = self.s
-    override val t: self.t.type = self.t
-
+  protected class TransformerContext(override val s: self.s.type, override val t: self.t.type)
+                                    (using val symbols: s.Symbols) extends oo.ConcreteTreeTransformer(self.s, self.t) {
     import s._
     import symbols._
 
@@ -96,13 +92,12 @@ trait MergeInvariants
 }
 
 object MergeInvariants {
-  def apply(ts: Trees)(implicit ctx: inox.Context): ExtractionPipeline {
+  def apply(ts: Trees)(using inox.Context): ExtractionPipeline {
     val s: ts.type
     val t: ts.type
-  } = new MergeInvariants {
-    override val s: ts.type = ts
-    override val t: ts.type = ts
-    override val context = ctx
+  } = {
+    class Impl(override val s: ts.type, override val t: ts.type) extends MergeInvariants(s, t)
+    new Impl(ts, ts)
   }
 }
 

@@ -37,9 +37,12 @@ lazy val nParallel = {
   }
 }
 
-val SupportedScalaVersions = Seq("2.13.6")
+// Stainless itself uses Scala 3...
+val stainlessScalaVersion = "3.0.2"
+// ...whereas Stainless programs use Scala 2.13
+val stainlessProgScalaVersion = "2.13.6"
 
-scalaVersion := "2.13.6"
+scalaVersion := stainlessScalaVersion
 
 lazy val frontendClass = settingKey[String]("The name of the compiler wrapper used to extract stainless trees")
 
@@ -68,8 +71,7 @@ lazy val baseSettings: Seq[Setting[_]] = Seq(
 )
 
 lazy val artifactSettings: Seq[Setting[_]] = baseSettings ++ Seq(
-  scalaVersion := "2.13.6",
-  crossScalaVersions := SupportedScalaVersions,
+  scalaVersion := stainlessScalaVersion,
 
   buildInfoPackage := "stainless",
   buildInfoKeys := stainlessBuildInfoKeys,
@@ -92,14 +94,21 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
     // "ch.epfl.lara"    %% "inox"          % inoxVersion,
     // "ch.epfl.lara"    %% "inox"          % inoxVersion % "test" classifier "tests",
     "org.scala-lang.modules" %% "scala-parallel-collections" % "1.0.3",
-    "uuverifiers"            %% "princess"                   % "2020-03-12",
     "io.circe"               %% "circe-core"                 % circeVersion,
     "io.circe"               %% "circe-generic"              % circeVersion,
     "io.circe"               %% "circe-parser"               % circeVersion,
-    "io.get-coursier"        %% "coursier"                   % "2.0.0-RC4-1",
+    ("io.get-coursier"       %% "coursier"                   % "2.0.16").cross(CrossVersion.for3Use2_13),
     "com.typesafe"            % "config"                     % "1.3.4",
 
-    "org.scalatest"   %% "scalatest"     % "3.2.7" % "test",
+    "org.scalatest"   %% "scalatest"     % "3.2.9" % "test"
+  ),
+
+  // There is a conflict with the cross version of scala-xml.
+  // Coursier depends on 2.13 while scalatest on 3.0.
+  // We can get away by excluding 3.0 and using the 2.13 version instead.
+  // Note that we leverage excludeDependencies that also excludes the dependency brought by the dependsOn inox.
+  excludeDependencies ++= Seq(
+    ExclusionRule("org.scala-lang.modules", "scala-xml_3")
   ),
 
   // disable documentation packaging in universal:stage to speedup development
@@ -114,7 +123,7 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
   run / javaOptions ++= Seq(
     "-Xss256M",
     "-Xms1024M",
-    "-XX:MaxMetaspaceSize=512M",
+    "-XX:MaxMetaspaceSize=1G",
     "-XX:+UseCodeCacheFlushing",
     "-XX:ReservedCodeCacheSize=256M",
   ),
@@ -124,8 +133,36 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
   Test / testOptions := Seq(Tests.Argument("-oDF")),
 
   IntegrationTest / testOptions := Seq(Tests.Argument("-oDF")),
+)
 
-  ThisBuild / maxErrors := 5
+lazy val stainlessLibSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
+  scalacOptions ++= Seq(
+    "-deprecation",
+    "-unchecked",
+    "-feature"
+  ),
+
+  // disable documentation packaging in universal:stage to speedup development
+  Compile / packageDoc / mappings := Seq(),
+
+  Global / concurrentRestrictions += Tags.limitAll(nParallel),
+
+  Compile / sourcesInBase := false,
+
+  run / Keys.fork := true,
+
+  run / javaOptions ++= Seq(
+    "-Xss256M",
+    "-Xms1024M",
+    "-XX:+UseCodeCacheFlushing",
+    "-XX:ReservedCodeCacheSize=256M",
+  ),
+
+  /* run / javaOptions += "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005", */
+
+  Test / testOptions := Seq(Tests.Argument("-oDF")),
+
+  IntegrationTest / testOptions := Seq(Tests.Argument("-oDF"))
 )
 
 lazy val assemblySettings: Seq[Setting[_]] = {
@@ -158,7 +195,7 @@ lazy val libFilesFile = "libfiles.txt" // file storing list of library file name
 lazy val regenFilesFile = false
 
 lazy val libraryFiles: Seq[(String, File)] = {
-  val libFiles = ((root.base / "frontends" / "library") ** "*.scala").get
+  val libFiles = ((root.base / "frontends" / "library" / "stainless") ** "*.scala").get
   val dropCount = (libFiles.head.getPath indexOfSlice "library") + ("library".size + 1 /* for separator */)
   val res : Seq[(String, File)] = libFiles.map(file => (file.getPath drop dropCount, file)) // Drop the prefix of the path (i.e. everything before "library")
   if (regenFilesFile) {
@@ -201,10 +238,6 @@ lazy val commonFrontendSettings: Seq[Setting[_]] = Defaults.itSettings ++ Seq(
       s"""|package stainless
           |
           |object Main extends MainHelpers {
-          |
-          |  val extraClasspath = \"\"\"${removeSlashU(extraClasspath.value)}\"\"\"
-          |  val extraCompilerArguments = List("-classpath", \"\"\"${removeSlashU(extraClasspath.value)}\"\"\")
-          |
           |  val defaultPaths = List(${removeSlashU(libraryFiles.map(_._1).mkString("\"\"\"", "\"\"\",\n \"\"\"", "\"\"\""))})
           |  val libPaths = try {
           |    val source = scala.io.Source.fromFile(\"${libFilesFile}\")
@@ -213,7 +246,7 @@ lazy val commonFrontendSettings: Seq[Setting[_]] = Defaults.itSettings ++ Seq(
           |     case (_:Throwable) => defaultPaths
           |  }
           |
-          |  override val factory = new frontends.${frontendClass.value}.Factory(extraCompilerArguments, libPaths)
+          |  override val factory = new frontends.${frontendClass.value}.Factory(Nil, libPaths)
           |
           |}""".stripMargin)
     Seq(main)
@@ -234,8 +267,8 @@ val scriptSettings: Seq[Setting[_]] = Seq(
 def ghProject(repo: String, version: String) = RootProject(uri(s"${repo}#${version}"))
 
 // lazy val inox = RootProject(file("../inox"))
-lazy val inox = ghProject("https://github.com/epfl-lara/inox.git", "e74baa7fdb9a941f4e4ce8e880b96a32a96c8b59")
-lazy val cafebabe = ghProject("https://github.com/epfl-lara/cafebabe.git", "7efbf6341ecc7474e7a8c6999d97bf3d810fa5c8")
+lazy val inox = ghProject("https://github.com/epfl-lara/inox.git", "993121e9fcb661014855c1a18eba7e6413b35bcd")
+lazy val cafebabe = ghProject("https://github.com/epfl-lara/cafebabe.git", "616e639b34379e12b8ac202849de3ebbbd0848bc")
 //lazy val dotty = ghProject("git://github.com/lampepfl/dotty.git", "b3194406d8e1a28690faee12257b53f9dcf49506")
 
 // Allow integration test to use facilities from regular tests
@@ -249,31 +282,32 @@ lazy val `stainless-core` = (project in file("core"))
   .settings(commonSettings, publishMavenSettings)
   //.settings(site.settings)
   .dependsOn(inox % "compile->compile;test->test")
-  .dependsOn(cafebabe % "compile->compile;test->test")
+  .dependsOn(cafebabe % "compile->compile")
 
 lazy val `stainless-library` = (project in file("frontends") / "library")
   .disablePlugins(AssemblyPlugin)
-  .settings(commonSettings, publishMavenSettings)
+  .settings(stainlessLibSettings, publishMavenSettings)
   .settings(
     name := "stainless-library",
-
+    scalaVersion := stainlessProgScalaVersion,
     // don't publish binaries - stainless-library is only consumed as a sources component
     packageBin / publishArtifact := false,
     crossVersion := CrossVersion.binary,
-    Compile / scalaSource := baseDirectory.value
+    Compile / scalaSource := baseDirectory.value / "stainless"
   )
 
 lazy val `stainless-algebra` = (project in file("frontends") / "algebra")
   .disablePlugins(AssemblyPlugin)
-  .settings(commonSettings, publishMavenSettings)
+  .settings(stainlessLibSettings, publishMavenSettings)
   .settings(
     name := "stainless-algebra",
     version := "0.1.2",
+    scalaVersion := stainlessProgScalaVersion,
 
     // don't publish binaries - stainless-algebra is only consumed as a sources component
     packageBin / publishArtifact := false,
     crossVersion := CrossVersion.binary,
-    Compile / scalaSource := baseDirectory.value,
+    Compile / scalaSource := baseDirectory.value / "stainless"
   )
   .dependsOn(`stainless-library`)
 
@@ -286,9 +320,9 @@ lazy val `stainless-scalac` = (project in file("frontends") / "scalac")
   .settings(
     name := "stainless-scalac",
     frontendClass := "scalac.ScalaCompiler",
-    libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value,
+    libraryDependencies += "org.scala-lang" % "scala-compiler" % stainlessProgScalaVersion,
     buildInfoKeys ++= Seq[BuildInfoKey]("useJavaClassPath" -> false),
-    assembly / assemblyOption := (assembly / assemblyOption).value.copy(includeScala = false),
+    assemblyPackageScala / assembleArtifact := true,
     assembly / assemblyExcludedJars := {
       val cp = (assembly / fullClasspath).value
       // Don't include scalaz3 dependency because it is OS dependent
@@ -359,16 +393,17 @@ lazy val `sbt-stainless` = (project in file("sbt-plugin"))
     buildInfoPackage := "ch.epfl.lara.sbt.stainless",
     buildInfoKeys ++= Seq[BuildInfoKey](
       BuildInfoKey.map(version) { case (_, v) => "stainlessVersion" -> v },
-      "supportedScalaVersions" -> SupportedScalaVersions,
+      "supportedScalaVersions" -> Seq(stainlessProgScalaVersion),
+      "stainlessProgScalaVersion" -> stainlessProgScalaVersion,
+      "stainlessScalaVersion" -> stainlessScalaVersion,
     ),
   )
   .settings(
     scripted := scripted.tag(Tags.Test).evaluated,
     scriptedLaunchOpts ++= Seq(
       "-Xmx768m",
-      "-XX:MaxMetaspaceSize=384m",
       "-Dplugin.version=" + version.value,
-      "-Dscala.version=" + sys.props.get("scripted.scala.version").getOrElse((`stainless-scalac` / scalaVersion).value)
+      "-Dscala.version=" + stainlessProgScalaVersion
     ),
     scriptedBufferLog := false,
     scriptedDependencies := {

@@ -5,7 +5,8 @@ package verification
 
 trait VerificationAnalysis extends AbstractAnalysis {
   val program: StainlessProgram
-  implicit val context: inox.Context
+  val context: inox.Context
+  import context.given
   import program._
 
   val sources: Set[Identifier] // set of functions that were considered for the analysis

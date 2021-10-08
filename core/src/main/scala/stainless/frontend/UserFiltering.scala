@@ -8,12 +8,15 @@ import xlang.{ trees => xt }
 
 import stainless.utils.CheckFilter
 
-trait UserFiltering extends inox.transformers.SymbolTransformer with CheckFilter {
-  val context: inox.Context
-  val s: xt.type = xt
-  val t: xt.type = xt
-  override val trees: xt.type = xt
-  import xt._
+class UserFiltering private(override val s: xt.type,
+                            override val t: xt.type,
+                            override val trees: xt.type)
+                           (using val context: inox.Context)
+  extends inox.transformers.SymbolTransformer with CheckFilter {
+
+  def this()(using inox.Context) = this(xt, xt, xt)
+
+  import trees._
   import exprOps._
 
   override def transform(symbols: s.Symbols): t.Symbols = {
@@ -39,10 +42,4 @@ trait UserFiltering extends inox.transformers.SymbolTransformer with CheckFilter
                 .withTypeDefs(symbols.typeDefs.values.filter(keepDefinition).toSeq)
   }
 
-}
-
-object UserFiltering {
-  def apply()(implicit ctx: inox.Context) = new {
-    override val context = ctx
-  } with UserFiltering
 }

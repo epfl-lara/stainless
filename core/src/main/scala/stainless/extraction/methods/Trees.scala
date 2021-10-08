@@ -6,14 +6,14 @@ package methods
 
 trait Trees extends throwing.Trees { self =>
 
-  override protected def unapplyScrut(scrut: Expr, up: UnapplyPattern)(implicit s: Symbols): Expr =
+  override protected def unapplyScrut(scrut: Expr, up: UnapplyPattern)(using s: Symbols): Expr =
     if (s.lookupFunction(up.id).exists(_.flags.exists { case IsMethodOf(_) => true case _ => false }) && up.recs.size == 1) {
       MethodInvocation(up.recs.head, up.id, up.tps, Seq(scrut))
     } else {
       super.unapplyScrut(scrut, up)
     }
 
-  override protected def unapplyAccessor(unapplied: Expr, id: Identifier, up: UnapplyPattern)(implicit s: Symbols): Expr =
+  override protected def unapplyAccessor(unapplied: Expr, id: Identifier, up: UnapplyPattern)(using s: Symbols): Expr =
     if (s.lookupFunction(id).exists(_.flags.exists { case IsMethodOf(_) => true case _ => false })) {
       MethodInvocation(unapplied, id, Seq(), Seq())
     } else {
@@ -22,17 +22,17 @@ trait Trees extends throwing.Trees { self =>
 
   /** $encodingof `this` */
   case class This(ct: ClassType) extends Expr with Terminal {
-    def getType(implicit s: Symbols): Type = ct.getType
+    def getType(using Symbols): Type = ct.getType
   }
 
   /** $encodingof `super` */
   case class Super(ct: ClassType) extends Expr with Terminal {
-    def getType(implicit s: Symbols): Type = ct.getType
+    def getType(using Symbols): Type = ct.getType
   }
 
   /** $encodingof `receiver.id[tps](args)` */
   case class MethodInvocation(receiver: Expr, id: Identifier, tps: Seq[Type], args: Seq[Expr]) extends Expr with CachingTyped {
-    protected def computeType(implicit s: Symbols): Type = widenTypeParameter(receiver) match {
+    protected def computeType(using s: Symbols): Type = widenTypeParameter(receiver) match {
       case ct: ClassType =>
         val optTfd = s.lookupFunction(id)
           .filter(fd => tps.size == fd.tparams.size && args.size == fd.params.size)
@@ -62,9 +62,11 @@ trait Trees extends throwing.Trees { self =>
     }
   }
 
-  private[this] class InstantiateThis(thisType: ClassType) extends oo.TreeTransformer {
-    val s: self.type = self
-    val t: self.type = self
+  private[this] class InstantiateThis(override val s: self.type,
+                                      override val t: self.type,
+                                      thisType: ClassType) extends oo.ConcreteTreeTransformer(s, t) {
+
+    def this(thisType: ClassType) = this(self, self, thisType)
 
     override def transform(tpe: Type): Type = tpe match {
       case TypeSelect(Some(This(_)), sel) =>
@@ -75,12 +77,20 @@ trait Trees extends throwing.Trees { self =>
   }
 
 
-  type Symbols >: Null <: AbstractSymbols
+  type Symbols >: Null <: MethodsAbstractSymbols
 
-  trait AbstractSymbols
-    extends super.AbstractSymbols
-       with DependencyGraph
-       with TypeOps { self0: Symbols =>
+  trait MethodsAbstractSymbols
+    extends ImperativeAbstractSymbols
+       with methods.DependencyGraph
+       with methods.TypeOps { self0: Symbols =>
+
+    // The only value that can be assigned to `trees`, but that has to be
+    // done in a concrete class explicitly overriding `trees`
+    // Otherwise, we can run into initialization issue.
+    protected val trees: self.type
+    // More or less the same here
+    protected val symbols: this.type
+    import symbols.given
 
     override protected def ensureWellFormedFunction(fd: FunDef): Unit = {
       val res = fd.getClassDef.fold(fd) { cd =>
@@ -155,7 +165,7 @@ trait Trees extends throwing.Trees { self =>
         }
       }
 
-      val ancestors = cd.ancestors(this).map(cd => cd.id -> cd).toMap
+      val ancestors = cd.ancestors(using this).map(cd => cd.id -> cd).toMap
 
       // Check that type members overrides are well-typed
       cd.typeMembers.foreach { id =>
@@ -261,18 +271,18 @@ trait Trees extends throwing.Trees { self =>
     def isGhost: Boolean = cd.flags contains Ghost
     def isValueClass: Boolean = cd.flags contains ValueClass
 
-    def methods(implicit s: Symbols): Seq[SymbolIdentifier] = {
+    def methods(using s: Symbols): Seq[SymbolIdentifier] = {
       s.functions.values
         .filter(_.flags contains IsMethodOf(cd.id))
         .map(_.id.asInstanceOf[SymbolIdentifier]).toSeq
     }
 
-    def invariant(implicit s: Symbols): Option[FunDef] = {
+    def invariant(using s: Symbols): Option[FunDef] = {
       methods map s.functions find (_.flags contains IsInvariant)
     }
   }
 
-  implicit class FunDefWrapper(fd: FunDef) {
+  extension (fd: FunDef) {
     def isMethod: Boolean =
       fd.flags exists { case IsMethodOf(_) => true case _ => false }
 
@@ -286,13 +296,13 @@ trait Trees extends throwing.Trees { self =>
     def getFieldDefPosition: Option[Int] =
       fd.flags collectFirst { case FieldDefPosition(i) => i }
 
-    def getClassDef(implicit s: Symbols): Option[ClassDef] =
+    def getClassDef(using s: Symbols): Option[ClassDef] =
       getClassId flatMap s.lookupClass
 
     def isAccessor: Boolean =
       fd.flags exists { case IsAccessor(_) => true case _ => false }
 
-    def isAccessorOfParam(cd: ClassDef)(implicit s: Symbols): Boolean =
+    def isAccessorOfParam(cd: ClassDef)(using Symbols): Boolean =
       fd.flags exists {
         case IsAccessor(Some(id)) => cd.fields.map(_.id).contains(id)
         case _ => false
@@ -312,7 +322,7 @@ trait Trees extends throwing.Trees { self =>
 
     def isFinal: Boolean = fd.flags contains Final
 
-    def isAbstract(implicit s: Symbols): Boolean = {
+    def isAbstract(using Symbols): Boolean = {
       (fd.flags contains IsAbstract) ||
       (!isExtern && !hasBody && !isSynthetic && fd.getClassDef.forall(_.isAbstract))
     }
@@ -326,28 +336,24 @@ trait Trees extends throwing.Trees { self =>
   }
 
   override def getDeconstructor(that: inox.ast.Trees): inox.ast.TreeDeconstructor { val s: self.type; val t: that.type } = that match {
-    case tree: Trees => new TreeDeconstructor {
-      protected val s: self.type = self
-      protected val t: tree.type = tree
-    }.asInstanceOf[TreeDeconstructor { val s: self.type; val t: that.type }]
+    case tree: (Trees & that.type) => // The `& that.type` trick allows to convince scala that `tree` and `that` are actually equal...
+      class DeconstructorImpl(override val s: self.type, override val t: tree.type & that.type) extends ConcreteTreeDeconstructor(s, t)
+      new DeconstructorImpl(self, tree)
 
     case _ => super.getDeconstructor(that)
   }
 }
 
-trait ExprOps extends throwing.ExprOps {
-  protected val trees: Trees
-
-}
+class ExprOps(override val trees: Trees) extends throwing.ExprOps(trees)
 
 trait Printer extends throwing.Printer {
   protected val trees: Trees
   import trees._
 
-  override def ppBody(tree: Tree)(implicit ctx: PrinterContext): Unit = tree match {
+  override def ppBody(tree: Tree)(using ctx: PrinterContext): Unit = tree match {
     case cd: ClassDef =>
       super.ppBody(cd)
-      ctx.opts.symbols.foreach { implicit s =>
+      ctx.opts.symbols.foreach { case (given Symbols) =>
         if (cd.methods.nonEmpty || cd.typeMembers.nonEmpty) {
           p""" {
             |  ${typeDefs(cd.typeMembers)}
@@ -402,3 +408,5 @@ trait TreeDeconstructor extends throwing.TreeDeconstructor {
     case _ => super.deconstruct(f)
   }
 }
+
+class ConcreteTreeDeconstructor(override val s: Trees, override val t: Trees) extends TreeDeconstructor

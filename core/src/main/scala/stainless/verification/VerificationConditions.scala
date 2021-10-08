@@ -6,8 +6,28 @@ package verification
 import inox.solvers.Solver
 
 /** This is just to hold some history information. */
-case class VC[T <: ast.Trees](condition: T#Expr, fid: Identifier, kind: VCKind, satisfiability: Boolean)
-  extends inox.utils.Positioned
+case class VC[T <: ast.Trees](val trees: T)(val condition: trees.Expr, val fid: Identifier, val kind: VCKind, val satisfiability: Boolean)
+  extends inox.utils.Positioned {
+
+  // We override hashCode and equals because, for some reasons, the synthesized methods only use `trees` and ignore the rest
+
+  override def canEqual(that: Any): Boolean = that.isInstanceOf[VC[_]]
+
+  override def equals(other: Any): Boolean = other match {
+    case that: VC[t] =>
+      trees == that.trees &&
+        condition == that.condition &&
+        fid == that.fid &&
+        kind == that.kind &&
+        satisfiability == that.satisfiability
+    case _ => false
+  }
+
+  override def hashCode(): Int = {
+    val state = Seq(trees, condition, fid, kind, satisfiability)
+    state.map(_.hashCode()).foldLeft(0)((a, b) => 31 * a + b)
+  }
+}
 
 sealed abstract class VCKind(val name: String, val abbrv: String) {
   override def toString = name

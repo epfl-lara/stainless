@@ -11,24 +11,24 @@ import tt._
 
 object ArraysLengthsExtraction {
 
-  def get(syms: Symbols)(implicit ctx: inox.Context): Map[Identifier, Int] = {
-
-    implicit val printerOpts: tt.PrinterOptions = tt.PrinterOptions.fromSymbols(syms, ctx)
+  def get(syms: Symbols)(using ctx: inox.Context): Map[Identifier, Int] = {
+    given tt.PrinterOptions = tt.PrinterOptions.fromSymbols(syms, ctx)
 
     val prog = inox.Program(extraction.throwing.trees)(syms)
-    val evaluator = new {
-      val context = ctx
-      val program: prog.type = prog
-      val semantics = new inox.Semantics {
+    val evaluator = {
+      val sem = new inox.Semantics {
         val trees: throwing.trees.type = throwing.trees
         val symbols: syms.type = syms
         val program: prog.type = prog
         def createEvaluator(ctx: inox.Context) = ???
         def createSolver(ctx: inox.Context) = ???
       }
-    } with evaluators.RecursiveEvaluator
-      with inox.evaluators.HasDefaultGlobalContext
-      with inox.evaluators.HasDefaultRecContext
+      class Impl(override val program: prog.type, override val semantics: sem.type)
+        extends evaluators.RecursiveEvaluator(program, ctx)(using semantics)
+           with inox.evaluators.HasDefaultGlobalContext
+           with inox.evaluators.HasDefaultRecContext
+      new Impl(prog, sem)
+    }
 
     object TopLevelAnds {
       def unapply(e: Expr): Option[Seq[Expr]] = e match {

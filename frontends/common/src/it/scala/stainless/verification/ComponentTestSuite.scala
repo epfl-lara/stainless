@@ -4,7 +4,6 @@ package stainless
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
-import scala.language.existentials
 
 import stainless.utils.YesNoOnly
 
@@ -50,7 +49,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
         file <- fs.sortBy(_.getPath)
         path = file.getPath
         name = file.getName stripSuffix ".scala"
-      } test(s"$dir/$name", ctx => filter(ctx, s"$dir/$name")) { implicit ctx =>
+      } test(s"$dir/$name", ctx => filter(ctx, s"$dir/$name")) { ctx ?=>
         val (structure, program) = loadFiles(Seq(path))
         assert(ctx.reporter.errorCount == 0, "There should be no error while loading the files")
         assert((structure count { _.isMain }) == 1, "Expecting only one main unit")
@@ -86,7 +85,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
           defs ++
           exProgram.symbols.functions.values.filter(fd => derived(fd.flags)).map(_.id) ++
           exProgram.symbols.sorts.values.filter(sort => derived(sort.flags)).map(_.id)
-        } (unit.allFunctions(program.symbols).toSet ++ unit.allClasses)
+        } (unit.allFunctions(using program.symbols).toSet ++ unit.allClasses)
 
         val funs = defs.filter(exProgram.symbols.functions contains _).toSeq
 
@@ -94,7 +93,8 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
         block(report, ctx.reporter)
       }
     } else {
-      implicit val ctx = inox.TestContext.empty
+      val ctx: inox.Context = inox.TestContext.empty
+      import ctx.given
       val (structure, program) = loadFiles(fs.map(_.getPath))
       assert(ctx.reporter.errorCount == 0, "There should be no error while loading the files")
 
@@ -112,8 +112,8 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
         unit <- structure
         if unit.isMain
         name = unit.id.name
-      } test(s"$dir/$name", ctx => filter(ctx, s"$dir/$name")) { implicit ctx =>
-        val defs = unit.allFunctions(programSymbols).toSet ++ unit.allClasses
+      } test(s"$dir/$name", ctx => filter(ctx, s"$dir/$name")) { ctx ?=>
+        val defs = unit.allFunctions(using programSymbols).toSet ++ unit.allClasses
 
         val deps = defs.flatMap(id => programSymbols.dependencies(id) + id)
         val symbols = extraction.xlang.trees.NoSymbols

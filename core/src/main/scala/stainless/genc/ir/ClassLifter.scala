@@ -28,10 +28,10 @@ final class ClassLifter(val ctx: inox.Context) extends Transformer(NIR, LIR) {
   private def isKnownArrayField(cd: to.ClassDef, fieldId: to.Id): Boolean = fieldArrayDB contains (cd -> fieldId)
 
   // Lift context, params & return type
-  override def recImpl(fd: FunDef)(implicit env: Env): to.FunDef = {
+  override def recImpl(fd: FunDef)(using Env): to.FunDef = {
     val id = fd.id
 
-    val returnType = rec(fd.returnType)(lift)
+    val returnType = rec(fd.returnType)(using lift)
     val ctx = fd.ctx map lift
     val params = fd.params map lift
 
@@ -39,13 +39,13 @@ final class ClassLifter(val ctx: inox.Context) extends Transformer(NIR, LIR) {
     val newer = to.FunDef(id, returnType, ctx, params, null, fd.isExported, fd.isPure)
     registerFunction(fd, newer)
 
-    newer.body = rec(fd.body)(lift)
+    newer.body = rec(fd.body)(using lift)
 
     newer
   }
 
   // Lift fields types
-  override def recImpl(cd0: ClassDef, parent: Option[to.ClassDef])(implicit env: Env): to.ClassDef = {
+  override def recImpl(cd0: ClassDef, parent: Option[to.ClassDef])(using Env): to.ClassDef = {
     val id = cd0.id
     val isAbstract = cd0.isAbstract
 
@@ -53,10 +53,10 @@ final class ClassLifter(val ctx: inox.Context) extends Transformer(NIR, LIR) {
     val arrayFieldsToRegister = MutableSet[(Id, to.ClassType)]() // for the element of the arrays
 
     val fields = cd0.fields map { vd0 => // This is similar to lift(ValDef) but here we need to defer the registration
-      val vd = rec(vd0)(lift)
+      val vd = rec(vd0)(using lift)
 
       // "Pre"-register fields if class type or array type was lifted
-      val typ = rec(vd0.getType)(!lift)
+      val typ = rec(vd0.getType)(using !lift)
       typ match {
         case ct @ to.ClassType(c) if c.hierarchyTop != c =>
           valFieldsToRegister += (vd.id -> ct)
@@ -84,10 +84,10 @@ final class ClassLifter(val ctx: inox.Context) extends Transformer(NIR, LIR) {
     cd
   }
 
-  override def recImpl(e: Expr)(implicit env: Env): (to.Expr, Env) = e match {
+  override def recImpl(e: Expr)(using env: Env): (to.Expr, Env) = e match {
     case Decl(vd0, optInit0) =>
       val vd = lift(vd0)
-      val optInit = optInit0.map(init => rec(init)(lift))
+      val optInit = optInit0.map(init => rec(init)(using lift))
       to.Decl(vd, optInit) -> env
 
     case FieldAccess(Castable(asa), fieldId) =>
@@ -106,14 +106,14 @@ final class ClassLifter(val ctx: inox.Context) extends Transformer(NIR, LIR) {
     case _ => super.recImpl(e)
   }
 
-  override def rec(typ: Type)(implicit lift: Env): to.Type = typ match {
+  override def rec(typ: Type)(using lift: Env): to.Type = typ match {
     case ClassType(clazz) if lift => to.ClassType(rec(clazz.hierarchyTop))
     case ArrayType(ArrayType(ClassType(_), _), _) =>
       ctx.reporter.fatalError("Multidimentional arrays of objects are not yet supported")
     case typ => super.rec(typ)
   }
 
-  private def removeTopCast(e: Expr): to.Expr = rec(e)(lift) match {
+  private def removeTopCast(e: Expr): to.Expr = rec(e)(using lift) match {
     case to.AsA(expr, _) => expr
     case e => e
   }
@@ -127,7 +127,7 @@ final class ClassLifter(val ctx: inox.Context) extends Transformer(NIR, LIR) {
 
   private object ClassTypedExpr {
     def unapply(e: Expr): Option[(to.Expr, to.ClassDef)] = e.getType match {
-      case ClassType(cd) => Some(rec(e)(lift) -> rec(cd)(!lift))
+      case ClassType(cd) => Some(rec(e)(using lift) -> rec(cd)(using !lift))
       case _ => None
     }
   }
@@ -163,21 +163,21 @@ final class ClassLifter(val ctx: inox.Context) extends Transformer(NIR, LIR) {
 
       case ArrayAccess(Binding(vd0), index0) if arrayDB contains vd0 =>
         val (vd, ct) = arrayDB(vd0)
-        val asa = to.AsA(to.ArrayAccess(to.Binding(vd), rec(index0)(lift)), ct)
+        val asa = to.AsA(to.ArrayAccess(to.Binding(vd), rec(index0)(using lift)), ct)
         val cd = ct.clazz
 
         Some(asa -> cd)
 
       case ArrayAccess(FieldAccess(CastableImpl(asa1, cd1), fieldId), index0) if isKnownArrayField(cd1, fieldId) =>
         val ct2 = fieldArrayDB(cd1 -> fieldId)
-        val asa2 = to.AsA(to.ArrayAccess(to.FieldAccess(asa1, fieldId), rec(index0)(lift)), ct2)
+        val asa2 = to.AsA(to.ArrayAccess(to.FieldAccess(asa1, fieldId), rec(index0)(using lift)), ct2)
         val cd2 = ct2.clazz
 
         Some(asa2 -> cd2)
 
       case ArrayAccess(FieldAccess(ClassTypedExpr(e, cd1), fieldId), index0) if isKnownArrayField(cd1, fieldId) =>
         val ct2 = fieldArrayDB(cd1 -> fieldId)
-        val asa2 = to.AsA(to.ArrayAccess(to.FieldAccess(e, fieldId), rec(index0)(lift)), ct2)
+        val asa2 = to.AsA(to.ArrayAccess(to.FieldAccess(e, fieldId), rec(index0)(using lift)), ct2)
         val cd2 = ct2.clazz
 
         Some(asa2 -> cd2)
@@ -188,8 +188,8 @@ final class ClassLifter(val ctx: inox.Context) extends Transformer(NIR, LIR) {
   }
 
   private def lift(vd0: ValDef): to.ValDef = {
-    val vd = rec(vd0)(lift)
-    val typ = rec(vd0.getType)(!lift)
+    val vd = rec(vd0)(using lift)
+    val typ = rec(vd0.getType)(using !lift)
 
     // Register val if class type or array type was lifted
     typ match {

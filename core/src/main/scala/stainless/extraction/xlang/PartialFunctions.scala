@@ -4,24 +4,19 @@ package stainless
 package extraction
 package xlang
 
-import scala.language.existentials
-
-trait PartialFunctions
+class PartialFunctions(override val s: Trees)(override val t: s.type)
+                      (using override val context: inox.Context)
   extends oo.SimplePhase
      with SimplyCachedFunctions
      with SimplyCachedSorts
      with oo.IdentityTypeDefs
      with oo.SimplyCachedClasses { self =>
-
-  val t: self.s.type
   import s._
 
-  override protected def getContext(symbols: Symbols) = new TransformerContext(symbols)
+  override protected def getContext(symbols: Symbols) = new TransformerContext(self.s, self.t)(using symbols)
 
-  protected class TransformerContext(symbols: s.Symbols) extends oo.TreeTransformer {
-    override final val s: self.s.type = self.s
-    override final val t: self.t.type = self.t
-
+  protected class TransformerContext(override val s: self.s.type, override val t: self.t.type)
+                                    (using val symbols: s.Symbols) extends oo.ConcreteTreeTransformer(s, t) {
     val optPFClass = symbols.lookup.get[ClassDef]("stainless.lang.~>")
 
     /** Infer the partial function's precondition, by replacing every
@@ -55,7 +50,7 @@ trait PartialFunctions
             val (preOpt, bareBody) = body0 match {
               // Call to another function: Lift the function's definition
               case fi2: FunctionInvocation =>
-                (exprOps.preconditionOf(fi2.inlined(symbols)), fi2)
+                (exprOps.preconditionOf(fi2.inlined(using symbols)), fi2)
 
               // scala.PartialFunction: Infer pattern match condition
               case m: MatchExpr =>
@@ -98,12 +93,11 @@ trait PartialFunctions
 }
 
 object PartialFunctions {
-  def apply(trees: xlang.Trees)(implicit ctx: inox.Context): ExtractionPipeline {
+  def apply(trees: xlang.Trees)(using inox.Context): ExtractionPipeline {
     val s: trees.type
     val t: trees.type
-  } = new PartialFunctions {
-    override val s: trees.type = trees
-    override val t: trees.type = trees
-    override val context = ctx
+  } = {
+    class Impl(override val s: trees.type, override val t: trees.type) extends PartialFunctions(s)(t)
+    new Impl(trees, trees)
   }
 }

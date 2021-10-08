@@ -5,12 +5,11 @@ package methods
 
 import inox.utils.Position
 
-trait MethodLifting
+class MethodLifting(override val s: Trees, override val t: oo.Trees)
+                   (using override val context: inox.Context)
   extends oo.ExtractionContext
-    with oo.ExtractionCaches { self =>
+     with oo.ExtractionCaches { self =>
 
-  val s: Trees
-  val t: oo.Trees
   import s._
 
   override protected final type TransformerContext = Symbols
@@ -24,7 +23,7 @@ trait MethodLifting
     FunctionKey(fd) + SetKey(fd.flags
       .collectFirst { case s.IsMethodOf(id) => symbols.getClass(id) }.toSeq
       .flatMap { cd =>
-        val descendants = cd.descendants(symbols)
+        val descendants = cd.descendants(using symbols)
         val descendantIds = descendants.map(_.id).toSet
 
         val isInvariant = fd.isInvariant
@@ -44,7 +43,7 @@ trait MethodLifting
   // Note that we could again use the set of transitive overrides here instead of all invariants.
   private[this] final val classCache = new ExtractionCache[s.ClassDef, (t.ClassDef, Seq[t.FunDef])]({
     (cd, symbols) =>
-      val ids = cd.descendants(symbols).map(_.id).toSet + cd.id
+      val ids = cd.descendants(using symbols).map(_.id).toSet + cd.id
 
       val invariants = symbols.functions.values.filter { fd =>
         (fd.flags contains s.IsInvariant) &&
@@ -60,20 +59,21 @@ trait MethodLifting
 
   private case class Override(cid: Identifier, fid: Option[Identifier], children: Seq[Override])
 
-  private[this] object identity extends oo.TreeTransformer {
-    val s: self.s.type = self.s
-    val t: self.t.type = self.t
-  }
+  private[this] class IdentityImpl(override val s: self.s.type, override val t: self.t.type)
+    extends oo.ConcreteTreeTransformer(s, t)
 
-  private class BaseTransformer(symbols: s.Symbols) extends oo.TreeTransformer {
-    val s: self.s.type = self.s
-    val t: self.t.type = self.t
+  private[this] val identity = new IdentityImpl(self.s, self.t)
+
+  private class BaseTransformer(override val s: self.s.type,
+                                override val t: self.t.type,
+                                val symbols: s.Symbols) extends oo.ConcreteTreeTransformer(s, t) {
+    def this(symbols: self.s.Symbols) = this(self.s, self.t, symbols)
 
     override def transform(e: s.Expr): t.Expr = e match {
       case s.MethodInvocation(rec, id, tps, args) =>
-        val ct = rec.getType(symbols).asInstanceOf[s.ClassType]
+        val ct = rec.getType(using symbols).asInstanceOf[s.ClassType]
         val cid = symbols.getFunction(id).flags.collectFirst { case s.IsMethodOf(cid) => cid }.get
-        val tcd = (ct.tcd(symbols) +: ct.tcd(symbols).ancestors).find(_.id == cid).get
+        val tcd = (ct.tcd(using symbols) +: ct.tcd(using symbols).ancestors).find(_.id == cid).get
         t.FunctionInvocation(id, (tcd.tps ++ tps) map transform, (rec +: args) map transform).copiedFrom(e)
 
       case _ => super.transform(e)
@@ -98,7 +98,7 @@ trait MethodLifting
         makeFunction(o.cid, fd.id, o.children)(syms)
       }
 
-      val funs = cd.methods(symbols)
+      val funs = cd.methods(using symbols)
         .map(symbols.functions)
         .map { fd =>
           funCache.cached(fd, symbols)(transformMethod(fd)(symbols))
@@ -137,10 +137,10 @@ trait MethodLifting
     val overrides: Map[Symbol, Override] = {
       def rec(id: Identifier): Map[Symbol, Override] = {
         val cd = symbols.getClass(id)
-        val children = cd.children(symbols)
+        val children = cd.children(using symbols)
         val ctrees = children.map(ccd => rec(ccd.id))
 
-        val newOverrides = cd.methods(symbols).map { fid =>
+        val newOverrides = cd.methods(using symbols).map { fid =>
           fid.symbol -> Override(id, Some(fid), ctrees.flatMap(_.get(fid.symbol)))
         }.toMap
 
@@ -200,17 +200,17 @@ trait MethodLifting
     val tpMap = (cd.typeArgs zip tpSeq).toMap
 
     val ct = s.ClassType(cid, tpSeq).copiedFrom(cd)
-    val tcd = ct.tcd(symbols)
+    val tcd = ct.tcd(using symbols)
     val arg = t.ValDef(FreshIdentifier("thiss"), identity.transform(ct)).copiedFrom(cd)
 
     object transformer extends BaseTransformer(symbols) {
-      override def transform(e: s.Expr): t.Expr = e match {
-        case s.This(ct) => arg.toVariable
+      override def transform(e: self.s.Expr): self.t.Expr = e match {
+        case self.s.This(ct) => arg.toVariable
         case _ => super.transform(e)
       }
 
-      override def transform(tpe: s.Type): t.Type = tpe match {
-        case tp: s.TypeParameter if tpMap contains tp => super.transform(tpMap(tp))
+      override def transform(tpe: self.s.Type): self.t.Type = tpe match {
+        case tp: self.s.TypeParameter if tpMap contains tp => super.transform(tpMap(tp))
         case _ => super.transform(tpe)
       }
     }
@@ -231,12 +231,12 @@ trait MethodLifting
         def wrap(e: t.Expr, tpe: s.Type, expected: s.Type): t.Expr =
           if (symbols.isSubtypeOf(tpe, expected)) e else (e match {
             case v: t.Variable =>
-              val expectedType = transformer.transform(expected.getType(symbols))
+              val expectedType = transformer.transform(expected.getType(using symbols))
               t.Assume(t.IsInstanceOf(e, expectedType).copiedFrom(e),
                 unchecked(t.AsInstanceOf(e, expectedType).copiedFrom(e))).copiedFrom(e)
             case _ =>
               val vd = t.ValDef.fresh("x", transformer.transform(tpe), true).copiedFrom(e)
-              val expectedType = transformer.transform(expected.getType(symbols))
+              val expectedType = transformer.transform(expected.getType(using symbols))
               t.Let(vd, e,
                 t.Assume(t.IsInstanceOf(vd.toVariable, expectedType).copiedFrom(e),
                   unchecked(t.AsInstanceOf(vd.toVariable, expectedType).copiedFrom(e))).copiedFrom(e))
@@ -275,7 +275,7 @@ trait MethodLifting
       }
 
       val coMap = cos.map(co => co.cid -> co).toMap
-      cd.children(symbols).exists {
+      cd.children(using symbols).exists {
         ccd => !(coMap contains ccd.id) || !rec(coMap(ccd.id))
       }
     }
@@ -314,7 +314,7 @@ trait MethodLifting
     // class (or one descendant, or one ancestor) is annotated by @inlineInvariant
     val inlineInvariantFlags =
       if (fd.isInvariant &&
-         (cd.descendants(symbols) ++ cd.ancestors(symbols).map(_.cd) :+ cd)
+         (cd.descendants(using symbols) ++ cd.ancestors(using symbols).map(_.cd) :+ cd)
           .exists(_.flags.contains(InlineInvariant)))
         Seq(t.InlineInvariant, t.Inline)
       else
@@ -332,12 +332,11 @@ trait MethodLifting
 }
 
 object MethodLifting {
-  def apply(trees: Trees)(implicit ctx: inox.Context): ExtractionPipeline {
+  def apply(trees: Trees)(using inox.Context): ExtractionPipeline {
     val s: trees.type
     val t: trees.type
-  } = new MethodLifting {
-    override val s: trees.type = trees
-    override val t: trees.type = trees
-    override val context = ctx
+  } = {
+    class Impl(override val s: trees.type, override val t: trees.type) extends MethodLifting(s, t)
+    new Impl(trees, trees)
   }
 }

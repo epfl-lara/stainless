@@ -9,7 +9,7 @@ import org.scalatest._
 
 trait TypeCheckerSuite extends ComponentTestSuite {
 
-  val component = VerificationComponent
+  override val component: VerificationComponent.type = VerificationComponent
   val cacheAllowed: Boolean
 
   override def configurations = super.configurations.map { seq =>

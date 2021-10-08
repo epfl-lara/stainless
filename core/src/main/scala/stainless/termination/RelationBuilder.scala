@@ -5,10 +5,10 @@ package termination
 
 import scala.collection.mutable.{Map => MutableMap, ListBuffer}
 
-trait RelationBuilder { self: Strengthener =>
+trait RelationBuilder { self: Strengthener with OrderingRelation =>
 
   import checker.program.trees._
-  import checker.program.symbols._
+  import checker.program.symbols.{given, _}
 
   val cfa: CICFA { val program: checker.program.type }
 
@@ -53,11 +53,11 @@ trait RelationBuilder { self: Strengthener =>
     case _ => {
       val analysis = cfa.analyze(funDef.id)
 
-      object collector extends transformers.TransformerWithPC with transformers.DefinitionTransformer {
-        val s: self.checker.program.trees.type = self.checker.program.trees
-        val t: self.checker.program.trees.type = self.checker.program.trees
-        val symbols: self.checker.program.symbols.type = self.checker.program.symbols
-
+      class Collector(override val s: self.checker.program.trees.type,
+                      override val t: self.checker.program.trees.type)
+                     (using override val symbols: self.checker.program.symbols.type)
+        extends transformers.TransformerWithPC
+           with transformers.DefinitionTransformer {
         type Env = Path
         val initEnv = Path.empty
         val pp = Path
@@ -97,6 +97,7 @@ trait RelationBuilder { self: Strengthener =>
         }
       }
 
+      val collector = new Collector(self.checker.program.trees, self.checker.program.trees)(using self.checker.program.symbols)
       collector.transform(funDef)
       val relations = collector.relations.toSet
       relationCache(funDef) = (relations, funDefRelationSignature(funDef))

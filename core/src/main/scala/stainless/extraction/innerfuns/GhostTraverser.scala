@@ -62,6 +62,3 @@ trait GhostTraverser extends transformers.GhostTraverser {
     fd.flags map (traverse(_, localCtx))
   }
 }
-
-
-

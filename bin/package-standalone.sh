@@ -13,13 +13,14 @@ if [[ $(git diff --stat) != '' ]]; then
   STAINLESS_VERSION="$STAINLESS_VERSION-SNAPSHOT"
 fi
 
-SCALA_VERSION="2.13"
+SCALA_VERSION="3.0.2"
 Z3_VERSION="4.8.12"
 
 SBT_PACKAGE="sbt stainless-scalac-standalone/assembly"
 STAINLESS_JAR_PATH="./frontends/stainless-scalac-standalone/target/scala-$SCALA_VERSION/stainless-scalac-standalone-$STAINLESS_VERSION.jar"
-SCALAZ3_JAR_LINUX_PATH="./unmanaged/scalaz3-unix-64-$SCALA_VERSION.jar"
-SCALAZ3_JAR_MAC_PATH="./unmanaged/scalaz3-mac-64-$SCALA_VERSION.jar"
+# Note: though Stainless is compiled with 3.0.2, we use a 2.13 version of ScalaZ3 (which is binary compatible with Scala 3)
+SCALAZ3_JAR_LINUX_PATH="./unmanaged/scalaz3-unix-64-2.13.jar"
+SCALAZ3_JAR_MAC_PATH="./unmanaged/scalaz3-mac-64-2.13.jar"
 
 Z3_GITHUB_URL="https://github.com/Z3Prover/z3/releases/download/z3-$Z3_VERSION"
 Z3_LINUX_NAME="z3-$Z3_VERSION-x64-glibc-2.31.zip"

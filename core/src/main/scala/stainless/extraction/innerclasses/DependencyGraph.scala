@@ -9,8 +9,9 @@ import inox.utils.Graphs._
 trait DependencyGraph extends methods.DependencyGraph {
   protected val trees: innerclasses.Trees
   import trees._
+  import symbols.given
 
-  protected class LocalClassCollector extends super.ClassCollector with SelfTreeTraverser {
+  protected class LocalClassCollector extends ClassCollector(trees) with OOSelfTreeTraverser {
 
     var localClasses: Set[LocalClassDef] = Set.empty
 
@@ -59,9 +60,9 @@ trait DependencyGraph extends methods.DependencyGraph {
   }
 
   private def laws(cd: LocalClassDef): Set[Identifier] = {
-    cd.globalAncestors(symbols).map(_.cd).reverse.foldLeft(Map[Symbol, Identifier]()) {
+    cd.globalAncestors.map(_.cd).reverse.foldLeft(Map[Symbol, Identifier]()) {
       case (laws, cd) =>
-        val methods = cd.methods(symbols)
+        val methods = cd.methods
         val newLaws = methods
           .filter(id => symbols.getFunction(id).flags.exists(_.name == "law"))
           .map(id => id.symbol -> id)

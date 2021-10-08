@@ -6,22 +6,24 @@ import stainless.extraction.xlang.{trees => xt}
 object LibraryFilter {
 
   private def shouldRemoveLibraryFlag(fn: xt.FunDef, symbols: xt.Symbols): Boolean = {
+    import symbols.given
+
     if (fn.flags.contains(xt.Synthetic) || !fn.isLibrary || !fn.isLaw)
       false
     else {
-      val optClass = fn.getClassDef(symbols)
+      val optClass = fn.getClassDef
 
       optClass match {
         case None => false
         case Some(cd) =>
           (for {
-            subclass <- cd.descendants(symbols)
+            subclass <- cd.descendants
 
             // Check if subclass is not library
             if !subclass.isLibrary
 
             // Check if the subclass doesn't override the method with one that is specifically flagged as library
-            if !subclass.methods(symbols).map(symbols.getFunction).exists(subFn =>
+            if !subclass.methods.map(symbols.getFunction).exists(subFn =>
                   subFn.id.name == fn.id.name && subFn.isLibrary)
           } yield subclass).nonEmpty
       }

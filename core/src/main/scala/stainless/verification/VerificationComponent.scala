@@ -6,7 +6,6 @@ package verification
 import io.circe._
 
 import scala.concurrent.Future
-import scala.language.existentials
 
 import stainless.extraction._
 import stainless.extraction.utils.DebugSymbols
@@ -40,23 +39,26 @@ object VerificationComponent extends Component {
   override type Report = VerificationReport
   override type Analysis = VerificationAnalysis
 
-  override val lowering = inox.transformers.SymbolTransformer(new transformers.TreeTransformer {
-    val s: trees.type = trees
-    val t: trees.type = trees
-  })
+  override val lowering = {
+    class LoweringImpl(override val s: trees.type, override val t: trees.type)
+      extends transformers.ConcreteTreeTransformer(s, t)
+    inox.transformers.SymbolTransformer(new LoweringImpl(trees, trees))
+  }
 
-  override def run(pipeline: StainlessPipeline)(implicit ctx: inox.Context) = {
+  override def run(pipeline: StainlessPipeline)(using inox.Context): VerificationRun = {
     new VerificationRun(pipeline)
   }
 }
 
-class VerificationRun(override val pipeline: StainlessPipeline)
-                     (override implicit val context: inox.Context) extends {
-  override val component = VerificationComponent
-  override val trees: stainless.trees.type = stainless.trees
-} with ComponentRun { self =>
+class VerificationRun private(override val component: VerificationComponent.type,
+                              override val trees: stainless.trees.type,
+                              override val pipeline: StainlessPipeline)
+                             (using override val context: inox.Context) extends ComponentRun { self =>
+  def this(pipeline: StainlessPipeline)(using inox.Context) =
+    this(VerificationComponent, stainless.trees, pipeline)
 
   import component.{Report, Analysis}
+  import extraction.given
 
   override def parse(json: Json): Report = VerificationReport.parse(json)
 
@@ -66,7 +68,7 @@ class VerificationRun(override val pipeline: StainlessPipeline)
     extraction.utils.DebugPipeline("PartialEvaluation", PartialEvaluation(extraction.trees))
   }
 
-  implicit val debugSection = DebugSectionVerification
+  given givenDebugSection: DebugSectionVerification.type = DebugSectionVerification
 
   private[this] val debugAssertions = new DebugSymbols {
     val name = "AssertionInjector"
@@ -84,7 +86,6 @@ class VerificationRun(override val pipeline: StainlessPipeline)
     if (context.options.findOptionOrDefault(optCoq)) {
       CoqVerificationChecker.verify(functions, p, context)
     } else {
-
       val assertions = AssertionInjector(p, context)
       val assertionEncoder = inox.transformers.ProgramEncoder(p)(assertions)
 
@@ -126,7 +127,6 @@ class VerificationRun(override val pipeline: StainlessPipeline)
         override val sources = functions.toSet
         override val results = r
       })
-
     }
   }
 }

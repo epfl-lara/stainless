@@ -8,7 +8,7 @@ import inox.utils.{NoPosition, Position}
 trait Trees extends inlining.Trees with Definitions { self =>
 
   case class LetRec(fds: Seq[LocalFunDef], body: Expr) extends Expr with CachingTyped {
-    protected def computeType(implicit s: Symbols): Type = {
+    protected def computeType(using s: Symbols): Type = {
       if (fds.forall { case fd @ LocalFunDef(_, _, _, _, fullBody, _) =>
         s.isSubtypeOf(fullBody.getType, fd.getType)
       }) body.getType else Untyped
@@ -22,7 +22,7 @@ trait Trees extends inlining.Trees with Definitions { self =>
     tps: Seq[Type],
     args: Seq[Expr]
   ) extends Expr with CachingTyped {
-    protected def computeType(implicit s: Symbols): Type = {
+    protected def computeType(using Symbols): Type = {
       val tpMap = (tparams zip tps).toMap
       val realFrom = tpe.from.map(tpe => typeOps.instantiateType(tpe.getType, tpMap))
       val realTo = typeOps.instantiateType(tpe.to.getType, tpMap)
@@ -36,7 +36,7 @@ trait Trees extends inlining.Trees with Definitions { self =>
   object FunInvocation {
     def unapply(e: Expr): Option[(Identifier, Seq[Type], Seq[Expr], (Identifier, Seq[Type], Seq[Expr]) => Expr)] = e match {
       case FunctionInvocation(id, tps, es) =>
-        Some((id, tps, es, FunctionInvocation))
+        Some((id, tps, es, FunctionInvocation.apply))
       case ApplyLetRec(id, tparams, tpe, tps, args) =>
         Some((id, tps, args, (id, tps, args) => ApplyLetRec(id, tparams, tpe, tps, args)))
       case _ => None
@@ -44,9 +44,10 @@ trait Trees extends inlining.Trees with Definitions { self =>
   }
 
 
-  override val exprOps: ExprOps { val trees: Trees.this.type } = new {
-    protected val trees: Trees.this.type = Trees.this
-  } with ExprOps
+  override val exprOps: ExprOps { val trees: self.type } = {
+    class ExprOpsImpl(override val trees: self.type) extends ExprOps(trees)
+    new ExprOpsImpl(self)
+  }
 
 
   /* ========================================
@@ -54,10 +55,9 @@ trait Trees extends inlining.Trees with Definitions { self =>
    * ======================================== */
 
   override def getDeconstructor(that: inox.ast.Trees): inox.ast.TreeDeconstructor { val s: self.type; val t: that.type } = that match {
-    case tree: Trees => new TreeDeconstructor {
-      protected val s: self.type = self
-      protected val t: tree.type = tree
-    }.asInstanceOf[TreeDeconstructor { val s: self.type; val t: that.type }]
+    case tree: (Trees & that.type) => // The `& that.type` trick allows to convince scala that `tree` and `that` are actually equal...
+      class DeconstructorImpl(override val s: self.type, override val t: tree.type & that.type) extends ConcreteTreeDeconstructor(s, t)
+      new DeconstructorImpl(self, tree)
 
     case _ => super.getDeconstructor(that)
   }
@@ -67,7 +67,7 @@ trait Printer extends inlining.Printer {
   protected val trees: Trees
   import trees._
 
-  override protected def ppBody(tree: Tree)(implicit ctx: PrinterContext): Unit = tree match {
+  override protected def ppBody(tree: Tree)(using ctx: PrinterContext): Unit = tree match {
     case LetRec(defs, body) =>
       defs foreach { fd =>
         p"""|$fd
@@ -80,7 +80,7 @@ trait Printer extends inlining.Printer {
       p"$id${nary(tps, ",", "[", "]")}${nary(args, ", ", "(", ")")}"
 
     case LocalFunDef(id, tparams, params, returnType, fullBody, flags) =>
-      for (f <- flags) p"""|@${f.asString(ctx.opts)}
+      for (f <- flags) p"""|@${f.asString(using ctx.opts)}
                            |"""
       p"def ${id}${nary(tparams, ", ", "[", "]")}"
       if (params.nonEmpty) p"($params)"
@@ -169,8 +169,9 @@ trait TreeDeconstructor extends inlining.TreeDeconstructor {
   }
 }
 
-trait ExprOps extends extraction.ExprOps {
-  protected val trees: Trees
+class ConcreteTreeDeconstructor(override val s: Trees, override val t: Trees) extends TreeDeconstructor
+
+class ExprOps(override val trees: Trees) extends extraction.ExprOps(trees) {
   import trees._
   /** Returns functions in directly nested LetDefs */
   def directlyNestedFunDefs(e: Expr): Set[LocalFunDef] = {
@@ -197,8 +198,8 @@ trait ExprOps extends extraction.ExprOps {
    * Freshening of local variables
    * ============================= */
 
-  protected class Freshener(freshenChooses: Boolean)
-    extends super.Freshener(freshenChooses) {
+  protected class InnerFunsFreshener(freshenChooses: Boolean)
+    extends StainlessFreshener(freshenChooses) {
 
       override def transform(expr: Expr, env: Env): Expr = expr match {
         case LetRec(lfds, rest) =>
@@ -227,7 +228,7 @@ trait ExprOps extends extraction.ExprOps {
   }
 
   override def freshenLocals(expr: Expr, freshenChooses: Boolean = false): Expr = {
-    new Freshener(freshenChooses).transform(expr, Map.empty[Identifier, Identifier])
+    new InnerFunsFreshener(freshenChooses).transform(expr, Map.empty[Identifier, Identifier])
   }
 
 }
