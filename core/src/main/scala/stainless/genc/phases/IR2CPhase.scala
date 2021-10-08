@@ -293,7 +293,7 @@ private class IR2CImpl()(implicit val ctx: inox.Context) {
     /* NOTE For == and != on objects, we create a dedicated equal function.
      *      See comment in CmpFactory.
      */
-    case BinOp(op @ (Equals | NotEquals), lhs, rhs) if !(lhs.getType.isLogical || lhs.getType.isIntegral) =>
+    case BinOp(op @ (Equals | NotEquals), lhs, rhs) if !lhs.getType.isLogical && !lhs.getType.isIntegral && !lhs.getType.isInstanceOf[TypeDefType] =>
       val cmp = CmpFactory(lhs.getType)
       val equals = App(cmp, Seq(), Seq(lhs, rhs))
       val test = if (op == Equals) equals else UnOp(Not, equals)
