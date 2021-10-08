@@ -93,6 +93,7 @@ case class FileInputStream(var filename: Option[String], var consumed: BigInt) {
   // Implementation detail
   @library
   @cCode.drop
+  @extern
   private def nativeReadByte(seed: BigInt): (Boolean, Byte) = {
     val in = new java.io.FileInputStream(filename.get)
 

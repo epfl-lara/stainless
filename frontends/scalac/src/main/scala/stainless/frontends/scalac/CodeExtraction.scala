@@ -613,10 +613,6 @@ trait CodeExtraction extends ASTExtractors {
         Seq(xt.IsAccessor(Option(getIdentifier(sym.accessedOrSelf)).filterNot(_ => isAbstract)))
       else Seq())
 
-    // @cCode.drop implies @extern
-    if (flags.exists(_.name == "cCode.drop"))
-      flags :+= xt.Extern
-
     if (sym.name == nme.unapply) {
       def matchesParams(member: Symbol) = member.paramss match {
         case Nil        => true
