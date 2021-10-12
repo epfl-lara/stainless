@@ -93,7 +93,7 @@ object CAST { // C Abstract Syntax Tree
 
   case class FunType(ret: Type, params: Seq[Type]) extends Type
 
-  case class Struct(id: Id, fields: Seq[Var], isExported: Boolean) extends DataType {
+  case class Struct(id: Id, fields: Seq[Var], isExported: Boolean, isPacked: Boolean) extends DataType {
     require(fields.nonEmpty, s"Fields of struct $id should be non empty")
   }
 

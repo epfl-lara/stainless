@@ -23,7 +23,7 @@ class CASTTraverser(implicit ctx: inox.Context) {
     case FixedArrayType(base, _) =>
       Seq(base)
 
-    case Struct(id, fields, _) =>
+    case Struct(id, fields, _, _) =>
       id +: fields
 
     case Fun(id, returnType, params, Left(block), _, _) =>
