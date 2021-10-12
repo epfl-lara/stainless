@@ -519,7 +519,7 @@ private class IR2CImpl()(implicit val ctx: inox.Context) {
     val unionType = getUnionFor(top)
     val union = C.Var(TaggedUnion.value, unionType)
 
-    C.Struct(rec(top.id), tag :: union :: Nil, top.isExported)
+    C.Struct(rec(top.id), tag :: union :: Nil, top.isExported, top.isPacked)
   }
 
   private def buildStructForCaseClass(cd: ClassDef): C.Struct = {
@@ -532,7 +532,7 @@ private class IR2CImpl()(implicit val ctx: inox.Context) {
       Seq(C.Var(C.Id("extra"), C.Primitive(Int8Type)))
     } else cd.fields.map(rec(_))
 
-    C.Struct(rec(cd.id), fields, cd.isExported)
+    C.Struct(rec(cd.id), fields, cd.isExported, cd.isPacked)
   }
 
   private object TaggedUnion {
@@ -547,7 +547,7 @@ private class IR2CImpl()(implicit val ctx: inox.Context) {
     val data = C.Var(Array.data, C.Pointer(base))
     val id = C.Id(repId(arrayType))
 
-    val array = C.Struct(id, data :: length :: Nil, false)
+    val array = C.Struct(id, data :: length :: Nil, false, false)
 
     // This needs to get registered as a datatype as well
     register(array)

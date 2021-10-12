@@ -84,7 +84,7 @@ private[genc] sealed trait IR { ir =>
     def toVal = FunVal(this)
   }
 
-  case class ClassDef(id: Id, parent: Option[ClassDef], fields: Seq[ValDef], isAbstract: Boolean, isExported: Boolean) extends Def {
+  case class ClassDef(id: Id, parent: Option[ClassDef], fields: Seq[ValDef], isAbstract: Boolean, isExported: Boolean, isPacked: Boolean) extends Def {
     require(
       // Parent must be abstract if any
       (parent forall { _.isAbstract }) &&

@@ -63,7 +63,7 @@ class CPrinter(
               sep = "\n\n")
              }
             |${nary(
-              decls.filter(!_._2.contains(External)).map { case (decl, modes) =>
+              decls.filter(decl => !decl._2.contains(External) && !decl._2.contains(Export)).map { case (decl, modes) =>
                 modes.foldLeft(TTree(decl) : WrapperTree) {
                   case (acc, Static) => StaticStorage(acc)
                   case (acc, Volatile) => VolatileStorage(acc)
@@ -136,6 +136,18 @@ class CPrinter(
               sep = "\n\n")
              }
             |${nary(
+              decls.filter(decl => decl._2.contains(Export)).map { case (decl, modes) =>
+                modes.foldLeft(TTree(decl) : WrapperTree) {
+                  case (acc, Static) => StaticStorage(acc)
+                  case (acc, Volatile) => VolatileStorage(acc)
+                  case (acc, _) => acc
+                }
+              },
+              opening = separator("global variables"),
+              closing = ";\n\n",
+              sep = ";\n")
+             }
+            |${nary(
               functions.filter(_.isExported) map FunDecl,
               opening = separator("function declarations"),
               sep = "\n")
@@ -185,7 +197,7 @@ class CPrinter(
 
     case Pointer(base) => c"$base*"
 
-    case Struct(id, _, _) => c"$id"
+    case Struct(id, _, _, _) => c"$id"
 
     case Union(id, _, _) => c"$id"
 
@@ -319,14 +331,22 @@ class CPrinter(
           |  ${nary(literals, sep = ",\n")}
           |} $id;"""
 
-    case DataTypeDecl(t: DataType) =>
-      val kind = t match {
-        case _: Struct => "struct"
-        case _: Union => "union"
-      }
-      c"""|typedef $kind {
-          |  ${nary(t.fields, sep = ";\n", closing = ";")}
-          |} ${t.id};"""
+    case DataTypeDecl(u: Union) =>
+      c"""|typedef union {
+          |  ${nary(u.fields, sep = ";\n", closing = ";")}
+          |} ${u.id};"""
+
+    case DataTypeDecl(s: Struct) if s.isPacked =>
+      c"""|#pragma pack(1)
+          |typedef struct {
+          |  ${nary(s.fields, sep = ";\n", closing = ";")}
+          |} ${s.id};
+          |#pragma pack()"""
+
+    case DataTypeDecl(s: Struct) =>
+      c"""|typedef struct {
+          |  ${nary(s.fields, sep = ";\n", closing = ";")}
+          |} ${s.id};"""
 
     case FieldInit(id, value) => c".$id = $value"
   }

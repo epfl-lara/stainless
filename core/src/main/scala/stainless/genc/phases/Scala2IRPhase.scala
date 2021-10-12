@@ -81,8 +81,12 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val syms:
     checkGlobalUsage()
 
     // Start the transformation from `@cCode.export` (and `@cCode.global`) functions and classes
-    for (fd <- symbols.functions.values if fd.isExported)
-      rec(Outer(fd), Seq())(Map.empty, Env(Map.empty, Map.empty, fd.isExported))
+    for (fd <- symbols.functions.values if fd.isExported) {
+      if (fd.isVal)
+        registerVal(fd)
+      else
+        rec(Outer(fd), Seq())(Map.empty, Env(Map.empty, Map.empty, fd.isExported))
+    }
 
     for (cd <- symbols.classes.values if cd.isExported || cd.isGlobal)
       rec(cd.typed.toType)(Map.empty)
@@ -92,7 +96,7 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val syms:
    *                                                       Caches                                     *
    ****************************************************************************************************/
 
-  var declResults = new scala.collection.mutable.ListBuffer[(CIR.Decl, Seq[DeclarationMode])]()
+  val declResults = new scala.collection.mutable.ListBuffer[(CIR.Decl, Seq[DeclarationMode])]()
 
   // For functions, we associate each TypedFunDef to a CIR.FunDef for each "type context" (TypeMapping).
   // This is very important for (non-generic) functions nested in a generic function because for N
@@ -123,6 +127,24 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val syms:
   // Here, when contexts are translated, there might remain some generic types. We use `tm` to make them disapear.
   private def convertVarInfoToArg(vi: VarInfo)(implicit tm: TypeMapping) = CIR.ValDef(rec(vi.vd.id), rec(vi.typ), vi.isVar)
   private def convertVarInfoToParam(vi: VarInfo)(implicit tm: TypeMapping) = CIR.Binding(convertVarInfoToArg(vi))
+
+
+
+  val registered = MutableSet[FunDef]()
+  def registerVal(fd: FunDef): Unit = {
+    if (!registered(fd)) {
+      registered += fd
+      val newId = rec(fd.id, withUnique = !fd.isExported && !fd.isDropped)
+      val newType = rec(fd.returnType)(Map.empty)
+      val exporting = if (fd.isExported) Seq(Export) else Seq()
+      if (fd.isDropped) {
+        declResults += ((CIR.Decl(CIR.ValDef(newId, newType, false), None), exporting :+ External))
+      } else {
+        val newBody = rec(fd.fullBody)(Env(Map.empty, Map.empty, fd.isExported), Map.empty)
+        declResults += ((CIR.Decl(CIR.ValDef(newId, newType, false), Some(newBody)), exporting))
+      }
+    }
+  }
 
   // Extract the ValDef from the known one
   private def buildBinding(vd: ValDef)(implicit env: Env, tm: TypeMapping): CIR.Binding = {
@@ -241,7 +263,7 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val syms:
       val types = bases map rec
       val fields = types.zipWithIndex map { case (typ, i) => CIR.ValDef("_" + (i+1), typ, isVar = false) }
       val id = "Tuple" + buildIdPostfix(bases)
-      CIR.ClassDef(id, None, fields, isAbstract = false, isExported = false)
+      CIR.ClassDef(id, None, fields, isAbstract = false, isExported = false, isPacked = false)
 
     case _ => reporter.fatalError(typ.getPos, s"Unexpected ${typ.getClass} instead of TupleType")
   }
@@ -489,7 +511,7 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val syms:
         val impl = fa.getManualDefinition
         CIR.FunBodyManual(impl.includes, impl.code)
       } else if (fa.isDropped) {
-        CIR.FunDropped(fa.flags.exists(_.name == "accessor") || fa.flags.exists { case IsField(_) => true case _ => false })
+        CIR.FunDropped(fa.isVal)
       } else {
         // Build the new environment from context and parameters
         val ctxKeys: Seq[(ValDef, Type)] = ctxDBAbs map { c => c.vd -> instantiateType(c.typ, tm1) }
@@ -588,7 +610,7 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val syms:
           CIR.ValDef(rec(vd.id, withUnique = mangling), rec(typ), vd.flags.contains(IsVar))
       })
 
-      val clazz = CIR.ClassDef(id, parent, fields, cd.isAbstract, cd.isExported)
+      val clazz = CIR.ClassDef(id, parent, fields, cd.isAbstract, cd.isExported, cd.isPacked)
       val newAcc = acc + (ct -> clazz)
       if (cd.isGlobal) {
         assert(parent.isEmpty, "Classes annotated with `@cCode.global` cannot have parents")
@@ -706,15 +728,21 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val syms:
       // We don't have to traverse the nested function now because we already have their contexts
       rec(body)(env.copy(lfds = env.lfds ++ lfds.map(lfd => lfd.id -> lfd)), tm0)
 
+    case FunctionInvocation(id, Seq(), Seq()) if syms.getFunction(id).isVal =>
+      val fd = syms.getFunction(id)
+      registerVal(fd)
+      CIR.Binding(CIR.ValDef(rec(id, !fd.isExported && !fd.isDropped), rec(fd.returnType), false))
+
     case fi @ FunctionInvocation(id, tps, args) =>
       val fd = syms.getFunction(id)
-      if (fd.isExported && fd.hasPrecondition) {
-        reporter.warning(fi.getPos,
-          s"Exported functions (${fd.id.asString}) generate C assertions for requires, " +
-          "so invoking them from within Stainless is not recommended as Stainless already checks " +
-          "that the requires are respected"
-        )
-      }
+      // FIXME: requires do not generate assertions at the moment
+      // if (fd.isExported && fd.hasPrecondition) {
+      //   reporter.warning(fi.getPos,
+      //     s"Exported functions (${fd.id.asString}) generate C assertions for requires, " +
+      //     "so invoking them from within Stainless is not recommended as Stainless already checks " +
+      //     "that the requires are respected"
+      //   )
+      // }
       val tfd = fd.typed(tps)
       val fun = rec(Outer(fd), tps)(tm0, env.copy(inExported = fd.isExported))
       implicit val tm1 = tm0 ++ tfd.tpSubst

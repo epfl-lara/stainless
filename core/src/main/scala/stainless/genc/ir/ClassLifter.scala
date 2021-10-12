@@ -70,7 +70,7 @@ final class ClassLifter(val ctx: inox.Context) extends Transformer(NIR, LIR) {
       vd
     }
 
-    val cd = to.ClassDef(id, parent, fields, isAbstract, cd0.isExported)
+    val cd = to.ClassDef(id, parent, fields, isAbstract, cd0.isExported, cd0.isPacked)
 
     // Actually register the classes/arrays now that we have the corresponding ClassDef
     valFieldsToRegister foreach { case (id, ct) =>

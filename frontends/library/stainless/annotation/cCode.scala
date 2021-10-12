@@ -57,6 +57,10 @@ object cCode {
   @ignore
   class export extends StaticAnnotation
 
+  /* Make sure struct is "packed" when compiled to C (no padding between fields of structs in memory) */
+  @ignore
+  class pack extends StaticAnnotation
+
   /*
    * Allows the user to define a type (e.g. case class) as a typeDef to an
    * existing type with an optional include file.
