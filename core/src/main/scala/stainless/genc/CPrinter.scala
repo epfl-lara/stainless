@@ -63,7 +63,7 @@ class CPrinter(
               sep = "\n\n")
              }
             |${nary(
-              decls.filter(decl => !decl._2.contains(External) && !decl._2.contains(Export)).map { case (decl, modes) =>
+              decls.filter(decl => !decl._2.contains(External) && !decl._2.contains(Define)).map { case (decl, modes) =>
                 modes.foldLeft(TTree(decl) : WrapperTree) {
                   case (acc, Static) => StaticStorage(acc)
                   case (acc, Volatile) => VolatileStorage(acc)
@@ -112,6 +112,14 @@ class CPrinter(
             |#endif
             |
             |${nary(
+              decls.filter(decl => decl._2.contains(Define)).map { case (decl, _) =>
+                DefineMacro(TTree(decl))
+              },
+              opening = separator("macros"),
+              closing = "\n\n",
+              sep = "\n")
+             }
+            |${nary(
               buildIncludes(includes),
               opening = separator("includes"),
               closing = "\n\n",
@@ -136,12 +144,12 @@ class CPrinter(
               sep = "\n\n")
              }
             |${nary(
-              decls.filter(decl => decl._2.contains(Export)).map { case (decl, modes) =>
-                modes.foldLeft(TTree(decl) : WrapperTree) {
+              decls.filter(decl => decl._2.contains(Export) && !decl._2.contains(Define)).map { case (decl, modes) =>
+                ExternDecl(modes.foldLeft(TTree(decl.copy(optValue = None)) : WrapperTree) {
                   case (acc, Static) => StaticStorage(acc)
                   case (acc, Volatile) => VolatileStorage(acc)
                   case (acc, _) => acc
-                }
+                }) : WrapperTree
               },
               opening = separator("global variables"),
               closing = ";\n\n",
@@ -307,7 +315,9 @@ class CPrinter(
     case TTree(t) => pp(t)
 
     case StaticStorage(decl) => c"static $decl"
+    case ExternDecl(decl) => c"extern $decl"
     case VolatileStorage(decl) => c"volatile $decl"
+    case DefineMacro(TTree(Decl(id, _, Some(value)))) => c"#define $id $value"
 
     case TypeId(FunType(ret, params), id) => c"$ret (*$id)($params)"
     case TypeId(FixedArrayType(base, length), id) => c"$base $id[$length]"
@@ -349,6 +359,8 @@ class CPrinter(
           |} ${s.id};"""
 
     case FieldInit(id, value) => c".$id = $value"
+
+    case _ => throw new Exception(s"GenC cannot print wrapped tree $wt (of class ${wt.getClass})")
   }
 
 
@@ -362,6 +374,8 @@ class CPrinter(
   /** Wrappers to distinguish how the data should be printed **/
   private[genc] sealed abstract class WrapperTree
   private case class TTree(t: Tree) extends WrapperTree
+  private case class ExternDecl(wt: WrapperTree) extends WrapperTree
+  private case class DefineMacro(wt: WrapperTree) extends WrapperTree
   private case class StaticStorage(wt: WrapperTree) extends WrapperTree
   private case class VolatileStorage(wt: WrapperTree) extends WrapperTree
   private case class TypeId(typ: Type, id: Id) extends WrapperTree
