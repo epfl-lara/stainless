@@ -107,6 +107,10 @@ object cCode {
   @ignore @field @getter @setter @param
   class static() extends StaticAnnotation
 
+  /* The `define` annotation is used for #define macros */
+  @ignore @field @getter @setter @param
+  class define() extends StaticAnnotation
+
   /* The `volatile` annotation can be used to mark variables that appear in `@global` annotated classes */
   @ignore @field @getter @setter @param
   class volatile() extends StaticAnnotation

@@ -128,7 +128,15 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val syms:
   private def convertVarInfoToArg(vi: VarInfo)(implicit tm: TypeMapping) = CIR.ValDef(rec(vi.vd.id), rec(vi.typ), vi.isVar)
   private def convertVarInfoToParam(vi: VarInfo)(implicit tm: TypeMapping) = CIR.Binding(convertVarInfoToArg(vi))
 
-
+  def flagsToModes(flags: Seq[Flag]): Seq[DeclarationMode] = flags.flatMap {
+    case flag if flag.name == "cCode.static" => Some(Static)
+    case flag if flag.name == "cCode.volatile" => Some(Volatile)
+    case flag if flag.name == "cCode.define" => Some(Define)
+    case flag if flag.name == "cCode.export" => Some(Export)
+    case flag if flag.name == "cCode.drop" => Some(External)
+    case Ghost => Some(External)
+    case _ => None
+  }
 
   val registered = MutableSet[FunDef]()
   def registerVal(fd: FunDef): Unit = {
@@ -136,12 +144,11 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val syms:
       registered += fd
       val newId = rec(fd.id, withUnique = !fd.isExported && !fd.isDropped)
       val newType = rec(fd.returnType)(Map.empty)
-      val exporting = if (fd.isExported) Seq(Export) else Seq()
       if (fd.isDropped) {
-        declResults += ((CIR.Decl(CIR.ValDef(newId, newType, false), None), exporting :+ External))
+        declResults += ((CIR.Decl(CIR.ValDef(newId, newType, false), None), flagsToModes(fd.flags)))
       } else {
         val newBody = rec(fd.fullBody)(Env(Map.empty, Map.empty, fd.isExported), Map.empty)
-        declResults += ((CIR.Decl(CIR.ValDef(newId, newType, false), Some(newBody)), exporting))
+        declResults += ((CIR.Decl(CIR.ValDef(newId, newType, false), Some(newBody)), flagsToModes(fd.flags)))
       }
     }
   }
@@ -582,12 +589,6 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val syms:
     // of all of them.
 
     type Translation = Map[ClassType, CIR.ClassDef]
-
-    def flagsToModes(flags: Seq[Flag]): Seq[DeclarationMode] = flags.flatMap {
-      case flag if flag.name == "cCode.static" => Some(Static)
-      case flag if flag.name == "cCode.volatile" => Some(Volatile)
-      case _ => None
-    }
 
     def recTopDown(ct: ClassType, parent: Option[CIR.ClassDef], acc: Translation): Translation = {
       val tcd = ct.tcd
