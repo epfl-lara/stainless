@@ -7,8 +7,10 @@ package phases
 import extraction._
 import extraction.throwing. { trees => tt }
 
+import genc.ExtraOps._
+
 trait GhostElimination extends inox.transformers.Transformer {
-  override val s: throwing.Trees
+  override val s: tt.type = tt // to use `isExported` from `genc.ExtraOps.FunDefOps`
   override val t: throwing.Trees
   val symbols: s.Symbols
   val context: inox.Context
@@ -61,8 +63,23 @@ trait GhostElimination extends inox.transformers.Transformer {
   }
 
   def transform(fd: s.FunDef, env: Env): t.FunDef = {
-    val specced = s.exprOps.BodyWithSpecs(fd.fullBody)
-    val body = specced.letsAndBody
+    import s.exprOps._
+    val specced = BodyWithSpecs(fd.fullBody)
+    val body = if (fd.isExported)
+      specced.specs.foldRight(specced.body) {
+        case (spec @ LetInSpec(vd, e), acc) => s.Let(vd, e, acc).setPos(spec)
+        case (spec @ Precondition(s.Annotated(cond, flags)), acc) if flags.contains(s.Ghost) => acc
+        case (spec @ Precondition(cond), acc) => s.Assert(cond, Some("Dynamic precondition check"), acc).setPos(spec)
+        case (_, acc) => acc
+      }
+    else
+      specced.letsAndBody
+
+    if (fd.id.name == "FSWrite") {
+      println("isExported", fd.isExported)
+      println("specs\n", specced.specs.mkString("\n"))
+      println("body", body)
+    }
 
     new t.FunDef(
       fd.id,

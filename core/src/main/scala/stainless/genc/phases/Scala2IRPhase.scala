@@ -528,9 +528,10 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val syms:
         val paramEnv: Seq[((ValDef, Type), CIR.ValDef)] = paramKeys zip params
 
         val newBindings = env.bindings ++ ctxEnv ++ paramEnv
+        val bodyWithoutSpecs = exprOps.BodyWithSpecs(fa.fullBody).letsAndBody
 
         // Recurse on the FunDef body, and not the TypedFunDef one, in order to keep the correct identifiers.
-        CIR.FunBodyAST(rec(fa.fullBody)(env.copy(bindings = newBindings), tm1))
+        CIR.FunBodyAST(rec(bodyWithoutSpecs)(env.copy(bindings = newBindings), tm1))
       }
 
     // Now that we have a body, we can fully build the FunDef
@@ -663,15 +664,13 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val syms:
       if flags.contains(DropVCs) && expr1 == expr2 && tpe1 == tpe2 =>
       rec(expr1)
 
-    /* Ignore static assertions */
-    case Require(pred, body) if env.inExported =>
+    case Decreases(_, body) => rec(body)
+
+    case Assert(cond, Some("Dynamic precondition check"), body) =>
       CIR.buildBlock(Seq(
-        CIR.Assert(rec(pred)),
+        CIR.Assert(rec(cond)),
         rec(body)
       ))
-    case Require(_, body) => rec(body)
-    case Decreases(_, body) => rec(body)
-    case Ensuring(body, _) => rec(body)
     case Assert(_, _, body) => rec(body)
     case Assume(_, body) => rec(body)
 
@@ -736,14 +735,6 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val syms:
 
     case fi @ FunctionInvocation(id, tps, args) =>
       val fd = syms.getFunction(id)
-      // FIXME: requires do not generate assertions at the moment
-      // if (fd.isExported && fd.hasPrecondition) {
-      //   reporter.warning(fi.getPos,
-      //     s"Exported functions (${fd.id.asString}) generate C assertions for requires, " +
-      //     "so invoking them from within Stainless is not recommended as Stainless already checks " +
-      //     "that the requires are respected"
-      //   )
-      // }
       val tfd = fd.typed(tps)
       val fun = rec(Outer(fd), tps)(tm0, env.copy(inExported = fd.isExported))
       implicit val tm1 = tm0 ++ tfd.tpSubst
