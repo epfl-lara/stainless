@@ -217,13 +217,13 @@ trait ASTExtractors {
     object ExSelected {
       def unapplySeq(select: Select): Option[Seq[String]] = select match {
         case Select(This(scalaName), name) =>
-          Some(Seq(scalaName.toString, name.toString))
+          Some(Seq(scalaName.toString, symName(select, name)))
 
         case Select(from: Select, name) =>
-          unapplySeq(from).map(prefix => prefix :+ name.toString)
+          unapplySeq(from).map(prefix => prefix :+ symName(select, name))
 
         case Select(from: Ident, name) =>
-          val full = name.toString :: from.symbol.ownerChain.init.map(_.name.toString)
+          val full = symName(select, name) :: from.symbol.ownerChain.init.map(_.name.toString)
           Some(full.reverse)
 
         case _ =>
@@ -255,7 +255,7 @@ trait ASTExtractors {
     object ExThrowingExpression {
       def unapply(tree: Apply): Option[(Tree,Tree)] = tree match {
         case Apply(Select(Apply(
-          TypeApply(ExSelected("stainless", "lang", "package", "Throwing"), _ :: Nil), body :: Nil), ExNamed("throwing")),
+          TypeApply(ExSelected("stainless", "lang", "`package`", "Throwing"), _ :: Nil), body :: Nil), ExNamed("throwing")),
           contract :: Nil
         ) => Some((body, contract))
 
@@ -267,7 +267,7 @@ trait ASTExtractors {
     object ExHoldsExpression {
       def unapply(tree: Select) : Option[Tree] = tree match {
         case Select(
-          Apply(ExSelected("stainless", "lang", "package", "BooleanDecorations"), realExpr :: Nil),
+          Apply(ExSelected("stainless", "lang", "`package`", "BooleanDecorations"), realExpr :: Nil),
           ExNamed("holds")
         ) => Some(realExpr)
         case _ => None
@@ -277,7 +277,7 @@ trait ASTExtractors {
     /** Matches the `holds` expression at the end of any boolean expression with a proof as argument, and returns both of themn.*/
     object ExHoldsWithProofExpression {
       def unapply(tree: Apply) : Option[(Tree, Tree)] = tree match {
-        case Apply(Select(Apply(ExSelected("stainless", "lang", "package", "BooleanDecorations"), body :: Nil), ExNamed("holds")), proof :: Nil) =>
+        case Apply(Select(Apply(ExSelected("stainless", "lang", "`package`", "BooleanDecorations"), body :: Nil), ExNamed("holds")), proof :: Nil) =>
           Some((body, proof))
         case _ => None
        }
@@ -286,7 +286,7 @@ trait ASTExtractors {
     /** Matches the `because` method at the end of any boolean expression, and return the assertion and the cause. If no "because" method, still returns the expression */
     object ExMaybeBecauseExpressionWrapper {
       def unapply(tree: Tree) : Some[Tree] = tree match {
-        case Apply(ExSelected("stainless", "lang", "package", "because"), body :: Nil) =>
+        case Apply(ExSelected("stainless", "lang", "`package`", "because"), body :: Nil) =>
           unapply(body)
         case body => Some(body)
        }
@@ -296,7 +296,7 @@ trait ASTExtractors {
     object ExBecauseExpression {
       def unapply(tree: Apply) : Option[(Tree, Tree)] = tree match {
         case Apply(Select(
-          Apply(ExSelected("stainless", "proof" | "equations", "package", "boolean2ProofOps"), body :: Nil),
+          Apply(ExSelected("stainless", "proof" | "equations", "`package`", "boolean2ProofOps"), body :: Nil),
           ExNamed("because")), proof :: Nil) => Some((body, proof))
         case _ => None
        }
@@ -306,7 +306,7 @@ trait ASTExtractors {
     object ExBigLengthExpression {
       def unapply(tree: Apply) : Option[Tree] = tree match {
         case Apply(Select(
-          Apply(ExSelected("stainless", "lang", "package", "StringDecorations"), stringExpr :: Nil),
+          Apply(ExSelected("stainless", "lang", "`package`", "StringDecorations"), stringExpr :: Nil),
           ExNamed("bigLength")), Nil)
           => Some(stringExpr)
         case _ => None
@@ -317,7 +317,7 @@ trait ASTExtractors {
     object ExBigSubstringExpression {
       def unapply(tree: Apply) : Option[(Tree, Tree)] = tree match {
         case Apply(Select(
-          Apply(ExSelected("stainless", "lang", "package", "StringDecorations"), stringExpr :: Nil),
+          Apply(ExSelected("stainless", "lang", "`package`", "StringDecorations"), stringExpr :: Nil),
           ExNamed("bigSubstring")), startExpr :: Nil)
            => Some(stringExpr, startExpr)
         case _ => None
@@ -328,7 +328,7 @@ trait ASTExtractors {
     object ExBigSubstring2Expression {
       def unapply(tree: Apply) : Option[(Tree, Tree, Tree)] = tree match {
         case Apply(Select(
-          Apply(ExSelected("stainless", "lang", "package", "StringDecorations"), stringExpr :: Nil),
+          Apply(ExSelected("stainless", "lang", "`package`", "StringDecorations"), stringExpr :: Nil),
           ExNamed("bigSubstring")), startExpr :: endExpr :: Nil)
            => Some(stringExpr, startExpr, endExpr)
         case _ => None
@@ -388,7 +388,7 @@ trait ASTExtractors {
     /** Extracts the 'reads' contract from an expression */
     object ExReadsExpression {
       def unapply(tree: Apply): Option[Tree] = tree match {
-        case Apply(ExSelected("stainless", "lang", "package", "reads"), objs :: Nil) =>
+        case Apply(ExSelected("stainless", "lang", "`package`", "reads"), objs :: Nil) =>
           Some(objs)
         case _ => None
       }
@@ -397,7 +397,7 @@ trait ASTExtractors {
     /** Extracts the 'modifies' contract from an expression */
     object ExModifiesExpression {
       def unapply(tree: Apply): Option[Tree] = tree match {
-        case Apply(ExSelected("stainless", "lang", "package", "modifies"), objs :: Nil) =>
+        case Apply(ExSelected("stainless", "lang", "`package`", "modifies"), objs :: Nil) =>
           Some(objs)
         case _ => None
       }
@@ -406,7 +406,7 @@ trait ASTExtractors {
     /** Extracts the 'decreases' contract for an expression (should be right after 'require') */
     object ExDecreasesExpression {
       def unapply(tree: Apply): Option[Seq[Tree]] = tree match {
-        case Apply(ExSelected("stainless", "lang", "package", "decreases"), args) =>
+        case Apply(ExSelected("stainless", "lang", "`package`", "decreases"), args) =>
           Some(args)
         case _ => None
       }
@@ -416,7 +416,7 @@ trait ASTExtractors {
     object ExComputesExpression {
       def unapply(tree: Apply) : Option[(Tree, Tree)] = tree match {
         case Apply(Select(
-          Apply(TypeApply(ExSelected("stainless", "lang", "package", "SpecsDecorations"), List(_)), realExpr :: Nil),
+          Apply(TypeApply(ExSelected("stainless", "lang", "`package`", "SpecsDecorations"), List(_)), realExpr :: Nil),
           ExNamed("computes")), expected::Nil)
          => Some((realExpr, expected))
         case _ => None
@@ -433,7 +433,7 @@ trait ASTExtractors {
           Select(
             Apply(
               TypeApply(
-                ExSelected("stainless", "lang", "package", "Passes"),
+                ExSelected("stainless", "lang", "`package`", "Passes"),
                 Seq(_, _)
               ),
               Seq(ExTuple(_, Seq(in, out)))
@@ -471,9 +471,9 @@ trait ASTExtractors {
     /** Returns the argument of a bigint literal, either from scala or stainless */
     object ExBigIntLiteral {
       def unapply(tree: Tree): Option[Tree] = tree  match {
-        case Apply(ExSelected("scala", "package", "BigInt", "apply"), n :: Nil) =>
+        case Apply(ExSelected("scala", "`package`", "BigInt", "apply"), n :: Nil) =>
           Some(n)
-        case Apply(ExSelected("stainless", "lang", "package", "BigInt", "apply"), n :: Nil) =>
+        case Apply(ExSelected("stainless", "lang", "`package`", "BigInt", "apply"), n :: Nil) =>
           Some(n)
         case _ =>
           None
@@ -652,7 +652,7 @@ trait ASTExtractors {
     /** Matches the construct stainless.math.wrapping[A](a) and returns a */
     object ExWrapping {
       def unapply(tree: Tree): Option[Tree] = tree  match {
-        case Apply(TypeApply(ExSelected("stainless", "math", "package", "wrapping"), Seq(_)), tree :: Nil) =>
+        case Apply(TypeApply(ExSelected("stainless", "math", "`package`", "wrapping"), Seq(_)), tree :: Nil) =>
           Some(tree)
         case _ =>
           None
@@ -973,7 +973,7 @@ trait ASTExtractors {
         case Apply(
           Select(
             Apply(
-              TypeApply(ExSelected("stainless", "lang", "package", "ArrayUpdating"), tpe :: Nil),
+              TypeApply(ExSelected("stainless", "lang", "`package`", "ArrayUpdating"), tpe :: Nil),
               array :: Nil
             ),
             ExNamed("updated")
@@ -1343,7 +1343,7 @@ trait ASTExtractors {
 
     object ExBigIntPattern {
       def unapply(tree: UnApply): Option[Tree] = tree match {
-        case ua @ UnApply(Apply(ExSelected("stainless", "lang", "package", "BigInt", "unapply"), _), List(l)) =>
+        case ua @ UnApply(Apply(ExSelected("stainless", "lang", "`package`", "BigInt", "unapply"), _), List(l)) =>
           Some(l)
         case _ =>
           None

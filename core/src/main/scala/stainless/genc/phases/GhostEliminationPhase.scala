@@ -11,6 +11,9 @@ trait GhostElimination extends inox.transformers.Transformer {
   override val s: throwing.Trees
   override val t: throwing.Trees
   val symbols: s.Symbols
+  val context: inox.Context
+
+  implicit val sPrinterOptions = s.PrinterOptions.fromContext(context)
 
   case class Env(lfds: Map[Identifier, s.LocalFunDef])
 
@@ -60,6 +63,7 @@ trait GhostElimination extends inox.transformers.Transformer {
   def transform(fd: s.FunDef, env: Env): t.FunDef = {
     val specced = s.exprOps.BodyWithSpecs(fd.fullBody)
     val body = specced.letsAndBody
+
     new t.FunDef(
       fd.id,
       fd.tparams.map(transform(_, env)),
@@ -74,8 +78,7 @@ trait GhostElimination extends inox.transformers.Transformer {
     case fi: s.FunctionInvocation =>
       val fd = symbols.getFunction(fi.id)
       if (fd.flags.contains(s.Ghost)) {
-        println("ghost", fd.id)
-        ???
+        context.reporter.fatalError(fi.getPos, s"Unexpected invocation to ghost function ${fd.id}")
       } else {
         val filteredArgs = fi.args.zip(fd.params).filter {
           case (arg, vd) => !vd.flags.contains(s.Ghost)
@@ -127,18 +130,19 @@ trait GhostElimination extends inox.transformers.Transformer {
 }
 
 
-trait GhostEliminationPhase extends LeonPipeline[tt.Symbols, tt.Symbols] {
+trait GhostEliminationPhase extends LeonPipeline[tt.Symbols, tt.Symbols] { self =>
   val name = "Ghost Code Elimination"
 
   implicit val debugSection = DebugSectionGenC
   import tt._
 
   def run(syms: Symbols): Symbols = {
-    val ge = new GhostElimination {
+    val ge = new  {
       override val s: tt.type = tt
       override val t: tt.type = tt
       override val symbols = syms
-    }
+      override val context = self.context
+    } with GhostElimination
     ge.transform(syms)
   }
 }
