@@ -75,12 +75,6 @@ trait GhostElimination extends inox.transformers.Transformer {
     else
       specced.letsAndBody
 
-    if (fd.id.name == "FSWrite") {
-      println("isExported", fd.isExported)
-      println("specs\n", specced.specs.mkString("\n"))
-      println("body", body)
-    }
-
     new t.FunDef(
       fd.id,
       fd.tparams.map(transform(_, env)),
