@@ -30,15 +30,15 @@ class FileWatcher(ctx: inox.Context, files: Set[File], action: () => Unit) {
     }
     ctx.interruptManager.registerForInterrupts(interruptible)
 
+    var filesModified = false
+    var enterPressed  = false
+
     val keyboard: BufferedSource = Source.stdin
     Future {
       while (loop) {
         keyboard.next()
         ctx.reporter.info(s"Detected Enter key press")
-        ctx.interruptManager.unregisterForInterrupts(interruptible)
-        action()
-        ctx.interruptManager.registerForInterrupts(interruptible)
-        ctx.reporter.info(s"\n\nWaiting for source changes... (or press Enter to reload)\n\n")
+        enterPressed = true
       }
     } (stainless.multiThreadedExecutionContext)
 
@@ -50,17 +50,20 @@ class FileWatcher(ctx: inox.Context, files: Set[File], action: () => Unit) {
       // Note that timestamps are not 100% perfect filters: the files could have the same content.
       // But it's very lightweight and the rest of the pipeline should be able to handle similar
       // content anyway.
-      var proceed = false
+      filesModified = false
       for {
         f <- files
         if f.lastModified > times(f)
       } {
-        proceed = true
+        filesModified = true
         times(f) = f.lastModified
       }
 
-      if (proceed) {
-        ctx.reporter.info(s"Detected file modifications")
+      if (filesModified || enterPressed) {
+        enterPressed = false
+        if (filesModified)
+          ctx.reporter.info(s"Detected file modifications")
+
         // Wait a little bit to avoid reading incomplete files from disk
         Thread.sleep(100)
         ctx.interruptManager.unregisterForInterrupts(interruptible)
