@@ -203,6 +203,10 @@ class CPrinter(
     // The issue is that c"$ret (*)($params)" would be wrong in most contexts.
     // Instead, one has to add a variable name right after the `*`.
 
+
+    case MemSet(pointer, value, size) => c"memset($pointer, $value, $size)"
+    case SizeOf(tpe) => c"sizeof($tpe)"
+
     case Pointer(base) => c"$base*"
 
     case Struct(id, _, _, _) => c"$id"
@@ -365,7 +369,7 @@ class CPrinter(
 
 
   /** Hardcoded list of required include files from C standard library **/
-  private lazy val includes_ = Set("assert.h", "stdbool.h", "stdint.h", "stddef.h") map Include
+  private lazy val includes_ = Set("assert.h", "stdbool.h", "stdint.h", "stddef.h", "string.h") map Include
 
   private def buildIncludes(includes: Set[Include]): Seq[String] =
     (includes_ ++ includes).toSeq.sortBy(_.file).map(i => s"#include <${i.file}>") ++

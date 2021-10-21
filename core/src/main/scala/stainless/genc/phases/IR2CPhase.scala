@@ -140,6 +140,9 @@ private class IR2CImpl()(implicit val ctx: inox.Context) {
 
     case Assert(e) => C.Assert(rec(e))
 
+    case MemSet(pointer, value, size) => C.MemSet(rec(pointer), rec(value), rec(size))
+    case SizeOf(tpe) => C.SizeOf(rec(tpe))
+
     case FunRef(e) => rec(e)
     case FunVal(fd) =>
       // We don't recurse on fd here to avoid infinite recursion on recursive functions.

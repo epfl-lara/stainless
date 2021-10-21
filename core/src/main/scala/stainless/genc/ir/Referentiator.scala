@@ -130,10 +130,8 @@ final class Referentiator(val ctx: inox.Context) extends Transformer(LIR, RIR) {
       if (vd.isReference) deref(b) -> env
       else b -> env
 
-    case Decl(vd0, None) if addRef(vd0.getType) =>
-      val vd = toReference(rec(vd0))
-      val newEnv = env + (vd0 -> vd)
-      to.Decl(vd, None) -> newEnv
+    case MemSet(obj, value, size) =>
+      to.MemSet(ref(rec(obj)), rec(value), rec(size)) -> env
 
     case Decl(vd0, None) =>
       val vd = rec(vd0)

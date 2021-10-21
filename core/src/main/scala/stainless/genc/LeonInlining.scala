@@ -76,8 +76,7 @@ trait LeonInlining extends CachingPhase with extraction.IdentitySorts with oo.Id
         val hasInlineFlag = tfd.fd.flags contains Inline
         val hasCInlineFlag = tfd.fd.flags.exists(_.name == "cCode.inline")
 
-        // we don't inline ghost functions, because they do not get compiled anyway
-        def willInline = (hasCInlineFlag || (hasInlineFlag && isSynthetic)) && !isGhost
+        def willInline = hasCInlineFlag || (hasInlineFlag && isSynthetic)
 
         if (!willInline) return fi
 
@@ -85,24 +84,8 @@ trait LeonInlining extends CachingPhase with extraction.IdentitySorts with oo.Id
         // simple path for inlining when all arguments are values, and the function's
         // body doesn't contain other function invocations.
 
-
-        // We check with this ghost traverser that there is no function call to a `cCode.inline`
-        // function outside of a ghost context. In which case we can do the `simple` inlining.
-        var simple = true
-        val gt = new oo.GhostTraverser {
-          override val trees: self.s.type = self.s
-          override val symbols = syms
-          override def traverse(e: Expr, ctx: GhostContext): Unit = e match {
-            case fi: FunctionInvocation if !ctx.isGhost && syms.getFunction(fi.id).flags.exists(_.name == "cCode.inline") =>
-              simple = false
-            case _ =>
-              super.traverse(e, ctx)
-          }
-        }
-        gt.traverse(specced.letsAndBody, gt.initEnv)
-
-        if (args.forall(isValue) && simple) {
-          exprOps.replaceFromSymbols(tfd.params.zip(args).toMap, exprOps.freshenLocals(specced.letsAndBody))
+        if (args.forall(isValue)) {
+          transform(exprOps.replaceFromSymbols(tfd.params.zip(args).toMap, exprOps.freshenLocals(specced.letsAndBody)))
         } else {
           // We need to keep the body as-is for `@synthetic` methods, such as
           // `copy` or implicit conversions for implicit classes, in order to

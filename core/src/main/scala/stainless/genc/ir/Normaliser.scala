@@ -109,6 +109,15 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
 
       combine(preObj :+ access) -> env
 
+    case MemSet(pointer0, value0, size0) =>
+      val (Seq(prePointer, preValue, preSize), Seq(pointer, value, size)) =
+        flattenAll(allowTopLevelApp = false, allowArray = false, pointer0, value0, size0)
+      val memset = to.MemSet(pointer, value, size)
+
+      combine(prePointer ++ preValue ++ preSize :+ memset) -> env
+
+    case SizeOf(tpe) => to.SizeOf(rec(tpe)) -> env
+
     case ArrayAccess(array0, index0) =>
       val (Seq(preArray, preIndex), Seq(array, index)) =
         flattenAll(allowTopLevelApp = false, allowArray = false, array0, index0)

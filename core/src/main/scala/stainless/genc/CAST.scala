@@ -117,6 +117,9 @@ object CAST { // C Abstract Syntax Tree
 
   case class EnumLiteral(id: Id) extends Expr
 
+  case class MemSet(pointer: Expr, value: Expr, size: Expr) extends Expr
+  case class SizeOf(tpe: Type) extends Expr
+
   case class Decl(id: Id, typ: Type, optValue: Option[Expr]) extends Expr {
     require(optValue.forall(_.isValue), s"Initialisation $id = ${optValue.get} should be done with a value")
   }

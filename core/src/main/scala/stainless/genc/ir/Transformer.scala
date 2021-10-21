@@ -139,6 +139,9 @@ abstract class Transformer[From <: IR, To <: IR](final val from: From, final val
       }
       to.buildBlock(exprs) -> newEnv
 
+    case MemSet(pointer, value, size) => to.MemSet(rec(pointer), rec(value), rec(size)) -> env
+    case SizeOf(tpe) => to.SizeOf(rec(tpe)) -> env
+
     case Decl(vd, None) => to.Decl(rec(vd), None) -> env
     case Decl(vd, Some(value)) => to.Decl(rec(vd), Some(rec(value))) -> env
     case App(fun, extra, args) => to.App(recCallable(fun), extra map rec, args map rec) -> env

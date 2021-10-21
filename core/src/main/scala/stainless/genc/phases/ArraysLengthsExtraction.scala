@@ -32,6 +32,7 @@ object ArraysLengthsExtraction {
 
     object TopLevelAnds {
       def unapply(e: Expr): Option[Seq[Expr]] = e match {
+        case Annotated(expr, _) => unapply(expr)
         case And(exprs) => Some(exprs.flatMap(unapply).flatten)
         case e => Some(Seq(e))
       }
@@ -45,7 +46,6 @@ object ArraysLengthsExtraction {
         }
       }
     }
-
 
     val arrayLengths: Seq[(Identifier, Int)] = syms.classes.values.toSeq.flatMap(cd => cd.flags
       .find(_.isInstanceOf[HasADTInvariant]).toSeq.flatMap {
