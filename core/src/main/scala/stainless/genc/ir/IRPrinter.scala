@@ -93,6 +93,8 @@ final class IRPrinter[S <: IR](val ir: S) {
     case Binding(vd) => "[[ " + vd.id + ": " + rec(vd.getType) + " ]]"
     case FunVal(fd) => "@" + fd.id
     case FunRef(e) => "@{" + rec(e) + "}"
+    case MemSet(pointer, value, size) => s"memset(${rec(pointer)}, ${rec(value)}, ${rec(size)})"
+    case SizeOf(tpe) => s"sizeof(${rec(tpe)})"
     case Block(exprs) => "{{ " + (exprs map rec mkString ptx.newLine) + " }}"
     case Decl(vd, None) => (if (vd.isVar) "var" else "val") + " " + rec(vd)
     case Decl(vd, Some(value)) => (if (vd.isVar) "var" else "val") + " " + rec(vd) + " = " + rec(value)

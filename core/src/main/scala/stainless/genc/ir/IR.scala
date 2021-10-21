@@ -192,6 +192,8 @@ private[genc] sealed trait IR { ir =>
       case Binding(vd) => vd.getType
       case c: Callable => c.typ
       case Block(exprs) => exprs.last.getType
+      case MemSet(_, _, _) => NoType
+      case SizeOf(_) => PrimitiveType(UInt32Type)
       case Decl(_, _) => NoType
       case App(fun, _, _) => fun.typ.ret
       case Construct(cd, _) => ClassType(cd)
@@ -258,6 +260,9 @@ private[genc] sealed trait IR { ir =>
   case class Block(exprs: Seq[Expr]) extends Expr {
     require(exprs.nonEmpty, "GenC IR blocks must be non-empty")
   }
+
+  case class MemSet(pointer: Expr, value: Expr, size: Expr) extends Expr
+  case class SizeOf(tpe: Type) extends Expr
 
   // A variable declaration with optional initialisation
   case class Decl(vd: ValDef, optInit: Option[Expr]) extends Expr

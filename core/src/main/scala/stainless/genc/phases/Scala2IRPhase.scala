@@ -160,14 +160,35 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val syms:
     CIR.Binding(newVD)
   }
 
+  private def onlyZeroes(e: Expr, debug: Boolean = false): Boolean = e match {
+    case BooleanLiteral(lit) => !lit
+    case BVLiteral(_, bitset, _) => bitset.isEmpty
+    case ClassConstructor(ct, args) =>
+      val cd = syms.getClass(ct.id)
+      cd.parents.isEmpty && cd.children.isEmpty && args.forall(onlyZeroes(_, debug))
+    case FiniteArray(elems, _) => elems.forall(onlyZeroes(_, debug))
+    case LargeArray(elems, default, _, _) => elems.values.forall(onlyZeroes(_, debug)) && onlyZeroes(default)
+    case _ => false
+  }
+
   private def buildLet(x: ValDef, e: Expr, body: Expr, isVar: Boolean)
                       (implicit env: Env, tm: TypeMapping): CIR.Expr = {
-    val vd = CIR.ValDef(rec(x.id), rec(x.tpe), isVar)
-    val decl = CIR.Decl(vd, Some(rec(e)))
+    val tpe = rec(x.tpe)
+    val vd = CIR.ValDef(rec(x.id), tpe, isVar)
     val newBindings = env.bindings + ((x, instantiateType(x.tpe, tm)) -> vd)
-    val rest = rec(body)(env.copy(bindings = newBindings), tm)
 
-    CIR.buildBlock(Seq(decl, rest))
+    val decl: Seq[CIR.Expr] = try {
+      Seq(CIR.Decl(vd, Some(rec(e))))
+    } catch {
+      case t: Throwable if onlyZeroes(e) && (t.toString.contains("VLAs cannot") || t.toString.contains("VLA elements")) =>
+        reporter.reset()
+        Seq(
+          CIR.Decl(vd, None),
+          CIR.MemSet(CIR.Binding(vd), CIR.Lit(L.Int8Lit(0)), CIR.SizeOf(tpe))
+        )
+    }
+    val rest = rec(body)(env.copy(bindings = newBindings), tm)
+    CIR.buildBlock(decl :+ rest)
   }
 
   // // Include the "nesting path" in case of generic functions to avoid ambiguity
