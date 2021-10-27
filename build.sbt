@@ -134,10 +134,10 @@ lazy val assemblySettings: Seq[Setting[_]] = {
 
   Seq(
     assembly / assemblyMergeStrategy := {
-      // The BuildInfo class file from the current project comes before the one from `stainless-scalac`,
+      // The BuildInfo class file from the current project comes after the one from `stainless-scalac`,
       // hence the following merge strategy picks the standalone BuildInfo over the usual one.
-      case "stainless/BuildInfo.class" => MergeStrategy.first
-      case "stainless/BuildInfo$.class" => MergeStrategy.first
+      case "stainless/BuildInfo.class" => MergeStrategy.last
+      case "stainless/BuildInfo$.class" => MergeStrategy.last
       case PathList("META-INF", xs @ _*) => MergeStrategy.discard
       case PathList("scala", "collection", "compat", _*) => MergeStrategy.first
       case PathList("scala", "annotation", _*) => MergeStrategy.first
