@@ -409,7 +409,8 @@ class CPrinter(
   private def requiresParentheses(current: Tree, previous: Option[Tree]): Boolean = (current, previous) match {
     case (_, None) => false
     case (_, Some(_: Decl | _: Call | _: ArrayAccess | _: If | _: IfElse | _: While | _: Return | _: Assign)) => false
-    case (Operator(precedence1), Some(Operator(precedence2))) if precedence1 < precedence2 => false
+    // Add parentheses even when not necessary to avoid warnings in C
+    // case (Operator(precedence1), Some(Operator(precedence2))) if precedence1 < precedence2 => false
     case (_, _) => true
   }
 
