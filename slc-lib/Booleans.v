@@ -9,16 +9,16 @@ Proof.
   intuition.
 Qed.
 
-Hint Rewrite false_or: libBool.
+#[export] Hint Rewrite false_or: libBool.
 
-Hint Rewrite eqb_true_iff: libBool.
-Hint Rewrite eqb_false_iff: libBool.
-Hint Rewrite orb_true_iff: libBool.
-Hint Rewrite orb_false_iff: libBool.
-Hint Rewrite andb_true_iff: libBool.
-Hint Rewrite andb_false_iff: libBool.
-Hint Rewrite negb_true_iff: libBool.
-Hint Rewrite negb_false_iff: libBool.
+#[export] Hint Rewrite eqb_true_iff: libBool.
+#[export] Hint Rewrite eqb_false_iff: libBool.
+#[export] Hint Rewrite orb_true_iff: libBool.
+#[export] Hint Rewrite orb_false_iff: libBool.
+#[export] Hint Rewrite andb_true_iff: libBool.
+#[export] Hint Rewrite andb_false_iff: libBool.
+#[export] Hint Rewrite negb_true_iff: libBool.
+#[export] Hint Rewrite negb_false_iff: libBool.
 
 Definition ifthenelse b A (e1: b = true -> A) (e2: b = false -> A): A :=
   match b as B return (b = B -> A) with
@@ -108,10 +108,10 @@ Proof.
   repeat libStep || ifthenelse_step.
 Qed.
 
-Hint Rewrite ifthenelse_rewrite_2: libCase.
-Hint Rewrite ifthenelse_rewrite_2': libCase.
-Hint Rewrite ifthenelse_rewrite_4: libCase.
-Hint Rewrite ifthenelse_rewrite_4': libCase.
+#[export] Hint Rewrite ifthenelse_rewrite_2: libCase.
+#[export] Hint Rewrite ifthenelse_rewrite_2': libCase.
+#[export] Hint Rewrite ifthenelse_rewrite_4: libCase.
+#[export] Hint Rewrite ifthenelse_rewrite_4': libCase.
 
 
 Ltac rewrite_ifthenelse :=
@@ -196,7 +196,7 @@ Lemma if_true_else2:
 Proof.
   repeat libStep || ifthenelse_step.
 Qed.
-Hint Rewrite if_true_else2 if_false_else2 if_then_false2 if_then_true2: libBool.
+#[export] Hint Rewrite if_true_else2 if_false_else2 if_then_false2 if_then_true2: libBool.
 
 Lemma negb_equal:
   forall b1 b2,
@@ -205,7 +205,7 @@ Proof.
   destruct b1; destruct b2; repeat libStep.
 Qed.
 
-Hint Rewrite negb_equal: libBool.
+#[export] Hint Rewrite negb_equal: libBool.
 
 Ltac t_bool_simpl :=
   match goal with
@@ -252,10 +252,10 @@ Proof.
   repeat libStep || ifthenelse_step.
 Qed.
 
-Hint Rewrite if_then_true0 : libBool.
-Hint Rewrite if_then_false0 : libBool.
-Hint Rewrite if_true_else0 : libBool.
-Hint Rewrite if_false_else0 : libBool.
+#[export] Hint Rewrite if_then_true0 : libBool.
+#[export] Hint Rewrite if_then_false0 : libBool.
+#[export] Hint Rewrite if_true_else0 : libBool.
+#[export] Hint Rewrite if_false_else0 : libBool.
 
 Lemma equal_booleans: forall b1 b2: bool,
     (b1 = true -> b2 = true) ->

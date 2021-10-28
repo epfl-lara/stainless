@@ -69,8 +69,8 @@ Proof.
   repeat libStep || unfold propInBool in * || ifthenelse_step.
 Qed.
 
-Hint Rewrite trueProp falseProp falseNegProp trueNegProp equivProps: libProp.
-Hint Rewrite trueProp2 falseProp2 falseNegProp2 trueNegProp2: libProp.
+#[export] Hint Rewrite trueProp falseProp falseNegProp trueNegProp equivProps: libProp.
+#[export] Hint Rewrite trueProp2 falseProp2 falseNegProp2 trueNegProp2: libProp.
 
 Lemma implication:
   forall A B: Prop,
@@ -86,8 +86,8 @@ Proof.
   intros A B; pose proof (classicT A); repeat libStep.
 Qed.
 
-Hint Rewrite implication: libProp.
-Hint Rewrite implication2: libProp.
+#[export] Hint Rewrite implication: libProp.
+#[export] Hint Rewrite implication2: libProp.
 
 Ltac has_prop_in_bool E :=
   match E with
@@ -144,7 +144,7 @@ Proof.
   rewrite (Eqdep_dec.UIP_refl_bool false exH) in *; repeat libStep.
 Qed.
 
-Hint Rewrite if_true_else if_false_else if_then_true if_then_false: libBoolExists.
+#[export] Hint Rewrite if_true_else if_false_else if_then_true if_then_false: libBoolExists.
 
 Lemma obvious_exist:
   forall (P1 P2: Prop), (exists _ : P1, P2) <-> (P1 /\ P2).
@@ -152,4 +152,4 @@ Proof.
   repeat libStep; eauto.
 Qed.
 
-Hint Rewrite obvious_exist: libProp.
+#[export] Hint Rewrite obvious_exist: libProp.

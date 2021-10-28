@@ -6,7 +6,7 @@ Require Import Coq.Lists.List.
 Require Import ZArith.
 Require Import Psatz.
 
-Require Equations.Equations.
+From Equations Require Import Equations.
 
 Open Scope bool_scope.
 Open Scope Z_scope.
