@@ -515,7 +515,7 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val syms:
     val funCtx = ctxDBAbs map { c => convertVarInfoToArg(c)(tm1) }
 
     val returnType = rec(fa.returnType)(tm1)
-    if (returnType.containsArray)
+    if (!fa.isManuallyDefined && !fa.isDropped && returnType.containsArray)
       reporter.fatalError(fa.getPos, "Returning arrays from function is not supported by GenC")
 
     val isPure = fa.flags.contains(IsPure) || (
