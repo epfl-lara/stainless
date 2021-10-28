@@ -93,6 +93,7 @@ abstract class Visitor[S <: IR](final val ir: S) {
       case Binding(vd) => rec(vd)
       case FunVal(fd) => rec(fd)
       case FunRef(e) => rec(e)
+      case Assert(e) => rec(e)
       case Block(exprs) => exprs foreach rec
       case Decl(vd, None) => rec(vd)
       case Decl(vd, Some(value)) => rec(vd); rec(value)
