@@ -11,6 +11,9 @@ class CASTTraverser(implicit ctx: inox.Context) {
     case Prog(includes, decls, typeDefs, enums, types, functions) =>
       includes.toSeq ++ decls.map(_._1) ++ typeDefs.toSeq ++ enums.toSeq ++ types ++ functions.toSeq
 
+    case Assert(e) =>
+      Seq(e)
+
     case TypeDef(orig, alias, _) =>
       Seq(orig, alias)
 
