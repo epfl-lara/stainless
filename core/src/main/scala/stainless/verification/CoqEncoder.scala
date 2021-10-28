@@ -279,7 +279,7 @@ trait CoqEncoder {
         )) ++ extraCase
       )
     ) $
-    RawCommand(s"Hint Unfold  ${recognizer(constructor.id).coqString}: recognizers.\n")
+    RawCommand(s"#[export] Hint Unfold  ${recognizer(constructor.id).coqString}: recognizers.\n")
   }
 
   def buildExistsCreators(a: ADTSort): CoqCommand =
@@ -325,7 +325,7 @@ trait CoqEncoder {
         CoqApplication(recognizer(constructor.id), tparams :+ element) === trueBoolean
       )
     ) $
-    RawCommand(s"Hint Unfold  ${refinedIdentifier(constructor.id).coqString}: refinements.\n")
+    RawCommand(s"#[export] Hint Unfold  ${refinedIdentifier(constructor.id).coqString}: refinements.\n")
   }
 
   def buildAccessorsForChildren(a: ADTSort): CoqCommand =
@@ -488,7 +488,7 @@ trait CoqEncoder {
 
         val argDefs: Seq[CoqCommand] = dependentParams.toSeq map { case (x, body) =>
           NormalDefinition(dependentParamNames(x), dependsOn(x) map(y => (y, fullType(y))), typeSort, body) $
-          RawCommand(s"Hint Unfold ${dependentParamNames(x).coqString}: core.\n\n")
+          RawCommand(s"#[export] Hint Unfold ${dependentParamNames(x).coqString}: core.\n\n")
         }
 
         val oldRewriteTactic = rewriteTactic
@@ -543,7 +543,7 @@ trait CoqEncoder {
       } else {
         SeparatorComment(s"Start of ${fd.id.name}") $
         NormalDefinition(makeFresh(fd.id), allParams, returnType, body) $
-        RawCommand(s"Hint Unfold ${makeFresh(fd.id).coqString}: definitions.\n") $
+        RawCommand(s"#[export] Hint Unfold ${makeFresh(fd.id).coqString}: definitions.\n") $
         SeparatorComment(s"End of ${fd.id.name}")
       }
       tmp
@@ -664,7 +664,8 @@ trait CoqEncoder {
     RawCommand("Require Import SLC.Ints.") $
     RawCommand("Require Import SLC.Unfolding.\n") $
     RawCommand("Require Import ZArith.") $
-    RawCommand("Require Import Coq.Strings.String.\n") $
+    RawCommand("Require Import Coq.Strings.String.") $
+    RawCommand("From Equations Require Import Equations.\n") $
     RawCommand("Set Program Mode.\n") $
     RawCommand("Opaque set_elem_of.") $
     RawCommand("Opaque set_union.") $

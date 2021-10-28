@@ -35,16 +35,16 @@ Notation "x '∈' s" := (set_elem_of x s) (at level 20).
 Notation "'{{' s '}}'" := (set_singleton s) (at level 50).
 Notation "'∅'" := (set_empty) (at level 50).
 
-Hint Unfold set_elem_of : i_sets.
-Hint Unfold set_union : i_sets.
-Hint Unfold set_intersection : i_sets.
-Hint Unfold set_subset : i_sets.
-Hint Unfold set_equality : i_sets.
-Hint Unfold set_empty : i_sets.
-Hint Unfold set_singleton : i_sets.
-Hint Unfold set_difference : i_sets.
+#[export] Hint Unfold set_elem_of : i_sets.
+#[export] Hint Unfold set_union : i_sets.
+#[export] Hint Unfold set_intersection : i_sets.
+#[export] Hint Unfold set_subset : i_sets.
+#[export] Hint Unfold set_equality : i_sets.
+#[export] Hint Unfold set_empty : i_sets.
+#[export] Hint Unfold set_singleton : i_sets.
+#[export] Hint Unfold set_difference : i_sets.
 
-Hint Unfold set_equality: core.
+#[export] Hint Unfold set_equality: core.
 
 Ltac t_sets_aux :=
   autounfold with i_sets in *;
@@ -62,7 +62,7 @@ Proof.
   intros; apply functional_extensionality; t_sets_aux.
 Qed.
 
-Hint Rewrite union_empty_l union_empty_r: libSet.
+#[export] Hint Rewrite union_empty_l union_empty_r: libSet.
 
 Lemma in_union:
   forall T (s1 s2: set T) x,
@@ -108,11 +108,11 @@ Proof.
 Qed.
 
 
-Hint Rewrite in_union: libSet.
-Hint Rewrite in_intersection: libSet.
-Hint Rewrite in_singleton: libSet.
-Hint Rewrite in_difference: libSet.
-Hint Rewrite in_emptyset: libSet.
+#[export] Hint Rewrite in_union: libSet.
+#[export] Hint Rewrite in_intersection: libSet.
+#[export] Hint Rewrite in_singleton: libSet.
+#[export] Hint Rewrite in_difference: libSet.
+#[export] Hint Rewrite in_emptyset: libSet.
 
 
 Lemma subset_union:
@@ -129,7 +129,7 @@ Proof.
   apply equal_booleans; repeat fast || autorewrite with libProp libBool in * || apply_any.
 Qed.
 
-Hint Rewrite subset_union: libSet.
+#[export] Hint Rewrite subset_union: libSet.
 
 Lemma subset_union_true:
   forall T (s s1 s2: set T),
@@ -142,7 +142,7 @@ Proof.
          autorewrite with libProp libBool in *.
 Qed.
 
-Hint Resolve subset_union_true: b_sets.
+#[export] Hint Resolve subset_union_true: b_sets.
 
 
 Lemma subset_intersection:
@@ -160,7 +160,7 @@ Proof.
     firstorder (repeat fast || autorewrite with libBool in *).
 Qed.
 
-Hint Rewrite subset_intersection: libSet.
+#[export] Hint Rewrite subset_intersection: libSet.
 
 Lemma subset_intersection_true:
   forall T (s s1 s2: set T),
@@ -173,7 +173,7 @@ Proof.
          autorewrite with libProp libBool in *.
 Qed.
 
-Hint Resolve subset_intersection_true: b_sets.
+#[export] Hint Resolve subset_intersection_true: b_sets.
 
 
 Lemma subset_difference:
@@ -193,7 +193,7 @@ Proof.
     unshelve epose proof (H2 x _); repeat fast || autorewrite with libBool in *.
 Qed.
 
-Hint Rewrite subset_difference: libSet.
+#[export] Hint Rewrite subset_difference: libSet.
 
 Lemma subset_difference_true:
   forall T (s s1 s2: set T),
@@ -208,7 +208,7 @@ Proof.
   unshelve epose proof (H2 x _); repeat fast || autorewrite with libBool in *.
 Qed.
 
-Hint Resolve subset_difference_true: b_sets.
+#[export] Hint Resolve subset_difference_true: b_sets.
 
 
 Lemma singleton_subset:
@@ -219,7 +219,7 @@ Proof.
   apply equal_booleans; repeat fast || autorewrite with libProp in * || apply_any.
 Qed.
 
-Hint Rewrite singleton_subset: libSet.
+#[export] Hint Rewrite singleton_subset: libSet.
 
 Lemma empty_subset:
   forall T (s: set T),
@@ -228,7 +228,7 @@ Proof.
   repeat fast || autounfold with i_sets in * || autorewrite with libProp in *.
 Qed.
 
-Hint Rewrite empty_subset: libSet.
+#[export] Hint Rewrite empty_subset: libSet.
 
 Lemma subset_union1:
   forall T (s s1 s2: set T),
@@ -262,8 +262,8 @@ Proof.
   repeat fast || autounfold with i_sets in * || autorewrite with libProp libBool in *.
 Qed.
 
-Hint Immediate subset_union1 subset_union2: b_sets.
-Hint Immediate subset_middle subset_middle2: b_sets.
+#[export] Hint Immediate subset_union1 subset_union2: b_sets.
+#[export] Hint Immediate subset_middle subset_middle2: b_sets.
 
 Lemma factor_left:
   forall T (a b c d: set T),
@@ -286,7 +286,7 @@ Proof.
     firstorder (repeat fast || autorewrite with libBool in *).
 Qed.
 
-Hint Rewrite factor_left factor_left2: libSet.
+#[export] Hint Rewrite factor_left factor_left2: libSet.
 
 
 Lemma singleton_intersect_subset:
@@ -300,7 +300,7 @@ Proof.
     right. apply_any; repeat fast || autorewrite with libProp libBool in *.
 Qed.
 
-Hint Rewrite singleton_intersect_subset: libSet.
+#[export] Hint Rewrite singleton_intersect_subset: libSet.
 
 Lemma subset_refl:
   forall T (s: set T),
@@ -309,7 +309,7 @@ Proof.
   repeat fast || autounfold with i_sets in * || autorewrite with libProp in *.
 Qed.
 
-Hint Rewrite subset_refl: libSet.
+#[export] Hint Rewrite subset_refl: libSet.
 
 Lemma subset_trans:
   forall T (s1 s2 s3: set T),
@@ -348,10 +348,10 @@ Proof.
   repeat fast || autounfold with i_sets in * || autorewrite with libProp libBool in *.
 Qed.
 
-Hint Rewrite subset_union3: libSet.
-Hint Rewrite subset_union4: libSet.
-Hint Rewrite subset_intersection3: libSet.
-Hint Rewrite subset_intersection4: libSet.
+#[export] Hint Rewrite subset_union3: libSet.
+#[export] Hint Rewrite subset_union4: libSet.
+#[export] Hint Rewrite subset_intersection3: libSet.
+#[export] Hint Rewrite subset_intersection4: libSet.
 
 Lemma diff_union:
   forall T (s1 s2 s3: set T),
@@ -364,7 +364,7 @@ Proof.
   destruct (s3 x) eqn:E3; repeat fast.
 Qed.
 
-Hint Rewrite diff_union: libSet.
+#[export] Hint Rewrite diff_union: libSet.
 
 Lemma diff_singleton:
   forall T (a: T),
@@ -403,15 +403,15 @@ Proof.
          end.
 Qed.
 
-Hint Rewrite diff_singleton3: libSet.
-Hint Rewrite diff_singleton2: libSet.
-Hint Rewrite diff_singleton: libSet.
+#[export] Hint Rewrite diff_singleton3: libSet.
+#[export] Hint Rewrite diff_singleton2: libSet.
+#[export] Hint Rewrite diff_singleton: libSet.
 
 
-Hint Resolve subset_union3: b_sets.
-Hint Resolve subset_union4: b_sets.
-Hint Resolve subset_intersection3: b_sets.
-Hint Resolve subset_intersection4: b_sets.
+#[export] Hint Resolve subset_union3: b_sets.
+#[export] Hint Resolve subset_union4: b_sets.
+#[export] Hint Resolve subset_intersection3: b_sets.
+#[export] Hint Resolve subset_intersection4: b_sets.
 
 Ltac t_sets :=
   match goal with

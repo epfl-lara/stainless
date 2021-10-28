@@ -13,14 +13,14 @@ Definition set_empty {A}: set A := ∅.
 Definition set_singleton {A} (x: A): set A := {[ x ]}.
 Definition set_elem_of {A} (x: A) (s: set A): bool := propInBool (x ∈ s).
 
-Hint Unfold set_intersection.
-Hint Unfold set_elem_of.
-Hint Unfold set_union.
-Hint Unfold set_subset.
-Hint Unfold set_equality.
-Hint Unfold set_empty.
-Hint Unfold set_singleton.
-Hint Unfold set_difference.
+#[export] Hint Unfold set_intersection.
+#[export] Hint Unfold set_elem_of.
+#[export] Hint Unfold set_union.
+#[export] Hint Unfold set_subset.
+#[export] Hint Unfold set_equality.
+#[export] Hint Unfold set_empty.
+#[export] Hint Unfold set_singleton.
+#[export] Hint Unfold set_difference.
 
 Lemma coqToSetEquality:
   forall {T} (a b: set T), a = b -> a ≡ b.
@@ -51,7 +51,7 @@ Lemma union_empty_r:
 Admitted.
 
 
-Hint Resolve union_empty_l union_empty_r: sets.
+#[export] Hint Resolve union_empty_l union_empty_r: sets.
 
 
 Lemma union_equals_eq:
@@ -106,13 +106,13 @@ Proof.
   set_solver.
 Qed.
   
-Hint Resolve empty_subset: b_sets.
+#[export] Hint Resolve empty_subset: b_sets.
 
-  Hint Rewrite union_empty_l: libSet.
-Hint Rewrite union_empty_r: libSet.
-Hint Rewrite subs_eq: libSet.
-Hint Rewrite union_left: libSet.
-Hint Rewrite intersection_right: libSet.
+#[export] Hint Rewrite union_empty_l: libSet.
+#[export] Hint Rewrite union_empty_r: libSet.
+#[export] Hint Rewrite subs_eq: libSet.
+#[export] Hint Rewrite union_left: libSet.
+#[export] Hint Rewrite intersection_right: libSet.
 
 Ltac t_sets :=
   match goal with
