@@ -11,6 +11,12 @@ package object io {
   case class State(var seed: BigInt)
 
   @library
-  @cCode.function(code = "void* __FUNCTION__(void) { return NULL; }", includes = "")
+  @cCode.function(
+    code =
+      """|void* __FUNCTION__(void) {
+         |  return NULL;
+         |}""",
+    includes = ""
+  )
   def newState: State = State(0)
 }
