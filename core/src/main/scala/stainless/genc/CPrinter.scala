@@ -328,11 +328,8 @@ class CPrinter(
     case TypeId(typ, id) => c"$typ $id"
 
     case FunSign(Fun(id, _, _, Right(s), _, isPure)) =>
-      val firstLine: String = scala.io.Source.fromString(s).getLines().find(s => s.trim.nonEmpty).get
-      val header: String = firstLine.trim.stripSuffix("{").trim.replace("__FUNCTION__", id.name)
-      if (header.contains("}"))
-        throw new Exception("In @cCode.function annotation, please put the header on the first line alone")
-      c"${purity(isPure)}$header"
+      val header = s.takeWhile(_ != ')').replace("__FUNCTION__", id.name)
+      c"${purity(isPure)}$header)"
 
     case FunSign(Fun(id, FunType(retret, retparamTypes), params, _, _, isPure)) =>
       c"${purity(isPure)}$retret (*$id(${FunSignParams(params)}))(${FunSignParams(retparamTypes)})"
