@@ -648,12 +648,7 @@ trait TypeChecker {
           )
         }
 
-      case m: MatchExpr =>
-        val (tpe, tr) = inferType(tc, matchToIfThenElse(e, true))
-        val me = orJoin(m.cases.map(matchCaseCondition[Path](m.scrutinee, _).toClause))
-        val mr = buildVC(tc.withVCKind(VCKind.ExhaustiveMatch).setPos(m), me)
-
-        (tpe, tr ++ mr)
+      case m: MatchExpr => inferType(tc, matchToIfThenElse(e, false))
 
       case IfExpr(b, e1, e2) =>
         val (tpe1, tr1) = inferType(tc.withTruth(b).setPos(e1), e1)
@@ -1097,12 +1092,7 @@ trait TypeChecker {
         buildVC(tc.withVCKind(kind).setPos(cond), cond) ++
         checkType(tc.withTruth(cond), body, tpe)
 
-      case (m: MatchExpr, _) =>
-        val tr = checkType(tc, matchToIfThenElse(e, true), tpe)
-        val me = orJoin(m.cases.map(matchCaseCondition[Path](m.scrutinee, _).toClause))
-        val mr = buildVC(tc.withVCKind(VCKind.ExhaustiveMatch).setPos(m), me)
-
-        tr ++ mr
+      case (m: MatchExpr, _) => checkType(tc, matchToIfThenElse(e, false), tpe)
 
       case (IfExpr(b, e1, e2), _) =>
         checkType(tc.setPos(b).withVCKind(VCKind.CheckType), b, BooleanType()) ++
