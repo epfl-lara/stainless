@@ -42,6 +42,12 @@ class TerminationSuite extends ComponentTestSuite {
     case "termination/looping/Queue"                    => Skip // Call to function looping_2$0 is not allowed here, because it
                                                                 // is mutually recursive with the current function looping_1$0
 
+    // Unstable
+    case "verification/valid/BigIntMonoidLaws" => Ignore
+    case "verification/valid/BigIntRing" => Ignore
+    case "verification/valid/InnerClasses4" => Ignore
+    case "verification/valid/PropositionalLogic" => Ignore
+
     case _ => super.filter(ctx, name)
   }
 
