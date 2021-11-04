@@ -26,7 +26,8 @@ object FileInputStream {
     |  return this;
     |}
     """,
-    includes = ""
+    headerIncludes = "",
+    cIncludes = ""
   )
   def open(filename: String)(implicit state: State): FileInputStream = {
     state.seed += 1
@@ -63,7 +64,8 @@ case class FileInputStream(var filename: Option[String], var consumed: BigInt) {
       |    return true;
       |}
       """,
-    includes = ""
+    headerIncludes = "",
+    cIncludes = ""
   )
   @extern
   def close()(implicit state: State): Boolean = {
@@ -83,7 +85,8 @@ case class FileInputStream(var filename: Option[String], var consumed: BigInt) {
       |  return this != NULL;
       |}
       """,
-    includes = ""
+    headerIncludes = "",
+    cIncludes = ""
   )
   // We assume the stream to be opened if and only if the filename is defined.
   def isOpen: Boolean = {
@@ -133,7 +136,8 @@ case class FileInputStream(var filename: Option[String], var consumed: BigInt) {
       |  return x;
       |}
       """,
-      includes = "inttypes.h"
+      headerIncludes = "inttypes.h",
+      cIncludes = ""
     )
     def impl(): Byte = {
       state.seed += 1

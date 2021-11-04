@@ -16,7 +16,8 @@ package object io {
       """|void* __FUNCTION__(void) {
          |  return NULL;
          |}""",
-    includes = ""
+    headerIncludes = "",
+    cIncludes = ""
   )
   def newState: State = State(0)
 }

@@ -21,7 +21,7 @@ class CPrinter(
   private def purity(isPure: Boolean): String = if (isPure) "STAINLESS_FUNC_PURE " else ""
 
   private[genc] def pp(tree: Tree)(implicit pctx: PrinterContext): Unit = tree match {
-    case Prog(includes, decls, typeDefs0, enums0, types, functions0) =>
+    case Prog(headerIncludes, cIncludes, decls, typeDefs0, enums0, types, functions0) =>
       // We need to convert Set to Seq in order to use nary.
       val typeDefs = typeDefs0.toSeq
       val enums = enums0.toSeq.sortBy(_.id.name)
@@ -44,6 +44,12 @@ class CPrinter(
             |
             |#include "${hFileName}"
             |
+            |${nary(
+              buildIncludes(cIncludes),
+              opening = separator("includes"),
+              closing = "\n\n",
+              sep = "\n")
+            }
             |${nary(
               typeDefs.filter(!headerDependencies.contains(_)) map TypeDefDecl,
               opening = separator("type aliases"),
@@ -120,7 +126,7 @@ class CPrinter(
               sep = "\n")
              }
             |${nary(
-              buildIncludes(includes),
+              buildIncludes(headerIncludes),
               opening = separator("includes"),
               closing = "\n\n",
               sep = "\n")

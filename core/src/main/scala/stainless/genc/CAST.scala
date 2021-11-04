@@ -50,7 +50,8 @@ object CAST { // C Abstract Syntax Tree
   }
 
   case class Prog(
-    includes: Set[Include],
+    headerIncludes: Set[Include],
+    cIncludes: Set[Include],
     decls: Seq[(Decl, Seq[DeclarationMode])],
     typeDefs: Set[TypeDef],
     enums: Set[Enum],

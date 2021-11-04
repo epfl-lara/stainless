@@ -30,7 +30,8 @@ object FileOutputStream {
     |  return this;
     |}
     """,
-    includes = ""
+    headerIncludes = "",
+    cIncludes = ""
   )
   def open(filename: String): FileOutputStream = {
     // FIXME Importing stainless.lang.Option doesn't mean it is imported, why?
@@ -65,7 +66,8 @@ case class FileOutputStream(var filename: Option[String]) {
     |    return true;
     |}
     """,
-    includes = ""
+    headerIncludes = "",
+    cIncludes = ""
   )
   def close(): Boolean = {
     filename = None[String]()
@@ -83,7 +85,8 @@ case class FileOutputStream(var filename: Option[String]) {
     |  return this != NULL;
     |}
     """,
-    includes = ""
+    headerIncludes = "",
+    cIncludes = ""
   )
   def isOpen: Boolean = filename.isDefined
 
@@ -101,7 +104,8 @@ case class FileOutputStream(var filename: Option[String]) {
     |  return fprintf(this, "%c", x) >= 0;
     |}
     """,
-    includes = "inttypes.h"
+    headerIncludes = "inttypes.h",
+    cIncludes = ""
   )
   def write(x: Byte): Boolean = {
     require(isOpen)
@@ -127,7 +131,8 @@ case class FileOutputStream(var filename: Option[String]) {
     |  return fprintf(this, "%"PRIi32, x) >= 0;
     |}
     """,
-    includes = "inttypes.h"
+    headerIncludes = "inttypes.h",
+    cIncludes = ""
   )
   def write(x: Int): Boolean = {
     require(isOpen)
@@ -152,7 +157,8 @@ case class FileOutputStream(var filename: Option[String]) {
     |  return fprintf(this, "%c", c) >= 0;
     |}
     """,
-    includes = ""
+    headerIncludes = "",
+    cIncludes = ""
   )
   def write(c: Char): Boolean = {
     require(isOpen)
@@ -178,7 +184,8 @@ case class FileOutputStream(var filename: Option[String]) {
     |  return fprintf(this, "%s", s) >= 0;
     |}
     """,
-    includes = ""
+    headerIncludes = "",
+    cIncludes = ""
   )
   def write(s: String): Boolean = {
     require(isOpen)

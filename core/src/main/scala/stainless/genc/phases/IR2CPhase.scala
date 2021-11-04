@@ -36,7 +36,8 @@ private class IR2CImpl()(implicit val ctx: inox.Context) {
   private val unionCache = MutableMap[ClassDef, C.Union]() // For top hierarchy classes only!
   private val enumCache = MutableMap[ClassDef, C.Enum]() // For top hierarchy classes only!
   private val arrayCache = MutableMap[ArrayType, C.Struct]()
-  private val includes = MutableSet[C.Include]()
+  private val headerIncludes = MutableSet[C.Include]()
+  private val cIncludes = MutableSet[C.Include]()
   private val typdefs = MutableSet[C.TypeDef]()
 
   private var dataTypes = Seq[C.DataType]() // For struct & union, keeps track of definition order!
@@ -47,8 +48,12 @@ private class IR2CImpl()(implicit val ctx: inox.Context) {
     dataTypes = dataTypes :+ dt
   }
 
-  private def register(i: C.Include): Unit = {
-    includes += i
+  private def registerHeaderInclude(i: C.Include): Unit = {
+    headerIncludes += i
+  }
+
+  private def registerCInclude(i: C.Include): Unit = {
+    cIncludes += i
   }
 
   private def register(td: C.TypeDef): Unit = {
@@ -79,7 +84,7 @@ private class IR2CImpl()(implicit val ctx: inox.Context) {
     val functions = funCache.values.toSet
 
     // Remove "mutability" on includes & typeDefs
-    C.Prog(includes.toSet, decls, typdefs.toSet, enums, dataTypes, functions)
+    C.Prog(headerIncludes.toSet, cIncludes.toSet, decls, typdefs.toSet, enums, dataTypes, functions)
   }
 
   private def rec(fd: FunDef): Unit = funCache.getOrElseUpdate(fd, {
@@ -95,8 +100,9 @@ private class IR2CImpl()(implicit val ctx: inox.Context) {
     case FunBodyAST(body) =>
       Left(C.buildBlock(rec(body)))
 
-    case FunBodyManual(includes, body) =>
-      includes foreach { i => register(C.Include(i)) }
+    case FunBodyManual(headerIncludes, cIncludes, body) =>
+      headerIncludes foreach { i => registerHeaderInclude(C.Include(i)) }
+      cIncludes foreach { i => registerCInclude(C.Include(i)) }
       Right(body)
 
     case FunDropped(_) => Right("")
@@ -123,7 +129,7 @@ private class IR2CImpl()(implicit val ctx: inox.Context) {
     case ReferenceType(t) => C.Pointer(rec(t))
 
     case TypeDefType(original, alias, include, export) =>
-      include foreach { i => register(C.Include(i)) }
+      include foreach { i => registerHeaderInclude(C.Include(i)) }
       val td = C.TypeDef(rec(original), rec(alias), export)
       register(td)
       td
@@ -619,7 +625,8 @@ private class IR2CImpl()(implicit val ctx: inox.Context) {
     }
 
     private def buildStringCmpBody() = FunBodyManual(
-      includes = Seq("string.h"),
+      headerIncludes = Seq("string.h"),
+      cIncludes = Seq(),
       body =
         """|bool __FUNCTION__(char* lhs, char* rhs) {
            |  return strcmp(lhs, rhs) == 0;

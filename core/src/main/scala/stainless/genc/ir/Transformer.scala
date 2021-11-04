@@ -79,7 +79,7 @@ abstract class Transformer[From <: IR, To <: IR](final val from: From, final val
   protected def rec(fb: FunBody)(implicit env: Env): to.FunBody = (fb: @unchecked) match {
     case FunDropped(isAccessor) => to.FunDropped(isAccessor)
     case FunBodyAST(body) => to.FunBodyAST(rec(body))
-    case FunBodyManual(includes, body) => to.FunBodyManual(includes, body)
+    case FunBodyManual(headerIncludes, cIncludes, body) => to.FunBodyManual(headerIncludes, cIncludes, body)
   }
 
   // NOTE Due to the mutability nature of ClassDef and its children registration process,

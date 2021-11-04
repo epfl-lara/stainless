@@ -70,7 +70,7 @@ private[genc] sealed trait IR { ir =>
   sealed abstract class FunBody
   case class FunDropped(isAccessor: Boolean) extends FunBody // for @cCode.drop; `isAccessor` is true for `val`'s to avoid parentheses
   case class FunBodyAST(body: Expr) extends FunBody
-  case class FunBodyManual(includes: Seq[String], body: String) extends FunBody // NOTE `body` is actually the whole function!
+  case class FunBodyManual(headerIncludes: Seq[String], cIncludes: Seq[String], body: String) extends FunBody // NOTE `body` is actually the whole function!
 
   case class FunDef(id: Id, returnType: Type, ctx: Seq[ValDef], params: Seq[ValDef], var body: FunBody, isExported: Boolean, isPure: Boolean) extends Def {
     // Ignore body in equality/hash code; actually, use only the identifier. This is to prevent infinite recursion...

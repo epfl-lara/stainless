@@ -13,9 +13,7 @@ private[genc] object ExtraOps {
     symbols.getClass(id).parents.map(ct => root(ct.id)).headOption.getOrElse(id)
   }
 
-  case class ManualDef(code: String, includes: Seq[String])
-
-  private val manualDefAnnotation = "cCode.function"
+  val manualDefAnnotation = "cCode.function"
 
   implicit class FunAbsOps(val fa: FunAbstraction)  {
     def isManuallyDefined = hasAnnotation(manualDefAnnotation)
@@ -27,18 +25,6 @@ private[genc] object ExtraOps {
       case Annotation(s, args) => s -> args
     }.toMap
     def annotations: Set[String] = extAnnotations.keySet
-
-    def getManualDefinition = {
-      assert(isManuallyDefined)
-
-      val Seq(StringLiteral(code), StringLiteral(includes0)) = fa.extAnnotations(manualDefAnnotation)
-
-      val includes =
-        if (includes0.isEmpty) Nil
-        else { includes0 split ':' }.toSeq
-
-      ManualDef(code.stripMargin, includes)
-    }
 
     private def hasAnnotation(annot: String) = annotations contains annot
   }
@@ -59,18 +45,6 @@ private[genc] object ExtraOps {
       case Annotation(s, args) => s -> args
     }.toMap
     def annotations: Set[String] = extAnnotations.keySet
-
-    def getManualDefinition = {
-      assert(isManuallyDefined)
-
-      val Seq(StringLiteral(code), StringLiteral(includes0)) = fd.extAnnotations(manualDefAnnotation)
-
-      val includes =
-        if (includes0.isEmpty) Nil
-        else { includes0 split ':' }.toSeq
-
-      ManualDef(code.stripMargin, includes)
-    }
 
     def isGeneric = fd.tparams.length > 0
 
