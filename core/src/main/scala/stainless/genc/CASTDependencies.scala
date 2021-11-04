@@ -8,8 +8,8 @@ import CAST._
 class CASTTraverser(implicit ctx: inox.Context) {
 
   def deconstruct(t: Tree): Seq[Tree] = t match {
-    case Prog(includes, decls, typeDefs, enums, types, functions) =>
-      includes.toSeq ++ decls.map(_._1) ++ typeDefs.toSeq ++ enums.toSeq ++ types ++ functions.toSeq
+    case Prog(headerIncludes, cIncludes, decls, typeDefs, enums, types, functions) =>
+      headerIncludes.toSeq ++ cIncludes.toSeq ++ decls.map(_._1) ++ typeDefs.toSeq ++ enums.toSeq ++ types ++ functions.toSeq
 
     case Assert(e) =>
       Seq(e)

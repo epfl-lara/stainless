@@ -27,7 +27,8 @@ object TimePoint {
       |  return clock();
       |}
       """,
-    includes = ""
+    headerIncludes = "",
+    cIncludes = ""
   )
   def now(): TimePoint = new TimePoint((System.nanoTime() / 1E06).toInt)
 
@@ -43,7 +44,8 @@ object TimePoint {
       |  return 1000 * (second - first) / CLOCKS_PER_SEC; // mind the order of operations!
       |}
       """,
-    includes = ""
+    headerIncludes = "",
+    cIncludes = ""
   )
   def elapsedMillis(first: TimePoint, second: TimePoint): Int = {
     require(second.point >= first.point && first.point >= 0)

@@ -15,7 +15,8 @@ object StdOut {
      |  printf("%"PRIu8, x);
      |}
      """,
-    includes = "inttypes.h:stdio.h"
+    headerIncludes = "inttypes.h:stdio.h",
+    cIncludes = ""
   )
   def printU8(x: UInt8)(implicit @ghost state: State): Unit = {
     scala.Predef.print(x)
@@ -35,7 +36,8 @@ object StdOut {
      |  printf("%"PRIu16, x);
      |}
      """,
-    includes = "inttypes.h:stdio.h"
+    headerIncludes = "inttypes.h:stdio.h",
+    cIncludes = ""
   )
   def printU16(x: UInt16)(implicit @ghost state: State): Unit = {
     scala.Predef.print(x)
@@ -55,7 +57,8 @@ object StdOut {
      |  printf("%"PRIu32, x);
      |}
      """,
-    includes = "inttypes.h:stdio.h"
+    headerIncludes = "inttypes.h:stdio.h",
+    cIncludes = ""
   )
   def printU32(x: UInt32)(implicit @ghost state: State): Unit = {
     scala.Predef.print(x)
@@ -75,7 +78,8 @@ object StdOut {
      |  printf("%"PRIu64, x);
      |}
      """,
-    includes = "inttypes.h:stdio.h"
+    headerIncludes = "inttypes.h:stdio.h",
+    cIncludes = ""
   )
   def printU64(x: UInt64)(implicit @ghost state: State): Unit = {
     scala.Predef.print(x)
@@ -95,7 +99,8 @@ object StdOut {
       |  printf("%s", s);
       |}
       """,
-    includes = "stdio.h"
+    headerIncludes = "stdio.h",
+    cIncludes = ""
   )
   def print(x: String)(implicit @ghost state: State): Unit = {
     scala.Predef.print(x)
@@ -119,7 +124,8 @@ object StdOut {
       |  printf("%c", x);
       |}
       """,
-    includes = "inttypes.h:stdio.h"
+    headerIncludes = "inttypes.h:stdio.h",
+    cIncludes = ""
   )
   def print(x: Byte)(implicit @ghost state: State): Unit = {
     val b = Array[Byte](x)
@@ -140,7 +146,8 @@ object StdOut {
      |  printf("%"PRIi32, x);
      |}
      """,
-    includes = "inttypes.h:stdio.h"
+    headerIncludes = "inttypes.h:stdio.h",
+    cIncludes = ""
   )
   def print(x: Int)(implicit @ghost state: State): Unit = {
     scala.Predef.print(x)
@@ -160,7 +167,8 @@ object StdOut {
       |  printf("%c", c);
       |}
       """,
-    includes = "stdio.h"
+    headerIncludes = "stdio.h",
+    cIncludes = ""
   )
   def print(c: Char)(implicit @ghost state: State): Unit = {
     scala.Predef.print(c)
@@ -185,7 +193,8 @@ object StdOut {
       |  printf("%s", s);
       |}
       """,
-    includes = "stdio.h"
+    headerIncludes = "stdio.h",
+    cIncludes = ""
   )
   def print(x: Any)(implicit @ghost state: State): Unit = {
     scala.Predef.print(x)
@@ -199,7 +208,8 @@ object StdOut {
       |  printf("%s\n", s);
       |}
       """,
-    includes = "stdio.h"
+    headerIncludes = "stdio.h",
+    cIncludes = ""
   )
   def println(x: Any)(implicit @ghost state: State): Unit = {
     scala.Predef.println(x)

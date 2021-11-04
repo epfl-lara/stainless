@@ -536,8 +536,14 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val syms:
     // Now proceed with the body
     val body: CIR.FunBody =
       if (fa.isManuallyDefined) {
-        val impl = fa.getManualDefinition
-        CIR.FunBodyManual(impl.includes, impl.code)
+        val Seq(StringLiteral(code), StringLiteral(headerIncludes0), StringLiteral(cIncludes0)) = fa.extAnnotations(manualDefAnnotation)
+        val headerIncludes =
+          if (headerIncludes0.isEmpty) Nil
+          else { headerIncludes0 split ':' }.toSeq
+        val cIncludes =
+          if (cIncludes0.isEmpty) Nil
+          else { cIncludes0 split ':' }.toSeq
+        CIR.FunBodyManual(headerIncludes, cIncludes, code.stripMargin)
       } else if (fa.isDropped) {
         CIR.FunDropped(fa.isVal)
       } else {
