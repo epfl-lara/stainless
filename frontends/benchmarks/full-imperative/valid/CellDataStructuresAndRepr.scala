@@ -144,7 +144,7 @@ object CellDataStructuresAndRepr {
       List(p.c1, p.c2)
 
     @opaque
-    def objectValidPropHolds(p: Pair[T], i: BigInt): Boolean = {
+    override def objectValidPropHolds(p: Pair[T], i: BigInt): Boolean = {
       validObjectIndex(p, i) ==> {
         // TODO(gsps): Investigate if this needs to be sped-up / rewritten again.
         // check(lemmaListContainsElem(objects(p), i)) // Just to speed thigns up.
@@ -185,7 +185,7 @@ object CellDataStructuresAndRepr {
     } ensuring (_ == a.cells)
 
     @opaque
-    def objectValidPropHolds(a: CellArray, i: BigInt): Boolean = {
+    override def objectValidPropHolds(a: CellArray, i: BigInt): Boolean = {
       validObjectIndex(a, i) ==> {
         i > 0 ==> {
           lemmaListNoDupNotFirst(objects(a), i)
@@ -415,7 +415,7 @@ object CellDataStructuresAndRepr {
     } ensuring (_.size == s.size)
 
     @opaque
-    def objectValidPropHolds(s: CellArraySlice, i: BigInt): Boolean = {
+    override def objectValidPropHolds(s: CellArraySlice, i: BigInt): Boolean = {
       validObjectIndex(s, i) ==> {
         reprCAT.objectValidPropHolds(s.array, s.from + i)
         // --> reprCAT.objectIndex(s.array, reprCAT.objects(s.array)(s.from + i)) == s.from + i

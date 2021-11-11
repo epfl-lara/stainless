@@ -91,7 +91,7 @@ object QueueExample {
     }
 
     def enqueue(n: Node): Unit = {
-      require(!asList.content.contains(n) && n.nextOpt == None[Node] && valid)
+      require(!asList.content.contains(n) && n.nextOpt == None[Node]() && valid)
       reads(asList.content.asRefs ++ Set(this, n))
       modifies(Set(this, last, n))
 

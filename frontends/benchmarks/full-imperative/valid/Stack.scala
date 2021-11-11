@@ -61,7 +61,7 @@ object StackExample {
   @extern
   def main(args: Array[String]): Unit = {
     val n = Node(-1, None[Node]())
-    val s = Q(None[Node], List[AnyHeapRef]())
+    val s = Q(None[Node](), List[AnyHeapRef]())
     println("Stack with nodes")
     s.push(Node(5, None[Node]()))
     s.push(Node(10, None[Node]()))

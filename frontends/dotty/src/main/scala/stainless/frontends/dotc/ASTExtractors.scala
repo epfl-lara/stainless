@@ -2,46 +2,90 @@ package stainless
 package frontends.dotc
 
 import scala.language.implicitConversions
-
 import dotty.tools.dotc._
+import typer.Inliner
 import ast.tpd
 import ast.Trees._
-import core.Contexts._
+import core.Contexts.{NoContext, Context => DottyContext}
+import core.NameKinds
 import core.Constants._
 import core.Names._
+import core.NameOps._
 import core.StdNames._
 import core.Symbols._
 import core.Types._
 import core.Flags._
 import core.Annotations._
+import util.SourcePosition
 
-import scala.collection.mutable.{ Map => MutableMap }
+import scala.collection.mutable.{Map => MutableMap}
 
 trait ASTExtractors {
+  val dottyCtx: DottyContext
+  import dottyCtx.given
 
-  protected val ctx: dotty.tools.dotc.core.Contexts.Context
-  import ctx.given
+  def classFromName(nameStr: String): ClassSymbol = requiredClass(typeName(nameStr))
+  def moduleFromName(nameStr: String): TermSymbol = requiredModule(typeName(nameStr))
 
-  def classFromName(nameStr: String): ClassSymbol = ctx.requiredClass(typeName(nameStr))
-  def moduleFromName(nameStr: String): TermSymbol = ctx.requiredModule(typeName(nameStr))
+  // Classes we ignore when considering the parents of a given class.
+  lazy val ignoredClasses = Set(
+    defn.ObjectType,
+    defn.EnumClass.typeRef,
+    defn.SerializableType,
+    defn.ProductClass.typeRef,
+    defn.Mirror_ProductClass.typeRef,
+    defn.Mirror_SumClass.typeRef,
+    defn.SingletonType,
+    defn.Mirror_SingletonClass.typeRef,
+    defn.AnyRefType,
+    defn.AnyValType,
+  )
+
+  def isIgnored(tp: Type): Boolean = ignoredClasses.exists(_ frozen_=:= tp)
 
   def getAnnotations(sym: Symbol, ignoreOwner: Boolean = false): Seq[(String, Seq[tpd.Tree])] = {
-    val erased = if (sym.isEffectivelyErased) Seq(("ghost", Seq.empty)) else Seq()
-    val inline = if (sym.annotations exists (_.symbol.fullName.toString == "scala.inline")) Seq(("inline", Seq.empty)) else Seq()
-    val ownerSymbols = sym.maybeOwner.annotations.filter(annot =>
-      !annot.name.startsWith("keep") || sym.isAccessor
-    )
+    if (sym eq NoSymbol)
+      return Seq.empty
 
-    erased ++ inline ++ (for {
-      a <- sym.annotations ++ (if (!ignoreOwner) ownerSymbols else Set.empty)
-      name = a.symbol.fullName.toString.replaceAll("\\.package\\$\\.", ".")
-      if name startsWith "stainless.annotation."
-      shortName = name drop "stainless.annotation.".length
-    } yield (shortName, a.arguments)).foldLeft[(Set[String], Seq[(String, Seq[tpd.Tree])])]((Set(), Seq())) {
+    val erased = if (sym.isEffectivelyErased) Seq(("ghost", Seq.empty[tpd.Tree])) else Seq()
+    val selfs = sym.annotations
+    val owners =
+      if (ignoreOwner) List.empty[Annotation]
+      else sym.owner.annotations.filter(annot =>
+        annot.toString != "stainless.annotation.export" &&
+          !annot.toString.startsWith("stainless.annotation.cCode.global")
+      )
+    val companions = List(sym.denot.companionModule).filter(_ ne NoSymbol).flatMap(_.annotations)
+    erased ++ (for {
+      a <- selfs ++ owners ++ companions
+      name = a.symbol.showFullName
+        .replace(".package.", ".")
+    } yield {
+      if (name startsWith "stainless.annotation.") {
+        val shortName = name drop "stainless.annotation.".length
+        Some(shortName, a.arguments)
+      } else if (name == "inline" || name == "scala.inline") {
+        Some("inline", a.arguments)
+      } else {
+        None
+      }
+    }).flatten.foldLeft[(Set[String], Seq[(String, Seq[tpd.Tree])])]((Set(), Seq())) {
       case (acc @ (keys, _), (key, _)) if keys contains key => acc
       case ((keys, seq), (key, args)) => (keys + key, seq :+ (key -> args))
     }._2
   }
+
+  implicit def dottyPosToInoxPos(p: SourcePosition): inox.utils.Position = scala.util.Try({
+    if (!p.exists) {
+      inox.utils.NoPosition
+    } else if (p.start != p.end) {
+      inox.utils.RangePosition(p.startPos.line + 1, p.startPos.column + 1, p.startPos.point,
+        p.endPos.line + 1, p.endPos.column + 1, p.endPos.point,
+        dottyCtx.source.file.file)
+    } else {
+      inox.utils.OffsetPosition(p.startPos.line + 1, p.startPos.column + 1, p.startPos.point, dottyCtx.source.file.file)
+    }
+  }).toOption.getOrElse(inox.utils.NoPosition)
 
   // Well-known symbols that we match on
 
@@ -60,6 +104,8 @@ trait ASTExtractors {
   protected lazy val bagSym         = classFromName("stainless.lang.Bag")
   protected lazy val realSym        = classFromName("stainless.lang.Real")
 
+  protected lazy val bvSym          = classFromName("stainless.math.BitVectors.BV")
+
   protected lazy val optionSymbol = classFromName("stainless.lang.Option")
   protected lazy val someSymbol   = classFromName("stainless.lang.Some")
   protected lazy val noneSymbol   = classFromName("stainless.lang.None")
@@ -71,7 +117,6 @@ trait ASTExtractors {
   protected lazy val optionClassSym     = classFromName("scala.Option")
   protected lazy val arraySym           = classFromName("scala.Array")
   protected lazy val someClassSym       = classFromName("scala.Some")
-//  protected lazy val byNameSym          = classFromName("scala.<byname>")
   protected lazy val bigIntSym          = classFromName("scala.math.BigInt")
   protected lazy val stringSym          = classFromName("java.lang.String")
 
@@ -113,8 +158,6 @@ trait ASTExtractors {
 
   def isStringSym(sym: Symbol) : Boolean = getResolvedTypeSym(sym) match { case `stringSym` => true case _ => false }
 
-//  def isByNameSym(sym : Symbol) : Boolean = getResolvedTypeSym(sym) == byNameSym
-
   // Resolve type aliases
   def getResolvedTypeSym(sym: Symbol): Symbol = {
     if (sym.isAliasType) {
@@ -122,6 +165,10 @@ trait ASTExtractors {
     } else {
       sym
     }
+  }
+
+  def isBVSym(sym: Symbol) : Boolean = {
+    getResolvedTypeSym(sym) == bvSym
   }
 
   def isAnySym(sym: Symbol) : Boolean = {
@@ -171,22 +218,29 @@ trait ASTExtractors {
   def isArrayClassSym(sym: Symbol): Boolean = sym == arraySym
 
   def hasIntType(t: tpd.Tree) = {
-    val tpe = t.tpe.widen
-    tpe =:= defn.IntClass.info
+    t.tpe frozen_<:< defn.IntClass.info
   }
 
   def hasBigIntType(t: tpd.Tree) = isBigIntSym(t.tpe.typeSymbol)
 
   def hasStringType(t: tpd.Tree) = isStringSym(t.tpe.typeSymbol)
 
-//  def hasRealType(t: tpd.Tree) = isRealSym(t.tpe.typeSymbol)
+  private lazy val bvtypes = Set(defn.ByteType, defn.ShortType, defn.IntType, defn.LongType)
+
+  def hasBVType(t: tpd.Tree) = bvtypes.exists(bv => t.tpe frozen_<:< bv)
+
+  def hasNumericType(t: tpd.Tree): Boolean = hasBigIntType(t) || hasBVType(t) || hasRealType(t)
+
+  def hasRealType(t: tpd.Tree) = isRealSym(t.tpe.typeSymbol)
+
+  def hasBooleanType(t: tpd.Tree) = t.tpe frozen_<:< defn.BooleanType
 
   def isDefaultGetter(sym: Symbol) = {
     (sym is Synthetic) && sym.name.isTermName && sym.name.toTermName.toString.contains("$default$")
   }
 
   def isCopyMethod(sym: Symbol) = {
-    (sym is Synthetic) && sym.name.isTermName && sym.name.toTermName.toString == "copy"
+    (sym is Synthetic) && sym.name.isTermName && sym.name.toTermName.toString.startsWith("copy")
   }
 
   def canExtractSynthetic(sym: Symbol) = {
@@ -249,8 +303,23 @@ trait ASTExtractors {
       }
     }
 
-    object ExLiteral {
-      def unapply(tree: tpd.Literal): Boolean = true
+    /**
+      * Matches selections of `final val` whose definition is a literal.
+      * For instance, a tree representing `Int.MaxValue` would match this
+      * extractor and give 2147483647.
+      */
+    object ExEffectivelyLiteral {
+      def unapply(tree: tpd.Tree): Option[tpd.Literal] = tree match {
+        case sel@Select(Ident(_), _) if sel.symbol is Final =>
+          sel.symbol.denot.info match {
+            case ExprType(ConstantType(c)) =>
+              Some(tpd.Literal(c))
+            case ConstantType(c) =>
+              Some(tpd.Literal(c))
+            case _ => None
+          }
+        case _ => None
+      }
     }
 
     object ExBooleanLiteral {
@@ -350,8 +419,14 @@ trait ASTExtractors {
 
     object ExLambda {
       def unapply(tree: tpd.Tree): Option[(Seq[tpd.ValDef], tpd.Tree)] = tree match {
-        case Block(Seq(dd @ DefDef(_, _, Seq(vparams), _, _)), ExUnwrapped(Closure(Nil, call, _))) if call.symbol == dd.symbol =>
-          Some((vparams, dd.rhs))
+        // In `dd`, `paramss` is a List[List[ValDef] | TypeDef]] to represent:
+        //   defName[T1, T2, ...](val x_11, x_12, ..)...(val x_n1, val x_n2, ...)
+        // If the DefDef in question has type parameters, then the first element of `paramss`
+        // is the list of type parameters, otherwise, `paramss` only contains the ValDefs
+        // Here, we are interested in only matching a `dd` of the form:
+        //   defName(val x_1, val x_2, ...)
+        case Block(Seq(dd @ DefDef(_, paramss@List(tpd.ValDefs(valDefs)), _, _)), ExUnwrapped(Closure(Nil, call, _))) if call.symbol == dd.symbol =>
+          Some((valDefs, dd.rhs))
         case _ => None
       }
     }
@@ -422,7 +497,7 @@ trait ASTExtractors {
       }
     }
 
-    object ExConstructor {
+    object ExClassConstruction {
       def unapply(tree: tpd.Tree): Option[(Type, Seq[tpd.Tree])] = tree match {
         case Apply(Select(New(tpt), nme.CONSTRUCTOR), args) =>
           Some((tpt.tpe, args))
@@ -461,7 +536,7 @@ trait ASTExtractors {
       }
     }
 
-    object ExTupleSelect {
+    object ExTupleExtract {
       private val Pattern = """_(\d{1,2})""".r
 
       def unapply(tree: tpd.Tree): Option[(tpd.Tree, Int)] = tree match {
@@ -486,20 +561,195 @@ trait ASTExtractors {
         case _ => Some(tree)
       }
     }
+
+    object ExBigIntPattern {
+      def unapply(tree: tpd.UnApply): Option[tpd.Literal] = tree match {
+        case UnApply(ExSymbol("stainless", "lang", "package$", "BigInt$", "unapply"), _, Seq(l: tpd.Literal)) =>
+          Some(l)
+        case _ =>
+          None
+      }
+    }
+
+    object ExArrayLiteral {
+      def unapply(tree: tpd.Apply): Option[(Type, Seq[tpd.Tree])] = tree match {
+        // Array of primitives
+        case Apply(ExSymbol("scala", "Array$", "apply"), List(arg, Typed(SeqLiteral(args, _), _))) =>
+          tree.tpe match {
+            case AppliedType(_, List(t1)) =>
+              Some((t1, arg :: args))
+            case _ =>
+              None
+          }
+
+        // Array of objects, which have an extra implicit ClassTag argument (that we do not need)
+        case Apply(Apply(TypeApply(ExSymbol("scala", "Array$", "apply"), List(tpt)), List(Typed(SeqLiteral(args, _), _))), ctags) =>
+          Some((tpt.tpe, args))
+
+        case Apply(TypeApply(ExSymbol("scala", "Array$", "empty"), List(tpt)), ctags) =>
+          Some((tpt.tpe, Nil))
+
+        case _ =>
+          None
+      }
+    }
+
+    object ExNot {
+      def unapply(tree: tpd.Select): Option[tpd.Tree] = tree match {
+        case Select(t, nme.UNARY_!) if hasBooleanType(t) => Some(t)
+        case _ => None
+      }
+    }
+
+    object ExEquals {
+      def unapply(tree: tpd.Apply): Option[(tpd.Tree, tpd.Tree)] = tree match {
+        case Apply(Select(lhs, nme.EQ), List(rhs)) => Some((lhs,rhs))
+        case _ => None
+      }
+    }
+
+    object ExNotEquals {
+      def unapply(tree: tpd.Apply): Option[(tpd.Tree, tpd.Tree)] = tree match {
+        case Apply(Select(lhs, nme.NE), List(rhs)) => Some((lhs, rhs))
+        case _ => None
+      }
+    }
+
+    object ExUMinus {
+      def unapply(tree: tpd.Select): Option[tpd.Tree] = tree match {
+        case Select(t, nme.UNARY_-) if hasNumericType(t) => Some(t)
+        case _ => None
+      }
+    }
+
+    object ExBVNot {
+      def unapply(tree: tpd.Select): Option[tpd.Tree] = tree match {
+        case Select(t, nme.UNARY_~) if hasBVType(t) => Some(t)
+        case _ => None
+      }
+    }
+
   }
 
   object StructuralExtractors {
+    object FrontendBVType {
+      val R = """type (UInt|Int)(\d+)""".r
+
+      def unapply(tpe: Type): Option[(Boolean, Int)] = {
+        tpe.stripTypeVar match {
+          case AppliedType(tr: TypeRef, FrontendBVKind(signed, size) :: Nil) if isBVSym(tr.symbol) =>
+            Some((signed, size))
+          case tr: TypeRef if isBVSym(tr.symbol) =>
+            tr.symbol.toString match {
+              case R(signed, size) =>
+                Some((signed == "Int", size.toInt))
+              case _ =>
+                None
+            }
+          case _ => FrontendBVKind.unapply(tpe)
+        }
+      }
+
+      def unapply(tr: tpd.Tree): Option[(Boolean, Int)] = unapply(tr.tpe)
+    }
+
+    object FrontendBVKind {
+      val R = """object ([ui])(\d+)""".r
+
+      def unapply(tpe: Type): Option[(Boolean, Int)] = {
+        tpe.stripTypeVar match {
+          case tr: TermRef =>
+            tr.symbol.toString match {
+              case R(signed, size) =>
+                Some((signed == "i", size.toInt))
+              case _ =>
+                None
+            }
+          case _ =>
+            None
+        }
+      }
+
+      def unapply(tr: tpd.Tree): Option[(Boolean, Int)] = unapply(tr.tpe)
+    }
 
     object ExObjectDef {
       def unapply(td: tpd.TypeDef): Boolean = {
         val sym = td.symbol
-        td.isClassDef && ((sym is ModuleClass) || (sym is Package)) && !(sym is Synthetic) && !(sym is Case)
+        td.isClassDef && ((sym is ModuleClass) || (sym is Package)) && !(sym is Case)
+      }
+    }
+
+    /**
+      * Matches `object` (but not `case object`) that have at least one (non-trivial) parent.
+      * Such objects are extracted into a normal xt.Class.
+      */
+    object ExFancyObjectDef {
+      def unapply(td: tpd.TypeDef): Boolean = td match {
+        case ExObjectDef() =>
+          val template = td.rhs.asInstanceOf[tpd.Template]
+          template.parents.exists(p => !isIgnored(p.tpe))
+        case _ => false
+      }
+    }
+
+    /**
+      * Matches `object` (but not `case object`) that have no (non-trivial) parents.
+      * We are only interested in extracting their content. The object itself is ignored.
+      */
+    object ExPlainObjectDef {
+      def unapply(td: tpd.TypeDef): Boolean = td match {
+        case ExFancyObjectDef() => false
+        case ExObjectDef() => true
+        case _ => false
+      }
+    }
+
+    /**
+      * Matches `ValDefs` that instantiate `objects` that have at least one non-trivial parent.
+      * It is translated into a xt.FunDef to create an instance of that object.
+      */
+    object ExFancyObjectCreation {
+      def unapply(vd: tpd.ValDef): Option[(Symbol, Type)] = {
+        val sym = vd.symbol
+        if ((sym is Module) && !(sym is Case)) {
+          sym.denot.info match {
+            case TypeRef(_, cls: ClassSymbol) if cls.classDenot.classInfo.declaredParents.exists(p => !isIgnored(p)) =>
+              Some((sym, vd.tpt.tpe))
+            case _ => None
+          }
+        } else {
+          None
+        }
+      }
+    }
+
+    /**
+      * Matches `ValDefs` that instantiate `objects` that have no (non-trivial) parent.
+      * Since the object itself is unusued (as we are only interested in its content, not the "shell"),
+      * this `ValDef` is ignored as well.
+      */
+    object ExPlainObjectCreation {
+      def unapply(vd: tpd.ValDef): Boolean = vd match {
+        case ExFancyObjectCreation(_, _) => false
+        case _ => vd.symbol is Module
+      }
+    }
+
+    object ExCaseObject {
+      def unapply(s: tpd.Select): Option[Symbol] = {
+        if (s.tpe.typeSymbol is ModuleClass) {
+          Some(s.tpe.typeSymbol)
+        } else {
+          None
+        }
       }
     }
 
     object ExClassDef {
-      def unapply(td: tpd.TypeDef): Boolean = {
-        td.isClassDef
+      def unapply(td: tpd.TypeDef): Boolean = td match {
+        case ExObjectDef() => false
+        case _ => td.isClassDef
       }
     }
 
@@ -511,109 +761,270 @@ trait ASTExtractors {
 
     object ExFunctionDef {
       def unapply(tree: tpd.DefDef): Option[(Symbol, Seq[tpd.TypeDef], Seq[tpd.ValDef], Type, tpd.Tree)] = tree match {
-        case dd @ DefDef(name, tparams, vparamss, tpt, rhs) =>
-          if ((
-            name != nme.CONSTRUCTOR &&
-            !dd.symbol.is(Accessor) &&
-            !dd.symbol.is(Synthetic) &&
-            !dd.symbol.is(Label)
-          ) || (
-            (dd.symbol is Synthetic) &&
-            canExtractSynthetic(dd.symbol) &&
-            !(getAnnotations(tpt.symbol) exists (_._1 == "ignore"))
-          )) {
-            Some((dd.symbol, tparams, vparamss.flatten, tpt.tpe, dd.rhs))
-          } else {
-            None
-          }
+        case dd @ DefDef(name, _, tpt, rhs) if ((
+          name != nme.CONSTRUCTOR &&
+          !dd.symbol.is(Accessor) &&
+          !dd.symbol.is(Synthetic) &&
+          !dd.symbol.is(Label)
+        ) || (
+          (dd.symbol is Synthetic) &&
+          canExtractSynthetic(dd.symbol) &&
+          !(getAnnotations(tpt.symbol) exists (_._1 == "ignore"))
+        )) =>
+          Some((dd.symbol, dd.leadingTypeParams, dd.termParamss.flatten, tpt.tpe, dd.rhs))
 
         case _ => None
       }
     }
 
-    object ExFieldDef {
-      def unapply(tree: tpd.ValDef): Option[(Symbol, Type, tpd.Tree)] = {
-        val sym = tree.symbol
-        tree match {
-          case vd @ ValDef(_, tpt, _) if (
-            !(sym is CaseAccessor) && !(sym is ParamAccessor) &&
-            !(sym is Synthetic) && !(sym is Mutable)
-          ) => Some((sym, tpt.tpe, vd.rhs))
+    /**
+      * Matches `ValDefs` that represent parameterless variants in a Scala 3 enum.
+      * For example, Dotty roughly translates the following snippet:
+      * {{{
+      *   enum Color {
+      *     case Red, Green, Blue
+      *   }
+      * }}}
+      * into:
+      * {{{
+      *   class Color$ { // i.e. the companion object of Color
+      *     val Red: Color = ...
+      *     val Green: Color = ...
+      *     val Blue: Color = ...
+      *     ...
+      *   }
+      *   ...
+      * }}}
+      * The extractor will match all three `ValDefs` `Red`, `Green` and `Blue`
+      *
+      * For enums with at least one variant with data, the story is more or less the same:
+      * {{{
+      *   enum Option[+T] {
+      *     case Some(x: T) extends Option[T]
+      *     case None extends Option[Nothing]
+      *   }
+      * }}}
+      * Dotty transforms this snippet to:
+      * {{{
+      *   class Option$ {
+      *     val None: Option[Nothing] = ...
+      *     case class Some[T](x: T) extends Option[T] {
+      *       ...
+      *     }
+      *     ...
+      *   }
+      *   ...
+      * }}}
+      * Here, the extractor will only match the `None` `ValDef`.
+      */
+    object ExSimpleEnumValue {
+      def unapply(vd: tpd.ValDef): Option[(Symbol, Type)] = {
+        val sym = vd.symbol
+        vd match {
+          case ValDef(_, tpt, _) if sym isAllOf EnumCase =>
+            Some((sym, tpt.tpe))
 
           case _ => None
         }
       }
     }
 
-    object ExMutableFieldDef {
-      def unapply(tree: tpd.ValDef): Option[(Symbol, Type, tpd.Tree)] = {
-        val sym = tree.symbol
-        tree match {
-          case ValDef(_, tpt, _) if (
-            !(sym is CaseAccessor) && !(sym is ParamAccessor) &&
+    /**
+      * Matches a definition of a strict and immutable field that is part of the constructor parameters.
+      */
+    object ExCtorFieldDef {
+      def unapply(vd: tpd.ValDef): Option[(Symbol, Type, tpd.Tree)] = {
+        val sym = vd.symbol
+        vd match {
+          case ValDef(_, tpt, _) if
+            ((sym is CaseAccessor) || (sym is ParamAccessor)) &&
+            !(sym is Synthetic) && !(sym is Mutable) // Note: Check for not being lazy omitted because a ctor field cannot be lazy
+            => Some((sym, tpt.tpe, vd.rhs))
+
+          case _ => None
+        }
+      }
+    }
+
+    /**
+      * Matches a definition of a strict and mutable field that is part of the constructor parameters.
+      */
+    object ExCtorMutableFieldDef {
+      def unapply(vd: tpd.ValDef): Option[(Symbol, Type, tpd.Tree)] = {
+        val sym = vd.symbol
+        vd match {
+          case ValDef(_, tpt, _) if
+            ((sym is CaseAccessor) || (sym is ParamAccessor)) &&
             !(sym is Synthetic) && (sym is Mutable)
-          ) => Some((sym, tpt.tpe, tree.rhs))
+            => Some((sym, tpt.tpe, vd.rhs))
 
           case _ => None
         }
       }
     }
 
-    object ExFieldAccessorFunction {
-      /** Matches the accessor function of a field */
-      def unapply(dd: tpd.DefDef): Option[(Symbol, Type, Seq[tpd.ValDef], tpd.Tree)] = dd match {
-        case DefDef(name, tparams, vparamss, tpt, _) if(
-          vparamss.size <= 1 && name != nme.CONSTRUCTOR &&
+    /**
+      * Matches a definition of a strict and immutable field that is not part of the constructor parameters.
+      */
+    object ExNonCtorFieldDef {
+      def unapply(vd: tpd.ValDef): Option[(Symbol, Type, tpd.Tree)] = {
+        val sym = vd.symbol
+        vd match {
+          case ValDef(_, tpt, _) if
+            !(sym is CaseAccessor) && !(sym is ParamAccessor) &&
+            !(sym is Synthetic) && !(sym is Mutable) && !(sym is Lazy)
+            => Some((sym, tpt.tpe, vd.rhs))
+
+          case _ => None
+        }
+      }
+    }
+
+    /**
+      * Matches a definition of a strict and mutable field that is not part of the constructor parameters.
+      */
+    object ExNonCtorMutableFieldDef {
+      def unapply(vd: tpd.ValDef): Option[(Symbol, Type, tpd.Tree)] = {
+        val sym = vd.symbol
+        vd match {
+          case ValDef(_, tpt, _) if
+            !(sym is CaseAccessor) && !(sym is ParamAccessor) &&
+            // Since a lazy can't be mutable (and vice-versa), we do not need to check the Mutable flag.
+            !(sym is Synthetic) && (sym is Mutable)
+            => Some((sym, tpt.tpe, vd.rhs))
+
+          case _ => None
+        }
+      }
+    }
+
+    /**
+      * Matches a definition of a lazy field
+      */
+    object ExLazyFieldDef {
+      def unapply(vd: tpd.ValDef): Option[(Symbol, Type, tpd.Tree)] = {
+        val sym = vd.symbol
+        vd match {
+          case ValDef(_, tpt, _) if
+            !(sym is CaseAccessor) && !(sym is ParamAccessor) &&
+            !(sym is Synthetic) && (sym is Lazy)
+            => Some((sym, tpt.tpe, vd.rhs))
+          case _ => None
+        }
+      }
+    }
+
+    /**
+      * Matches against a simple `dd` that may have type parameter and has at most one ValDef clause.
+      * That is, `dd` is of the form:
+      *     ddName[T1, T2, ...](val x_1, val x_2, ...)
+      *          (may be empty)    (may be empty)
+      * and not of the general form:
+      *     ddName[T1, T2, ...](val x_11, val x_12, ...)(val x_21, val x_22, ...)(...)
+      */
+    object ExDefDefSimple {
+      def unapply(dd: tpd.DefDef): Option[(TermName, List[tpd.TypeDef], List[tpd.ValDef], Tree[Type], tpd.Tree)] = dd match {
+        case dd@DefDef(name, _, tpt, _) if dd.termParamss.size <= 1 => // At most one ValDef clause
+          Some((name, dd.leadingTypeParams, dd.termParamss.flatten, tpt, dd.rhs))
+        case _ => None
+      }
+    }
+
+    /**
+      * Matches the setter function of a non-ctor field.
+      */
+    object ExFieldSetterFunction {
+      def unapply(dd: tpd.DefDef): Option[(Symbol, Symbol, Type, tpd.ValDef, tpd.Tree)] = dd match {
+        case ExDefDefSimple(name, _, List(param), tpt, _) if (
+          name.isSetterName &&
           (dd.symbol is Accessor) && !(dd.symbol is Lazy)
         ) =>
-          Some((dd.symbol, tpt.tpe, vparamss.flatten, dd.rhs))
+          val fieldSymbol = dd.symbol.underlyingSymbol
+          val isCtorField = (fieldSymbol is ParamAccessor) || (fieldSymbol is CaseAccessor)
+          val rhs =
+            if (isCtorField && dd.rhs.isEmpty) {
+              val cls = fieldSymbol.owner.asClass
+              val fieldSel = tpd.Select(tpd.This(cls), fieldSymbol.name)
+              val paramIdent = tpd.Ident(param.symbol.termRef)
+              tpd.Assign(fieldSel, paramIdent)
+            }
+            else dd.rhs
+          Some((dd.symbol, fieldSymbol, tpt.tpe, param, rhs))
         case _ => None
       }
     }
 
-    object ExLazyFieldAccessorFunction {
-      def unapply(dd: tpd.DefDef): Option[(Symbol, Type, tpd.Tree)] = dd match {
-        case DefDef(name, tparams, vparamss, tpt, _) if(
-          vparamss.size <= 1 && name != nme.CONSTRUCTOR &&
-          !(dd.symbol is Synthetic) && (dd.symbol is Accessor) && (dd.symbol is Lazy)
-        ) =>
-          Some((dd.symbol, tpt.tpe, dd.rhs))
-        case _ => None
-      }
-    }
-
-    object ExFieldAssign {
+    object ExAssign {
       def unapply(tree: tpd.Assign): Option[(Symbol, tpd.Tree, tpd.Tree)] = tree match {
-        // case Assign(sel@Select(This(_), v), rhs) => Some((sel.symbol, sel, rhs))
         case Assign(sel@Select(lhs, _), rhs) => Some((sel.symbol, lhs, rhs))
         case _ => None
       }
     }
 
     object ExWhile {
-      def unapply(tree: tpd.Tree): Option[(tpd.Tree, tpd.Tree)] = tree match {
-        case WhileDo(cond, body) => Some((cond, body))
-        case _ => None
+      object WithInvariant {
+        def unapply(tree: tpd.Tree): Option[(tpd.Tree, tpd.Tree)] = tree match {
+          case Apply(
+            Select(
+              Apply(while2invariant, List(rest)),
+              invariantSym),
+            List(invariant)) if invariantSym.toString == "invariant" => Some((invariant, rest))
+          case _ => None
+        }
       }
+
+      object WithWeakInvariant {
+        def unapply(tree: tpd.Tree): Option[(tpd.Tree, tpd.Tree)] = tree match {
+          case Apply(
+            Select(
+              Apply(while2invariant, List(rest)),
+              invariantSym),
+            List(invariant)) if invariantSym.toString == "noReturnInvariant" => Some((invariant, rest))
+          case _ => None
+        }
+      }
+
+      object WithInline {
+        def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
+          case Select(
+              Apply(_, List(rest)),
+              inlineSym
+            ) if inlineSym.toString == "inline" => Some(rest)
+          case _ => None
+        }
+      }
+
+      object WithOpaque {
+        def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
+          case Select(
+              Apply(_, List(rest)),
+              opaqueSym
+            ) if opaqueSym.toString == "opaque" => Some(rest)
+          case _ => None
+        }
+      }
+
+      def parseWhile(tree: tpd.Tree, optInv: Option[tpd.Tree], optWeakInv: Option[tpd.Tree], inline: Boolean, opaque: Boolean):
+        Option[(tpd.Tree, tpd.Tree, Option[tpd.Tree], Option[tpd.Tree], Boolean, Boolean)] = {
+
+        tree match {
+          case WithOpaque(rest) => parseWhile(rest, optInv, optWeakInv, inline, true)
+          case WithInline(rest) => parseWhile(rest, optInv, optWeakInv, true, opaque)
+          case WithInvariant(invariant, rest) => parseWhile(rest, Some(invariant), optWeakInv, inline, opaque)
+          case WithWeakInvariant(invariant, rest) => parseWhile(rest, optInv, Some(invariant), inline, opaque)
+          case WhileDo(cond, body) => Some((cond, body, optInv, optWeakInv, inline, opaque))
+          case _ => None
+        }
+      }
+
+      // returns condition, body, optional invariant and weak invariant, inline boolean, opaque boolean
+      def unapply(tree: tpd.Tree): Option[(tpd.Tree, tpd.Tree, Option[tpd.Tree], Option[tpd.Tree], Boolean, Boolean)] =
+        parseWhile(tree, None, None, false, false)
     }
 
-    object ExWhileWithInvariant {
-      def unapply(tree: tpd.Tree): Option[(tpd.Tree, tpd.Tree, tpd.Tree)] = tree match {
-        case Apply(
-          Select(
-            Apply(
-              ExSymbol("stainless", "lang", "package$", "WhileDecorations"),
-              List(ExWhile(cond, body)),
-            ),
-            ExNamed("invariant"),
-          ),
-          List(pred)
-        ) => Some((cond, body, pred))
-        case _ => None
-      }
-    }
-
-    object ExRequire {
+    /** Extracts the 'require' contract from an expression (only if it's the
+      * first call in the block). */
+    object ExRequiredExpression {
       def unapply(tree: tpd.Apply): Option[(tpd.Tree, Boolean)] = tree match {
         case Apply(ExSymbol("scala", "Predef$", "require"), Seq(body)) =>
           Some((body, false))
@@ -624,27 +1035,64 @@ trait ASTExtractors {
         case _ => None
       }
     }
+    /** Extracts the 'reads' contract from an expression */
+    object ExReadsExpression {
+      def unapply(tree: tpd.Apply): Option[tpd.Tree] = tree match {
+        case Apply(ExSymbol("stainless", "lang", "package$", "reads"), objs :: Nil) =>
+          Some(objs)
+        case _ => None
+      }
+    }
 
-    object ExDecreases {
+    /** Extracts the 'modifies' contract from an expression */
+    object ExModifiesExpression {
+      def unapply(tree: tpd.Apply): Option[tpd.Tree] = tree match {
+        case Apply(ExSymbol("stainless", "lang", "package$", "modifies"), objs :: Nil) =>
+          Some(objs)
+        case _ => None
+      }
+    }
+
+    object ExDecreasesExpression {
       def unapply(tree: tpd.Apply): Option[Seq[tpd.Tree]] = tree match {
         case Apply(ExSymbol("stainless", "lang", "package$", "decreases"), args) => Some(args)
         case _ => None
       }
     }
 
-    object ExAssert {
-      def unapply(tree: tpd.Apply): Option[(tpd.Tree, Option[String], Boolean)] = tree match {
-        case Apply(ExSymbol("dotty", "DottyPredef$", "assert"), Seq(body)) =>
-          Some((body, None, false))
+    object ExAssertExpression {
+      def unapply(tree: tpd.Tree): Option[(tpd.Tree, Option[String], Boolean)] = tree match {
+        // Inlined assert call, due to Scala assert being an inline function.
+        case Inlined(
+          Ident(ExNamed("Predef$")) | Apply(Ident(ExNamed("assert")), _),
+          Nil,
+          If(
+            Select(body, nme.UNARY_!),
+            Apply(ExSymbol("scala", "runtime", "Scala3RunTime$", "assertFailed"), args),
+            Literal(Constant(()))
+          )
+        ) =>
+          args match {
+            case List(Literal(cnst: Constant)) => Some((body, Some(cnst.stringValue), false))
+            case _ => Some((body, None, false))
+          }
+
+        // This case can happen if we have an assert(expr) where expr can be reduced to false at compile-time.
+        case Inlined(
+          Ident(ExNamed("Predef$")) | Apply(Ident(ExNamed("assert")), _),
+          Nil,
+          Apply(ExSymbol("scala", "runtime", "Scala3RunTime$", "assertFailed"), args)
+        ) =>
+          args match {
+            case List(Literal(cnst: Constant)) => Some((tpd.Literal(Constant(false)), Some(cnst.stringValue), false))
+            case _ => Some((tpd.Literal(Constant(false)), None, false))
+          }
 
         case Apply(ExSymbol("scala", "Predef$", "assert"), Seq(body)) =>
           Some((body, None, false))
 
         case Apply(ExSymbol("stainless", "lang", "StaticChecks$", "assert"), Seq(body)) =>
           Some((body, None, true))
-
-        case Apply(ExSymbol("dotty", "DottyPredef$", "assert"), Seq(body, Literal(cnst: Constant))) =>
-          Some((body, Some(cnst.stringValue), false))
 
         case Apply(ExSymbol("scala", "Predef$", "assert"), Seq(body, Literal(cnst: Constant))) =>
           Some((body, Some(cnst.stringValue), false))
@@ -656,7 +1104,7 @@ trait ASTExtractors {
       }
     }
 
-    object ExEnsuring {
+    object ExEnsuredExpression {
       def unapply(tree: tpd.Tree): Option[(tpd.Tree, tpd.Tree, Boolean)] = tree match {
         case ExCall(Some(rec),
           ExSymbol("scala", "Predef$", "Ensuring", "ensuring"),
@@ -672,7 +1120,7 @@ trait ASTExtractors {
       }
     }
 
-    object ExThrowing {
+    object ExThrowingExpression {
       def unapply(tree: tpd.Tree): Option[(tpd.Tree, tpd.Tree)] = tree match {
         case ExCall(Some(rec),
           ExSymbol("stainless", "lang", "package$", "Throwing", "throwing"),
@@ -682,56 +1130,47 @@ trait ASTExtractors {
       }
     }
 
-    object ExHolds {
-      def unapplySeq(tree: tpd.Tree): Option[Seq[tpd.Tree]] = tree match {
-        case ExCall(Some(rec),
-          ExSymbol("stainless", "lang", "package$", "BooleanDecorations", "holds"),
-          Seq(), args) => Some(rec +: args)
+    /** Matches the `holds` expression at the end of any boolean expression, and returns the boolean expression.*/
+    object ExHoldsExpression {
+      def unapply(tree: tpd.Select) : Option[tpd.Tree] = tree match {
+        case Select(
+          Apply(ExSymbol("stainless", "lang", "package$", "BooleanDecorations"), realExpr :: Nil),
+          ExNamed("holds")
+        ) => Some(realExpr)
         case _ => None
       }
     }
 
-    object ExHoldsBecause {
-      def unapply(tree: tpd.Tree): Option[(tpd.Tree, tpd.Tree)] = tree match {
-        case ExHolds(body, Apply(ExSymbol("stainless", "lang", "package$", "because"), Seq(proof))) =>
+    /** Matches the `holds` expression at the end of any boolean expression with a proof as argument, and returns both of themn.*/
+    object ExHoldsWithProofExpression {
+      def unapply(tree: tpd.Apply) : Option[(tpd.Tree, tpd.Tree)] = tree match {
+        case Apply(Select(Apply(ExSymbol("stainless", "lang", "package$", "BooleanDecorations"), body :: Nil), ExNamed("holds")), proof :: Nil) =>
           Some((body, proof))
-
-        case Apply(
-          Select(
-            Apply(
-              ExSymbol("stainless", "lang" | "proof", "package$", "boolean2ProofOps"),
-              List(ExHolds(body)),
-            ),
-            ExNamed("because"),
-          ),
-          List(proof)
-        ) =>
-          Some((body, proof))
-
         case _ => None
       }
     }
 
-    object ExBecause {
-      def unapply(tree: tpd.Tree): Option[(tpd.Tree, tpd.Tree)] = tree match {
-        case ExCall(Some(rec),
-          ExSymbol("stainless", "proof" | "equations", "package$", "ProofOps", "because"),
-          Seq(), Seq(proof)
-        ) =>
-          def extract(t: tpd.Tree): Option[tpd.Tree] = t match {
-            case Apply(ExSymbol("stainless", "proof" | "equations", "package$", "ProofOps$", "apply"), Seq(body)) => Some(body)
-            case Block(Seq(v @ ValDef(_, _, _)), e) => extract(e).filter(_.symbol == v.symbol).map(_ => v.rhs)
-            case Inlined(_, members, last) => extract(Block(members, last))
-            case _ => None
-          }
-          extract(rec).map(_ -> proof)
-
-        case _ =>
-          None
+    /** Matches the `because` method at the end of any boolean expression, and return the assertion and the cause. If no "because" method, still returns the expression */
+    object ExMaybeBecauseExpressionWrapper {
+      def unapply(tree: tpd.Tree) : Some[tpd.Tree] = tree match {
+        case Apply(ExSymbol("stainless", "lang", "package$", "because"), body :: Nil) =>
+          unapply(body)
+        case body => Some(body)
       }
     }
 
-    object ExComputes {
+    /** Matches the `because` method at the end of any boolean expression, and return the assertion and the cause.*/
+    object ExBecauseExpression {
+      def unapply(tree: tpd.Apply) : Option[(tpd.Tree, tpd.Tree)] = tree match {
+        case Apply(Select(
+          Apply(ExSymbol("stainless", "proof" | "equations", "package$", "boolean2ProofOps"), body :: Nil),
+          ExNamed("because")
+        ), proof :: Nil) => Some((body, proof))
+        case _ => None
+      }
+    }
+
+    object ExComputesExpression {
       def unapply(tree: tpd.Tree): Option[(tpd.Tree, tpd.Tree)] = tree match {
         case ExCall(Some(rec),
           ExSymbol("stainless", "lang", "package$", "SpecsDecorations", "computes"),
@@ -765,7 +1204,40 @@ trait ASTExtractors {
       }
     }
 
-    object ExError {
+    /** Matches the `bigLength` expression at the end of any string expression, and returns the expression.*/
+    object ExBigLengthExpression {
+      def unapply(tree: tpd.Apply) : Option[tpd.Tree] = tree match {
+        case Apply(Select(
+          Apply(ExSymbol("stainless", "lang", "package$", "StringDecorations"), stringExpr :: Nil),
+          ExNamed("bigLength")), Nil)
+          => Some(stringExpr)
+        case _ => None
+      }
+    }
+
+    /** Matches the `bigSubstring` method at the end of any string expression, and returns the expression and the start index expression.*/
+    object ExBigSubstringExpression {
+      def unapply(tree: tpd.Apply) : Option[(tpd.Tree, tpd.Tree)] = tree match {
+        case Apply(Select(
+          Apply(ExSelected("stainless", "lang", "package$", "StringDecorations"), stringExpr :: Nil),
+          ExNamed("bigSubstring")), startExpr :: Nil)
+          => Some(stringExpr, startExpr)
+        case _ => None
+      }
+    }
+
+    /** Matches the `bigSubstring` expression at the end of any string expression, and returns the expression, the start and end index expressions.*/
+    object ExBigSubstring2Expression {
+      def unapply(tree: tpd.Apply) : Option[(tpd.Tree, tpd.Tree, tpd.Tree)] = tree match {
+        case Apply(Select(
+          Apply(ExSelected("stainless", "lang", "package$", "StringDecorations"), stringExpr :: Nil),
+          ExNamed("bigSubstring")), startExpr :: endExpr :: Nil)
+          => Some(stringExpr, startExpr, endExpr)
+        case _ => None
+      }
+    }
+
+    object ExErrorExpression {
       def unapply(tree: tpd.Apply) : Option[(String, tpd.Tree)] = tree match {
         case a @ Apply(TypeApply(ExSymbol("stainless", "lang", "package$", "error"), List(tpe)), List(lit : tpd.Literal)) =>
           Some((lit.const.stringValue, tpe))
@@ -774,24 +1246,331 @@ trait ASTExtractors {
       }
     }
 
-    object ExOld {
+    object ExOldExpression {
       def unapply(tree: tpd.Apply): Option[tpd.Tree] = tree match {
         case Apply(TypeApply(ExSymbol("stainless", "lang", "package$", "old"), Seq(_)), Seq(arg)) => Some(arg)
         case _ => None
       }
     }
 
-    object ExSnapshot {
+    object ExSnapshotExpression {
       def unapply(tree: tpd.Apply): Option[tpd.Tree] = tree match {
         case Apply(TypeApply(ExSymbol("stainless", "lang", "package$", "snapshot"), Seq(_)), Seq(arg)) => Some(arg)
         case _ => None
       }
     }
 
+    object ExFreshCopyExpression {
+      def unapply(tree: tpd.Apply) : Option[tpd.Tree] = tree match {
+        case Apply(TypeApply(ExSymbol("stainless", "lang", "package$", "freshCopy"), List(_)), List(arg)) =>
+          Some(arg)
+        case _ =>
+          None
+      }
+    }
+
+    /** Matches the construct int2bigInt(a) and returns a */
+    object ExIntToBigInt {
+      def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
+        case Apply(ExSymbol("scala", "math", "BigInt$", "int2bigInt"), List(t)) => Some(t)
+        case _ => None
+      }
+    }
+
+    /** `intToBV` extraction */
+    object ExIntToBV {
+      def unapply(tree: tpd.Tree): Option[(tpd.Tree, tpd.Tree)] = tree  match {
+        case Apply(
+          TypeApply(
+            ExSymbol("stainless", "math", "BitVectors$", "intToBV"),
+            typ :: Nil
+          ), n :: Nil
+        ) =>
+          Some((typ, n))
+        case _ =>
+          None
+      }
+    }
+
+    /** `bigIntToBV` extraction */
+    object ExBigIntToBV {
+      def unapply(tree: tpd.Tree): Option[(Boolean, Int, tpd.Tree)] = tree  match {
+        case Apply(
+          TypeApply(
+          ExSymbol("stainless", "math", "BitVectors$", "bigIntToBV"),
+            FrontendBVKind(signed, size) :: Nil
+          ), n :: Nil
+        ) =>
+          Some((signed, size, n))
+        case _ =>
+          None
+      }
+    }
+
+    /** `max` extraction for bitvectors */
+    object ExMaxBV {
+      def unapply(tree: tpd.Tree): Option[(Boolean, Int)] = tree  match {
+        case TypeApply(
+        ExSymbol("stainless", "math", "BitVectors$", "max"),
+          FrontendBVType(signed, size) :: Nil
+        ) =>
+          Some((signed, size))
+        case _ =>
+          None
+      }
+    }
+
+    /** `min` extraction for bitvectors */
+    object ExMinBV {
+      def unapply(tree: tpd.Tree): Option[(Boolean, Int)] = tree  match {
+        case TypeApply(
+        ExSymbol("stainless", "math", "BitVectors$", "min"),
+          FrontendBVType(signed, size) :: Nil
+        ) =>
+          Some((signed, size))
+        case _ =>
+          None
+      }
+    }
+
+    /** `fromByte` extraction (Byte to Int8 identity conversion) */
+    object ExFromByte {
+      def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree  match {
+        case Apply(
+          ExSymbol("stainless", "math", "BitVectors$", "fromByte"),
+          expr :: Nil
+        ) =>
+          Some(expr)
+        case _ =>
+          None
+      }
+    }
+
+    /** `fromShort` extraction (Short to Int16 identity conversion) */
+    object ExFromShort {
+      def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree  match {
+        case Apply(
+          ExSymbol("stainless", "math", "BitVectors$", "fromShort"),
+          expr :: Nil
+        ) =>
+          Some(expr)
+        case _ =>
+          None
+      }
+    }
+
+    /** `fromInt` extraction (Int to Int32 identity conversion) */
+    object ExFromInt {
+      def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree  match {
+        case Apply(
+          ExSymbol("stainless", "math", "BitVectors$", "fromInt"),
+          expr :: Nil
+        ) =>
+          Some(expr)
+        case _ =>
+          None
+      }
+    }
+
+    /** `fromLong` extraction (Long to Int64 identity conversion) */
+    object ExFromLong {
+      def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree  match {
+        case Apply(
+          ExSymbol("stainless", "math", "BitVectors$", "fromLong"),
+          expr :: Nil
+        ) =>
+          Some(expr)
+        case _ =>
+          None
+      }
+    }
+
+    object ExChooseExpression {
+      def unapply(tree: tpd.Apply) : Option[(tpd.Tree, tpd.Tree)] = tree match {
+        case Apply(TypeApply(ExSymbol("stainless", "lang", "package$", "choose"), List(tpt)), Seq(pred)) =>
+          Some((tpt, pred))
+        case _ => None
+      }
+    }
+
+    object ExSwapExpression {
+      def unapply(tree: tpd.Apply) : Option[(tpd.Tree, tpd.Tree, tpd.Tree, tpd.Tree)] = tree match {
+        case Apply(
+          TypeApply(ExSymbol("stainless", "lang", "package$", "swap"), _),
+          array1 :: index1 :: array2 :: index2 :: Nil) =>
+          Some((array1, index1, array2, index2))
+        case _ => None
+      }
+    }
+
+    object ExForallExpression {
+      def unapply(tree: tpd.Apply) : Option[tpd.Tree] = tree match {
+        case Apply(TypeApply(ExSymbol("stainless", "lang", "package$", "forall"), _), List(fun)) =>
+          Some(fun)
+        case _ => None
+      }
+    }
+
+    object ExMutableMapWithDefault {
+      def unapply(tree: tpd.Apply): Option[(tpd.Tree, tpd.Tree, tpd.Tree)] = tree match {
+        case Apply(TypeApply(ExSymbol("stainless", "lang", "MutableMap$", "withDefaultValue"), List(tptFrom, tptTo)), List(default)) =>
+          Some(tptFrom, tptTo, default)
+        case _ => None
+      }
+    }
+
+    object ExFiniteMap {
+      def unapply(tree: tpd.Apply): Option[(tpd.Tree, tpd.Tree, List[tpd.Tree])] = tree match {
+        case Apply(TypeApply(ExSymbol("stainless", "lang", "Map$", "apply"), List(tptFrom, tptTo)), args) =>
+          Some((tptFrom, tptTo, args))
+        case _ => None
+      }
+    }
+
+    object ExFiniteSet {
+      def unapply(tree: tpd.Apply): Option[(tpd.Tree,List[tpd.Tree])] = tree match {
+        case Apply(TypeApply(ExSymbol("stainless", "lang", "Set$", "apply"), List(tpt)), args) =>
+          Some(tpt, args)
+        case _ => None
+      }
+    }
+
+    object ExFiniteBag {
+      def unapply(tree: tpd.Apply): Option[(tpd.Tree, List[tpd.Tree])] = tree match {
+        case Apply(TypeApply(ExSymbol("stainless", "lang", "Bag$", "apply"), List(tpt)), args) =>
+          Some(tpt, args)
+        case _ => None
+      }
+    }
+
+    private object ExArraySelect {
+      def unapply(tree: tpd.Select): Option[(tpd.Tree, String)] = tree match {
+        case Select(array, select) if isArrayClassSym(array.tpe.typeSymbol) => Some((array, select.toString))
+        case _ => None
+      }
+    }
+
+    object ExArrayUpdate {
+      def unapply(tree: tpd.Apply): Option[(tpd.Tree, tpd.Tree, tpd.Tree)] = tree match {
+        // This implicit conversion to ArrayOps is shadowed. We therefore skip it here.
+        case Apply(ExArraySelect(array, "update"), Seq(index, newValue)) => Some((array, index, newValue))
+        case _ => None
+      }
+    }
+
+    object ExArrayApply {
+      def unapply(tree: tpd.Apply): Option[(tpd.Tree, tpd.Tree)] = tree match {
+        // This implicit conversion to ArrayOps is shadowed. We therefore skip it here.
+        case Apply(ExArraySelect(array, "apply"), Seq(index)) => Some((array, index))
+        case _ => None
+      }
+    }
+
+    object ExArrayFill {
+      def unapply(tree: tpd.Apply): Option[(tpd.Tree, tpd.Tree, tpd.Tree)] = tree match {
+        case Apply(Apply(Apply(TypeApply(ExSymbol("scala", "Array$", "fill"), List(baseType)), List(length)), List(dflt)), _) =>
+          Some((baseType, length, dflt))
+
+        case _ => None
+      }
+    }
+
+    object ExArrayApplyBV {
+      def unapply(tree: tpd.Apply): Option[(tpd.Tree, tpd.Tree, tpd.Tree)] = tree match {
+        case Apply(TypeApply(
+          Select(
+            Apply(
+              TypeApply(ExSymbol("stainless", "math", "BitVectors$", "ArrayIndexing"), tpe :: Nil),
+              array :: Nil
+            ),
+            ExNamed("apply")
+          ),
+          bvType :: Nil),
+          index :: Nil) =>
+
+          Some((array, bvType, index))
+
+        case _ => None
+      }
+    }
+
+    object ExArrayUpdated {
+      def unapply(tree: tpd.Apply): Option[(tpd.Tree, tpd.Tree, tpd.Tree)] = tree match {
+        case Apply(Apply(
+          TypeApply(Select(Apply(ExSymbol("scala", "Predef$", s), List(lhs)), ExNamed("updated")), _),
+          List(index, value)), List(Apply(_, _))) if s.toString contains "Array" =>
+          Some((lhs, index, value))
+
+        case Apply(
+          Select(
+            Apply(
+              TypeApply(ExSymbol("stainless", "lang", "package$", "ArrayUpdating"), tpe :: Nil),
+              array :: Nil
+            ),
+            ExNamed("updated")
+          ), index :: value :: Nil) =>
+          Some((array, index, value))
+
+        case _ => None
+      }
+    }
+
+    /**
+     * Extract both Array.length and Array.size as they are equivalent.
+     *
+     * Note that Array.size is provided thought implicit conversion to
+     * scala.collection.mutable.ArrayOps via scala.Predef.*ArrayOps.
+     * As such, `arrayOps` can be `intArrayOps`, `genericArrayOps`, etc...
+     */
+    object ExArrayLength {
+      def unapply(tree: tpd.Select): Option[tpd.Tree] = tree match {
+        case Select(Apply(ExSymbol("scala", "Predef$", s), List(lhs)), ExNamed("size")) if s.toString contains "Array" =>
+          Some(lhs)
+
+        case ExArraySelect(array, "length") => Some(array)
+
+        case _ => None
+      }
+    }
+
+    /** Matches the construct List[tpe](a, b, ...) and returns tpe and arguments */
+    object ExListLiteral {
+      def unapply(tree: tpd.Apply): Option[(tpd.Tree, List[tpd.Tree])] = tree match {
+        case Apply(TypeApply(ExSymbol("stainless", "collection", "List$", "apply"), List(tpt)), args) =>
+          Some((tpt, args))
+        case _ =>
+          None
+      }
+    }
+
+    /** Matches an implication `lhs ==> rhs` and returns (lhs, rhs)*/
+    object ExImplies {
+      def unapply(tree: tpd.Apply): Option[(tpd.Tree, tpd.Tree)] = tree match {
+        case Apply(Select(
+          lhs@ExSymbol("stainless", "lang", "package$", "BooleanDecorations"),
+          ExNamed("==>") | ExNamed("$eq$eq$greater")), List(rhs)) =>
+          Some((lhs, rhs))
+        case _ =>
+          None
+      }
+    }
+
+    /** Matches `lhs &&& rhs` and returns (lhs, rhs)*/
+    object ExSplitAnd {
+      def unapply(tree: tpd.Apply): Option[(tpd.Tree, tpd.Tree)] = tree match {
+        case Apply(Select(
+          lhs@ExSymbol("stainless", "lang", "package$", "BooleanDecorations"),
+          ExNamed("&&&") | ExNamed("$amp$amp$amp")), List(rhs)) =>
+          Some((lhs, rhs))
+        case _ =>
+          None
+      }
+    }
+
     object ExIndexedAt {
       def unapply(annot: Annotation): Option[tpd.Tree] = annot match {
         case ConcreteAnnotation(
-          Apply(Select(New(ExSymbol("stainless", "annotation", "indexedAt")), _), Seq(arg))
+          Apply(Select(New(ExSymbol("stainless", "annotation", "indexedAt")), _), List(arg))
         ) => Some(arg)
         case _ => None
       }
@@ -807,5 +1586,4 @@ trait ASTExtractors {
       case _ => None
     }
   }
-
 }

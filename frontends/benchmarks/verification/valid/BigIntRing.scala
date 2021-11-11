@@ -28,13 +28,13 @@ object BigIntRing {
   }
 
   implicit case object BigIntRing extends Ring[BigInt] {
-    def zero: BigInt = 0
-    def plus(a: BigInt, b: BigInt): BigInt = a + b
-    def negate(a: BigInt): BigInt = -a
+    override def zero: BigInt = 0
+    override def plus(a: BigInt, b: BigInt): BigInt = a + b
+    override def negate(a: BigInt): BigInt = -a
 
-    def times(a: BigInt, b: BigInt): BigInt = a * b
-    def fromInteger(n: BigInt): BigInt = n
-    def one: BigInt = 1
+    override def times(a: BigInt, b: BigInt): BigInt = a * b
+    override def fromInteger(n: BigInt): BigInt = n
+    override def one: BigInt = 1
   }
 
 }

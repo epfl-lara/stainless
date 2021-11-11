@@ -6,7 +6,7 @@ import stainless.collection._
 object QuickSortFilter {
 
   def quickSort(ls: List[BigInt]): List[BigInt] = {
-    // decreases(ls.size)
+    decreases(ls.size)
     ls match {
       case Nil() => Nil[BigInt]()
       case Cons(x, Nil()) => ls
@@ -62,7 +62,7 @@ object QuickSortFilter {
 
   def sort_preserves_forall(ls: List[BigInt], p: BigInt => Boolean): Boolean = {
     require(ls.forall(p))
-    // decreases(ls.size)
+    decreases(ls.size)
 
     ls match {
       case Nil() => true

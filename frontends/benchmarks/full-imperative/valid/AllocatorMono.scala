@@ -1,7 +1,7 @@
 import stainless.lang._
 import stainless.collection._
 import stainless.lang.Option._
-import stainless.annotation._
+import stainless.annotation.{ghost => ghostAnnot, _}
 import stainless.lang.StaticChecks._
 
 object AllocatorMonoExample {
@@ -34,11 +34,11 @@ object AllocatorMonoExample {
   // << Lemmas
 
   case class BoxAllocator(
-    @ghost var bound: BigInt,
+    @ghostAnnot var bound: BigInt,
     var alloc: List[Box],
     var free: List[Box]
   ) extends AnyHeapRef {
-    @ghost
+    @ghostAnnot
     def valid: Boolean = {
       reads(Set(this))
       decreasingIds(alloc.map(objectId), bound) &&
@@ -53,7 +53,7 @@ object AllocatorMonoExample {
       require(valid)
 
       if (free.nonEmpty) {
-        @ghost val oldBound = bound
+        @ghostAnnot val oldBound = bound
         val oldAlloc = alloc
 
         val o = free.head

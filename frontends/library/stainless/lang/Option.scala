@@ -21,7 +21,7 @@ sealed abstract class Option[T] {
     case None()  => default
   }
 
-  def orElse(or: => Option[T]) = { this match {
+  def orElse(or: => Option[T]): Option[T] = { this match {
     case Some(v) => this
     case None() => or
   }} ensuring {
@@ -40,23 +40,23 @@ sealed abstract class Option[T] {
 
   // Higher-order API
   @isabelle.function(term = "%x f. Option.map_option f x")
-  def map[R](f: T => R) = { this match {
+  def map[R](f: T => R): Option[R] = { this match {
     case None() => None[R]()
     case Some(x) => Some(f(x))
   }} ensuring { _.isDefined == this.isDefined }
 
   @isabelle.function(term = "Option.bind")
-  def flatMap[R](f: T => Option[R]) = this match {
+  def flatMap[R](f: T => Option[R]): Option[R] = this match {
     case None() => None[R]()
     case Some(x) => f(x)
   }
 
-  def filter(p: T => Boolean) = this match {
+  def filter(p: T => Boolean): Option[T] = this match {
     case Some(x) if p(x) => Some(x)
     case _ => None[T]()
   }
 
-  def withFilter(p: T => Boolean) = filter(p)
+  def withFilter(p: T => Boolean): Option[T] = filter(p)
 
   def forall(p: T => Boolean) = this match {
     case Some(x) if !p(x) => false 

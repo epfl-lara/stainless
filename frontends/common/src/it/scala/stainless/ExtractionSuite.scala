@@ -9,7 +9,7 @@ import org.scalatest.funspec.AnyFunSpec
 import scala.util.{Success, Failure, Try}
 
 /** Subclass are only meant to call [[testExtractAll]] and [[testRejectAll]] on
- *  the relevant directories. */
+  *  the relevant directories. */
 abstract class ExtractionSuite extends AnyFunSpec with inox.ResourceUtils with InputUtils {
 
   def options: Seq[inox.OptionValue[_]] = Seq()
@@ -114,4 +114,3 @@ abstract class ExtractionSuite extends AnyFunSpec with inox.ResourceUtils with I
     }
   }
 }
-

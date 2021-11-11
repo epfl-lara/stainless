@@ -3,10 +3,10 @@ import stainless.annotation._
 
 object IntSetUnit {
   case class Empty() extends IntSet
-  case class Node(left: IntSet, 
+  case class Node(left: IntSet,
                   elem: Int,
                   right: IntSet) extends IntSet
-  abstract class IntSet {
+  sealed abstract class IntSet {
       def incl(x: Int): IntSet = this match {
           case Empty() => Node(Empty(),x,Empty())
           case Node(left, elem, right) =>
@@ -24,7 +24,7 @@ object IntSetUnit {
 
      def union(other: IntSet): IntSet = this match {
           case Empty() => other
-          case Node(left, x, right) => 
+          case Node(left, x, right) =>
               (left union (right union other)) incl x
       }
 

@@ -32,20 +32,21 @@ class TreeSanitizerSuite extends AnyFunSpec with InputUtils {
   makeTest("SoundInvariants",       Seq(11, 22, 45))
 
   def makeTest(name: String, expected: Seq[Int]): Unit = {
-    val ctx: inox.Context = stainless.TestContext.empty
-    import ctx.given
-    val (_, program) = load(Seq(sources(name)), sanitize = false)
-
-    val errors = TreeSanitizer(xt).check(program.symbols)
-
-    // errors.sortBy(_.tree.getPos).foreach { err =>
-    //   println(s"${err.tree.getPos.fullString}")
-    //   println(s"${err.getMessage}")
-    //   println(s"${err.tree}")
-    //   println()
-    // }
-
     describe(s"$name check") {
+      val ctx: inox.Context = stainless.TestContext.empty
+      import ctx.given
+      val (_, program) = load(Seq(sources(name)), sanitize = false)
+
+      val errors = TreeSanitizer(xt).check(program.symbols)
+
+      // For debugging purposes
+      // errors.sortBy(_.tree.getPos).foreach { err =>
+      //   println(s"${err.tree.getPos.fullString}")
+      //   println(s"${err.getMessage}")
+      //   println(s"${err.tree}")
+      //   println()
+      // }
+
       it(s"compiles successfully") {
         assert(!program.symbols.functions.isEmpty)
       }

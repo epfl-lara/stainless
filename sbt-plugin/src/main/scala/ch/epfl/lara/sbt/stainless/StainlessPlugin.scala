@@ -11,9 +11,10 @@ import sbt.Keys._
 
 object StainlessPlugin extends sbt.AutoPlugin {
   private val IssueTracker = "https://github.com/epfl-lara/stainless/issues"
+  // The Scala version with which Stainless is compiled.
   private val stainlessScalaVersion = BuildInfo.stainlessScalaVersion
   // e.g. for 2.13.6, this would yield 2.13
-  private val stainlessProgScalaBinaryVersion = CrossVersion.binaryScalaVersion(BuildInfo.stainlessProgScalaVersion)
+  private val stainlessLibScalaBinaryVersion = CrossVersion.binaryScalaVersion(BuildInfo.stainlessLibScalaVersion)
 
   override def requires: Plugins = plugins.JvmPlugin
   override def trigger: PluginTrigger = noTrigger // This plugin needs to be manually enabled
@@ -82,23 +83,32 @@ object StainlessPlugin extends sbt.AutoPlugin {
     inConfig(Compile)(compileSettings)            // overrides settings that are scoped (by sbt) at the `Compile` configuration
 
   private def stainlessModules: Def.Initialize[Seq[ModuleID]] = Def.setting {
-    val pluginRef  = "ch.epfl.lara" % s"stainless-scalac-plugin_$stainlessScalaVersion" % stainlessVersion.value
-    val libraryRef = "ch.epfl.lara" % s"stainless-library_$stainlessProgScalaBinaryVersion" % stainlessVersion.value
-
+    val projScalaVersion = scalaVersion.value
+    val pluginRef = {
+      // Note: the version of stainless-dotty/scalac-plugin to use depends on the Scala version
+      // Stainless was compiled with, not the user project Scala version.
+      // For instance, if Stainless was compiled with 3.0.2 and the user uses Scala 2.13.6,
+      // we would fetch stainless-scalac-plugin_3.0.2 (and not stainless-scalac-plugin_2.13.6)
+      if (projScalaVersion.startsWith("3."))
+        "ch.epfl.lara" % s"stainless-dotty-plugin_$stainlessScalaVersion" % stainlessVersion.value
+      else
+        "ch.epfl.lara" % s"stainless-scalac-plugin_$stainlessScalaVersion" % stainlessVersion.value
+    }
+    val libraryRef = "ch.epfl.lara" % s"stainless-library_$stainlessLibScalaBinaryVersion" % stainlessVersion.value
     val sourceDeps = (libraryRef +: stainlessExtraDeps.value).map { dep =>
       dep.intransitive().sources() % StainlessLibSources
     }
-
     compilerPlugin(pluginRef) +: sourceDeps
   }
 
-  lazy val stainlessConfigSettings: Seq[Def.Setting[_]] = Seq(
-    managedSources ++= fetchAndUnzipSourceDeps.value,
-    managedSourceDirectories += stainlessSourcesLocation.value
-  )
+  lazy val stainlessConfigSettings: Seq[Def.Setting[_]] =
+    Seq(
+      managedSources ++= fetchAndUnzipSourceDeps.value,
+      managedSourceDirectories += stainlessSourcesLocation.value
+    )
 
   private def stainlessSourcesLocation = Def.setting {
-    target.value / s"stainless_$stainlessProgScalaBinaryVersion"
+    target.value / s"stainless_$stainlessLibScalaBinaryVersion"
   }
 
   private def fetchAndUnzipSourceDeps: Def.Initialize[Task[Seq[File]]] = Def.task {
@@ -195,7 +205,10 @@ object StainlessPlugin extends sbt.AutoPlugin {
           // skipping the sbt incremental compiler phases because the interact badly with stainless (especially, a NPE
           // is thrown while executing the xsbt-dependency phase because it attempts to time-travels symbol to compiler phases
           // that are run *after* the stainless phase.
-          "-Yskip:xsbt-dependency,xsbt-api,xsbt-analyzer",
+          if (scalaVersion.value.startsWith("3."))
+            "-Yskip:sbt-deps,sbt-api"
+          else
+            "-Yskip:xsbt-dependency,xsbt-api,xsbt-analyzer",
 
           // Here we tell the stainless plugin whether or not to enable verification
           s"-P:stainless:verify:${stainlessEnabled.value}",

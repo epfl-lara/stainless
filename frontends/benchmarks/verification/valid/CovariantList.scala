@@ -199,7 +199,7 @@ object CovariantList {
           (h :: left, right)
         }
       }
-    }) ensuring { res: (List[T], List[T]) =>
+    }) ensuring { (res: (List[T], List[T])) =>
       res._1 ++ res._2 == this &&
       res._1 == take(index) && res._2 == drop(index)
     }

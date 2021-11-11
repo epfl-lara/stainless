@@ -892,7 +892,7 @@ private class S2IRImpl(override val s: tt.type,
       val arrayType = CIR.ArrayType(rec(base), None)
 
       // Convert to VLA or normal array
-      val alloc = rec(size) match {
+      val alloc = rec(exprOps.simplifyArithmetic(size)) match {
         case CIR.Lit(L.Int32Lit(length)) =>
           // Optimisation for zero: don't generate values at all to speed up processing within GenC.
           val values = default match {

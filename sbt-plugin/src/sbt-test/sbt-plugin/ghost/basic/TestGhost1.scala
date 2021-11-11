@@ -2,7 +2,7 @@ package test
 
 import stainless._
 import stainless.lang._
-import stainless.annotation._
+import stainless.annotation.{ghost => ghostAnnot, _}
 
 import java.io.File
 
@@ -19,12 +19,12 @@ object Main {
     doGhostStuff()
   }
 
-  @ghost def sneakyGhost(): BigInt = {
+  @ghostAnnot def sneakyGhost(): BigInt = {
     touchFile("sneakyGhostCalled")
     BigInt(0)
   }
 
-  def ghostParam1(@ghost x: BigInt, y: BigInt) = { BigInt(0) }
+  def ghostParam1(@ghostAnnot x: BigInt, y: BigInt) = { BigInt(0) }
 
   def doGhostStuff(): Unit = {
     ghost {
@@ -32,7 +32,7 @@ object Main {
       touchFile("insideGhostCalled")
     }
 
-    @ghost var localGhost = sneakyGhost()
+    @ghostAnnot var localGhost = sneakyGhost()
 
     localGhost = ghostParam1(sneakyGhost(), BigInt(20))
   }

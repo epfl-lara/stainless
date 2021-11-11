@@ -159,11 +159,11 @@ object BinomialHeap {
   } //ensuring (res => treeNum(res._2) <= treeNum(h) && steps <= ? * treeNum(h) + ?)
 
   /*def findMin(h: BinomialHeap) : Element = {
-	  val (opt, _) = removeMinTree(h)
-	  opt match {
-	    case Some(TreeNode(_,e,ts1)) => e
-	    case _ => Element(-1)
-	  }
+    val (opt, _) = removeMinTree(h)
+    opt match {
+      case Some(TreeNode(_,e,ts1)) => e
+      case _ => Element(-1)
+    }
   } ensuring(res => true && tmpl((a,b) => steps <= a*treeNum(h) + b))*/
 
   def minTreeChildren(h: BinomialHeap) : BigInt = {
@@ -171,16 +171,16 @@ object BinomialHeap {
     min match {
       case Some(TreeNode(_,_,ch)) => treeNum(ch)
       case _ => 0
-	  }
+    }
   }
 
   // Discard the minimum element of the extracted min tree and put its children back into the heap
   def deleteMin(h: BinomialHeap) : BinomialHeap = {
-	  val (min, ts2) = removeMinTree(h)
-	  min match {
-		case Some(TreeNode(_,_,ts1)) => merge(ts1, ts2)
-		case _ => h
-	  }
+    val (min, ts2) = removeMinTree(h)
+    min match {
+      case Some(TreeNode(_,_,ts1)) => merge(ts1, ts2)
+      case _ => h
+    }
   } //ensuring(_ => steps <= ? * minTreeChildren(h) + ? * treeNum(h) + ?)
 
 }

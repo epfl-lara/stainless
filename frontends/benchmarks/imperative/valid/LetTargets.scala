@@ -8,7 +8,7 @@ object LetTargets {
   case class C(bs: Array[B])
   case class D(val c: C)
 
-  @cCode.export
+  @cCode.`export`
   def reset(d: D): Unit = {
     require(d.c.bs.length > 0)
     require(d.c.bs(0).as.length > 0)

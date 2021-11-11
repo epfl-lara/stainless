@@ -32,11 +32,11 @@ object TaskParallelExample {
   case class IntBox(var value: Int) extends AnyHeapRef
 
   case class IncTask(box: IntBox) extends Task {
-    @ghost def readSet: Set[AnyHeapRef] = Set[AnyHeapRef](box)
-    @ghost def writeSet: Set[AnyHeapRef] = Set[AnyHeapRef](box)
+    @ghost override def readSet: Set[AnyHeapRef] = Set[AnyHeapRef](box)
+    @ghost override def writeSet: Set[AnyHeapRef] = Set[AnyHeapRef](box)
 
     @opaque
-    def run(): Unit = {
+    override def run(): Unit = {
       reads(readSet)
       modifies(writeSet)
       box.value = (box.value & ((1 << 30) - 1)) + 1

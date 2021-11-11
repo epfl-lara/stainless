@@ -3,7 +3,7 @@
 import stainless.lang._
 
 object Lists {
-  abstract class List[T]
+  sealed abstract class List[T]
   case class Cons[T](head: T, tail: List[T]) extends List[T]
   case class Nil[T]() extends List[T]
 

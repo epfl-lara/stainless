@@ -2,6 +2,6 @@
 -Xss512M
 -Xms1024M
 -Xmx12G
--XX:MaxMetaspaceSize=512M
+-XX:MaxMetaspaceSize=2G
 -XX:+UseCodeCacheFlushing
--XX:ReservedCodeCacheSize=256M
+-XX:ReservedCodeCacheSize=768M

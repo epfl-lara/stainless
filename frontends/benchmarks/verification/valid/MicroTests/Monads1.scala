@@ -21,6 +21,6 @@ object Monads1 {
   }.holds
 
   def right_unit_law[T,U](t: Try[T]): Boolean = {
-    flatMap(t, (x: T) => Success(x)) == t
+    flatMap(t, (x: T) => Success[T](x)) == t
   }.holds
 }

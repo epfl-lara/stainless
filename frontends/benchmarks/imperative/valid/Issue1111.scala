@@ -3,14 +3,14 @@ import stainless.annotation._
 object Issue1111 {
   sealed abstract class Option[@mutable T]
   case class None[@mutable T]()               extends Option[T]
-  case class Some[@mutable T](_0: MutCell[T]) extends Option[T]
+  case class Some[@mutable T](value: MutCell[T]) extends Option[T]
 
-  sealed case class Tuple2[@mutable T0, @mutable T1](_0: MutCell[T0], _1: MutCell[T1])
+  sealed case class Tuple2[@mutable T0, @mutable T1](fst: MutCell[T0], snd: MutCell[T1])
 
   case class MutCell[@mutable T](var value: T)
 
   def get_mut[@mutable V](self: MutCell[Tuple2[String, V]], key: String): Option[V] =
-    if (self.value._0.value == key) Some[V](self.value._1)
+    if (self.value.fst.value == key) Some[V](self.value.snd)
     else None[V]()
 
   @pure

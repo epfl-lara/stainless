@@ -3,8 +3,8 @@
 import stainless.lang._
 
 object PositiveMap {
-  
-  abstract class List
+
+  sealed abstract class List
   case class Cons(head: Int, tail: List) extends List
   case class Nil() extends List
 

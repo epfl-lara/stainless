@@ -638,7 +638,7 @@ object LZWa {
     case _ => false
   }
 
-  @cCode.export
+  @cCode.`export`
   def main() = {
     implicit val state = stainless.io.newState
 

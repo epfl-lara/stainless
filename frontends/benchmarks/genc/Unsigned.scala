@@ -5,17 +5,17 @@ import stainless.io._
 
 object Unsigned {
 
-  @cCode.export
+  @cCode.`export`
   def main(): Unit = {
     @ghost implicit val state = newState
     val a = fa(16, 84)
     val b = fb(84, 14)
     val c = fc(5, 7)
     val d = fd(126, 3)
-    assert(a == 100)
-    assert(b == 70)
-    assert(c == 35)
-    assert(d == 42)
+    assert(a == (100: UInt64))
+    assert(b == (70: UInt32))
+    assert(c == (35: UInt16))
+    assert(d == (42: UInt8))
     StdOut.printlnU64(a)
     StdOut.printlnU32(b)
     StdOut.printlnU16(c)

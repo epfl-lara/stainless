@@ -153,9 +153,7 @@ class SplitCallBack(components: Seq[Component])(using override val context: inox
       }
     }
 
-    for (id <- syms.functions.keys) {
-      processFunctions(shouldProcess(id), syms)
-    }
+    processFunctions(syms.functions.keys.flatMap(shouldProcess).toSet, syms)
   }
 
   private def processFunctions(ids: Set[Identifier], syms: xt.Symbols): Unit = {

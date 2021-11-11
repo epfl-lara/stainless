@@ -287,8 +287,8 @@ object ImageProcessing {
     require(fis.isOpen)
 
     // From little to big endian
-    val byte2 = fis.tryReadByte
-    val byte1 = fis.tryReadByte
+    val byte2 = fis.tryReadByte()
+    val byte1 = fis.tryReadByte()
 
     if (byte1.isDefined && byte2.isDefined) Result(constructWord(byte1.get, byte2.get))
     else Failure[Int](ReadError())
@@ -348,10 +348,10 @@ object ImageProcessing {
       inRange(int, 0, 2147483647)
     }
 
-    val byte1 = fis.tryReadByte
-    val byte2 = fis.tryReadByte
-    val byte3 = fis.tryReadByte
-    val byte4 = fis.tryReadByte // the most significant byte
+    val byte1 = fis.tryReadByte()
+    val byte2 = fis.tryReadByte()
+    val byte3 = fis.tryReadByte()
+    val byte4 = fis.tryReadByte() // the most significant byte
 
     if (byte1.isDefined && byte2.isDefined && byte3.isDefined && byte4.isDefined) {
       if (byte4.get >= 0) {
@@ -389,10 +389,10 @@ object ImageProcessing {
       (b4 << 24) | ((b3 & 0xff) << 16) | ((b2 & 0xff) << 8) | (b1 & 0xff)
     }
 
-    val byte1 = fis.tryReadByte
-    val byte2 = fis.tryReadByte
-    val byte3 = fis.tryReadByte
-    val byte4 = fis.tryReadByte // the most significant byte
+    val byte1 = fis.tryReadByte()
+    val byte2 = fis.tryReadByte()
+    val byte3 = fis.tryReadByte()
+    val byte4 = fis.tryReadByte() // the most significant byte
 
     if (byte1.isDefined && byte2.isDefined && byte3.isDefined && byte4.isDefined) {
       val long = buildInt(byte1.get, byte2.get, byte3.get, byte4.get)
@@ -547,18 +547,18 @@ object ImageProcessing {
    *                                             Logging Facilities     *
    **********************************************************************/
 
-  def log(msg: String, x: Int)(implicit @ghost state: State) {
+  def log(msg: String, x: Int)(implicit @ghost state: State): Unit = {
     StdOut.print(msg)
     StdOut.print(": ")
     StdOut.println(x)
   }
 
-  def log(h: FileHeader)(implicit @ghost state: State) {
+  def log(h: FileHeader)(implicit @ghost state: State): Unit = {
     log("size", h.size)
     log("offset", h.offset)
   }
 
-  def log(h: BitmapHeader)(implicit @ghost state: State) {
+  def log(h: BitmapHeader)(implicit @ghost state: State): Unit = {
     log("width", h.width)
     log("height", h.height)
   }
@@ -602,7 +602,7 @@ object ImageProcessing {
         val r = fix(row, height)
 
         val component = channel(r * width + c) // unsigned
-        if (component < 0) component + 255 else component
+        if (component < 0) component + 255.toByte else component.toInt
       } ensuring { inRange(_, 0, 255) }
 
       val mid = size / 2
@@ -665,7 +665,7 @@ object ImageProcessing {
     else StdOut.println("false")
   }
 
-  @cCode.export
+  @cCode.`export`
   def main(): Int = {
     implicit val state = stainless.io.newState
     val input  = FIS.open("input.bmp")

@@ -14,7 +14,7 @@ object Normalisation {
   }
   case class B(a1: A, i: UInt8, j: UInt32, a2: A)
 
-  @cCode.export
+  @cCode.`export`
   def main(): Unit = {
     @ghost implicit val state = newState
     val a = A(100, 9, 200)

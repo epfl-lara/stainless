@@ -4,7 +4,7 @@ import stainless.io._
 
 object Nested {
 
-  @cCode.export
+  @cCode.`export`
   def main(): Int = {
     f(100)
   }

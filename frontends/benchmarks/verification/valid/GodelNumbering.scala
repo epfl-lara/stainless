@@ -34,7 +34,7 @@ object GodelNumbering {
 
     def <(that: Nat): Boolean = {
       decreases(this)
-        ((this, that) match {
+      ((this, that) match {
         case (Succ(n1), Succ(n2)) => n1 < n2
         case (Zero, Succ(_)) => true
         case _ => false

@@ -22,7 +22,7 @@ object Return {
     else StdOut.println("ERROR")
   }
 
-  @cCode.export
+  @cCode.`export`
   def main() = {
     @ghost implicit val state = newState
     verify(return10 == 10)

@@ -119,6 +119,7 @@ trait GlobalStateChecker { self =>
               if (
                 args.length != paramInits.length ||
                 !(args.zip(paramInits).forall {
+                  case (FunctionInvocation(fnId, Seq(), Seq()), paramInit) => fnId == paramInit.id
                   case (arg, paramInit) => arg == paramInit.fullBody
                 })
               ) {

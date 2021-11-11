@@ -1,5 +1,5 @@
 import stainless.math._
-import stainless.annotation._
+import stainless.annotation.{wrapping => wrappingAnnot}
 
 object Wrapping1 {
 
@@ -7,7 +7,7 @@ object Wrapping1 {
     x + x // OK
   }
 
-  @wrapping
+  @wrappingAnnot
   def double2(x: Int) = {
     x + x // OK
   }

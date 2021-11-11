@@ -1,6 +1,7 @@
 import stainless.lang._
 import stainless.collection._
 import stainless.annotation._
+import akka.actor.actorRef2Scala
 
 object Actors {
 

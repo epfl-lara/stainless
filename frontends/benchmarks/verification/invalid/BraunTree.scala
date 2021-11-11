@@ -3,7 +3,7 @@
 import stainless.lang._
 
 object BraunTree {
-  abstract class Tree
+  sealed abstract class Tree
   case class Node(value: Int, left: Tree, right: Tree) extends Tree
   case class Leaf() extends Tree
 

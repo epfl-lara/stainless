@@ -32,7 +32,7 @@ object EasyLazyCell {
   @extern
   def main(args: Array[String]): Unit = {
     val v1 = Lazy[BigInt](((u:Unit) => {println("Hello before!"); BigInt(42)}),
-                          None[BigInt])
+                          None[BigInt]())
     println("First me!")
     println(v1() + v1() + v1())
   }
