@@ -23,7 +23,7 @@ object TraitsReadsWrites {
     def writeSet: Set[AnyHeapRef] = Set[AnyHeapRef]()
 
     @opaque
-    def run(): Unit = {
+    override def run(): Unit = {
       reads(readSet)
       modifies(writeSet)
       ()
@@ -37,7 +37,7 @@ object TraitsReadsWrites {
     def writeSet: Set[AnyHeapRef] = Set[AnyHeapRef](box)
 
     @opaque
-    def run(): Unit = {
+    override def run(): Unit = {
       reads(readSet)
       modifies(writeSet)
       box.value = box.value + 1

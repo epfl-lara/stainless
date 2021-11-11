@@ -92,7 +92,7 @@ object Counter {
       )
     )
 
-    implicit val ctx = ActorContext(primaryRef, Nil())
+    implicit val ctx: ActorContext = ActorContext(primaryRef, Nil())
 
     import system.dispatcher
     import scala.concurrent.duration._

@@ -98,7 +98,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
     reporter.title("Stainless verification tool (https://github.com/epfl-lara/stainless)")
     reporter.info(s"Version: ${BuildInfo.version}")
     reporter.info(s"Built at: ${BuildInfo.builtAtString}")
-    reporter.info(s"Bundled Scala compiler version: ${BuildInfo.scalaVersion}")
+    reporter.info(s"Stainless Scala version: ${BuildInfo.scalaVersion}")
   }
 
   override protected def getName: String = "stainless"

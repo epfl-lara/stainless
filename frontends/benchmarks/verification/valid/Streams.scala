@@ -1,4 +1,4 @@
-import stainless.annotation._
+import stainless.annotation.{indexedAt => indexedAtAnnot, _}
 import stainless.lang._
 import stainless.proof._
 
@@ -8,13 +8,13 @@ object Stream {
 
   def max(x: BigInt, y: BigInt): BigInt = if (x >= y) x else y
 
-  def constant[T](@erasable n: BigInt, t: T): Stream[T] @indexedAt(n) = {
+  def constant[T](@erasable n: BigInt, t: T): Stream[T] @indexedAtAnnot(n) = {
     require(n >= 0)
     decreases(n)
     indexedAt(n, Stream(t, () => constant(n - 1, t)))
   }
 
-  def zipWith[X, Y, Z](@erasable n: BigInt, f: (X, Y) => Z, s1: Stream[X] @indexedAt(n), s2: Stream[Y] @indexedAt(n)): Stream[Z] @indexedAt(n) = {
+  def zipWith[X, Y, Z](@erasable n: BigInt, f: (X, Y) => Z, s1: Stream[X] @indexedAtAnnot(n), s2: Stream[Y] @indexedAtAnnot(n)): Stream[Z] @indexedAtAnnot(n) = {
     require(n >= 0)
     decreases(n)
     indexedAt(n, Stream(f(s1.head, s2.head), () =>
@@ -22,7 +22,7 @@ object Stream {
     ))
   }
 
-  def fib(@erasable n: BigInt): Stream[BigInt] @indexedAt(n) = {
+  def fib(@erasable n: BigInt): Stream[BigInt] @indexedAtAnnot(n) = {
     require(n >= 0)
     decreases(n)
     indexedAt(n, Stream[BigInt](0, (() =>
@@ -32,14 +32,14 @@ object Stream {
     )))
   }
 
-  def take[T](n: BigInt, s: Stream[T] @indexedAt(n)): T = {
+  def take[T](n: BigInt, s: Stream[T] @indexedAtAnnot(n)): T = {
     require(n >= 0)
     decreases(n)
     if (n <= 0) s.head
     else take(n - 1, s.tail())
   }
 
-  def compress(@erasable n: BigInt, s: Stream[BigInt]): Stream[BigInt] @indexedAt(n) = {
+  def compress(@erasable n: BigInt, s: Stream[BigInt]): Stream[BigInt] @indexedAtAnnot(n) = {
     require(n >= 0)
     decreases((n, max(9 - s.head, 0)))
     val h1: BigInt = s.head

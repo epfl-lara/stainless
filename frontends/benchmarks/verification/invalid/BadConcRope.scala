@@ -120,7 +120,7 @@ object BadConcRope {
       case Single(x) => x
       case CC(l, r) =>
         if (i < l.size) lookup(l, i)
-       else lookup(r, i - l.size)
+        else lookup(r, i - l.size)
       case Append(l, r) =>
         if (i < l.size) lookup(l, i)
         else lookup(r, i - l.size)

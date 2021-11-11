@@ -359,6 +359,7 @@ trait TreeSanitizer { self =>
 
     private[this] def checkThisUsage(e: Expr): Unit = {
       e match {
+        case ClassSelector(Annotated(body, _), sel) => checkThisUsage(ClassSelector(body, sel))
         case ClassSelector(This(_), _)              => ()
         case LocalClassSelector(LocalThis(_), _, _) => ()
 

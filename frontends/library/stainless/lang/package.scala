@@ -197,7 +197,7 @@ package object lang {
     def refEq(that: AnyHeapRef): Boolean = true
   }
 
-  @extern @library
+  @library
   implicit class HeapRefSetDecorations[T <: AnyHeapRef](val objs: Set[T]) {
     @extern @library
     def asRefs: Set[AnyHeapRef] = ???

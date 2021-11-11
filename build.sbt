@@ -20,8 +20,6 @@ val isMac     = osInf.indexOf("Mac") >= 0
 val osName = if (isWindows) "win" else if (isMac) "mac" else "unix"
 val osArch = System.getProperty("sun.arch.data.model")
 
-val dottyLibrary = "dotty-compiler_2.12"
-val dottyVersion = "0.12.0-RC1-nonbootstrapped"
 val circeVersion = "0.14.1"
 
 lazy val nParallel = {
@@ -37,10 +35,13 @@ lazy val nParallel = {
   }
 }
 
-// Stainless itself uses Scala 3...
+// The Scala version with which Stainless is compiled.
 val stainlessScalaVersion = "3.0.2"
-// ...whereas Stainless programs use Scala 2.13
-val stainlessProgScalaVersion = "2.13.6"
+// Stainless supports Scala 2.13 and Scala 3.0 programs.
+val frontendScalacVersion = "2.13.6"
+val frontendDottyVersion = stainlessScalaVersion
+// The Stainless libraries use Scala 2.13, but they are compatible with Scala 3.0 as well.
+val stainlessLibScalaVersion = frontendScalacVersion
 
 scalaVersion := stainlessScalaVersion
 
@@ -206,7 +207,7 @@ lazy val libraryFiles: Seq[(String, File)] = {
   res
 }
 
-lazy val commonFrontendSettings: Seq[Setting[_]] = Defaults.itSettings ++ Seq(
+def commonFrontendSettings(compilerVersion: String): Seq[Setting[_]] = Defaults.itSettings ++ Seq(
 
   /**
     * NOTE: IntelliJ seems to have trouble including sources located outside the base directory of an
@@ -238,6 +239,13 @@ lazy val commonFrontendSettings: Seq[Setting[_]] = Defaults.itSettings ++ Seq(
       s"""|package stainless
           |
           |object Main extends MainHelpers {
+          |  val compilerVersion = "$compilerVersion"
+          |
+          |  override protected def displayVersion(reporter: inox.Reporter): Unit = {
+          |    super.displayVersion(reporter)
+          |    reporter.info(s"Bundled Scala compiler: $$compilerVersion")
+          |  }
+          |
           |  val defaultPaths = List(${removeSlashU(libraryFiles.map(_._1).mkString("\"\"\"", "\"\"\",\n \"\"\"", "\"\"\""))})
           |  val libPaths = try {
           |    val source = scala.io.Source.fromFile(\"${libFilesFile}\")
@@ -269,7 +277,6 @@ def ghProject(repo: String, version: String) = RootProject(uri(s"${repo}#${versi
 // lazy val inox = RootProject(file("../inox"))
 lazy val inox = ghProject("https://github.com/epfl-lara/inox.git", "8c70620a11d07ddd6a1a077bc692fd4625210e52")
 lazy val cafebabe = ghProject("https://github.com/epfl-lara/cafebabe.git", "616e639b34379e12b8ac202849de3ebbbd0848bc")
-//lazy val dotty = ghProject("git://github.com/lampepfl/dotty.git", "b3194406d8e1a28690faee12257b53f9dcf49506")
 
 // Allow integration test to use facilities from regular tests
 lazy val IntegrationTest = config("it") extend(Test)
@@ -289,7 +296,7 @@ lazy val `stainless-library` = (project in file("frontends") / "library")
   .settings(stainlessLibSettings, publishMavenSettings)
   .settings(
     name := "stainless-library",
-    scalaVersion := stainlessProgScalaVersion,
+    scalaVersion := stainlessLibScalaVersion,
     // don't publish binaries - stainless-library is only consumed as a sources component
     packageBin / publishArtifact := false,
     crossVersion := CrossVersion.binary,
@@ -302,8 +309,7 @@ lazy val `stainless-algebra` = (project in file("frontends") / "algebra")
   .settings(
     name := "stainless-algebra",
     version := "0.1.2",
-    scalaVersion := stainlessProgScalaVersion,
-
+    scalaVersion := stainlessLibScalaVersion,
     // don't publish binaries - stainless-algebra is only consumed as a sources component
     packageBin / publishArtifact := false,
     crossVersion := CrossVersion.binary,
@@ -314,14 +320,15 @@ lazy val `stainless-algebra` = (project in file("frontends") / "algebra")
 lazy val `stainless-scalac` = (project in file("frontends") / "scalac")
   .enablePlugins(JavaAppPackaging)
   .enablePlugins(BuildInfoPlugin)
-  .settings(commonSettings, commonFrontendSettings)
+  .settings(commonSettings, commonFrontendSettings(frontendScalacVersion))
   .settings(scriptSettings, assemblySettings)
   .settings(noPublishSettings)
   .settings(
     name := "stainless-scalac",
     frontendClass := "scalac.ScalaCompiler",
-    libraryDependencies += "org.scala-lang" % "scala-compiler" % stainlessProgScalaVersion,
+    libraryDependencies += "org.scala-lang" % "scala-compiler" % frontendScalacVersion,
     buildInfoKeys ++= Seq[BuildInfoKey]("useJavaClassPath" -> false),
+    // We include Scala library to be certain we also include scala-parser-combinators (which is not shipped with the Scala std library)
     assemblyPackageScala / assembleArtifact := true,
     assembly / assemblyExcludedJars := {
       val cp = (assembly / fullClasspath).value
@@ -355,29 +362,49 @@ lazy val `stainless-scalac-standalone` = (project in file("frontends") / "stainl
   )
   .dependsOn(`stainless-scalac`)
 
-// lazy val `stainless-dotty-frontend` = (project in file("frontends/dotty"))
-//   .settings(commonSettings)
-//   .settings(noPublishSettings)
-//   .settings(name := "stainless-dotty-frontend")
-//   .dependsOn(`stainless-core`)
-//   .settings(libraryDependencies += "ch.epfl.lamp" % dottyLibrary % dottyVersion % "provided")
+lazy val `stainless-dotty` = (project in file("frontends/dotty"))
+  .enablePlugins(JavaAppPackaging)
+  .enablePlugins(BuildInfoPlugin)
+  .settings(commonSettings, commonFrontendSettings(frontendDottyVersion))
+  .settings(scriptSettings, assemblySettings)
+  .settings(noPublishSettings)
+  .settings(
+    name := "stainless-dotty",
+    frontendClass := "dotc.DottyCompiler",
+    libraryDependencies += "org.scala-lang" %% "scala3-compiler" % frontendDottyVersion,
+    buildInfoKeys ++= Seq[BuildInfoKey]("useJavaClassPath" -> false),
+    // We include Scala library to be certain we also include scala-parser-combinators (which is not shipped with the Scala std library)
+    assemblyPackageScala / assembleArtifact := true,
+    assembly / assemblyExcludedJars := {
+      val cp = (assembly / fullClasspath).value
+      // Don't include scalaz3 dependency because it is OS dependent
+      cp filter {_.data.getName.startsWith("scalaz3")}
+    },
+  )
+  .dependsOn(`stainless-core`)
+  .dependsOn(inox % "test->test;it->test,it")
+  .configs(IntegrationTest)
 
-// lazy val `stainless-dotty` = (project in file("frontends/stainless-dotty"))
-//   .enablePlugins(JavaAppPackaging)
-//   .enablePlugins(BuildInfoPlugin)
-//   .settings(commonSettings, commonFrontendSettings)
-//   .settings(artifactSettings, scriptSettings)
-//   .settings(noPublishSettings)
-//   .settings(
-//     name := "stainless-dotty",
-//     frontendClass := "dotc.DottyCompiler",
-//   )
-//   .dependsOn(inox % "test->test;it->test,it")
-//   .dependsOn(`stainless-dotty-frontend`)
-//   .aggregate(`stainless-dotty-frontend`)
-//   // Should truly depend on dotty, overriding the "provided" modifier above:
-//   .settings(libraryDependencies += "ch.epfl.lamp" % dottyLibrary % dottyVersion)
-//   .configs(IntegrationTest)
+lazy val `stainless-dotty-plugin` = (project in file("frontends") / "stainless-dotty-plugin")
+  .settings(artifactSettings, publishMavenSettings, assemblySettings)
+  .settings(
+    name := "stainless-dotty-plugin",
+    crossVersion := CrossVersion.full, // because compiler api is not binary compatible
+    Compile / packageBin := (`stainless-dotty` / Compile / assembly).value
+  )
+
+lazy val `stainless-dotty-standalone` = (project in file("frontends") / "stainless-dotty-standalone")
+  .enablePlugins(BuildInfoPlugin)
+  .enablePlugins(JavaAppPackaging)
+  .settings(artifactSettings, assemblySettings)
+  .settings(
+    name := "stainless-dotty-standalone",
+    buildInfoKeys ++= Seq[BuildInfoKey]("useJavaClassPath" -> true),
+    assembly / mainClass := Some("stainless.Main"),
+    assembly / assemblyJarName := (name.value + "-" + version.value + ".jar"),
+    Runtime / unmanagedJars := (`stainless-dotty` / Runtime / unmanagedJars).value
+  )
+  .dependsOn(`stainless-dotty`)
 
 lazy val `sbt-stainless` = (project in file("sbt-plugin"))
   .enablePlugins(BuildInfoPlugin)
@@ -393,9 +420,9 @@ lazy val `sbt-stainless` = (project in file("sbt-plugin"))
     buildInfoPackage := "ch.epfl.lara.sbt.stainless",
     buildInfoKeys ++= Seq[BuildInfoKey](
       BuildInfoKey.map(version) { case (_, v) => "stainlessVersion" -> v },
-      "supportedScalaVersions" -> Seq(stainlessProgScalaVersion),
-      "stainlessProgScalaVersion" -> stainlessProgScalaVersion,
+      "supportedScalaVersions" -> Seq(frontendScalacVersion, frontendDottyVersion),
       "stainlessScalaVersion" -> stainlessScalaVersion,
+      "stainlessLibScalaVersion" -> stainlessLibScalaVersion,
     ),
   )
   .settings(
@@ -403,7 +430,8 @@ lazy val `sbt-stainless` = (project in file("sbt-plugin"))
     scriptedLaunchOpts ++= Seq(
       "-Xmx768m",
       "-Dplugin.version=" + version.value,
-      "-Dscala.version=" + stainlessProgScalaVersion
+      "-Dscalac.version=" + frontendScalacVersion,
+      "-Ddotty.version=" + frontendDottyVersion
     ),
     scriptedBufferLog := false,
     scriptedDependencies := {
@@ -411,6 +439,7 @@ lazy val `sbt-stainless` = (project in file("sbt-plugin"))
       (`stainless-library` / update).value
       (`stainless-library` / publishLocal).value
       (`stainless-scalac-plugin` / publishLocal).value
+      (`stainless-dotty-plugin` / publishLocal).value
     }
   )
 
@@ -420,8 +449,8 @@ lazy val root = (project in file("."))
   .settings(
     Compile / sourcesInBase := false,
   )
-  .dependsOn(`stainless-scalac`, `stainless-library`/*, `stainless-dotty`*/, `sbt-stainless`)
-  .aggregate(`stainless-core`, `stainless-library`, `stainless-scalac`/*, `stainless-dotty`*/, `sbt-stainless`, `stainless-scalac-plugin`)
+  .dependsOn(`stainless-scalac`, `stainless-library`, `stainless-dotty`, `sbt-stainless`)
+  .aggregate(`stainless-core`, `stainless-library`, `stainless-scalac`, `stainless-dotty`, `sbt-stainless`, `stainless-scalac-plugin`, `stainless-dotty-plugin`)
 
 def commonPublishSettings = Seq(
   bintrayOrganization := Some("epfl-lara")
@@ -438,5 +467,3 @@ def publishMavenSettings = commonPublishSettings ++ Seq(
 )
 
 // FIXME assembly should be disabled at the top level, but isn't
-// FIXME assembly is not compatible with dotty -- some conflict with scala versions?
-

@@ -1,5 +1,5 @@
 
-import stainless.annotation._
+import stainless.annotation.{ghost => ghostAnnot, _}
 import stainless.collection._
 import stainless.lang._
 import stainless.lang.Option._
@@ -7,8 +7,8 @@ import stainless.lang.StaticChecks._
 import stainless.proof.check
 
 object MutListExample {
-  final case class Node private (var value: BigInt, var nextOpt: Option[Node], @ghost var repr: List[AnyHeapRef]) extends AnyHeapRef {
-    @ghost
+  final case class Node private (var value: BigInt, var nextOpt: Option[Node], @ghostAnnot var repr: List[AnyHeapRef]) extends AnyHeapRef {
+    @ghostAnnot
     def valid: Boolean = {
       reads(repr.content ++ Set(this))
       decreases(repr.size)
@@ -54,24 +54,24 @@ object MutListExample {
       require(valid && node.valid && (repr.content & node.repr.content).isEmpty)
       decreases(size)
 
-      @ghost val oldRepr = repr
-      @ghost val oldReprConcat = repr ++ node.repr
-      @ghost val oldReprConcatContents = repr.content ++ node.repr.content
+      @ghostAnnot val oldRepr = repr
+      @ghostAnnot val oldReprConcat = repr ++ node.repr
+      @ghostAnnot val oldReprConcatContents = repr.content ++ node.repr.content
 
       nextOpt match {
         case None() =>
           nextOpt = Some(node)
           repr = this :: node.repr
-          @ghost val unused1 = check(valid)
-          @ghost val unused2 = check(repr == oldReprConcat)
-          @ghost val unused3 = check(repr.content == oldReprConcatContents)
+          @ghostAnnot val unused1 = check(valid)
+          @ghostAnnot val unused2 = check(repr == oldReprConcat)
+          @ghostAnnot val unused3 = check(repr.content == oldReprConcatContents)
 
         case Some(next) =>
           assert(next.valid)
           assert(next.repr.content subsetOf repr.content)
 
-          @ghost val oldReprNext = next.repr
-          @ghost val oldReprC = next.repr.content ++ node.repr.content
+          @ghostAnnot val oldReprNext = next.repr
+          @ghostAnnot val oldReprC = next.repr.content ++ node.repr.content
 
           next.append(node)
 

@@ -29,7 +29,7 @@ object Iterables {
     set.mapPost1(f)(2)
     assert(res.contains(3))
     if (res.contains(4)) {
-      set.mapPost2(f)(4)
+      set.mapPost2[BigInt](f)(4)
       assert(false)
       check(!res.contains(4))
     }

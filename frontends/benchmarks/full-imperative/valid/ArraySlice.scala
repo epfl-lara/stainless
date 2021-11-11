@@ -6,7 +6,7 @@ import stainless.proof._
 import stainless.lang.StaticChecks._
 
 object ArraySliceExample {
-   def updateSizeLemma[T](xs: List[T], i: BigInt, y: T): Boolean = {
+  def updateSizeLemma[T](xs: List[T], i: BigInt, y: T): Boolean = {
     require(0 <= i && i < xs.size)
     decreases(xs)
 
@@ -18,8 +18,7 @@ object ArraySliceExample {
     xs.updated(i, y).size == xs.size
   }.holds
 
-  final case class SArray[T](var content: List[T]) extends AnyHeapRef
-  {
+  final case class SArray[T](var content: List[T]) extends AnyHeapRef {
     def fill(n: BigInt)(default: T): Unit = {
       // should become a constructor eventually instead of a method
       // Creates visible sharing, so needs support for allocator
@@ -44,9 +43,8 @@ object ArraySliceExample {
     } ensuring { _ => content.size == old(content.size) }
   }
 
-  final case class ArraySlice[T](a: SArray[T], from: BigInt, until: BigInt)
-  // these slices retain their original indices but preclude access outside of range
-  {
+  final case class ArraySlice[T](a: SArray[T], from: BigInt, until: BigInt) {
+    // these slices retain their original indices but preclude access outside of range
     require(0 <= from && from <= until)
 
     def valid: Boolean = { // this method aspires to become part of the above `require`

@@ -161,7 +161,7 @@ trait Trees extends throwing.Trees { self =>
 
         if (remainingAbstract.nonEmpty) {
           throw NotWellFormedException(cd,
-            Some("abstract methods " + remainingAbstract.map(_.name).mkString(", ") + " were not overridden by a method, a lazy val, or a constructor parameter"))
+            Some("abstract methods " + remainingAbstract.map(_.name).toList.sorted.mkString(", ") + " were not overridden by a method, a lazy val, or a constructor parameter"))
         }
       }
 
@@ -342,9 +342,71 @@ trait Trees extends throwing.Trees { self =>
 
     case _ => super.getDeconstructor(that)
   }
+
+  override val exprOps: ExprOps { val trees: self.type } = {
+    class ExprOpsImpl(override val trees: self.type) extends ExprOps(trees)
+    new ExprOpsImpl(self)
+  }
 }
 
-class ExprOps(override val trees: Trees) extends throwing.ExprOps(trees)
+class ExprOps(override val trees: Trees) extends throwing.ExprOps(trees) {
+  import trees._
+
+  /** Freshen the type parameters, fields, methods and type members of the given [[ClassDef]]. */
+  def freshenClass(enclosingFn: FunDef, cd: ClassDef, methods: Seq[FunDef], typeMembers: Seq[TypeDef]): (FunDef, ClassDef, Seq[FunDef], Seq[TypeDef]) = {
+    val typeArgs = freshenTypeParams(cd.typeArgs)
+    val tpSubst = (cd.typeArgs zip typeArgs).toMap
+
+    val (fieldSubst, fields) = cd.fields
+      .map(vd => vd.copy(tpe = typeOps.instantiateType(vd.tpe, tpSubst)))
+      .foldLeft((Map[Identifier, ValDef](), Seq[ValDef]())) { case ((paramSubst, params), vd) =>
+        val nvd = ValDef(vd.id.freshen, vd.tpe, vd.flags).copiedFrom(vd)
+        (paramSubst + (vd.id -> nvd), params :+ nvd)
+      }
+
+    val freshener = new TypeFreshener(tpSubst) {
+      override def transform(e: Expr): Expr = e match {
+        case ClassSelector(rec, id) if fieldSubst contains id =>
+          ClassSelector(transform(rec), fieldSubst(id).id).copiedFrom(e)
+
+        case _ => super.transform(e)
+      }
+    }
+
+    val freshCd = new ClassDef(
+      cd.id,
+      typeArgs.map(TypeParameterDef(_)),
+      cd.parents.map(ct => typeOps.instantiateType(ct, tpSubst).asInstanceOf[ClassType]),
+      fields,
+      cd.flags
+    ).copiedFrom(cd)
+
+    val freshMethods = methods map { fd =>
+      val oldFldId = fd.flags.collectFirst {
+        case IsAccessor(Some(fldId)) if cd.fields.exists(_.id == fldId) => fldId
+      }
+      val newFd = oldFldId match {
+        case Some(oldFldId) =>
+          val fldNewId = fieldSubst(oldFldId).id
+          val newFlags = fd.flags.filter {
+            case IsAccessor(Some(`oldFldId`)) => false
+            case _ => true
+          } :+ IsAccessor(Some(fldNewId))
+          val newFdId =
+            if (fd.id == oldFldId) fldNewId
+            else fd.id
+          fd.copy(id = newFdId, flags = newFlags)
+        case None =>
+          fd
+      }
+      freshenSignature(freshener.transform(newFd))
+    }
+
+    val freshTypeMembers = typeMembers map (freshener.transform(_))
+
+    (freshener.transform(enclosingFn), freshCd, freshMethods, freshTypeMembers)
+  }
+}
 
 trait Printer extends throwing.Printer {
   protected val trees: Trees

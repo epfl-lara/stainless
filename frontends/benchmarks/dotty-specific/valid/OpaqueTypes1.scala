@@ -18,7 +18,9 @@ object OpaqueTypes1 {
     }
 
     object ops {
-      def (p: Positive) toBigInt: BigInt = p
+      extension (p: Positive) {
+        def toBigInt: BigInt = p
+      }
     }
   }
 

@@ -3,7 +3,7 @@ import stainless.lang._
 
 object StateTest {
 
-  @cCode.export
+  @cCode.`export`
   def main(): Int = {
     implicit val state = stainless.io.newState
     f()

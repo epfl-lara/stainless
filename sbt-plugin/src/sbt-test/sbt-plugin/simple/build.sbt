@@ -1,7 +1,12 @@
 
 def commonSettings = Seq(
   version := "0.1",
-  scalaVersion := sys.props("scala.version")
+  // We would like to test the sbt plugin on both Scala 3 and Scala 2
+  // To avoid duplicating sbt test projects, we make use of crossScalaVersions.
+  // However, we need to set scalaVersion to a value that Stainless supports
+  // in order to pass through the check.
+  scalaVersion := sys.props("dotty.version"),
+  crossScalaVersions := Seq(sys.props("scalac.version"), sys.props("dotty.version"))
 )
 
 val unsupportedScalaVersion = "2.11.7"
@@ -33,7 +38,7 @@ lazy val unsupported = (project in file("unsupported"))
 
 def checkScalaFailuresTask(expectedErrorMessage: String) = Def.task {
   val reporter = savedReporter.value
-  val ignore = (compile in Compile).failure.value
+  val _ = (Compile / compile).failure.value
   val ps = reporter.problems
   assert(!ps.isEmpty, "Failed to report any problems!")
   val first = ps(0)

@@ -5,7 +5,7 @@ import stainless.annotation._
 
 object TwoOptions {
 
-  @cCode.export
+  @cCode.`export`
   def twoOptions: Unit = {
     var opt1: Option[Long] = None()
     val opt2: Option[Int] = None()
@@ -13,7 +13,7 @@ object TwoOptions {
     opt2.isEmpty
   }
 
-  @cCode.export
+  @cCode.`export`
   def main() = {
   }
 

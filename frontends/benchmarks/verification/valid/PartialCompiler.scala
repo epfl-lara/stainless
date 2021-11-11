@@ -1,5 +1,5 @@
 import stainless.lang._
-import stainless.annotation._
+import stainless.annotation.{partialEval => _, _}
 import stainless.collection._
 import stainless.util.Random
 

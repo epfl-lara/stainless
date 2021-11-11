@@ -3,6 +3,8 @@
 .stainless-cache/
 .stainless.conf
 stainless.conf
+.stainless-external-tests/
+.stainless-package-standalone/
 
 # Vim
 *.swp

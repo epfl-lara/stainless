@@ -8,7 +8,7 @@ object FixedArray {
   val CONSTANT2: UInt16 = 3
   val CONSTANT3: UInt16 = CONSTANT1 + CONSTANT2
 
-  @cCode.export
+  @cCode.`export`
   case class W(x: Int, a: Array[Int], y: Int) {
     require(
       a.length == CONSTANT3.toInt &&
@@ -17,7 +17,7 @@ object FixedArray {
     )
   }
 
-  @cCode.export
+  @cCode.`export`
   def f(w: W): Int = {
     require(0 <= w.a(0) && w.a(0) <= 1000)
     require(0 <= w.a(1) && w.a(1) <= 1000)
@@ -30,7 +30,7 @@ object FixedArray {
     w.a(0) + w.a(1) + w.a(2) + w.a(3) + w.a(4) + w.x + w.y
   }
 
-  @cCode.export
+  @cCode.`export`
   def g(a: Array[Int]): Unit = {
     require(a.length > 0)
     require(0 <= a(0) && a(0) <= 1000)
@@ -38,7 +38,7 @@ object FixedArray {
     a(0) += 1
   }
 
-  @cCode.export
+  @cCode.`export`
   def main(): Unit = {
     @ghost implicit val state = newState
     val w = W(30, Array(10, 20, 30, 20, 42), 100)

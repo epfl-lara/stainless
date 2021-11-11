@@ -15,6 +15,12 @@ trait InputUtils {
 
   type Filter = CheckFilter { val trees: xt.type }
 
+  def compilerVersion: String = Main.compilerVersion
+
+  def isScala2 = compilerVersion.startsWith("2.")
+
+  def isScala3 = compilerVersion.startsWith("3.")
+
   /** Compile and extract the given files' **content** (& the library). */
   def load(contents: Seq[String], filterOpt: Option[Filter] = None, sanitize: Boolean = true)
           (using inox.Context): (Seq[xt.UnitDef], Program { val trees: xt.type }) = {

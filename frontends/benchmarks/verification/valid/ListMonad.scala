@@ -48,7 +48,7 @@ object ListMonad {
   }.holds
 
   def right_unit_law[T](list: List[T]): Boolean = {
-    flatMap(list, (x: T) => Cons(x, Nil())) == list
+    flatMap(list, (x: T) => Cons(x, Nil[T]())) == list
   }
 
   def right_unit_induct[T](list: List[T]): Boolean = {

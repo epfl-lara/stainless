@@ -386,45 +386,6 @@ class ExprOps(override val trees: Trees) extends innerfuns.ExprOps(trees) {
     tps.map(tpMap)
   }
 
-  /** Freshen the type parameters, fields, methods and type members of the given [[ClassDef]]. */
-  def freshenClass(cd: ClassDef, methods: Seq[FunDef], typeMembers: Seq[TypeDef]): (ClassDef, Seq[FunDef], Seq[TypeDef]) = {
-    val typeArgs = freshenTypeParams(cd.typeArgs)
-    val tpSubst = (cd.typeArgs zip typeArgs).toMap
-
-    val (fieldSubst, fields) = cd.fields
-      .map(vd => vd.copy(tpe = typeOps.instantiateType(vd.tpe, tpSubst)))
-      .foldLeft((Map[Identifier, ValDef](), Seq[ValDef]())) { case ((paramSubst, params), vd) =>
-        val nvd = ValDef(vd.id.freshen, vd.tpe, vd.flags).copiedFrom(vd)
-        (paramSubst + (vd.id -> nvd), params :+ nvd)
-      }
-
-    val freshener = new TypeFreshener(tpSubst) {
-      override def transform(e: Expr): Expr = e match {
-        case ClassSelector(rec, id) if fieldSubst contains id =>
-          ClassSelector(transform(rec), fieldSubst(id).id).copiedFrom(e)
-
-        case _ => super.transform(e)
-      }
-    }
-
-    val freshCd = new ClassDef(
-      cd.id,
-      typeArgs.map(TypeParameterDef(_)),
-      cd.parents.map(ct => typeOps.instantiateType(ct, tpSubst).asInstanceOf[ClassType]),
-      fields,
-      cd.flags
-    ).copiedFrom(cd)
-
-    val freshMethods = methods map { fd =>
-      freshenSignature(freshener.transform(fd))
-    }
-
-    val freshTypeMembers = typeMembers map (freshener.transform(_))
-
-    (freshCd, freshMethods, freshTypeMembers)
-  }
-
-
   /* =============================
    * Freshening of local variables
    * ============================= */

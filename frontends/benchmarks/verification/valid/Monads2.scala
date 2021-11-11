@@ -26,7 +26,7 @@ object Monads2 {
   }.holds
 
   def right_unit_law[T,U](opt: Option[T]): Boolean = {
-    flatMap(opt, (x: T) => Some(x)) == opt
+    flatMap(opt, (x: T) => Some[T](x)) == opt
   }.holds
 
   def flatMap_zero_law[T,U](none: None[T], f: T => Option[U]): Boolean = {

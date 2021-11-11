@@ -1,4 +1,4 @@
-import stainless.annotation._
+import stainless.annotation.{ghost => ghostAnnot, _}
 import stainless.collection._
 import stainless.lang._
 import stainless.lang.Option._
@@ -18,13 +18,13 @@ object TreeImmutMapGenericExample {
   case class Cell[T](var value: T) extends AnyHeapRef
 
   sealed abstract class Tree[T] {
-    @ghost def repr: Set[Cell[T]] =
+    @ghostAnnot def repr: Set[Cell[T]] =
       this match {
         case Leaf(data) => Set[Cell[T]](data)
         case Branch(left, right) => left.repr ++ right.repr
       }
 
-    @ghost def valid: Boolean =
+    @ghostAnnot def valid: Boolean =
       this match {
         case Leaf(data) => true
         case Branch(left, right) =>
@@ -45,7 +45,7 @@ object TreeImmutMapGenericExample {
       modifies(repr.asRefs)
       require(valid)
       decreases(this)
-      @ghost val oldList = toList
+      @ghostAnnot val oldList = toList
 
       this match {
         case Leaf(data) =>
@@ -53,7 +53,7 @@ object TreeImmutMapGenericExample {
           ghost { check(toList == oldList.map(f)) }
 
         case Branch(left, right) =>
-          @ghost val (oldList1, oldList2) = (left.toList, right.toList)
+          @ghostAnnot val (oldList1, oldList2) = (left.toList, right.toList)
           left.map(f)
           right.map(f)
           ghost { lemmaMapConcat(oldList1, oldList2, f) }; ()

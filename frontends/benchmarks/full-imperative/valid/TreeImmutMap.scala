@@ -1,4 +1,4 @@
-import stainless.annotation._
+import stainless.annotation.{ghost => ghostAnnot, _}
 import stainless.collection._
 import stainless.lang._
 import stainless.lang.Option._
@@ -9,8 +9,8 @@ object TreeImmutMapExample {
   // Task
 
   @mutable abstract class Task {
-    @ghost def readSet: Set[AnyHeapRef]
-    @ghost def writeSet: Set[AnyHeapRef] = { ??? : Set[AnyHeapRef] } ensuring (_.subsetOf(readSet))
+    @ghostAnnot def readSet: Set[AnyHeapRef]
+    @ghostAnnot def writeSet: Set[AnyHeapRef] = { ??? : Set[AnyHeapRef] } ensuring (_.subsetOf(readSet))
 
     def run(): Unit = {
       reads(readSet)
@@ -72,7 +72,7 @@ object TreeImmutMapExample {
       reads(repr)
       modifies(repr)
       require(valid)
-      @ghost val oldList = toList
+      @ghostAnnot val oldList = toList
 
       this match {
         case Leaf(_, valueCell) =>
@@ -80,7 +80,7 @@ object TreeImmutMapExample {
           ghost { check(toList == oldList.map(f)) }
 
         case Branch(left, right) =>
-          @ghost val (oldList1, oldList2) = (left.toList, right.toList)
+          @ghostAnnot val (oldList1, oldList2) = (left.toList, right.toList)
           left.map(f)
           right.map(f)
           ghost {
@@ -98,7 +98,7 @@ object TreeImmutMapExample {
       reads(repr)
       modifies(repr)
       require(valid)
-      @ghost val oldList = toList
+      @ghostAnnot val oldList = toList
 
       this match {
         case Leaf(_, valueCell) =>
@@ -106,7 +106,7 @@ object TreeImmutMapExample {
           ghost { check(toList == oldList.map(f)) }
 
         case Branch(left, right) =>
-          @ghost val (oldList1, oldList2) = (left.toList, right.toList)
+          @ghostAnnot val (oldList1, oldList2) = (left.toList, right.toList)
 
           val task1 = ParMapTask(left, f)
           val task2 = ParMapTask(right, f)
@@ -131,8 +131,8 @@ object TreeImmutMapExample {
 /*
   // FIXME: Need to know that `tree` is `valid`!
   case class ParMapTask(tree: Tree, f: BigInt => BigInt) extends Task {
-    @ghost def readSet: Set[AnyHeapRef] = tree.repr
-    @ghost def writeSet: Set[AnyHeapRef] = tree.repr
+    @ghostAnnot def readSet: Set[AnyHeapRef] = tree.repr
+    @ghostAnnot def writeSet: Set[AnyHeapRef] = tree.repr
 
     def run(): Unit = {
       reads(readSet)

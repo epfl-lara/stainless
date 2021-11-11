@@ -3,15 +3,19 @@
 set -e
 
 TEST_DIR=$1
+FRONTEND=$2
 echo "Moving to $TEST_DIR"
 mkdir -p "$TEST_DIR"
 cd "$TEST_DIR" || exit 1
 
-git clone https://github.com/epfl-lara/bolts
+if [[ -d "bolts" ]]; then
+  cd bolts
+  git pull || exit 1
+else
+  git clone https://github.com/epfl-lara/bolts
+  cd bolts || exit 1
+fi
 
-cd bolts || exit 1
-
-bash ./run-tests.sh
+bash ./run-tests.sh "$FRONTEND"
 
 cd ../.. || true
-

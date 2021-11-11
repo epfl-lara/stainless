@@ -3,20 +3,20 @@ import stainless.lang._
 
 object Issue1111b {
 
-  sealed case class Tuple2[@mutable T0, @mutable T1](_0: MutCell[T0], _1: MutCell[T1])
+  sealed case class Tuple2[@mutable T0, @mutable T1](fst: MutCell[T0], snd: MutCell[T1])
   sealed case class Container[@mutable K, @mutable V](pair: MutCell[Option[Tuple2[K, V]]])
 
   sealed abstract class Option[@mutable T]
-  case class Some[@mutable T](_0: MutCell[T]) extends Option[T]
+  case class Some[@mutable T](value: MutCell[T]) extends Option[T]
   case class None[@mutable T]() extends Option[T]
 
   sealed case class MutCell[@mutable T](var value: T)
 
-  sealed case class Data(_0: MutCell[String])
+  sealed case class Data(value: MutCell[String])
 
   case class DataasEquals() extends Equals[Data] {
     @pure
-    def equals(self: Data, other: Data): Boolean = self._0.value == other._0.value
+    def equals(self: Data, other: Data): Boolean = self.value.value == other.value.value
   }
 
   abstract class Equals[@mutable E] {

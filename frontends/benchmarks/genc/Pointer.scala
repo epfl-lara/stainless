@@ -10,7 +10,7 @@ object Pointer {
     r2.x = 250
   }
 
-  @cCode.export
+  @cCode.`export`
   def main(): Unit = {
     @ghost implicit val state = newState
     val r = Pointer(100)
