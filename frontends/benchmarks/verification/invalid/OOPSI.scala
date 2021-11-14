@@ -1,4 +1,4 @@
-object Test {
+object OOPSITest {
   abstract class OOPS { // OOP Stupid
     def test(x: BigInt) = x
     def check: Unit = {
