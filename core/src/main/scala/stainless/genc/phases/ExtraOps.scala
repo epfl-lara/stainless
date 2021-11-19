@@ -20,6 +20,7 @@ private[genc] object ExtraOps {
     def isExtern = fa.flags contains Extern
     def isDropped = hasAnnotation("cCode.drop") || fa.flags.contains(Ghost)
     def isVal: Boolean = fa.isInstanceOf[Outer] && fa.asInstanceOf[Outer].fd.isVal
+    def noMangling        = hasAnnotation("cCode.noMangling")
 
     def extAnnotations: Map[String, Seq[Any]] = fa.flags.collect {
       case Annotation(s, args) => s -> args
@@ -36,6 +37,7 @@ private[genc] object ExtraOps {
     def isExtern          = fd.flags contains Extern
     def isDropped         = hasAnnotation("cCode.drop") || fd.flags.contains(Ghost)
     def isExported        = hasAnnotation("cCode.export")
+    def noMangling        = hasAnnotation("cCode.noMangling")
     def isManuallyDefined = hasAnnotation(manualDefAnnotation)
     def isVal             =
       (fd.flags.exists(_.name == "accessor") || fd.flags.exists { case IsField(_) => true case _ => false }) &&
@@ -56,6 +58,7 @@ private[genc] object ExtraOps {
     def isManuallyTyped = hasAnnotation(manualTypeAnnotation)
     def isDropped       = hasAnnotation(droppedAnnotation)
     def isExported      = hasAnnotation("cCode.export")
+    def noMangling      = hasAnnotation("cCode.noMangling")
     def isPacked        = hasAnnotation("cCode.pack")
     def isGlobal        = cd.flags.exists(_.name.startsWith("cCode.global"))
     def isGlobalDefault = cd.flags.exists(_.name == "cCode.global")

@@ -142,7 +142,7 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val syms:
   def registerVal(fd: FunDef): Unit = {
     if (!registered(fd)) {
       registered += fd
-      val newId = rec(fd.id, withUnique = !fd.isExported && !fd.isDropped)
+      val newId = rec(fd.id, withUnique = !fd.isExported && !fd.isDropped && !fd.noMangling)
       val newType = rec(fd.returnType)(Map.empty)
       if (fd.isDropped) {
         declResults += ((CIR.Decl(CIR.ValDef(newId, newType, false), None), flagsToModes(fd.flags)))
@@ -198,12 +198,12 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val syms:
   // Include the "nesting path" in case of generic functions to avoid ambiguity
   private def buildId(fa: FunAbstraction, tps: Seq[Type])(implicit tm: TypeMapping): CIR.Id = {
     val exported = fa.isInstanceOf[Outer] && fa.asInstanceOf[Outer].fd.isExported
-    rec(fa.id, withUnique = !exported && !fa.isDropped) + (if (tps.nonEmpty) buildIdPostfix(tps) else buildIdFromTypeMapping(tm))
+    rec(fa.id, withUnique = !exported && !fa.isDropped && !fa.noMangling) + (if (tps.nonEmpty) buildIdPostfix(tps) else buildIdFromTypeMapping(tm))
   }
 
   private def buildId(ct: ClassType)(implicit tm: TypeMapping): CIR.Id = {
     val exported = ct.tcd.cd.isExported
-    rec(ct.tcd.id, withUnique = !exported) + buildIdPostfix(ct.tps)
+    rec(ct.tcd.id, withUnique = !exported && !ct.tcd.cd.noMangling) + buildIdPostfix(ct.tps)
   }
 
   private def buildIdPostfix(tps: Seq[Type])(implicit tm: TypeMapping): CIR.Id = if (tps.isEmpty) "" else {
@@ -630,7 +630,7 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val syms:
         reporter.fatalError(ct.getPos, s"Case objects (${ct.id.asString}) are not convertible to ClassDef in GenC")
 
       // disable name mangling for fields of exported and global classes
-      val mangling = !cd.isExported && !cd.isGlobal
+      val mangling = !cd.isExported && !cd.isGlobal && !cd.noMangling
 
       val fields = tcd.fields.map(vd => vd.tpe match {
         case ArrayType(base) if arrayLengthsMap.contains(vd.id) =>
@@ -744,7 +744,7 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val syms:
 
         case ct: ClassType =>
           val cd = ct.tcd.cd
-          val mangling = !cd.isExported && !cd.isManuallyTyped
+          val mangling = !cd.isExported && !cd.isManuallyTyped && !cd.noMangling
           CIR.Assign(CIR.FieldAccess(rec(obj), rec(fieldId, withUnique = mangling)), rec(expr))
 
         case typ =>
@@ -758,7 +758,7 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val syms:
     case FunctionInvocation(id, Seq(), Seq()) if syms.getFunction(id).isVal =>
       val fd = syms.getFunction(id)
       registerVal(fd)
-      CIR.Binding(CIR.ValDef(rec(id, !fd.isExported && !fd.isDropped), rec(fd.returnType), false))
+      CIR.Binding(CIR.ValDef(rec(id, !fd.isExported && !fd.isDropped && !fd.noMangling), rec(fd.returnType), false))
 
     case fi @ FunctionInvocation(id, tps, args) =>
       val fd = syms.getFunction(id)
@@ -837,7 +837,7 @@ private class S2IRImpl(val context: inox.Context, val ctxDB: FunCtxDB, val syms:
         val vd = CIR.ValDef(rec(fieldId, withUnique = false), field2.typ, isVar = field2.isVar)
         CIR.Binding(vd)
       } else {
-        CIR.FieldAccess(rec(obj), rec(fieldId, withUnique = !cd.isExported && !cd.isManuallyTyped))
+        CIR.FieldAccess(rec(obj), rec(fieldId, withUnique = !cd.isExported && !cd.isManuallyTyped && !cd.noMangling))
       }
 
     case tuple @ Tuple(args0) =>
