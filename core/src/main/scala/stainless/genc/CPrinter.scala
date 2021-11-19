@@ -51,6 +51,14 @@ class CPrinter(
               sep = "\n")
             }
             |${nary(
+              decls.filter(decl => decl._2.contains(Define) && !decl._2.contains(Export)).map { case (decl, _) =>
+                DefineMacro(TTree(decl))
+              },
+              opening = separator("macros"),
+              closing = "\n\n",
+              sep = "\n")
+             }
+            |${nary(
               typeDefs.filter(!headerDependencies.contains(_)) map TypeDefDecl.apply,
               opening = separator("type aliases"),
               closing = "\n\n",
@@ -118,7 +126,7 @@ class CPrinter(
             |#endif
             |
             |${nary(
-              decls.filter(decl => decl._2.contains(Define)).map { case (decl, _) =>
+              decls.filter(decl => decl._2.contains(Define) && decl._2.contains(Export)).map { case (decl, _) =>
                 DefineMacro(TTree(decl))
               },
               opening = separator("macros"),
