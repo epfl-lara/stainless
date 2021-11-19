@@ -59,6 +59,10 @@ object cCode {
   @ignore
   class `export` extends StaticAnnotation
 
+  /* Disable identifier mangling (implied by `export`) */
+  @ignore
+  class noMangling extends StaticAnnotation
+
   /* Make sure struct is "packed" when compiled to C (no padding between fields of structs in memory) */
   @ignore
   class pack extends StaticAnnotation
