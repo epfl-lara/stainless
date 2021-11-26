@@ -27,7 +27,7 @@ class CASTTraverser(implicit ctx: inox.Context) {
       Seq(base)
 
     case Struct(id, fields, _, _) =>
-      id +: fields
+      id +: fields.map(_._1)
 
     case Fun(id, returnType, params, Left(block), _, _) =>
       id +: returnType +: params :+ block
@@ -42,7 +42,7 @@ class CASTTraverser(implicit ctx: inox.Context) {
       Seq()
 
     case Union(id, fields, _) =>
-      id +: fields
+      id +: fields.map(_._1)
 
     case Enum(id, literals) =>
       id +: literals

@@ -245,9 +245,9 @@ private class IR2CImpl()(implicit val ctx: inox.Context) {
     // no `data` field for fixed arrays accesses
     case ArrayAccess(FieldAccess(obj, fieldId), index)
       if  obj.getType.isInstanceOf[ClassType] &&
-          obj.getType.asInstanceOf[ClassType].clazz.fields.exists(vd =>
+          obj.getType.asInstanceOf[ClassType].clazz.fields.exists { case (vd, modes) =>
             vd.id == fieldId && vd.typ.isFixedArray
-          ) =>
+          } =>
 
       C.ArrayAccess(C.FieldAccess(rec(obj), rec(fieldId)), rec(index))
 
@@ -255,13 +255,13 @@ private class IR2CImpl()(implicit val ctx: inox.Context) {
     // must be wrapped in an array wrapper struct (see FixedArray.scala example)
     case FieldAccess(obj, fieldId)
       if  obj.getType.isInstanceOf[ClassType] &&
-          obj.getType.asInstanceOf[ClassType].clazz.fields.exists(vd =>
+          obj.getType.asInstanceOf[ClassType].clazz.fields.exists { case (vd, modes) =>
             vd.id == fieldId && vd.typ.isFixedArray
-          ) =>
+          } =>
 
-      val vd = obj.getType.asInstanceOf[ClassType].clazz.fields.find(vd =>
+      val (vd, modes) = obj.getType.asInstanceOf[ClassType].clazz.fields.find { case (vd, modes) =>
         vd.id == fieldId && vd.typ.isFixedArray
-      ).get
+      }.get
       val arrayType = vd.typ.asInstanceOf[ArrayType]
       val length = arrayType.length.get
       val array = array2Struct(arrayType.copy(length = None))
@@ -493,7 +493,7 @@ private class IR2CImpl()(implicit val ctx: inox.Context) {
 
     // List all (concrete) leaves of the class hierarchy as fields of the union.
     val leaves = cd.getHierarchyLeaves
-    val fields = leaves.toSeq map { c => C.Var(getUnionFieldFor(c), getStructFor(c)) }
+    val fields = leaves.toSeq map { c => (C.Var(getUnionFieldFor(c), getStructFor(c)), Seq.empty) }
     val id = rec("union_" + cd.id)
 
     val union = C.Union(id, fields, cd.isExported)
@@ -528,18 +528,25 @@ private class IR2CImpl()(implicit val ctx: inox.Context) {
     val unionType = getUnionFor(top)
     val union = C.Var(TaggedUnion.value, unionType)
 
-    C.Struct(rec(top.id), tag :: union :: Nil, top.isExported, top.isPacked)
+    C.Struct(rec(top.id),
+      (tag, Seq.empty) ::
+      (union, Seq.empty) ::
+      Nil,
+      top.isExported,
+      top.isPacked
+    )
   }
 
   private def buildStructForCaseClass(cd: ClassDef): C.Struct = {
     // Here the mapping is straightforward: map the class fields,
     // possibly creating a dummy one to avoid empty classes.
-    val fields = if (cd.fields.isEmpty) {
+    val fields: Seq[(C.Var, Seq[DeclarationMode])] = if (cd.fields.isEmpty) {
       ctx.reporter.warning(s"Empty structures are not allowed according to the C99 standard. " +
               s"I'm adding a dummy byte to ${cd.id} structure for compatibility purposes.")
       markAsEmpty(cd)
-      Seq(C.Var(C.Id("extra"), C.Primitive(Int8Type)))
-    } else cd.fields.map(rec(_))
+      Seq((C.Var(C.Id("extra"), C.Primitive(Int8Type)), Seq.empty[DeclarationMode]))
+    }
+    else cd.fields.map { case (vd, modes) => (rec(vd), modes) }
 
     C.Struct(rec(cd.id), fields, cd.isExported, cd.isPacked)
   }
@@ -556,7 +563,11 @@ private class IR2CImpl()(implicit val ctx: inox.Context) {
     val data = C.Var(Array.data, C.Pointer(base))
     val id = C.Id(repId(arrayType))
 
-    val array = C.Struct(id, data :: length :: Nil, false, false)
+    val array = C.Struct(id,
+      (data, Seq.empty) ::
+      (length, Seq.empty) ::
+      Nil, false, false
+    )
 
     // This needs to get registered as a datatype as well
     register(array)
@@ -668,7 +679,7 @@ private class IR2CImpl()(implicit val ctx: inox.Context) {
       assert(lhs.getType == rhs.getType && ClassType(cd) == lhs.getType && cd.getDirectChildren.isEmpty)
 
       // Checks that all fields are equals
-      val subs = cd.fields map { case ValDef(field, typ, _) =>
+      val subs = cd.fields map { case (ValDef(field, typ, _), modes) =>
         assert(!typ.isReference)
         val accessL = FieldAccess(lhs, field)
         val accessR = FieldAccess(rhs, field)

@@ -29,7 +29,7 @@ final class StructInliner(val ctx: inox.Context) extends Transformer(RIR, SIR) w
   }
 
   override def rec(typ: Type)(implicit env: Env): to.Type = typ match {
-    case ClassType(SimplifiableClassDef(cd)) => rec(cd.fields.head.typ)
+    case ClassType(SimplifiableClassDef(cd)) => rec(cd.fields.map(_._1).head.typ)
     case _ => super.rec(typ)
   }
 

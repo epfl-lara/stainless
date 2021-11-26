@@ -84,7 +84,7 @@ private[genc] sealed trait IR { ir =>
     def toVal = FunVal(this)
   }
 
-  case class ClassDef(id: Id, parent: Option[ClassDef], fields: Seq[ValDef], isAbstract: Boolean, isExported: Boolean, isPacked: Boolean) extends Def {
+  case class ClassDef(id: Id, parent: Option[ClassDef], fields: Seq[(ValDef, Seq[DeclarationMode])], isAbstract: Boolean, isExported: Boolean, isPacked: Boolean) extends Def {
     require(
       // Parent must be abstract if any
       (parent forall { _.isAbstract }) &&
@@ -118,10 +118,10 @@ private[genc] sealed trait IR { ir =>
 
     def getHierarchyLeaves: Set[ClassDef] = getFullHierarchy filter { !_.isAbstract }
 
-    def isHierarchyMutable: Boolean = getHierarchyLeaves exists { c => c.fields exists { _.isMutable } }
+    def isHierarchyMutable: Boolean = getHierarchyLeaves exists { c => c.fields exists { _._1.isMutable } }
 
     // Get the type of a given field
-    def getFieldType(fieldId: Id): Type = fields collectFirst { case ValDef(id, typ, _) if id == fieldId => typ } match {
+    def getFieldType(fieldId: Id): Type = fields collectFirst { case (ValDef(id, typ, _), _) if id == fieldId => typ } match {
       case Some(typ) => typ
       case None => sys.error(s"no such field $fieldId in class $id")
     }
@@ -372,7 +372,7 @@ private[genc] sealed trait IR { ir =>
       case FunType(_, _, _) => false
 
       // We do *NOT* answer this question for the whole class hierarchy!
-      case ClassType(clazz) => clazz.fields exists { _.getType.containsArray }
+      case ClassType(clazz) => clazz.fields exists { _._1.getType.containsArray }
 
       case ArrayType(_, _) => true
       case ReferenceType(t) => t.containsArray

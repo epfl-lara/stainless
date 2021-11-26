@@ -84,7 +84,7 @@ object CAST { // C Abstract Syntax Tree
 
   abstract class DataType extends Type {
     val id: Id
-    val fields: Seq[Var]
+    val fields: Seq[(Var, Seq[DeclarationMode])]
     val isExported: Boolean
   }
 
@@ -94,11 +94,11 @@ object CAST { // C Abstract Syntax Tree
 
   case class FunType(ret: Type, params: Seq[Type]) extends Type
 
-  case class Struct(id: Id, fields: Seq[Var], isExported: Boolean, isPacked: Boolean) extends DataType {
+  case class Struct(id: Id, fields: Seq[(Var, Seq[DeclarationMode])], isExported: Boolean, isPacked: Boolean) extends DataType {
     require(fields.nonEmpty, s"Fields of struct $id should be non empty")
   }
 
-  case class Union(id: Id, fields: Seq[Var], isExported: Boolean) extends DataType {
+  case class Union(id: Id, fields: Seq[(Var, Seq[DeclarationMode])], isExported: Boolean) extends DataType {
     require(fields.nonEmpty, s"Fields of union $id should be non empty")
   }
 
@@ -154,7 +154,7 @@ object CAST { // C Abstract Syntax Tree
 
   // Initialise one of the fields of the union
   case class UnionInit(union: Union, fieldId: Id, value: Expr) extends Expr {
-    require(union.fields exists { _.id == fieldId },
+    require(union.fields exists { case (vd, modes) => vd.id == fieldId },
       s"Field $fieldId must exist in union $union"
     )
     require(value.isValue,

@@ -20,6 +20,14 @@ class CPrinter(
 
   private def purity(isPure: Boolean): String = if (isPure) "STAINLESS_FUNC_PURE " else ""
 
+  private def wrap(t: Tree, modes: Seq[DeclarationMode]): WrapperTree = {
+    modes.foldLeft(TTree(t) : WrapperTree) {
+      case (acc, Static) => StaticStorage(acc)
+      case (acc, Volatile) => VolatileStorage(acc)
+      case (acc, _) => acc
+    }
+  }
+
   private[genc] def pp(tree: Tree)(implicit pctx: PrinterContext): Unit = tree match {
     case Prog(headerIncludes, cIncludes, decls, typeDefs0, enums0, types, functions0) =>
       // We need to convert Set to Seq in order to use nary.
@@ -77,13 +85,7 @@ class CPrinter(
               sep = "\n\n")
              }
             |${nary(
-              decls.filter(decl => !decl._2.contains(External) && !decl._2.contains(Define)).map { case (decl, modes) =>
-                modes.foldLeft(TTree(decl) : WrapperTree) {
-                  case (acc, Static) => StaticStorage(acc)
-                  case (acc, Volatile) => VolatileStorage(acc)
-                  case (acc, _) => acc
-                }
-              },
+              decls.filter(decl => !decl._2.contains(External) && !decl._2.contains(Define)).map { case (decl, modes) => wrap(decl, modes) },
               opening = separator("global variables"),
               closing = ";\n\n",
               sep = ";\n")
@@ -159,11 +161,7 @@ class CPrinter(
              }
             |${nary(
               decls.filter(decl => decl._2.contains(Export) && !decl._2.contains(Define)).map { case (decl, modes) =>
-                ExternDecl(modes.foldLeft(TTree(decl.copy(optValue = None)) : WrapperTree) {
-                  case (acc, Static) => StaticStorage(acc)
-                  case (acc, Volatile) => VolatileStorage(acc)
-                  case (acc, _) => acc
-                }) : WrapperTree
+                ExternDecl(wrap(decl.copy(optValue = None), modes)): WrapperTree
               },
               opening = separator("global variables"),
               closing = ";\n\n",
@@ -266,7 +264,7 @@ class CPrinter(
 
     case StructInit(struct, values) =>
       val args = struct.fields zip values
-      c"(${struct.id}) { ${nary(args map { case (Var(id, _), arg) => FieldInit(id, arg) }, sep = ", ")} }"
+      c"(${struct.id}) { ${nary(args map { case ((Var(id, _), _), arg) => FieldInit(id, arg) }, sep = ", ")} }"
 
     case UnionInit(union, fieldId, value) =>
       c"(${union.id}) { ${FieldInit(fieldId, value)} }"
@@ -365,19 +363,19 @@ class CPrinter(
 
     case DataTypeDecl(u: Union) =>
       c"""|typedef union {
-          |  ${nary(u.fields, sep = ";\n", closing = ";")}
+          |  ${nary(u.fields.map { case (decl, modes) => wrap(decl, modes) }, sep = ";\n", closing = ";")}
           |} ${u.id};"""
 
     case DataTypeDecl(s: Struct) if s.isPacked =>
       c"""|#pragma pack(1)
           |typedef struct {
-          |  ${nary(s.fields, sep = ";\n", closing = ";")}
+          |  ${nary(s.fields.map { case (decl, modes) => wrap(decl, modes) }, sep = ";\n", closing = ";")}
           |} ${s.id};
           |#pragma pack()"""
 
     case DataTypeDecl(s: Struct) =>
       c"""|typedef struct {
-          |  ${nary(s.fields, sep = ";\n", closing = ";")}
+          |  ${nary(s.fields.map { case (decl, modes) => wrap(decl, modes) }, sep = ";\n", closing = ";")}
           |} ${s.id};"""
 
     case FieldInit(id, value) => c".$id = $value"

@@ -175,7 +175,7 @@ final class Referentiator(val ctx: inox.Context) extends Transformer(LIR, RIR) {
 
     case Construct(cd0, args0) =>
       val cd = rec(cd0)
-      val args = refMatch(cd.fields)(args0 map rec)
+      val args = refMatch(cd.fields.map(_._1))(args0 map rec)
 
       to.Construct(cd, args) -> env
 

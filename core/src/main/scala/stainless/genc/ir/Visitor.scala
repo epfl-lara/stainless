@@ -58,7 +58,7 @@ abstract class Visitor[S <: IR](final val ir: S) {
 
   private def rec(cd: ClassDef): Unit = {
     def impl(cd: ClassDef): Unit = {
-      cd.fields foreach rec
+      cd.fields.foreach { case (vd, modes) => rec(vd) }
       visit(cd)
     }
 

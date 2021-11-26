@@ -103,7 +103,10 @@ abstract class Transformer[From <: IR, To <: IR](final val from: From, final val
   }
 
   protected def recImpl(cd: ClassDef, parent: Option[to.ClassDef])(implicit env: Env): to.ClassDef =
-    to.ClassDef(cd.id, parent, cd.fields map rec, cd.isAbstract, cd.isExported, cd.isPacked)
+    to.ClassDef(cd.id, parent,
+      cd.fields.map { case (vd,modes) => (rec(vd), modes) },
+      cd.isAbstract, cd.isExported, cd.isPacked
+    )
 
   protected def rec(vd: ValDef)(implicit env: Env): to.ValDef = to.ValDef(vd.id, rec(vd.typ), vd.isVar)
 
