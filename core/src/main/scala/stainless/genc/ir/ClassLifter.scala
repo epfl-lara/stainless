@@ -52,7 +52,7 @@ final class ClassLifter(val ctx: inox.Context) extends Transformer(NIR, LIR) {
     val valFieldsToRegister = MutableSet[(Id, to.ClassType)]()
     val arrayFieldsToRegister = MutableSet[(Id, to.ClassType)]() // for the element of the arrays
 
-    val fields = cd0.fields map { vd0 => // This is similar to lift(ValDef) but here we need to defer the registration
+    val fields = cd0.fields map { case (vd0, modes) => // This is similar to lift(ValDef) but here we need to defer the registration
       val vd = rec(vd0)(using lift)
 
       // "Pre"-register fields if class type or array type was lifted
@@ -67,7 +67,7 @@ final class ClassLifter(val ctx: inox.Context) extends Transformer(NIR, LIR) {
         case _ => ()
       }
 
-      vd
+      (vd, modes)
     }
 
     val cd = to.ClassDef(id, parent, fields, isAbstract, cd0.isExported, cd0.isPacked)

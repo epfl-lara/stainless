@@ -95,7 +95,7 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
     case Construct(cd0, args0) =>
       val cd = rec(cd0)
       val (preArgs, args) = flattenArgs(allowTopLevelApp = true, args0.zip(cd0.fields).map {
-        case (e, vd) => (e, vd.typ.isFixedArray)
+        case (e, vd) => (e, vd._1.typ.isFixedArray)
       })
       val ctor = to.Construct(cd, args)
 

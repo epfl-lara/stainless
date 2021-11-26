@@ -64,7 +64,7 @@ final class IRPrinter[S <: IR](val ir: S) {
 
   private def rec(cd: ClassDef)(using Context): String = {
     val pre = if (cd.isAbstract) "abstract " else ""
-    val fields = cd.fields map rec mkString ", "
+    val fields = cd.fields.map(_._1).map(rec).mkString(", ")
     val parent = if (cd.parent.isDefined) " extends " + cd.parent.get.id else ""
 
     pre + "class " + cd.id + "(" + fields + ")" + parent

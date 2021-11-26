@@ -292,7 +292,7 @@ private class S2IRImpl(override val s: tt.type,
   private def tuple2Class(typ: Type)(using TypeMapping): CIR.ClassDef = typ match {
     case TupleType(bases) =>
       val types = bases map rec
-      val fields = types.zipWithIndex map { case (typ, i) => CIR.ValDef("_" + (i+1), typ, isVar = false) }
+      val fields = types.zipWithIndex map { case (typ, i) => (CIR.ValDef("_" + (i+1), typ, isVar = false), Seq.empty) }
       val id = "Tuple" + buildIdPostfix(bases)
       CIR.ClassDef(id, None, fields, isAbstract = false, isExported = false, isPacked = false)
 
@@ -637,9 +637,9 @@ private class S2IRImpl(override val s: tt.type,
 
       val fields = tcd.fields.map(vd => vd.tpe match {
         case ArrayType(base) if arrayLengthsMap.contains(vd.id) =>
-          CIR.ValDef(rec(vd.id, withUnique = mangling), CIR.ArrayType(rec(base), Some(arrayLengthsMap(vd.id))), vd.flags.contains(IsVar))
+          (CIR.ValDef(rec(vd.id, withUnique = mangling), CIR.ArrayType(rec(base), Some(arrayLengthsMap(vd.id))), vd.flags.contains(IsVar)), flagsToModes(vd.flags))
         case typ =>
-          CIR.ValDef(rec(vd.id, withUnique = mangling), rec(typ), vd.flags.contains(IsVar))
+          (CIR.ValDef(rec(vd.id, withUnique = mangling), rec(typ), vd.flags.contains(IsVar)), flagsToModes(vd.flags))
       })
 
       val clazz = CIR.ClassDef(id, parent, fields, cd.isAbstract, cd.isExported, cd.isPacked)
@@ -657,20 +657,20 @@ private class S2IRImpl(override val s: tt.type,
               s"We found ${paramInits.length} initializations instead of ${fields.length}."
             )
           }
-          for (((field, paramInit), vd) <- fields.zip(paramInits).zip(tcd.fields)) {
+          for ((((field, modes), paramInit), vd) <- fields.zip(paramInits).zip(tcd.fields)) {
             given emptyEnv: Env = Env(Map(), Map(), false)
-            val decl = (CIR.Decl(field, Some(rec(paramInit.fullBody))), flagsToModes(vd.flags))
+            val decl = (CIR.Decl(field, Some(rec(paramInit.fullBody))), modes)
             if (declResults.map(_._1.vd).contains(field)) {
               reporter.fatalError(cd.getPos, s"Global variable ${field.id} is defined twice")
             }
             declResults.append(decl)
           }
         } else if (cd.isGlobalUninitialized) {
-          for ((field, vd) <- fields.zip(tcd.fields)) {
-            declResults.append((CIR.Decl(field, None), flagsToModes(vd.flags)))
+          for (((field, modes), vd) <- fields.zip(tcd.fields)) {
+            declResults.append((CIR.Decl(field, None), modes))
           }
         } else if (cd.isGlobalExternal) {
-          for (field <- fields) declResults.append((CIR.Decl(field, None), Seq(External)))
+          for ((field, _) <- fields) declResults.append((CIR.Decl(field, None), Seq(External)))
         }
         newAcc
       } else {
@@ -741,8 +741,8 @@ private class S2IRImpl(override val s: tt.type,
         case ct: ClassType if isGlobal(ct) =>
           val cd2 = rec(ct)
           val fieldId2 = rec(fieldId, withUnique = false)
-          val field2 = cd2.fields.find(_.id == fieldId2).get
-          val vd = CIR.ValDef(rec(fieldId, withUnique = false), field2.typ, isVar = field2.isVar)
+          val field2 = cd2.fields.find(_._1.id == fieldId2).get
+          val vd = CIR.ValDef(rec(fieldId, withUnique = false), field2._1.typ, isVar = field2._1.isVar)
           CIR.Assign(CIR.Binding(vd), rec(expr))
 
         case ct: ClassType =>
@@ -840,8 +840,8 @@ private class S2IRImpl(override val s: tt.type,
       if (isGlobal(ct)) {
         val cd2 = rec(ct)
         val fieldId2 = rec(fieldId, withUnique = false)
-        val field2 = cd2.fields.find(_.id == fieldId2).get
-        val vd = CIR.ValDef(rec(fieldId, withUnique = false), field2.typ, isVar = field2.isVar)
+        val field2 = cd2.fields.find(_._1.id == fieldId2).get
+        val vd = CIR.ValDef(rec(fieldId, withUnique = false), field2._1.typ, isVar = field2._1.isVar)
         CIR.Binding(vd)
       } else {
         CIR.FieldAccess(rec(obj), rec(fieldId, withUnique = !cd.isExported && !cd.isManuallyTyped && !cd.noMangling))
