@@ -84,7 +84,7 @@ private class S2IRImpl(override val s: tt.type,
     checkGlobalUsage()
 
     // Start the transformation from `@cCode.export` (and `@cCode.global`) functions and classes
-    for (fd <- symbols.functions.values if fd.isExported) {
+    for (fd <- symbols.functions.values if fd.isExported || fd.flags.exists(_.name == "cCode.define")) {
       if (fd.isVal)
         registerVal(fd)
       else
