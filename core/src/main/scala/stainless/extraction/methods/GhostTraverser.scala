@@ -25,4 +25,3 @@ trait GhostTraverser extends imperative.GhostTraverser {
     case _ => super.traverse(e, ctx)
   }
 }
-

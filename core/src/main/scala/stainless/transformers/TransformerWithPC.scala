@@ -5,7 +5,8 @@ package transformers
 
 trait TransformerWithPC extends inox.transformers.TransformerWithPC with Transformer {
   val symbols: s.Symbols
-  implicit val pp: s.PathProvider[Env]
+  val pp: s.PathProvider[Env]
+  given givenPP: pp.type = pp
 
   override def transform(e: s.Expr, env: Env): t.Expr = e match {
     case s.Ensuring(req @ s.Require(pre, body), l @ s.Lambda(Seq(vd), post)) =>

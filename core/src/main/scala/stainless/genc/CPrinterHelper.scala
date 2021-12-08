@@ -15,12 +15,12 @@ case class PrinterContext(
 )
 
 object CPrinterHelpers {
-  implicit class Printable(val f: PrinterContext => Any) extends AnyVal {
-    def print(ctx: PrinterContext) = f(ctx)
+  class Printable(val f: PrinterContext ?=> Any) {
+    def print(ctx: PrinterContext) = f(using ctx)
   }
 
   implicit class PrinterHelper(val sc: StringContext) extends AnyVal {
-    def c(args: Any*)(implicit ctx: PrinterContext): Unit = {
+    def c(args: Any*)(using ctx: PrinterContext): Unit = {
       val printer = ctx.printer
       val sb = printer.sb
 
@@ -61,10 +61,10 @@ object CPrinterHelpers {
 
             case t: Tree =>
               val nctx2 = nctx.copy(current = t, previous = Some(nctx.current))
-              printer.pp(t)(nctx2)
+              printer.pp(t)(using nctx2)
 
             case wt: WrapperTree =>
-              printer.pp(wt)(nctx)
+              printer.pp(wt)(using nctx)
 
             case p: Printable =>
               p.print(nctx)
@@ -77,12 +77,10 @@ object CPrinterHelpers {
     }
   }
 
-  def nary(ls: Seq[Any], sep: String = ", ", opening: String = "", closing: String = ""): Printable = {
+  def nary(ls: Seq[Any], sep: String = ", ", opening: String = "", closing: String = ""): Printable = Printable {
     val (o, c) = if (ls.isEmpty) ("", "") else (opening, closing)
     val strs = o +: List.fill(ls.size-1)(sep) :+ c
-
-    implicit pctx: PrinterContext =>
-      new StringContext(strs: _*).c(ls: _*)
+    new StringContext(strs: _*).c(ls: _*)
   }
 
 }

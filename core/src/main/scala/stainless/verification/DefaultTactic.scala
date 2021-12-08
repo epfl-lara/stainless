@@ -6,10 +6,10 @@ package verification
 trait DefaultTactic extends Tactic {
   val description = "Default verification condition generation approach"
 
-  import context._
+  import context.{given, _}
   import program._
   import program.trees._
-  import program.symbols._
+  import program.symbols.{given, _}
 
   protected def getPostconditions(e: Expr, lambda: Lambda): Seq[Expr] = {
     def rec(e: Expr, path: Path): Seq[Expr] = e match {

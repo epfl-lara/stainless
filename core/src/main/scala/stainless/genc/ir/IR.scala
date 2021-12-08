@@ -32,7 +32,7 @@ private[genc] sealed trait IR { ir =>
   sealed abstract class Tree {
     override def toString: String = prettyString(0)
 
-    def prettyString(indent: Int): String = printer(this)(printer.Context(indent))
+    def prettyString(indent: Int): String = printer(this)(using printer.Context(indent))
   }
 
 
@@ -48,7 +48,7 @@ private[genc] sealed trait IR { ir =>
   ) {
     override def toString: String = printer(this)
 
-    def size(implicit ctx: inox.Context): Int = {
+    def size(using inox.Context): Int = {
       var result = 0
       new Visitor[ir.type](ir) {
         private val classCache = MutableSet[ClassDef]()
@@ -439,7 +439,7 @@ private[genc] sealed trait IR { ir =>
   case class ReferenceType(t: Type) extends Type
 
   // For @cCode.typedef
-  case class TypeDefType(original: Id, alias: Id, include: Option[String], export: Boolean) extends Type
+  case class TypeDefType(original: Id, alias: Id, include: Option[String], exprt: Boolean) extends Type
 
   // For @cCode.drop
   // TODO Drop them completely, and reject input program if one dropped type is actually used!
@@ -484,10 +484,10 @@ private[genc] sealed trait IR { ir =>
 }
 
 object IRs {
-  final object SIR extends IR
-  final object CIR extends IR
-  final object RIR extends IR
-  final object NIR extends IR
-  final object LIR extends IR
+  object SIR extends IR
+  object CIR extends IR
+  object RIR extends IR
+  object NIR extends IR
+  object LIR extends IR
 }
 

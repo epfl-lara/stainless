@@ -16,8 +16,8 @@ trait ExtractionCaches { self: ExtractionContext =>
 
   /** A super type for all cache key generators.
     * This typeclass is used for instantiating extraction caches by key type. */
-  protected abstract class Keyable[T] { 
-    def apply(key: T): CacheKey 
+  protected abstract class Keyable[T] {
+    def apply(key: T): CacheKey
   }
 
 
@@ -45,8 +45,8 @@ trait ExtractionCaches { self: ExtractionContext =>
     override def toString: String = s"FunctionKey(${fd.id.asString})"
   }
 
-  protected implicit object FunctionKey extends Keyable[s.FunDef] {
-    def apply(id: Identifier)(implicit symbols: s.Symbols): CacheKey = apply(symbols.getFunction(id))
+  protected given FunctionKey: Keyable[s.FunDef] with {
+    def apply(id: Identifier)(using symbols: s.Symbols): CacheKey = apply(symbols.getFunction(id))
     def apply(fd: s.FunDef): CacheKey = new FunctionKey(fd)
   }
 
@@ -72,8 +72,8 @@ trait ExtractionCaches { self: ExtractionContext =>
     override def toString: String = s"SortKey(${sort.id.asString})"
   }
 
-  protected implicit object SortKey extends Keyable[s.ADTSort] {
-    def apply(id: Identifier)(implicit symbols: s.Symbols): CacheKey = apply(symbols.getSort(id))
+  protected given SortKey: Keyable[s.ADTSort] with {
+    def apply(id: Identifier)(using symbols: s.Symbols): CacheKey = apply(symbols.getSort(id))
     def apply(sort: s.ADTSort): CacheKey = new SortKey(sort)
   }
 
@@ -82,7 +82,7 @@ trait ExtractionCaches { self: ExtractionContext =>
     *
     * This is an override point for [[ExtractionCaches]] sub-classes where symbols
     * may contain different definitions (such as class definitions). */
-  protected def getSimpleKey(id: Identifier)(implicit symbols: s.Symbols): CacheKey =
+  protected def getSimpleKey(id: Identifier)(using symbols: s.Symbols): CacheKey =
     symbols.lookupFunction(id).map(FunctionKey(_))
       .orElse(symbols.lookupSort(id).map(SortKey(_)))
       .getOrElse(throw new RuntimeException(
@@ -90,7 +90,7 @@ trait ExtractionCaches { self: ExtractionContext =>
 
   /** Returns a [[CacheKey]] given some identifier and the symbols from which
     * it was taken (uses `symbols.dependencies` to compute the set of dependencies). */
-  protected def getDependencyKey(id: Identifier)(implicit symbols: s.Symbols): CacheKey =
+  protected def getDependencyKey(id: Identifier)(using symbols: s.Symbols): CacheKey =
     getSimpleKey(id) + SetKey(symbols.dependencies(id))
 
 
@@ -126,10 +126,10 @@ trait ExtractionCaches { self: ExtractionContext =>
 
   object SetKey {
     def apply(keys: Set[CacheKey]): SetKey = new SetKey(keys)
-    def apply(ids: Set[Identifier])(implicit syms: s.Symbols): SetKey =
+    def apply(ids: Set[Identifier])(using s.Symbols): SetKey =
       SetKey(ids.map(getSimpleKey))
     def apply[T: Keyable](elems: Set[T]): SetKey = {
-      val gen = implicitly[Keyable[T]]
+      val gen = summon[Keyable[T]]
       SetKey(elems.map(gen.apply))
     }
   }
@@ -176,9 +176,9 @@ trait ExtractionCaches { self: ExtractionContext =>
 
   /** A simple extraction cache that ignores the `TransformerContext` */
   protected final class SimpleCache[A: Keyable, B] extends ExtractionCache[A, B](
-    (a, _) => implicitly[Keyable[A]].apply(a)
+    (a, _) => summon[Keyable[A]].apply(a)
   ) {
-    val gen = implicitly[Keyable[A]]
+    val gen = summon[Keyable[A]]
     def cached(key: A)(builder: => B): B = cache.cached(gen(key))(builder)
     def contains(key: A): Boolean = cache contains gen(key)
     def update(key: A, value: B): Unit = cache.update(gen(key), value)

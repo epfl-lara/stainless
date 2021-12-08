@@ -63,27 +63,27 @@ trait SyntheticSorts extends ExtractionCaches { self: CachingPhase =>
       }
     }
 
-    private[this] def optionSort(implicit symbols: s.Symbols): inox.ast.Trees#ADTSort =
+    private[this] def optionSort(using symbols: s.Symbols): inox.ast.Trees#ADTSort =
       symbols.lookup.get[s.ADTSort]("stainless.internal.Option").getOrElse(syntheticOption)
 
-    def option(implicit symbols: s.Symbols): Identifier = optionSort.id
-    def some(implicit symbols: s.Symbols): Identifier = optionSort.constructors.find(_.fields.nonEmpty).get.id
-    def none(implicit symbols: s.Symbols): Identifier = optionSort.constructors.find(_.fields.isEmpty).get.id
+    def option(using s.Symbols): Identifier = optionSort.id
+    def some(using s.Symbols): Identifier = optionSort.constructors.find(_.fields.nonEmpty).get.id
+    def none(using s.Symbols): Identifier = optionSort.constructors.find(_.fields.isEmpty).get.id
 
-    def value(implicit symbols: s.Symbols): Identifier = optionSort.constructors.flatMap(_.fields).head.id
+    def value(using s.Symbols): Identifier = optionSort.constructors.flatMap(_.fields).head.id
 
-    def isEmpty(implicit symbols: s.Symbols): Identifier =
+    def isEmpty(using symbols: s.Symbols): Identifier =
       symbols.lookup.get[s.FunDef]("stainless.internal.Option.isEmpty").getOrElse(syntheticIsEmpty(symbols)).id
-    def get(implicit symbols: s.Symbols): Identifier =
+    def get(using symbols: s.Symbols): Identifier =
       symbols.lookup.get[s.FunDef]("stainless.internal.Option.get").getOrElse(syntheticGet(symbols)).id
 
-    def sorts(implicit symbols: s.Symbols): Seq[t.ADTSort] =
+    def sorts(using symbols: s.Symbols): Seq[t.ADTSort] =
       symbols.lookup.get[s.ADTSort]("stainless.internal.Option") match {
         case Some(_) => Seq()
         case None => Seq(syntheticOption)
       }
 
-    def functions(implicit symbols: s.Symbols): Seq[t.FunDef] =
+    def functions(using symbols: s.Symbols): Seq[t.FunDef] =
       (symbols.lookup.get[s.FunDef]("stainless.internal.Option.isEmpty") match {
         case Some(_) => Seq()
         case None => Seq(syntheticIsEmpty(symbols))
@@ -92,7 +92,7 @@ trait SyntheticSorts extends ExtractionCaches { self: CachingPhase =>
         case None => Seq(syntheticGet(symbols))
       })
 
-    def key(implicit symbols: s.Symbols): CacheKey = new SeqKey(
+    def key(using symbols: s.Symbols): CacheKey = new SeqKey(
       symbols.lookup.get[s.ADTSort]("stainless.internal.Option").map(SortKey(_)).toSeq ++
       symbols.lookup.get[s.FunDef]("stainless.internal.Option.isEmpty").map(FunctionKey(_)) ++
       symbols.lookup.get[s.FunDef]("stainless.internal.Option.get").map(FunctionKey(_))

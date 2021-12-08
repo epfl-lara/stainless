@@ -4,22 +4,20 @@ package stainless
 package extraction
 package inlining
 
-trait UnfoldOpaque extends CachingPhase with SimpleFunctions with IdentitySorts { self =>
-
-  implicit val context: inox.Context
-  val s: Trees
-  val t: Trees
+class UnfoldOpaque(override val s: Trees, override val t: Trees)
+                  (using override val context: inox.Context) extends CachingPhase with SimpleFunctions with IdentitySorts { self =>
 
   override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult]((fd, context) =>
-    getDependencyKey(fd.id)(context.symbols)
+    getDependencyKey(fd.id)(using context.symbols)
   )
 
-  protected class TransformerContext(val symbols: s.Symbols) extends inox.transformers.TreeTransformer {
-    override final val s: self.s.type = self.s
-    override final val t: self.t.type = self.t
+  protected class TransformerContext(override val s: self.s.type,
+                                     override val t: self.t.type,
+                                     val symbols: self.s.Symbols) extends inox.transformers.TreeTransformer {
+    def this(symbols: self.s.Symbols) = this(self.s, self.t, symbols)
 
     import s._
-    import symbols._
+    import symbols.{given, _}
 
     object UnfoldOpaque {
       def unapply(e: s.Expr): Option[s.FunctionInvocation] = e match {
@@ -52,12 +50,11 @@ trait UnfoldOpaque extends CachingPhase with SimpleFunctions with IdentitySorts 
 }
 
 object UnfoldOpaque {
-  def apply(it: inlining.Trees)(implicit ctx: inox.Context): ExtractionPipeline {
+  def apply(it: inlining.Trees)(using inox.Context): ExtractionPipeline {
     val s: it.type
     val t: it.type
-  } = new UnfoldOpaque {
-    override val context = ctx
-    override val s: it.type = it
-    override val t: it.type = it
+  } = {
+    class Impl(override val s: it.type, override val t: it.type) extends UnfoldOpaque(s, t)
+    new Impl(it, it)
   }
 }

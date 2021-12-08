@@ -10,7 +10,8 @@ trait CallGraph extends ast.CallGraph {
   protected val trees: methods.Trees
   import trees._
 
-  protected class FunctionCollector extends super.FunctionCollector with SelfTreeTraverser {
+  protected class MethodsFunctionCollector extends ConcreteStainlessFunctionCollector with OOSelfTreeTraverser {
+
     override def traverse(e: Expr): Unit = e match {
       case MethodInvocation(_, id, _, _) =>
         register(id)
@@ -20,13 +21,14 @@ trait CallGraph extends ast.CallGraph {
     }
   }
 
-  override protected def getFunctionCollector = new FunctionCollector
+  override protected def getFunctionCollector = new MethodsFunctionCollector
 }
 
 trait DependencyGraph extends oo.DependencyGraph with CallGraph {
   import trees._
+  import symbols.given
 
-  protected class ClassCollector extends super.ClassCollector with SelfTreeTraverser {
+  protected class MethodsClassCollector extends ClassCollector(trees) with OOSelfTreeTraverser {
     override def traverse(flag: Flag): Unit = flag match {
       case IsMethodOf(id) =>
         register(id)
@@ -47,7 +49,7 @@ trait DependencyGraph extends oo.DependencyGraph with CallGraph {
     }
   }
 
-  override protected def getClassCollector = new ClassCollector
+  override protected def getClassCollector: ClassCollector = new MethodsClassCollector
 
   // Add an edge between a node `n` and an override `oid` of a function `fd` if
   // `n` has transitive edges to `fd` and transitive edges to `cid`, the class of `oid`
@@ -69,9 +71,9 @@ trait DependencyGraph extends oo.DependencyGraph with CallGraph {
   }
 
   private def laws(cd: ClassDef): Set[Identifier] = {
-    (cd +: cd.ancestors(symbols).map(_.cd)).reverse.foldLeft(Map[Symbol, Identifier]()) {
+    (cd +: cd.ancestors.map(_.cd)).reverse.foldLeft(Map[Symbol, Identifier]()) {
       case (laws, cd) =>
-        val methods = cd.methods(symbols)
+        val methods = cd.methods
         val newLaws = methods
           .filter(id => symbols.getFunction(id).flags.exists(_.name == "law"))
           .map(id => id.symbol -> id)
@@ -87,8 +89,8 @@ trait DependencyGraph extends oo.DependencyGraph with CallGraph {
     (fd.flags.collectFirst { case IsMethodOf(cid) => cid }) match {
       case None => Set.empty
       case Some(cid) =>
-        def rec(cd: ClassDef): Set[Identifier] = cd.children(symbols).flatMap {
-          cd => cd.methods(symbols).find(_.symbol == symbol) match {
+        def rec(cd: ClassDef): Set[Identifier] = cd.children(using symbols).flatMap {
+          cd => cd.methods.find(_.symbol == symbol) match {
             case Some(id) => Set(id: Identifier)
             case None => rec(cd)
           }
@@ -102,14 +104,14 @@ trait DependencyGraph extends oo.DependencyGraph with CallGraph {
     var g = super.computeDependencyGraph
 
     for (cd <- symbols.classes.values) {
-      cd.invariant(symbols) foreach { inv => g += SimpleEdge(cd.id, inv.id) }
+      cd.invariant foreach { inv => g += SimpleEdge(cd.id, inv.id) }
       symbols.paramInits(cd.id) foreach { paramInit => g += SimpleEdge(cd.id, paramInit.id) }
 
       if (!(cd.flags contains IsAbstract)) {
         laws(cd) foreach { law => g += SimpleEdge(law, cd.id) }
       }
 
-      for (fid <- cd.methods(symbols) if symbols.getFunction(fid).isAccessor) {
+      for (fid <- cd.methods if symbols.getFunction(fid).isAccessor) {
         g += SimpleEdge(cd.id, fid)
       }
     }

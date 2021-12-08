@@ -5,9 +5,8 @@ import scala.concurrent.ExecutionContext
 import java.util.concurrent.Executors
 import java.io.PrintWriter
 import java.io.StringWriter
-
 import inox.transformers._
-import inox.utils.{Position, NoPosition}
+import inox.utils.{NoPosition, Position}
 
 package object stainless {
 
@@ -19,10 +18,10 @@ package object stainless {
   }
 
   object optWatch extends inox.FlagOptionDef("watch", false)
-  def isWatchModeOn(implicit ctx: inox.Context) = ctx.options.findOptionOrDefault(optWatch)
+  def isWatchModeOn(using ctx: inox.Context) = ctx.options.findOptionOrDefault(optWatch)
 
   object optCompact extends inox.FlagOptionDef("compact", false)
-  def isCompactModeOn(implicit ctx: inox.Context) = ctx.options.findOptionOrDefault(optCompact)
+  def isCompactModeOn(using ctx: inox.Context) = ctx.options.findOptionOrDefault(optCompact)
 
   type Program = inox.Program { val trees: ast.Trees }
 
@@ -32,14 +31,14 @@ package object stainless {
   type Identifier = inox.Identifier
   val FreshIdentifier = inox.FreshIdentifier
 
-  implicit final class IdentifierFromSymbol(id: Identifier) {
+  extension (id: Identifier) {
     def fullName: String = id match {
       case ast.SymbolIdentifier(name) => name
       case _ => id.name
     }
   }
 
-  implicit final class PositioningWrapper[T <: inox.ast.Trees#Tree](tree: T) {
+  extension [T <: inox.ast.Trees#Tree](tree: T) {
     def ensurePos(pos: Position): T = if (tree.getPos != NoPosition) tree else tree.setPos(pos)
   }
 
@@ -47,12 +46,18 @@ package object stainless {
     case class Symbols(
       functions: Map[Identifier, FunDef],
       sorts: Map[Identifier, ADTSort]
-    ) extends SimpleSymbols with AbstractSymbols
+    ) extends SimpleSymbols with StainlessAbstractSymbols {
+      override val symbols: this.type = this
+    }
+
+    override def mkSymbols(functions: Map[Identifier, FunDef], sorts: Map[Identifier, ADTSort]): Symbols = {
+      Symbols(functions, sorts)
+    }
 
     object printer extends ast.ScalaPrinter { val trees: stainless.trees.type = stainless.trees }
   }
 
-  implicit val stainlessSemantics: inox.SemanticsProvider { val trees: stainless.trees.type } =
+  val stainlessSemantics: inox.SemanticsProvider { val trees: stainless.trees.type } =
     new inox.SemanticsProvider {
       val trees: stainless.trees.type = stainless.trees
 
@@ -72,6 +77,7 @@ package object stainless {
         } = evaluators.Evaluator(self.program, ctx)
       }.asInstanceOf[p.Semantics] // @nv: unfortunately required here...
     }
+  given givenStainlessSemantics: stainlessSemantics.type = stainlessSemantics
 
   def encodingSemantics(ts: ast.Trees)
                        (transformer: TreeTransformer { val s: ts.type; val t: stainless.trees.type }):
@@ -85,21 +91,21 @@ package object stainless {
         val program: inox.Program { val trees: p.trees.type; val symbols: p.symbols.type } =
           p.asInstanceOf[inox.Program { val trees: p.trees.type; val symbols: p.symbols.type }]
 
-        private object encoder extends {
-          val sourceProgram: self.program.type = self.program
-          val t: stainless.trees.type = stainless.trees
-        } with ProgramEncoder {
-          val encoder = transformer
-          object decoder extends transformers.TreeTransformer {
-            val s: stainless.trees.type = stainless.trees
-            val t: trees.type = trees
-          }
-        }
+        class DecoderImpl(override val s: stainless.trees.type,
+                          override val t: trees.type) extends transformers.ConcreteTreeTransformer(s, t)
+        val decoderImpl = new DecoderImpl(stainless.trees, trees)
+
+        class ProgramEncoderImpl(override val sourceProgram: self.program.type,
+                                 override val t: stainless.trees.type,
+                                 override val encoder: transformer.type,
+                                 override val decoder: decoderImpl.type)
+          extends ProgramEncoder(t, sourceProgram, encoder, decoder)()
+        val encoder = new ProgramEncoderImpl(self.program, stainless.trees, transformer, decoderImpl)
 
         protected def createSolver(ctx: inox.Context): inox.solvers.SolverFactory {
           val program: self.program.type
           type S <: inox.solvers.combinators.TimeoutSolver { val program: self.program.type }
-        } = solvers.SolverFactory.getFromSettings(self.program, ctx)(encoder)(self.asInstanceOf[self.program.Semantics])
+        } = solvers.SolverFactory.getFromSettings(self.program, ctx)(encoder)(using self.asInstanceOf[self.program.Semantics])
 
         protected def createEvaluator(ctx: inox.Context): inox.evaluators.DeterministicEvaluator {
           val program: self.program.type
@@ -108,7 +114,7 @@ package object stainless {
     }
   }
 
-  def topLevelErrorHandler(e: Throwable)(implicit ctx: inox.Context): Nothing = {
+  def topLevelErrorHandler(e: Throwable)(using ctx: inox.Context): Nothing = {
     val debugStack = ctx.reporter.debugSections.contains(frontend.DebugSectionStack)
     val isMalformedError =
       e match {
@@ -131,7 +137,7 @@ package object stainless {
       "If the crash is caused by Stainless, you may report your issue on https://github.com/epfl-lara/stainless/issues")
 
     if (debugStack)
-      ctx.reporter.debug(sw.toString)(frontend.DebugSectionStack)
+      ctx.reporter.debug(sw.toString)(using frontend.DebugSectionStack)
     else
       ctx.reporter.error("You may use --debug=stack to have the stack trace displayed in the output.")
 
@@ -160,7 +166,7 @@ package object stainless {
   lazy val multiThreadedExecutionContext: ExecutionContext =
     ExecutionContext.fromExecutor(multiThreadedExecutor)
 
-  implicit def executionContext(implicit ctx: inox.Context): ExecutionContext =
+  implicit def executionContext(using ctx: inox.Context): ExecutionContext =
     if (useParallelism && ctx.reporter.debugSections.isEmpty) multiThreadedExecutionContext
     else currentThreadExecutionContext
 

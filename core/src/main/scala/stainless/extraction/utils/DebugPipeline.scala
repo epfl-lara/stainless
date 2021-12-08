@@ -52,9 +52,9 @@ trait DebugSymbols extends PositionChecker { self =>
   lazy val debugSizes: Boolean = isEnabled && context.reporter.debugSections.contains(DebugSectionSizes)
 
   def debug[A](run: s.Symbols => t.Symbols)(symbols: s.Symbols): t.Symbols = {
-    implicit val debugSection = DebugSectionTrees
+    given DebugSectionTrees.type = DebugSectionTrees
     val sPrinterOpts = s.PrinterOptions.fromSymbols(symbols, context)
-    val symbolsToPrint = if (debugTrees) symbols.debugString(filterObjects)(sPrinterOpts) else ""
+    val symbolsToPrint = if (debugTrees) symbols.debugString(filterObjects)(using sPrinterOpts) else ""
 
     if (!symbolsToPrint.isEmpty) {
       context.reporter.debug(s"\n\n\n\nSymbols before $name\n")
@@ -64,7 +64,7 @@ trait DebugSymbols extends PositionChecker { self =>
     val res = run(symbols)
     val tPrinterOpts = t.PrinterOptions.fromSymbols(res, context)
 
-    val resToPrint = if (debugTrees) res.debugString(filterObjects)(tPrinterOpts) else ""
+    val resToPrint = if (debugTrees) res.debugString(filterObjects)(using tPrinterOpts) else ""
     if (!symbolsToPrint.isEmpty || !resToPrint.isEmpty) {
       if (resToPrint != symbolsToPrint) {
         context.reporter.debug(s"\n\nSymbols after $name\n")
@@ -82,11 +82,11 @@ trait DebugSymbols extends PositionChecker { self =>
         res.ensureWellFormed
       } catch {
         case e: res.TypeErrorException =>
-          context.reporter.debug(e)(frontend.DebugSectionStack)
+          context.reporter.debug(e)(using frontend.DebugSectionStack)
           context.reporter.error(e.pos, e.getMessage)
           context.reporter.fatalError(s"Well-formedness check failed after phase $name")
         case e @ xlang.trees.NotWellFormedException(defn, _) =>
-          context.reporter.debug(e)(frontend.DebugSectionStack)
+          context.reporter.debug(e)(using frontend.DebugSectionStack)
           context.reporter.error(defn.getPos, e.getMessage)
           context.reporter.fatalError(s"Well-formedness check failed after phase $name")
       }
@@ -99,10 +99,10 @@ trait DebugSymbols extends PositionChecker { self =>
     }
 
     if (debugSizes) {
-      val lines = res.asString(tPrinterOpts).count(_ == '\n') + 1
+      val lines = res.asString(using tPrinterOpts).count(_ == '\n') + 1
       val size = res.astSize
-      context.reporter.debug(s"Total number of lines after phase $name: $lines")(DebugSectionSizes)
-      context.reporter.debug(s"Total number of AST nodes after phase $name: $size")(DebugSectionSizes)
+      context.reporter.debug(s"Total number of lines after phase $name: $lines")(using DebugSectionSizes)
+      context.reporter.debug(s"Total number of AST nodes after phase $name: $size")(using DebugSectionSizes)
     }
 
     res
@@ -121,13 +121,12 @@ trait DebugSymbols extends PositionChecker { self =>
   }
 }
 
-trait DebugPipeline extends ExtractionPipeline with DebugSymbols { self =>
-  val name: String
-  val underlying: ExtractionPipeline
+class DebugPipeline private(override val name: String, override val context: inox.Context, val underlying: ExtractionPipeline)
+                           (override val s: underlying.s.type, override val t: underlying.t.type)
+  extends ExtractionPipeline with DebugSymbols { self =>
 
-  override val s: underlying.s.type = underlying.s
-  override val t: underlying.t.type = underlying.t
-  override val context = underlying.context
+  def this(name: String, underlying: ExtractionPipeline) =
+    this(name, underlying.context, underlying)(underlying.s, underlying.t)
 
   override def invalidate(id: Identifier) = underlying.invalidate(id)
 
@@ -139,11 +138,13 @@ trait DebugPipeline extends ExtractionPipeline with DebugSymbols { self =>
 }
 
 object DebugPipeline {
-  def apply(nme: String, pipeline: ExtractionPipeline): ExtractionPipeline {
-    val s: pipeline.s.type
-    val t: pipeline.t.type
-  } = new {
-    override val underlying: pipeline.type = pipeline
-    override val name: String = nme
-  } with DebugPipeline
+  def apply(nme: String, pipln: ExtractionPipeline): ExtractionPipeline {
+    val s: pipln.s.type
+    val t: pipln.t.type
+  } = {
+    class Impl(override val underlying: pipln.type)
+              (override val s: underlying.s.type,
+               override val t: underlying.t.type) extends DebugPipeline(nme, underlying)
+    new Impl(pipln)(pipln.s, pipln.t)
+  }
 }

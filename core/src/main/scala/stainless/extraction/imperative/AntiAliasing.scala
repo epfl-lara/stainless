@@ -8,7 +8,7 @@ import inox.FatalError
 
 import scala.util.Try
 
-trait AntiAliasing
+class AntiAliasing(override val s: Trees)(override val t: s.type)(using override val context: inox.Context)
   extends oo.CachingPhase
      with SimpleSorts
      with oo.IdentityTypeDefs
@@ -22,26 +22,26 @@ trait AntiAliasing
   // Function rewriting depends on the effects analysis which relies on all dependencies
   // of the function, so we use a dependency cache here.
   override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult]((fd, context) =>
-    getDependencyKey(fd.id)(context.symbols)
+    getDependencyKey(fd.id)(using context.symbols)
   )
 
   // Function types are rewritten by the transformer depending on the result of the
   // effects analysis, so we again use a dependency cache here.
   override protected final val sortCache = new ExtractionCache[s.ADTSort, SortResult]((sort, context) =>
-    getDependencyKey(sort.id)(context.symbols)
+    getDependencyKey(sort.id)(using context.symbols)
   )
 
   // Function types are rewritten by the transformer depending on the result of the
   // effects analysis, so we again use a dependency cache here.
   override protected final val classCache = new ExtractionCache[s.ClassDef, ClassResult]((cd, context) =>
-    getDependencyKey(cd.id)(context.symbols)
+    getDependencyKey(cd.id)(using context.symbols)
   )
 
   override protected type FunctionResult = Option[FunDef]
   override protected def registerFunctions(symbols: t.Symbols, functions: Seq[Option[t.FunDef]]): t.Symbols =
     symbols.withFunctions(functions.flatten)
 
-  protected case class SymbolsAnalysis(symbols: Symbols) extends EffectsAnalysis {
+  protected case class SymbolsAnalysis()(using override val symbols: Symbols) extends EffectsAnalysis {
     import symbols._
 
     // Convert a function type with mutable parameters, into a function type
@@ -55,7 +55,7 @@ trait AntiAliasing
         pt.copy(to = tupleTypeWrap(to +: params.map(_.tpe).filter(isMutableType(_))).copiedFrom(to)).copiedFrom(tpe)
     }
 
-    object transformer extends SelfTreeTransformer {
+    object transformer extends ConcreteOOSelfTreeTransformer {
 
       // XXX: since ApplyLetRec stores the type of the corresponding function,
       //      we have to make sure to NOT make that first-class function type explicit!!
@@ -80,10 +80,10 @@ trait AntiAliasing
   }
 
   override protected type TransformerContext = SymbolsAnalysis
-  override protected def getContext(symbols: Symbols) = SymbolsAnalysis(symbols)
+  override protected def getContext(symbols: Symbols) = SymbolsAnalysis()(using symbols)
 
   override protected def extractFunction(analysis: SymbolsAnalysis, fd: FunDef): Option[FunDef] = {
-    import analysis._
+    import analysis.{given, _}
     import symbols._
 
     checkGhost(fd)(analysis)
@@ -95,8 +95,10 @@ trait AntiAliasing
     }
 
     type Environment = (Set[ValDef], Map[ValDef, Expr], Map[Identifier, LocalFunDef])
-    implicit class EnvWrapper(env: Environment) {
-      val (bindings, rewritings, locals) = env
+    extension (env: Environment) {
+      def bindings: Set[ValDef] = env._1
+      def rewritings: Map[ValDef, Expr] = env._2
+      def locals: Map[Identifier, LocalFunDef] = env._3
       def withBinding(vd: ValDef): Environment = (bindings + vd, rewritings, locals)
       def withBindings(vds: Iterable[ValDef]): Environment = (bindings ++ vds, rewritings, locals)
       def withRewritings(map: Map[ValDef, Expr]): Environment = (bindings, rewritings ++ map, locals)
@@ -168,10 +170,8 @@ trait AntiAliasing
       env: Environment,
       freshLocals: Seq[Variable]
     ): Expr = {
-
-      object transformer extends inox.transformers.Transformer {
-        override val s: self.s.type = self.s
-        override val t: self.t.type = self.t
+      class TransformerImpl(override val s: self.s.type, override val t: self.t.type)
+        extends inox.transformers.Transformer {
         override type Env = Environment
 
         def select(pos: inox.utils.Position, tpe: Type, expr: Expr, path: Seq[Accessor]): (Expr, Expr) = (tpe, path) match {
@@ -547,6 +547,7 @@ trait AntiAliasing
         }).copiedFrom(e)
       }
 
+      val transformer = new TransformerImpl(self.s, self.t)
       transformer.transform(body, env)
     }
 
@@ -647,12 +648,11 @@ trait AntiAliasing
 }
 
 object AntiAliasing {
-  def apply(trees: Trees)(implicit ctx: inox.Context): ExtractionPipeline {
+  def apply(trees: Trees)(using inox.Context): ExtractionPipeline {
     val s: trees.type
     val t: trees.type
-  } = new AntiAliasing {
-    override val s: trees.type = trees
-    override val t: trees.type = trees
-    override val context = ctx
+  } = {
+    class Impl(override val s: trees.type, override val t: trees.type) extends AntiAliasing(s)(t)
+    new Impl(trees, trees)
   }
 }

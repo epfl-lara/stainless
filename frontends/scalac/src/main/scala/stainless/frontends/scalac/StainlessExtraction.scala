@@ -15,7 +15,8 @@ trait StainlessExtraction extends SubComponent with CodeExtraction with Fragment
 
   val phaseName = "stainless"
 
-  implicit val ctx: inox.Context
+  val ctx: inox.Context
+  import ctx.given
   protected val callback: CallBack
 
   def newPhase(prev: nsc.Phase): StdPhase = new Phase(prev)

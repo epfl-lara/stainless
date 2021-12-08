@@ -12,7 +12,7 @@ trait Types extends methods.Trees { self: Trees =>
     tps: Seq[Type],
     ancestors: Seq[Type]
   ) extends Type {
-    def toClassTypeAbs(implicit syms: Symbols): ClassTypeAbs = ClassTypeAbs(this)
+    def toClassTypeAbs(using Symbols): ClassTypeAbs = ClassTypeAbs(this)
     def toClassType: ClassType = ClassType(id, tps)
   }
 
@@ -24,21 +24,21 @@ trait Types extends methods.Trees { self: Trees =>
     val underlying: Type
   ) extends Type {
     def typeArgs: Seq[TypeParameter] = tparams.map(_.tp)
-    def ancestors(implicit s: Symbols): Seq[ClassTypeAbs]
+    def ancestors(using Symbols): Seq[ClassTypeAbs]
     def applied(tps: Seq[Type]): ClassTypeAbs
   }
 
   object ClassTypeAbs {
-    def apply(tp: Type)(implicit s: Symbols): ClassTypeAbs = tp match {
+    def apply(tp: Type)(using Symbols): ClassTypeAbs = tp match {
       case l: LocalClassType => Local(l)
       case g: ClassType => Global(g)
     }
 
-    case class Local(lct: LocalClassType)(implicit s: Symbols)
+    case class Local(lct: LocalClassType)(using Symbols)
       extends ClassTypeAbs(lct.id, lct.tparams, lct.tps,
         lct.ancestors.map(ClassTypeAbs(_)), lct) {
 
-      override def ancestors(implicit s: Symbols): Seq[ClassTypeAbs] = {
+      override def ancestors(using s: Symbols): Seq[ClassTypeAbs] = {
         val subst = typeArgs.zip(tps).toMap
         val typedMap = allAncestors.groupBy(_.id).map { case (id, cts) =>
           val tps = cts.head.typeArgs.zipWithIndex.map { case (tp, i) =>
@@ -57,16 +57,16 @@ trait Types extends methods.Trees { self: Trees =>
       }
 
       override def applied(tps: Seq[Type]): ClassTypeAbs = Local(lct.copy(tps = tps))
-      override def asString(implicit popts: PrinterOptions): String = lct.asString
+      override def asString(using PrinterOptions): String = lct.asString
     }
 
-    case class Global(ct: ClassType)(implicit s: Symbols)
+    case class Global(ct: ClassType)(using Symbols)
       extends ClassTypeAbs(ct.id, ct.tcd.cd.tparams, ct.tps,
         ct.tcd.ancestors.map(a => ClassTypeAbs(a.toType)), ct) {
 
-      override def ancestors(implicit s: Symbols): Seq[ClassTypeAbs] = allAncestors
+      override def ancestors(using Symbols): Seq[ClassTypeAbs] = allAncestors
       override def applied(tps: Seq[Type]): ClassTypeAbs = Global(ct.copy(tps = tps))
-      override def asString(implicit popts: PrinterOptions): String = ct.asString
+      override def asString(using PrinterOptions): String = ct.asString
     }
   }
 

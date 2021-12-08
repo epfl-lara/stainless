@@ -232,13 +232,14 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
   }
 }
 
+class ConcreteTreeDeconstructor(override val s: Trees, override val t: Trees) extends TreeDeconstructor
+
 trait Deconstructors extends inox.ast.Deconstructors { self: Trees =>
 
   override def getDeconstructor(that: inox.ast.Trees): inox.ast.TreeDeconstructor { val s: self.type; val t: that.type } = that match {
-    case tree: Trees => new TreeDeconstructor {
-      protected val s: self.type = self
-      protected val t: tree.type = tree
-    }.asInstanceOf[TreeDeconstructor { val s: self.type; val t: that.type }]
+    case tree: (Trees & that.type) => // The `& that.type` trick allows to convince scala that `tree` and `that` are actually equal...
+      class DeconstructorImpl(override val s: self.type, override val t: tree.type & that.type) extends ConcreteTreeDeconstructor(s, t)
+      new DeconstructorImpl(self, tree)
 
     case _ => super.getDeconstructor(that)
   }
@@ -247,16 +248,21 @@ trait Deconstructors extends inox.ast.Deconstructors { self: Trees =>
     getDeconstructor(self).asInstanceOf[TreeDeconstructor { val s: self.type; val t: self.type }]
   }
 
-  object PatternExtractor extends {
-    protected val s: self.type = self
-    protected val t: self.type = self
-  } with inox.ast.TreeExtractor {
+  val PatternExtractor: inox.ast.TreeExtractor {
+    val s: self.type
+    val t: self.type
     type Source = Pattern
     type Target = Pattern
+  } = {
+    class PatternExtractorImpl(override val s: self.type, override val t: self.type) extends inox.ast.TreeExtractor {
+      type Source = Pattern
+      type Target = Pattern
 
-    def unapply(pat: Pattern): Option[(Seq[Pattern], Seq[Pattern] => Pattern)] = {
-      val (ids, vs, es, tps, pats, builder) = deconstructor.deconstruct(pat)
-      Some(pats, patss => builder(ids, vs, es, tps, patss))
+      def unapply(pat: Pattern): Option[(Seq[Pattern], Seq[Pattern] => Pattern)] = {
+        val (ids, vs, es, tps, pats, builder) = deconstructor.deconstruct(pat)
+        Some(pats, patss => builder(ids, vs, es, tps, patss))
+      }
     }
+    new PatternExtractorImpl(self, self)
   }
 }

@@ -5,19 +5,19 @@ package utils
 
 import scala.collection.mutable
 
-trait Canonization { self =>
-
-  val trees: stainless.ast.Trees
-  lazy val s: self.trees.type = self.trees
-  lazy val t: self.trees.type = self.trees
+class Canonization(val trees: stainless.ast.Trees) { self =>
+  val s: self.trees.type = self.trees
+  val t: self.trees.type = self.trees
 
   import self.trees._
 
   type VC = verification.VC[trees.type]
 
-  protected class IdTransformer(val symbols: trees.Symbols) extends transformers.TreeTransformer {
-    val s: self.trees.type = self.trees
-    val t: self.trees.type = self.trees
+  protected class IdTransformer(override val s: self.trees.type,
+                                override val t: self.trees.type,
+                                val symbols: trees.Symbols) extends transformers.ConcreteTreeTransformer(s, t) {
+
+    def this(symbols: trees.Symbols) = this(self.trees, self.trees, symbols)
 
     // Stores the transformed function and ADT definitions
     protected var transformedFunctions = new mutable.ListBuffer[FunDef]()
@@ -78,9 +78,8 @@ trait Canonization { self =>
     import exprOps._
     import syms._
 
-    implicit object functionOrdering extends Ordering[FunDef] {
+    given functionOrdering: Ordering[FunDef] with {
       private val sizeAndName: Ordering[FunDef] = Ordering.by(fd => (formulaSize(fd.fullBody), fd.id.name))
-
       override def compare(fd1: FunDef, fd2: FunDef): Int = {
         if (transitivelyCalls(fd1, fd2) && !transitivelyCalls(fd2, fd1)) 1
         else if (transitivelyCalls(fd2, fd1) && !transitivelyCalls(fd1, fd2)) -1
@@ -100,9 +99,10 @@ trait Canonization { self =>
     NoSymbols.withFunctions(newFunctions).withSorts(newSorts)
   }
 
-  protected class RegisteringTransformer extends transformers.TreeTransformer {
-    val s: self.trees.type = self.trees
-    val t: self.trees.type = self.trees
+  protected class RegisteringTransformer(override val s: self.trees.type, override val t: self.trees.type)
+    extends transformers.ConcreteTreeTransformer(s, t) {
+
+    def this() = this(self.trees, self.trees)
 
     private var localCounter = 0
     // Maps an original identifier to a normalized identifier
@@ -165,17 +165,22 @@ trait Canonization { self =>
   }
 }
 
-trait XlangCanonization extends Canonization {
-  val trees: extraction.xlang.Trees
+class XlangCanonization(override val trees: extraction.xlang.Trees) extends Canonization(trees) { self =>
   import trees._
 
-  protected class RegisteringTransformer
-    extends super.RegisteringTransformer
-       with extraction.oo.TreeTransformer
+  protected class XlangRegisteringTransformer(override val s: self.trees.type, override val t: self.trees.type)
+    extends RegisteringTransformer(s, t)
+       with extraction.oo.TreeTransformer {
+    def this() = this(self.trees, self.trees)
+  }
 
-  protected class XlangIdTransformer(override val symbols: trees.Symbols)
-    extends super.IdTransformer(symbols)
-      with extraction.oo.TreeTransformer {
+  protected class XlangIdTransformer(override val s: self.trees.type,
+                                     override val t: self.trees.type,
+                                     override val symbols: trees.Symbols)
+    extends IdTransformer(s, t, symbols)
+       with extraction.oo.TreeTransformer {
+
+    def this(symbols: trees.Symbols) = this(self.trees, self.trees, symbols)
 
     protected var transformedClasses = new mutable.ListBuffer[ClassDef]()
     protected var transformedTypeDefs = new mutable.ListBuffer[TypeDef]()
@@ -202,13 +207,13 @@ trait XlangCanonization extends Canonization {
   }
 
   def apply(cd: ClassDef): ClassDef = {
-    val transformer = new RegisteringTransformer
+    val transformer = new XlangRegisteringTransformer
     transformer.registerId(cd.id)
     transformer.transform(cd)
   }
 
   def apply(td: TypeDef): TypeDef = {
-    val transformer = new RegisteringTransformer
+    val transformer = new XlangRegisteringTransformer
     transformer.registerId(td.id)
     transformer.transform(td)
   }
@@ -247,22 +252,25 @@ trait XlangCanonization extends Canonization {
 
 
 object Canonization {
-  def apply(p: inox.Program { val trees: ast.Trees }): Canonization { val trees: p.trees.type } = new {
-    override val trees: p.trees.type = p.trees
-  } with Canonization
+  def apply(p: inox.Program { val trees: ast.Trees }): Canonization { val trees: p.trees.type } = {
+    class Impl(override val trees: p.trees.type) extends Canonization(trees)
+    new Impl(p.trees)
+  }
 
-  def apply(tr: ast.Trees): Canonization { val trees: tr.type } = new {
-    override val trees: tr.type = tr
-  } with Canonization
+  def apply(tr: ast.Trees): Canonization { val trees: tr.type } = {
+    class Impl(override val trees: tr.type) extends Canonization(trees)
+    new Impl(tr)
+  }
 }
 
 object XlangCanonization {
-  def apply(p: inox.Program { val trees: extraction.xlang.Trees }): XlangCanonization { val trees: p.trees.type } = new {
-    override val trees: p.trees.type = p.trees
-  } with XlangCanonization
+  def apply(p: inox.Program { val trees: extraction.xlang.Trees }): XlangCanonization { val trees: p.trees.type } = {
+    class Impl(override val trees: p.trees.type) extends XlangCanonization(trees)
+    new Impl(p.trees)
+  }
 
-  def apply(tr: extraction.xlang.Trees): XlangCanonization { val trees: tr.type } = new {
-    override val trees: tr.type = tr
-  } with XlangCanonization
-
+  def apply(tr: extraction.xlang.Trees): XlangCanonization { val trees: tr.type } = {
+    class Impl(override val trees: tr.type) extends XlangCanonization(trees)
+    new Impl(tr)
+  }
 }

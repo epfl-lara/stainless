@@ -4,10 +4,9 @@ package stainless.genc
 
 import stainless.extraction.utils._
 
-trait NamedLeonPhase[F, T] extends LeonPipeline[F, T] {
-  val underlying: LeonPipeline[F, T]
-  val name: String
-
+class NamedLeonPhase[F, T](val name: String,
+                           val underlying: LeonPipeline[F, T])
+                          (using context: inox.Context) extends LeonPipeline[F, T](context) {
   lazy val phases = context.options.findOption(optDebugPhases).map(_.toSet)
 
   lazy val debugTrees: Boolean =
@@ -18,7 +17,7 @@ trait NamedLeonPhase[F, T] extends LeonPipeline[F, T] {
     (phases.isEmpty || phases.exists(_.contains(name))) &&
     context.reporter.debugSections.contains(DebugSectionSizes)
 
-  private implicit val debugSection = DebugSectionTrees
+  private given givenDebugSection: DebugSectionTrees.type = DebugSectionTrees
 
   override def run(p: F): T = {
     if (debugTrees) {
@@ -42,32 +41,22 @@ trait NamedLeonPhase[F, T] extends LeonPipeline[F, T] {
       val lines = res.toString.count(_ == '\n') + 1
       val size = res match {
         case symbols: stainless.extraction.throwing.trees.Symbols => symbols.astSize
-        case prog: ir.IRs.SIR.Prog => prog.size(context)
-        case prog: ir.IRs.CIR.Prog => prog.size(context)
-        case prog: ir.IRs.RIR.Prog => prog.size(context)
-        case prog: ir.IRs.NIR.Prog => prog.size(context)
-        case prog: ir.IRs.LIR.Prog => prog.size(context)
-        case prog: CAST.Tree => prog.size(context)
+        case prog: ir.IRs.SIR.Prog => prog.size
+        case prog: ir.IRs.CIR.Prog => prog.size
+        case prog: ir.IRs.RIR.Prog => prog.size
+        case prog: ir.IRs.NIR.Prog => prog.size
+        case prog: ir.IRs.LIR.Prog => prog.size
+        case prog: CAST.Tree => prog.size
         case _ => 0
       }
-      context.reporter.debug(s"Total number of lines after phase $name: $lines")(DebugSectionSizes)
-      context.reporter.debug(s"Total number of AST nodes after phase $name: $size")(DebugSectionSizes)
+      context.reporter.debug(s"Total number of lines after phase $name: $lines")(using DebugSectionSizes)
+      context.reporter.debug(s"Total number of AST nodes after phase $name: $size")(using DebugSectionSizes)
     }
     res
   }
 }
 
-object NamedLeonPhase {
-
-  def apply[F, T](s: String, pipeline: LeonPipeline[F, T])(implicit ctx: inox.Context): LeonPipeline[F, T] {
-  } = new {
-    override val underlying: pipeline.type = pipeline
-    override val name: String = s
-    override val context = ctx
-  } with NamedLeonPhase[F, T]
-}
-
-trait UnitPhase[T] extends LeonPipeline[T, T] {
+abstract class UnitPhase[T](context: inox.Context) extends LeonPipeline[T, T](context) {
   def apply(p: T): Unit
 
   override def run(p: T) = {
@@ -77,11 +66,8 @@ trait UnitPhase[T] extends LeonPipeline[T, T] {
 }
 
 object NoopPhase {
-  def apply[T](implicit ctx: inox.Context): LeonPipeline[T, T] = {
-    new {
-      override val context = ctx
-    } with LeonPipeline[T, T] {
+  def apply[T](using ctx: inox.Context): LeonPipeline[T, T] =
+    new LeonPipeline[T, T](ctx) {
       override def run(v: T) = v
     }
-  }
 }

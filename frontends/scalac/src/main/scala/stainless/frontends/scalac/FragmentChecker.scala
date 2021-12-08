@@ -19,11 +19,8 @@ import scala.tools.nsc.SubComponent
  *
  * This class mutates some symbols by adding the @ghost annotation (see cases above). The AST is not changed.
  */
-trait FragmentChecker extends SubComponent { _: StainlessExtraction =>
+trait FragmentChecker extends SubComponent { self: StainlessExtraction =>
   import global._
-
-  // defined by StainlessExtraction
-  val ctx: inox.Context
 
   import ExpressionExtractors.ExCall
   import StructuralExtractors.ExObjectDef

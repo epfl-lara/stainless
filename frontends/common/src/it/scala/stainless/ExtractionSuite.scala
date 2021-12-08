@@ -7,7 +7,6 @@ import stainless.extraction.utils.DebugSymbols
 
 import org.scalatest.funspec.AnyFunSpec
 import scala.util.{Success, Failure, Try}
-import scala.language.existentials
 
 /** Subclass are only meant to call [[testExtractAll]] and [[testRejectAll]] on
  *  the relevant directories. */
@@ -24,9 +23,9 @@ abstract class ExtractionSuite extends AnyFunSpec with inox.ResourceUtils with I
   }
 
   def testExtractAll(dir: String, excludes: String*): Unit = {
-    implicit val (ctx, allFiles) = testSetUp(dir)
+    val (ctx, allFiles) = testSetUp(dir)
     val files = allFiles.filter(f => !excludes.exists(f.endsWith))
-    import ctx.reporter
+    import ctx.{reporter, given}
 
     val userFiltering = new DebugSymbols {
       val name = "UserFiltering"
@@ -48,7 +47,7 @@ abstract class ExtractionSuite extends AnyFunSpec with inox.ResourceUtils with I
         it("should typecheck") {
           programSymbols.ensureWellFormed
           for (fd <- programSymbols.functions.values.toSeq) {
-            import programSymbols._
+            import programSymbols.{given, _}
             assert(isSubtypeOf(fd.fullBody.getType, fd.getType))
           }
         }
@@ -64,14 +63,14 @@ abstract class ExtractionSuite extends AnyFunSpec with inox.ResourceUtils with I
             it("should typecheck") {
               exSymbols.ensureWellFormed
               for (fd <- exSymbols.functions.values.toSeq) {
-                import exSymbols._
+                import exSymbols.{given, _}
                 assert(isSubtypeOf(fd.fullBody.getType, fd.getType))
               }
             }
 
             it("should typecheck without matches") {
               for (fd <- exSymbols.functions.values.toSeq) {
-                import exSymbols._
+                import exSymbols.{given, _}
                 assert(isSubtypeOf(matchToIfThenElse(fd.fullBody).getType, fd.getType))
               }
             }
@@ -98,7 +97,7 @@ abstract class ExtractionSuite extends AnyFunSpec with inox.ResourceUtils with I
     describe(s"Programs extraction in $dir") {
       val tryPrograms = files map { f =>
         f -> Try {
-          implicit val testCtx = TestContext.empty
+          given testCtx: inox.Context = TestContext.empty
           val program = loadFiles(List(f))._2
           val programSymbols = userFiltering.debug(frontend.UserFiltering().transform)(program.symbols)
           extraction.pipeline extract programSymbols

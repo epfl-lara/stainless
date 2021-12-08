@@ -13,7 +13,7 @@ class StrictArithmeticSuite extends ComponentTestSuite {
 
   override protected def optionsString(options: inox.Options): String = ""
 
-  val component = VerificationComponent
+  override val component: VerificationComponent.type = VerificationComponent
 
   testAll("strictarithmetic/valid") { (analysis, reporter) =>
     for ((vc, vr) <- analysis.vrs) {

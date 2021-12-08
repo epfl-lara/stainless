@@ -48,7 +48,7 @@ object Configuration {
 
   val empty: Seq[OptionValue[_]] = Seq.empty
 
-  def get(options: Options, keys: Seq[inox.OptionDef[_]])(implicit reporter: Reporter): Seq[OptionValue[_]] = {
+  def get(options: Options, keys: Seq[inox.OptionDef[_]])(using Reporter): Seq[OptionValue[_]] = {
     import OptionOrDefault._
     options.findOptionOrDefault(optConfigFile) match {
       case Some(file) => parse(file, keys)
@@ -57,13 +57,13 @@ object Configuration {
     }
   }
 
-  def parseDefault(options: Seq[OptionDef[_]])(implicit reporter: Reporter): Seq[OptionValue[_]] = {
+  def parseDefault(options: Seq[OptionDef[_]])(using Reporter): Seq[OptionValue[_]] = {
     findConfigFile() map { file =>
       parse(file, options)
     } getOrElse Seq.empty
   }
 
-  def parse(file: File, options: Seq[OptionDef[_]])(implicit reporter: Reporter): Seq[OptionValue[_]] = try {
+  def parse(file: File, options: Seq[OptionDef[_]])(using reporter: Reporter): Seq[OptionValue[_]] = try {
     if (!file.exists()) {
       reporter.fatalError(s"Configuration file does not exists: ${file.getAbsolutePath}")
     }
@@ -93,7 +93,7 @@ object Configuration {
       Seq.empty
   }
 
-  private def convert(name: String, config: ConfigValue)(implicit reporter: Reporter): String = {
+  private def convert(name: String, config: ConfigValue)(using reporter: Reporter): String = {
     val unwrapped = config.unwrapped
 
     config.valueType match {

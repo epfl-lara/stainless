@@ -33,7 +33,7 @@ object CAST { // C Abstract Syntax Tree
       sb.toString
     }
 
-    def size(implicit ctx: inox.Context): Int = {
+    def size(using inox.Context): Int = {
       var result = 0
       new CASTTraverser {
         override def traverse(t: Tree): Unit = { result += 1; super.traverse(t) }
@@ -263,15 +263,15 @@ object CAST { // C Abstract Syntax Tree
 
 
   /* ---------------------------------------------- Sanitisation Helper ----- */
-  private implicit class ExprValidation(e: Expr) {
-    def isValue = e match {
+  extension (e: Expr) {
+    private def isValue = e match {
       case _: Binding | _: Lit | _: EnumLiteral | _: StructInit | _: ArrayStatic |
            _: UnionInit | _: Call | _: FieldAccess | _: ArrayAccess |
            _: Ref | _: Deref | _: BinOp | _: UnOp | _: Cast => true
       case _ => false
     }
 
-    def isReference = e match {
+    private def isReference = e match {
       case _: Ref => true
       case _ => false
     }

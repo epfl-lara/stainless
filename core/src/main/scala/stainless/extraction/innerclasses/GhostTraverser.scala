@@ -9,6 +9,7 @@ import scala.collection.mutable.{Map => MutableMap}
 trait GhostTraverser extends methods.GhostTraverser with DefinitionTraverser {
   val trees: Trees
   import trees._
+  import symbols.given
 
   private[this] var localClasses = Map.empty[Identifier, LocalClassDef]
 
@@ -83,4 +84,3 @@ trait GhostTraverser extends methods.GhostTraverser with DefinitionTraverser {
     case _ => super.traverse(e, ctx)
   }
 }
-

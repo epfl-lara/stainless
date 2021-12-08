@@ -16,5 +16,3 @@ trait GhostTraverser extends oo.GhostTraverser {
   }
 
 }
-
-

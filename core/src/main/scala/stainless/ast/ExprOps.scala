@@ -10,8 +10,7 @@ import inox.transformers.Transformer
 import stainless.transformers.TreeTransformer
 import stainless.transformers.TreeTraverser
 
-trait ExprOps extends inox.ast.ExprOps { self =>
-  protected val trees: Trees
+class ExprOps(override val trees: Trees) extends inox.ast.ExprOps(trees) { self =>
   import trees._
 
   /* =================
@@ -31,20 +30,18 @@ trait ExprOps extends inox.ast.ExprOps { self =>
     def traverse(tr: TreeTraverser { val trees: self.trees.type }): Unit
 
     final def transform(f: Expr => Expr): kind.Spec = {
-      object tr extends TreeTransformer {
-        val s: trees.type = trees
-        val t: trees.type = trees
+      class TransformImpl(override val s: trees.type, override val t: trees.type)
+        extends TreeTransformer with stainless.transformers.Transformer {
         override def transform(e: Expr): Expr = f(e)
       }
-      transform(tr).asInstanceOf[kind.Spec]
+      transform(new TransformImpl(trees, trees)).asInstanceOf[kind.Spec]
     }
 
     final def traverse(f: Expr => Unit): Unit = {
-      object tr extends TreeTraverser {
-        val trees: self.trees.type = self.trees
+      class TraverseImpl(override val trees: self.trees.type) extends TreeTraverser {
         override def traverse(e: Expr): Unit = f(e)
       }
-      traverse(tr)
+      traverse(new TraverseImpl(self.trees))
     }
 
     // Whether the spec might as well be omitted
@@ -181,7 +178,7 @@ trait ExprOps extends inox.ast.ExprOps { self =>
     }
 
     // add a post-condition spec if there aren't any
-    def addPost(implicit s: Symbols): BodyWithSpecs = {
+    def addPost(using Symbols): BodyWithSpecs = {
       if (specs.exists(_.kind == PostconditionKind)) this
       else BodyWithSpecs(Postcondition(Lambda(
         Seq(ValDef(FreshIdentifier("res"), body.getType).setPos(body)),
@@ -265,7 +262,7 @@ trait ExprOps extends inox.ast.ExprOps { self =>
     * @see [[Expressions.Require]]
     */
   final def withPrecondition(expr: Expr, pred: Option[Expr]): Expr =
-    withSpec(expr, pred.filterNot(_ == BooleanLiteral(true)).map(Precondition).toLeft(PreconditionKind))
+    withSpec(expr, pred.filterNot(_ == BooleanLiteral(true)).map(Precondition.apply).toLeft(PreconditionKind))
 
   /** Replaces the postcondition of an existing [[Expressions.Expr]] with a new one.
     *
@@ -278,7 +275,7 @@ trait ExprOps extends inox.ast.ExprOps { self =>
     * @see [[Expressions.Require]]
     */
   final def withPostcondition(expr: Expr, pred: Option[Lambda]): Expr =
-    withSpec(expr, pred.filterNot(_.body == BooleanLiteral(true)).map(Postcondition).toLeft(PostconditionKind))
+    withSpec(expr, pred.filterNot(_.body == BooleanLiteral(true)).map(Postcondition.apply).toLeft(PostconditionKind))
 
   final def withMeasure(expr: Expr, measure: Option[Expr]): Expr =
     withSpec(expr, measure.map(expr => Measure(expr).setPos(expr)).toLeft(MeasureKind))
@@ -398,7 +395,7 @@ trait ExprOps extends inox.ast.ExprOps { self =>
   }
 
   def replaceKeepPositions(subst: Map[Variable, Expr], expr: Expr): Expr = {
-    new SelfTreeTransformer {
+    new ConcreteStainlessSelfTreeTransformer {
       override def transform(expr: Expr): Expr = expr match {
         case v: Variable => subst.getOrElse(v, v).copiedFrom(v)
         case _ => super.transform(expr)
@@ -415,16 +412,12 @@ trait ExprOps extends inox.ast.ExprOps { self =>
    * Freshening of local variables
    * ============================= */
 
-  // Freshener may not directly inherits transformers.Transformer as
-  // it causes overrides conflict. For that, we introduce an intermediate trait where
-  // we redefine s and t accordingly.
-  trait Intermediate extends transformers.Transformer {
-    override val s: self.trees.type = self.trees
-    override val t: self.trees.type = self.trees
-  }
-  protected class Freshener(freshenChooses: Boolean)
-    extends super.Freshener(freshenChooses)
-    with Intermediate {
+  protected class StainlessFreshener(override val s: self.trees.type,
+                                     override val t: self.trees.type,
+                                     freshenChooses: Boolean)
+    extends Freshener(freshenChooses) with transformers.Transformer {
+
+    def this(freshenChooses: Boolean) = this(self.trees, self.trees, freshenChooses)
 
     override def transformCase(cse: MatchCase, env: Env): MatchCase = {
       val MatchCase(pat, guard, rhs) = cse
@@ -496,7 +489,7 @@ trait ExprOps extends inox.ast.ExprOps { self =>
   }
 
   override def freshenLocals(expr: Expr, freshenChooses: Boolean = false): Expr = {
-    new Freshener(freshenChooses).transform(expr, Map.empty[Identifier, Identifier])
+    new StainlessFreshener(freshenChooses).transform(expr, Map.empty[Identifier, Identifier])
   }
 
 }

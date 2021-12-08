@@ -4,8 +4,7 @@ package stainless
 package extraction
 package innerclasses
 
-trait ExprOps extends methods.ExprOps {
-  protected val trees: Trees
+class ExprOps(override val trees: Trees) extends methods.ExprOps(trees) {
   import trees._
 
   def freeVariablesOf(lcd: LocalClassDef): Set[Variable] = {
@@ -45,8 +44,8 @@ trait ExprOps extends methods.ExprOps {
    * Freshening of local variables
    * ============================= */
 
-  protected class Freshener(freshenChooses: Boolean)
-    extends super.Freshener(freshenChooses) {
+  protected class InnerClassesFreshener(freshenChooses: Boolean)
+    extends ImperativeFreshener(freshenChooses) {
 
       def transform(lmd: LocalMethodDef, env: Env, methodsEnv: Env): LocalMethodDef = {
         val LocalMethodDef(id, tparams, params, returnType, fullBody, flags) = lmd
@@ -106,7 +105,7 @@ trait ExprOps extends methods.ExprOps {
   }
 
   override def freshenLocals(expr: Expr, freshenChooses: Boolean = false): Expr = {
-    new Freshener(freshenChooses).transform(expr, Map.empty[Identifier, Identifier])
+    new InnerClassesFreshener(freshenChooses).transform(expr, Map.empty[Identifier, Identifier])
   }
 
 }

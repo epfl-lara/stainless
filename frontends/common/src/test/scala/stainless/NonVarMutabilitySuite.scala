@@ -6,7 +6,8 @@ import extraction.xlang.{trees => xt}
 
 class NonVarMutabilitySuite extends AnyFunSpec with InputUtils {
 
-  implicit val ctx = stainless.TestContext.empty
+  val ctx: inox.Context = stainless.TestContext.empty
+  import ctx.given
 
   describe("Mutation of a field that is not 'var' annotated") {
     val classId   = ast.SymbolIdentifier("ImmutableClass")

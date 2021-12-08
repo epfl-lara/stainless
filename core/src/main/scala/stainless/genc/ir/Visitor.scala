@@ -15,7 +15,7 @@ import collection.mutable.{ Set => MutableSet }
  *      be visited several times with the same env.
  * EXCEPT for functions. See Transformer for reason.
  */
-abstract class Visitor[S <: IR](final val ir: S) {
+abstract class Visitor[S <: IR](val ir: S) {
   import ir._
 
   // Entry point for the visit

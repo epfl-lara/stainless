@@ -6,7 +6,8 @@ package oo
 
 import scala.collection.mutable.{Map => MutableMap}
 
-trait RefinementLifting
+class RefinementLifting(override val s: Trees, override val t: Trees)
+                       (using override val context: inox.Context)
   extends CachingPhase
      with SimpleFunctions
      with IdentityTypeDefs
@@ -15,18 +16,16 @@ trait RefinementLifting
      with SimplyCachedSorts
      with SimplyCachedClasses { self =>
 
-  val s: Trees
-  val t: Trees
-
   override protected type SortResult = (t.ADTSort, Option[t.FunDef])
   override protected def registerSorts(symbols: t.Symbols, sorts: Seq[(t.ADTSort, Option[t.FunDef])]): t.Symbols =
     symbols.withSorts(sorts.map(_._1)).withFunctions(sorts.flatMap(_._2))
 
-  override protected def getContext(symbols: s.Symbols) = new TransformerContext(symbols)
+  override protected def getContext(symbols: s.Symbols) = new TransformerContext(self.s, self.t)(using symbols)
 
-  protected class TransformerContext(val symbols: s.Symbols) extends oo.TreeTransformer {
-    override val s: self.s.type = self.s
-    override val t: self.t.type = self.t
+  protected class TransformerContext(override val s: self.s.type,
+                                     override val t: self.t.type)
+                                    (using val symbols: s.Symbols)
+    extends oo.ConcreteTreeTransformer(s, t) {
     import s._
     import symbols._
 
@@ -223,7 +222,7 @@ trait RefinementLifting
           Some(s.Lambda(Seq(vd2), pred).copiedFrom(fd))
       }
       case _ => optOldPost
-    }).map(exprOps.Postcondition)
+    }).map(exprOps.Postcondition.apply)
 
     context.transform(fd.copy(
       fullBody = specced.addSpec(optPre).withSpec(optPost).reconstructed,
@@ -233,7 +232,7 @@ trait RefinementLifting
 
   override protected def extractSort(context: TransformerContext, sort: s.ADTSort): (t.ADTSort, Option[t.FunDef]) = {
     import s._
-    import context.symbols._
+    import context.symbols.{given, _}
 
     val v = s.Variable.fresh("v", s.ADTType(sort.id, sort.typeArgs))
     val (newCons, conds) = sort.constructors.map { cons =>
@@ -295,12 +294,11 @@ trait RefinementLifting
 }
 
 object RefinementLifting {
-  def apply(ts: Trees, tt: Trees)(implicit ctx: inox.Context): ExtractionPipeline {
+  def apply(ts: Trees, tt: Trees)(using inox.Context): ExtractionPipeline {
     val s: ts.type
     val t: tt.type
-  } = new RefinementLifting {
-    override val s: ts.type = ts
-    override val t: tt.type = tt
-    override val context = ctx
+  } = {
+    class Impl(override val s: ts.type, override val t: tt.type) extends RefinementLifting(s, t)
+    new Impl(ts, tt)
   }
 }

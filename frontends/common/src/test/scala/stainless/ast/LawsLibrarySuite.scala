@@ -4,7 +4,6 @@ package stainless
 package ast
 
 import org.scalatest.funsuite.AnyFunSuite
-import scala.language.existentials
 import extraction.methods.trees.Library
 
 class LawsLibrarySuite extends AnyFunSuite with InputUtils {
@@ -43,11 +42,12 @@ class LawsLibrarySuite extends AnyFunSuite with InputUtils {
        |}
        |""".stripMargin)
 
-  implicit val ctx = stainless.TestContext.empty
+  val ctx: inox.Context = stainless.TestContext.empty
+  import ctx.given
   val (_, xlangProgram) = load(sources)
 
   val libraryBigInt = xlangProgram.symbols.classes.values.find(_.id.name == "LibraryBigInt").get
-  val libraryAppend = libraryBigInt.methods(xlangProgram.symbols)
+  val libraryAppend = libraryBigInt.methods(using xlangProgram.symbols)
     .find(_.name == "append")
     .map(xlangProgram.symbols.getFunction)
     .get
@@ -67,7 +67,7 @@ class LawsLibrarySuite extends AnyFunSuite with InputUtils {
   test("LibraryBigInt#append still has @library flag after extraction") {
     val libraryBigInt = symbols.classes.values.find(_.id.name == "LibraryBigInt").get
 
-    val libraryAppend = libraryBigInt.methods(symbols)
+    val libraryAppend = libraryBigInt.methods(using symbols)
       .find(_.name == "append")
       .map(symbols.getFunction)
       .get
@@ -78,12 +78,12 @@ class LawsLibrarySuite extends AnyFunSuite with InputUtils {
   test("Remove library flag from library laws that have non-library subclasses") {
     val userBigInt = symbols.classes.values.find(_.id.name == "UserBigInt").get
 
-    val law_commutative = userBigInt.methods(symbols)
+    val law_commutative = userBigInt.methods(using symbols)
       .find(_.name == "law_commutative")
       .map(symbols.getFunction)
       .get
 
-    val law_associative = userBigInt.methods(symbols)
+    val law_associative = userBigInt.methods(using symbols)
       .find(_.name == "law_associative")
       .map(symbols.getFunction)
       .get
@@ -95,12 +95,12 @@ class LawsLibrarySuite extends AnyFunSuite with InputUtils {
   test("Don't remove library flag from library case classes that have non-library siblings") {
     val libraryBigInt = symbols.classes.values.find(_.id.name == "LibraryBigInt").get
 
-    val law_commutative = libraryBigInt.methods(symbols)
+    val law_commutative = libraryBigInt.methods(using symbols)
       .find(_.name == "law_commutative")
       .map(symbols.getFunction)
       .get
 
-    val law_associative = libraryBigInt.methods(symbols)
+    val law_associative = libraryBigInt.methods(using symbols)
       .find(_.name == "law_associative")
       .map(symbols.getFunction)
       .get

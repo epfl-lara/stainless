@@ -16,16 +16,11 @@ import java.lang.reflect.InvocationTargetException
 
 import scala.collection.mutable.{Map => MutableMap}
 
-trait CompilationUnit extends CodeGeneration {
-  val program: Program
-  val context: inox.Context
-
-  import context._
+class CompilationUnit(val program: Program, val context: inox.Context)(using val semantics: program.Semantics) extends CodeGeneration {
+  import context.{given, _}
   import program._
   import program.trees._
-  import program.symbols._
-
-  protected implicit val semantics: program.Semantics
+  import program.symbols.{given, _}
 
   val maxSteps: Int = options.findOptionOrDefault(inox.evaluators.optMaxCalls)
 
@@ -38,7 +33,7 @@ trait CompilationUnit extends CodeGeneration {
     private lazy val exprType = expression.getType
 
     def argsToJVM(args: Seq[Expr], monitor: Monitor): Seq[AnyRef] = {
-      args.map(valueToJVM(_)(monitor))
+      args.map(valueToJVM(_)(using monitor))
     }
 
     def evalToJVM(args: Seq[AnyRef], monitor: Monitor): AnyRef = {
@@ -98,7 +93,7 @@ trait CompilationUnit extends CodeGeneration {
 
   private[this] def adtConstructor(cons: ADTConstructor): Constructor[_] =
     adtConstructors.getOrElse(cons, {
-      val cf = getClass(cons)
+      val cf = getClassCons(cons)
       val klass = loader.loadClass(cf.className)
       // This is a hack: we pick the constructor with the most arguments.
       val conss = klass.getConstructors.sortBy(_.getParameterTypes.length)
@@ -121,7 +116,7 @@ trait CompilationUnit extends CodeGeneration {
     * This means it is safe to return AnyRef (as opposed to primitive types), because
     * reflection needs this anyway.
     */
-  def valueToJVM(e: Expr)(implicit monitor: Monitor): AnyRef = e match {
+  def valueToJVM(e: Expr)(using monitor: Monitor): AnyRef = e match {
     case Int8Literal(v)  => java.lang.Byte.valueOf(v)
     case Int16Literal(v) => java.lang.Short.valueOf(v)
     case Int32Literal(v) => java.lang.Integer.valueOf(v)
@@ -361,7 +356,7 @@ trait CompilationUnit extends CodeGeneration {
 
       val tparams: Seq[TypeParameter] = {
         var tpSeq: Seq[TypeParameter] = Seq.empty
-        object collector extends SelfTreeTraverser {
+        object collector extends ConcreteStainlessSelfTreeTraverser {
           override def traverse(tpe: Type): Unit = tpe match {
             case tp: TypeParameter => tpSeq :+= tp
             case _ => super.traverse(tpe)
@@ -449,7 +444,7 @@ trait CompilationUnit extends CodeGeneration {
       case (v, i) => v.id -> (i + 1)
     }.toMap
 
-    mkExpr(e, ch)(NoLocals.withVars(newMapping))
+    mkExpr(e, ch)(using NoLocals.withVars(newMapping))
 
     e.getType match {
       case JvmIType() =>

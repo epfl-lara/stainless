@@ -13,72 +13,75 @@ import inox.utils.Position
 import ExtraOps._
 
 trait GlobalStateChecker { self =>
-  implicit val syms: tt.Symbols
-  implicit val context: inox.Context
-  protected implicit val printerOpts: tt.PrinterOptions
+  val syms: tt.Symbols
+  val context: inox.Context
+  protected val printerOpts: tt.PrinterOptions
+  protected given givenCheckerPrinterOpts: tt.PrinterOptions = printerOpts
 
   case object NoGlobal extends Exception
-  def noGlobalFor(cid: Identifier) = new TransformerWithType {
-    val s: tt.type = tt
-    val t: tt.type = tt
-    val symbols = syms
+  def noGlobalFor(cid: Identifier) = {
+    class NoGlobalFor(override val s: tt.type, override val t: tt.type)
+                     (using override val symbols: syms.type)
+      extends TransformerWithType {
+      override def transform(expr: Expr, tpe: Type): Expr = tpe match {
+        case ct: ClassType if isGlobal(ct) && ct.id == cid =>
+          context.reporter.fatalError(expr.getPos, "Global state is not allowed in expression: " + expr.asString)
+        case _ =>
+          try super.transform(expr, tpe)
+          catch {
+            case NoGlobal => context.reporter.fatalError(expr.getPos, "Global state is not allowed in expression: " + expr.asString)
+          }
+      }
 
-    override def transform(expr: Expr, tpe: Type): Expr = tpe match {
-      case ct: ClassType if isGlobal(ct) && ct.id == cid =>
-        context.reporter.fatalError(expr.getPos, "Global state is not allowed in expression: " + expr.asString)
-      case _ =>
-        try super.transform(expr, tpe)
-        catch {
-          case NoGlobal => context.reporter.fatalError(expr.getPos, "Global state is not allowed in expression: " + expr.asString)
-        }
+      override def transform(tpe: Type): Type = tpe match {
+        case ct: ClassType if isGlobal(ct) && ct.id == cid => throw NoGlobal
+        case _ => super.transform(tpe)
+      }
     }
-
-    override def transform(tpe: Type): Type = tpe match {
-      case ct: ClassType if isGlobal(ct) && ct.id == cid => throw NoGlobal
-      case _ => super.transform(tpe)
-    }
+    new NoGlobalFor(tt, tt)(using syms)
   }
 
-  def useOnly(cid: Identifier, globalStateId: Identifier) = new TransformerWithType {
-    val s: tt.type = tt
-    val t: tt.type = tt
-    val symbols = syms
+  def useOnly(cid: Identifier, globalStateId: Identifier) = {
+    class UseOnly(override val s: tt.type, override val t: tt.type)
+                 (using override val symbols: syms.type)
+      extends TransformerWithType{
+      override def transform(expr: Expr, tpe: Type): Expr = (expr, tpe) match {
+        // This is the only global state declaration (for `cid`) which is allowed
+        case (Let(vd, _, _), _) if vd.id == globalStateId => expr
 
-    override def transform(expr: Expr, tpe: Type): Expr = (expr, tpe) match {
-      // This is the only global state declaration (for `cid`) which is allowed
-      case (Let(vd, _, _), _) if vd.id == globalStateId => expr
+        // Global state accesses are allowed on `id` or `old(id)`
+        case (ClassSelector(Variable(`globalStateId`, _, _), _), _) => expr
+        case (ClassSelector(Old(Variable(`globalStateId`, _, _)), _), _) => expr
 
-      // Global state accesses are allowed on `id` or `old(id)`
-      case (ClassSelector(Variable(`globalStateId`, _, _), _), _) => expr
-      case (ClassSelector(Old(Variable(`globalStateId`, _, _)), _), _) => expr
+        // Global state assignments are allowed on `id`
+        case (FieldAssignment(Variable(`globalStateId`, _, _), _, expr2), _) => transform(expr2)
 
-      // Global state assignments are allowed on `id`
-      case (FieldAssignment(Variable(`globalStateId`, _, _), _, expr2), _) => transform(expr2)
+        // Global state can be passed to other functions
+        case (FunctionInvocation(id, tps, args), _) =>
+          val (beforeGlobal, globalArgumentAndAfter) = args.span {
+            case Variable(`globalStateId`, _, _) => false
+            case _ => true
+          }
+          beforeGlobal.map(transform(_, tpe))
+          if (globalArgumentAndAfter.nonEmpty)
+            globalArgumentAndAfter.tail.map(transform(_, tpe))
+          expr
 
-      // Global state can be passed to other functions
-      case (FunctionInvocation(id, tps, args), _) =>
-        val (beforeGlobal, globalArgumentAndAfter) = args.span {
-          case Variable(`globalStateId`, _, _) => false
-          case _ => true
-        }
-        beforeGlobal.map(transform(_, tpe))
-        if (globalArgumentAndAfter.nonEmpty)
-          globalArgumentAndAfter.tail.map(transform(_, tpe))
-        expr
+        case (_, ct: ClassType) if isGlobal(ct) && ct.id == cid =>
+          context.reporter.fatalError(expr.getPos, "Global state is not allowed in expression: " + expr.asString)
+        case _ =>
+          try super.transform(expr, tpe)
+          catch {
+            case NoGlobal => context.reporter.fatalError(expr.getPos, "Global state is not allowed in expression: " + expr.asString)
+          }
+      }
 
-      case (_, ct: ClassType) if isGlobal(ct) && ct.id == cid =>
-        context.reporter.fatalError(expr.getPos, "Global state is not allowed in expression: " + expr.asString)
-      case _ =>
-        try super.transform(expr, tpe)
-        catch {
-          case NoGlobal => context.reporter.fatalError(expr.getPos, "Global state is not allowed in expression: " + expr.asString)
-        }
+      override def transform(tpe: Type): Type = tpe match {
+        case ct: ClassType if isGlobal(ct) && ct.id == cid => throw NoGlobal
+        case _ => super.transform(tpe)
+      }
     }
-
-    override def transform(tpe: Type): Type = tpe match {
-      case ct: ClassType if isGlobal(ct) && ct.id == cid => throw NoGlobal
-      case _ => super.transform(tpe)
-    }
+    new UseOnly(tt, tt)(using syms)
   }
 
   def checkGlobalUsage(): Unit = {

@@ -16,7 +16,7 @@ trait Definitions extends methods.Trees { self: Trees =>
     flags: Seq[Flag]
   ) extends Definition {
 
-    def globalAncestors(implicit s: Symbols): Seq[TypedClassDef] = {
+    def globalAncestors(using s: Symbols): Seq[TypedClassDef] = {
       val allAncestors = parents
         .flatMap {
           case ct: ClassType => ct.lookupClass

@@ -38,7 +38,7 @@ trait Printer extends inox.ast.Printer {
     case _ => super.precedence(ex)
   }
 
-  override protected def ppBody(tree: Tree)(implicit ctx: PrinterContext): Unit = tree match {
+  override protected def ppBody(tree: Tree)(using ctx: PrinterContext): Unit = tree match {
     case NoTree(tpe) =>
       p"<empty tree>[$tpe]"
 
@@ -74,7 +74,7 @@ trait Printer extends inox.ast.Printer {
     }
 
     case Annotated(body, flags) =>
-      for (f <- flags) p"@${f.asString(ctx.opts)} "
+      for (f <- flags) p"@${f.asString(using ctx.opts)} "
       p"$body"
 
     case MatchExpr(s, cases) =>
@@ -128,7 +128,7 @@ trait Printer extends inox.ast.Printer {
 
     case AnnotatedType(tpe, flags) =>
       p"$tpe"
-      for (f <- flags) p" @${f.asString(ctx.opts)}"
+      for (f <- flags) p" @${f.asString(using ctx.opts)}"
 
     case SizedADT(id, tps, args, size) =>
       p"$id${nary(tps, ", ", "[", "]")}($size)($args)"
@@ -189,15 +189,13 @@ trait Printer extends inox.ast.Printer {
     case _ => super.requiresParentheses(ex, within)
   }
 
-  protected def printNameWithPath(id: Identifier)(implicit ctx: PrinterContext): Unit = {
-    p"$id"
-  }
+  protected def printNameWithPath(id: Identifier)(using PrinterContext): Unit = p"$id"
 }
 
 trait ScalaPrinter extends Printer {
   import trees._
 
-  override protected def ppBody(tree: Tree)(implicit ctx: PrinterContext): Unit = tree match {
+  override protected def ppBody(tree: Tree)(using ctx: PrinterContext): Unit = tree match {
     case FractionLiteral(i, j) if j == 1 => p"""Real(BigInt("$i")"""
     case FractionLiteral(i, j)           => p"""Real(BigInt("$i"), BigInt("$j"))"""
     case IntegerLiteral(i)               => p"""BigInt("$i")"""
@@ -213,7 +211,7 @@ trait ScalaPrinter extends Printer {
 
     case Annotated(body, flags) if flags.nonEmpty =>
       p"($body):"
-      for (f <- flags) p" @${f.asString(ctx.opts)} "
+      for (f <- flags) p" @${f.asString(using ctx.opts)} "
 
     case Not(Equals(l, r)) => optP {
       p"$l != $r"

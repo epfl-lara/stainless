@@ -10,7 +10,7 @@ import scala.tools.nsc.plugins.PluginComponent
 import scala.tools.nsc.reporters.{Reporter => ScalacReporter}
 import inox.DebugSection
 import inox.{utils => InoxPosition}
-import stainless.frontend.CallBack
+import stainless.frontend.{CallBack, Frontend}
 
 object StainlessPlugin {
   val PluginName                       = "stainless"
@@ -30,13 +30,15 @@ class StainlessPlugin(val global: Global) extends Plugin {
   import StainlessPlugin._
 
   val mainHelper = new stainless.MainHelpers {
-    override lazy val factory = {
-      sys.error("stainless.MainHelpers#factory should never be called from the scalac plugin")
+    override val factory = new frontend.FrontendFactory{
+      override def apply(ctx: inox.Context, compilerArgs: Seq[String], callback: CallBack): Frontend =
+        sys.error("stainless.MainHelpers#factory should never be called from the scalac plugin")
+      override protected val libraryPaths: Seq[String] = Seq.empty
     }
   }
 
   val stainlessContext: inox.Context = {
-    implicit val reporter = new stainless.PlainTextReporter(Set.empty)
+    given stainless.PlainTextReporter = new stainless.PlainTextReporter(Set.empty)
     mainHelper.getConfigContext(inox.Options.empty)
   }
 
@@ -85,13 +87,13 @@ class StainlessPlugin(val global: Global) extends Plugin {
 
 class StainlessPluginComponent(
   val pluginOptions: PluginOptions,
-  val global: Global,
+  override val global: Global,
   val stainlessContext: inox.Context
-) extends PluginComponent with StainlessExtraction {
+) extends PluginComponent with StainlessExtraction with ASTExtractors(global) {
 
   override def enabled: Boolean = pluginOptions.enableVerification
 
-  override implicit val ctx: inox.Context = {
+  override val ctx: inox.Context = {
     val adapter = new ReporterAdapter(global.reporter, stainlessContext.reporter.debugSections)
 
     inox.Context(
@@ -101,8 +103,9 @@ class StainlessPluginComponent(
       timers           = stainlessContext.timers,
     )
   }
+  import ctx.given
 
-  override protected val callback: CallBack = stainless.frontend.getCallBack(ctx)
+  override protected val callback: CallBack = stainless.frontend.getCallBack
 
   override protected val cache: SymbolMapping = new SymbolMapping
 

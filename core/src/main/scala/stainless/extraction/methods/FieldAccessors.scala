@@ -4,26 +4,24 @@ package stainless
 package extraction
 package methods
 
-import scala.language.existentials
+class FieldAccessors(override val s: Trees, override val t: oo.Trees)
+                    (using override val context: inox.Context)
+  extends oo.CachingPhase
+     with SimpleSorts
+     with oo.SimpleClasses
+     with SimplyCachedSorts
+     with oo.IdentityTypeDefs
+     with oo.SimplyCachedClasses { self =>
 
-trait FieldAccessors extends oo.CachingPhase
-  with SimpleSorts
-  with oo.SimpleClasses
-  with SimplyCachedSorts
-  with oo.IdentityTypeDefs
-  with oo.SimplyCachedClasses { self =>
-
-  val s: Trees
-  val t: oo.Trees
   import s._
 
-  override protected def getContext(symbols: Symbols) = new TransformerContext(symbols)
+  override protected def getContext(symbols: Symbols) = new TransformerContext(self.s, self.t, symbols)
 
-  protected class TransformerContext(val symbols: s.Symbols) extends oo.TreeTransformer {
-    override final val s: self.s.type = self.s
-    override final val t: self.t.type = self.t
-
-    implicit private val syms = symbols
+  protected class TransformerContext(override val s: self.s.type,
+                                     override val t: self.t.type,
+                                     val symbols: s.Symbols)
+    extends oo.ConcreteTreeTransformer(s, t) {
+    import symbols.{given, _}
 
     def isConcreteAccessor(fd: FunDef): Boolean = fd.isAccessor && !fd.isAbstract && !fd.body.isEmpty
 
@@ -52,7 +50,7 @@ trait FieldAccessors extends oo.CachingPhase
       .flatMap(id => ctx.symbols.lookupFunction(id))
       .filter(ctx.isConcreteAccessor)
       .map(_.id)
-    )(ctx.symbols)
+    )(using ctx.symbols)
   })
 
   override protected def registerFunctions(symbols: t.Symbols, functions: Seq[Option[t.FunDef]]): t.Symbols =
@@ -66,12 +64,11 @@ trait FieldAccessors extends oo.CachingPhase
 }
 
 object FieldAccessors {
-  def apply(tr: Trees)(implicit ctx: inox.Context): ExtractionPipeline {
+  def apply(tr: Trees)(using inox.Context): ExtractionPipeline {
     val s: tr.type
     val t: tr.type
-  } = new FieldAccessors {
-    override val s: tr.type = tr
-    override val t: tr.type = tr
-    override val context = ctx
+  } = {
+    class Impl(override val s: tr.type, override val t: tr.type) extends FieldAccessors(s, t)
+    new Impl(tr, tr)
   }
 }

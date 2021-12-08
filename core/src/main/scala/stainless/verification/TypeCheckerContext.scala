@@ -28,37 +28,37 @@ object TypeCheckerContext {
       copy(depth = depth + 1).setPos(this)
     }
 
-    def checkFreshTermVariable(vd: ValDef)(implicit opts: PrinterOptions, ctx: inox.Context) = {
+    def checkFreshTermVariable(vd: ValDef)(using opts: PrinterOptions, ctx: inox.Context) = {
       if (termVariables.contains(vd.toVariable))
         ctx.reporter.internalError(s"Typing context already contains variable ${vd.id.asString}")
     }
 
-    def checkFreshTermVariables(vds: Seq[ValDef])(implicit opts: PrinterOptions, ctx: inox.Context) = {
+    def checkFreshTermVariables(vds: Seq[ValDef])(using opts: PrinterOptions, ctx: inox.Context) = {
       vds.foreach(checkFreshTermVariable)
     }
 
-    def checkFreshTypeVariable(tp: TypeParameter)(implicit opts: PrinterOptions, ctx: inox.Context) = {
+    def checkFreshTypeVariable(tp: TypeParameter)(using opts: PrinterOptions, ctx: inox.Context) = {
       if (termVariables.contains(tp))
         ctx.reporter.internalError(s"Typing context already contains type variable ${tp.asString}")
     }
 
-    def checkFreshTypeVariables(tps: Iterable[TypeParameter])(implicit opts: PrinterOptions, ctx: inox.Context) = {
+    def checkFreshTypeVariables(tps: Iterable[TypeParameter])(using opts: PrinterOptions, ctx: inox.Context) = {
       tps.foreach(checkFreshTypeVariable)
     }
 
-    def bindWithValue(vd: ValDef, e: Expr)(implicit opts: PrinterOptions, ctx: inox.Context): TypingContext = {
+    def bindWithValue(vd: ValDef, e: Expr)(using opts: PrinterOptions, ctx: inox.Context): TypingContext = {
       checkFreshTermVariable(vd)
       copy(termVariables = termVariables :+ vd.toVariable :+ Variable.fresh(letWitness, LetEquality(vd.toVariable,e))).setPos(this)
     }
 
-    def bindWithValues(vds: Seq[ValDef], es: Seq[Expr])(implicit opts: PrinterOptions, ctx: inox.Context) = {
+    def bindWithValues(vds: Seq[ValDef], es: Seq[Expr])(using opts: PrinterOptions, ctx: inox.Context) = {
       checkFreshTermVariables(vds)
       vds.zip(es).foldLeft(this){
         case(tcAcc, (vd,e)) => tcAcc.bindWithValue(vd, e)
       }
     }
 
-    def freshBindWithValue(vd: ValDef, e: Expr)(implicit opts: PrinterOptions, ctx: inox.Context): (TypingContext, Identifier) = {
+    def freshBindWithValue(vd: ValDef, e: Expr)(using opts: PrinterOptions, ctx: inox.Context): (TypingContext, Identifier) = {
       val freshVd = vd.freshen
       (
         copy(termVariables = termVariables :+ freshVd.toVariable :+ Variable.fresh(letWitness, LetEquality(freshVd.toVariable,e))).setPos(this),
@@ -66,7 +66,7 @@ object TypeCheckerContext {
       )
     }
 
-    def freshBindWithValues(vds: Seq[ValDef], es: Seq[Expr])(implicit opts: PrinterOptions, ctx: inox.Context): (TypingContext, Substituter) = {
+    def freshBindWithValues(vds: Seq[ValDef], es: Seq[Expr])(using opts: PrinterOptions, ctx: inox.Context): (TypingContext, Substituter) = {
       if (vds.size != es.size)
         ctx.reporter.internalError("Function `freshBindWithValues` expects sequences with the same size")
       vds.zip(es).foldLeft((this, new Substituter(Map()))) {
@@ -83,17 +83,17 @@ object TypeCheckerContext {
       copy(termVariables = termVariables :+ Variable.fresh("__truthWitness", Truth(cond))).setPos(this)
     }
 
-    def bind(vd: ValDef)(implicit opts: PrinterOptions, ctx: inox.Context): TypingContext = {
+    def bind(vd: ValDef)(using opts: PrinterOptions, ctx: inox.Context): TypingContext = {
       checkFreshTermVariable(vd)
       copy(termVariables = termVariables :+ vd.toVariable).setPos(this)
     }
 
-    def bind(vds: Seq[ValDef])(implicit opts: PrinterOptions, ctx: inox.Context): TypingContext = {
+    def bind(vds: Seq[ValDef])(using opts: PrinterOptions, ctx: inox.Context): TypingContext = {
       checkFreshTermVariables(vds)
       copy(termVariables = termVariables ++ vds.map(_.toVariable)).setPos(this)
     }
 
-    def freshBind(vd: ValDef)(implicit opts: PrinterOptions, ctx: inox.Context): (TypingContext, Identifier) = {
+    def freshBind(vd: ValDef)(using opts: PrinterOptions, ctx: inox.Context): (TypingContext, Identifier) = {
       val freshVd = vd.freshen
       (
         copy(termVariables = termVariables :+ freshVd.toVariable).setPos(this),
@@ -101,12 +101,12 @@ object TypeCheckerContext {
       )
     }
 
-    def withTypeVariables(vars: Set[TypeParameter])(implicit opts: PrinterOptions, ctx: inox.Context): TypingContext = {
+    def withTypeVariables(vars: Set[TypeParameter])(using opts: PrinterOptions, ctx: inox.Context): TypingContext = {
       checkFreshTypeVariables(vars)
       copy(typeVariables = typeVariables ++ vars).setPos(this)
     }
 
-    def withIdentifiers(ids: Set[Identifier])(implicit s: Symbols) = {
+    def withIdentifiers(ids: Set[Identifier])(using s: Symbols) = {
       val (fids, sorts) = ids.partition(id => s.lookupFunction(id).isDefined)
       copy(
         visibleFunctions = visibleFunctions ++ fids,
@@ -144,7 +144,7 @@ object TypeCheckerContext {
 
     def indent: String = "  " * depth
 
-    def asString(indent: String = "")(implicit opts: PrinterOptions) = {
+    def asString(indent: String = "")(using PrinterOptions) = {
       (if (indent != "") s"${indent}Depth: $depth\n" else "") +
       s"""|${indent}Kind: ${vcKind}
           |${indent}Check SAT: ${checkSAT}

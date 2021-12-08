@@ -7,7 +7,7 @@ import java.io.File
 import java.io.FileWriter
 import java.io.BufferedWriter
 
-trait CFileOutputPhase extends UnitPhase[CAST.Prog] {
+class CFileOutputPhase(using override val context: inox.Context) extends UnitPhase[CAST.Prog](context) {
 
   val name = "C File Output"
   val description = "Output converted C program to the specified file (default leon.c)"
@@ -36,7 +36,7 @@ trait CFileOutputPhase extends UnitPhase[CAST.Prog] {
       val cout = new BufferedWriter(new FileWriter(cOutputFile))
       val hout = new BufferedWriter(new FileWriter(hOutputFile))
 
-      val headerDependencies = CASTDependencies.headerDependencies(program)(context)
+      val headerDependencies = CASTDependencies.headerDependencies(program)(using context)
 
       val gencIncludes = context.options.findOptionOrDefault(optIncludes)
       val ph = new CPrinter(hInclude, false, headerDependencies, gencIncludes)
@@ -57,10 +57,4 @@ trait CFileOutputPhase extends UnitPhase[CAST.Prog] {
     timer.stop()
   }
 
-}
-
-object CFileOutputPhase {
-  def apply(implicit ctx: inox.Context): LeonPipeline[CAST.Prog, CAST.Prog] = new {
-    val context = ctx
-  } with CFileOutputPhase
 }

@@ -15,9 +15,9 @@ trait EvaluatorCheckFilter extends CheckFilter {
 object EvaluatorCheckFilter {
   def apply(t: ast.Trees, ctx: inox.Context): EvaluatorCheckFilter {
     val trees: t.type
-  } = new EvaluatorCheckFilter {
-    override val context = ctx
-    override val trees: t.type = t
+  } = {
+    class Impl(override val trees: t.type, override val context: inox.Context) extends EvaluatorCheckFilter
+    new Impl(t, ctx)
   }
 }
 

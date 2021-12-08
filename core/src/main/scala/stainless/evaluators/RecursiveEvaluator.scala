@@ -3,15 +3,16 @@
 package stainless
 package evaluators
 
-trait RecursiveEvaluator extends inox.evaluators.RecursiveEvaluator {
-  val program: Program
-
-  import context._
+abstract class RecursiveEvaluator(override val program: Program,
+                                  override val context: inox.Context)
+                                 (using override protected val semantics: program.Semantics)
+  extends inox.evaluators.RecursiveEvaluator(program, context) {
+  import context.{given, _}
   import program._
   import program.trees._
-  import program.symbols._
+  import program.symbols.{given, _}
 
-  override def e(expr: Expr)(implicit rctx: RC, gctx: GC): Expr = expr match {
+  override def e(expr: Expr)(using rctx: RC, gctx: GC): Expr = expr match {
     case Require(pred, body) =>
       if (!ignoreContracts && e(pred) != BooleanLiteral(true))
         throw RuntimeError("Requirement did not hold @" + expr.getPos)
@@ -31,7 +32,7 @@ trait RecursiveEvaluator extends inox.evaluators.RecursiveEvaluator {
     case MatchExpr(scrut, cases) =>
       val rscrut = e(scrut)
       cases.to(LazyList).map(c => matchesCase(rscrut, c).map(c -> _)).find(_.nonEmpty) match {
-        case Some(Some((c, mapping))) => e(c.rhs)(rctx.withNewVars(mapping), gctx)
+        case Some(Some((c, mapping))) => e(c.rhs)(using rctx.withNewVars(mapping), gctx)
         case _ => throw RuntimeError("MatchError: " + rscrut + " did not match any of the cases:\n" + cases)
       }
 
@@ -83,7 +84,7 @@ trait RecursiveEvaluator extends inox.evaluators.RecursiveEvaluator {
   }
 
   protected def matchesCase(scrut: Expr, caze: MatchCase)
-                           (implicit rctx: RC, gctx: GC): Option[Map[ValDef, Expr]] = {
+                           (using rctx: RC, gctx: GC): Option[Map[ValDef, Expr]] = {
 
     def obind(ob: Option[ValDef], e: Expr): Map[ValDef, Expr] = {
       Map.empty[ValDef, Expr] ++ ob.map(_ -> e)
@@ -142,7 +143,7 @@ trait RecursiveEvaluator extends inox.evaluators.RecursiveEvaluator {
     matchesPattern(caze.pattern, scrut).flatMap { mapping =>
       caze.optGuard match {
         case Some(guard) =>
-          if (e(guard)(rctx.withNewVars(mapping), gctx) == BooleanLiteral(true)) {
+          if (e(guard)(using rctx.withNewVars(mapping), gctx) == BooleanLiteral(true)) {
             Some(mapping)
           } else {
             None
@@ -156,14 +157,9 @@ trait RecursiveEvaluator extends inox.evaluators.RecursiveEvaluator {
 
 object RecursiveEvaluator {
   def apply(p: StainlessProgram, ctx: inox.Context): RecursiveEvaluator { val program: p.type } = {
-    new {
-      val program: p.type = p
-      val context = ctx
-    } with RecursiveEvaluator
+    class Impl(override val program: p.type) extends RecursiveEvaluator(program, ctx)(using p.getSemantics)
       with inox.evaluators.HasDefaultGlobalContext
-      with inox.evaluators.HasDefaultRecContext {
-
-      val semantics = p.getSemantics
-    }
+      with inox.evaluators.HasDefaultRecContext
+    new Impl(p)
   }
 }

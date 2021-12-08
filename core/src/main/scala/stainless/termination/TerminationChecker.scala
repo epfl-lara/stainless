@@ -6,12 +6,11 @@ package termination
 import scala.collection.mutable.{Map => MutableMap, ListBuffer => MutableList}
 
 trait TerminationChecker { self =>
-
   val program: Program { val trees: Trees }
   val context: inox.Context
 
   import program.trees._
-  import program.symbols._
+  import program.symbols.{given, _}
 
   def terminates(fd: FunDef): TerminationGuarantee
 
@@ -32,14 +31,14 @@ trait TerminationChecker { self =>
   sealed abstract class NonTerminating extends TerminationGuarantee {
     override def isGuaranteed: Boolean = false
 
-    def asString(implicit opts: PrinterOptions): String = this match {
+    def asString(using PrinterOptions): String = this match {
       case NotWellFormed(sorts) =>
         s"ADTs ${sorts.map(_.id.asString).mkString(", ")} are ill-formed"
       case LoopsGivenInputs(fi) =>
         if (fi.args.nonEmpty) {
-          val max = fi.tfd.params.map(_.asString(opts).length).max
+          val max = fi.tfd.params.map(_.asString.length).max
           val model = for ((vd, e) <- fi.tfd.params zip fi.args) yield {
-            ("%-" + max + "s -> %s").format(vd.asString(opts), e.asString(opts))
+            ("%-" + max + "s -> %s").format(vd.asString, e.asString)
           }
           s"Function ${fi.id.asString} loops given inputs:\n${model.mkString("\n")}"
         } else {
@@ -47,13 +46,13 @@ trait TerminationChecker { self =>
         }
       case MaybeLoopsGivenInputs(fi) =>
         if (fi.args.nonEmpty) {
-          val max = fi.tfd.params.map(_.asString(opts).length).max
+          val max = fi.tfd.params.map(_.asString.length).max
           val model = for ((vd, e) <- fi.tfd.params zip fi.args) yield {
             ("%-" + max + "s -> %s").format(vd.asString, e.asString)
           }
           s"Function ${fi.id.asString} maybe loops given inputs:\n${model.mkString("\n")}"
         } else {
-          s"Function ${fi.id.asString(opts)} maybe loops when called"
+          s"Function ${fi.id.asString} maybe loops when called"
         }
       case CallsNonTerminating(calls) =>
         s"Calls non-terminating functions ${calls.map(_.id.asString).mkString(", ")}"
@@ -101,87 +100,81 @@ trait TerminationChecker { self =>
 object TerminationChecker {
 
   def apply(p: Program { val trees: Trees }, ctx: inox.Context)(sze: SizeFunctions { val trees: p.trees.type })
-      : TerminationChecker { val program: p.type } =
-    new {
-      val program: p.type = p
-      val context = ctx
-    } with ProcessingPipeline { self =>
-      import p.trees._
+      : TerminationChecker { val program: p.type } = {
 
-      object encoder extends {
-        val s: p.trees.type = p.trees
-        val t: stainless.trees.type = stainless.trees
-      } with inox.transformers.TreeTransformer {
-        override def transform(e: s.Expr): t.Expr = e match {
-          case s.Decreases(measure, body) => transform(body)
-          case _                          => super.transform(e)
-        }
+    class EncoderImpl(override val s: p.trees.type, override val t: stainless.trees.type)
+      extends inox.transformers.TreeTransformer {
+      override def transform(e: s.Expr): t.Expr = e match {
+        case s.Decreases(measure, body) => transform(body)
+        case _                          => super.transform(e)
       }
+    }
 
-      object cfa extends CICFA {
-        val program: self.program.type = self.program
-        val context = self.context
-      }
+    val encoderImpl = new EncoderImpl(p.trees, stainless.trees)
 
-      object integerOrdering extends {
-        val checker: self.type = self
-        val sizes: sze.type = sze
-        val cfa: self.cfa.type = self.cfa
-        val encoder: self.encoder.type = self.encoder
-      } with SumOrdering with StructuralSize with Strengthener with RelationBuilder with ChainBuilder
+    class ProcessingPipelineImpl(override val program: p.type, override val context: inox.Context) extends ProcessingPipeline {
+      self =>
 
-      object lexicographicOrdering extends {
-        val checker: self.type = self
-        val sizes: sze.type = sze
-        val cfa: self.cfa.type = self.cfa
-        val encoder: self.encoder.type = self.encoder
-      } with LexicographicOrdering with StructuralSize with Strengthener with RelationBuilder
+      class CFAImpl(override val program: self.program.type)
+        extends CICFA(program, self.context)
+      val cfa = new CFAImpl(self.program)
 
-      object bvOrdering extends {
-        val checker: self.type = self
-        val sizes: sze.type = sze
-        val cfa: self.cfa.type = self.cfa
-        val encoder: self.encoder.type = self.encoder
-      } with BVOrdering with StructuralSize with Strengthener with RelationBuilder
+      class IntegerOrderingImpl(override val checker: self.type, override val sizes: sze.type,
+                                override val cfa: self.cfa.type, override val encoder: encoderImpl.type)
+        extends SumOrdering with StructuralSize with Strengthener with RelationBuilder with ChainBuilder
+      // We explicitly widen integerOrdering because scalac seems to ignore some of the mixed traits if we don't do so.
+      val integerOrdering: SumOrdering with StructuralSize with Strengthener with RelationBuilder with ChainBuilder {
+        val checker: self.type
+      } = new IntegerOrderingImpl(self, sze, self.cfa, encoderImpl)
 
-      object recursionProcessor extends {
-        val checker: self.type = self
-        val ordering: integerOrdering.type = integerOrdering
-      } with RecursionProcessor
+      class LexicographicOrderingImpl(override val checker: self.type, override val sizes: sze.type,
+                                      override val cfa: self.cfa.type, override val encoder: encoderImpl.type)
+        extends LexicographicOrdering with StructuralSize with Strengthener with RelationBuilder
+      // Ditto
+      val lexicographicOrdering: LexicographicOrdering with StructuralSize with Strengthener with RelationBuilder {
+        val checker: self.type
+      } = new LexicographicOrderingImpl(self, sze, self.cfa, encoderImpl)
 
-      object decreasesProcessor extends {
-        val checker: self.type = self
-        val ordering: integerOrdering.type = integerOrdering
-      } with DecreasesProcessor
+      class BVOrderingImpl(override val checker: self.type, override val sizes: sze.type,
+                           override val cfa: self.cfa.type, override val encoder: encoderImpl.type)
+        extends BVOrdering with StructuralSize with Strengthener with RelationBuilder
+      // Ditto
+      val bvOrdering: BVOrdering with StructuralSize with Strengthener with RelationBuilder {
+        val checker: self.type
+      } = new BVOrderingImpl(self, sze, self.cfa, encoderImpl)
 
-      object selfCallsProcessor extends {
-        val checker: self.type = self
-      } with SelfCallsProcessor
+      class RecursionProcessorImpl(override val checker: self.type,
+                                   override val ordering: integerOrdering.type)
+        extends RecursionProcessor(checker, ordering)
+      val recursionProcessor = new RecursionProcessorImpl(self, integerOrdering)
 
-      object integerProcessor extends {
-        val checker: self.type = self
-        val ordering: integerOrdering.type = integerOrdering
-      } with RelationProcessor
+      class DecreasesProcessorImpl(override val checker: self.type, override val ordering: integerOrdering.type)
+        extends DecreasesProcessor(checker, ordering)
+      val decreasesProcessor = new DecreasesProcessorImpl(self, integerOrdering)
 
-      object lexicographicProcessor extends {
-        val checker: self.type = self
-        val ordering: lexicographicOrdering.type = lexicographicOrdering
-      } with RelationProcessor
+      class SelfCallsProcessorImpl(override val checker: self.type)
+        extends SelfCallsProcessor(checker)
+      val selfCallsProcessor = new SelfCallsProcessorImpl(self)
 
-      object bvProcessor extends {
-        val checker: self.type = self
-        val ordering: bvOrdering.type = bvOrdering
-      } with RelationProcessor
+      class IntegerProcessorImpl(override val checker: self.type, override val ordering: integerOrdering.type)
+        extends RelationProcessor(checker, ordering)
+      val integerProcessor = new IntegerProcessorImpl(self, integerOrdering)
 
-      object chainProcessor extends {
-        val checker: self.type = self
-        val ordering: integerOrdering.type = integerOrdering
-      } with ChainProcessor
+      class LexicographicProcessorImpl(override val checker: self.type, override val ordering: lexicographicOrdering.type)
+        extends RelationProcessor(checker, ordering)
+      val lexicographicProcessor = new LexicographicProcessorImpl(self, lexicographicOrdering)
 
-      object loopProcessor extends {
-        val checker: self.type = self
-        val ordering: integerOrdering.type = integerOrdering
-      } with LoopProcessor
+      class BVProcessorImpl(override val checker: self.type, override val ordering: bvOrdering.type)
+        extends RelationProcessor(checker, ordering)
+      val bvProcessor = new BVProcessorImpl(self, bvOrdering)
+
+      class ChainProcessorImpl(override val checker: self.type, override val ordering: integerOrdering.type)
+        extends ChainProcessor(checker, ordering)
+      val chainProcessor = new ChainProcessorImpl(self, integerOrdering)
+
+      class LoopProcessorImpl(override val checker: self.type, override val ordering: integerOrdering.type)
+        extends LoopProcessor(checker, ordering)
+      val loopProcessor = new LoopProcessorImpl(self, integerOrdering)
 
       val processors = {
         List(
@@ -196,4 +189,6 @@ object TerminationChecker {
         )
       }
     }
+    new ProcessingPipelineImpl(p, ctx)
+  }
 }

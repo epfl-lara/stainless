@@ -4,17 +4,17 @@ package stainless
 package extraction
 package termination
 
-trait SizedADTExtraction extends SimplePhase with SimplyCachedFunctions with IdentitySorts { self =>
-  val s: Trees
-  val t: s.type
+class SizedADTExtraction(override val s: Trees)(override val t: s.type)
+                        (using override val context: inox.Context)
+  extends SimplePhase
+     with SimplyCachedFunctions
+     with IdentitySorts { self =>
 
   import s._
   import s.exprOps._
 
-  protected class TransformerContext(implicit symbols: Symbols) extends transformers.TreeTransformer {
-    val s: self.s.type = self.s
-    val t: s.type = s
-
+  protected class TransformerContext(override val s: self.s.type, override val t: s.type)
+                                    (using symbols: Symbols) extends transformers.ConcreteTreeTransformer(s, t) {
     override def transform(e: Expr) = e match {
       case FunctionInvocation(
           ast.SymbolIdentifier("stainless.lang.indexedAt"),
@@ -49,16 +49,15 @@ trait SizedADTExtraction extends SimplePhase with SimplyCachedFunctions with Ide
     }
   }
 
-  override protected def getContext(syms: Symbols) = new TransformerContext()(syms)
+  override protected def getContext(syms: Symbols) = new TransformerContext(self.s, self.t)(using syms)
 }
 
 object SizedADTExtraction {
-  def apply(tt: Trees)(implicit ctx: inox.Context): ExtractionPipeline {
+  def apply(tt: Trees)(using inox.Context): ExtractionPipeline {
     val s: tt.type
     val t: tt.type
-  } = new SizedADTExtraction {
-    override val s: tt.type = tt
-    override val t: tt.type = tt
-    override val context = ctx
+  } = {
+    class Impl(override val s: tt.type, override val t: tt.type) extends SizedADTExtraction(s)(t)
+    new Impl(tt, tt)
   }
 }

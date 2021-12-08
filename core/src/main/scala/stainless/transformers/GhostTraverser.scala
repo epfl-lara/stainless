@@ -6,6 +6,8 @@ package transformers
 trait GhostTraverser extends DefinitionTraverser { self =>
   val trees: ast.Trees
   import trees._
+  val symbols: Symbols
+  import symbols.{given, _}
 
   lazy val deconstructor: inox.ast.TreeDeconstructor {
     val s: self.trees.type
@@ -19,8 +21,6 @@ trait GhostTraverser extends DefinitionTraverser { self =>
     @inline def withinGhost: GhostContext =
       new GhostContext(true)
   }
-
-  implicit val symbols: Symbols
 
   override type Env = GhostContext
   override val initEnv: GhostContext = new GhostContext(false)
@@ -72,4 +72,3 @@ trait GhostTraverser extends DefinitionTraverser { self =>
   }
 
 }
-

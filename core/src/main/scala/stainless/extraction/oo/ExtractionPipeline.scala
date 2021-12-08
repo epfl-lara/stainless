@@ -52,10 +52,8 @@ trait SimplyCachedClasses extends CachingPhase {
 }
 
 trait IdentityClasses extends SimpleClasses with SimplyCachedClasses { self =>
-  private[this] final object identity extends oo.TreeTransformer {
-    override val s: self.s.type = self.s
-    override val t: self.t.type = self.t
-  }
+  private[this] class IdentityImpl(override val s: self.s.type, override val t: self.t.type) extends oo.ConcreteTreeTransformer(s, t)
+  private[this] val identity = new IdentityImpl(s, t)
 
   override protected def extractClass(context: TransformerContext, cd: s.ClassDef): t.ClassDef = identity.transform(cd)
 }
@@ -72,10 +70,8 @@ trait SimplyCachedTypeDefs extends CachingPhase {
 }
 
 trait IdentityTypeDefs extends SimpleTypeDefs with SimplyCachedTypeDefs { self =>
-  private[this] final object identity extends oo.TreeTransformer {
-    override val s: self.s.type = self.s
-    override val t: self.t.type = self.t
-  }
+  private[this] class IdentityTypeDefsImpl(override val s: self.s.type, override val t: self.t.type) extends oo.ConcreteTreeTransformer(s, t)
+  private[this] val identity = new IdentityTypeDefsImpl(s, t)
 
   override protected def extractTypeDef(context: TransformerContext, td: s.TypeDef): t.TypeDef = identity.transform(td)
 }

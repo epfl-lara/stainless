@@ -11,11 +11,11 @@ trait Tactic {
   val description: String
 
   import program.trees._
-  import program.symbols._
+  import program.symbols.{given, _}
 
   protected type VC = verification.VC[program.trees.type]
   protected def VC(cond: program.trees.Expr, id: Identifier, kind: VCKind, satisfiability: Boolean): VC =
-    verification.VC(cond, id, kind, satisfiability)
+    verification.VC(program.trees)(cond, id, kind, satisfiability)
 
   protected def collectForConditions[T](pf: PartialFunction[(Expr, Path),T])(e: Expr): Seq[T] = {
     val results: ListBuffer[T] = new ListBuffer

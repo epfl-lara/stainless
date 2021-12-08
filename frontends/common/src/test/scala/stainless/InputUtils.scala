@@ -2,15 +2,12 @@
 
 package stainless
 
-import scala.language.existentials
-
 import extraction.xlang.{ trees => xt, TreeSanitizer }
 import extraction.utils.DebugSymbols
 import frontend.{ CallBack, Recovery, RecoveryResult }
 import utils.CheckFilter
 
 import scala.collection.mutable.ListBuffer
-import scala.language.existentials
 
 import java.io.{ File, BufferedWriter, FileWriter }
 
@@ -20,7 +17,7 @@ trait InputUtils {
 
   /** Compile and extract the given files' **content** (& the library). */
   def load(contents: Seq[String], filterOpt: Option[Filter] = None, sanitize: Boolean = true)
-          (implicit ctx: inox.Context): (Seq[xt.UnitDef], Program { val trees: xt.type }) = {
+          (using inox.Context): (Seq[xt.UnitDef], Program { val trees: xt.type }) = {
     val files = contents.map { content =>
       val file = File.createTempFile("stainless", ".scala")
       file.deleteOnExit()
@@ -35,7 +32,7 @@ trait InputUtils {
 
   /** Compile and extract the given files (& the library). */
   def loadFiles(files: Seq[String], filterOpt: Option[Filter] = None, sanitize: Boolean = true)
-               (implicit ctx: inox.Context): (Seq[xt.UnitDef], Program { val trees: xt.type }) = {
+               (using ctx: inox.Context): (Seq[xt.UnitDef], Program { val trees: xt.type }) = {
 
     val preprocessing = new DebugSymbols {
       val name = "Preprocessing"

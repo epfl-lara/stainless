@@ -21,7 +21,7 @@ trait OrderingRelation extends SolverProvider {
 
 trait SumOrdering extends OrderingRelation { self: StructuralSize =>
   import checker.program.trees._
-  import checker.program.symbols._
+  import checker.program.symbols.{given, _}
 
   val description = "comparing sum of argument sizes"
 
@@ -38,7 +38,7 @@ trait SumOrdering extends OrderingRelation { self: StructuralSize =>
 
 trait LexicographicOrdering extends OrderingRelation { self: StructuralSize =>
   import checker.program.trees._
-  import checker.program.symbols._
+  import checker.program.symbols.{given, _}
 
   val description = "comparing argument lists lexicographically"
 
@@ -59,7 +59,7 @@ trait LexicographicOrdering extends OrderingRelation { self: StructuralSize =>
 
 trait BVOrdering extends OrderingRelation { self: StructuralSize =>
   import checker.program.trees._
-  import checker.program.symbols._
+  import checker.program.symbols.{given, _}
 
   val description = "comparing bitvector arguments lexicographically"
 

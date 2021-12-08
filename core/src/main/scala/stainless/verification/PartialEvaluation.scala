@@ -7,47 +7,51 @@ import scala.concurrent.duration._
 
 object DebugSectionPartialEval extends inox.DebugSection("partial-eval")
 
-trait PartialEvaluation
+class PartialEvaluation(override val s: extraction.Trees)
+                       (override val t: s.type,
+                        protected val semantics: inox.SemanticsProvider { val trees: s.type })
+                       (using override val context: inox.Context)
   extends extraction.CachingPhase
      with extraction.IdentitySorts
      with extraction.SimpleFunctions { self =>
 
-  val s: extraction.Trees
-  val t: s.type
-
-  import context._
+  import context.{given, _}
   import s._
 
-  implicit val debugSection = DebugSectionPartialEval
-
-  protected val semantics: inox.SemanticsProvider { val trees: s.type }
+  given givenDebugSection: DebugSectionPartialEval.type = DebugSectionPartialEval
 
   override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult]((fd, context) => 
-    getDependencyKey(fd.id)(context.symbols)
+    getDependencyKey(fd.id)(using context.symbols)
   )
 
   override protected def getContext(symbols: s.Symbols) = new TransformerContext(symbols)
 
   protected class TransformerContext(val symbols: s.Symbols) { self0 =>
-    import symbols._
+    import symbols.{given, _}
 
-    private[this] val simpleSimplifier = new {
-      override val trees: s.type = s
-      override val symbols: self0.symbols.type = self0.symbols
-      override val opts = inox.solvers.PurityOptions.assumeChecked
-    } with transformers.PartialEvaluator with inox.transformers.SimplifierWithPath {
+    private[this] class SimpleSimplifier(override val trees: self.s.type,
+                                         override val symbols: self0.symbols.type,
+                                         override val s: self.s.type,
+                                         override val t: self.s.type)
+                                        (using override val opts: inox.solvers.PurityOptions)
+      extends transformers.PartialEvaluator with inox.transformers.SimplifierWithPath {
       override val pp = Env
     }
+    private[this] val simpleSimplifier =
+      new SimpleSimplifier(s, self0.symbols, s, s)(using inox.solvers.PurityOptions.assumeChecked)
 
-    private[this] val solvingSimplifier = new {
-      override val trees: s.type = s
-      override val symbols: self0.symbols.type = self0.symbols
-      override val context = self.context
-      override val semantics = self.semantics
-      override val opts = inox.solvers.PurityOptions.assumeChecked
-    } with transformers.PartialEvaluator with transformers.SimplifierWithSolver {
+    private[this] class SolvingSimplifier(override val trees: self.s.type,
+                                          override val symbols: self0.symbols.type,
+                                          override val s: self.s.type,
+                                          override val t: self.s.type,
+                                          override val context: inox.Context,
+                                          override val semantics: self.semantics.type)
+                                         (using override val opts: inox.solvers.PurityOptions)
+      extends transformers.PartialEvaluator with transformers.SimplifierWithSolver {
       override val pp = Env
     }
+    private[this] val solvingSimplifier =
+      new SolvingSimplifier(s, self0.symbols, s, s, self.context, self.semantics)(using inox.solvers.PurityOptions.assumeChecked)
 
     private[this] val hasPartialEvalFlag: Set[Identifier] =
       symbols.functions.values.filter(_.flags contains s.PartialEval).map(_.id).toSet
@@ -99,14 +103,13 @@ trait PartialEvaluation
 
 object PartialEvaluation {
   def apply(tr: extraction.Trees)(
-    implicit ctx: inox.Context, sems: inox.SemanticsProvider { val trees: tr.type }
+    using ctx: inox.Context, sems: inox.SemanticsProvider { val trees: tr.type }
   ): extraction.ExtractionPipeline {
     val s: tr.type
     val t: tr.type
-  } = new PartialEvaluation {
-    override val s: tr.type = tr
-    override val t: tr.type = tr
-    override val context = ctx
-    override val semantics = sems
+  } = {
+    class Impl(override val s: tr.type, override val t: tr.type, override val semantics: sems.type)
+      extends PartialEvaluation(s)(t, semantics)
+    new Impl(tr, tr, sems)
   }
 }

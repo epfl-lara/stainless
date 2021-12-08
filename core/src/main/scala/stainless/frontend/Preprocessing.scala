@@ -8,20 +8,13 @@ import xlang.{ trees => xt }
 
 import stainless.utils.LibraryFilter
 
-trait Preprocessing extends inox.transformers.SymbolTransformer {
+class Preprocessing private(override val s: xt.type, override val t: xt.type)
+                           (using val context: inox.Context)
+  extends inox.transformers.SymbolTransformer {
 
-  implicit val context: inox.Context
-  override val s: xt.type = xt
-  override val t: xt.type = xt
+  def this()(using inox.Context) = this(xt, xt)
 
   override def transform(symbols: s.Symbols): t.Symbols = {
     Recovery.recover(strictBVCleaner.transform(LibraryFilter.removeLibraryFlag(symbols)))
   }
-
-}
-
-object Preprocessing {
-  def apply()(implicit ctx: inox.Context) = new {
-    override val context = ctx
-  } with Preprocessing
 }

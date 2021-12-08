@@ -3,8 +3,6 @@
 package stainless
 package extraction
 
-import scala.language.existentials
-
 package object methods {
 
   object trees extends methods.Trees with oo.ClassSymbols {
@@ -13,7 +11,18 @@ package object methods {
       sorts: Map[Identifier, ADTSort],
       classes: Map[Identifier, ClassDef],
       typeDefs: Map[Identifier, TypeDef],
-    ) extends ClassSymbols with AbstractSymbols
+    ) extends ClassSymbols with MethodsAbstractSymbols {
+      override val symbols: this.type = this
+    }
+
+    override def mkSymbols(
+      functions: Map[Identifier, FunDef],
+      sorts: Map[Identifier, ADTSort],
+      classes: Map[Identifier, ClassDef],
+      typeDefs: Map[Identifier, TypeDef],
+    ): Symbols = {
+      Symbols(functions, sorts, classes, typeDefs)
+    }
 
     object printer extends Printer { val trees: methods.trees.type = methods.trees }
   }
@@ -25,12 +34,12 @@ package object methods {
     def apply(tree: inox.ast.Trees#Tree, msg: String) = new MethodsException(tree, msg)
   }
 
-  def lowering(implicit ctx: inox.Context) = ExtractionPipeline(new CheckingTransformer {
-    override val s: trees.type = trees
-    override val t: throwing.trees.type = throwing.trees
-  })
+  def lowering(using inox.Context) = {
+    class LoweringImpl(override val s: trees.type, override val t: throwing.trees.type) extends CheckingTransformer
+    ExtractionPipeline(new LoweringImpl(trees, throwing.trees))
+  }
 
-  def extractor(implicit ctx: inox.Context) = {
+  def extractor(using inox.Context) = {
     utils.DebugPipeline("Laws",            Laws(trees))            andThen
     utils.DebugPipeline("SuperInvariants", SuperInvariants(trees))      andThen
     utils.DebugPipeline("SuperCalls",      SuperCalls(trees))      andThen
@@ -42,14 +51,14 @@ package object methods {
     utils.DebugPipeline("MethodsLowering", lowering)
   }
 
-  def fullExtractor(implicit ctx: inox.Context) = extractor andThen nextExtractor
-  def nextExtractor(implicit ctx: inox.Context) = throwing.fullExtractor
+  def fullExtractor(using inox.Context) = extractor andThen nextExtractor
+  def nextExtractor(using inox.Context) = throwing.fullExtractor
 
-  def phaseSemantics(implicit ctx: inox.Context): inox.SemanticsProvider { val trees: methods.trees.type } = {
+  def phaseSemantics(using inox.Context): inox.SemanticsProvider { val trees: methods.trees.type } = {
     extraction.phaseSemantics(methods.trees)(fullExtractor)
   }
 
-  def nextPhaseSemantics(implicit ctx: inox.Context): inox.SemanticsProvider { val trees: throwing.trees.type } = {
+  def nextPhaseSemantics(using inox.Context): inox.SemanticsProvider { val trees: throwing.trees.type } = {
     throwing.phaseSemantics
   }
 }

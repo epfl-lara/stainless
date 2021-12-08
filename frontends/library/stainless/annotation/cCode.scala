@@ -57,7 +57,7 @@ object cCode {
 
   /* Export function into a header file for GenC translation */
   @ignore
-  class export extends StaticAnnotation
+  class `export` extends StaticAnnotation
 
   /* Make sure struct is "packed" when compiled to C (no padding between fields of structs in memory) */
   @ignore

@@ -6,35 +6,54 @@ package ast
 import inox.utils.Position
 import inox.transformers.{TransformerOp, TransformerWithExprOp, TransformerWithTypeOp}
 
-trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
+trait SymbolOps extends inox.ast.SymbolOps with TypeOps { self =>
   import trees._
   import trees.exprOps._
-  import symbols._
+  import symbols.{given, _}
 
-  override protected def simplifierWithPC(popts: inox.solvers.PurityOptions): SimplifierWithPC = new {
-    val opts: inox.solvers.PurityOptions = popts
-  } with transformers.SimplifierWithPC with SimplifierWithPC with inox.transformers.SimplifierWithPath {
-    override val pp = implicitly[PathProvider[Env]]
+  override protected def simplifierWithPC(popts: inox.solvers.PurityOptions): SimplifierWithPC = {
+    class SimplifierWithPCImpl(override val trees: self.trees.type,
+                               override val symbols: self.symbols.type,
+                               override val s: self.trees.type,
+                               override val t: self.trees.type)
+                              (using override val opts: inox.solvers.PurityOptions)
+      extends transformers.SimplifierWithPC
+         with SimplifierWithPC
+         with inox.transformers.SimplifierWithPath {
+      override val pp = Env
+    }
+    new SimplifierWithPCImpl(self.trees, self.symbols, self.trees, self.trees)(using popts)
   }
 
-  protected class TransformerWithPC[P <: PathLike[P]](
-    initEnv: P,
-    exprOp: (Expr, P, TransformerOp[Expr, P, Expr]) => Expr,
-    typeOp: (Type, P, TransformerOp[Type, P, Type]) => Type
-  )(implicit val pp: PathProvider[P]) extends super.TransformerWithPC[P](initEnv, exprOp, typeOp) {
+  protected class StainlessTransformerWithPC[P <: PathLike[P]](
+    override val s: self.trees.type,
+    override val t: self.trees.type,
+    val symbols: self.symbols.type
+  )(using PathProvider[P]) extends TransformerWithPC[P](s, t) {
     self0: TransformerWithExprOp with TransformerWithTypeOp =>
-      val symbols = self.symbols
   }
 
   override protected def transformerWithPC[P <: PathLike[P]](
     path: P,
-    exprOp: (Expr, P, TransformerOp[Expr, P, Expr]) => Expr,
-    typeOp: (Type, P, TransformerOp[Type, P, Type]) => Type
-  )(implicit pp: PathProvider[P]): TransformerWithPC[P] = {
-    new TransformerWithPC[P](path, exprOp, typeOp)
-      with transformers.TransformerWithPC
-      with TransformerWithExprOp
-      with TransformerWithTypeOp
+    theExprOp: (Expr, P, TransformerOp[Expr, P, Expr]) => Expr,
+    theTypeOp: (Type, P, TransformerOp[Type, P, Type]) => Type
+  )(using PathProvider[P]): StainlessTransformerWithPC[P] = {
+    class Impl(override val s: self.trees.type,
+               override val t: self.trees.type,
+               override val symbols: self.symbols.type)
+              (using override val pp: PathProvider[P])
+      extends StainlessTransformerWithPC[P](s, t, symbols)
+         with transformers.TransformerWithPC
+         with TransformerWithExprOp
+         with TransformerWithTypeOp {
+      override protected def exprOp(expr: s.Expr, env: Env, op: TransformerOp[s.Expr, Env, t.Expr]): t.Expr =
+        theExprOp(expr, env, op)
+
+      override protected def typeOp(ty: s.Type, env: Env, op: TransformerOp[s.Type, Env, t.Type]): t.Type =
+        theTypeOp(ty, env, op)
+    }
+
+    new Impl(self.trees, self.trees, self.symbols)
   }
 
   override def isImpureExpr(expr: Expr): Boolean = expr match {
@@ -43,7 +62,7 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
   }
 
   /** Extracts path conditions from patterns and scrutinees, @see [[conditionForPattern]] */
-  protected class PatternConditions[P <: PathLike[P]](includeBinders: Boolean)(implicit pp: PathProvider[P]) {
+  protected class PatternConditions[P <: PathLike[P]](includeBinders: Boolean)(using pp: PathProvider[P]) {
     protected final def bind(ob: Option[ValDef], to: Expr): P = {
       if (!includeBinders) {
         pp.empty
@@ -79,7 +98,7 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
   }
 
   /* Override point for extracting pattern conditions. */
-  protected def patternConditions[P <: PathLike[P]](includeBinders: Boolean)(implicit pp: PathProvider[P]) =
+  protected def patternConditions[P <: PathLike[P]](includeBinders: Boolean)(using PathProvider[P]) =
     new PatternConditions[P](includeBinders)
 
   /** Recursively transforms a pattern on a boolean formula expressing the conditions for the input expression, possibly including name binders
@@ -101,7 +120,7 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
     */
   final def conditionForPattern[P <: PathLike[P]]
                                (in: Expr, pattern: Pattern, includeBinders: Boolean = false)
-                               (implicit pp: PathProvider[P]): P = patternConditions(includeBinders)(pp)(in, pattern)
+                               (using pp: PathProvider[P]): P = patternConditions(includeBinders)(using pp)(in, pattern)
 
   /** Converts the pattern applied to an input to a map between identifiers and expressions */
   def mapForPattern(in: Expr, pattern: Pattern): Map[ValDef,Expr] = {
@@ -239,14 +258,14 @@ trait SymbolOps extends inox.ast.SymbolOps { self: TypeOps =>
     *
     * @see [[extraction.DebugPipeline]]
     */
-  def debugString(filter: String => Boolean = (x: String) => true)(implicit pOpts: PrinterOptions): String = {
+  def debugString(filter: String => Boolean = (x: String) => true)(using PrinterOptions): String = {
     wrapWith("Functions", objectsToString(functions.values, filter)) ++
     wrapWith("Sorts", objectsToString(sorts.values, filter))
   }
 
   protected def objectsToString(m: Iterable[Definition], filter: String => Boolean)
-                               (implicit pOpts: PrinterOptions): String = {
-    m.collect { case d if filter(d.id.name) => d.asString(pOpts) } mkString "\n\n"
+                               (using PrinterOptions): String = {
+    m.collect { case d if filter(d.id.name) => d.asString } mkString "\n\n"
   }
 
   protected def wrapWith(header: String, s: String) = {

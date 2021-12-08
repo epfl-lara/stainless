@@ -58,23 +58,23 @@ final class Referentiator(val ctx: inox.Context) extends Transformer(LIR, RIR) {
   // Registry of ValDef declared using Decl and which are references.
   private val knownDeclRef = MutableSet[to.ValDef]()
 
-  private def isKnownDeclRef(vd: ValDef)(implicit env: Env) = {
+  private def isKnownDeclRef(vd: ValDef)(using env: Env) = {
     val to = env.vds(vd)
     knownDeclRef(to) || env.mutableParams(to)
   }
 
-  private def addRef(t: Type)(implicit env: Env): Boolean = !t.isArray && t.isMutable && !env.inGlobalDeclarations
-  private def addRef2(t: RIR.Type)(implicit env: Env): Boolean = !t.isArray && t.isMutable && !env.inGlobalDeclarations
+  private def addRef(t: Type)(using env: Env): Boolean = !t.isArray && t.isMutable && !env.inGlobalDeclarations
+  private def addRef2(t: RIR.Type)(using env: Env): Boolean = !t.isArray && t.isMutable && !env.inGlobalDeclarations
 
-  override def rec(prog: Prog)(implicit env: Env): to.Prog = {
+  override def rec(prog: Prog)(using env: Env): to.Prog = {
     if (prog.decls.nonEmpty) {
       val modes = prog.decls.map(_._2)
-      val (to.Block(newDecls), newEnv0) = recImpl(Block(prog.decls.map(_._1)))(env.copy(inGlobalDeclarations = true))
+      val (to.Block(newDecls), newEnv0) = recImpl(Block(prog.decls.map(_._1)))(using env.copy(inGlobalDeclarations = true))
       val newEnv = newEnv0.copy(inGlobalDeclarations = false)
       to.Prog(
         newDecls.map(_.asInstanceOf[to.Decl]).zip(modes),
-        prog.functions.map(rec(_)(newEnv)),
-        prog.classes.map(rec(_)(newEnv)),
+        prog.functions.map(rec(_)(using newEnv)),
+        prog.classes.map(rec(_)(using newEnv)),
       )
     } else {
       to.Prog(
@@ -85,7 +85,7 @@ final class Referentiator(val ctx: inox.Context) extends Transformer(LIR, RIR) {
     }
   }
 
-  override def recImpl(fd: FunDef)(implicit env: Env): to.FunDef = {
+  override def recImpl(fd: FunDef)(using env: Env): to.FunDef = {
     val id = fd.id
 
     val returnType = rec(fd.returnType) // nothing special thanks to the no-aliasing rule
@@ -110,7 +110,7 @@ final class Referentiator(val ctx: inox.Context) extends Transformer(LIR, RIR) {
     // Handle recursive functions
     val newer = to.FunDef(id, returnType, ctx, params, null, fd.isExported, fd.isPure)
     registerFunction(fd, newer)
-    newer.body = rec(fd.body)(newEnv)
+    newer.body = rec(fd.body)(using newEnv)
     newer
   }
 
@@ -122,7 +122,7 @@ final class Referentiator(val ctx: inox.Context) extends Transformer(LIR, RIR) {
   // These operations can introduce pattern such as Deref(Ref(_))
   // or Ref(Deref(_)). This is of course not what we want so we fix it
   // right away using the ref & deref factory functions.
-  final override def recImpl(e: Expr)(implicit env: Env): (to.Expr, Env) = e match {
+  final override def recImpl(e: Expr)(using env: Env): (to.Expr, Env) = e match {
     case Binding(vd0) =>
       // Check the environment for id; if it's a ref we have to reference it.
       val vd = env(vd0)
@@ -209,7 +209,7 @@ final class Referentiator(val ctx: inox.Context) extends Transformer(LIR, RIR) {
 
   // Add references to mutable type in argument position in function types only:
   // the other types are handles according to the context around the usage of types.
-  override def rec(typ: Type)(implicit env: Env): to.Type = typ match {
+  override def rec(typ: Type)(using Env): to.Type = typ match {
     case FunType(Seq(), params0, ret0) =>
       // This is very similar to how function parameter (ValDef) are processed above.
       val params = params0 map { rec(_) match {
@@ -226,7 +226,7 @@ final class Referentiator(val ctx: inox.Context) extends Transformer(LIR, RIR) {
   }
 
   // Adapt the expressions to match w.r.t. references the given parameter types, for argument-like expressions.
-  private def refMatch(params: Seq[to.ValDef])(args: Seq[to.Expr])(implicit d: DummyImplicit): Seq[to.Expr] =
+  private def refMatch(params: Seq[to.ValDef])(args: Seq[to.Expr])(using DummyImplicit): Seq[to.Expr] =
     refMatch(params map { _.getType })(args)
 
   private def refMatch(params: Seq[to.Type])(args: Seq[to.Expr]): Seq[to.Expr] = {

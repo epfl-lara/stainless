@@ -17,12 +17,12 @@ import scala.collection.mutable.{ Map => MutableMap }
  * NOTE in C99 there's the concept of strict aliasing (cf. §6.5/7), but since we don't do any weird
  *      cast operation in our translation, the overapproximation mentioned above is not an issue.
  */
-trait ComputeFunCtxPhase extends LeonPipeline[Symbols, FunCtxDB] {
-  val name = "Function context computer"
-  implicit val context: inox.Context
-  import context._
+class ComputeFunCtxPhase(using override val context: inox.Context) extends LeonPipeline[Symbols, FunCtxDB](context) {
+  import context.{given, _}
 
-  private implicit val debugSection = DebugSectionGenC
+  val name = "Function context computer"
+
+  private given givenDebugSection: DebugSectionGenC.type = DebugSectionGenC
 
   def run(syms: Symbols): FunCtxDB = {
 
@@ -69,10 +69,4 @@ trait ComputeFunCtxPhase extends LeonPipeline[Symbols, FunCtxDB] {
     db.toMap // Make it immutable
   }
 
-}
-
-object ComputeFunCtxPhase {
-  def apply(implicit ctx: inox.Context): LeonPipeline[Symbols, FunCtxDB] = new {
-    val context = ctx
-  } with ComputeFunCtxPhase
 }

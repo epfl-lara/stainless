@@ -5,19 +5,65 @@ package solvers
 
 import inox.transformers._
 
-trait InoxEncoder extends ProgramEncoder {
-  val sourceProgram: Program
-  val context: inox.Context
+class InoxEncoder private(override val t: inox.trees.type)
+                         (override val sourceProgram: Program,
+                          val context: inox.Context)
+                         (encoder: TreeEncoder[sourceProgram.type],
+                          decoder: TreeDecoder[sourceProgram.type])
+                         (using protected val semantics: sourceProgram.Semantics)
+  // `val s` is defined in ProgramEncoder as `sourceProgram.trees`, so we pass `sourceProgram.trees` where `s` is expected
+  extends ProgramEncoder(t, sourceProgram, encoder, decoder)(
+    encodedProgram = inox.InoxProgram(
+      t.NoSymbols
+        .withSorts(sourceProgram.symbols.sorts.values.toSeq
+          .map(sort => sort.copy(flags = sort.flags.filter(keepFlag(sourceProgram))))
+          .map(encoder.transform))
+        .withFunctions(sourceProgram.symbols.functions.values.toSeq
+          .map(fd => fd.copy(flags = fd.flags.filter(keepFlag(sourceProgram))))
+          .map(encoder.transform))),
+    extraFunctions = ArrayTheory.extraFunctions,
+    extraSorts = ArrayTheory.extraSorts) {
+
+  def this(sourceProgram: Program, context: inox.Context)
+          (using semantics: sourceProgram.Semantics) =
+    this(inox.trees)(sourceProgram, context)(
+      new TreeEncoder[sourceProgram.type](sourceProgram)(using semantics, context),
+      new TreeDecoder[sourceProgram.type](sourceProgram))
+}
+
+private object ArrayTheory {
+  import inox.trees.dsl._
   val t: inox.trees.type = inox.trees
 
+  val arrayID = FreshIdentifier("array")
+  val arr  = FreshIdentifier("arr")
+  val size = FreshIdentifier("size")
+
+  val arrayInvariantID = FreshIdentifier("array_inv")
+  val arrayInvariant = mkFunDef(arrayInvariantID)("A") { case Seq(aT) => (
+    Seq("array" :: T(arrayID)(aT)), t.BooleanType(), { case Seq(array) =>
+    array.getField(size) >= E(0)
+  })
+  }
+
+  val arraySort: inox.trees.ADTSort = mkSort(arrayID, t.HasADTInvariant(arrayInvariantID))("A") {
+    case Seq(aT) => Seq((
+      arrayID.freshen,
+      Seq(t.ValDef(arr, t.MapType(t.Int32Type(), aT)), t.ValDef(size, t.Int32Type()))
+    ))
+  }
+  val Seq(arrayCons) = arraySort.constructors
+
+  val maxArgs = 10
+
+  val extraFunctions: Seq[t.FunDef] = Seq(arrayInvariant)
+  val extraSorts: Seq[t.ADTSort] = Seq(arraySort)
+}
+
+
+private def keepFlag(sourceProgram: Program)(flag: sourceProgram.trees.Flag): Boolean = {
   import sourceProgram.trees._
-  import sourceProgram.symbols._
-
-  protected implicit val semantics: Semantics
-
-  import context._
-
-  private[this] def keepFlag(flag: Flag): Boolean = flag match {
+  flag match {
     case DropVCs | DropConjunct | SplitVC | Library | Synthetic | PartialEval | Extern => false
     case Opaque | Private | Final | Law | Ghost | Erasable | Wrapping | Lazy => false
     case Derived(_) | IsField(_) | IsUnapply(_, _) | IndexedAt(_) | ClassParamInit(_) => false
@@ -25,55 +71,25 @@ trait InoxEncoder extends ProgramEncoder {
     case InlineInvariant | Template => false
     case _ => true
   }
+}
 
-  override protected def encodedProgram: inox.Program { val trees: t.type } = {
-    inox.InoxProgram(t.NoSymbols
-      .withSorts(sourceProgram.symbols.sorts.values.toSeq
-        .map(sort => sort.copy(flags = sort.flags.filter(keepFlag)))
-        .map(encoder.transform))
-      .withFunctions(sourceProgram.symbols.functions.values.toSeq
-        .map(fd => fd.copy(flags = fd.flags.filter(keepFlag)))
-        .map(encoder.transform)))
-  }
-
+private class TreeEncoder[Prog <: Program](val sourceProgram: Prog)
+                                          (override val s: sourceProgram.trees.type,
+                                           override val t: inox.trees.type)
+                                          (using val semantics: sourceProgram.Semantics,
+                                           val context: inox.Context)
+  extends TreeTransformer {
+  import ArrayTheory.{t => _, _}
+  import s._
+  import sourceProgram._
+  import sourceProgram.symbols.{given, _}
   import t.dsl._
 
-  protected val arrayID = FreshIdentifier("array")
-  protected val arr  = FreshIdentifier("arr")
-  protected val size = FreshIdentifier("size")
+  def this(sourceProgram: Prog)(using semantics: sourceProgram.Semantics, context: inox.Context) =
+    this(sourceProgram)(sourceProgram.trees, inox.trees)
 
-  protected val arrayInvariantID = FreshIdentifier("array_inv")
-  protected val arrayInvariant = mkFunDef(arrayInvariantID)("A") { case Seq(aT) => (
-    Seq("array" :: T(arrayID)(aT)), t.BooleanType(), { case Seq(array) =>
-      array.getField(size) >= E(0)
-    })
-  }
-
-  protected val arraySort: t.ADTSort = mkSort(arrayID, t.HasADTInvariant(arrayInvariantID))("A") {
-    case Seq(aT) => Seq((
-      arrayID.freshen,
-      Seq(t.ValDef(arr, t.MapType(t.Int32Type(), aT)), t.ValDef(size, t.Int32Type()))
-    ))
-  }
-  protected val Seq(arrayCons) = arraySort.constructors
-
-  protected val maxArgs = 10
-
-  protected override val extraFunctions: Seq[t.FunDef] = Seq(arrayInvariant)
-  protected override val extraSorts: Seq[t.ADTSort] = Seq(arraySort)
-
-  val encoder: TreeEncoder
-  val decoder: TreeDecoder
-
-  protected class TreeEncoder extends TreeTransformer {
-    val s: InoxEncoder.this.s.type = InoxEncoder.this.s
-    val t: InoxEncoder.this.t.type = InoxEncoder.this.t
-
-    import s._
-    import sourceProgram._
-    import sourceProgram.symbols._
-
-    override def transform(e: s.Expr): t.Expr = e match {
+  override def transform(e: s.Expr): t.Expr = {
+    e match {
       case m: s.MatchExpr =>
         transform(matchToIfThenElse(m))
 
@@ -175,76 +191,77 @@ trait InoxEncoder extends ProgramEncoder {
 
       case _ => super.transform(e)
     }
-
-    override def transform(tpe: s.Type): t.Type = tpe match {
-      case s.ArrayType(base) =>
-        t.ADTType(arrayID, Seq(transform(base))).copiedFrom(tpe)
-
-      case s.RecursiveType(sort, tps, size) => transform(s.ADTType(sort, tps))
-
-      case s.ValueType(tpe) => transform(tpe)
-
-      case s.AnnotatedType(tpe, _) => transform(tpe)
-
-      case _ => super.transform(tpe)
-    }
-
-    override def transform(vd: s.ValDef): t.ValDef = {
-      super.transform(vd.copy(flags = vd.flags.filter(keepFlag)).copiedFrom(vd))
-    }
   }
 
-  protected class TreeDecoder extends TreeTransformer {
-    val s: InoxEncoder.this.t.type = InoxEncoder.this.t
-    val t: InoxEncoder.this.s.type = InoxEncoder.this.s
+  override def transform(tpe: s.Type): t.Type = tpe match {
+    case s.ArrayType(base) =>
+      t.ADTType(arrayID, Seq(transform(base))).copiedFrom(tpe)
 
-    /** Transform back from encoded array ADTs into stainless arrays.
-      * Note that this translation should only occur on models returned by
-      * the Inox solver, so we can assume that the array adts have the
-      * shape:
-      * {{{
-      *    Array(FiniteMap(pairs, _, _), Int32Literal(size))
-      * }}}
-      * where all keys in {{{pairs}}} are Int32Literals. This assumption also
-      * holds on the output of [[SymbolsEncoder#TreeEncoder.transform(Expr)]].
-      */
-    override def transform(e: s.Expr): t.Expr = e match {
-      case s.ADT(
-        arrayCons.id,
-        Seq(base),
-        Seq(s.FiniteMap(elems, dflt, _, _), s.Int32Literal(size))
-      ) if size <= 10 =>
-        val elemsMap = elems.toMap
-        t.FiniteArray((0 until size).map {
-          i => transform(elemsMap.getOrElse(s.Int32Literal(i).copiedFrom(e), dflt))
-        }, transform(base)).copiedFrom(e)
+    case s.RecursiveType(sort, tps, size) => transform(s.ADTType(sort, tps))
 
-      case s.ADT(arrayCons.id, Seq(base), Seq(s.FiniteMap(elems, dflt, _, _), size)) =>
-        t.LargeArray(
-          elems.map { case (s.Int32Literal(i), e) => i -> transform(e) }.toMap,
-          transform(dflt),
-          transform(size),
-          transform(base)
-        ).copiedFrom(e)
+    case s.ValueType(tpe) => transform(tpe)
 
-      case _ => super.transform(e)
-    }
+    case s.AnnotatedType(tpe, _) => transform(tpe)
+
+    case _ => super.transform(tpe)
+  }
+
+  override def transform(vd: s.ValDef): t.ValDef = {
+    super.transform(vd.copy(flags = vd.flags.filter(keepFlag(sourceProgram))).copiedFrom(vd))
+  }
+}
+
+private class TreeDecoder[Prog <: Program](val sourceProgram: Prog)
+                                          (override val s: inox.trees.type,
+                                           override val t: sourceProgram.trees.type)
+  extends TreeTransformer {
+
+  import ArrayTheory.{t => _, _}
+
+  def this(sourceProgram: Prog) = this(sourceProgram)(inox.trees, sourceProgram.trees)
+
+  /** Transform back from encoded array ADTs into stainless arrays.
+    * Note that this translation should only occur on models returned by
+    * the Inox solver, so we can assume that the array adts have the
+    * shape:
+    * {{{
+    *    Array(FiniteMap(pairs, _, _), Int32Literal(size))
+    * }}}
+    * where all keys in {{{pairs}}} are Int32Literals. This assumption also
+    * holds on the output of [[SymbolsEncoder#TreeEncoder.transform(Expr)]].
+    */
+  override def transform(e: s.Expr): t.Expr = e match {
+    case s.ADT(
+      arrayCons.id,
+      Seq(base),
+      Seq(s.FiniteMap(elems, dflt, _, _), s.Int32Literal(size))
+    ) if size <= 10 =>
+      val elemsMap = elems.toMap
+      t.FiniteArray((0 until size).map {
+        i => transform(elemsMap.getOrElse(s.Int32Literal(i).copiedFrom(e), dflt))
+      }, transform(base)).copiedFrom(e)
+
+    case s.ADT(arrayCons.id, Seq(base), Seq(s.FiniteMap(elems, dflt, _, _), size)) =>
+      t.LargeArray(
+        elems.map { case (s.Int32Literal(i), e) => i -> transform(e) }.toMap,
+        transform(dflt),
+        transform(size),
+        transform(base)
+      ).copiedFrom(e)
+
+    case _ => super.transform(e)
+  }
 
   override def transform(tpe: s.Type): t.Type = tpe match {
-      case s.ADTType(`arrayID`, Seq(base)) =>
-        t.ArrayType(transform(base)).copiedFrom(tpe)
-      case _ => super.transform(tpe)
-    }
+    case s.ADTType(`arrayID`, Seq(base)) =>
+      t.ArrayType(transform(base)).copiedFrom(tpe)
+    case _ => super.transform(tpe)
   }
 }
 
 object InoxEncoder {
-  def apply(p: StainlessProgram, ctx: inox.Context): InoxEncoder { val sourceProgram: p.type } = new {
-    val sourceProgram: p.type = p
-    val context = ctx
-  } with InoxEncoder {
-    val semantics = p.getSemantics
-    object encoder extends TreeEncoder
-    object decoder extends TreeDecoder
+  def apply(p: StainlessProgram, ctx: inox.Context): InoxEncoder { val sourceProgram: p.type } = {
+    class Impl(override val sourceProgram: p.type) extends InoxEncoder(sourceProgram, ctx)(using p.getSemantics)
+    new Impl(p)
   }
 }

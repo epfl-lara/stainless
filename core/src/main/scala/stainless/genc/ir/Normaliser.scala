@@ -17,10 +17,10 @@ import IRs._
 final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with NoEnv {
   import from._
 
-  private implicit val debugSection = DebugSectionGenC
+  private given givenDebugSection: DebugSectionGenC.type = DebugSectionGenC
 
   // Inject return in functions that need it
-  override def recImpl(fd: FunDef)(implicit env: Env): to.FunDef = super.recImpl(fd) match {
+  override def recImpl(fd: FunDef)(using Env): to.FunDef = super.recImpl(fd) match {
     case fd @ to.FunDef(_, returnType, _, _, to.FunBodyAST(body), _, _) if !returnType.isUnitType =>
       val newBody = to.FunBodyAST(inject({ e => to.Return(e) }, e => !e.isInstanceOf[to.Return])(body))
 
@@ -31,10 +31,10 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
     case fun => fun
   }
 
-  private def recAT(typ: ArrayType)(implicit env: Env) = rec(typ).asInstanceOf[to.ArrayType]
-  private def recCT(typ: ClassType)(implicit env: Env) = rec(typ).asInstanceOf[to.ClassType]
+  private def recAT(typ: ArrayType)(using Env) = rec(typ).asInstanceOf[to.ArrayType]
+  private def recCT(typ: ClassType)(using Env) = rec(typ).asInstanceOf[to.ClassType]
 
-  override def recImpl(e: Expr)(implicit env: Env): (to.Expr, Env) = e match {
+  override def recImpl(e: Expr)(using env: Env): (to.Expr, Env) = e match {
     case _: Binding | _: FunVal | _: FunRef | _: Lit | _: Block | _: Deref | _: IntegralCast => super.recImpl(e)
 
     case Decl(vd0, Some(ArrayInit(alloc0))) =>
@@ -266,7 +266,7 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
   // a variable holding the result of the function call). However, in a few cases this is not required;
   // e.g. when declaring a variable we can directly call a function without needing a (duplicate) sequence
   // point. Caller can therefore carefully set `allowTopLevelApp` to true in those cases.
-  private def flatten(e: Expr, allowTopLevelApp: Boolean, allowArray: Boolean)(implicit env: Env): (Seq[to.Expr], to.Expr) = {
+  private def flatten(e: Expr, allowTopLevelApp: Boolean, allowArray: Boolean)(using Env): (Seq[to.Expr], to.Expr) = {
     def innerLoop(e2: to.Expr): (Seq[to.Expr], to.Expr) = e2 match {
       case to.Block(init :+ last) =>
         (init, last)
@@ -286,7 +286,7 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
   // Flatten all the given arguments, adding strict normalisation is needed and returning two lists of:
   //  - the init statements for each argument
   //  - the arguments themselves
-  private def flattenAll(allowTopLevelApp: Boolean, allowArray: Boolean, args0: Expr*)(implicit env: Env): (Seq[Seq[to.Expr]], Seq[to.Expr]) = {
+  private def flattenAll(allowTopLevelApp: Boolean, allowArray: Boolean, args0: Expr*)(using Env): (Seq[Seq[to.Expr]], Seq[to.Expr]) = {
     val (initss1, args1) = args0.map(flatten(_, allowTopLevelApp, allowArray)).unzip
     val initssArgs = for (i <- 0 until args1.length) yield {
       val (argDeclOpt, arg) = strictNormalisation(args1(i), initss1:_*)
@@ -297,7 +297,7 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
     initssArgs.unzip
   }
 
-  private def flattenAll(allowTopLevelApp: Boolean, args0: Seq[(Expr, Boolean)])(implicit env: Env): (Seq[Seq[to.Expr]], Seq[to.Expr]) = {
+  private def flattenAll(allowTopLevelApp: Boolean, args0: Seq[(Expr, Boolean)])(using Env): (Seq[Seq[to.Expr]], Seq[to.Expr]) = {
     val (initss1, args1) = args0.map { case (arg0, allowArray) => flatten(arg0, allowTopLevelApp, allowArray) }.unzip
     val initssArgs = for (i <- 0 until args1.length) yield {
       val (argDeclOpt, arg) = strictNormalisation(args1(i), initss1:_*)
@@ -309,14 +309,14 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
   }
 
   // Extract all "init" together; first regular flatten then a strict normalisation.
-  private def flattenArgs(allowTopLevelApp: Boolean, allowArray: Boolean, args0: Seq[Expr])(implicit env: Env): (Seq[to.Expr], Seq[to.Expr]) = {
+  private def flattenArgs(allowTopLevelApp: Boolean, allowArray: Boolean, args0: Seq[Expr])(using Env): (Seq[to.Expr], Seq[to.Expr]) = {
     val (initss, args) = flattenAll(allowTopLevelApp, allowArray, args0:_*)
     val allInit = initss.flatten
 
     (allInit, args)
   }
 
-  private def flattenArgs(allowTopLevelApp: Boolean, args0: Seq[(Expr, Boolean)])(implicit env: Env): (Seq[to.Expr], Seq[to.Expr]) = {
+  private def flattenArgs(allowTopLevelApp: Boolean, args0: Seq[(Expr, Boolean)])(using Env): (Seq[to.Expr], Seq[to.Expr]) = {
     val (initss, args) = flattenAll(allowTopLevelApp, args0)
     val allInit = initss.flatten
 
@@ -373,7 +373,7 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
       val declinit0 = from.Decl(norm0, Some(ai0))
       val binding = to.Binding(norm)
 
-      val (preDeclinit, declinit) = flatten(declinit0, allowTopLevelApp = false, allowArray = false)(Ø)
+      val (preDeclinit, declinit) = flatten(declinit0, allowTopLevelApp = false, allowArray = false)(using Ø)
 
       (preDeclinit :+ declinit, binding)
 
@@ -405,7 +405,7 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
     val injecter = new Transformer(to, to) with NoEnv { injecter =>
       import injecter.from._
 
-      override def recImpl(e: Expr)(implicit env: Env): (Expr, Env) = e match {
+      override def recImpl(e: Expr)(using Env): (Expr, Env) = e match {
         case _ if !pre(e) => (e, Ø)
 
         case Decl(_, _) | Assign(_, _) | While(_, _) =>

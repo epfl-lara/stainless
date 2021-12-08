@@ -7,9 +7,7 @@ import scala.tools.nsc._
 import scala.collection.mutable.{Map => MutableMap}
 
 /** Contains extractors to pull-out interesting parts of the Scala ASTs. */
-trait ASTExtractors {
-  val global: Global
-
+trait ASTExtractors(val global: Global) {
   import global._
   import global.definitions._
 
@@ -142,7 +140,7 @@ trait ASTExtractors {
 
   def isArrayClassSym(sym: Symbol): Boolean = sym == arraySym
 
-  private val bvtypes = Set(ByteTpe, ShortTpe, IntTpe, LongTpe)
+  private lazy val bvtypes = Set(ByteTpe, ShortTpe, IntTpe, LongTpe)
 
   def hasBVType(t: Tree) = bvtypes contains t.tpe.widen
 
@@ -898,9 +896,8 @@ trait ASTExtractors {
     }
 
     object ExLambdaExpression {
-      def unapply(tree: Function) : Option[(Seq[ValDef], Tree)] = tree match {
-        case Function(vds, body) => Some((vds, body))
-        case _ => None
+      def unapply(tree: Function) : Some[(Seq[ValDef], Tree)] = tree match {
+        case Function(vds, body) => Some((tree.vparams, tree.body))
       }
     }
 
@@ -1195,7 +1192,6 @@ trait ASTExtractors {
     object ExIfThenElse {
       def unapply(tree: If): Option[(Tree,Tree,Tree)] = tree match {
         case If(t1,t2,t3) => Some((t1,t2,t3))
-        case _ => None
       }
     }
 
@@ -1267,14 +1263,12 @@ trait ASTExtractors {
     object ExIdentifier {
       def unapply(tree: Ident): Option[(Symbol,Tree)] = tree match {
         case i: Ident => Some((i.symbol, i))
-        case _ => None
       }
     }
 
     object ExTyped {
       def unapply(tree : Typed): Option[(Tree,Tree)] = tree match {
         case Typed(e,t) => Some((e,t))
-        case _ => None
       }
     }
 

@@ -5,14 +5,13 @@ package termination
 
 import scala.collection.mutable.{Map => MutableMap, Set => MutableSet}
 
-trait DatatypeChecker {
-  val checker: TerminationChecker
+class DatatypeChecker(val checker: TerminationChecker) {
   import checker._
   import program._
   import program.trees._
-  import program.symbols._
+  import program.symbols.{given, _}
 
-  private class DependencyFinder(deps: MutableSet[Identifier]) extends SelfTreeTraverser {
+  private class DependencyFinder(deps: MutableSet[Identifier]) extends ConcreteStainlessSelfTreeTraverser {
     override def traverse(e: Expr): Unit = e match {
       case FunctionInvocation(id, _, _) =>
         deps += id

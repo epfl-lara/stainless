@@ -15,23 +15,28 @@ object TerminationComponent extends Component {
   override type Report = TerminationReport
   override type Analysis = TerminationAnalysis
 
-  override object lowering extends inox.transformers.SymbolTransformer {
-    val s: extraction.trees.type = extraction.trees
-    val t: extraction.trees.type = extraction.trees
-
-    override def transform(syms: s.Symbols): t.Symbols = syms
+  override val lowering = {
+    class LoweringImpl(override val s: extraction.trees.type,
+                       override val t: extraction.trees.type)
+      extends inox.transformers.SymbolTransformer {
+      override def transform(syms: s.Symbols): t.Symbols = syms
+    }
+    new LoweringImpl(extraction.trees, extraction.trees)
   }
 
-  override def run(pipeline: extraction.StainlessPipeline)(implicit ctx: inox.Context) = {
+  override def run(pipeline: extraction.StainlessPipeline)(using inox.Context) = {
     new TerminationRun(pipeline)
   }
 }
 
-class TerminationRun(override val pipeline: extraction.StainlessPipeline)
-                    (override implicit val context: inox.Context) extends {
-  override val component = TerminationComponent
-  override val trees: stainless.trees.type = stainless.trees
-} with ComponentRun {
+class TerminationRun private(override val component: TerminationComponent.type,
+                             override val trees: stainless.trees.type,
+                             override val pipeline: extraction.StainlessPipeline)
+                            (using override val context: inox.Context)
+  extends ComponentRun {
+
+  def this(pipeline: extraction.StainlessPipeline)(using inox.Context) =
+    this(TerminationComponent, stainless.trees, pipeline)
 
   import component.{Report, Analysis}
 
@@ -39,7 +44,7 @@ class TerminationRun(override val pipeline: extraction.StainlessPipeline)
 
   private[stainless] def execute(functions: Seq[Identifier], symbols: trees.Symbols): Future[Analysis] = {
     import trees._
-    import context._
+    import context.{given, _}
 
     val p = inox.Program(trees)(symbols)
 

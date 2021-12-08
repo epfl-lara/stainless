@@ -3,11 +3,9 @@
 package stainless
 package transformers
 
-import scala.language.existentials
-
 trait PartialEvaluator extends SimplifierWithPC { self =>
   import trees._
-  import symbols._
+  import symbols.{given, _}
   import exprOps._
 
   override protected def simplify(e: Expr, path: Env): (Expr, Boolean) = e match {
@@ -90,9 +88,9 @@ trait PartialEvaluator extends SimplifierWithPC { self =>
 
   protected val maxUnfoldingSteps: Int = 50
 
-  private[this] val dynBlocked = new ThreadLocal[Set[Identifier]] { override def initialValue = Set.empty }
+  private[this] val dynBlocked = new ThreadLocal[Set[Identifier]] { override def initialValue = Set.empty[Identifier] }
   private[this] val dynSteps = new ThreadLocal[Map[Identifier, Int]] {
-    override def initialValue = Map.empty.withDefault(_ => maxUnfoldingSteps)
+    override def initialValue = Map.empty[Identifier, Int].withDefault(_ => maxUnfoldingSteps)
   }
 
   private[this] def isUnfoldable(id: Identifier): Boolean = !dynBlocked.get()(id) && (dynSteps.get()(id) > 0)

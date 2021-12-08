@@ -4,12 +4,12 @@ package stainless
 package extraction
 package methods
 
-import scala.language.existentials
-
-trait Sealing extends oo.CachingPhase
-  with IdentitySorts
-  with oo.IdentityTypeDefs
-  with MutabilityAnalyzer { self =>
+class Sealing(override val s: Trees)(override val t: s.type)
+             (using override val context: inox.Context)
+  extends oo.CachingPhase
+     with IdentitySorts
+     with oo.IdentityTypeDefs
+     with MutabilityAnalyzer  { self =>
 
 
   /* ====================================
@@ -21,7 +21,7 @@ trait Sealing extends oo.CachingPhase
 
   private[this] val extID = new utils.ConcurrentCached[Identifier, Identifier](id => FreshIdentifier(id.name + "Ext"))
 
-  protected class TransformerContext(implicit symbols: Symbols) extends MutabilityAnalysis()(symbols) {
+  protected class TransformerContext(using symbols: Symbols) extends MutabilityAnalysis {
     def mustDuplicate(fd: FunDef): Boolean = {
       !fd.isAbstract &&
       !fd.isFinal &&
@@ -41,7 +41,7 @@ trait Sealing extends oo.CachingPhase
     // Annotate parameters of non-mutable type with `@pure`
     def addPurityAnnotations(fd: FunDef): FunDef = {
       val pureParams = fd.params
-        .filter(vd => !isMutableType(vd.getType(symbols)))
+        .filter(vd => !isMutableType(vd.getType(using symbols)))
         .map(vd => vd.id -> vd.copy(flags = (vd.flags :+ IsPure).distinct).copiedFrom(vd))
         .toMap
 
@@ -79,7 +79,7 @@ trait Sealing extends oo.CachingPhase
     }
   }
 
-  override protected def getContext(syms: Symbols) = new TransformerContext()(syms)
+  override protected def getContext(syms: Symbols) = new TransformerContext()(using syms)
 
   // For each class, we add a sealed flag, and optionally add a dummy subclass
   // with the corresponding methods
@@ -92,7 +92,7 @@ trait Sealing extends oo.CachingPhase
         context.lnfm(cd).toSet[Identifier]
       else
         Set[Identifier]()
-    )(symbols)
+    )(using symbols)
   })
 
   // Each concrete method of non-sealed class is duplicated to make sure it does
@@ -114,7 +114,8 @@ trait Sealing extends oo.CachingPhase
   // For the getters and setters, we create fields and we create concrete
   // setters and getters that operate on those fields.
   override protected def extractClass(context: TransformerContext, cd: ClassDef): ClassResult = {
-    import context.symbols
+    val symbols = context.symbols
+    import symbols.{given, _}
 
     if (context.mustAddSubclass(cd)) {
       val newCd = cd.copy(flags = (cd.flags :+ IsSealed).distinct).copiedFrom(cd)
@@ -293,12 +294,11 @@ trait Sealing extends oo.CachingPhase
 }
 
 object Sealing {
-  def apply(tt: Trees)(implicit ctx: inox.Context): ExtractionPipeline {
+  def apply(tt: Trees)(using inox.Context): ExtractionPipeline {
     val s: tt.type
     val t: tt.type
-  } = new Sealing {
-    override val s: tt.type = tt
-    override val t: tt.type = tt
-    override val context = ctx
+  } = {
+    class Impl(override val s: tt.type, override val t: tt.type) extends Sealing(s)(t)
+    new Impl(tt, tt)
   }
 }

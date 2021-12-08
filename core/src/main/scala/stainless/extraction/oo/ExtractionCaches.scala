@@ -29,12 +29,11 @@ trait ExtractionCaches extends extraction.ExtractionCaches { self: oo.Extraction
     override def toString: String = s"ClassKey(${cd.id.asString})"
   }
 
-  protected implicit object ClassKey extends Keyable[s.ClassDef] {
-    def apply(id: Identifier)(implicit symbols: s.Symbols): CacheKey = ClassKey(symbols.getClass(id))
+  protected given ClassKey: Keyable[s.ClassDef] with
+    def apply(id: Identifier)(using symbols: s.Symbols): CacheKey = ClassKey(symbols.getClass(id))
     def apply(sort: s.ClassDef): CacheKey = new ClassKey(sort)
-  }
 
-  override protected def getSimpleKey(id: Identifier)(implicit symbols: s.Symbols): CacheKey =
+  override protected def getSimpleKey(id: Identifier)(using symbols: s.Symbols): CacheKey =
     symbols.lookupClass(id).map(ClassKey(_))
       .orElse(symbols.lookupTypeDef(id).map(TypeDefKey(_)))
       .getOrElse(super.getSimpleKey(id))
@@ -60,8 +59,7 @@ trait ExtractionCaches extends extraction.ExtractionCaches { self: oo.Extraction
     override def toString: String = s"TypeDefKey(${td.id.asString})"
   }
 
-  protected implicit object TypeDefKey extends Keyable[s.TypeDef] {
-    def apply(id: Identifier)(implicit symbols: s.Symbols): CacheKey = TypeDefKey(symbols.getTypeDef(id))
+  protected given TypeDefKey: Keyable[s.TypeDef] with
+    def apply(id: Identifier)(using symbols: s.Symbols): CacheKey = TypeDefKey(symbols.getTypeDef(id))
     def apply(td: s.TypeDef): CacheKey = new TypeDefKey(td)
-  }
 }

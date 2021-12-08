@@ -7,7 +7,7 @@ package innerclasses
 trait TypeOps extends methods.TypeOps {
   protected val trees: Trees
   import trees._
-  import symbols._
+  import symbols.{given, _}
 
   import ClassTypeAbs.{Local, Global}
 

@@ -18,10 +18,10 @@ object RecoveryResult {
 }
 
 /** Attempts to use various strategies to recover valid symbols in the presence of missing dependencies */
-class Recovery(symbols: xt.Symbols)(implicit val context: inox.Context) {
+class Recovery(symbols: xt.Symbols)(using val context: inox.Context) {
   import context.reporter
-  implicit private val debugSection = DebugSectionRecovery
-  implicit private val printerOptions = xt.PrinterOptions.fromContext(context)
+  private given givenDebugSection: DebugSectionRecovery.type = DebugSectionRecovery
+  private given givenPrinterOptions: xt.PrinterOptions = xt.PrinterOptions.fromContext(context)
 
   import RecoveryResult._
 
@@ -79,7 +79,7 @@ class Recovery(symbols: xt.Symbols)(implicit val context: inox.Context) {
 }
 
 object Recovery {
-  def recover(symbols: xt.Symbols)(implicit ctx: inox.Context): xt.Symbols = {
+  def recover(symbols: xt.Symbols)(using ctx: inox.Context): xt.Symbols = {
     val allDefs = (
       symbols.functions.values ++
       symbols.classes.values ++

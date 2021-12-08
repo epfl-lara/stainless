@@ -32,7 +32,8 @@ class InliningSuite extends AnyFunSuite with InputUtils {
        |  } ensuring (_ >= BigInt(0))
        |}""".stripMargin
 
-  implicit val ctx = stainless.TestContext.empty
+  val ctx: inox.Context = stainless.TestContext.empty
+  import ctx.given
   val (funs, xlangProgram) = load(Seq(source))
   val run = VerificationComponent.run(extraction.pipeline)
   val program = inox.Program(run.trees)(run extract xlangProgram.symbols)

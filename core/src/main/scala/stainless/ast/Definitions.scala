@@ -56,14 +56,21 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
     case _ => Annotation(name, args)
   }
 
-  type Symbols >: Null <: AbstractSymbols
+  type Symbols >: Null <: StainlessAbstractSymbols
 
-  trait AbstractSymbols
-    extends super.AbstractSymbols
-       with TypeOps
-       with SymbolOps
-       with CallGraph
-       with DependencyGraph { self0: Symbols =>
+  trait StainlessAbstractSymbols
+    extends AbstractSymbols
+       with ast.TypeOps
+       with ast.SymbolOps
+       with ast.CallGraph
+       with ast.DependencyGraph { self0: Symbols =>
+
+    // The only value that can be assigned to `trees`, but that has to be
+    // done in a concrete class explicitly overriding `trees`
+    // Otherwise, we can run into initialization issue.
+    protected val trees: self.type
+    // More or less the same here
+    protected val symbols: this.type
 
     protected class Lookup {
       protected def find[T](name: String, map: Map[Identifier, T]): Option[T] = map.find(_._1 match {
@@ -89,7 +96,7 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
     val lookup = new Lookup
 
     override protected def simplestValue(tpe: Type, seen: Set[Type], allowSolver: Boolean, inLambda: Boolean)
-                                        (implicit sem: symbols.Semantics, ctx: inox.Context): Expr = tpe match {
+                                        (using symbols.Semantics, inox.Context): Expr = tpe match {
       case ArrayType(base) => FiniteArray(Seq(), base)
       case _ => super.simplestValue(tpe, seen, allowSolver, inLambda)
     }
@@ -118,7 +125,7 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
 
   }
 
-  implicit class StainlessFunDef(fd: FunDef) {
+  extension (fd: FunDef) {
     @inline def precondition: Option[Expr] = exprOps.preconditionOf(fd.fullBody)
     @inline def hasPrecondition: Boolean =
       exprOps.BodyWithSpecs(fd.fullBody).specs.exists(_.kind == exprOps.PreconditionKind)
@@ -149,7 +156,7 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
       fd.flags collectFirst { case Derived(Some(id)) => id } getOrElse fd.id
   }
 
-  implicit class StainlessTypedFunDef(tfd: TypedFunDef) {
+  extension (tfd: TypedFunDef) {
     @inline def precondition: Option[Expr] = exprOps.preconditionOf(tfd.fullBody)
     @inline def hasPrecondition: Boolean =
       exprOps.BodyWithSpecs(tfd.fullBody).specs.exists(_.kind == exprOps.PreconditionKind)
@@ -165,7 +172,7 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
     }
   }
 
-  implicit class StainlessLookup(val p: Program { val trees: self.type }) {
+  extension (p: Program { val trees: self.type }) {
     def lookup[T <: Definition : ClassTag](name: String): T = p.symbols.lookup[T](name)
   }
 }

@@ -12,22 +12,28 @@ trait TreeSanitizer { self =>
   val trees: xlang.Trees
   import trees._
 
-  object TypeOperator extends {
-    protected val s: self.trees.type = self.trees
-    protected val t: self.trees.type = self.trees
-  } with inox.ast.TreeExtractor {
+  val TypeOperator: inox.ast.TreeExtractor {
+    val s: self.trees.type
+    val t: self.trees.type
     type Source = Type
     type Target = Type
+  } = {
+    class TypeOperatorImpl(override val s: self.trees.type, override val t: self.trees.type)
+      extends inox.ast.TreeExtractor {
+      type Source = Type
+      type Target = Type
 
-    def unapply(t: Type): Option[(Seq[Type], Seq[Type] => Type)] = {
-      val (ids, vs, es, tps, flags, builder) = deconstructor.deconstruct(t)
-      Some((tps, tpss => builder(ids, vs, es, tpss, flags)))
+      def unapply(t: Type): Option[(Seq[Type], Seq[Type] => Type)] = {
+        val (ids, vs, es, tps, flags, builder) = deconstructor.deconstruct(t)
+        Some((tps, tpss => builder(ids, vs, es, tpss, flags)))
+      }
     }
+    new TypeOperatorImpl(self.trees, self.trees)
   }
 
 
   /** Throw a [[MalformedStainlessCode]] exception when detecting an illegal pattern. */
-  def check(symbols: Symbols)(implicit ctx: inox.Context): Seq[MalformedStainlessCode] = {
+  def check(symbols: Symbols)(using ctx: inox.Context): Seq[MalformedStainlessCode] = {
     val checks = List(
       new Preconditions(symbols, ctx),
       new IgnoredFields(symbols, ctx),
@@ -42,7 +48,7 @@ trait TreeSanitizer { self =>
     checks.flatMap(_.sanitize().distinct).sortBy(_.tree.getPos)
   }
 
-  def enforce(symbols: Symbols)(implicit ctx: inox.Context): Seq[MalformedStainlessCode] = {
+  def enforce(symbols: Symbols)(using ctx: inox.Context): Seq[MalformedStainlessCode] = {
     import ctx.reporter
 
     val errors = check(symbols)
@@ -54,10 +60,8 @@ trait TreeSanitizer { self =>
     errors
   }
 
-  private[this] abstract class Sanitizer(syms: Symbols, ctx: inox.Context) {
-    protected implicit val symbols: Symbols = syms
-    protected implicit val context: inox.Context = ctx
-    protected implicit val printerOpts: PrinterOptions = PrinterOptions.fromSymbols(symbols, ctx)
+  private[this] abstract class Sanitizer(protected val symbols: Symbols, protected val context: inox.Context) {
+    protected given givenPrinterOpts: PrinterOptions = PrinterOptions.fromSymbols(symbols, context)
 
     def sanitize(): Seq[MalformedStainlessCode]
   }
@@ -67,7 +71,7 @@ trait TreeSanitizer { self =>
     override def sanitize(): Seq[MalformedStainlessCode] = {
       for {
         cd <- symbols.classes.values.toSeq
-        id <- cd.methods(symbols)
+        id <- cd.methods(using symbols)
         if !symbols.getFunction(id).isSetter
         sid <- symbols.firstSuperMethod(id)
         if symbols.getFunction(sid).isSetter
@@ -81,7 +85,7 @@ trait TreeSanitizer { self =>
     override def sanitize(): Seq[MalformedStainlessCode] = {
       for {
         cd  <- symbols.classes.values.toSeq
-        id  <- cd.methods(symbols)
+        id  <- cd.methods(using symbols)
         sid <- symbols.firstSuperMethod(id)
         isGhostOverride = symbols.getFunction(id).isGhost
         isGhostSuper = symbols.getFunction(sid).isGhost
@@ -96,20 +100,23 @@ trait TreeSanitizer { self =>
 
   /** Check that sealed traits have children */
   private[this] class SealedClassesChildren(syms: Symbols, ctx: inox.Context) extends Sanitizer(syms, ctx) {
+    import symbols.given
     private[this] val hasLocalSubClasses: Identifier => Boolean =
       symbols.localClasses.flatMap(_.globalAncestors.map(_.id)).toSet
 
     def sanitize(): Seq[MalformedStainlessCode] = {
       for {
         cd <- symbols.classes.values.toSeq
-        if cd.isAbstract && cd.isSealed && !hasLocalSubClasses(cd.id) && cd.children(symbols).isEmpty
+        if cd.isAbstract && cd.isSealed && !hasLocalSubClasses(cd.id) && cd.children.isEmpty
       } yield MalformedStainlessCode(cd, "Illegal sealed abstract class with no children.")
     }
   }
 
   /* This detects both multiple `require` and `require` after `decreases`. */
-  private[this] class Preconditions(syms: Symbols, ctx: inox.Context)
-    extends Sanitizer(syms, ctx) with SelfTreeTraverser {
+  private[this] class Preconditions(override val trees: self.trees.type, syms: Symbols, ctx: inox.Context)
+    extends Sanitizer(syms, ctx) with OOSelfTreeTraverser {
+
+    def this(syms: Symbols, ctx: inox.Context) = this(self.trees, syms, ctx)
 
     private[this] var errors: ListBuffer[MalformedStainlessCode] = ListBuffer.empty
 
@@ -187,8 +194,11 @@ trait TreeSanitizer { self =>
   }
 
   /** Detects accesses to @ignored fields */
-  private[this] class IgnoredFields(syms: Symbols, ctx: inox.Context)
-    extends Sanitizer(syms, ctx) with SelfTreeTraverser {
+  private[this] class IgnoredFields(override val trees: self.trees.type, syms: Symbols, ctx: inox.Context)
+    extends Sanitizer(syms, ctx) with OOSelfTreeTraverser {
+    import symbols.given
+
+    def this(syms: Symbols, ctx: inox.Context) = this(self.trees, syms, ctx)
 
     private[this] var errors: ListBuffer[MalformedStainlessCode] = ListBuffer.empty
 
@@ -250,7 +260,7 @@ trait TreeSanitizer { self =>
 
   /** Disallow equality tests between lambdas and non-sealed abstract classes in non-ghost code */
   private[this] class SoundEquality(syms: Symbols, ctx: inox.Context) extends Sanitizer(syms, ctx) { sanitizer =>
-
+    import symbols.given
     val PEDANTIC = false
 
     var errors: ListBuffer[MalformedStainlessCode] = ListBuffer.empty
@@ -264,17 +274,17 @@ trait TreeSanitizer { self =>
     val hasLocalSubClasses: Identifier => Boolean =
       symbols.localClasses.flatMap(_.globalAncestors.map(_.id)).toSet
 
-   def isOrHasNonSealedAncestors(ct: ClassType): Boolean = {
+    def isOrHasNonSealedAncestors(ct: ClassType): Boolean = {
       val ancestors = (ct.tcd +: ct.tcd.ancestors)
       // TODO(gsps): Speed up the check on anyHeapRef (at least move last?)
       ancestors.exists(tcd => !tcd.cd.flags.exists(_.name == "anyHeapRef") && tcd.cd.isAbstract && !tcd.cd.isSealed)
     }
 
-    object ghostTraverser extends xlang.GhostTraverser {
-      override val trees: self.trees.type = self.trees
-      import trees._
+    val ghostTraverser = new GhostTraverserImpl(self.trees)(using sanitizer.symbols)
 
-      override implicit val symbols = sanitizer.symbols
+    class GhostTraverserImpl(override val trees: self.trees.type)(using override val symbols: sanitizer.symbols.type)
+      extends xlang.GhostTraverser {
+      import trees._
 
       override def traverse(e: Expr, ctx: GhostContext): Unit = e match {
         case Equals(lhs, rhs) if !ctx.isGhost =>
@@ -313,7 +323,7 @@ trait TreeSanitizer { self =>
 
   /** Check that invariants only refer to the fields of their enclosing class, and not methods */
   private[this] class SoundInvariants(syms: Symbols, ctx: inox.Context) extends Sanitizer(syms, ctx) {
-
+    import symbols.given
     var errors: ListBuffer[MalformedStainlessCode] = ListBuffer.empty
 
     override def sanitize(): Seq[MalformedStainlessCode] = {
@@ -383,7 +393,7 @@ trait TreeSanitizer { self =>
 
   /** Check that abstract vals are only overridden by constructor parameters */
   private[this] class AbstractValsOverride(syms: Symbols, ctx: inox.Context) extends Sanitizer(syms, ctx) {
-
+    import symbols.given
     var errors: ListBuffer[MalformedStainlessCode] = ListBuffer.empty
 
     override def sanitize(): Seq[MalformedStainlessCode] = {
@@ -443,9 +453,8 @@ trait TreeSanitizer { self =>
 }
 
 object TreeSanitizer {
-  def apply(tr: xlang.Trees)(implicit ctx: inox.Context): TreeSanitizer { val trees: tr.type } = {
-    new TreeSanitizer {
-      override val trees: tr.type = tr
-    }
+  def apply(tr: xlang.Trees)(using inox.Context): TreeSanitizer { val trees: tr.type } = {
+    class Impl(override val trees: tr.type) extends TreeSanitizer
+    new Impl(tr)
   }
 }

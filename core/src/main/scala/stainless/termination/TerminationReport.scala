@@ -4,7 +4,7 @@ package stainless
 package termination
 
 import inox.utils.ASCIIHelpers.{ Cell, Row }
-import stainless.utils.JsonConvertions._
+import stainless.utils.JsonConvertions.given
 
 import io.circe._
 import io.circe.syntax._
@@ -24,8 +24,8 @@ object TerminationReport {
   case object Terminating extends Status
   case object NonTerminating extends Status
 
-  implicit val statusDecoder: Decoder[Status] = deriveDecoder
-  implicit val statusEncoder: Encoder[Status] = deriveEncoder
+  given statusDecoder: Decoder[Status] = deriveDecoder
+  given statusEncoder: Encoder[Status] = deriveEncoder
 
   case class Record(
     id: Identifier,
@@ -34,8 +34,8 @@ object TerminationReport {
     derivedFrom: Identifier
   ) extends AbstractReportHelper.Record
 
-  implicit val recordDecoder: Decoder[Record] = deriveDecoder
-  implicit val recordEncoder: Encoder[Record] = deriveEncoder
+  given recordDecoder: Decoder[Record] = deriveDecoder
+  given recordEncoder: Encoder[Record] = deriveEncoder
 
   def parse(json: Json) = json.as[(Seq[Record], Set[Identifier])] match {
     case Right((records, sources)) => new TerminationReport(records, sources)
@@ -47,7 +47,7 @@ object TerminationReport {
 // Variant of the report without the checker, where all the data is mapped to text
 class TerminationReport(val results: Seq[TerminationReport.Record], val sources: Set[Identifier])
   extends BuildableAbstractReport[TerminationReport.Record, TerminationReport] {
-  import TerminationReport._
+  import TerminationReport.{given, _}
 
   override val encoder = recordEncoder
 

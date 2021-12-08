@@ -19,7 +19,8 @@ import scala.collection.mutable.{ Map => MutableMap }
 
 trait ASTExtractors {
 
-  protected implicit val ctx: dotty.tools.dotc.core.Contexts.Context
+  protected val ctx: dotty.tools.dotc.core.Contexts.Context
+  import ctx.given
 
   def classFromName(nameStr: String): ClassSymbol = ctx.requiredClass(typeName(nameStr))
   def moduleFromName(nameStr: String): TermSymbol = ctx.requiredModule(typeName(nameStr))

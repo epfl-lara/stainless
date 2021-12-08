@@ -18,7 +18,7 @@ object CoqIO {
 
   val fileName = "verif"
   
-  implicit val debugSection = DebugSectionCoq
+  given givenDebugSection: DebugSectionCoq.type = DebugSectionCoq
 
   val outputDirectory = "tmp"
 

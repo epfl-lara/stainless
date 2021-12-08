@@ -16,11 +16,11 @@ class CPrinter(
   gencIncludes: Seq[String],
   val sb: StringBuffer = new StringBuffer,
 ) {
-  def print(tree: Tree) = pp(tree)(PrinterContext(indent = 0, printer = this, previous = None, current = tree))
+  def print(tree: Tree) = pp(tree)(using PrinterContext(indent = 0, printer = this, previous = None, current = tree))
 
   private def purity(isPure: Boolean): String = if (isPure) "STAINLESS_FUNC_PURE " else ""
 
-  private[genc] def pp(tree: Tree)(implicit pctx: PrinterContext): Unit = tree match {
+  private[genc] def pp(tree: Tree)(using PrinterContext): Unit = tree match {
     case Prog(headerIncludes, cIncludes, decls, typeDefs0, enums0, types, functions0) =>
       // We need to convert Set to Seq in order to use nary.
       val typeDefs = typeDefs0.toSeq
@@ -51,19 +51,19 @@ class CPrinter(
               sep = "\n")
             }
             |${nary(
-              typeDefs.filter(!headerDependencies.contains(_)) map TypeDefDecl,
+              typeDefs.filter(!headerDependencies.contains(_)) map TypeDefDecl.apply,
               opening = separator("type aliases"),
               closing = "\n\n",
               sep = "\n")
              }
             |${nary(
-              enums.filter(!headerDependencies.contains(_)) map EnumDef,
+              enums.filter(!headerDependencies.contains(_)) map EnumDef.apply,
               closing = "\n\n",
               opening = separator("enums"),
               sep = "\n\n")
              }
             |${nary(
-              types.filter(!headerDependencies.contains(_)) map DataTypeDecl,
+              types.filter(!headerDependencies.contains(_)) map DataTypeDecl.apply,
               opening = separator("data type definitions"),
               closing = "\n\n",
               sep = "\n\n")
@@ -81,7 +81,7 @@ class CPrinter(
               sep = ";\n")
              }
             |${nary(
-              functions.filter(!_.isExported) map FunDecl,
+              functions.filter(!_.isExported) map FunDecl.apply,
               opening = separator("function declarations"),
               closing = "\n\n",
               sep = "\n")
@@ -132,19 +132,19 @@ class CPrinter(
               sep = "\n")
             }
             |${nary(
-              typeDefs.filter(headerDependencies.contains) map TypeDefDecl,
+              typeDefs.filter(headerDependencies.contains) map TypeDefDecl.apply,
               opening = separator("type aliases"),
               closing = "\n\n",
               sep = "\n")
              }
             |${nary(
-              enums.filter(headerDependencies.contains) map EnumDef,
+              enums.filter(headerDependencies.contains) map EnumDef.apply,
               closing = "\n\n",
               opening = separator("enums"),
               sep = "\n\n")
              }
             |${nary(
-              types.filter(headerDependencies.contains) map DataTypeDecl,
+              types.filter(headerDependencies.contains) map DataTypeDecl.apply,
               opening = separator("data type definitions"),
               closing = "\n\n",
               sep = "\n\n")
@@ -162,7 +162,7 @@ class CPrinter(
               sep = ";\n")
              }
             |${nary(
-              functions.filter(_.isExported) map FunDecl,
+              functions.filter(_.isExported) map FunDecl.apply,
               opening = separator("function declarations"),
               sep = "\n")
              }
@@ -321,7 +321,7 @@ class CPrinter(
     case _ => throw new Exception(s"GenC cannot print tree (of class ${tree.getClass})")
   }
 
-  private[genc] def pp(wt: WrapperTree)(implicit pctx: PrinterContext): Unit = wt match {
+  private[genc] def pp(wt: WrapperTree)(using PrinterContext): Unit = wt match {
     case TTree(t) => pp(t)
 
     case StaticStorage(decl) => c"static $decl"
@@ -379,7 +379,7 @@ class CPrinter(
 
 
   /** Hardcoded list of required include files from C standard library **/
-  private lazy val includes_ = Set("assert.h", "stdbool.h", "stdint.h", "stddef.h", "string.h") map Include
+  private lazy val includes_ = Set("assert.h", "stdbool.h", "stdint.h", "stddef.h", "string.h") map Include.apply
 
   private def buildIncludes(includes: Set[Include]): Seq[String] =
     (includes_ ++ includes).toSeq.sortBy(_.file).map(i => s"#include <${i.file}>") ++
@@ -406,7 +406,7 @@ class CPrinter(
 
 
   /** Special helpers for pretty parentheses **/
-  private def optP(body: => Any)(implicit pctx: PrinterContext) = {
+  private def optP(body: => Any)(using pctx: PrinterContext) = {
     if (requiresParentheses(pctx.current, pctx.previous)) {
       sb.append("(")
       body

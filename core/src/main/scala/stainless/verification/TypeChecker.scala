@@ -52,18 +52,14 @@ object VCFilter {
   }
 }
 
-trait TypeChecker {
-  val program: StainlessProgram
-  val context: inox.Context
-  val vcFilter: VCFilter
-
-  import context._
+class TypeChecker(val program: StainlessProgram, val context: inox.Context, val vcFilter: VCFilter) {
+  import context.{given, _}
   import program._
   import program.trees._
-  import program.symbols._
-  import CallGraphOrderings._
+  import program.symbols.{given, _}
+  import CallGraphOrderings.{given, _}
 
-  implicit val debugSection = DebugSectionTypeChecker
+  given givenDebugSection: DebugSectionTypeChecker.type = DebugSectionTypeChecker
 
   val checkMeasures = options.findOptionOrDefault(optCheckMeasures)
 
@@ -414,7 +410,7 @@ trait TypeChecker {
     * recursive type at index 0
     */
   def index(id: Identifier, t: Type, size: Expr): Type = {
-    new SelfTreeTransformer {
+    new ConcreteStainlessSelfTreeTransformer {
       override def transform(tpe: Type) = tpe match {
         // We replace occurrences of ADT's that are mutually recursive with `id` with their
         // indexed version
@@ -1004,7 +1000,7 @@ trait TypeChecker {
 
     val conditions = exprs.map(vcFromContext(tc.termVariables, _))
 
-    val vcs: Seq[StainlessVC] = conditions.map(condition => VC(
+    val vcs: Seq[StainlessVC] = conditions.map(condition => StainlessVC(
       condition,
       tc.currentFid.get,
       tc.vcKind,
@@ -1018,7 +1014,7 @@ trait TypeChecker {
     reporter.debug(
       s"Created VCs in context:\n${tc.asString()}\nfor expression: ${e.asString}\n\n" +
       s"VCs:\n${conditions.map(_.asString).mkString("\n")}\n\n\n"
-    )(DebugSectionTypeCheckerVCs)
+    )(using DebugSectionTypeCheckerVCs)
 
     TyperResult(vcs, exprs.map(expr => NodeTree(JVC(tc, expr): Judgment, Seq())))
   }
@@ -1368,7 +1364,7 @@ trait TypeChecker {
       if (exprOps.BodyWithSpecs(fd.fullBody).bodyOpt.isDefined) {
         val nm = needsMeasure(fd)
         if (nm && measureType.isEmpty) {
-          Seq(VC(BooleanLiteral(false), id, VCKind.MeasureMissing, false).setPos(fd))
+          Seq(StainlessVC(BooleanLiteral(false), id, VCKind.MeasureMissing, false).setPos(fd))
         } else {
           if (nm) {
             checkedFunctions.find { case (id2, (measureType2, _)) =>
@@ -1462,10 +1458,7 @@ trait TypeChecker {
 
 object TypeChecker {
   def apply(p: StainlessProgram, ctx: inox.Context): TypeChecker { val program: p.type } = {
-    new {
-      val program: p.type = p
-      val context = ctx
-      val vcFilter = VCFilter.fromOptions(ctx.options)
-    } with TypeChecker
+    class Impl(override val program: p.type) extends TypeChecker(p, ctx, VCFilter.fromOptions(ctx.options))
+    new Impl(p)
   }
 }

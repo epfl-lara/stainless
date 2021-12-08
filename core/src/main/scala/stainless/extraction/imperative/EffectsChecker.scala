@@ -16,8 +16,8 @@ trait EffectsChecker { self: EffectsAnalyzer =>
   import exprOps._
 
   protected def checkEffects(fd: FunDef)(analysis: EffectsAnalysis): CheckResult = {
-    import analysis._
-    import symbols.isMutableType
+    import analysis.{given, _}
+    import symbols.{isMutableType, given}
 
     def isMutableSynthetic(id: Identifier): Boolean = {
       val fd = symbols.getFunction(id)
@@ -47,7 +47,7 @@ trait EffectsChecker { self: EffectsAnalyzer =>
           !exprOps.withoutSpecs(fd.fullBody).forall(isExpressionFresh))
         throw ImperativeEliminationException(fd, "Illegal recursive functions returning non-fresh result")
 
-      object traverser extends SelfTreeTraverser {
+      object traverser extends ConcreteSelfTreeTraverser {
         override def traverse(tpe: Type): Unit = tpe match {
           case at @ ADTType(id, tps) =>
             (at.getSort.definition.tparams zip tps).foreach { case (tdef, instanceType) =>
@@ -302,7 +302,7 @@ trait EffectsChecker { self: EffectsAnalyzer =>
   }
 
   def checkSort(sort: ADTSort)(analysis: EffectsAnalysis): Unit = {
-    for (fd <- sort.invariant(analysis.symbols)) {
+    for (fd <- sort.invariant(using analysis.symbols)) {
       val invEffects = analysis.effects(fd)
       if (invEffects.nonEmpty)
         throw ImperativeEliminationException(fd, "Invariant has effects on: " + invEffects.head.asString)

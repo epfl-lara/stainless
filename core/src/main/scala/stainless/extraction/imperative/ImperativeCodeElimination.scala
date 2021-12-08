@@ -4,7 +4,8 @@ package stainless
 package extraction
 package imperative
 
-trait ImperativeCodeElimination
+class ImperativeCodeElimination(override val s: Trees)(override val t: s.type)
+                               (using override val context: inox.Context)
   extends oo.CachingPhase
      with SimpleFunctions
      with IdentitySorts
@@ -13,16 +14,13 @@ trait ImperativeCodeElimination
      with SimplyCachedFunctions
      with SimplyCachedSorts
      with oo.SimplyCachedClasses {
-
-  val s: Trees
-  val t: s.type
   import s._
 
   override protected type TransformerContext = s.Symbols
   override protected def getContext(symbols: s.Symbols) = symbols
 
   override protected def extractFunction(symbols: s.Symbols, fd: s.FunDef): t.FunDef = {
-    import symbols._
+    import symbols.{given, _}
     import exprOps._
     import exprOps.{ replaceKeepPositions => replace }
 
@@ -43,14 +41,14 @@ trait ImperativeCodeElimination
     //new variables (val, not var) and a mapping for each modified variable (var, not val :) )
     //to their new name defined in the scope. The first returned valued is the value of the expression
     //that should be introduced as such in the returned scope (the val already refers to the new names)
-    def toFunction(expr: Expr)(implicit state: State): (Expr, Expr => Expr, Map[Variable, Variable]) = {
+    def toFunction(expr: Expr)(using state: State): (Expr, Expr => Expr, Map[Variable, Variable]) = {
       import state._
 
       val (res, scope, fun): (Expr, Expr => Expr, Map[Variable, Variable]) = expr match {
         case LetVar(vd, e, b) =>
           val newVd = vd.freshen
           val (rhsVal, rhsScope, rhsFun) = toFunction(e)
-          val (bodyRes, bodyScope, bodyFun) = toFunction(b)(state.withVar(vd))
+          val (bodyRes, bodyScope, bodyFun) = toFunction(b)(using state.withVar(vd))
           val newSubst = rhsFun + (vd.toVariable -> newVd.toVariable)
           val scope = (body: Expr) => rhsScope(Let(newVd, rhsVal, replaceFromSymbols(newSubst, bodyScope(body))).copiedFrom(expr))
           (bodyRes, scope, newSubst ++ bodyFun)
@@ -259,7 +257,7 @@ trait ImperativeCodeElimination
                   (body, p) => LetVar(p._2.toVal, p._1, body)
                 }
 
-                val (fdRes, fdScope, fdFun) = toFunction(wrappedBody)(State(state.parent, Set(),
+                val (fdRes, fdScope, fdFun) = toFunction(wrappedBody)(using State(state.parent, Set(),
                   state.localsMapping.map { case (v, (fd, mvs)) =>
                     (v, (fd, mvs.map(v => rewritingMap.getOrElse(v, v))))
                   } + (fd.id -> ((fd, freshVarDecls)))
@@ -299,7 +297,7 @@ trait ImperativeCodeElimination
                   returnType = newReturnType
                 )
 
-                val (bodyRes, bodyScope, bodyFun) = toFunction(b)(state.withLocal(fd.id, fd, modifiedVars))
+                val (bodyRes, bodyScope, bodyFun) = toFunction(b)(using state.withLocal(fd.id, fd, modifiedVars))
                 (bodyRes, (b2: Expr) => LetRec(Seq(newFd.toLocal), bodyScope(b2)).copiedFrom(expr), bodyFun)
               }
 
@@ -332,7 +330,7 @@ trait ImperativeCodeElimination
           val results = exprs.map(toFunction)
           (
             And(results.map(r => r._2(r._1))).setPos(and),
-            e => e,
+            (e: Expr) => e,
             results.map(_._3).foldLeft(Map[Variable, Variable]())(_ ++ _)
           )
 
@@ -340,14 +338,14 @@ trait ImperativeCodeElimination
           val results = exprs.map(toFunction)
           (
             Or(results.map(r => r._2(r._1))).setPos(or),
-            e => e,
+            (e: Expr) => e,
             results.map(_._3).foldLeft(Map[Variable, Variable]())(_ ++ _)
           )
 
         case i @ Implies(lhs, rhs) =>
           val (lVal, lScope, lFun) = toFunction(lhs)
           val (rVal, rScope, rFun) = toFunction(rhs)
-          (Implies(lScope(lVal), rScope(rVal)).setPos(i), e => e, lFun ++ rFun)
+          (Implies(lScope(lVal), rScope(rVal)).setPos(i), (e: Expr) => e, lFun ++ rFun)
 
         //TODO: this should be handled properly by the Operator case, but there seems to be a subtle bug in the way Let's are lifted
         //      which leads to Assert refering to the wrong value of a var in some cases.
@@ -389,7 +387,7 @@ trait ImperativeCodeElimination
 
     if (exprOps.exists(requireRewriting)(fd.fullBody)) {
       def topLevelRewrite(expr: Expr): Expr = {
-        val (res, scope, _) = toFunction(expr)(State(fd, Set(), Map()))
+        val (res, scope, _) = toFunction(expr)(using State(fd, Set(), Map()))
         scope(res)
       }
 
@@ -421,12 +419,11 @@ trait ImperativeCodeElimination
 }
 
 object ImperativeCodeElimination {
-  def apply(trees: Trees)(implicit ctx: inox.Context): ExtractionPipeline {
+  def apply(trees: Trees)(using inox.Context): ExtractionPipeline {
     val s: trees.type
     val t: trees.type
-  } = new ImperativeCodeElimination {
-    override val s: trees.type = trees
-    override val t: trees.type = trees
-    override val context = ctx
+  } = {
+    class Impl(override val s: trees.type, override val t: trees.type) extends ImperativeCodeElimination(s)(t)
+    new Impl(trees, trees)
   }
 }

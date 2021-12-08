@@ -4,10 +4,10 @@ package stainless
 package extraction
 package oo
 
-trait TypeOps extends innerfuns.TypeOps {
+trait TypeOps extends innerfuns.TypeOps { self =>
   protected val trees: Trees
   import trees._
-  import symbols._
+  import symbols.{given, _}
 
   protected def typeBound(tp1: Type, tp2: Type, upper: Boolean): Type = ((tp1, tp2) match {
     case (Untyped, _) => Some(Untyped)

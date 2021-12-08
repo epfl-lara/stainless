@@ -13,20 +13,26 @@ import scala.collection.mutable.{Map => MutableMap, ListBuffer}
   * Checks terminations of functions using the ranking function specified in the `decreases`
   * construct. For now, it works only on first-order functions.
   */
-trait DecreasesProcessor extends OrderingProcessor { self =>
+class DecreasesProcessor(override val checker: ProcessingPipeline)
+                        // Alias for checker, as we cannot use it to define ordering
+                        (override val chker: checker.type)
+                        (override val ordering: OrderingRelation with ChainBuilder with Strengthener with StructuralSize {
+                          val checker: chker.type
+                        })
+  extends OrderingProcessor("Decreases Processor", checker, ordering) {
 
-  val ordering: OrderingRelation with ChainBuilder with Strengthener with StructuralSize {
-    val checker: DecreasesProcessor.this.checker.type
-  }
-
-  val name: String = "Decreases Processor"
+  def this(chker: ProcessingPipeline,
+           ordering: OrderingRelation with ChainBuilder with Strengthener with StructuralSize {
+             val checker: chker.type
+           }) =
+    this(chker)(chker)(ordering)
 
   import ordering._
   import checker._
   import checker.context._
   import checker.program._
   import checker.program.trees._
-  import checker.program.symbols._
+  import checker.program.symbols.{given, _}
   import checker.program.trees.exprOps._
 
   // redo the checks for termination of functions in the measure

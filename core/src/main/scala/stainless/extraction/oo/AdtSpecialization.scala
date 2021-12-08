@@ -4,21 +4,19 @@ package stainless
 package extraction
 package oo
 
-trait AdtSpecialization
+class AdtSpecialization(override val s: Trees, override val t: Trees)
+                       (using override val context: inox.Context)
   extends CachingPhase
      with SimpleFunctions
      with SimpleSorts
      with SimpleTypeDefs
      with utils.SyntheticSorts { self =>
 
-  val s: Trees
-  val t: Trees
-
-  private[this] def root(id: Identifier)(implicit symbols: s.Symbols): Identifier = {
+  private[this] def root(id: Identifier)(using symbols: s.Symbols): Identifier = {
     symbols.getClass(id).parents.map(ct => root(ct.id)).headOption.getOrElse(id)
   }
 
-  private[this] def isCandidate(id: Identifier)(implicit symbols: s.Symbols): Boolean = {
+  private[this] def isCandidate(id: Identifier)(using symbols: s.Symbols): Boolean = {
     import s._
     val cd = symbols.getClass(id)
 
@@ -40,32 +38,30 @@ trait AdtSpecialization
   }
 
   private[this] val constructorCache = new utils.ConcurrentCached[Identifier, Identifier](_.freshen)
-  private[this] def constructorID(id: Identifier)(implicit symbols: s.Symbols): Identifier =
+  private[this] def constructorID(id: Identifier)(using symbols: s.Symbols): Identifier =
     symbols.lookupClass(id).map { cd =>
       if (cd.parents.isEmpty && !(cd.flags contains s.IsAbstract)) constructorCache(cd.id)
       else cd.id
     }.get
 
-  private[this] def constructors(id: Identifier)(implicit symbols: s.Symbols): Seq[Identifier] = {
+  private[this] def constructors(id: Identifier)(using symbols: s.Symbols): Seq[Identifier] = {
     val cd = symbols.getClass(id)
     val classes = cd +: cd.descendants
 
     classes.filterNot(_.flags contains s.IsAbstract).map(_.id)
   }
 
-  private[this] def isCaseObject(id: Identifier)(implicit symbols: s.Symbols): Boolean = {
+  private[this] def isCaseObject(id: Identifier)(using symbols: s.Symbols): Boolean =
     isCandidate(id) && (symbols.getClass(id).flags contains s.IsCaseObject)
-  }
 
   private[this] val caseObject = new utils.ConcurrentCached[Identifier, Identifier](_.freshen)
   private[this] val unapplyID = new utils.ConcurrentCached[Identifier, Identifier](_.freshen)
 
-  override protected final def getContext(symbols: s.Symbols) = new TransformerContext()(symbols)
-  protected final class TransformerContext(implicit val symbols: s.Symbols) extends oo.TreeTransformer {
-    override val s: self.s.type = self.s
-    override val t: self.t.type = self.t
+  override protected final def getContext(symbols: s.Symbols) = new TransformerContext(self.s, self.t)(using symbols)
 
-    protected implicit val implicitContext: TransformerContext = this
+  protected final class TransformerContext(override val s: self.s.type, override val t: self.t.type)
+                                          (using val symbols: s.Symbols) extends oo.ConcreteTreeTransformer(s, t) {
+    protected given givenContext: TransformerContext = this
 
     override def transform(flag: s.Flag): t.Flag = flag match {
       case s.ClassParamInit(cid) if isCandidate(cid) => t.ClassParamInit(constructorID(cid))
@@ -121,7 +117,7 @@ trait AdtSpecialization
     }
   }
 
-  private[this] def descendantKey(id: Identifier)(implicit symbols: s.Symbols): CacheKey =
+  private[this] def descendantKey(id: Identifier)(using symbols: s.Symbols): CacheKey =
     SetKey(
       (symbols.dependencies(id) + id)
         .flatMap(id => Set(id) ++ symbols.lookupClass(id).toSeq.flatMap { cd =>
@@ -134,7 +130,7 @@ trait AdtSpecialization
   // function depends as they will determine which classes will be transformed into
   // sorts and which ones will not.
   override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult](
-    (fd, context) => FunctionKey(fd) + descendantKey(fd.id)(context.symbols)
+    (fd, context) => FunctionKey(fd) + descendantKey(fd.id)(using context.symbols)
   )
 
   // If there are any input sorts in this phase, their transformation is simple
@@ -148,11 +144,11 @@ trait AdtSpecialization
     // option sort will be used by the class result, but this shouldn't be necessary
     (cd, context) =>
       val symbols = context.symbols
-      ClassKey(cd) + descendantKey(cd.id)(symbols) + OptionSort.key(symbols)
+      ClassKey(cd) + descendantKey(cd.id)(using symbols) + OptionSort.key(using symbols)
   })
 
   override protected final val typeDefCache = new ExtractionCache[s.TypeDef, TypeDefResult](
-    (td, context) => TypeDefKey(td) + descendantKey(td.id)(context.symbols)
+    (td, context) => TypeDefKey(td) + descendantKey(td.id)(using context.symbols)
   )
 
   override protected final def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = context.transform(fd)
@@ -173,7 +169,7 @@ trait AdtSpecialization
   }
 
   override protected final def extractClass(context: TransformerContext, cd: s.ClassDef): ClassResult = {
-    import context.{t => _, s => _, _}
+    import context.{t => _, s => _, given, _}
     if (isCandidate(cd.id)) {
       if (cd.parents.isEmpty) {
         val sortTparams = cd.tparams map (tpd => context.transform(tpd))
@@ -246,8 +242,8 @@ trait AdtSpecialization
 
   override protected final def extractSymbols(context: TransformerContext, symbols: s.Symbols): t.Symbols = {
     val newSymbols = super.extractSymbols(context, symbols)
-      .withFunctions(OptionSort.functions(symbols))
-      .withSorts(OptionSort.sorts(symbols))
+      .withFunctions(OptionSort.functions(using symbols))
+      .withSorts(OptionSort.sorts(using symbols))
 
     val dependencies: Set[Identifier] =
       (symbols.functions.keySet ++ symbols.sorts.keySet ++ symbols.classes.keySet)
@@ -268,13 +264,11 @@ trait AdtSpecialization
 }
 
 object AdtSpecialization {
-  def apply(ts: Trees, tt: Trees)(implicit ctx: inox.Context): ExtractionPipeline {
+  def apply(ts: Trees, tt: Trees)(using inox.Context): ExtractionPipeline {
     val s: ts.type
     val t: tt.type
-  } = new {
-    override val s: ts.type = ts
-    override val t: tt.type = tt
-  } with AdtSpecialization {
-    override val context = ctx
+  } = {
+    class Impl(override val s: ts.type, override val t: tt.type) extends AdtSpecialization(s, t)
+    new Impl(ts, tt)
   }
 }

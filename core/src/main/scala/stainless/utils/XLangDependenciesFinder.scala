@@ -23,7 +23,7 @@ class XLangDependenciesFinder {
 
   private val deps: MutableSet[Identifier] = MutableSet.empty
 
-  private trait TreeTraverser extends xt.SelfTreeTraverser {
+  private abstract class TreeTraverser extends xt.ConcreteOOSelfTreeTraverser {
     def traverse(lcd: xt.LocalClassDef): Unit
     def traverse(lmd: xt.LocalMethodDef): Unit
     def traverse(ltd: xt.LocalTypeDef): Unit

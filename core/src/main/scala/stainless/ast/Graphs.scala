@@ -5,11 +5,11 @@ package ast
 
 import inox.utils.Graphs._
 
-trait CallGraph extends inox.ast.CallGraph {
+trait CallGraph extends inox.ast.CallGraph { self =>
   protected val trees: Trees
   import trees._
 
-  protected trait FunctionCollector extends SelfTreeTraverser with super.FunctionCollector {
+  protected trait StainlessFunctionCollector extends StainlessSelfTreeTraverser with FunctionCollector {
     override def traverse(pat: Pattern): Unit = pat match {
       case UnapplyPattern(_, _, id, _, _) =>
         register(id)
@@ -27,14 +27,16 @@ trait CallGraph extends inox.ast.CallGraph {
         super.traverse(flag)
     }
   }
+  // Used as a default implementation for the trait StainlessFunctionCollector
+  protected class ConcreteStainlessFunctionCollector extends ConcreteStainlessSelfTreeTraverser with StainlessFunctionCollector
 
-  override protected def getFunctionCollector = new FunctionCollector {}
+  override protected def getFunctionCollector = new ConcreteStainlessFunctionCollector
 }
 
 trait DependencyGraph extends inox.ast.DependencyGraph with CallGraph {
   import trees._
 
-  protected trait SortCollector extends SelfTreeTraverser with super.SortCollector {
+  protected trait StainlessSortCollector extends StainlessSelfTreeTraverser with SortCollector {
     override def traverse(pat: Pattern): Unit = pat match {
       case ADTPattern(_, id, _, _) =>
         register(symbols.getConstructor(id).sort)
@@ -59,6 +61,8 @@ trait DependencyGraph extends inox.ast.DependencyGraph with CallGraph {
         super.traverse(expr)
     }
   }
+  // Used as a default implementation for the trait StainlessSortCollector
+  protected class ConcreteStainlessSortCollector extends ConcreteStainlessSelfTreeTraverser with StainlessSortCollector
 
-  override def getSortCollector = new SortCollector {}
+  override def getSortCollector = new ConcreteStainlessSortCollector
 }

@@ -6,21 +6,21 @@ package trace
 
 import stainless.utils.CheckFilter
 
-trait Trace extends CachingPhase with IdentityFunctions with IdentitySorts { self =>
-  val s: Trees
-  val t: termination.Trees
+class Trace(override val s: Trees, override val t: termination.Trees)
+           (using override val context: inox.Context)
+  extends CachingPhase
+     with IdentityFunctions
+     with IdentitySorts { self =>
   import s._
 
   override protected type TransformerContext = s.Symbols
   override protected def getContext(symbols: s.Symbols) = symbols
 
-  private[this] object identity extends transformers.TreeTransformer {
-    override val s: self.s.type = self.s
-    override val t: self.t.type = self.t
-  }
+  private[this] class Identity(override val s: self.s.type, override val t: self.t.type) extends transformers.ConcreteTreeTransformer(s, t)
+  private[this] val identity = new Identity(self.s, self.t)
 
   override protected def extractSymbols(context: TransformerContext, symbols: s.Symbols): t.Symbols = {
-    import symbols._
+    import symbols.{given, _}
     import exprOps._
 
     if (Trace.getModels.isEmpty) {
@@ -150,7 +150,7 @@ trait Trace extends CachingPhase with IdentityFunctions with IdentitySorts { sel
   }
 
   def inductPattern(symbols: s.Symbols, model: FunDef, lemma: FunDef) = {
-    import symbols._
+    import symbols.{given, _}
     import exprOps._
 
     val id = FreshIdentifier(s"${lemma.id}$$induct")
@@ -172,9 +172,9 @@ trait Trace extends CachingPhase with IdentityFunctions with IdentitySorts { sel
       origFd: FunDef,
       newId: Identifier,
       vsubst: Map[Identifier, Expr]
-    ) extends s.SelfTreeTransformer {
+    ) extends s.ConcreteStainlessSelfTreeTransformer { speSelf =>
 
-      override def transform(expr: s.Expr): t.Expr = expr match {
+      override def transform(expr: speSelf.s.Expr): speSelf.t.Expr = expr match {
         case v: Variable =>
           vsubst.getOrElse(v.id, super.transform(v))
 
@@ -257,13 +257,13 @@ object Trace {
   var unknowns: List[Identifier] = List()
   var wrong: List[Identifier] = List() //bad signature
 
-  def optionsError(implicit ctx: inox.Context): Boolean = 
+  def optionsError(using ctx: inox.Context): Boolean =
     !ctx.options.findOptionOrDefault(frontend.optBatchedProgram) && 
     (!ctx.options.findOptionOrDefault(optModels).isEmpty || !ctx.options.findOptionOrDefault(optCompareFuns).isEmpty)
         
-  def printEverything(implicit ctx: inox.Context) = {
+  def printEverything(using ctx: inox.Context) = {
     import ctx.{ reporter, timers }
-    if(!clusters.isEmpty || !errors.isEmpty || !unknowns.isEmpty || !wrong.isEmpty) {
+    if (!clusters.isEmpty || !errors.isEmpty || !unknowns.isEmpty || !wrong.isEmpty) {
       reporter.info(s"Printing equivalence checking results:")  
       allModels.foreach(model => {
         val l = clusters(model).map(CheckFilter.fixedFullName).mkString(", ")
@@ -291,13 +291,12 @@ object Trace {
   var trace: Option[Identifier] = None
   var proof: Option[Identifier] = None
 
-  def apply(ts: Trees, tt: termination.Trees)(implicit ctx: inox.Context): ExtractionPipeline {
+  def apply(ts: Trees, tt: termination.Trees)(using inox.Context): ExtractionPipeline {
     val s: ts.type
     val t: tt.type
-  } = new Trace {
-    override val s: ts.type = ts
-    override val t: tt.type = tt
-    override val context = ctx
+  } = {
+    class Impl(override val s: ts.type, override val t: tt.type) extends Trace(s, t)
+    new Impl(ts, tt)
   }
 
   def setModels(m: List[Identifier]) = {
@@ -356,7 +355,7 @@ object Trace {
     }
   }
 
-  def nextIteration[T <: AbstractReport[T]](report: AbstractReport[T])(implicit context: inox.Context): Boolean = {
+  def nextIteration[T <: AbstractReport[T]](report: AbstractReport[T])(using inox.Context): Boolean = {
     (function, proof, trace) match {
       case (Some(f), Some(p), Some(t)) => {
         if (report.hasError(f) || report.hasError(p) || report.hasError(t)) reportError

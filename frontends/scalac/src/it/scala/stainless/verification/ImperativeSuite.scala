@@ -20,7 +20,7 @@ class ImperativeSuite extends ComponentTestSuite {
     case _ => super.filter(ctx, name)
   }
 
-  val component = VerificationComponent
+  override val component: VerificationComponent.type = VerificationComponent
 
   testAll("imperative/valid") { (report, reporter) =>
     for ((vc, vr) <- report.vrs) {

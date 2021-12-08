@@ -8,21 +8,7 @@ final class BitVector(private val signed: Boolean, private val bits: Array[Boole
 
   def size = bits.length
 
-  def this(signed: Boolean, bi: BigInteger, size: Int) = this(signed, {
-    // Extract positive numbers only
-    def extract(bi: BigInteger): Array[Boolean] = {
-      val two = new BigInteger("2")
-      (0 until size).map { i => bi.and(two.pow(i)).compareTo(BigInteger.ZERO) > 0 }.reverse.toArray
-    }
-
-    if (bi.compareTo(BigInteger.ZERO) >= 0) {
-      extract(bi)
-    } else if (!signed) {
-      new BitVector(signed, new BigInteger("2").pow(size).add(bi), size).bits
-    } else {
-      new BitVector(signed, bi.negate, size).neg.bits
-    }
-  })
+  def this(signed: Boolean, bi: BigInteger, size: Int) = this(signed, BitVector.computeBits(signed, bi, size))
 
   def this(signed: Boolean, value: String, size: Int) = this(signed, new BigInteger(value), size)
   def this(value: Byte, size: Int)   = this(true, new BigInteger(value.toString), size)
@@ -118,3 +104,20 @@ final class BitVector(private val signed: Boolean, private val bits: Array[Boole
     bits.map(b => if (b) "1" else "0").mkString("")
 }
 
+object BitVector {
+  private def computeBits(signed: Boolean, bi: BigInteger, size: Int): Array[Boolean] = {
+    // Extract positive numbers only
+    def extract(bi: BigInteger): Array[Boolean] = {
+      val two = new BigInteger("2")
+      (0 until size).map { i => bi.and(two.pow(i)).compareTo(BigInteger.ZERO) > 0 }.reverse.toArray
+    }
+
+    if (bi.compareTo(BigInteger.ZERO) >= 0) {
+      extract(bi)
+    } else if (!signed) {
+      new BitVector(signed, new BigInteger("2").pow(size).add(bi), size).bits
+    } else {
+      new BitVector(signed, bi.negate, size).neg.bits
+    }
+  }
+}

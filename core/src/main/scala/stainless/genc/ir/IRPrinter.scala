@@ -18,19 +18,18 @@ final class IRPrinter[S <: IR](val ir: S) {
   }
 
   // Entry point for pretty printing
-  final def apply(prog: Prog): String = rec(prog)(Context(0))
+  final def apply(prog: Prog): String = rec(prog)(using Context(0))
 
-  final def apply(tree: Tree)(implicit ptx: Context): String = tree match {
+  final def apply(tree: Tree)(using Context): String = tree match {
     case t: FunDef => rec(t)
     case t: ClassDef => rec(t)
     case t: ValDef => rec(t)
     case t: Expr => rec(t)
     case t: Type => rec(t)
     case t: ArrayAlloc => rec(t)
-    case _ => ???
   }
 
-  private def rec(prog: Prog)(implicit ptx: Context): String = {
+  private def rec(prog: Prog)(using Context): String = {
     def wrapWith(header: String, s: String) = {
       if (s.isEmpty) ""
       else "------------------  " + header + "  ------------------\n\n" + s + "\n\n\n"
@@ -45,11 +44,11 @@ final class IRPrinter[S <: IR](val ir: S) {
     wrapWith("Functions", funs.mkString("\n\n"))
   }
 
-  private def rec(fd: FunDef)(implicit ptx: Context): String = {
+  private def rec(fd: FunDef)(using ptx: Context): String = {
     val ctx = fd.ctx map rec mkString ", "
     val params = (fd.params map rec).mkString(start = ", ", sep = ", ", end = "")
     val pre = fd.id + "(<" + ctx + ">" + params + "): " + rec(fd.returnType) + " = {" + ptx.newLine + "  "
-    val body = rec(fd.body)(ptx + 1)
+    val body = rec(fd.body)(using ptx + 1)
     val post = ptx.newLine + "}"
 
     (if (fd.isPure) "@pure\n" else "") +
@@ -57,14 +56,13 @@ final class IRPrinter[S <: IR](val ir: S) {
     pre + body + post
   }
 
-  private def rec(fb: FunBody)(implicit ptx: Context): String = {
+  private def rec(fb: FunBody)(using Context): String =
     fb match {
       case FunBodyAST(body) => rec(body)
       case _ => "@cCode.function"
     }
-  }
 
-  private def rec(cd: ClassDef)(implicit ptx: Context): String = {
+  private def rec(cd: ClassDef)(using Context): String = {
     val pre = if (cd.isAbstract) "abstract " else ""
     val fields = cd.fields map rec mkString ", "
     val parent = if (cd.parent.isDefined) " extends " + cd.parent.get.id else ""
@@ -72,11 +70,10 @@ final class IRPrinter[S <: IR](val ir: S) {
     pre + "class " + cd.id + "(" + fields + ")" + parent
   }
 
-  private def rec(vd: ValDef)(implicit ptx: Context): String = {
+  private def rec(vd: ValDef)(using Context): String =
     vd.id + ": " + rec(vd.typ)
-  }
 
-  private def rec(alloc: ArrayAlloc)(implicit ptx: Context): String = {
+  private def rec(alloc: ArrayAlloc)(using Context): String = {
     (alloc: @unchecked) match {
       case ArrayAllocStatic(arrayType, length, Right(values)) =>
         "Array[" + rec(arrayType.base) + "](" + (values map rec mkString ", ") + ")"
@@ -89,7 +86,7 @@ final class IRPrinter[S <: IR](val ir: S) {
     }
   }
 
-  private def rec(e: Expr)(implicit ptx: Context): String = (e: @unchecked) match {
+  private def rec(e: Expr)(using ptx: Context): String = (e: @unchecked) match {
     case Binding(vd) => "[[ " + vd.id + ": " + rec(vd.getType) + " ]]"
     case FunVal(fd) => "@" + fd.id
     case FunRef(e) => "@{" + rec(e) + "}"
@@ -109,12 +106,12 @@ final class IRPrinter[S <: IR](val ir: S) {
     case BinOp(op, lhs, rhs) => rec(lhs) + " " + op.symbol + " " + rec(rhs)
     case UnOp(op, expr) => op.symbol + rec(expr)
     case If(cond, thenn) =>
-      "if (" + rec(cond) + ") {" + ptx.newLine + "  " + rec(thenn)(ptx + 1) + ptx.newLine + "}"
+      "if (" + rec(cond) + ") {" + ptx.newLine + "  " + rec(thenn)(using ptx + 1) + ptx.newLine + "}"
     case IfElse(cond, thenn, elze) =>
-      "if (" + rec(cond) + ") {" + ptx.newLine + "  " + rec(thenn)(ptx + 1) + ptx.newLine + "} " +
-      "else {" + ptx.newLine + "  " + rec(elze)(ptx + 1) + ptx.newLine + "}"
+      "if (" + rec(cond) + ") {" + ptx.newLine + "  " + rec(thenn)(using ptx + 1) + ptx.newLine + "} " +
+      "else {" + ptx.newLine + "  " + rec(elze)(using ptx + 1) + ptx.newLine + "}"
     case While(cond, body) =>
-      "while (" + rec(cond) + ") {" + ptx.newLine + "  " + rec(body)(ptx + 1) + ptx.newLine + "}"
+      "while (" + rec(cond) + ") {" + ptx.newLine + "  " + rec(body)(using ptx + 1) + ptx.newLine + "}"
     case IsA(expr, ct) => "¿" + ct.clazz.id + "?" + rec(expr)
     case AsA(expr, ct) => "(" + ct.clazz.id + ")" + rec(expr)
     case IntegralCast(expr, newType) => "(" + newType + ")" + rec(expr)
@@ -126,7 +123,7 @@ final class IRPrinter[S <: IR](val ir: S) {
     case Break => "break"
   }
 
-  private def rec(typ: Type)(implicit ptx: Context): String = (typ: @unchecked) match {
+  private def rec(typ: Type)(using Context): String = (typ: @unchecked) match {
     case PrimitiveType(pt) => pt.toString
     case FunType(ctx, params, ret) =>
       "Function[" + (ctx map rec mkString ", ") + "][" + (params map rec mkString ", ") + "]: " + rec(ret)

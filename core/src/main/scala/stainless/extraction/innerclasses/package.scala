@@ -3,8 +3,6 @@
 package stainless
 package extraction
 
-import scala.language.existentials
-
 package object innerclasses {
 
   object trees extends innerclasses.Trees with oo.ClassSymbols {
@@ -13,7 +11,18 @@ package object innerclasses {
       sorts: Map[Identifier, ADTSort],
       classes: Map[Identifier, ClassDef],
       typeDefs: Map[Identifier, TypeDef],
-    ) extends ClassSymbols with AbstractSymbols
+    ) extends ClassSymbols with InnerClassesAbstractSymbols {
+      override val symbols: this.type = this
+    }
+
+    override def mkSymbols(
+      functions: Map[Identifier, FunDef],
+      sorts: Map[Identifier, ADTSort],
+      classes: Map[Identifier, ClassDef],
+      typeDefs: Map[Identifier, TypeDef],
+    ): Symbols = {
+      Symbols(functions, sorts, classes, typeDefs)
+    }
 
     object printer extends Printer { val trees: innerclasses.trees.type = innerclasses.trees }
   }
@@ -25,18 +34,18 @@ package object innerclasses {
     def apply(tree: inox.ast.Trees#Tree, msg: String) = new InvalidInnerClassException(tree, msg)
   }
 
-  def extractor(implicit ctx: inox.Context) = {
+  def extractor(using inox.Context) = {
     utils.DebugPipeline("InnerClasses", InnerClasses(trees, methods.trees))
   }
 
-  def fullExtractor(implicit ctx: inox.Context) = extractor andThen nextExtractor
-  def nextExtractor(implicit ctx: inox.Context) = methods.fullExtractor
+  def fullExtractor(using inox.Context) = extractor andThen nextExtractor
+  def nextExtractor(using inox.Context) = methods.fullExtractor
 
-  def phaseSemantics(implicit ctx: inox.Context): inox.SemanticsProvider { val trees: innerclasses.trees.type } = {
+  def phaseSemantics(using inox.Context): inox.SemanticsProvider { val trees: innerclasses.trees.type } = {
     extraction.phaseSemantics(innerclasses.trees)(fullExtractor)
   }
 
-  def nextPhaseSemantics(implicit ctx: inox.Context): inox.SemanticsProvider { val trees: methods.trees.type } = {
+  def nextPhaseSemantics(using inox.Context): inox.SemanticsProvider { val trees: methods.trees.type } = {
     methods.phaseSemantics
   }
 }

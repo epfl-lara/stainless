@@ -54,23 +54,21 @@ package innerclasses
   * }
   * ```
   */
-trait InnerClasses
+class InnerClasses(override val s: Trees, override val t: methods.Trees)
+                  (using override val context: inox.Context)
   extends oo.CachingPhase
      with IdentitySorts
      with oo.IdentityTypeDefs
      with oo.SimpleClasses
      with oo.SimplyCachedClasses { self =>
-
-  val s: Trees
-  val t: methods.Trees
   import s._
 
-  override protected def getContext(symbols: Symbols) = new TransformerContext(symbols)
+  override protected def getContext(symbols: Symbols) = new TransformerContext(self.s, self.t)(using symbols)
 
-  protected class TransformerContext(val symbols: s.Symbols) extends oo.TreeTransformer { ctx =>
-    override final val s: self.s.type = self.s
-    override final val t: self.t.type = self.t
-
+  protected class TransformerContext(override final val s: self.s.type,
+                                     override final val t: self.t.type)
+                                    (using val symbols: s.Symbols)
+    extends oo.ConcreteTreeTransformer(s, t) { ctx =>
     import s._
     import symbols._
 
@@ -114,6 +112,7 @@ trait InnerClasses
         outerRefs map {
           case ValDef(id, ct: ClassType, _) if currentClass.id == ct.id => thiss
           case ValDef(id, _, _) => ClassSelector(thiss, id)
+          case _ => sys.error("Unreachable") // To silence false positive warning
         }
       }
     }
@@ -195,15 +194,15 @@ trait InnerClasses
       (transform(result), newSymbols)
     }
 
-    class LiftingTransformer extends imperative.TransformerWithPC {
-      val s: self.s.type = self.s
-      val t: self.s.type = self.s
+    class LiftingTransformer(override val s: self.s.type, override val t: self.s.type)
+                            (using override val symbols: ctx.symbols.type)
+      extends imperative.TransformerWithPC {
       import s._
 
-      type Env = Context
-      implicit val pp = Context
+      def this() = this(self.s, self.s)(using ctx.symbols)
 
-      val symbols: ctx.symbols.type = ctx.symbols
+      type Env = Context
+      val pp = Context
 
       var result: Map[Identifier, ClassSubst] = Map.empty
 
@@ -291,11 +290,9 @@ trait InnerClasses
 
     /** Collect applications of local functions with a method of a local class */
     def collectFreeLocalFunsCalls(fd: FunDef): Set[ApplyLetRec] = {
-      class FreeLocalFunsCollector extends stainless.transformers.Transformer
-        with inox.transformers.DefinitionTransformer {
-
-        val s: self.s.type = self.s
-        val t: self.s.type = self.s
+      class FreeLocalFunsCollector(override val s: self.s.type, override val t: self.s.type)
+        extends stainless.transformers.Transformer
+           with inox.transformers.DefinitionTransformer {
         val symbols: ctx.symbols.type = ctx.symbols
 
         type Env = Set[Identifier]
@@ -315,7 +312,7 @@ trait InnerClasses
         }
       }
 
-      val collector = new FreeLocalFunsCollector
+      val collector = new FreeLocalFunsCollector(self.s, self.s)
       collector.transform(fd)
       collector.result
     }
@@ -362,7 +359,7 @@ trait InnerClasses
       // Compute the variables, type parameters, and outer references being closed over by the local class.
       val freeVars       = (exprOps.freeVariablesOf(lcd) ++ exprOps.variablesOf(pathCondition)).toSeq.sortBy(_.id.name)
       val freeTypeParams = exprOps.freeTypeParamsOf(lcd).toSeq.sortBy(_.id.name)
-      val enclosingRef   = context.currentClass.map(cd => This(cd.typed(symbols).toType))
+      val enclosingRef   = context.currentClass.map(cd => This(cd.typed.toType))
       val freeOuterRefs  = (enclosingRef.toSet ++ exprOps.outerThisReferences(lcd).toSet).toSeq.sortBy(_.ct.id.name)
 
       // New necessary fields and type parameters
@@ -449,7 +446,7 @@ trait InnerClasses
   override protected val funCache: SimpleCache[s.FunDef, FunctionResult] = new SimpleCache[s.FunDef, FunctionResult]
 
   override protected def extractFunction(context: TransformerContext, fd: s.FunDef): FunctionResult = {
-    import context._
+    import context.{given, _}
 
     val optClass = fd.flags.collectFirst { case IsMethodOf(cid) => symbols.classes(cid) }
     liftLocalClasses(fd, Context(currentClass = optClass, currentFunction = Some(fd)))
@@ -469,18 +466,17 @@ trait InnerClasses
   }
 
   override protected def extractClass(context: TransformerContext, cd: s.ClassDef): t.ClassDef = {
-    import context._
+    import context.{given, _}
     context.transform((new LiftingTransformer).transform(cd, Context.empty))
   }
 }
 
 object InnerClasses {
-  def apply(ts: Trees, tt: methods.Trees)(implicit ctx: inox.Context): ExtractionPipeline {
+  def apply(ts: Trees, tt: methods.Trees)(using inox.Context): ExtractionPipeline {
     val s: ts.type
     val t: tt.type
-  } = new InnerClasses {
-    override val s: ts.type = ts
-    override val t: tt.type = tt
-    override val context = ctx
+  } = {
+    class Impl(override val s: ts.type, override val t: tt.type) extends InnerClasses(s, t)
+    new Impl(ts, tt)
   }
 }
