@@ -913,7 +913,7 @@ trait CodeExtraction extends ASTExtractors {
         val lcd = lcds(cd.symbol)
 
         // Drop companion object and/or synthetic modules Scalac inserts after local class declarations
-        val rest = xs dropWhile (x => x.symbol.isSynthetic && x.symbol.isModule)
+        val rest = xs dropWhile (x => x.symbol != null && x.symbol.isSynthetic && x.symbol.isModule)
         rec(rest) match {
           case xt.LetClass(defs, body) => xt.LetClass(lcd +: defs, body).setPos(cd.pos)
           case other => xt.LetClass(Seq(lcd), other).setPos(cd.pos)
