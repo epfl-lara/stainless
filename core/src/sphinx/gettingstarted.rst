@@ -8,8 +8,9 @@ Verifying Examples
 
 Stainless is currently available as either:
 
-* a command line tool, which exposes most of the functionality, available as a ZIP file or via Docker (recommended)
+* a command line tool, which exposes most of the functionality, available as a ZIP file (recommended) or via Docker 
 * via a sbt plugin, for use with `Metals <https://scalameta.org/metals/>`_ and your editor of choice, eg. VS Code.
+  This introduces various other failure points compared to command-line and makes incremental verification harder.
 
 See the :doc:`installation documentation <installation>` for more information.
 
