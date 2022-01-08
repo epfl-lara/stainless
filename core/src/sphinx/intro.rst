@@ -3,7 +3,7 @@ Introduction
 
 The Stainless verification framework aims to help developers build
 verified Scala software. It encourages using a small set of core
-Scala features, but provides unique automation functionality.
+Scala features, but provides unique verification functionality.
 In particular, Stainless can
 
 * verify statically that your program conforms to a given
@@ -26,12 +26,12 @@ transformations to the :doc:`Pure Scala <purescala>` fragment until
 it fits into the fragment supported by
 `Inox <https://github.com/epfl-lara/inox>`_.
 The Pure Scala fragment is at the core of
-the functional programming paradigm and lies at the intersection
-of functional languages such as Scala, Haskell, ML, and fragments
+the functional programming paradigm and should sound familiar to
+users of Scala, Haskell, ML, and fragments
 present in interactive theorem provers such as Isabelle and Coq. Thus,
 if you do not already know Scala, learning the Stainless subset should
 be easier as it is a smaller language. Moreover, thanks to the use of
-``scalac`` front end, Stainless supports implicits and ``for``
+a Scala front end, Stainless supports implicits and ``for``
 comprehensions (which also serve as a syntax for monads in Scala).
 Stainless also comes with a simple library of useful data types, which
 are designed to work well with automated reasoning and Stainless's

@@ -372,4 +372,7 @@ may contain:
    stainless/proof/Internal.scala
    stainless/proof/package.scala
 
+Shortening this list may reduce the startup time, but also cause Stainless to not work propertly, so 
+using the ``--watch`` and ``--functions`` options is the first option to try.
+
 For further customization by advanced users, please examine the ``build.sbt`` file.
