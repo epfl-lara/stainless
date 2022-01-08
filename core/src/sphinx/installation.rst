@@ -297,7 +297,7 @@ in an attempt to be more reproducible and independent from sbt cache and path, t
 
 **Install sbt**
 
-Follow the instructions at http://www.scala-sbt.org/ to install ``sbt`` 1.3.0.
+Follow the instructions at http://www.scala-sbt.org/ to install ``sbt`` 1.5.6 (or somewhat later version).
 
 **Check out sources**
 
@@ -338,7 +338,7 @@ Note that Stainless is organized as a structure of several projects. The main pr
 Build from Source on Windows 10
 -------------------------------
 
-Before following the infrequently updated instructions in this section, considering running Ubuntu on Windows 10 and following the instructions for Linux.
+Before following the infrequently updated instructions in this section, considering running Ubuntu on Windows 10 (through e.g. WSL) and following the instructions for Linux.
 
 Get the sources of Stainless by cloning the official Stainless repository. You will need a Git shell for windows, e.g.  `Git for Windows <https://git-for-windows.github.io/>`_.
 On Windows, please do not use ``sbt universal:stage`` as this generates a Windows batch file which is unusable, because it contains commands that are too long for Windows.

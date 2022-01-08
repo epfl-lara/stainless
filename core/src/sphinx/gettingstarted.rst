@@ -8,7 +8,7 @@ Verifying Examples
 
 Stainless is currently available as either:
 
-* a command line tool, which exposes most of the functionality, available as a ZIP file or via Docker.
+* a command line tool, which exposes most of the functionality, available as a ZIP file or via Docker (recommended)
 * via a sbt plugin, for use with `Metals <https://scalameta.org/metals/>`_ and your editor of choice, eg. VS Code.
 
 See the :doc:`installation documentation <installation>` for more information.
@@ -90,10 +90,9 @@ Compiling and Executing Examples
 
 Scala code written with Stainless library dependencies can be compiled and run using the
 library sources available on the `Stainless github repository <https://github.com/epfl-lara/stainless>`_,
-and ``scalac`` and ``scala`` 2.12.9.
+along with the scala compiler and runner script. For example, this should work Scala versions 2.12-2.13:
 
 .. code-block:: bash
 
   scalac -d /some_folder_for_compiled_classes/ $(find /path/to/stainless/frontends/library/stainless/ -name "*.scala") File1.scala File2.scala ...
   scala -cp /some_folder_for_compiled_classes/ $(find /path/to/stainless/frontends/library/stainless/ -name "*.scala") MainClassName
-

@@ -1028,7 +1028,7 @@ it's good to keep the following in mind:
    examples are located in the ``testcases/verification/proof/``
    directory.
 
-.. [#props-not-types] Perhaps surprisingly, propositions and proofs
+.. [#props-not-types] Propositions and proofs
    live in the same universe in Stainless.  This is contrary to
    e.g. type-theoretic proof assistants where propositions are
    represented by types and proofs are terms inhabiting such types.

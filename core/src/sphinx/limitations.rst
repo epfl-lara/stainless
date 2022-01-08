@@ -26,7 +26,7 @@ Thus a verified program may crash at run-time due to:
   * stack overflow
   * heap overflow
 
-Algebraic data types are assumed to be arbitrarily large.
+The set of values for recursive algebraic data types is assumed to be infinite.
 In any given execution, there will be actual bounds on the
 total available memory. The program could thus crash
 with an out-of-memory error when trying to allocate another
@@ -38,4 +38,3 @@ and postconditions that enforce a bound on the maximum size
 of the data structures that your application
 manipulates. For this purpose, you can define size functions
 that return `BigInt` data types.
-
