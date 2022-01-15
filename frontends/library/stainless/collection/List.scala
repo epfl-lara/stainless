@@ -405,6 +405,16 @@ sealed abstract class List[T] {
     }
   }
 
+  def iupdated(i: Int, y: T): List[T] = {
+    require(0 <= i && i < isize)
+    this match {
+      case Cons(x, tail) if i == 0 =>
+        Cons[T](y, tail)
+      case Cons(x, tail) =>
+        Cons[T](x, tail.iupdated(i - 1, y))
+    }
+  }
+  
   private def insertAtImpl(pos: BigInt, l: List[T]): List[T] = {
     require(0 <= pos && pos <= size)
     if(pos == BigInt(0)) {
