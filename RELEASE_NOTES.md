@@ -1,5 +1,39 @@
 # Release Notes
 
+## Version 0.9.2 (2022-01-17)
+
+### Stainless frontend, library and internals
+
+- Main list operations with Int instead of BigInt indices (#1225)
+- Scala 3 extraction frontend (#1216, `scala-3.x` branch only)
+- Adapt Coq build to 8.14.0 (#1198)
+- Improve handling of Enter key in watch mode (#1195)
+- Fix extraction of f => g style renamed imports (#1193)
+- Add sizes debug option to display size statistics after each phase (#1185)
+- Remove simplifications in VC building to avoid big slowdown (#1184)
+
+### GenC
+
+- Split header and C includes (#1204)
+- Better header extraction in GenC cCode.function annotation (#1203)
+- Extract header from manually defined definition in Genc (#1200)
+- Add missing assert cases in GenC deconstructors (#1199)
+- Bump sbt-assembly version, more parentheses and relax arrays checks in GenC (#1197)
+- Add support for initializing complex expressions with memset 0 (#1196)
+- Fix GenC duplicate reporting and add cCode.define annotation (#1192)
+- Fix some GenC export issues and add cCode.pack annotation (#1190)
+- Remove parentheses from dropped constants in GenC (#1189)
+- cCode.drop shouldn't always imply extern (#1188)
+- Use primitive equality for TypeDefType in GenC (#1187)
+- Fix typo in sizes debug output (#1186)
+
+### Documentation
+
+- Add documentation for some annotations and keywords (#1183)
+- Doc fixes (#1220)
+- Example with laws and dynamic dispatch (#1206)
+
+
 ## Version 0.9.1 (2021-09-28)
 
 ### Stainless frontend and internals
