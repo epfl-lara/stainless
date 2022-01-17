@@ -29,8 +29,11 @@ trait MainHelpers extends inox.MainHelpers { self =>
     optModels -> Description(General, "Consider functions f1, f2, ... as model functions for equivalence checking"),
     extraction.utils.optDebugObjects -> Description(General, "Only print debug output for functions/adts named o1,o2,..."),
     extraction.utils.optDebugPhases -> Description(General, {
+      // f interpolator does not process escape sequence, we workaround that with the following trick.
+      // See https://github.com/lampepfl/dotty/issues/11750
+      val nl = '\n'
       "Only print debug output for phases p1,p2,...\nAvailable: " +
-      extraction.phases.map { case (name, desc) => f"\n  $name%-26s : $desc" }.mkString("")
+      extraction.phases.map { case (name, desc) => f"$nl  $name%-26s : $desc" }.mkString("")
     }),
     extraction.imperative.optFullImperative -> Description(Verification, "Use the full imperative phase. That might be unstable because it is still under development."),
     extraction.imperative.optCheckHeapContracts -> Description(Verification, "Check that heap reads and modifies clauses are valid"),

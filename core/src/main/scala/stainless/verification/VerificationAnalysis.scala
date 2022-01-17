@@ -18,9 +18,8 @@ trait VerificationAnalysis extends AbstractAnalysis {
   private lazy val records = vrs map { case (vc, vr) =>
     val time = vr.time.getOrElse(0L) // TODO make time mandatory (?)
     val status = VerificationReport.Status(program)(vr.status)
-    val solverName = vr.solver map { _.name }
     val source = symbols.getFunction(vc.fid).source
-    VerificationReport.Record(vc.fid, vc.getPos, time, status, solverName, vc.kind.name, derivedFrom = source)
+    VerificationReport.Record(vc.fid, vc.getPos, time, status, vr.solverName, vc.kind.name, derivedFrom = source)
   }
 
   override val name = VerificationComponent.name
