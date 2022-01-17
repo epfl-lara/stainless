@@ -1,3 +1,5 @@
+/* Copyright 2009-2022 EPFL, Lausanne */
+
 package stainless
 package collection
 

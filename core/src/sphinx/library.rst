@@ -5,7 +5,10 @@ Stainless Library
 
 Stainless defines its own library with some core data types and
 operations on them, which work with the fragment supported
-by Stainless. One of the reasons for a separate library is to
+by Stainless, available in ``frontends/library/stainless``, which
+we encourage the reader to consult as it is always up to date.
+
+One of the reasons for a separate library is to
 ensure that these operations can be correctly mapped to
 mathematical functions and relations inside of SMT solvers,
 largely defined by the SMT-LIB standard (see

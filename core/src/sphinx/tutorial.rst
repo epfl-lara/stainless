@@ -311,11 +311,34 @@ easily proven and Stainless will make use of it.
 
 .. code-block:: scala
 
-    def size(l: List) : BigInt = (l match {
-        case Nil => BigInt(0)
-        case Cons(x, rest) => 1 + size(rest)
+
+    def isize(l: List) : Int = (l match {
+      case Nil => 0
+      case Cons(x, rest) => {
+        val rSize = isize(rest)
+        if (rSize == Int.MaxValue) rSize
+        else 1 + rSize
+      }
+    }).ensuring(res => res >= 0)
+
+In some cases, it may be helpful to define a size function
+that returns a bounded integer type, such as the 32-bit signed integer ```Int``.
+One useful way to do this is to define function as follows:
+
+.. code-block:: scala
+
+    def isize(l: List) : Int = (l match {
+        case Nil => 0
+        case Cons(x, rest) => {
+          val rSize = isize(rest)
+          if (rSize == Int.Max) rSize
+          else 1 + rSize
+        }
     }) ensuring(res => res >= 0)
 
+The above ``isize`` function satisfies the usual recursive definition for all but a huge
+lists, returns a non-negative integer, and ensures that if isize returns a small
+number, then the list is indeed small.
 
 Sorted Lists
 ^^^^^^^^^^^^

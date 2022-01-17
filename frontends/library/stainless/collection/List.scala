@@ -1,6 +1,7 @@
-/* Copyright 2009-2021 EPFL, Lausanne */
+/* Copyright 2009-2022 EPFL, Lausanne */
 
-package stainless.collection
+package stainless
+package collection
 
 import scala.annotation.tailrec
 import scala.collection.immutable.{List => ScalaList}
@@ -22,6 +23,15 @@ sealed abstract class List[T] {
 
   def length = size
 
+  def isize : Int = (this match {
+    case Nil() => 0
+    case Cons(h, t) => {
+      val tSize = t.isize
+      if (tSize == Int.MaxValue) tSize
+      else 1 + tSize
+    }
+  }) ensuring(res => 0 <= res && res <= Int.MaxValue)
+  
   @isabelle.function(term = "List.list.set")
   def content: Set[T] = this match {
     case Nil() => Set()
@@ -66,6 +76,15 @@ sealed abstract class List[T] {
     }
   }
 
+  def iapply(index: Int): T = {
+    require(0 <= index && index < isize)
+    if (index == 0) {
+      head
+    } else {
+      tail.iapply(index-1)
+    }
+  }
+
   @isabelle.function(term = "%xs x. x # xs")
   def ::(t:T): List[T] = Cons(t, this)
 
@@ -101,6 +120,25 @@ sealed abstract class List[T] {
     ))
   }
 
+  def itake(i: Int): List[T] = {
+    require(0 <= i)
+    (this, i) match {
+      case (Nil(), _) => Nil[T]()
+      case (Cons(h, t), i) =>
+        if (i <= 0) {
+          Nil[T]()
+        } else {
+          Cons(h, t.itake(i-1))
+        }
+    }
+  } ensuring { res =>
+    res.content.subsetOf(this.content) && (res.isize == (
+       if      (i == 0)         0
+       else if (i >= isize)     isize
+       else                     i
+     ))
+  }
+  
   def drop(i: BigInt): List[T] = { (this, i) match {
     case (Nil(), _) => Nil[T]()
     case (Cons(h, t), i) =>
@@ -117,9 +155,43 @@ sealed abstract class List[T] {
     ))
   }
 
+  def idrop(i: Int): List[T] = {
+    require(0 <= i)
+    (this, i) match {
+      case (Nil(), _) => Nil[T]()
+      case (Cons(h, t), i) =>
+        if (i <= 0) {
+          Cons[T](h, t)
+        } else {
+          t.idrop(i-1)
+        }
+    }
+  } ensuring { res =>
+    res.content.subsetOf(this.content)
+  }
+  
   def slice(from: BigInt, to: BigInt): List[T] = {
     require(0 <= from && from <= to && to <= size)
     drop(from).take(to-from)
+  }
+
+  def islice(from: Int, to: Int): List[T] = {
+    require(0 <= from && from <= to && to <= isize)
+    // idrop(from).itake(to-from)
+    this match {
+      case Nil() => Nil[T]()
+      case Cons(h, t) =>
+        if (to == 0) Nil[T]()
+        else {
+          if (from == 0) {
+            Cons[T](h, t.islice(0, to - 1))
+          } else {
+            t.islice(from - 1, to - 1)
+          }
+        }
+    }
+  } ensuring { res =>
+    res.content.subsetOf(content) && res.isize == to - from
   }
 
   def replace(from: T, to: T): List[T] = { this match {
@@ -333,6 +405,16 @@ sealed abstract class List[T] {
     }
   }
 
+  def iupdated(i: Int, y: T): List[T] = {
+    require(0 <= i && i < isize)
+    this match {
+      case Cons(x, tail) if i == 0 =>
+        Cons[T](y, tail)
+      case Cons(x, tail) =>
+        Cons[T](x, tail.iupdated(i - 1, y))
+    }
+  }
+  
   private def insertAtImpl(pos: BigInt, l: List[T]): List[T] = {
     require(0 <= pos && pos <= size)
     if(pos == BigInt(0)) {
