@@ -32,7 +32,7 @@ trait VerificationChecker { self =>
   private lazy val checkModels = options.findOptionOrDefault(optCheckModels)
 
   given givenDebugSection: DebugSectionVerification.type = DebugSectionVerification
-  
+
   type VC = verification.VC[program.trees.type]
   val VC = verification.VC
 
@@ -245,7 +245,7 @@ trait VerificationChecker { self =>
 
       val vcres = tryRes match {
         case _ if interruptManager.isInterrupted =>
-          VCResult(VCStatus.Cancelled, Some(s), Some(time))
+          VCResult(VCStatus.Cancelled, Some(s.name), Some(time))
 
         case Success(res) => res match {
           case Unknown =>
@@ -255,33 +255,33 @@ trait VerificationChecker { self =>
                 case _ => VCStatus.Unknown
               }
               case _ => VCStatus.Unknown
-            }, Some(s), Some(time))
+            }, Some(s.name), Some(time))
 
           case Unsat if !vc.satisfiability =>
-            VCResult(VCStatus.Valid, s.getResultSolver, Some(time))
+            VCResult(VCStatus.Valid, s.getResultSolver.map(_.name), Some(time))
 
           case SatWithModel(model) if checkModels && vc.kind.isInstanceOf[VCKind.AdtInvariant] =>
             val VCKind.AdtInvariant(invId) = vc.kind
             val status = checkAdtInvariantModel(vc, invId, model)
-            VCResult(status, s.getResultSolver, Some(time))
+            VCResult(status, s.getResultSolver.map(_.name), Some(time))
 
           case SatWithModel(model) if !vc.satisfiability =>
-            VCResult(VCStatus.Invalid(VCStatus.CounterExample(model)), s.getResultSolver, Some(time))
+            VCResult(VCStatus.Invalid(VCStatus.CounterExample(model)), s.getResultSolver.map(_.name), Some(time))
 
           case Sat if vc.satisfiability =>
-            VCResult(VCStatus.Valid, s.getResultSolver, Some(time))
+            VCResult(VCStatus.Valid, s.getResultSolver.map(_.name), Some(time))
 
           case Unsat if vc.satisfiability =>
-            VCResult(VCStatus.Invalid(VCStatus.Unsatisfiable), s.getResultSolver, Some(time))
+            VCResult(VCStatus.Invalid(VCStatus.Unsatisfiable), s.getResultSolver.map(_.name), Some(time))
         }
 
         case Failure(u: inox.Unsupported) =>
           reporter.warning(u.getMessage)
-          VCResult(VCStatus.Unsupported, Some(s), Some(time))
+          VCResult(VCStatus.Unsupported, Some(s.name), Some(time))
 
         case Failure(e @ NotWellFormedException(d, info)) =>
           reporter.error(d.getPos, e.getMessage)
-          VCResult(VCStatus.Crashed, Some(s), Some(time))
+          VCResult(VCStatus.Crashed, Some(s.name), Some(time))
 
         case Failure(e) => reporter.internalError(e)
       }
