@@ -404,7 +404,7 @@ trait RefTransform
               lazy val modifiesDom = env.expectModifiesV(e.getPos, "call heap-modifying function")
 
               val call =
-                if (readsDom.isEmpty && modifiesDom.isEmpty) {
+                if (readsDom.isEmpty && (!writes || modifiesDom.isEmpty)) {
                   // NOTE: Workaround for the case where both readsDom and modifiesDom is None,
                   //   i.e. all reads and modifications are permitted.
                   FunctionInvocation(id, targs1, Seq(heapVd.toVariable) ++ vargs1).copiedFrom(e)
@@ -496,22 +496,18 @@ trait RefTransform
                         heapVdOpt0: Option[ValDef], heapVdOpt1: Option[ValDef]): Expr =
       {
         val replaceRes = resVd != valueVd
+        // Transform postcondition body in post-state (ignoring `old(...)` parts)
+        val post1 = funRefTransformer.transform(post, specEnv(heapVdOpt1))
         // Rewrite the value result variable (used if `resVd` now also contains the heap state)
-        val post1 = postMap {
+        // and transform `old(...)` parts of postcondition body in pre-state.
+        postMap {
           case v: Variable if replaceRes && v.id == resVd.id =>
             Some(valueVd.toVariable.copiedFrom(v))
-          case _ =>
-            None
-        }(post)
-        // Transform postcondition body in post-state (ignoring `old(...)` parts)
-        val post2 = funRefTransformer.transform(post1, specEnv(heapVdOpt1))
-        // Transform `old(...)` parts of postcondition body in pre-state
-        postMap {
           case Old(e) =>
             Some(funRefTransformer.transform(e, specEnv(heapVdOpt0)))
           case _ =>
             None
-        }(post2)
+        }(post1)
       }
 
       // Unpack specs from the existing function
