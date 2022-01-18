@@ -143,7 +143,8 @@ trait RefTransform
       case AnyHeapRefType() => true
       // We lookup the parents through the cache so that the hierarchy is traversed at most once
       case ct: ClassType => ct.tcd.parents.exists(a => erasesToHeapRef(a.toType))
-      case _ => false
+      // Slow path
+      case _ => symbols.isSubtypeOf(tpe, AnyHeapRefType())
     }
 
     private def freshStateParam(): ValDef = "heap0" :: HeapMapType
@@ -157,7 +158,10 @@ trait RefTransform
     def unchecked(expr: Expr): Expr = Annotated(expr, Seq(DropVCs)).copiedFrom(expr)
 
     def classTypeInHeap(ct: ClassType): ClassType =
-      ClassType(ct.id, ct.tps.map(typeOnlyRefTransformer.transform)).copiedFrom(ct)
+      ClassType(
+        ct.id,
+        dropTypeArgs(ct.tcd.cd.tparams, ct.tps).map(typeOnlyRefTransformer.transform)
+      ).copiedFrom(ct)
 
     def makeClassUnapply(cd: ClassDef): Option[FunDef] = {
       if (!erasesToHeapRef(cd.typed.toType))
@@ -191,6 +195,15 @@ trait RefTransform
       } .copiedFrom(cd))
     }
 
+    // We drop type parameters that are upper bounded by AnyHeapRef,
+    // since they erase to HeapRefs anyways.
+    def shouldDropTypeParam(tparam: TypeParameterDef): Boolean =
+      symbols.isSubtypeOf(tparam.tp, AnyHeapRefType())
+
+    // Remove all those type arguments that correspond to type params which should be dropped.
+    def dropTypeArgs(tparams: Seq[TypeParameterDef], args: Seq[Type]): Seq[Type] =
+      tparams.zip(args).collect { case (tparam, arg) if !shouldDropTypeParam(tparam) => arg }
+
     // Reduce all mutation to assignments of a local heap variable
     // TODO: Handle mutable types other than classes
     abstract class RefTransformer extends oo.DefinitionTransformer {
@@ -200,12 +213,13 @@ trait RefTransform
       override def transform(tpe: Type, env: Env): Type = tpe match {
         case HeapType() =>
           HeapMapType
-        case ct: ClassType if erasesToHeapRef(ct) =>
+        case _ if erasesToHeapRef(tpe) =>
+          // Slow path ^
           HeapRefType
-        // case FunctionType(_, _) =>
-        //   val FunctionType(from, to) = super.transform(tpe, env)
-        //   FunctionType(HeapMapType +: from, T(to, HeapMapType))
-        // TODO: PiType
+        case ct @ ClassType(id, tps) =>
+          // NOTE(gsps): What we do here should never be necessary for ADTTypes, I think.
+          val ct1 = ct.copy(tps = dropTypeArgs(ct.tcd.cd.tparams, tps)).copiedFrom(tpe)
+          super.transform(ct1, env)
         case _ =>
           super.transform(tpe, env)
       }
@@ -214,14 +228,16 @@ trait RefTransform
         val env = initEnv
         // FIXME: Transform type arguments in parents?
 
-        val newParents = cd.parents.filter {
-          case AnyHeapRefType() => false
-          case _ => true
-        }
+        val newParents = cd.parents
+          .filter {
+            case AnyHeapRefType() => false
+            case _ => true
+          }
+          .map(ct => transform(ct, env).asInstanceOf[t.ClassType])
 
         new ClassDef(
           transform(cd.id, env),
-          cd.tparams.map(transform(_, env)),
+          cd.tparams.filterNot(shouldDropTypeParam).map(transform(_, env)),
           newParents,
           cd.fields.map(transform(_, env)),
           cd.flags.map(transform(_, env))
@@ -391,7 +407,7 @@ trait RefTransform
           LetVar(heapVd, heap1, value1).setPos(e)
 
         case fi @ FunctionInvocation(id, targs, vargs) =>
-          val targs1 = targs.map(transform(_, env))
+          val targs1 = dropTypeArgs(fi.tfd.fd.tparams, targs).map(transform(_, env))
           val vargs1 = vargs.map(transform(_, env))
 
           effectLevel(id) match {
@@ -404,7 +420,7 @@ trait RefTransform
               lazy val modifiesDom = env.expectModifiesV(e.getPos, "call heap-modifying function")
 
               val call =
-                if (readsDom.isEmpty && modifiesDom.isEmpty) {
+                if (readsDom.isEmpty && (!writes || modifiesDom.isEmpty)) {
                   // NOTE: Workaround for the case where both readsDom and modifiesDom is None,
                   //   i.e. all reads and modifications are permitted.
                   FunctionInvocation(id, targs1, Seq(heapVd.toVariable) ++ vargs1).copiedFrom(e)
@@ -455,7 +471,7 @@ trait RefTransform
             binder.map(transform(_, env)),
             Seq(heapVd.toVariable, readsDomArg),
             unapplyId(ct.id),
-            ct.tps.map(transform(_, env)),
+            dropTypeArgs(ct.tcd.cd.tparams, ct.tps).map(transform(_, env)),
             Seq(newClassPat)
           ).copiedFrom(pat)
         case _ =>
@@ -496,22 +512,18 @@ trait RefTransform
                         heapVdOpt0: Option[ValDef], heapVdOpt1: Option[ValDef]): Expr =
       {
         val replaceRes = resVd != valueVd
+        // Transform postcondition body in post-state (ignoring `old(...)` parts)
+        val post1 = funRefTransformer.transform(post, specEnv(heapVdOpt1))
         // Rewrite the value result variable (used if `resVd` now also contains the heap state)
-        val post1 = postMap {
+        // and transform `old(...)` parts of postcondition body in pre-state.
+        postMap {
           case v: Variable if replaceRes && v.id == resVd.id =>
             Some(valueVd.toVariable.copiedFrom(v))
-          case _ =>
-            None
-        }(post)
-        // Transform postcondition body in post-state (ignoring `old(...)` parts)
-        val post2 = funRefTransformer.transform(post1, specEnv(heapVdOpt1))
-        // Transform `old(...)` parts of postcondition body in pre-state
-        postMap {
           case Old(e) =>
             Some(funRefTransformer.transform(e, specEnv(heapVdOpt0)))
           case _ =>
             None
-        }(post2)
+        }(post1)
       }
 
       // Unpack specs from the existing function
@@ -580,7 +592,9 @@ trait RefTransform
           case None => body
         }
 
-      val newTParams = fd.tparams.map(typeOnlyRefTransformer.transform)
+      val newTParams = fd.tparams
+        .filterNot(shouldDropTypeParam)
+        .map(typeOnlyRefTransformer.transform)
       val newFlags = fd.flags.map(typeOnlyRefTransformer.transform)
 
       /*
