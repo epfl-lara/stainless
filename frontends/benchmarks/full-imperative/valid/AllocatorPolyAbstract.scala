@@ -4,14 +4,14 @@ import stainless.lang.Option._
 import stainless.annotation._
 import stainless.lang.StaticChecks._
 
-// A slightly better model of an allocator that elides its implementation.
-object AllocatorMonoAbstractExample {
+// A slightly better model of an allocator that elides its implementation and is polymorphic.
+object AllocatorPolyAbstractExample {
   case class Box(var v: BigInt) extends AnyHeapRef
 
-  case class BoxAllocator(
+  case class Allocator[T <: AnyHeapRef](
     @ghost var bound: BigInt,
-    var alloc: List[Box],
-    var free: List[Box]
+    var alloc: List[T],
+    var free: List[T]
   ) extends AnyHeapRef {
     @ghost
     def evolved(from: Heap): Boolean = {
@@ -27,18 +27,18 @@ object AllocatorMonoAbstractExample {
       free.content.asRefs + this
     }
 
-    // FIXME: Figure out why this fails with @extern (add missing case in ChooseInjector & more)
+    // FIXME(gsps): Figure out why this fails with @extern (add missing case in ChooseInjector & more)
     @extern
-    def apply(): Box = {
+    def apply(): T = {
       reads(Set(this))
       modifies(Set(this))
-      ??? : Box
+      ??? : T
     } ensuring { o => evolved(old(Heap.get)) &&
       old(!alloc.contains(o) && free.contains(o)) && alloc.contains(o) && !free.contains(o)
     }
   }
 
-  def freshList(ator: BoxAllocator, xs: List[Box], v: BigInt): List[Box] = {
+  def freshList(ator: Allocator[Box], xs: List[Box], v: BigInt): List[Box] = {
     reads(ator.access)
     modifies(ator.access)
     require(xs.content subsetOf ator.alloc.content)
