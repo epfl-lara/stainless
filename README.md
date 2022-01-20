@@ -62,13 +62,12 @@ contracts and contract-based termination checking.
 
 [latest-release]: https://github.com/epfl-lara/stainless/releases/latest
 [license-img]: https://img.shields.io/badge/license-Apache_2.0-blue.svg?color=134EA2
-[license-ref]: https://github.com/epfl-lara/stainless/blob/master/LICENSE
+[license-ref]: https://github.com/epfl-lara/stainless/blob/main/LICENSE
 [gitter-img]: https://img.shields.io/gitter/room/gitterHQ/gitter.svg?color=ed1965
 [gitter-ref]: https://gitter.im/epfl-lara/stainless
-[larabot-img]: http://laraquad4.epfl.ch:9000/epfl-lara/stainless/status/master
+[larabot-img]: http://laraquad4.epfl.ch:9000/epfl-lara/stainless/status/main
 [larabot-ref]: http://laraquad4.epfl.ch:9000/epfl-lara/stainless/builds
-[nightly-larabot-img]: http://laraquad4.epfl.ch:9000/epfl-lara/stainless/status/master?nightly=true
+[nightly-larabot-img]: http://laraquad4.epfl.ch:9000/epfl-lara/stainless/status/main?nightly=true
 [nightly-larabot-ref]: http://laraquad4.epfl.ch:9000/epfl-lara/stainless/builds
 [release-img]: https://img.shields.io/github/release-pre/epfl-lara/stainless.svg
 [tag-date-img]: https://img.shields.io/github/release-date-pre/epfl-lara/stainless.svg?style=popout
-
