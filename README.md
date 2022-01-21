@@ -5,6 +5,9 @@ Supports contract-driven verification as well as termination checking of higher-
 functional programs with local imperative features (see [Pure Scala](https://epfl-lara.github.io/stainless/purescala.html)
 and [Imperative](https://epfl-lara.github.io/stainless/imperative.html)
 for more details about the supported fragment).
+* Stainless Website at EPFL: https://stainless.epfl.ch
+* EPFL-LARA Website: https://lara.epfl.ch/w/
+
 
 ## Documentation
 
@@ -13,7 +16,7 @@ To get started, see videos:
   * [Viktor's keynote at Lambda Days 2020](https://www.youtube.com/watch?v=dkO59PTcNxA)  
   * [Viktor's keynote at ScalaDays 2017 Copenhagen](https://www.youtube.com/watch?v=d4VeFa0z_Lo)
 
-Or documentation chapters, such as:
+Tutorials such as one from [FMCAD 2021](https://github.com/epfl-lara/fmcad2021tutorial/) or local documentation chapters, such as:
   * [Documentation](https://epfl-lara.github.io/stainless/)
   * [Introduction to Stainless](https://epfl-lara.github.io/stainless/intro.html)
   * [Installation](https://epfl-lara.github.io/stainless/installation.html)
@@ -21,7 +24,6 @@ Or documentation chapters, such as:
   * [Command-line Options](https://epfl-lara.github.io/stainless/options.html)
   * [Tutorial](https://epfl-lara.github.io/stainless/tutorial.html)
   * [Stainless EPFL Page](https://stainless.epfl.ch)
-  * 
   
 ## Build and Use
 
@@ -35,11 +37,6 @@ See [frontends/benchmarks/verification/valid/](frontends/benchmarks/verification
 [bolts repository](https://github.com/epfl-lara/bolts/) for a larger collection.
 More information is available in the documentation links.
 
-## Other Links
-
-* Stainless Website: https://stainless.epfl.ch
-* EPFL-LARA Website: https://lara.epfl.ch/w/
-
 ## License
 
 Stainless is released under the Apache 2.0 license. See the [LICENSE]() file for more information.
@@ -50,15 +47,7 @@ Stainless is released under the Apache 2.0 license. See the [LICENSE]() file for
 
 Stainless relies on Inox to solve the various queries stemming from program verification.
 Inox supports model-complete queries in a feature-rich fragment that lets Stainless focus
-on program transformations and soundness of both contract and termination checking.
-
-### Relation to [Leon](https://github.com/epfl-lara/leon)
-
-The Stainless/Inox stack has grown out of the Leon codebase and subsumes the verification and
-termination checking features of Leon. The new projects aim to provide a more stable and
-principled implementation of the verification techniques underlying Leon. Feature-wise,
-Stainless has already outgrown Leon verification and provides new features such as higher-order
-contracts and contract-based termination checking.
+on program transformations and soundness of both contract and termination checking and uses its own reasoning steps, as well as invocations to solvers (theorem provers) [z3](https://github.com/Z3Prover/z3), [CVC4](https://cvc4.github.io/), and [Princess](http://www.philipp.ruemmer.org/princess.shtml).
 
 [latest-release]: https://github.com/epfl-lara/stainless/releases/latest
 [license-img]: https://img.shields.io/badge/license-Apache_2.0-blue.svg?color=134EA2
