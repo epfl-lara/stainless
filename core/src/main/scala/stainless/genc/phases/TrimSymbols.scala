@@ -149,7 +149,6 @@ class Trimmer(override val s: tt.type, // to get `FunAbsOps` implicit class for 
   override def transform(fd: s.FunDef): t.FunDef = {
     val isParamInit = fd.flags.exists(_.isInstanceOf[s.ClassParamInit])
     val isDefine = fd.flags.exists(_.name == "cCode.define")
-    println(fd.id, isDefine)
     if (fd.isExported || isParamInit || isDefine) kept += fd.id
     val ret = transform(fd.returnType)
 
