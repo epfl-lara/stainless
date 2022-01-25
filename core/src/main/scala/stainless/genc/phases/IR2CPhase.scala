@@ -669,7 +669,7 @@ private class IR2CImpl()(using ctx: inox.Context) {
       case Nil => default
       case expr :: Nil => expr
       case first :: second :: Nil => BinOp(op, first, second)
-      case head :: tail => BinOp(op, head, foldAnd(tail))
+      case head :: tail => BinOp(op, head, fold(op, default)(tail))
     }
 
     private def foldAnd = fold(And, Lit(BoolLit(true))) _
