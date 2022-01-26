@@ -3,6 +3,7 @@
 package stainless
 package evaluators
 
+
 trait RecursiveEvaluator extends inox.evaluators.RecursiveEvaluator {
   val program: Program
 
@@ -11,11 +12,31 @@ trait RecursiveEvaluator extends inox.evaluators.RecursiveEvaluator {
   import program.trees._
   import program.symbols._
 
+  import inox.utils.Position
+
+  def showPredicateFailure(kind: String, pred: Expr, err: Option[String])(implicit rctx: RC): Unit = {
+    val msg = (err match {
+      case Some(m) => m + ": "
+      case None => ""
+    }) + pred.asString
+    reporter.info(s"${Position.smartPos(pred.getPos)} ${kind} failure of ${msg}")
+    reporter.info(s"Relevant variables at ${kind} failure point:")
+    val m = rctx.mappings
+    val fvs = exprOps.variablesOf(pred)
+    def showBinding(v: Variable): String = {
+      "  " + v.id.asString + " -> " + m.get(v.toVal).getOrElse("?").toString
+    }
+    val fvDump: String = fvs.map(showBinding).mkString("\n")
+    reporter.info(fvDump)
+  }
+
+  
   override def e(expr: Expr)(implicit rctx: RC, gctx: GC): Expr = expr match {
     case Require(pred, body) =>
-      if (!ignoreContracts && e(pred) != BooleanLiteral(true))
-        throw RuntimeError("Requirement did not hold @" + expr.getPos)
-      e(body)
+      if (!ignoreContracts && e(pred) != BooleanLiteral(true)) {
+        showPredicateFailure("require", pred, None)
+        throw RuntimeError("Requirement did not hold @" + Position.smartPos(expr.getPos))
+      } else e(body)
 
     case en @ Ensuring(body, pred) =>
       e(en.toAssert)
@@ -24,9 +45,10 @@ trait RecursiveEvaluator extends inox.evaluators.RecursiveEvaluator {
       e(body)
 
     case Assert(pred, err, body) =>
-      if (!ignoreContracts && e(pred) != BooleanLiteral(true))
-        throw RuntimeError(err.getOrElse("Assertion failed @" + expr.getPos))
-      e(body)
+      if (!ignoreContracts && e(pred) != BooleanLiteral(true)) {
+        showPredicateFailure("assertion", pred, err)
+        throw RuntimeError(err.getOrElse("Assertion failed @" + Position.smartPos(pred.getPos)))
+      } else e(body)
 
     case MatchExpr(scrut, cases) =>
       val rscrut = e(scrut)
