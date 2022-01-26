@@ -94,7 +94,7 @@ trait RecursiveEvaluator extends inox.evaluators.RecursiveEvaluator {
         Some(obind(ob, e))
 
       case (ADTPattern(ob, id, tps, subs), ADT(id2, tps2, args)) =>
-        if (id == id2 && tps == tps2) {
+        if (id == id2 && (tps zip tps2).forall(p => p._1.getType == p._2.getType)) {
           val res = (subs zip args) map (p => matchesPattern(p._1, p._2))
           if (res.forall(_.isDefined)) {
             Some(obind(ob, expr) ++ res.flatten.flatten)
