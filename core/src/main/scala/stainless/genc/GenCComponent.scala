@@ -41,6 +41,21 @@ object GenCComponent extends Component { self =>
 
 object GenCRun {
   case class Result(fd: xt.FunDef, status: GenCReport.Status, time: Long)
+
+  def pipelineBegin(using inox.Context): ExtractionPipeline{val s: xt.type; val t: tt.type} =
+    xlang.extractor        andThen
+      innerclasses.extractor andThen
+      utils.DebugPipeline("Laws",            methods.Laws(methods.trees))            andThen
+      utils.DebugPipeline("SuperInvariants", methods.SuperInvariants(methods.trees)) andThen
+      utils.DebugPipeline("SuperCalls",      methods.SuperCalls(methods.trees))      andThen
+      // No Sealing with GenC
+      // utils.DebugPipeline("Sealing",         methods.Sealing(methods.trees))         andThen
+      utils.DebugPipeline("MethodLifting",   methods.MethodLifting(methods.trees))   andThen
+      utils.DebugPipeline("MergeInvariants", methods.MergeInvariants(methods.trees)) andThen
+      utils.DebugPipeline("FieldAccessors",  methods.FieldAccessors(methods.trees))  andThen
+      utils.DebugPipeline("ValueClasses",    methods.ValueClasses(methods.trees))    andThen
+      methods.lowering andThen
+      utils.DebugPipeline("LeonInlining", LeonInlining(tt, tt))
 }
 
 class GenCRun private(override val component: GenCComponent.type,
@@ -54,26 +69,10 @@ class GenCRun private(override val component: GenCComponent.type,
 
   import xt._
 
-  // We only keep some parts of the standard verification pipeline for genc
-  val pipelineBegin: ExtractionPipeline{val s: xt.type; val t: tt.type} =
-    xlang.extractor        andThen
-    innerclasses.extractor andThen
-    utils.DebugPipeline("Laws",            methods.Laws(methods.trees))            andThen
-    utils.DebugPipeline("SuperInvariants", methods.SuperInvariants(methods.trees)) andThen
-    utils.DebugPipeline("SuperCalls",      methods.SuperCalls(methods.trees))      andThen
-    // No Sealing with GenC
-    // utils.DebugPipeline("Sealing",         methods.Sealing(methods.trees))         andThen
-    utils.DebugPipeline("MethodLifting",   methods.MethodLifting(methods.trees))   andThen
-    utils.DebugPipeline("MergeInvariants", methods.MergeInvariants(methods.trees)) andThen
-    utils.DebugPipeline("FieldAccessors",  methods.FieldAccessors(methods.trees))  andThen
-    utils.DebugPipeline("ValueClasses",    methods.ValueClasses(methods.trees))    andThen
-    methods.lowering andThen
-    utils.DebugPipeline("LeonInlining", LeonInlining(tt, tt))
-
   override def apply(ids: Seq[Identifier], symbols: Symbols): Future[GenCComponent.Analysis] = try {
-    val symbolsAfterPipeline: tt.Symbols = pipelineBegin.extract(symbols)
+    val symbolsAfterPipeline: tt.Symbols = GenCRun.pipelineBegin.extract(symbols)
 
-    GenerateC.run(symbolsAfterPipeline)
+    GenerateC.emit(symbolsAfterPipeline)
 
     val p = inox.Program(trees)(symbols)
 

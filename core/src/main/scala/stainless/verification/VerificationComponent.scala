@@ -62,7 +62,7 @@ class VerificationRun private(override val component: VerificationComponent.type
 
   override def parse(json: Json): Report = VerificationReport.parse(json)
 
-  override protected def createPipeline = {
+  override def createPipeline = {
     pipeline andThen
     extraction.utils.DebugPipeline("MeasureInference", MeasureInference(extraction.trees)) andThen
     extraction.utils.DebugPipeline("PartialEvaluation", PartialEvaluation(extraction.trees))

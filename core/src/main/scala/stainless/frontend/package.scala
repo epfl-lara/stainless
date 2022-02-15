@@ -40,7 +40,9 @@ package object frontend {
   val allComponents: Seq[Component] = Seq(
     verification.VerificationComponent,
     evaluators.EvaluatorComponent,
-    genc.GenCComponent
+    genc.GenCComponent,
+    testgen.ScalaTestGenComponent,
+    testgen.GenCTestGenComponent,
   )
 
   /**
@@ -76,8 +78,8 @@ package object frontend {
 
   private def batchSymbols(activeComponents: Seq[Component])(using ctx: inox.Context): Boolean = {
     ctx.options.findOptionOrDefault(optBatchedProgram) ||
-    activeComponents.contains(genc.GenCComponent) ||
-    !ctx.options.findOptionOrDefault(optKeep).isEmpty
+    activeComponents.exists(Set(genc.GenCComponent, testgen.ScalaTestGenComponent, testgen.GenCTestGenComponent).contains) ||
+    ctx.options.findOptionOrDefault(optKeep).nonEmpty
   }
 
 

@@ -20,6 +20,9 @@ trait MainHelpers extends inox.MainHelpers { self =>
   case object Pipelines extends Category
   case object Verification extends Category
   case object Termination extends Category
+  case object TestsGeneration extends Category {
+    override def toString: String = "Tests Generation"
+  }
 
   override protected def getOptions: Map[inox.OptionDef[_], Description] = super.getOptions - inox.solvers.optAssumeChecked ++ Map(
     optVersion -> Description(General, "Display the version number"),
@@ -63,7 +66,9 @@ trait MainHelpers extends inox.MainHelpers { self =>
     frontend.optKeep -> Description(General, "Keep library objects marked by @keepFor(g) for some g in g1,g2,... (implies --batched)"),
     frontend.optExtraDeps -> Description(General, "Fetch the specified extra source dependencies and add their source files to the session"),
     frontend.optExtraResolvers -> Description(General, "Extra resolvers to use to fetch extra source dependencies"),
-    utils.Caches.optCacheDir -> Description(General, "Specify the directory in which cache files should be stored")
+    utils.Caches.optCacheDir -> Description(General, "Specify the directory in which cache files should be stored"),
+    testgen.optOutputFile -> Description(TestsGeneration, "Specify the output file"),
+    testgen.optGenCIncludes -> Description(TestsGeneration, "(GenC variant only) Specify header includes"),
   ) ++ MainHelpers.components.map { component =>
     val option = inox.FlagOptionDef(component.name, default = false)
     option -> Description(Pipelines, component.description)
