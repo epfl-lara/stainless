@@ -89,4 +89,4 @@ for JAR in "$STAINLESS_JAR" "$SCALAZ3_JAR"; do
   fi
 done
 
-exec env PATH="$Z3_DIR:$PATH" java -cp "$JARS $JAVA_OPTS" stainless.Main "$@"
+exec env PATH="$Z3_DIR:$PATH" java -cp "$JARS" $JAVA_OPTS stainless.Main "$@"
