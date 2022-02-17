@@ -247,10 +247,6 @@ final class Referentiator(val ctx: inox.Context) extends Transformer(LIR, RIR) {
     case _: to.Binding | _: to.FieldAccess | _: to.ArrayAccess | _: to.AsA => to.Ref(e)
     case to.Deref(e) => e
 
-    // NOTE Reference can be built on Constructor, but we have to make sure we
-    //      don't take the reference of a temporary result for a too long period.
-    case ctor @ to.Construct(_, _) if shortLived => to.Ref(ctor)
-
     case _ => ctx.reporter.fatalError(s"Making reference on an unsupported expression: $e")
   }
 

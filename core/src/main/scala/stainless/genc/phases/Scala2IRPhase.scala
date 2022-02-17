@@ -244,8 +244,15 @@ private class S2IRImpl(override val s: tt.type,
   //     of Extending Safe C Support In Leon.
   private def checkConstructArgs(args: Seq[(CIR.Expr, Position)]): Unit = {
     // Reject arguments that have mutable type (but allow var, and arrays)
+
+    def isVdMutable(vd: CIR.ValDef): Boolean = vd.getType.isMutable && !vd.getType.isArray
+
     def isRefToMutableVar(arg: (CIR.Expr, Position)): Boolean = arg._1 match {
-      case CIR.Binding(vd) => vd.getType.isMutable && !vd.getType.isArray
+      case CIR.Binding(vd) => isVdMutable(vd)
+      case CIR.Block(exprs :+ CIR.Binding(vd)) => isVdMutable(vd) && !exprs.exists {
+        case CIR.Decl(`vd`, Some(e)) => !isRefToMutableVar((e, arg._2))
+        case _ => false
+      }
       case _ => false
     }
 
@@ -479,7 +486,7 @@ private class S2IRImpl(override val s: tt.type,
   // Try first to fetch the function from cache to handle recursive funcitons.
   private def rec(fa: FunAbstraction, tps: Seq[Type])(using tm0: TypeMapping, env: Env): CIR.FunDef = {
     val cacheKey = (fa, tps, tm0)
-    funResults get cacheKey getOrElse {
+    funResults getOrElse(cacheKey, {
 
     val id = buildId(fa, tps)(using tm0)
 
@@ -568,7 +575,7 @@ private class S2IRImpl(override val s: tt.type,
     fun.body = body
 
     fun
-  }}
+  })}
 
   // We need a type mapping only when converting context argument to remove the remaining generics.
   private def rec(typ: Type)(using tm: TypeMapping): CIR.Type = typ match {
@@ -685,6 +692,45 @@ private class S2IRImpl(override val s: tt.type,
     })
   }
 
+  private def recArgs(args: Seq[Expr])(using env: Env, tm0: TypeMapping): Seq[CIR.Expr] = {
+    def exprNeedsBinding(e: Expr): Boolean = e match {
+      case _: Variable => false
+      case ClassSelector(recv, _) => exprNeedsBinding(recv)
+      case TupleSelect(recv, _) => exprNeedsBinding(recv)
+      case ArraySelect(array, _) => exprNeedsBinding(array)
+      case _ => true
+    }
+
+    args.map { e =>
+      val tpe = e.getType
+      val irTpe = rec(tpe)
+      // Arguments that are mutable (and not an array) gets transformed to Reference by the Referentiator later on.
+      // To simplify its task, expressions that are (more or less) non-lvalues get bound to a fresh variable
+      // so we can take their address.
+      // For example, given:
+      //   case class Ref(var x: Int)
+      //
+      //   def f(v: Int): Unit = {
+      //      g(Ref(v + 42))
+      //   }
+      //   def g(r: Ref): Unit = ()
+      //
+      // We would introduce a `val tmp = Ref(v)` and have that passed to g instead.
+      // The resulting C code would be:
+      //   void f(int32_t v) {
+      //     int32_t tmp = v + 42; // `tmp` introduced here
+      //     int32_t *norm = &tmp; // `norm` introduced by the normalisation phase
+      //     g(norm);
+      //   }
+      if (!irTpe.isArray && irTpe.isMutable && exprNeedsBinding(e)) {
+        val vd = ValDef(FreshIdentifier("tmp"), tpe)
+        buildLet(vd, e, vd.toVariable, false)
+      } else {
+        rec(e)
+      }
+    }
+  }
+
   private def rec(e: Expr)(using env: Env, tm0: TypeMapping): CIR.Expr = e match {
 
     case Annotated(body, _) => rec(body)
@@ -772,7 +818,7 @@ private class S2IRImpl(override val s: tt.type,
         val filteredArgs = args.zip(fd.params).filter {
           case (arg, vd) => !isGlobal(vd.tpe)
         }.map(_._1)
-        val newArgs = filteredArgs map { a0 => rec(a0) }
+        val newArgs = recArgs(filteredArgs)
         CIR.App(fun.toVal, Seq(), newArgs)
       }
 
@@ -783,7 +829,7 @@ private class S2IRImpl(override val s: tt.type,
       locally {
         given tm1: TypeMapping = tm0 ++ tpSubst
         val extra = ctxDB(lfd) map { c => convertVarInfoToParam(c) }
-        val args2 = args map { a0 => rec(a0) }
+        val args2 = recArgs(args)
         CIR.App(fun.toVal, extra, args2)
       }
 
@@ -794,7 +840,7 @@ private class S2IRImpl(override val s: tt.type,
         case e if e.getType.isInstanceOf[CIR.FunType] => CIR.FunRef(e)
         case e => reporter.fatalError(fun0.getPos, s"Expected a binding but got $e of type ${e.getClass}.")
       }
-      val args = args0 map rec
+      val args = recArgs(args0)
 
       CIR.App(fun, Nil, args)
 
@@ -827,7 +873,7 @@ private class S2IRImpl(override val s: tt.type,
     case ClassConstructor(ct, args) =>
       val cd = syms.getClass(ct.id)
       val ct2 = rec(ct)
-      val args2 = args map rec
+      val args2 = recArgs(args)
       val positions = args map { _.getPos }
 
       checkConstructArgs(args2 zip positions)
@@ -849,7 +895,7 @@ private class S2IRImpl(override val s: tt.type,
 
     case tuple @ Tuple(args0) =>
       val clazz = tuple2Class(tuple.getType)
-      val args = args0 map rec
+      val args = recArgs(args0)
       val poss = args0 map { _.getPos }
 
       checkConstructArgs(args zip poss)
