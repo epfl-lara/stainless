@@ -15,6 +15,9 @@ import transform._
 import typer._
 import frontend.{CallBack, Frontend, FrontendFactory, ThreadedFrontend}
 
+import java.io.File
+import java.net.URL
+
 class DottyCompiler(ctx: inox.Context, callback: CallBack) extends Compiler {
   override def phases: List[List[Phase]] = {
     val allOrigPhases = super.phases
@@ -98,15 +101,16 @@ object DottyCompiler {
           // Attempt to find where the Scala 2.13 and 3.0 libs are.
           // The 3.0 library depends on the 2.13, so we need to fetch the later as well.
           val scala213Lib: String = Option(scala.Predef.getClass.getProtectionDomain.getCodeSource) map {
-            _.getLocation.getPath
+            x => new File(x.getLocation.toURI).getAbsolutePath
           } getOrElse { ctx.reporter.fatalError("No Scala 2.13 library found.") }
           // NotGiven is only available in Scala 3, so we can be sure that this will give us the Scala 3 library
           // (and not the Scala 2.13 one)
           val scala3Lib: String = Option(scala.util.NotGiven.getClass.getProtectionDomain.getCodeSource) map {
-            _.getLocation.getPath
+            x => new File(x.getLocation.toURI).getAbsolutePath
           } getOrElse { ctx.reporter.fatalError("No Scala 3 library found.") }
 
-          val flags = Seq("-color:never", "-language:implicitConversions", s"-cp:$scala213Lib:$scala3Lib")
+          val cps = Seq(scala213Lib, scala3Lib).distinct.mkString(java.io.File.pathSeparator)
+          val flags = Seq("-color:never", "-language:implicitConversions", s"-cp:$cps")
           allCompilerArguments(ctx, compilerArgs) ++ flags
         }
         val compiler: DottyCompiler = new DottyCompiler(ctx, this.callback)
