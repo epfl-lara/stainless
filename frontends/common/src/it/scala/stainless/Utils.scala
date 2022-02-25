@@ -9,10 +9,10 @@ object Utils {
     (std.toList, exitCode)
   }
 
-  def runMainWithArgs(args: Array[String]) = {
+  def runMainWithArgs(args: Array[String]): (inox.Context, Option[AbstractReport[_]]) = {
     val ctx = Main.setup(args).copy(reporter = new inox.TestSilentReporter())
     val compilerArgs = args.toList filterNot { _.startsWith("--") }
-    var compiler = frontend.build(ctx, compilerArgs, stainless.Main.factory)
+    val compiler = frontend.build(ctx, compilerArgs, stainless.Main.factory)
     ctx.reporter.info(s"Running: stainless ${args.mkString(" ")}")
     compiler.run()
     compiler.join()
