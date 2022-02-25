@@ -1,5 +1,18 @@
 # Release Notes
 
+## Version 0.9.3 (2022-02-25)
+
+### GenC
+
+- Add `cCode.noMangling` annotation and split defines into header and C files
+- Propagate `volatile` and `static` keywords to struct fields
+- Avoid trimming of `cCode.define` functions
+- Introduce a binding to 'guard' against references created by the Referentiator (#1235)
+
+### Build
+
+- Windows build (#1234)
+
 ## Version 0.9.2 (2022-01-17)
 
 ### Stainless frontend, library and internals
