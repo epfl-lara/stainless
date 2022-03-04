@@ -16,7 +16,7 @@ To get started, see videos:
   * [Viktor's keynote at Lambda Days 2020](https://www.youtube.com/watch?v=dkO59PTcNxA)  
   * [Viktor's keynote at ScalaDays 2017 Copenhagen](https://www.youtube.com/watch?v=d4VeFa0z_Lo)
 
-Tutorials such as one from [FMCAD 2021](https://github.com/epfl-lara/fmcad2021tutorial/) or local documentation chapters, such as:
+Tutorials such as one from [FMCAD 2021](https://github.com/epfl-lara/fmcad2021tutorial/), from [ASPLOS 2022](https://epfl-lara.github.io/asplos2022tutorial/) or local documentation chapters, such as:
   * [Documentation](https://epfl-lara.github.io/stainless/)
   * [Introduction to Stainless](https://epfl-lara.github.io/stainless/intro.html)
   * [Installation](https://epfl-lara.github.io/stainless/installation.html)
