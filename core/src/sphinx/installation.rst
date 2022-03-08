@@ -32,7 +32,7 @@ Running Code with Stainless dependencies
 Use Standalone Release (recommended)
 ------------------------------------
 
-1. Download the latest Stainless release from the `Releases page on GitHub <https://github.com/epfl-lara/stainless/releases>`_, under the **Assets** section. Make sure to pick the appropriate ZIP for your operating system. This release is bundled with Z3 4.8.12.
+1. Download the latest Stainless release from the `Releases page on GitHub <https://github.com/epfl-lara/stainless/releases>`_, under the **Assets** section. Make sure to pick the appropriate ZIP for your operating system. This release is bundled with Z3 4.8.14.
 
 2. Unzip the the file you just downloaded to a directory.
 
@@ -78,19 +78,6 @@ Use Standalone Release (recommended)
 Note: If the warning above says something about falling back on the Princess solver, you might be missing the ``libgomp1`` library,
 which you can install with your favorite package manager. For example, on Debian/Ubuntu, just run ``apt-get install libgomp1``.
 
-.. _via_docker:
-
-Via Docker
-----------
-
-If you have `Docker <https://docs.docker.com>`_ installed, you can run the latest Stainless version with:
-
-.. code-block:: bash
-
-   $ docker run -v "$PWD:/local" epfllara/stainless:latest /local/test.scala
-
-This will pull down the latest Stainless image from `Docker Hub <https://hub.docker.com/r/epfllara/stainless>`_, mount the current directory at ``/local`` within the container, and invoke Stainless on ``test.scala``, provided it exists in the current directory. See the previous section for a sample ``test.scala``.
-
 .. _sbt-usage:
 
 Usage With Sbt
@@ -100,7 +87,7 @@ Stainless is also avaiable as a sbt plugin, which hooks into the build process t
 your code on compilation. This allows for both verifying your code, compiling, and running your
 code in one swift motion.
 
-Moreover, thanks to `Metals <https://scalameta.org/metals/>`_, Stainless diagnostics will 
+Moreover, thanks to `Metals <https://scalameta.org/metals/>`_, Stainless diagnostics will
 automatically appear in your editor of choice (we recommend `VS Code <https://code.visualstudio.com>`_),
 while the full log will typically be available in a separate window/pane.
 To this end, please follow the installation instructions for your editor on
@@ -157,7 +144,7 @@ Follow the instructions at http://www.scala-sbt.org/ to install ``sbt`` 1.3.0.
 Usage Within An Existing Project
 ********************************
 
-Stainless can also be used within an existing sbt 1.3.0 project.
+Stainless can also be used within an existing sbt 1.5.x project.
 
 1. Start by installing an external solver (see Section ":ref:`smt-solvers`").
 
@@ -221,7 +208,7 @@ If no external SMT solvers (such as Z3 or CVC4) are found, Stainless will use th
 To improve performance, we highly recommend that you install the following two additional external SMT solvers as binaries for your platform:
 
 * CVC4 1.8, http://cvc4.cs.stanford.edu
-* Z3 4.8.12, https://github.com/Z3Prover/z3
+* Z3 4.8.14, https://github.com/Z3Prover/z3
 
 You can enable these solvers using ``--solvers=smt-z3`` and ``--solvers=smt-cvc4`` flags.
 
@@ -233,10 +220,10 @@ You can use multiple solvers in portfolio mode, as with the options ``--timeout=
 
 For final verification runs of highly critical software, we recommend that (instead of the portfolio mode) you obtain several solvers and their versions, then try a single solver at a time and ensure that each verification run succeeds (thus applying N-version programming to SMT solver implementations).
 
-Install Z3 4.8.12 (Linux & macOS)
+Install Z3 4.8.14 (Linux & macOS)
 *********************************
 
-1. Download Z3 4.8.12 from https://github.com/Z3Prover/z3/releases/tag/z3-4.8.12
+1. Download Z3 4.8.14 from https://github.com/Z3Prover/z3/releases/tag/z3-4.8.14
 2. Unzip the downloaded archive
 3. Copy the ``z3`` binary found in the ``bin/`` directory of the inflated archive to a directory in your ``$PATH``, eg., ``/usr/local/bin``.
 4. Make sure ``z3`` can be found, by opening a new terminal window and typing:
@@ -249,7 +236,7 @@ Install Z3 4.8.12 (Linux & macOS)
 
 .. code-block:: text
 
-  Z3 version 4.8.12 - 64 bit`
+  Z3 version 4.8.14 - 64 bit`
 
 
 Install CVC 1.8 (Linux)
@@ -292,7 +279,7 @@ Install CVC 1.6 (macOS)
 Build from Source on Linux & macOS
 ----------------------------------
 
-To build Stainless, we use ``sbt``. In a typical configuration, ``sbt universal:stage`` in the root of the source tree should work, yet, 
+To build Stainless, we use ``sbt``. In a typical configuration, ``sbt universal:stage`` in the root of the source tree should work, yet,
 in an attempt to be more reproducible and independent from sbt cache and path, the instructions below assume that the directory called ``stainless`` does not exist, they instruct ``sbt`` to use a relative path for its bootstrap, and do not require adding ``sbt`` to your path.
 
 **Install sbt**
@@ -306,11 +293,11 @@ Get the sources of Stainless by cloning the official Stainless repository:
 .. code-block:: bash
 
   $ git clone https://github.com/epfl-lara/stainless.git
-  Cloning into 'stainless'...  
+  Cloning into 'stainless'...
 
 **Run sbt**
 
-The following instructions will invoke sbt while using a stainless sub-directory to download files. 
+The following instructions will invoke sbt while using a stainless sub-directory to download files.
 
 .. code-block:: bash
 
@@ -353,7 +340,7 @@ Instead, please use ``sbt stainless-scalac-standalone/assembly`` as follows:
   $ sbt stainless-scalac-standalone/assembly
   // takes about 1 minutes
 
-Running Stainless can then be done with the command: ``java -jar frontends\stainless-scalac-standalone\target\scala-2.12\stainless-scalac-standalone-{VERSION}.jar``, where ``VERSION`` denotes Stainless version.
+Running Stainless can then be done with the command: ``java -jar frontends\stainless-dotty-standalone\target\scala-3.0.2\stainless-dotty-standalone-{VERSION}.jar``, where ``VERSION`` denotes Stainless version.
 
 Running Tests
 -------------
@@ -383,7 +370,7 @@ was originally developed to support Python documentation.
 * On Ubuntu 18, you can use ``sudo apt install sphinx-common``
 
 The documentation resides in the ``core/src/sphinx/`` directory and can be built using the provided ``Makefile``. To do this, in a Linux shell,
-type ``make html``, and open in your web browser the generated top-level local HTML file, by default stored in 
+type ``make html``, and open in your web browser the generated top-level local HTML file, by default stored in
 ``core/src/sphinx/_build/html/index.html``. Also, you can open the ``*.rst`` documentation files in a text editor, as they are human-readable in their source form as well.
 
 Note for project maintainers: to build documentation on GitHub Pages, use ``make gh-pages`` in the same Makefile, or adapt it to you needs.
@@ -406,7 +393,7 @@ In ``emacs`` editor, you can invoke ``ansi-term`` and ``compilation-shell-minor-
   stainless --no-colors <InputFilesAndOptions>
 
 You may also consider using the ``--watch`` option.
-  
+
 You should now be able to click on a message for verification condition to jump to the appropriate position in the appropriate file, as well as to use emacs commands ``previous-error`` and ``next-error`` to navigate through errors and other verification-condition outcomes.
 
 Here is a very simple illustration that introduces an interactive ``comp-ansi-term`` command that creates new window with ansi-term and minor compilation mode:
