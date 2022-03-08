@@ -3,7 +3,7 @@ Introduction
 
 The Stainless verification framework aims to help developers build
 verified Scala software. It encourages using a small set of core
-Scala features, but provides unique verification functionality.
+Scala features and provides unique verification functionality.
 In particular, Stainless can
 
 * verify statically that your program conforms to a given
