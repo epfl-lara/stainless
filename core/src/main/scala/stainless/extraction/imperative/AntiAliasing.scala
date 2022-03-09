@@ -6,7 +6,7 @@ package imperative
 
 import inox.FatalError
 
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 class AntiAliasing(override val s: Trees)(override val t: s.type)(using override val context: inox.Context)
   extends oo.CachingPhase
@@ -242,9 +242,6 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
                 effects map (e => (e, e on rArg))
               }
 
-            //TODO: The case f(A(x1,x1,x1)) could probably be handled by forbidding creation at any program point of
-            //      case class with multiple refs as it is probably not useful
-
             val freshRes = ValDef(FreshIdentifier("res"), nfiType).copiedFrom(nfi)
 
             val extractResults = Block(
@@ -272,29 +269,86 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
           }
         }
 
+        def unordPairs[A](as: Seq[A]): Seq[(A, A)] = {
+          for {
+            (a1, i1) <- as.zipWithIndex
+            a2 <- as.drop(i1 + 1)
+          } yield (a1, a2)
+        }
+
+        // Given an expression e, collect "all" mutable targets that are of the form v.a.b.c
+        // For instance, if we have:
+        //    case class A(val left: B, val right: B)
+        //    case class B(var c1: C, var c2: C)
+        //    case class C(var x: Int)
+        //    val res: (Unit, A) = ...
+        //    A(B(res._2.left.c1, a.left.c2), a.right)
+        // collectTargetsForAliasing on the last expression would give us:
+        //    Target(res, None, ._2.left.c1),
+        //    Target(a, None, .left.c2)
+        //    Target(a, None, .right)
+        def collectTargetsForAliasing(e: Expr): Seq[Target] = {
+          var result = Seq.empty[Target]
+          object collector extends ConcreteOOSelfTreeTraverser {
+            override def traverse(e: Expr): Unit = e match {
+              case ADT(id, tps, args) =>
+                args.foreach(traverse)
+
+              case ClassConstructor(_, args) =>
+                args.foreach(traverse)
+
+              case Tuple(exprs) =>
+                exprs.foreach(traverse)
+
+              case FiniteArray(elems, _) =>
+                elems.foreach(traverse)
+
+              // TODO: We do not traverse the new value because doing so is way too conservative (doing so would lead to incorrectly rejecting imperative/valid/i1051c)
+              //  Note that we are doing here is unsound!!!
+              case ArrayUpdated(arr, _, _) =>
+                traverse(arr)
+
+              case _ =>
+                try {
+                  result ++= getAllTargets(e)
+                } catch {
+                  case _: MalformedStainlessCode => super.traverse(e)
+                }
+            }
+          }
+
+          collector.traverse(e)
+          result
+        }
+
+        // Throws an exception if two sub-expressions in the given expression share a target prefix.
+        // Returns the computed targets in case of success.
+        private def checkAliasingWithinExpr(expr: Expr): Seq[Target] = {
+          if (!isMutableType(expr.getType))
+            return Seq.empty
+
+          val targets = collectTargetsForAliasing(expr)
+          for ((target1, target2) <- unordPairs(targets)) {
+            if (target1.maybePrefixOf(target2) || target2.maybePrefixOf(target1))
+              throw MalformedStainlessCode(expr,
+                s"Illegal aliasing within ${expr.asString} (with targets ${target1.asString} and ${target2.asString})")
+          }
+          targets
+        }
+
         // throws an exception if two arguments in the sequence share a target prefix
         private def checkAliasing(expr: Expr, args: Seq[Expr]): Unit = {
-          val argTargets: Seq[((Expr, Set[Target]), Int)] =
-            args.filter(arg => isMutableType(arg.getType))
-              .map(arg => arg -> Try(getAllTargets(arg)).toOption
-                .getOrElse(
-                  exprOps.variablesOf(arg)
-                    .filter(v => isMutableType(v.tpe))
-                    .map(v => Target(v, None, Path.empty))
-                )
-              ).zipWithIndex
+          val argTargets: Seq[(Expr, Seq[Target])] =
+            args.map(arg => arg -> checkAliasingWithinExpr(arg))
 
-          for (((arg1, targets1), i) <- argTargets) {
-            val otherTargets: Seq[(Expr, Set[Target])] = argTargets.filter(_._2 != i).map(_._1)
-            for (target1 <- targets1)
-              for ((arg2, targets2) <- otherTargets)
-                for (target2 <- targets2)
-                  if (target1.maybePrefixOf(target2) ||
-                      target2.maybePrefixOf(target1))
-                    throw MalformedStainlessCode(expr,
-                      s"Illegal passing of aliased parameters ${arg1.asString} (with target: ${target1.asString}) " +
-                      s"and ${arg2.asString} (with target: ${target2.asString})"
-                    )
+          // Ensure there are no aliasing between the arguments as well
+          for (((arg1, targets1), (arg2, targets2)) <- unordPairs(argTargets)) {
+            for (target1 <- targets1; target2 <- targets2) {
+              if (target1.maybePrefixOf(target2) || target2.maybePrefixOf(target1))
+                throw MalformedStainlessCode(expr,
+                  s"Illegal passing of aliased parameters ${arg1.asString} (with target: ${target1.asString}) " +
+                    s"and ${arg2.asString} (with target: ${target2.asString})")
+            }
           }
         }
 
@@ -543,6 +597,22 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
               Application(transform(callee, env), args.map(transform(_, env))).copiedFrom(app)
             }
 
+          case cc @ ClassConstructor(_, args) =>
+            checkAliasing(cc, args)
+            super.transform(cc, env)
+
+          case adt@ADT(_, _, args) =>
+            checkAliasing(adt, args)
+            super.transform(adt, env)
+
+          case tpl@Tuple(exprs) =>
+            checkAliasing(tpl, exprs)
+            super.transform(tpl, env)
+
+          case fa@FiniteArray(elems, _) =>
+            checkAliasing(fa, elems)
+            super.transform(fa, env)
+
           case Operator(es, recons) => recons(es.map(transform(_, env)))
         }).copiedFrom(e)
       }
@@ -581,7 +651,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
           }
 
           val (cd, ct) = optCd.map(cd => (cd, cd.toType)).getOrElse {
-            throw FatalError(s"Could find class for type ${receiver.getType}")
+            throw FatalError(s"Could not find class for type ${receiver.getType}")
           }
 
           val casted = if (cd.parents.isEmpty && cd.children.isEmpty) receiver

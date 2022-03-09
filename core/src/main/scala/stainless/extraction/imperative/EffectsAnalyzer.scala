@@ -430,7 +430,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       else this
     }
 
-    def on(that: Expr)(using symbols: Symbols): Set[Effect] = {
+    def on(that: Expr)(using symbols: Symbols): Seq[Effect] = {
       val res = try {
         getTargets(that, kind, path.path).map(_.toEffect(kind))
       } catch {
@@ -481,13 +481,13 @@ trait EffectsAnalyzer extends oo.CachingPhase {
    * effects (with `kind`) on `x` (field assignments, array updates, etc.) result in effects on
    * these targets.
    */
-  def getTargets(expr: Expr, kind: EffectKind, path: Seq[Accessor] = Seq.empty)(using symbols: Symbols): Set[Target] = expr match {
-    case _ if variablesOf(expr).forall(v => !symbols.isMutableType(v.tpe)) => Set.empty
-    case _ if isExpressionFresh(expr) => Set.empty
-    case _ if !symbols.isMutableType(expr.getType) => Set.empty
-    case _ if kind == ReplacementKind && path.isEmpty => Set.empty
+  def getTargets(expr: Expr, kind: EffectKind, path: Seq[Accessor] = Seq.empty)(using symbols: Symbols): Seq[Target] = expr match {
+    case _ if variablesOf(expr).forall(v => !symbols.isMutableType(v.tpe)) => Seq.empty
+    case _ if isExpressionFresh(expr) => Seq.empty
+    case _ if !symbols.isMutableType(expr.getType) => Seq.empty
+    case _ if kind == ReplacementKind && path.isEmpty => Seq.empty
 
-    case v: Variable => Set(Target(v, None, Path(path)))
+    case v: Variable => Seq(Target(v, None, Path(path)))
     case ADTSelector(e, id) => getTargets(e, kind, ADTFieldAccessor(id) +: path)
     case ClassSelector(e, id) => getTargets(e, kind, ClassFieldAccessor(id) +: path)
     case TupleSelect(e, idx) => getTargets(e, kind, TupleFieldAccessor(idx) +: path)
@@ -501,7 +501,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       case _ =>
         if (kind != ReplacementKind)
           throw MalformedStainlessCode(expr, s"Couldn't compute effect targets in ADT ${expr.asString}")
-        else Set.empty
+        else Seq.empty
     }
 
     case ClassConstructor(ct, args) => path match {
@@ -510,7 +510,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       case _ =>
         if (kind != ReplacementKind)
           throw MalformedStainlessCode(expr, s"Couldn't compute effect targets in class constructor ${expr.asString}")
-        else Set.empty
+        else Seq.empty
     }
 
     case Tuple(exprs) => path match {
@@ -519,7 +519,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       case _ =>
         if (kind != ReplacementKind)
           throw MalformedStainlessCode(expr, s"Couldn't compute effect targets in tuple ${expr.asString}")
-        else Set.empty
+        else Seq.empty
     }
 
     case FiniteArray(elems, _) => path match {
@@ -528,11 +528,11 @@ trait EffectsAnalyzer extends oo.CachingPhase {
         if (i < elems.size) getTargets(elems(i), kind, rest)
         else throw MalformedStainlessCode(expr, s"Out of bound array access in ${expr.asString}")
       case Seq(UnknownArrayAccessor) if kind == ReplacementKind =>
-        Set.empty
+        Seq.empty
       case _ if kind == ReplacementKind && path.isEmpty =>
-        Set.empty
+        Seq.empty
       case _ if kind == ReplacementKind && !path.head.isInstanceOf[ArrayAccessor] && path.head != UnknownArrayAccessor =>
-        Set.empty
+        Seq.empty
       case _ =>
         throw MalformedStainlessCode(expr, s"Couldn't compute effect targets in finite array ${expr.asString}")
     }
@@ -564,38 +564,39 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       specced.bodyOpt
         .map(specced.wrapLets)
         .map(getTargets(_, kind, path))
-        .getOrElse(Set.empty)
+        .getOrElse(Seq.empty)
 
-    case fi: FunctionInvocation => Set.empty
-    case (_: ApplyLetRec | _: Application) => Set.empty
+    case fi: FunctionInvocation => Seq.empty
+    case (_: ApplyLetRec | _: Application) => Seq.empty
     case _: LargeArray | _: ArrayUpdated if kind == ReplacementKind && path.isEmpty =>
-      Set.empty
+      Seq.empty
     case _: LargeArray | _: ArrayUpdated if kind == ReplacementKind && !path.head.isInstanceOf[ArrayAccessor] && path.head != UnknownArrayAccessor =>
-      Set.empty
-    case _: MutableMapUpdated => Set.empty
-    case _: ArrayUpdated => Set.empty
+      Seq.empty
+    // TODO: These two cases are incorrect, but removing them breaks existing codebase...
+    case _: MutableMapUpdated => Seq.empty
+    case _: ArrayUpdated => Seq.empty
     case IsInstanceOf(e, _) => getTargets(e, kind, path)
     case AsInstanceOf(e, _) => getTargets(e, kind, path)
-    case Old(_) => Set.empty
-    case Snapshot(_) => Set.empty
-    case FreshCopy(_) => Set.empty
+    case Old(_) => Seq.empty
+    case Snapshot(_) => Seq.empty
+    case FreshCopy(_) => Seq.empty
 
-    case ArrayLength(_) => Set.empty
+    case ArrayLength(_) => Seq.empty
 
-    case FiniteSet(elements, tpe) => Set.empty
-    case SetUnion(s1, s2) => Set.empty
-    case SetIntersection(s1, s2) => Set.empty
-    case SetDifference(s1, s2) => Set.empty
-    case SubsetOf(s1, s2) => Set.empty
-    case ElementOfSet(element, set) => Set.empty
-    case SetAdd(bag, element) => Set.empty
+    case FiniteSet(elements, tpe) => Seq.empty
+    case SetUnion(s1, s2) => Seq.empty
+    case SetIntersection(s1, s2) => Seq.empty
+    case SetDifference(s1, s2) => Seq.empty
+    case SubsetOf(s1, s2) => Seq.empty
+    case ElementOfSet(element, set) => Seq.empty
+    case SetAdd(bag, element) => Seq.empty
 
-    case FiniteBag(elements, tpe) => Set.empty
-    case BagUnion(s1, s2) => Set.empty
-    case BagIntersection(s1, s2) => Set.empty
-    case BagDifference(s1, s2) => Set.empty
-    case MultiplicityInBag(element, bag) => Set.empty
-    case BagAdd(bag, element) => Set.empty
+    case FiniteBag(elements, tpe) => Seq.empty
+    case BagUnion(s1, s2) => Seq.empty
+    case BagIntersection(s1, s2) => Seq.empty
+    case BagDifference(s1, s2) => Seq.empty
+    case MultiplicityInBag(element, bag) => Seq.empty
+    case BagAdd(bag, element) => Seq.empty
 
     case Block(_, last) => getTargets(last, kind, path)
 
@@ -605,7 +606,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     case Let(vd, e, b) =>
       getTargets(b, kind, path).map(_.bind(vd, e)).flatMap { be =>
         if (be.receiver == vd.toVariable) getTargets(e, kind, be.path.path)
-        else Set(be)
+        else Seq(be)
       }
 
     case _ =>
@@ -719,9 +720,9 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     def inEnv(effect: Effect, env: Map[Variable, Effect]): Option[Effect] =
       env.get(effect.receiver).map(e => Effect(effect.kind, e.receiver, e.path ++ effect.path))
 
-    def effect(expr: Expr, env: Map[Variable, Effect]): Set[Effect] =
+    def effect(expr: Expr, env: Map[Variable, Effect]): Seq[Effect] =
       getAllTargets(expr) flatMap { (target: Target) =>
-        inEnv(target.toEffect(ModifyingKind), env).toSet
+        inEnv(target.toEffect(ModifyingKind), env)
       }
 
     def rec(expr: Expr, env: Map[Variable, Effect]): Set[Effect] = expr match {
