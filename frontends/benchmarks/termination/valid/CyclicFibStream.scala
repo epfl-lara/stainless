@@ -35,7 +35,7 @@ object ZipWithAndFibStream {
   /**
    * Using a `zipWithFun` function to implement a fibonacci stream.
    */
-  val fibstream: SCons = SCons(0, () => SCons(1, () => {
+  lazy val fibstream: SCons = SCons(0, () => SCons(1, () => {
     zipWithFun(_ + _, this.fibstream, this.fibstream.tail)
   }))
 

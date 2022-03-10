@@ -27,7 +27,8 @@ class DottyCompiler(ctx: inox.Context, callback: CallBack) extends Compiler {
     // We drop the rest as we are not interested in the full compilation pipeline
     // (the whole pipeline is used for StainlessPlugin).
     val necessary = scheduled.takeWhile(_.forall(_.phaseName != extractionPhase.phaseName))
-    necessary :+ List(extractionPhase)
+    // We also include init.Checker (which happens in the same mini-phase as FirstTransform, therefore not contained in `necessary`)
+    necessary :+ List(new init.Checker) :+ List(extractionPhase)
   }
 
   private class ExtractionPhase extends PluginPhase {
@@ -37,6 +38,16 @@ class DottyCompiler(ctx: inox.Context, callback: CallBack) extends Compiler {
     // Note: this must not be instantiated within `run`, because we need the underlying `symbolMapping` in `StainlessExtraction`
     // to be shared across multiple compilation unit.
     val extraction = new StainlessExtraction(ctx)
+
+    override def runOn(units: List[CompilationUnit])(using dottyCtx: DottyContext): List[CompilationUnit] = {
+      dottyCtx.reporter match {
+        case sr: SimpleReporter if sr.hasSafeInitWarnings =>
+          // Do not run the Stainless extraction phase by returning no compilation units
+          Nil
+        case _ =>
+          super.runOn(units)
+      }
+    }
 
     // This method id called for every compilation unit, and in the same thread.
     override def run(using dottyCtx: DottyContext): Unit =
@@ -54,15 +65,9 @@ private class DottyDriver(args: Seq[String], compiler: DottyCompiler, reporter: 
 }
 
 private class SimpleReporter(val reporter: inox.Reporter) extends DottyReporter {
-  final val ERROR_LIMIT = 5
+  private var safeInitWarnings: Boolean = false
 
-  val count = scala.collection.mutable.Map[Int, Int](
-    ERROR   -> 0,
-    WARNING -> 0,
-    INFO    -> 0,
-  )
-
-  def printMessage(msg: String, pos: inox.utils.Position, severity: Int): Unit = severity match {
+  private def printMessage(msg: String, pos: inox.utils.Position, severity: Int): Unit = severity match {
     case `ERROR` =>
       reporter.error(pos, msg)
     case `WARNING` =>
@@ -74,7 +79,7 @@ private class SimpleReporter(val reporter: inox.Reporter) extends DottyReporter 
   }
 
   /** Prints the message with the given position indication. */
-  def printMessage(pos: SourcePosition, msg: String, severity: Int): Unit = {
+  private def printMessage(pos: SourcePosition, msg: String, severity: Int): Unit = {
     if (!pos.exists) {
       printMessage(msg, inox.utils.NoPosition, severity)
     } else {
@@ -84,7 +89,25 @@ private class SimpleReporter(val reporter: inox.Reporter) extends DottyReporter 
     }
   }
 
-  def doReport(dia: Diagnostic)(using DottyContext): Unit = printMessage(dia.pos, dia.msg.message, dia.level)
+  private def checkSafeInitWarning(msg: String): Boolean = {
+    // It seems that we can't extract the type of warning we got, so we have to resort to using questionable practices
+    val warn = msg.contains("Access non-initialized") ||
+      msg.contains("Promote the value under initialization") ||
+      msg.contains("on a value with an unknown initialization") ||
+      msg.contains("may cause initialization errors") ||
+      msg.contains("Promoting the value to fully-initialized is unsafe")
+    safeInitWarnings |= warn
+    warn
+  }
+
+  def hasSafeInitWarnings: Boolean = safeInitWarnings
+
+  def doReport(dia: Diagnostic)(using DottyContext): Unit = {
+    val isSafeInitMsg = dia.level == WARNING && checkSafeInitWarning(dia.msg.message)
+    // For -Ysafe-init warning messages, raise the level to error
+    val level = if (isSafeInitMsg) ERROR else dia.level
+    printMessage(dia.pos, dia.msg.message, level)
+  }
 }
 
 object DottyCompiler {
@@ -110,7 +133,7 @@ object DottyCompiler {
           } getOrElse { ctx.reporter.fatalError("No Scala 3 library found.") }
 
           val cps = Seq(scala213Lib, scala3Lib).distinct.mkString(java.io.File.pathSeparator)
-          val flags = Seq("-color:never", "-language:implicitConversions", s"-cp:$cps")
+          val flags = Seq("-color:never", "-language:implicitConversions", "-Ysafe-init", s"-cp:$cps")
           allCompilerArguments(ctx, compilerArgs) ++ flags
         }
         val compiler: DottyCompiler = new DottyCompiler(ctx, this.callback)
