@@ -358,7 +358,12 @@ lazy val `stainless-scalac-standalone` = (project in file("frontends") / "stainl
     buildInfoKeys ++= Seq[BuildInfoKey]("useJavaClassPath" -> true),
     assembly / mainClass := Some("stainless.Main"),
     assembly / assemblyJarName := (name.value + "-" + version.value + ".jar"),
-    Runtime / unmanagedJars := (`stainless-scalac` / Runtime / unmanagedJars).value
+    Runtime / unmanagedJars := (`stainless-scalac` / Runtime / unmanagedJars).value,
+    assemblyPackageScala / assembleArtifact := true,
+    assembly / assemblyExcludedJars := {
+      val cp = (assembly / fullClasspath).value
+      cp filter {_.data.getName.startsWith("scalaz3")}
+    },
   )
   .dependsOn(`stainless-scalac`)
 
@@ -402,7 +407,12 @@ lazy val `stainless-dotty-standalone` = (project in file("frontends") / "stainle
     buildInfoKeys ++= Seq[BuildInfoKey]("useJavaClassPath" -> true),
     assembly / mainClass := Some("stainless.Main"),
     assembly / assemblyJarName := (name.value + "-" + version.value + ".jar"),
-    Runtime / unmanagedJars := (`stainless-dotty` / Runtime / unmanagedJars).value
+    Runtime / unmanagedJars := (`stainless-dotty` / Runtime / unmanagedJars).value,
+    assemblyPackageScala / assembleArtifact := true,
+    assembly / assemblyExcludedJars := {
+      val cp = (assembly / fullClasspath).value
+      cp filter {_.data.getName.startsWith("scalaz3")}
+    },
   )
   .dependsOn(`stainless-dotty`)
 
