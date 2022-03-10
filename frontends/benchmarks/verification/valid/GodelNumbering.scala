@@ -74,8 +74,8 @@ object GodelNumbering {
   case object Zero extends Nat
   case class Succ(n: Nat) extends Nat
 
-  val One = Succ(Zero)
-  val Two = Succ(One)
+  lazy val One = Succ(Zero)
+  lazy val Two = Succ(One)
 
   @induct @opaque @inlineOnce
   def plus_zero(n: Nat): Unit = {

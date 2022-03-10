@@ -59,7 +59,7 @@ object MergeAndHammingNumbers {
    /**
    * A stream of hamming numbers
    */
-  val hamstream: SCons = SCons(1, () => {
+  lazy val hamstream: SCons = SCons(1, () => {
     val hs = this.hamstream
     merge(map(2 * _, hs), map(3 * _, hs), map(5 * _, hs))
   })
