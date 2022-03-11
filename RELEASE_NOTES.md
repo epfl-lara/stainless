@@ -1,5 +1,19 @@
 # Release Notes
 
+## Version 0.9.4 (2022-03-11)
+
+### Stainless frontend, library and internals
+
+- Pass the `-Ysafe-init` option to Dotty  (#1242)
+- Experimental test cases generation (#1239)
+- Fix issue #1051 (#1219)
+- PC for local classes capturing variables (#1210)
+
+### Build
+
+- Do not duplicate ScalaZ3 jars (#1241)
+
+
 ## Version 0.9.3 (2022-02-25)
 
 ### GenC
