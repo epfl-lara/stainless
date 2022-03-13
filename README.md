@@ -5,11 +5,10 @@ Supports contract-driven verification as well as termination checking of higher-
 functional programs with local imperative features (see [Pure Scala](https://epfl-lara.github.io/stainless/purescala.html)
 and [Imperative](https://epfl-lara.github.io/stainless/imperative.html)
 for more details about the supported fragment).
-* Stainless Website at EPFL: https://stainless.epfl.ch
+* [Recorded Tutorial from ASPLOS 2022](https://epfl-lara.github.io/asplos2022tutorial/)
 * EPFL-LARA Website: https://lara.epfl.ch/w/
 
-
-## Documentation
+## Further Documentation
 
 To get started, see videos:
   * Tutorials from [EPFL Course](https://lara.epfl.ch/w/fv20/top): [Getting Started](https://tube.switch.ch/videos/c7d203e8),  [Tutorial 1](https://tube.switch.ch/videos/03edee61) [Tutorial 2](https://tube.switch.ch/videos/c22ea3e8) [Tutorial 3](https://tube.switch.ch/videos/7f57f7a9) [Tutorial 4](https://tube.switch.ch/videos/2a9fd35c), [Assertions](https://tube.switch.ch/videos/44e8a0dc), [Unfolding](https://tube.switch.ch/videos/ada8a42c), [Dispenser Example](https://tube.switch.ch/videos/ded227dd)
@@ -27,7 +26,7 @@ Tutorials such as one from [FMCAD 2021](https://github.com/epfl-lara/fmcad2021tu
   
 ## Build and Use
 
-To build the project, run `sbt universal:stage`. If all goes well, scripts are generated for Scala 3 and Scala 2 versions of the front end:
+To start quickly, install a JVM and use a [recent release](https://github.com/epfl-lara/stainless/releases). To build the project, run `sbt universal:stage`. If all goes well, scripts are generated for Scala 3 and Scala 2 versions of the front end:
   * `frontends/scalac/target/universal/stage/bin/stainless-scalac`
   * `frontends/dotty/target/universal/stage/bin/stainless-dotty`
   
