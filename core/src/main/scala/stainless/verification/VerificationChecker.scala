@@ -6,6 +6,7 @@ package verification
 import inox.Options
 import inox.solvers._
 
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger}
 import scala.util.{ Success, Failure }
 import scala.concurrent.Future
 import scala.collection.mutable
@@ -86,49 +87,56 @@ trait VerificationChecker { self =>
   private lazy val unknownResult: VCResult = VCResult(VCStatus.Unknown, None, None)
 
   def checkVCs(vcs: Seq[VC], stopWhen: VCResult => Boolean = defaultStop): Future[Map[VC, VCResult]] = {
-    if (!VerificationChecker.startedVerification) reporter.info("Starting verification...")
-    VerificationChecker.startedVerification = true
+    if (!VerificationChecker.startedVerification.getAndSet(true)) reporter.info("Starting verification...")
 
     @volatile var stop = false
 
-    VerificationChecker.total += vcs.length
-    reporter.onCompilerProgress(VerificationChecker.verified, VerificationChecker.total)
+    VerificationChecker.total.addAndGet(vcs.length)
+    reporter.onCompilerProgress(VerificationChecker.verified.get(), VerificationChecker.total.get())
 
     val initMap: Map[VC, VCResult] = vcs.map(vc => vc -> unknownResult).toMap
 
     import MainHelpers._
 
-    val results = Future.traverse(vcs) { vc =>
-      Future.successful {
-        if (stop) None else {
-          val simplifiedCondition = simplifyExpr(
-            simplifyLets(removeAssertions(vc.condition))
-          )(using PurityOptions.assumeChecked)
+    def processVC(vc: VC): Option[(VC, VCResult)] = {
+      if (stop) None else {
+        val simplifiedCondition = simplifyExpr(
+          simplifyLets(removeAssertions(vc.condition))
+        )(using PurityOptions.assumeChecked)
 
-          // For some reasons, the synthethized copy method lacks default parameters...
-          val simplifiedVC = (vc.copy()(condition = simplifiedCondition, fid = vc.fid, kind = vc.kind, satisfiability = vc.satisfiability): VC).setPos(vc)
+        // For some reasons, the synthesized copy method lacks default parameters...
+        val simplifiedVC = (vc.copy()(condition = simplifiedCondition, fid = vc.fid, kind = vc.kind, satisfiability = vc.satisfiability): VC).setPos(vc)
 
-          val sf = getFactoryForVC(vc)
-          val res = checkVC(simplifiedVC, vc, sf)
+        val sf = getFactoryForVC(vc)
+        val res = checkVC(simplifiedVC, vc, sf)
 
-          val shouldStop = stopWhen(res)
-          if (res.isValid) VerificationChecker.verified += 1
-          reporter.onCompilerProgress(VerificationChecker.verified, VerificationChecker.total)
+        val shouldStop = stopWhen(res)
+        val verif =
+          if (res.isValid) VerificationChecker.verified.incrementAndGet()
+          else VerificationChecker.verified.get()
+        reporter.onCompilerProgress(verif, VerificationChecker.total.get())
 
-          interruptManager.synchronized { // Make sure that we only interrupt the manager once.
-            if (shouldStop && !stop && !interruptManager.isInterrupted) {
-              stop = true
-              interruptManager.interrupt()
-            }
+        interruptManager.synchronized { // Make sure that we only interrupt the manager once.
+          if (shouldStop && !stop && !interruptManager.isInterrupted) {
+            stop = true
+            interruptManager.interrupt()
           }
-
-          if (interruptManager.isInterrupted) {
-            interruptManager.reset()
-          }
-
-          Some(vc -> res)
         }
+
+        if (interruptManager.isInterrupted) {
+          interruptManager.reset()
+        }
+
+        Some(vc -> res)
       }
+    }
+
+    val results = Future.traverse(vcs) { vc =>
+      // Note that `successful(e)` is eager and gets immediately evaluated whereas Future(e) is a scheduled task.
+      // If parallelism is not explicitly enabled, we fallback to eager evaluation
+      // (even on a thread pool of a single thread, it seems that the VCs won't necessarily be sequentially processed).
+      if (nParallel.exists(_ > 1)) Future(processVC(vc))
+      else Future.successful(processVC(vc))
     }.map(_.flatten)
 
     results.map(initMap ++ _)
@@ -350,19 +358,19 @@ trait VerificationChecker { self =>
 
 object VerificationChecker {
   // number of verified VCs (incremented when a VC is verified)
-  var verified: Int = 0
+  val verified: AtomicInteger = new AtomicInteger(0)
   // total number of VCs (we add to that counter when entering `checkVCs`)
   // this is cumulative across different subprograms (for `SplitCallBack`)
-  var total: Int = 0
+  val total: AtomicInteger = new AtomicInteger(0)
 
   // flag to remember whether we have shown "Starting verification" message to the user
-  var startedVerification = false
+  val startedVerification: AtomicBoolean = new AtomicBoolean(false)
 
   // reset the counters before each watch cycle
   def reset(): Unit = {
-    verified = 0
-    total = 0
-    startedVerification = false
+    verified.set(0)
+    total.set(0)
+    startedVerification.set(false)
   }
 
   def verify(p: StainlessProgram, ctx: inox.Context)
