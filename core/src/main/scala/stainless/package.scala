@@ -152,9 +152,7 @@ package object stainless {
     Option(System.getProperty("parallel"))
       .flatMap(p => scala.util.Try(p.toInt).toOption)
 
-  lazy val useParallelism: Boolean =
-    (nParallel.isEmpty || nParallel.exists(_ > 1)) &&
-    !System.getProperty("os.name").toLowerCase().contains("mac")
+  lazy val useParallelism: Boolean = nParallel.isEmpty || nParallel.exists(_ > 1)
 
   private lazy val currentThreadExecutionContext: ExecutionContext =
     ExecutionContext.fromExecutor(new java.util.concurrent.Executor {
