@@ -214,14 +214,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
 
         def makeAssignment(pos: inox.utils.Position, resSelect: Expr, outerEffect: Effect, effect: Effect, effectCond: Option[Expr]): Expr = {
           val (cond, result) = select(pos, resSelect.getType, resSelect, outerEffect.path.toSeq)
-          val combinedCond = Some(cond).zip(effectCond).map {
-            case (BooleanLiteral(b1), c2) =>
-              if (b1) c2 else BooleanLiteral(false)
-            case (c1, BooleanLiteral(b2)) =>
-              if (b2) c1 else BooleanLiteral(false)
-            case (c1, c2) =>
-              And(c1, c2)
-          }.getOrElse(cond)
+          val combinedCond = andJoin(cond +: effectCond.toSeq)
 
           // We only overwrite the receiver when it is an actual mutable type.
           // This is necessary to handle immutable types being upcasted to `Any`, which is mutable.
