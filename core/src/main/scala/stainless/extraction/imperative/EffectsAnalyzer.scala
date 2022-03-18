@@ -430,15 +430,15 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       else this
     }
 
-    def on(that: Expr)(using symbols: Symbols): Seq[Effect] = {
+    def on(that: Expr)(using symbols: Symbols): Seq[(Effect, Option[Expr])] = {
       val res = try {
-        getTargets(that, kind, path.path).map(_.toEffect(kind))
+        getTargets(that, kind, path.path).map(t => (t.toEffect(kind), t.condition))
       } catch {
         case _: MalformedStainlessCode => throw MalformedStainlessCode(that,
           s"Couldn't apply effect ${this.asString} on expression ${that.asString}"
         )
       }
-      for (e <- res if e.kind == CombinedKind && e.path.isEmpty && !this.path.isEmpty) {
+      for ((e, _) <- res if e.kind == CombinedKind && e.path.isEmpty && !this.path.isEmpty) {
         context.reporter.fatalError(that.getPos,
           s"Ambiguous effect ${this.asString} on ${that.asString}"
         )
@@ -733,7 +733,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
           val newEnv = (variablesOf(b) ++ freeVars).map(v => v -> ModifyingEffect(v, Path.empty)).toMap
           val effb = rec(b, newEnv)
           effe ++ effb.flatMap { ef =>
-            if (ef.receiver == vd.toVariable) ef.on(e)
+            if (ef.receiver == vd.toVariable) ef.on(e).map(_._1)
             else Set(ef)
           }.flatMap(inEnv(_, env))
         }
@@ -798,7 +798,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
           val currentEffects: Set[Effect] = result.effects(fun)
           val paramSubst = (fun.params.map(_.toVariable) zip args).toMap
           val invocEffects = currentEffects.flatMap(e => paramSubst.get(e.receiver) match {
-            case Some(arg) => (e on arg).flatMap(inEnv(_, env))
+            case Some(arg) => (e on arg).flatMap((e, _) => inEnv(e, env))
             case None => Seq(e) // This effect occurs on some variable captured from scope
           })
 

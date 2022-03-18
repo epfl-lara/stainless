@@ -212,8 +212,9 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
           case (_, Nil) => (BooleanLiteral(true).setPos(pos), expr)
         }
 
-        def makeAssignment(pos: inox.utils.Position, resSelect: Expr, outerEffect: Effect, effect: Effect): Expr = {
+        def makeAssignment(pos: inox.utils.Position, resSelect: Expr, outerEffect: Effect, effect: Effect, effectCond: Option[Expr]): Expr = {
           val (cond, result) = select(pos, resSelect.getType, resSelect, outerEffect.path.toSeq)
+          val combinedCond = andJoin(cond +: effectCond.toSeq)
 
           // We only overwrite the receiver when it is an actual mutable type.
           // This is necessary to handle immutable types being upcasted to `Any`, which is mutable.
@@ -228,8 +229,8 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
             Assignment(effect.receiver, castedValue).setPos(pos)
           } else UnitLiteral().setPos(pos)
 
-          if (cond == BooleanLiteral(true)) assignment
-          else IfExpr(cond, assignment, UnitLiteral().setPos(pos)).setPos(pos)
+          if (combinedCond == BooleanLiteral(true)) assignment
+          else IfExpr(combinedCond, assignment, UnitLiteral().setPos(pos)).setPos(pos)
         }
 
         def mapApplication(formalArgs: Seq[ValDef], args: Seq[Expr], nfi: Expr, nfiType: Type, fiEffects: Set[Effect], env: Env): Expr = {
@@ -248,14 +249,14 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
               for {
                 (effects, index) <- localEffects.zipWithIndex
                 (outerEffect0, innerEffects) <- effects
-                effect0 <- innerEffects
+                (effect0, effectCond) <- innerEffects
               } yield {
                 val outerEffect = outerEffect0.removeUnknownAccessor
                 val effect = effect0.removeUnknownAccessor
                 val pos = args(index).getPos
                 val resSelect = TupleSelect(freshRes.toVariable, index + 2)
 
-                makeAssignment(pos, resSelect, outerEffect, effect)
+                makeAssignment(pos, resSelect, outerEffect, effect, effectCond)
               },
               TupleSelect(freshRes.toVariable, 1))
 
@@ -356,6 +357,11 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
           case v: Variable if env.rewritings.contains(v.toVal) =>
             freshenLocals(env.rewritings(v.toVal))
 
+          case Assignment(v, expr) =>
+            // We explicitly override this case to not have the recursion go through `v` and potentially taking the above case
+            // (otherwise, we could get something like `env.rewritings(v.toVal) = expr` which may not be well-defined).
+            Assignment(v, transform(expr, env))
+
           case ret @ Return(_) if freshLocals.isEmpty => super.transform(e, env)
 
           case ret @ Return(retExpr) =>
@@ -376,12 +382,12 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
               throw MalformedStainlessCode(swap, "Unsupported swap (second array)")
 
             val updates1 =
-              targets1.toSeq map { target =>
+              targets1 map { target =>
                 val applied = updatedTarget(target, ArraySelect(array2, index2).setPos(swap))
                 transform(Assignment(target.receiver, applied).setPos(swap), env)
               }
             val updates2 =
-              targets2.toSeq map { target =>
+              targets2 map { target =>
                 val applied = updatedTarget(target, temp.toVariable)
                 transform(Assignment(target.receiver, applied).setPos(swap), env)
               }
@@ -397,6 +403,9 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
 
             val newExpr = transform(e, env)
             val targets = Try(getAllTargets(newExpr))
+
+            def varsOfExprWithRewrites(expr: Expr): Set[Variable] =
+              exprOps.variablesOf(expr).flatMap(v => env.rewritings.get(v.toVal).map(exprOps.variablesOf).getOrElse(Set(v)))
 
             if (targets.isSuccess) {
               // This branch handles all cases when targets can be precisely computed, namely when
@@ -417,14 +426,16 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
               val newBody = transform(b, env withRewritings Map(vd -> rewriting) withBinding vd)
               LetVar(vd, newExpr, newBody).copiedFrom(l)
 
-            } else if ((exprOps.variablesOf(e) & exprOps.variablesOf(b)).forall(v => !isMutableType(v.tpe))) {
+            } else if ((varsOfExprWithRewrites(e) & varsOfExprWithRewrites(b)).forall(v => !isMutableType(v.tpe))) {
+              // The above condition is similar to the one in EffectsChecker#check#traverser#traverse#Let, with the
+              // difference that we also account for rewrites (which may introduce other variables, as in i1099.scala
               val newBody = transform(b, env withBinding vd)
 
               // for all effects of `b` whose receiver is `vd`
               val copyEffects = effects(b).filter(_.receiver == vd.toVariable).flatMap { eff =>
 
                 // we apply the effect on the bound expression (after transformation)
-                eff.on(newExpr).map { eff2 => makeAssignment(l.getPos, eff.receiver, eff, eff2) }
+                eff.on(newExpr).map { case (eff2, cond2) => makeAssignment(l.getPos, eff.receiver, eff, eff2, cond2) }
               }
 
               val resVd = ValDef.fresh("res", b.getType).copiedFrom(b)
@@ -479,7 +490,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
             if (targets.exists(target => !env.bindings.contains(target.receiver.toVal)))
               throw MalformedStainlessCode(up, "Unsupported form of array update")
 
-            Block(targets.toSeq map { target =>
+            Block(targets map { target =>
               val applied = updatedTarget(target, v)
               transform(Assignment(target.receiver, applied).copiedFrom(up), env)
             }, UnitLiteral().copiedFrom(up)).copiedFrom(up)
@@ -491,7 +502,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
             if (targets.exists(target => !env.bindings.contains(target.receiver.toVal)))
               throw MalformedStainlessCode(up, "Unsupported form of map update")
 
-            Block(targets.toSeq map { target =>
+            Block(targets map { target =>
               val applied = updatedTarget(target, v)
               transform(Assignment(target.receiver, applied).copiedFrom(up), env)
             }, UnitLiteral().copiedFrom(up)).copiedFrom(up)
@@ -504,7 +515,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
             if (targets.exists(target => !env.bindings.contains(target.receiver.toVal)))
               throw MalformedStainlessCode(as, "Unsupported form of field assignment")
 
-            Block(targets.toSeq map { target =>
+            Block(targets map { target =>
               val applied = updatedTarget(target, v)
               transform(Assignment(target.receiver, applied).copiedFrom(as), env)
             }, UnitLiteral().copiedFrom(as)).copiedFrom(as)

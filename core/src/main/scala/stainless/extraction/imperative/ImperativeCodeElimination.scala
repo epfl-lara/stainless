@@ -242,46 +242,75 @@ class ImperativeCodeElimination(override val s: Trees)(override val t: s.type)
 
               if (modifiedVars.isEmpty) fdWithoutSideEffects else {
                 val freshVars: Seq[Variable] = modifiedVars.map(_.freshen)
-
                 val newParams: Seq[ValDef] = inner.params ++ freshVars.map(_.toVal)
-                val freshVarDecls: Seq[Variable] = freshVars.map(_.freshen)
 
-                val rewritingMap: Map[Variable, Variable] = modifiedVars.zip(freshVarDecls).toMap
-                val freshBody = postMap {
-                  case Assignment(v, e) => rewritingMap.get(v).map(nv => Assignment(nv, e))
-                  case v: Variable => rewritingMap.get(v)
-                  case _ => None
-                } (bd)
+                def recHelper(body: Expr,
+                              // This map is used by the postcondition rewriting to replace the result variable
+                              // of the ensuring clause to its freshened couter-part
+                              extraVarReplace: Map[Variable, Expr],
+                              // Set to true only for the postcondition, as we want to not rewrite `old` expression
+                              // found in the body of the function so that we can catch these invalid uses in ImperativeCleanup
+                              rewriteOldExpr: Boolean)
+                             (bodyWrapper: (Expr, Seq[Variable]) => Expr): (Expr, Expr => Expr, Seq[Variable]) = {
+                  assert(extraVarReplace.keySet.intersect(modifiedVars.toSet).isEmpty)
+                  val freshVarDecls: Seq[Variable] = modifiedVars.map(_.freshen)
+                  val rewritingMap: Map[Variable, Variable] = modifiedVars.zip(freshVarDecls).toMap
 
-                val wrappedBody = freshVars.zip(freshVarDecls).foldLeft(freshBody) {
-                  (body, p) => LetVar(p._2.toVal, p._1, body)
+                  val freshBody = postMap {
+                    case Assignment(v, e) => rewritingMap.get(v).map(nv => Assignment(nv, e))
+                    case v: Variable => rewritingMap.get(v).orElse(extraVarReplace.get(v))
+                    case Old(v: Variable) if rewriteOldExpr && freshVarDecls.contains(v) =>
+                      Some(freshVars(freshVarDecls.indexOf(v)))
+                    case _ => None
+                  } (body)
+                  val wrappedBody = bodyWrapper(freshBody, freshVarDecls)
+
+                  val (res, scope, fun) = toFunction(wrappedBody)(using State(state.parent, Set(),
+                    state.localsMapping.map { case (v, (fd, mvs)) =>
+                      (v, (fd, mvs.map(v => rewritingMap.getOrElse(v, v))))
+                    } + (fd.id -> (fd, freshVarDecls))
+                  ))
+
+                  (res, scope, freshVarDecls.map(fun))
                 }
 
-                val (fdRes, fdScope, fdFun) = toFunction(wrappedBody)(using State(state.parent, Set(),
-                  state.localsMapping.map { case (v, (fd, mvs)) =>
-                    (v, (fd, mvs.map(v => rewritingMap.getOrElse(v, v))))
-                  } + (fd.id -> ((fd, freshVarDecls)))
-                ))
-
-                val newRes = Tuple(fdRes +: freshVarDecls.map(fdFun))
+                val (fdRes, fdScope, fdDecls) = recHelper(bd, Map.empty, rewriteOldExpr = false) {
+                  case (freshBody, freshVarDecls) =>
+                    freshVars.zip(freshVarDecls).foldLeft(freshBody) {
+                      (body, p) => LetVar(p._2.toVal, p._1, body)
+                    }
+                }
+                val newRes = Tuple(fdRes +: fdDecls)
                 val newBody = fdScope(newRes)
-
                 val newReturnType = TupleType(inner.returnType +: modifiedVars.map(_.tpe))
 
                 val newSpecs = specs.map {
                   case Postcondition(post @ Lambda(Seq(res), postBody)) =>
+                    /*
+                    Essentially translates:
+                      (res: (R, T1, T2, ...)) => {
+                        // ...
+                        pureFnCapturingModifiedVars
+                        // ...
+                      }
+                    (where R is the result type of the function in question, and T1, T2, ... the types of the modified vars)
+                    into:
+                      (res: (R, T1, T2, ...)) => {
+                        val modVar1 = res._2
+                        val modVar2 = res._3
+                        // ...
+                        pureFnCapturingModifiedVars(modVar1, modVar2, ...)
+                        // ...
+                      }
+                    */
                     val newRes = ValDef(res.id.freshen, newReturnType)
-
-                    val newBody = replaceSingle(
-                      (modifiedVars.zip(freshVars).map { case (ov, nv) => Old(ov) -> nv } ++
-                      modifiedVars.zipWithIndex.map { case (v, i) =>
-                        (v -> TupleSelect(newRes.toVariable, i+2)): (Expr, Expr)
-                      } :+ (res.toVariable -> TupleSelect(newRes.toVariable, 1))).toMap,
-                      postBody
-                    )
-
-                    val (r, scope, _) = toFunction(newBody)
-                    Postcondition(Lambda(Seq(newRes), scope(r)).setPos(post))
+                    val (pcRes, pcScope, _) = recHelper(postBody, Map(res.toVariable -> TupleSelect(newRes.toVariable, 1)), rewriteOldExpr = true) {
+                      case (freshBody, freshVarDecls) =>
+                        freshVarDecls.zipWithIndex.foldLeft(freshBody) {
+                          case (body, (vr, ix)) => LetVar(vr.toVal, TupleSelect(newRes.toVariable, ix + 2), body)
+                        }
+                    }
+                    Postcondition(Lambda(Seq(newRes), pcScope(pcRes)).setPos(post))
 
                   case spec => spec.transform { cond =>
                     val fresh = replaceFromSymbols((modifiedVars zip freshVars).toMap, cond)
