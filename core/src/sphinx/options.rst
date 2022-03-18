@@ -35,7 +35,7 @@ By default, ``--verification`` is chosen.
 
 * ``--coq``
 
-  Transform the program into a Coq program, and let Coq generate subgoals automatically                                                         
+  Transform the program into a Coq program, and let Coq generate subgoals automatically
 
 * ``--type-checker``
 
@@ -50,7 +50,15 @@ By default, ``--verification`` is chosen.
 * ``--check-measures=[true|false] (default: true)``
 
   Check termination of functions with measures, ie. whether measures decrease between recursive calls.
-  
+
+* ``--testgen``
+
+  Proves or disproves function contracts (like ``--verification``) and attempts to create Scala test cases from reported counter-examples.
+
+* ``--genc-testgen``
+
+  Like ``--testgen``, but generates C test cases using GenC.
+
 * ``--help``
 
   Prints a helpful message, then exits.
@@ -69,7 +77,7 @@ These options are available to all Stainless components:
 * ``--no-colors``
 
   Disable colored output and non-ascii characters (consider this option for better support in IDEs)
-  
+
 * ``--compact``
 
   Reduces the components' summaries to only the invalid elements (e.g. invalid VC).
@@ -300,6 +308,19 @@ Evaluators
 
   Ignores function contracts during evaluation.
 
+
+
+Tests generation
+****************
+
+* ``testgen-file=<file>``
+
+  Specifies the output file for the generated tests.
+
+* ``genc-testgen-includes=header1.h,header2,...``
+
+  Only applies for ``--genc-testgen``. Indicates the headers to ``#include`` in the generated test file.
+
 Configuration File
 ------------------
 
@@ -316,10 +337,10 @@ For example, consider the config file containin the following lines:
    timeout = 5
    check-models = true
    print-ids = true
-    
+
 
 The file will translate to the following command line options:
-    
+
 ``--vc-cache=false --debug=verification,trees --timeout=5 --print-ids``
 
 Stainless searches for a configuration file recursively
@@ -372,7 +393,7 @@ may contain:
    stainless/proof/Internal.scala
    stainless/proof/package.scala
 
-Shortening this list may reduce the startup time, but also cause Stainless to not work propertly, so 
+Shortening this list may reduce the startup time, but also cause Stainless to not work propertly, so
 using the ``--watch`` and ``--functions`` options is the first option to try.
 
 For further customization by advanced users, please examine the ``build.sbt`` file.
