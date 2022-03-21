@@ -61,7 +61,7 @@ object Issue1111b {
 
   @pure
   def main: Unit = {
-    var cont: MutCell[Container[Data, Int]] = MutCell[Container[Data, Int]](freshCopy(neww[Data, Int]))
+    val cont: MutCell[Container[Data, Int]] = MutCell[Container[Data, Int]](freshCopy(neww[Data, Int]))
     val key: Data = freshCopy(Data(MutCell[String]("foo")))
     if (!is_empty[Data, Int](cont.value)) {
       error[Nothing]("assertion failed: cont.is_empty()")

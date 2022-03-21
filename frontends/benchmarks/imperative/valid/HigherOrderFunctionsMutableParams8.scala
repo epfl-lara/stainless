@@ -1,21 +1,21 @@
 import stainless.lang._
 
 object HigherOrderFunctionsMutableParams8 {
-  
-  case class A(var x: Int)
 
-  case class FunctionWrapper(f: (A) => Int)
+  case class A(var x: BigInt)
 
-  def app(wrap: FunctionWrapper, a: A): Int = {
+  case class FunctionWrapper(f: (A) => BigInt)
+
+  def app(wrap: FunctionWrapper, a: A): BigInt = {
     wrap.f(a)
   }
 
-  def fImpl(a: A): Int = {
+  def fImpl(a: A): BigInt = {
     a.x += 1
     a.x
   }
 
-  def test(): Int = {
+  def test(): BigInt = {
     val a = A(0)
     val wrap = FunctionWrapper(fImpl)
     app(wrap, a)

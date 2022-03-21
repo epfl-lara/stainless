@@ -7,7 +7,7 @@ object FreshCopy3 {
 
   @pure
   def setField(arg: S): S = {
-    var v = freshCopy(arg)
+    val v = freshCopy(arg)
     v.field = 456
     v
   }

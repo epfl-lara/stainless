@@ -156,7 +156,7 @@ object Banking {
                   to, amount, false)
     )
     assert(status)
-  } ensuring(_ => 
+  } ensuring(_ =>
       from.balance + to.balance == old(from).balance + old(to).balance &&
       from.checking == old(from).checking - amount &&
       to.checking == old(to).checking + amount
@@ -195,7 +195,7 @@ object SFuns {
 
   def makeCounter: SFun[Unit, BigInt, BigInt] = {
     SFun(State(0),
-         (_: Unit, c: State[BigInt]) => { 
+         (_: Unit, c: State[BigInt]) => {
            c.value += 1
            c.value
          })
