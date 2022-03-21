@@ -8,7 +8,8 @@ object MultiArray7 {
 
     var i = 0
     (while(i < 10) {
-      a(i) = Array.fill(10)(i)
+      val iCpy = i // To not anger EffectsChecker which will complain if we do not bind `i` to an immutable value
+      a(i) = Array.fill(10)(iCpy)
       i += 1
     }) invariant( a.length == 10 && a(3).length == 10 && i >= 0 && i <= 10 && ((i >= 4) ==> (a(3)(3) == 3)) )
     a(3)(3)

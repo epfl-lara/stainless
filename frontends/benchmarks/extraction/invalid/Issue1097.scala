@@ -1,6 +1,7 @@
 import stainless.lang._
 import stainless.annotation._
 
+// FIXME: Used to be accepted and verified (now rejected at extraction)
 object Mutable {
   sealed case class MutCell[@mutable T](var value: T)
   sealed case class Container[T](field: MutCell[Option[T]])
@@ -19,8 +20,13 @@ object Mutable {
     val target: MutCell[Container[Int]] = MutCell(
       Container(MutCell(Some(MutCell(123))))
     )
+    // "Unsupported val definition (couldn't compute targets and there are mutable variables shared between the binding and the body)"
+    // This test case used to be accepted because a special case was triggered in AntiAliasing due to `target` not being referenced
+    // in the body of the block.
+    // Now, the Normalizer introduces a binding `targetBound` for the call to `get_mut` and that special case is no longer triggered
+    // because `targetBound` and `target` are alive after the call to `get_mut`.
     get_mut[Int](target) match {
-      case Some(v) => v.value = 456               // AntiAliasing replaces `v.value = 456` with `()`
+      case Some(v) => v.value = 456
       case _       => error[Nothing]("no value")
     }
     assert(

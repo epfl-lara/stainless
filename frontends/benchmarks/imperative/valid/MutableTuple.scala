@@ -35,5 +35,7 @@ object MutableTuple {
 
     val x = t1((pair._1, pair._2))
     assert(x == 100)
+    assert(pair._1.value == 1)
+    assert(pair._2.value == 100)
   }
 }

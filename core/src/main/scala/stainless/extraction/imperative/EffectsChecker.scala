@@ -67,6 +67,38 @@ trait EffectsChecker { self: EffectsAnalyzer =>
 
             super.traverse(ct)
 
+          case st @ SetType(elemTp) =>
+            if (isMutableType(elemTp)) {
+              throw ImperativeEliminationException(tpe,
+                s"Cannot instantiate a set ${tpe.asString} with a mutable type ${elemTp.asString}")
+            }
+
+            super.traverse(st)
+
+          case bt @ BagType(elemTp) =>
+            if (isMutableType(elemTp)) {
+              throw ImperativeEliminationException(tpe,
+                s"Cannot instantiate a bag ${tpe.asString} with a mutable type ${elemTp.asString}")
+            }
+
+            super.traverse(bt)
+
+          case mt @ MapType(from, _) =>
+            if (isMutableType(from)) {
+              throw ImperativeEliminationException(tpe,
+                s"Cannot instantiate a map ${tpe.asString} with a mutable key type ${from.asString}")
+            }
+
+            super.traverse(mt)
+
+          case mt @ MutableMapType(from, _) =>
+            if (isMutableType(from)) {
+              throw ImperativeEliminationException(tpe,
+                s"Cannot instantiate a mutable map ${tpe.asString} with a mutable key type ${from.asString}")
+            }
+
+            super.traverse(mt)
+
           case _ => super.traverse(tpe)
         }
 
@@ -87,12 +119,18 @@ trait EffectsChecker { self: EffectsAnalyzer =>
             super.traverse(l)
 
           case l @ LetVar(vd, e, b) =>
-            if (!isExpressionFresh(e) && isMutableType(vd.tpe))
-              throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
+            if (isMutableType(vd.tpe))
+              throw ImperativeEliminationException(e, "Cannot bind expression of a mutable type to a `var`: " + e.asString)
 
             super.traverse(l)
 
           case au @ ArrayUpdate(a, i, e) =>
+            if (isMutableType(e.getType) && !isExpressionFresh(e))
+              throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
+
+            super.traverse(au)
+
+          case au @ ArrayUpdated(a, i, e) =>
             if (isMutableType(e.getType) && !isExpressionFresh(e))
               throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
 
@@ -161,6 +199,15 @@ trait EffectsChecker { self: EffectsAnalyzer =>
             }
 
             super.traverse(dup)
+
+          case la @ LargeArray(_, default, _, _) =>
+            // The `default` expression is the one that is going to be repeated n times, so it must be referentially transparent.
+            if (!isReferentiallyTransparent(default)) {
+              throw ImperativeEliminationException(e,
+                s"Cannot use effectfull computations within Array.fill (${default.asString})")
+            }
+
+            super.traverse(la)
 
           case _ => super.traverse(e)
         }

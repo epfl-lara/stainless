@@ -7,7 +7,7 @@ object CastCorrectness {
   sealed abstract class List[@mutable T]
   case class Nil[@mutable T]() extends List[T]
   case class Cons[@mutable T](var head: T, var tail: List[T]) extends List[T]
-  
+
   @pure
   def contains(self: List[Int], t: Int): Boolean =
     contents(freshCopy(self)).contains(t)
@@ -36,11 +36,11 @@ object CastCorrectness {
 
   @pure
   def removeFromList(var0: List[Int]): Unit = {
-    var list: List[Int] = freshCopy(var0)
+    val list: List[Int] = freshCopy(var0)
     list match {
       case Cons(first_elem, _) =>
-        list = remove(list, first_elem)
-        if (contains(list, first_elem)) {
+        val newList = remove(list, first_elem)
+        if (contains(newList, first_elem)) {
           error[Nothing]("still contained")
         }
       case _ => ()
