@@ -6,6 +6,8 @@ import stainless.annotation._
 object Extern2 {
   @extern
   def plop(a: BigInt): BigInt = {
+    // Does not satisfy the postcondition, but works as intended
+    // (@extern functions bodies are not extracted, only their contracts).
     a + scala.math.abs(-3)
   } ensuring {
     _ > 0

@@ -43,4 +43,9 @@ object Simple {
     f(2)
   } ensuring { res => res > 0 }
 
+  def passing_8(f: BigInt => BigInt, g: BigInt => BigInt, x: BigInt) = {
+    require(forall((a: BigInt, b: BigInt) => f(a) + g(a) > 0))
+    if(x <= 0) f(x) + g(x)
+    else x
+  } ensuring { res => res > 0 }
 }

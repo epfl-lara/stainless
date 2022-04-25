@@ -1,6 +1,7 @@
 import stainless.lang._
 import stainless.annotation._
 
+// See https://github.com/epfl-lara/stainless/issues/1180
 object Countable2 {
   // an instance of Countable[T] gives a bijection between T and BigInt
   abstract class Countable[T] {

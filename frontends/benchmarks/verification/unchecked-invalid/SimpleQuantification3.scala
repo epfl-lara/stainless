@@ -7,6 +7,6 @@ object SimpleQuantification3 {
   def failling(f: BigInt => BigInt, g: BigInt => BigInt, x: BigInt) = {
     require(forall((a: BigInt, b: BigInt) => f(a) + g(a) > 0))
     if(x < 0) f(x) + g(x)
-    else x
+    else x // Postcondition does not hold for x == 0
   } ensuring { res => res > 0 }
 }

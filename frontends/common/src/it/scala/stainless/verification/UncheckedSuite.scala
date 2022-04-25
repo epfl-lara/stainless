@@ -5,7 +5,7 @@ package verification
 
 import org.scalatest._
 
-trait UncheckedSuite extends ComponentTestSuite {
+trait UncheckedSuite extends VerificationComponentTestSuite {
 
   override def configurations = super.configurations.map {
     seq => Seq(optFailEarly(true), inox.solvers.optCheckModels(false)) ++ seq
@@ -13,11 +13,8 @@ trait UncheckedSuite extends ComponentTestSuite {
 
   override val component: VerificationComponent.type = VerificationComponent
 
-  testAll("verification/unchecked") { (analysis, _, _) =>
-    val report = analysis.toReport
-    assert(report.totalInvalid > 0 || report.totalUnknown > 0,
-      "There should be at least one invalid/unknown verification condition.")
-  }
+  testUncheckedAll("verification/unchecked-invalid")
+  testUncheckedAll("verification/unchecked-valid")
 }
 
 class SMTZ3UncheckedSuite extends UncheckedSuite {

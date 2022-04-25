@@ -2,6 +2,7 @@
 
 import stainless.annotation._
 import stainless.lang._
+import stainless.proof._
 
 import stainless.io.{
   FileInputStream => FIS,
@@ -51,6 +52,7 @@ object ImageProcessing {
    *                                               Basic Algorithms     *
    **********************************************************************/
 
+  @inline
   def inRange(x: Int, min: Int, max: Int): Boolean = {
     require(min <= max)
     min <= x && x <= max
@@ -264,22 +266,28 @@ object ImageProcessing {
     var success = true
 
     (while (success && i < count) {
+      decreases(count - i)
       val opt = fis.tryReadByte()
       success = opt.isDefined
       i += 1
-    }) invariant (inRange(i, 0, count))
+    }) invariant (inRange(i, 0, count) && fis.isOpen)
 
     success
-  }
+  }.ensuring(_ => fis.isOpen)
 
   // Fill the output with copies of the given byte.
   @tailrec // <- a good indicator that the C compiler could optimise out the recursion.
   def writeBytes(fos: FOS, byte: Byte, count: Int): Boolean = {
+    decreases(count)
     require(fos.isOpen && 0 <= count)
 
     if (count == 0) true
-    else fos.write(byte) && writeBytes(fos, byte, count - 1)
-  }
+    else {
+      val ok1 = fos.write(byte)
+      if (ok1) writeBytes(fos, byte, count - 1)
+      else false
+    }
+  }.ensuring(_ => fos.isOpen)
 
   // Attempt to read a WORD (16-bit unsigned integer).
   // The result is represented using an Int.
@@ -293,10 +301,10 @@ object ImageProcessing {
     if (byte1.isDefined && byte2.isDefined) Result(constructWord(byte1.get, byte2.get))
     else Failure[Int](ReadError())
   } ensuring { res =>
-    res match {
+    fis.isOpen && (res match {
       case Result(word) => inRange(word, 0, 65535)
       case _            => true
-    }
+    })
   }
 
   private def constructWord(byte1: Byte, byte2: Byte): Int = {
@@ -314,8 +322,11 @@ object ImageProcessing {
     val (b1, b2) = destructWord(word)
 
     // From big endian to little endian
-    fos.write(b2) && fos.write(b1)
-  }
+    val ok1 = fos.write(b2)
+    if (!ok1) return false
+    val ok2 = fos.write(b1)
+    ok2
+  }.ensuring(_ => fos.isOpen)
 
   private def destructWord(word: Int): (Byte, Byte) = {
     require(inRange(word, 0, 65535))
@@ -360,10 +371,10 @@ object ImageProcessing {
       } else Failure[Int](DomainError())
     } else Failure[Int](ReadError())
   } ensuring { res =>
-    res match {
+    fis.isOpen && (res match {
       case Result(dword) => inRange(dword, 0, 2147483647)
       case _ => true
-    }
+    })
   }
 
   // Write a DWORD
@@ -376,8 +387,15 @@ object ImageProcessing {
     val b1 = dword.toByte
 
     // Big endian to little endian conversion
-    fos.write(b1) && fos.write(b2) && fos.write(b3) && fos.write(b4)
-  }
+    val ok1 = fos.write(b1)
+    if (!ok1) return false
+    val ok2 = fos.write(b2)
+    if (!ok2) return false
+    val ok3 = fos.write(b3)
+    if (!ok3) return false
+    val ok4 = fos.write(b4)
+    ok4
+  }.ensuring(_ => fos.isOpen)
 
   // Attempt to read a LONG (32-bit signed integer).
   // The result is represented using an Int.
@@ -398,7 +416,7 @@ object ImageProcessing {
       val long = buildInt(byte1.get, byte2.get, byte3.get, byte4.get)
       Result(long)
     } else Failure[Int](ReadError())
-  }
+  }.ensuring(_ => fis.isOpen)
 
   // Write a LONG
   def writeLong(fos: FOS, long: Int): Boolean = {
@@ -410,8 +428,15 @@ object ImageProcessing {
     val b1 = long.toByte
 
     // Big endian to little endian conversion
-    fos.write(b1) && fos.write(b2) && fos.write(b3) && fos.write(b4)
-  }
+    val ok1 = fos.write(b1)
+    if (!ok1) return false
+    val ok2 = fos.write(b2)
+    if (!ok2) return false
+    val ok3 = fos.write(b3)
+    if (!ok3) return false
+    val ok4 = fos.write(b4)
+    ok4
+  }.ensuring(_ => fos.isOpen)
 
 
   /**********************************************************************
@@ -425,7 +450,9 @@ object ImageProcessing {
 
     var skipSuccess = skipBytes(fis, WordSize)
     val sizeRes     = maybeReadDword(fis)
-    skipSuccess     = skipSuccess && skipBytes(fis, WordSize * 2)
+    if (skipSuccess) {
+      skipSuccess   = skipBytes(fis, WordSize * 2)
+    }
     val offsetRes   = maybeReadDword(fis)
 
     combine(sizeRes, offsetRes) match {
@@ -436,7 +463,7 @@ object ImageProcessing {
         else Failure[FileHeader](InvalidFileHeaderError())
       }
     }
-  }
+  }.ensuring(_ => fis.isOpen)
 
   // Attempt to read the bitmap header (minimal version).
   // Upon success, 18 bytes have been read.
@@ -446,7 +473,9 @@ object ImageProcessing {
     var skipSuccess    = skipBytes(fis, DwordSize)
     val widthRes       = maybeReadLong(fis)
     val heightRes      = maybeReadLong(fis)
-    skipSuccess        = skipSuccess && skipBytes(fis, WordSize)
+    if (skipSuccess) {
+      skipSuccess      = skipBytes(fis, WordSize)
+    }
     val bppRes         = maybeReadWord(fis)
     val compressionRes = maybeReadWord(fis)
 
@@ -459,10 +488,10 @@ object ImageProcessing {
           log("height", h)
           log("bpp", bpp)
           log("compression", compression)
-          Failure(InvalidBitmapHeaderError())
-        } else Result(BitmapHeader(w, h))
+          Failure[BitmapHeader](InvalidBitmapHeaderError())
+        } else Result[BitmapHeader](BitmapHeader(w, h))
     }
-  }
+  }.ensuring(_ => fis.isOpen)
 
   def loadImageData(fis: FIS, image: Image)(implicit state: stainless.io.State): Status = {
     require(fis.isOpen)
@@ -472,6 +501,7 @@ object ImageProcessing {
     var status: Status = Success()
 
     (while (status.isSuccess && i < size) {
+      decreases(size - i)
       val rOpt = fis.tryReadByte()
       val gOpt = fis.tryReadByte()
       val bOpt = fis.tryReadByte()
@@ -488,28 +518,41 @@ object ImageProcessing {
       i += 1
     }) invariant (
       inRange(size, 0, MaxSurfaceSize) &&
-      inRange(i, 0, size)
+      inRange(i, 0, size) &&
+      fis.isOpen
     )
 
     status
-  }
+  }.ensuring(_ => fis.isOpen)
 
   def saveImage(fos: FOS, image: Image): Status = {
     require(fos.isOpen)
 
     def writeFileHeader(): Boolean = {
+      require(fos.isOpen)
       // Size: the headers and 3 channels per pixel, 1 byte per pixel component.
       val size      = 14 + 40 + image.w * image.h * 3
       val reserved  = 0 // two WORDs are reserved
       val offset    = 14 + 40 // after the two headers
 
-      fos.write(0x42.toByte) && fos.write(0x4d.toByte) && // the signature "BM"
-      writeDword(fos, size) &&
-      writeWord(fos, reserved) && writeWord(fos, reserved) &&
-      writeDword(fos, offset)
-    }
+      // the signature "BM"
+      val ok1 = fos.write(0x42.toByte)
+      if (!ok1) return false
+      val ok2 = fos.write(0x4d.toByte)
+      if (!ok2) return false
+
+      val ok3 = writeDword(fos, size)
+      if (!ok3) return false
+      val ok4 = writeWord(fos, reserved)
+      if (!ok4) return false
+      val ok5 = writeWord(fos, reserved)
+      if (!ok5) return false
+      val ok6 = writeDword(fos, offset)
+      ok6
+    }.ensuring(_ => fos.isOpen)
 
     def writeBitmapHeader(): Boolean = {
+      require(fos.isOpen)
       val size   = 40
       val w      = image.w
       val h      = image.h
@@ -517,30 +560,48 @@ object ImageProcessing {
       val bpp    = 24
       val comp   = 0
 
-      writeDword(fos, size) &&
-      writeLong(fos, w) && writeLong(fos, h) &&
-      writeWord(fos, planes) &&
-      writeWord(fos, bpp) &&
-      writeWord(fos, comp) &&
-      writeBytes(fos, 0, 22) // the last 22 bytes are all not relevant for us and are set to 0
-    }
+      val ok1 = writeDword(fos, size)
+      if (!ok1) return false
+      val ok2 = writeLong(fos, w)
+      if (!ok2) return false
+      val ok3 = writeLong(fos, h)
+      if (!ok3) return false
+      val ok4 = writeWord(fos, planes)
+      if (!ok4) return false
+      val ok5 = writeWord(fos, bpp)
+      if (!ok5) return false
+      val ok6 = writeWord(fos, comp)
+      if (!ok6) return false
+      val ok7 = writeBytes(fos, 0, 22) // the last 22 bytes are all not relevant for us and are set to 0
+      ok7
+    }.ensuring(_ => fos.isOpen)
 
     def writeImage(): Boolean = {
+      require(fos.isOpen)
       val count = image.w * image.h
       var i = 0
       var success = true
 
       (while (success && i < count) {
-        success = fos.write(image.r(i)) && fos.write(image.g(i)) && fos.write(image.b(i))
+        decreases(count - i)
+        val ok1 = fos.write(image.r(i))
+        val ok2 = if (ok1) fos.write(image.g(i)) else false
+        val ok3 = if (ok2) fos.write(image.b(i)) else false
+        success = ok3
         i += 1
-      }) invariant (inRange(count, 0, MaxSurfaceSize) && inRange(i, 0, count))
+      }) invariant (inRange(count, 0, MaxSurfaceSize) && inRange(i, 0, count) && fos.isOpen)
 
       success
-    }
+    }.ensuring(_ => fos.isOpen)
 
-    if (writeFileHeader() && writeBitmapHeader() && writeImage()) Success()
+    val ok1 = writeFileHeader()
+    if (!ok1) return WriteError()
+    val ok2 = writeBitmapHeader()
+    if (!ok2) return WriteError()
+    val ok3 = writeImage()
+    if (ok3) Success()
     else WriteError()
-  }
+  }.ensuring(_ => fos.isOpen)
 
 
   /**********************************************************************
@@ -602,7 +663,7 @@ object ImageProcessing {
         val r = fix(row, height)
 
         val component = channel(r * width + c) // unsigned
-        if (component < 0) component + 255.toByte else component.toInt
+        if (component < 0) component + 255 else component.toInt
       } ensuring { inRange(_, 0, 255) }
 
       val mid = size / 2
@@ -614,10 +675,13 @@ object ImageProcessing {
       var p   = -mid
 
       (while (p <= mid) {
+        decreases(mid - p)
         var q = -mid
 
         val oldP = p // Fix p for the inner loop (the invariant is not automatically inferred)
+
         (while (q <= mid) {
+          decreases(mid - q)
           val kcol = p + mid
           val krow = q + mid
 
@@ -628,11 +692,13 @@ object ImageProcessing {
 
           // Here, the += and * operation could overflow
           res += at(i + p, j + q) * kernel(kidx)
-
+          assert(inRange(q, -mid, mid))
           q += 1
-        }) invariant (oldP == p && inRange(q, -mid, mid + 1))
-
+          check(inRange(q, -mid, mid + 1))
+        }) invariant (oldP == p &&& inRange(q, -mid, mid + 1))
+        assert(inRange(p, -mid, mid))
         p += 1
+        check(inRange(p, -mid, mid + 1))
       }) invariant (inRange(p, -mid, mid + 1))
 
       res = clamp(res / scale, 0, 255)
@@ -646,6 +712,7 @@ object ImageProcessing {
       var i = 0
 
       (while (i < size) {
+        decreases(size - i)
         dest.r(i) = apply(src.r, src.w, src.h, i)
         dest.g(i) = apply(src.g, src.w, src.h, i)
         dest.b(i) = apply(src.b, src.w, src.h, i)
@@ -729,18 +796,9 @@ object ImageProcessing {
     ))
 
     def processImage(src: Image): Status = {
-      // Compute the processing time, without I/Os
-      val t1 = TimePoint.now()
-
+      require(fos.isOpen)
       val dest = createImage(src.w, src.h)
       kernel.apply(src, dest)
-
-      val t2 = TimePoint.now()
-      val ms = TimePoint.elapsedMillis(t1, t2)
-      StdOut.print("Computation time: ")
-      StdOut.print(ms)
-      StdOut.println("ms.")
-
       saveImage(fos, dest)
     }
 

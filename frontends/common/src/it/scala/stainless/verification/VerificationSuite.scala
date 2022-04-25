@@ -17,24 +17,13 @@ trait VerificationSuite extends VerificationComponentTestSuite {
   }
 
   override def filter(ctx: inox.Context, name: String): FilterStatus = name match {
-    case "verification/valid/Extern1" => Ignore
-    case "verification/valid/Extern2" => Ignore
-    case "verification/valid/ChooseLIA" => Ignore
     case "verification/valid/Streams" => Ignore // only for TypeCheckerSuite
-    case "verification/invalid/SpecWithExtern" => Ignore
-    case "verification/invalid/BinarySearchTreeQuant" => Ignore
-    case "verification/invalid/ForallAssoc" => Ignore
+    case "verification/invalid/ForallAssoc" => Ignore // Hangs
 
     // Lemmas used in one equation can leak in other equations due to https://github.com/epfl-lara/inox/issues/139
     case "verification/invalid/Equations1" => Ignore
     case "verification/invalid/Equations2" => Ignore
     case "verification/invalid/Equations3" => Ignore
-
-    // Unstable
-    case "verification/valid/BigIntMonoidLaws" => Ignore
-    case "verification/valid/BigIntRing" => Ignore
-    case "verification/valid/InnerClasses4" => Ignore
-    case "verification/valid/PropositionalLogic" => Ignore
 
     case _ => super.filter(ctx, name)
   }
@@ -42,6 +31,10 @@ trait VerificationSuite extends VerificationComponentTestSuite {
   testPosAll("verification/valid")
 
   testNegAll("verification/invalid")
+
+  // Tests that should be rejected, but aren't
+  testPosAll("verification/false-valid")
+
 }
 
 class SMTZ3VerificationSuite extends VerificationSuite {
