@@ -100,14 +100,15 @@ abstract class ExtractionSuite extends AnyFunSpec with inox.ResourceUtils with I
           given testCtx: inox.Context = TestContext.empty
           val program = loadFiles(List(f))._2
           val programSymbols = userFiltering.debug(frontend.UserFiltering().transform)(program.symbols)
-          extraction.pipeline extract programSymbols
+          val exSyms = extraction.pipeline extract programSymbols
+          exSyms.ensureWellFormed
           testCtx.reporter.errorCount
         }
       }
 
       it("should fail") {
         tryPrograms foreach { case (f, tp) => tp match {
-          case Failure(e) => assert(true)
+          case Failure(e) => ()
           case Success(n) => assert(n > 0, s"$f was successfully extracted")
         }}
       }

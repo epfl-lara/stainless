@@ -14,13 +14,7 @@ trait TypeCheckerSuite extends VerificationComponentTestSuite {
   }
 
   override def filter(ctx: inox.Context, name: String): FilterStatus = name match {
-    // Same as VerificationSuite
-    case "verification/valid/Extern1"                 => Ignore
-    case "verification/valid/Extern2"                 => Ignore
-    case "verification/valid/ChooseLIA"               => Ignore
-    case "verification/invalid/SpecWithExtern"        => Ignore
-    case "verification/invalid/BinarySearchTreeQuant" => Ignore
-    case "verification/invalid/ForallAssoc"           => Ignore
+    case "verification/invalid/ForallAssoc"           => Ignore  // Hangs
 
     // unknown/timeout VC but counter-example not found
     case "verification/invalid/BadConcRope"           => Ignore
@@ -29,14 +23,6 @@ trait TypeCheckerSuite extends VerificationComponentTestSuite {
     case "verification/invalid/Equations1" => Ignore
     case "verification/invalid/Equations2" => Ignore
     case "verification/invalid/Equations3" => Ignore
-
-    // Unstable
-    case "verification/valid/BigIntMonoidLaws" => Ignore
-    case "verification/valid/BigIntRing" => Ignore
-    case "verification/valid/InnerClasses4" => Ignore
-
-    // Not compatible with typechecker
-    case "verification/valid/Countable2" => Ignore
 
     case _ => super.filter(ctx, name)
   }
@@ -57,6 +43,9 @@ trait TypeCheckerSuite extends VerificationComponentTestSuite {
   testPosAll("verification/valid", recursive = true, bitVectorsTestDiscarding)
 
   testNegAll("verification/invalid")
+
+  // Tests that should be rejected, but aren't
+  testPosAll("verification/false-valid")
 }
 
 class SMTZ3TypeCheckerSuite extends TypeCheckerSuite {

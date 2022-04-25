@@ -1,3 +1,4 @@
+import stainless.lang._
 import stainless.io._
 import stainless.annotation._
 
@@ -9,10 +10,12 @@ object Return {
 
   def findIndex[T](a: Array[T], t: T): Int = {
     var i: Int = 0
-    (while (true) {
+    (while (i < a.length) {
+      decreases(a.length - i)
       if (a(i) == t) return i
       i += 1
-    })
+    }).invariant(0 <= i && i <= a.length)
+
     0
   }
 

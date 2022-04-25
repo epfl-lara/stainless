@@ -29,4 +29,11 @@ trait VerificationComponentTestSuite extends ComponentTestSuite { self =>
       val report = analysis.toReport
       assert(report.totalInvalid > 0, "There should be at least one invalid verification condition. " + report.stats)
     }
+
+  def testUncheckedAll(dir: String, recursive: Boolean = false, keepOnly: String => Boolean = _ => true, identifierFilter: Identifier => Boolean = _ => true): Unit =
+    testAll(dir, recursive, keepOnly, identifierFilter) { (analysis, reporter, _) =>
+      val report = analysis.toReport
+      assert(report.totalInvalid > 0 || report.totalUnknown > 0,
+        "There should be at least one invalid/unknown verification condition.")
+    }
 }

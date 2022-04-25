@@ -17,7 +17,7 @@ object BSTSimpler {
     case Leaf() => true
     case Node(left, v, right) => {
       isBST(left) && isBST(right) &&
-      forall((x:BigInt) => (content(left).contains(x) ==> x < v - 10)) &&
+      forall((x:BigInt) => (content(left).contains(x) ==> x < v - 10)) && // Unsupported quantification
       forall((x:BigInt) => (content(right).contains(x) ==> v < x))
     }
   }

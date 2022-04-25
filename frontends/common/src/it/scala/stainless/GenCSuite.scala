@@ -18,16 +18,6 @@ class GenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUtils with
   val invalidFiles = resourceFiles("genc/invalid", _.endsWith(".scala"), false).map(_.getPath)
   val ctx = TestContext.empty
 
-  // FIXME: fix verification for those files
-  // https://github.com/epfl-lara/stainless/issues/926
-  val ignoreVerification: Set[String] = Set(
-    "LZWa.scala",
-    "LZWb.scala",
-    "ImageProcessing.scala",
-    "Return.scala",
-    "ArgumentsEffects.scala", // https://github.com/epfl-lara/stainless/issues/1068
-  )
-
   for (file <- invalidFiles) {
     val cFile = file.replace(".scala", ".c")
     val outFile = file.replace(".scala", ".out")
@@ -36,9 +26,10 @@ class GenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUtils with
     }
   }
 
-  for (file <- validFiles if !ignoreVerification(new File(file).getName)) {
-    test(s"stainless --batched $file") {
-      val (localCtx, optReport) = runMainWithArgs(Array(file) :+ "--batched")
+  for (file <- validFiles) {
+    val extraOpts = Seq("--batched", "--solvers=smt-z3", "--strict-arithmetic=false", "--timeout=10")
+    test(s"stainless ${extraOpts.mkString(" ")} $file") {
+      val (localCtx, optReport) = runMainWithArgs(Array(file) ++ extraOpts)
       assert(localCtx.reporter.errorCount == 0, "No errors")
       assert(optReport.nonEmpty, "Valid report returned by Stainless")
       assert(optReport.get.isSuccess, "Only valid VCs")
@@ -71,24 +62,6 @@ class GenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUtils with
   test("Checking that GlobalUninitialized outputs 8410120") {
     val output = runCHelper("GlobalUninitialized.scala")
     assert(output == "8410120", s"Output '$output' should be '8410120'")
-  }
-
-  test("Checking that LZWa can encode and decode") {
-    val randomString = scala.util.Random.alphanumeric.take(1000).mkString
-    new PrintWriter("input.txt") { try write(randomString) finally close() }
-    val output = runCHelper("LZWa.scala")
-    assert(output == "success", s"Output '$output' should be 'success'")
-    val decoded = scala.io.Source.fromFile("decoded.txt").mkString
-    assert(decoded == randomString, s"Decoded ($decoded) should be equal to $randomString")
-  }
-
-  test("Checking that LZWb can encode and decode") {
-    val randomString = scala.util.Random.alphanumeric.take(1000).mkString
-    new PrintWriter("input.txt") { try write(randomString) finally close() }
-    val output = runCHelper("LZWb.scala")
-    assert(output == "success", s"Output '$output' should be 'success'")
-    val decoded = scala.io.Source.fromFile("decoded.txt").mkString
-    assert(decoded == randomString, s"Decoded ($decoded) should be equal to $randomString")
   }
 
   test("Checking that Pointer2 outputs 124443") {

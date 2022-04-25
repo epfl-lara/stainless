@@ -3,12 +3,14 @@
 package stainless
 package termination
 
+import org.scalatest.funsuite.AnyFunSuite
 import stainless.utils.YesNoOnly
-import stainless.verification.{VerificationComponent, VerificationAnalysis, optFailInvalid, optTypeChecker}
+import stainless.verification._
 
 import scala.concurrent.duration._
+import scala.util.{Failure, Success, Try}
 
-class TerminationSuite extends ComponentTestSuite {
+class TerminationSuite extends VerificationComponentTestSuite {
 
   override val component: VerificationComponent.type = VerificationComponent
 
@@ -22,33 +24,6 @@ class TerminationSuite extends ComponentTestSuite {
 
   override protected def optionsString(options: inox.Options): String = {
     "solver=" + options.findOptionOrDefault(inox.optSelectedSolvers).head
-  }
-
-  override def filter(ctx: inox.Context, name: String): FilterStatus = name match {
-    // Cannot prove termination (with either old or new termination checking mechanism)
-    case "termination/valid/NNF" => Skip
-
-    // Not compatible with System FR type-checker, or needs more inference
-    case "termination/valid/Streams"              => Skip
-    case "termination/valid/CyclicFibStream"      => Skip
-    case "termination/valid/CyclicHammingStream"  => Skip
-    case "termination/valid/Consistent"           => Skip
-
-    // Already correctly rejected by the type-checker
-    case "termination/looping/Inconsistency5"           => Skip // ADT Object must appear only in strictly positive positions of Machine
-    case "termination/looping/NegativeDatatype"         => Skip // ADT Code must appear only in strictly positive positions of Code
-    case "termination/looping/NonStrictPositiveTypes"   => Skip // ADT A must appear only in strictly positive positions of A
-    case "termination/looping/NonStrictPositiveTypesIR" => Skip // ADT A must appear only in strictly positive positions of A
-    case "termination/looping/Queue"                    => Skip // Call to function looping_2$0 is not allowed here, because it
-                                                                // is mutually recursive with the current function looping_1$0
-
-    // Unstable
-    case "verification/valid/BigIntMonoidLaws" => Ignore
-    case "verification/valid/BigIntRing" => Ignore
-    case "verification/valid/InnerClasses4" => Ignore
-    case "verification/valid/PropositionalLogic" => Ignore
-
-    case _ => super.filter(ctx, name)
   }
 
   def getResults(analysis: VerificationAnalysis) = {
@@ -116,4 +91,39 @@ class TerminationSuite extends ComponentTestSuite {
     }
     reporter.terminateIfError()
   }
+
+  testUncheckedAll("termination/unchecked-invalid")
+
+  // Tests that should be verified, but aren't (not compatible with System FR type-checker, or needs more inference)
+  testNegAll("termination/false-invalid")
+
+  // Looping programs that are already correctly rejected by the type-checker
+  // Since these are rejected at extraction (and not due to invalid VCs), we need
+  // do to something akin to ExtractionSuite.
+  superTest(this, "termination/rejected should not type-check") {
+    given context: inox.Context = createContext(inox.Options(configurations.head))
+    val fs = resourceFiles("termination/rejected", _.endsWith(".scala")).toList map { _.getPath }
+    val tryPrograms = fs.map { f =>
+      f -> Try {
+        val program = loadFiles(List(f))._2
+        val programSymbols = frontend.UserFiltering().transform(program.symbols)
+        val exSyms = component.run(extraction.pipeline).extract(programSymbols)
+
+        val p = inox.Program(stainless.trees)(exSyms)
+        val assertions = AssertionInjector(p, context)
+        val assertionEncoder = inox.transformers.ProgramEncoder(p)(assertions)
+
+        TypeChecker(assertionEncoder.targetProgram, context).checkFunctionsAndADTs(Seq.empty)
+      }
+    }
+
+    tryPrograms.foreach { case (f, tp) => tp match {
+      case Failure(_) => ()
+      case Success(_) => fail(s"$f was successfully extracted")
+    }}
+  }
+
+  // Workaround for a compiler crash caused by calling super.test
+  def superTest(self: AnyFunSuite, testName: String)(body: => Unit): Unit =
+    self.test(testName)(body)
 }

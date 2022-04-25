@@ -11,13 +11,17 @@ class ScalacExtractionSuite extends ExtractionSuite {
 
   testExtractAll("verification/valid")
   testExtractAll("verification/invalid")
-  testExtractAll("verification/unchecked")
+  testExtractAll("verification/unchecked-valid")
+  testExtractAll("verification/unchecked-invalid")
+  testExtractAll("verification/false-valid")
 
   testExtractAll("imperative/valid")
   testExtractAll("imperative/invalid")
 
   testExtractAll("termination/valid")
   testExtractAll("termination/looping")
+  testExtractAll("termination/unchecked-invalid")
+  testExtractAll("termination/false-invalid")
 
 }
 
