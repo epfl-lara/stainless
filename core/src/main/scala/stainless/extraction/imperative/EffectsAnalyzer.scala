@@ -624,7 +624,28 @@ trait EffectsAnalyzer extends oo.CachingPhase {
 
     case Let(vd, e, b) =>
       val targs0 = getTargets(b, kind, path)
-      // TODO: Explain why
+      // If `e` is referentially transparent (such as `i + 3`, assuming `i` is a val),
+      // we can bind and substitute it anywhere we want within b.
+      // For instance, if we have:
+      //   val vd = i + 3
+      //   val x = f(vd + 2)
+      //   y.field = vd
+      // Then, the following are equivalent:
+      //   val x = f(i + 5)
+      //   y.field = i + 3
+      // and
+      //   val x = f({val tmp = vd + 2; tmp})
+      //   y.field = i + 3
+      // Such operations may be performed by target.bind(vd, e)
+      // On the other hand, we cannot apply these transformation for non-referentially transparent
+      // expressions, as the resulting expression may not be equivalent.
+      // For example, assuming `ii` is declared as a `var` and if we have:
+      //   val vd = ii + 3
+      //   ii += 1
+      //   y.field = vd
+      // Then, it is clear that replacing `vd` in the assignment by `ii + 3` is incorrect.
+      // As such, we do not rebind or substitute `vd` by `e` within the targets
+      // (`vd` will appear as-is, i.e. as a variable, "forgetting" its definition).
       val targs = if (isReferentiallyTransparent(e)) targs0.map(_.bind(vd, e)) else targs0
 
       if (!symbols.isMutableType(vd.tpe)) {
@@ -728,7 +749,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
   }
 
   def isReferentiallyTransparent(e: Expr)(using syms: Symbols): Boolean = e match {
-    case Variable(_, tpe, flags) => !flags.contains(IsVar) && !syms.isMutableType(tpe) // TODO: Risque d'introduire binding val x = y non?
+    case Variable(_, tpe, flags) => !flags.contains(IsVar) && !syms.isMutableType(tpe)
     case ClassSelector(expr, field) =>
       val c @ ClassType(_, _) = expr.getType
       !c.getField(field).get.flags.contains(IsVar) && isReferentiallyTransparent(expr)
@@ -761,7 +782,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
 
     def effect(expr: Expr, env: Map[Variable, Set[Effect]]): Set[Effect] =
       getAllTargets(expr) flatMap { (target: Target) =>
-        inEnv(target.toEffect(ModifyingKind), env).toSet
+        inEnv(target.toEffect(ModifyingKind), env)
       }
 
     def rec(expr: Expr, env: Map[Variable, Set[Effect]]): Set[Effect] = expr match {
@@ -821,7 +842,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
           .filter(p => effects contains p._2)
           .flatMap(_._1)
 
-      case Assignment(v, value) => rec(value, env) ++ env.get(v).toSeq.flatten
+      case Assignment(v, value) => rec(value, env) ++ env.getOrElse(v, Set.empty)
 
       case IfExpr(cnd, thn, els) =>
         rec(cnd, env) ++ rec(thn, env) ++ rec(els, env)

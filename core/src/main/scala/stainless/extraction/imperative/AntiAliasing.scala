@@ -237,19 +237,18 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
 
           // We only overwrite the receiver when it is an actual mutable type.
           // This is necessary to handle immutable types being upcasted to `Any`, which is mutable.
-          val assignment = if (isMutableType(target.receiver.getType)) {
-            val newValue = updatedTarget(target, wrap(result))
+          if (combinedCond != BooleanLiteral(false) && isMutableType(target.receiver.getType)) {
+            val newValue = updatedTarget(target.copy(condition = Some(combinedCond)), wrap(result))
             val adt = target.receiver.getType
             val castedValue =
               if (adt.isInstanceOf[ADTType] && adt.asInstanceOf[ADTType].getSort.constructors.size == 1)
                 newValue
               else
-                wrap(AsInstanceOf(newValue, target.receiver.getType))
+                wrap(AsInstanceOf(newValue, target.receiver.getType).copiedFrom(newValue))
             Assignment(target.receiver, castedValue).setPos(pos)
-          } else UnitLiteral().setPos(pos)
-
-          if (combinedCond == BooleanLiteral(true)) assignment
-          else IfExpr(combinedCond, assignment, UnitLiteral().setPos(pos)).setPos(pos)
+          } else {
+            UnitLiteral().setPos(pos)
+          }
         }
 
         // NOTE: `args` must refer to the arguments of the function invocation before transformation (the original args)
@@ -407,7 +406,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
               val combinedCond = {
                 if (conds.isEmpty) None
                 else {
-                  val cond0 = orJoin(conds.toSeq)
+                  val cond0 = simplifyOr(conds.toSeq)
                   if (cond0 == BooleanLiteral(true)) None else Some(cond0)
                 }
               }
@@ -431,7 +430,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
           }.filter(_._2.nonEmpty)
         }
 
-        def aliasingValDefs2(updTargets: Set[Target], env: Env): Map[ValDef, Set[Target]] = {
+        def aliasingValDefs(updTargets: Set[Target], env: Env): Map[ValDef, Set[Target]] = {
           updTargets.flatMap(aliasingValDefs(_, env))
             .groupBy(_._1)
             .map {
@@ -447,7 +446,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
         // (note that we do not make use of the condition of the given targets such as cond5; here, we are interested
         // in "refreshing" the bindings. If the underlying value didn't change, "refreshing" would be useless but not incorrect)
         def updatedAliasingValDefs(targets: Set[Target], env: Env, pos: inox.utils.Position): Seq[Expr] = {
-          val aliases = aliasingValDefs2(targets, env)
+          val aliases = aliasingValDefs(targets, env)
           aliases.toSeq.flatMap {
             case (vd, prefixes) =>
               prefixes.map { properPrefix =>
@@ -488,11 +487,6 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
               .getOrElse(throw MalformedStainlessCode(swap, "Unsupported swap (first array)"))
             val targets2 = getDirectTargetsDealiased(recArray2, ArrayAccessor(recIndex2), env)
               .getOrElse(throw MalformedStainlessCode(swap, "Unsupported swap (second array)"))
-
-            // Sanity check: even though array1 and recArray1 may not be the same, their targets must be the same
-            // as the recursive transformation has no way of altering them
-            assert(Some(targets1) == getDirectTargetsDealiased(array1, ArrayAccessor(recIndex1), env))
-            assert(Some(targets2) == getDirectTargetsDealiased(array2, ArrayAccessor(recIndex2), env))
 
             val updates1 = updatedTargetsAndAliases(targets1, ArraySelect(recArray2, recIndex2).setPos(swap), env, swap.getPos)
             val updates2 = updatedTargetsAndAliases(targets2, temp.toVariable, env, swap.getPos)
@@ -543,7 +537,8 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
                   // But it also conditionally introduce a new target, namely Ref(123) when !cond1.
                   // In such case, we introduce `y` as a new target, with condition !cond1.
                   assert(targs.forall(_.condition.isDefined))
-                  val negatedConds = not(orJoin(targs.map(_.condition.get).toSeq))
+                  val disj = simplifyOr(targs.map(_.condition.get).toSeq)
+                  val negatedConds = simpleNot(disj)
                   if (negatedConds == BooleanLiteral(false)) Seq.empty[Target]
                   else Seq(Target(vd.toVariable, Some(negatedConds), Path.empty))
                 }
@@ -584,9 +579,6 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
             val targets = getDirectTargetsDealiased(arr, ArrayAccessor(recI), env)
               .getOrElse(throw MalformedStainlessCode(up, "Unsupported form of array updated"))
 
-            // Sanity check (the same as for Swap)
-            assert(Some(targets) == getDirectTargetsDealiased(transform(arr, env), ArrayAccessor(recI), env))
-
             val updates = updatedTargetsAndAliases(targets, recV, env, up.getPos)
             Block(updates, UnitLiteral().copiedFrom(up)).copiedFrom(up)
 
@@ -597,8 +589,6 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
             val targets = getDirectTargetsDealiased(map, MutableMapAccessor(recK), env)
               .getOrElse(throw MalformedStainlessCode(up, "Unsupported form of map updated"))
 
-            assert(Some(targets) == getDirectTargetsDealiased(transform(map, env), MutableMapAccessor(recK), env))
-
             val updates = updatedTargetsAndAliases(targets, recV, env, up.getPos)
             Block(updates, UnitLiteral().copiedFrom(up)).copiedFrom(up)
 
@@ -606,8 +596,6 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
             val accessor = typeToAccessor(o.getType, id)
             val targets = getDirectTargetsDealiased(o, accessor, env)
               .getOrElse(throw MalformedStainlessCode(as, "Unsupported form of field assignment"))
-
-            assert(Some(targets) == getDirectTargetsDealiased(transform(o, env), accessor, env))
 
             val recV = transform(v, env)
             val updates = updatedTargetsAndAliases(targets, recV, env, as.getPos)
@@ -817,6 +805,9 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
         case Target(receiver, None, path) =>
           rec(receiver, path.toSeq)
 
+        case Target(receiver, Some(BooleanLiteral(true)), path) =>
+          rec(receiver, path.toSeq)
+
         case Target(receiver, Some(condition), path) if effects(condition).nonEmpty =>
           throw MalformedStainlessCode(condition, s"Effects are not allowed in condition of effects: ${condition.asString}")
 
@@ -833,6 +824,90 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
             Seq(DropVCs)
           ).copiedFrom(newValue)
       }
+    }
+
+    // Tries to simplify Or(es), leveraging the logical structure introduced by ITE expressions.
+    // For instance, if es is of the form:
+    //    Seq(cond1, !cond1 && cond2, !cond1 && !cond2, !cond1 && !cond2 && cond3)
+    //    (corresponding to if (cond1) else if (cond2) else if (cond3))
+    // Then, an equivalent Or(es) is:
+    //    cond1 || cond2 || cond3
+    // If `es` is empty, False is returned
+    def simplifyOr(es: Seq[Expr]): Expr = {
+      enum Lit {
+        case Pos(e: Expr)
+        case Neg(e: Expr)
+        def inverted: Lit = this match {
+          case Pos(e) => Neg(e)
+          case Neg(e) => Pos(e)
+        }
+        def unwrap: Expr = this match {
+          case Pos(e) => e
+          case Neg(e) => Not(e).copiedFrom(e)
+        }
+      }
+      import Lit._
+      // Conjunction of "literals"
+      case class Conj(lits: Set[Lit]) {
+        require(lits.nonEmpty)
+      }
+
+      // Naive and inefficient loop performing some form of resolution,
+      // using the fact that b1 || (!b1 && b2) === b1 || b2.
+      // `res` is to be interpreted as a DNF, while `lits` contains
+      // candidate literals for the resolution.
+      def loop(lits: Set[Lit], res: Set[Conj]): Set[Conj] = {
+        if (lits.isEmpty) res
+        else {
+          val currInv = lits.head.inverted
+          res.find(_.lits.contains(currInv)) match {
+            case Some(conj) =>
+              val newConj = conj.lits.filter(_ != currInv)
+              // If newConj is empty, we have found a literal b and its negated form !b; the entire DNF is true
+              if (newConj.isEmpty) Set(Conj(Set(Pos(BooleanLiteral(true)))))
+              else {
+                // Add the resulting conjunction to the set of literal if it became a literal
+                val newLits = if (newConj.size == 1) lits + newConj.head else lits
+                loop(newLits, (res - conj) + Conj(newConj))
+              }
+            case None =>
+              // No conjunction contains the inverted literal, we drop it and continue
+              loop(lits.tail, res)
+          }
+        }
+      }
+
+      def wrap(e: Expr): Lit = e match {
+        case Not(e) => wrap(e).inverted // Recursive call to ensure things such as Not(Not(e)) get mapped to Pos(e)
+        case e => Pos(e)
+      }
+
+      def unwrapConj(conj: Conj): Expr = {
+        val (pos, neg) = conj.lits.partitionMap {
+          case Pos(e) => Left(e)
+          case Neg(e) => Right(e)
+        }
+        if (pos.intersect(neg).nonEmpty) BooleanLiteral(false)
+        else andJoin(pos.toSeq ++ neg.toSeq.map(simpleNot))
+      }
+
+      val (lits, conj) = es.foldLeft((Set.empty[Lit], Set.empty[Conj])) {
+        case ((accLits, accConjs), And(conj)) =>
+          (accLits, accConjs + Conj(conj.map(wrap).toSet))
+        case ((accLits, accConjs), e) =>
+          // "literals" are also candidate for simplification
+          (accLits + wrap(e), accConjs + Conj(Set(wrap(e))))
+      }
+
+      val simp = loop(lits, conj)
+      orJoin(simp.map(unwrapConj).toSeq)
+    }
+    // This function essentially wraps an e into a Not(e), except if we can do very simple simplification.
+    // The use case is to keep the Not(..) structure around for simplifyOr to be more effective.
+    def simpleNot(e: Expr): Expr = e match {
+      case BooleanLiteral(b) => BooleanLiteral(!b).copiedFrom(e)
+      case Not(e) => e
+      case e => Not(e).copiedFrom(e)
     }
 
     // Pre-transformation phase to ease the burden of makeSideEffectsExplicit.
@@ -884,8 +959,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
       //    then [|let vd = e in body|] ~> Ce[let vd = e' in Cb[ [] ] ], body'
       //
       //   -For [[{stmt1; stmt2; ...; last}|], if [|stmti|] ~> Ci, stmti' and [|last|] ~> Cl, last'
-      //    then [[{stmt1; stmt2; ...; last}|] ~> C1[{stmt1'; C2[stmt2']; ..., []}], last'
-      //    (note that we hoist all let-bindings out of stmt1, this is an arbitrary decision)
+      //    then [[{stmt1; stmt2; ...; last}|] ~> {C1[stmt1']; C2[stmt2']; ..., []}, last'
       //
       def doNormalize(e: Expr): (Expr => Expr, Expr) = e match {
         case cs @ ClassSelector(_, _) if selectionNeedsNorm(cs) =>
@@ -1173,11 +1247,10 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
         val normExprs: Seq[(Expr => Expr, Expr)] = (block.exprs :+ block.last).map(doNormalize)
         assert(normExprs.size >= 2)
 
-        val (ctxFst, normFst) = normExprs.head
         val (ctxLast, normLast) = normExprs.last
         val ctxBlock = (e: Expr) => {
-          val inBetween = normExprs.init.tail.map((ctx, e) => ctx(e))
-          ctxFst(Block(normFst +: inBetween, ctxLast(e)).copiedFrom(block))
+          val init = normExprs.init.map((ctx, e) => ctx(e))
+          Block(init, ctxLast(e)).copiedFrom(block)
         }
         (ctxBlock, normLast)
       }
