@@ -402,15 +402,8 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
         def groupedTargets(targets: Set[Target]): Set[Target] = {
           targets.groupBy(t => (t.receiver, t.path))
             .map { case ((recv, path), tgs) =>
-              val conds = tgs.flatMap(_.condition)
-              val combinedCond = {
-                if (conds.isEmpty) None
-                else {
-                  val cond0 = simplifyOr(conds.toSeq)
-                  if (cond0 == BooleanLiteral(true)) None else Some(cond0)
-                }
-              }
-              Target(recv, combinedCond, path)
+              val cond = simplifyOr(tgs.map(_.condition.getOrElse(BooleanLiteral(true))).toSeq)
+              Target(recv, if (cond == BooleanLiteral(true)) None else Some(cond), path)
             }.toSet
         }
 
