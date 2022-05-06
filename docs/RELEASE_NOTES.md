@@ -1,5 +1,14 @@
 # Release Notes
 
+## Version 0.9.5 (2022-05-06)
+
+### Stainless frontend, library and internals
+
+- VC checking in parallel (#1247)
+  - The parallelism can be specified with `-Dparallel=<N>` when invoking Stainless
+- Fix issue #1159 (#1246)
+- Address some issues in the imperative phase (#1245, #1252)
+
 ## Version 0.9.4 (2022-03-11)
 
 ### Stainless frontend, library and internals
