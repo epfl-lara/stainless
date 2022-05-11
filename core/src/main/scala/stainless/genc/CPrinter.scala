@@ -20,6 +20,10 @@ class CPrinter(
 
   private def purity(isPure: Boolean): String = if (isPure) "STAINLESS_FUNC_PURE " else ""
 
+  // Function definitions local to stainless.c (i.e., not exported) may be annotated as static, as they
+  // are not supposed to be accessed outside of the compilation unit.
+  private def static(isExported: Boolean): String = if (!isExported) "static " else ""
+
   private def wrap(t: Tree, modes: Seq[DeclarationMode]): WrapperTree = {
     modes.foldLeft(TTree(t) : WrapperTree) {
       case (acc, Static) => StaticStorage(acc)
@@ -339,15 +343,15 @@ class CPrinter(
     case TypeId(FixedArrayType(base, length), id) => c"$base $id[$length]"
     case TypeId(typ, id) => c"$typ $id"
 
-    case FunSign(Fun(id, _, _, Right(s), _, isPure)) =>
+    case FunSign(Fun(id, _, _, Right(s), isExported, isPure)) =>
       val header = s.takeWhile(_ != ')').replace("__FUNCTION__", id.name)
-      c"${purity(isPure)}$header)"
+      c"${static(isExported)}${purity(isPure)}$header)"
 
-    case FunSign(Fun(id, FunType(retret, retparamTypes), params, _, _, isPure)) =>
-      c"${purity(isPure)}$retret (*$id(${FunSignParams(params)}))(${FunSignParams(retparamTypes)})"
+    case FunSign(Fun(id, FunType(retret, retparamTypes), params, _, isExported, isPure)) =>
+      c"${static(isExported)}${purity(isPure)}$retret (*$id(${FunSignParams(params)}))(${FunSignParams(retparamTypes)})"
 
-    case FunSign(Fun(id, returnType, params, _, _, isPure)) =>
-      c"${purity(isPure)}$returnType $id(${FunSignParams(params)})"
+    case FunSign(Fun(id, returnType, params, _, isExported, isPure)) =>
+      c"${static(isExported)}${purity(isPure)}$returnType $id(${FunSignParams(params)})"
 
     case FunSignParams(Seq()) => c"void"
     case FunSignParams(params) => c"${nary(params)}"
