@@ -333,6 +333,11 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     else body
   }
 
+  object Target {
+    def apply(receiver: Variable, condition: Option[Expr], path: Path): Target =
+      new Target(receiver, if (condition == Some(BooleanLiteral(true))) None else condition, path)
+  }
+
   case class Target(receiver: Variable, condition: Option[Expr], path: Path) {
     def +(elem: Accessor): Target = Target(receiver, condition, path :+ elem)
 

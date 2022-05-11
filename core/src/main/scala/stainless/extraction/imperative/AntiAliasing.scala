@@ -403,7 +403,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
           targets.groupBy(t => (t.receiver, t.path))
             .map { case ((recv, path), tgs) =>
               val cond = simplifyOr(tgs.map(_.condition.getOrElse(BooleanLiteral(true))).toSeq)
-              Target(recv, if (cond == BooleanLiteral(true)) None else Some(cond), path)
+              Target(recv, Some(cond), path)
             }.toSet
         }
 
@@ -502,7 +502,8 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
               // 2. newExpr is a precise alias to existing variable(s)
               // 3. A combination of 1. and 2. (e.g. val y = if (cond) x else Ref(123))
 
-              val targs = targets.get
+              // Targets with a false condition are those that are never accessed, we can remove them.
+              val targs = targets.get.filterNot(_.condition == Some(BooleanLiteral(false)))
               // If there are more than one target, then it must be the case that their conditions are all disjoint,
               // due to the way they are computed by `getTargets`.
               // (here, we use a weaker prop. that asserts that all their condition are defined, for sanity checks)
