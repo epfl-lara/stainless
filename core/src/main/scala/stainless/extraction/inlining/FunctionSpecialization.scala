@@ -225,6 +225,8 @@ class FunctionSpecialization(override val s: Trees)(override val t: s.type)
             val cond = and(cond1, exprOps.replaceFromSymbols(Map(res2 -> res1.toVariable), cond2))
             Postcondition(Lambda(Seq(res1), cond.copiedFrom(cond2)).copiedFrom(lam2))
               .setPos(pc2.getPos)
+          case (Postcondition(l1 @ Lambda(_, _)), Postcondition(l2 @ Lambda(_, _))) =>
+            sys.error(s"Unexpected number of params for postcondition lambdas: $l1 and $l2")
         },
         mergeOptions(specced1.getSpec(PreconditionKind), speccedOuter.getSpec(PreconditionKind)) {
           case (Precondition(cond1), pc2 @ Precondition(cond2)) =>

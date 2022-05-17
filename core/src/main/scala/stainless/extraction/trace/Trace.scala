@@ -50,7 +50,7 @@ class Trace(override val s: Trees, override val t: termination.Trees)
         val returnType = s.UnitType()
 
         val specsMap = (fd1.params zip newParamVars).toMap
-        val specs = BodyWithSpecs(fd1.fullBody).specs.filter(s => s.kind == LetKind || s.kind == PreconditionKind) 
+        val specs = BodyWithSpecs(fd1.fullBody).specs.filter(s => s.kind == LetKind || s.kind == PreconditionKind)
         val pre = specs.map(spec => spec match {
           case Precondition(cond) => Precondition(exprOps.replaceFromSymbols(specsMap, cond))
           case LetInSpec(vd, expr) => LetInSpec(vd, exprOps.replaceFromSymbols(specsMap, expr))
@@ -96,7 +96,7 @@ class Trace(override val s: Trees, override val t: termination.Trees)
       fd.flags.filter(elem => elem.name == "traceInduct").head match {
         case s.Annotation("traceInduct", fun) => {
           BodyWithSpecs(fd.fullBody).getSpec(PostconditionKind) match {
-            case Some(Postcondition(post)) => 
+            case Some(Postcondition(post)) =>
               s.exprOps.preTraversal {
                 case _ if funInv.isDefined => // do nothing
                 case fi @ s.FunctionInvocation(tfd, _, args) if symbols.isRecursive(tfd) && (fun.contains(StringLiteral(tfd.name)) || fun.contains(StringLiteral("")))
@@ -105,9 +105,9 @@ class Trace(override val s: Trees, override val t: termination.Trees)
                       val argCheck = args.forall(paramVars.contains) && args.toSet.size == args.size
                       if (argCheck) funInv = Some(fi)
                     }
-                case _ => 
+                case _ =>
               }(post)
-            case _ => 
+            case _ =>
           }
         }
       }
@@ -141,7 +141,7 @@ class Trace(override val s: Trees, override val t: termination.Trees)
     } else List())
 
     val extractedSymbols = super.extractSymbols(context, symbols)
-    
+
     val extracted = t.NoSymbols
       .withSorts(extractedSymbols.sorts.values.toSeq)
       .withFunctions(extractedSymbols.functions.values.filterNot(fd => fd.flags.exists(elem => elem.name == "traceInduct")).toSeq)
@@ -188,7 +188,7 @@ class Trace(override val s: Trees, override val t: termination.Trees)
 
     val subst = (model.params.map(_.id) zip fi.args).toMap
     val specializer = new Specializer(model, indPattern.id, subst)
-    
+
     val fullBodySpecialized = specializer.transform(exprOps.withoutSpecs(model.fullBody).get)
 
     val specsMap = (lemma.params zip newParamVars).toMap ++ (model.params zip newParamVars).toMap
@@ -203,13 +203,13 @@ class Trace(override val s: Trees, override val t: termination.Trees)
 
     val withPre = exprOps.reconstructSpecs(pre, Some(fullBodySpecialized), indPattern.returnType)
 
-    val speccedLemma = BodyWithSpecs(lemma.fullBody).addPost
-    val speccedOrig = BodyWithSpecs(model.fullBody).addPost
-    val postLemma = speccedLemma.getSpec(PostconditionKind).map(post => exprOps.replaceFromSymbols(specsMap, post.expr))
-    val postOrig = speccedOrig.getSpec(PostconditionKind).map(post => exprOps.replaceFromSymbols(specsMap, post.expr))
-    
+    val speccedLemma = BodyWithSpecs(lemma.fullBody).addPost.getSpec(PostconditionKind).getOrElse(sys.error("Infallible (due to being specced)"))
+    val speccedOrig = BodyWithSpecs(model.fullBody).addPost.getSpec(PostconditionKind).getOrElse(sys.error("Infallible (due to being specced)"))
+    val postLemma = exprOps.replaceFromSymbols(specsMap, speccedLemma.expr)
+    val postOrig = exprOps.replaceFromSymbols(specsMap, speccedOrig.expr)
+
     (postLemma, postOrig) match {
-      case (Some(Lambda(Seq(res1), cond1)), Some(Lambda(Seq(res2), cond2))) => 
+      case (Lambda(Seq(res1), cond1), Lambda(Seq(res2), cond2)) =>
         val res = ValDef.fresh("res", indPattern.returnType)
         val freshCond1 = exprOps.replaceFromSymbols(Map(res1 -> res.toVariable), cond1)
         val freshCond2 = exprOps.replaceFromSymbols(Map(res2 -> res.toVariable), cond2)
@@ -219,6 +219,8 @@ class Trace(override val s: Trees, override val t: termination.Trees)
         indPattern.copy(
           fullBody = BodyWithSpecs(withPre).withSpec(post).reconstructed
         ).copiedFrom(indPattern)
+      case (l1 @ Lambda(_, _), l2 @ Lambda(_, _)) =>
+        sys.error(s"Unexpected number of params for postcondition lambdas: $l1 and $l2")
     }
 
   }
@@ -258,13 +260,13 @@ object Trace {
   var wrong: List[Identifier] = List() //bad signature
 
   def optionsError(using ctx: inox.Context): Boolean =
-    !ctx.options.findOptionOrDefault(frontend.optBatchedProgram) && 
+    !ctx.options.findOptionOrDefault(frontend.optBatchedProgram) &&
     (!ctx.options.findOptionOrDefault(optModels).isEmpty || !ctx.options.findOptionOrDefault(optCompareFuns).isEmpty)
-        
+
   def printEverything(using ctx: inox.Context) = {
     import ctx.{ reporter, timers }
     if (!clusters.isEmpty || !errors.isEmpty || !unknowns.isEmpty || !wrong.isEmpty) {
-      reporter.info(s"Printing equivalence checking results:")  
+      reporter.info(s"Printing equivalence checking results:")
       allModels.foreach(model => {
         val l = clusters(model).map(CheckFilter.fixedFullName).mkString(", ")
         val m = CheckFilter.fixedFullName(model)
@@ -331,10 +333,9 @@ object Trace {
 
   //iterate model for the current function
   def nextModel = tmpModels match {
-    case x::xs => { 
+    case x::xs =>
       tmpModels = xs
       model = Some(x)
-    }
     case Nil => model = None
   }
 

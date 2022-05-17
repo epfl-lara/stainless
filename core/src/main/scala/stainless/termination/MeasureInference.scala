@@ -214,6 +214,8 @@ class MeasureInference(override val s: Trees, override val t: Trees)(using overr
           val newNBody: t.Expr = t.exprOps.replaceFromSymbols(newMap, nbody)(using t.convertToVal)
           val refinement = t.RefinementType(newVd, newNBody)
           original.copy(returnType = refinement).copiedFrom(original)
+        case Some(post@t.Lambda(_, _)) =>
+          sys.error(s"Unexpected number of params for postcondition lambda: $post")
         case None       => original
       }
     }

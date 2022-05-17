@@ -69,8 +69,11 @@ class ChooseInjector(override val s: inlining.Trees,
 
     if (context.toReplace.contains(fd.id)) {
       val choose = post
-        .map { case Postcondition(Lambda(Seq(vd), post)) =>
-          Choose(vd, freshenLocals(specced.wrapLets(post)))
+        .map {
+          case Postcondition(Lambda(Seq(vd), post)) =>
+            Choose(vd, freshenLocals(specced.wrapLets(post)))
+          case Postcondition(l @ Lambda(_, _)) =>
+            sys.error(s"Unexpected number of params for postcondition lambda: $l")
         }
         .getOrElse {
           Choose(ValDef(FreshIdentifier("res", true), fd.returnType), BooleanLiteral(true))

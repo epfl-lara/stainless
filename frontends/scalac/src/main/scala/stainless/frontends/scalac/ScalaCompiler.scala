@@ -98,8 +98,8 @@ class ScalaCompiler(settings: NSCSettings, val ctx: inox.Context, val callback: 
      with Positions { self =>
 
   // Normally, we would initialize the fields with early-initializer. Since this feature has been dropped in Scala 3,
-  // we work-around that by definining a dummy class overriding all members.
-  // This ensure that these fields are correctly initialized
+  // we work-around that by defining a dummy class overriding all members.
+  // This ensure that these fields are correctly initialized.
   class StainlessExtractionImpl(override val global: self.type,
                                 override val phaseName: String,
                                 override val runsAfter: List[String],
