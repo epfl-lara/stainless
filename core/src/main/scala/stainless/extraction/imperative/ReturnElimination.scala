@@ -270,11 +270,14 @@ class ReturnElimination(override val s: Trees, override val t: Trees)
                 // postcondition of the top-level function hold
                 v => t.SplitAnd.many(
                   optInvChecked.getOrElse(t.BooleanLiteral(true).copiedFrom(wh)),
-                  topLevelPost.map { case s.exprOps.Postcondition(s.Lambda(Seq(postVd), postBody)) =>
-                    t.exprOps.replaceFromSymbols(
-                      Map(simpleWhileTransformer.transform(postVd) -> v),
-                      simpleWhileTransformer.transform(postBody)
-                    )(using t.convertToVal)
+                  topLevelPost.map {
+                    case s.exprOps.Postcondition(s.Lambda(Seq(postVd), postBody)) =>
+                      t.exprOps.replaceFromSymbols(
+                        Map(simpleWhileTransformer.transform(postVd) -> v),
+                        simpleWhileTransformer.transform(postBody)
+                      )(using t.convertToVal)
+                    case s.exprOps.Postcondition(l @ s.Lambda(_, _)) =>
+                      sys.error(s"Unexpected number of params for postcondition lambda: $l")
                   }.getOrElse(t.BooleanLiteral(true)),
                 ),
                 // when the while loop terminates without returning, we check the loop condition

@@ -655,10 +655,10 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
       val tout = out.map(tp => scope.transform(tp).asInstanceOf[t.TypeParameter])
 
       val x = "x" :: T(id)(tin: _*)
-      val fs = tin zip tout flatMap { case (i, o) => Seq(i.id.name :: (i =>: o), i.id.name :: (o =>: i)) }
+      val fs = tin zip tout map { case (i, o) => (i.id.name :: (i =>: o), i.id.name :: (o =>: i)) }
 
-      val newScope = scope converting (in zip out zip fs.grouped(2).toSeq flatMap {
-        case ((ti, to), Seq(vd1, vd2)) => Seq((ti, to) -> vd1.toVariable, (to, ti) -> vd2.toVariable)
+      val newScope = scope converting (in zip out zip fs flatMap {
+        case ((ti, to), (vd1, vd2)) => Seq((ti, to) -> vd1.toVariable, (to, ti) -> vd2.toVariable)
       })
 
       val conversions = sort.typed(in).constructors zip sort.typed(out).constructors map { case (ci, co) =>
@@ -672,7 +672,7 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
       }
 
       new t.FunDef(
-        convertID(id), (tin ++ tout).map(t.TypeParameterDef(_)), x +: fs, T(id)(tout: _*), fullBody,
+        convertID(id), (tin ++ tout).map(t.TypeParameterDef(_)), x +: fs.flatMap((vd1, vd2) => Seq(vd1, vd2)), T(id)(tout: _*), fullBody,
         Seq(t.DropVCs, t.Synthetic)
       ).setPos(sort)
     }
@@ -1240,6 +1240,8 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
       val specced = t.exprOps.BodyWithSpecs(encoded.fullBody)
       val (vd, post) = specced.getSpec(t.exprOps.PostconditionKind) match {
         case Some(t.exprOps.Postcondition(Lambda(Seq(vd), post))) => (vd, post)
+        case Some(t.exprOps.Postcondition(l @ Lambda(_, _))) =>
+          sys.error(s"Unexpected number of params for postcondition lambda: $l")
         case None => (
           t.ValDef.fresh("res", encoded.returnType),
           t.BooleanLiteral(true).copiedFrom(encoded.fullBody)

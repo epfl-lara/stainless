@@ -72,8 +72,7 @@ class ChainProcessor(override val checker: ProcessingPipeline)
                 s"No measure annotated in function `${fd.id}` which was cleared in chain processor.")
           }
         })
-      case (Seq(), _, _) =>
-        None
+      case _ => None
     }
   }
 

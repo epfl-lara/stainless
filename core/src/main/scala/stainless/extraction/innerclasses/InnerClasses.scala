@@ -121,7 +121,6 @@ class InnerClasses(override val s: Trees, override val t: methods.Trees)
         outerRefs map {
           case ValDef(_, ct: ClassType, _) if currentClass.id == ct.id => thiss
           case ValDef(id, _, _) => ClassSelector(thiss, id)
-          case _ => sys.error("Unreachable") // To silence false positive warning
         }
       }
     }

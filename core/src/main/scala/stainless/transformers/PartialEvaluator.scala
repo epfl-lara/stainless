@@ -62,6 +62,8 @@ trait PartialEvaluator extends SimplifierWithPC { self =>
               Let(res, body, Assert(post,
                 Some("Inlined postcondition of " + tfd.id.name), res.toVariable).copiedFrom(lambda)
               ).copiedFrom(body)
+            case Postcondition(lambda @ Lambda(_, _)) =>
+              sys.error(s"Unexpected number of params for postcondition lambda: $lambda")
           } .getOrElse(body)
 
           val bodyPrePost = exprOps.preconditionOf(tfd.fullBody).map { case pre =>

@@ -454,6 +454,8 @@ trait CoqEncoder {
         case None => transformType(fd.returnType)
         case Some(Lambda(Seq(vd), post)) =>
           Refinement(makeFresh(vd.id), transformType(vd.tpe), transformTree(post) === trueBoolean)
+        case Some(l @ Lambda(_, _)) =>
+          sys.error(s"Unexpected number of params for postcondition lambda: $l")
       }
       val allParams = tparams ++ params ++ preconditionParam
       val tmp = if (fd.isRecursive) {

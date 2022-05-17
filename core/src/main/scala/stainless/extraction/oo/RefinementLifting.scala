@@ -218,6 +218,8 @@ class RefinementLifting(override val s: Trees, override val t: Trees)
           Some(s.Lambda(Seq(res), s.and(
               exprOps.replaceFromSymbols(Map(vd2 -> res.toVariable), pred),
               body).copiedFrom(body)).copiedFrom(post))
+        case Some(post @ s.Lambda(_, _)) =>
+          sys.error(s"Unexpected number of params for postcondition lambda: $post")
         case None =>
           Some(s.Lambda(Seq(vd2), pred).copiedFrom(fd))
       }

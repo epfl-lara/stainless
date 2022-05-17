@@ -281,6 +281,8 @@ trait VerificationChecker { self =>
 
           case Unsat if vc.satisfiability =>
             VCResult(VCStatus.Invalid(VCStatus.Unsatisfiable), s.getResultSolver.map(_.name), Some(time))
+
+          case _ => sys.error(s"Unreachable: $res")
         }
 
         case Failure(u: inox.Unsupported) =>
