@@ -115,7 +115,7 @@ class FunctionClosure(override val s: Trees, override  val t: ast.Trees)
         }
       }
 
-      val nestedWithPaths = (for((fds, path) <- nestedWithPathsFull; fd <- fds) yield (fd, path)).toMap
+      val nestedWithPaths: Map[LocalFunDef, Path] = (for((fds, path) <- nestedWithPathsFull; fd <- fds) yield (fd, path)).toMap
       val nestedFuns = nestedWithPaths.keys.toSeq
       val nestedFunsIds = nestedFuns.map(_.id).toSet
 
@@ -128,31 +128,86 @@ class FunctionClosure(override val s: Trees, override  val t: ast.Trees)
         }.toMap
       )
 
-      // All free variables one should include.
+      // All free variables one should include, plus a PC filtered from unnecessary elements.
       // Contains free vars of the function itself plus of all transitively called functions.
       // Also contains free vars from PC if the PC is relevant to the fundef.
       // Also contains the open and closed vars of the PC, these will be filtered out at some
       // later point when computing the relevant arguments (see `closeFd`).
-      val transFreeWithBindings: Map[Identifier, Set[Variable]] = {
+      val transFreeWithBindings: Map[Identifier, (Set[Variable], Path)] = {
         def step(current: Map[Identifier, Set[Variable]]): Map[Identifier, Set[Variable]] = {
           nestedFuns.map { fd =>
             val transFreeVars = (callGraph(fd.id) + fd.id).flatMap(current)
-            (fd.id, transFreeVars ++ fd.freeVariables ++ nestedWithPaths(fd).freeVariables)
+            val fdFreeVars = fd.freeVariables
+            val fdsFreeVars = transFreeVars ++ fdFreeVars // This fns + the other fns
+
+            // Take all variables (free + bound) of PC that are relevant to the fns FVs.
+            // For this fixpoint computation, we will consider PC-bound variable as free
+            // (these will be removed once the fixpoint is reached, before "returning" from transFreeWithBindings).
+            //
+            // For example, in:
+            //   def outer(x: BigInt, y: BigInt, z: BigInt) = {
+            //     require(0 <= x && x <= y)
+            //     require(z >= 42)
+            //     val a = x + 1
+            //     val b = a
+            //     def inner1 = { val aa = a + 1 }
+            //     def inner2 = { val yy = y }
+            //   }
+            // -inner1: `a` appears free , which will also pull in `x` into the computed FVs.
+            // We then remove (just before returning from transFreeWithBindings) `a` from the set of FVs
+            // and only keep `x`, which will be added as a parameter to `inner1`.
+            // -inner2: `y` appears free, so it will be captured as well. `y` also appears
+            // in a PC condition x <= y. We could drop this condition, but we chose here to capture `x`
+            // as well in order to have 0 <= x && x <= y available in the hoisted version of `inner2`.
+            // (a more sophisticated approach would be to eliminate `x` entirely and have 0 <= y instead).
+            val path = nestedWithPaths(fd)
+            val picked = path.elements.toSet.flatMap {
+              case Path.CloseBound(vd, e) if fdsFreeVars.contains(vd.toVariable) =>
+                exprOps.variablesOf(e)
+              case Path.CloseBound(vd, e) if exprOps.variablesOf(e).intersect(fdsFreeVars).nonEmpty =>
+                // `vd` may occur in a constraint somewhere, which can also transitively constraint the FVs
+                Set(vd.toVariable)
+              case Path.Condition(cond) =>
+                val varsCond = exprOps.variablesOf(cond)
+                if (varsCond.intersect(fdsFreeVars).nonEmpty) varsCond
+                else Set.empty[Variable]
+              case _ => Set.empty[Variable]
+            }
+
+            (fd.id, transFreeVars ++ fdFreeVars ++ picked)
           }.toMap
         }
 
         val init = nestedFuns.map(fd => (fd.id, fd.freeVariables)).toMap
-        inox.utils.fixpoint(step)(init)
+        val fix = inox.utils.fixpoint(step)(init)
+        val res = fix.map {
+          case (fid, allVars) =>
+            // We filter out the PC-bound variables in `allVars`, since these can be reconstructed using their definition
+            // (which `closeFd` will do). We also remove path elements that are irrelevant to this fn.
+            val path = nestedWithPaths.find(_._1.id == fid).get._2
+            val boundVars = path.bindings.map(_._1.toVariable).toSet
+            val filteredPath = Path(path.elements.filter {
+              case Path.CloseBound(vd, e) => allVars.contains(vd.toVariable)
+              case Path.Condition(cond) =>
+                // Some constraints on some relevant variables (including PC-bound, which can transitively
+                // constrain the FVs in its definition).
+                exprOps.variablesOf(cond).intersect(allVars.toSet).nonEmpty
+              case Path.OpenBound(vd) => false // These are unused in closeFd anyway
+            })
+            fid -> (allVars.filterNot(boundVars), filteredPath)
+        }
+        res
       }
 
-      val transFree: Map[Identifier, Seq[Variable]] = 
+      val transFree: Map[Identifier, (Seq[Variable], Path)] =
         //transFreeWithBindings.map(p => (p._1, p._2 -- nestedWithPaths(p._1).bindings.map(_._1))).map(p => (p._1, p._2.toSeq))
-        transFreeWithBindings.map(p => (p._1, p._2.toSeq.sortBy(_.id.name)))
+        transFreeWithBindings.map { case (id, (vars, pc)) => id -> (vars.toSeq.sortBy(_.id.name), pc) }
 
       // Closed functions along with a map (old var -> new var).
-      val closed = nestedWithPaths.map {
-        case (inner, pc) => inner.id -> closeFd(inner, fd, pc, transFree(inner.id).map(_.toVal))
-      }
+      val closed = nestedFuns.map { inner =>
+        val (fvs, pc) = transFree(inner.id)
+        inner.id -> closeFd(inner, fd, pc, fvs.map(_.toVal))
+      }.toMap
 
       class ClosingTransformer(override val s: self.s.type,
                                override val t: ast.Trees,

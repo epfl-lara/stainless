@@ -3,6 +3,8 @@ import stainless.lang._
 import stainless.annotation._
 import stainless.io.StdOut
 
+// Should be accepted, but is rejected
+// (see verification/valid/NothingTypeEncoding for a variant that verifies)
 object NothingTypeEncoding {
   sealed abstract class List[T]
   case class Nil[T]() extends List[T]
@@ -25,11 +27,8 @@ object NothingTypeEncoding {
   def foo[T](t: T, arg: Int): T = {
     require(arg > 0)
     if (arg == 0) {
-      def boom: Nothing = {
-        // This will capture `arg` and `boom` will get the PC arg > 0 && arg == 0 (i.e. false)
-        val pullingArgIntoThePit = arg
-        error[Nothing]("boom indeed")
-      }
+      // `boom` does not know that arg == 0 is false because it does not capture it.
+      def boom: Nothing = error[Nothing]("boom indeed")
       boom
     }
     else if (arg < 0) bar
