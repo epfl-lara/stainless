@@ -118,7 +118,7 @@ case class FileOutputStream(var filename: Option[String]) {
     } catch {
       case _: Throwable => false
     }
-  }
+  }.ensuring(_ => isOpen)
 
   /** Append an integer to the stream and return `true` on success.
     *
@@ -144,7 +144,7 @@ case class FileOutputStream(var filename: Option[String]) {
     } catch {
       case _: Throwable => false
     }
-  }
+  }.ensuring(_ => isOpen)
 
   /** Append a character to the stream and return `true` on success.
     *
@@ -170,13 +170,12 @@ case class FileOutputStream(var filename: Option[String]) {
     } catch {
       case _: Throwable => false
     }
-  }
+  }.ensuring(_ => isOpen)
 
   /** Append a string to the stream and return `true` on success.
     *
     * NOTE The stream must be opened first.
     */
-  @extern
   @extern
   @cCode.function(
     code = """
@@ -197,6 +196,6 @@ case class FileOutputStream(var filename: Option[String]) {
     } catch {
       case _: Throwable => false
     }
-  }
+  }.ensuring(_ => isOpen)
 
 }

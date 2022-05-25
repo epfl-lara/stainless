@@ -103,8 +103,6 @@ object StdIn {
 
     // Safely wrap the addition of the accumulator with a digit character
     def safeAdd(acc: Int, c: Int): Int = {
-      require(isDigit(c))
-
       val x = c - '0'
       val r = acc * 10 + x
 
@@ -133,7 +131,7 @@ object StdIn {
       case c if isDigit(c) =>   readDecInt(c - '0', true)
       case _               => fail(-3)
     }
-  } ensuring((x: Int) => true)
+  }
 
   @library
   def readBigInt(implicit state: State): BigInt = {
@@ -145,7 +143,7 @@ object StdIn {
   @extern
   private def nativeReadBigInt(seed: BigInt): BigInt = {
     BigInt(scala.io.StdIn.readInt())
-  } ensuring((x: BigInt) => true)
+  }
 
   @library
   def readBoolean(implicit state: State): Boolean = {
@@ -157,6 +155,6 @@ object StdIn {
   @extern
   private def nativeReadBoolean(seed: BigInt): Boolean = {
     scala.io.StdIn.readBoolean()
-  } ensuring((x: Boolean) => true)
+  }
 
 }

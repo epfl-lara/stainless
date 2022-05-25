@@ -211,7 +211,8 @@ class ImperativeCodeElimination(override val s: Trees)(override val t: s.type)
               val (fdRes, fdScope, _) = toFunction(bd)
               fdScope(fdRes)
             }
-            val newFd = inner.copy(fullBody = reconstructSpecs(specs, newBody, inner.returnType))
+            val newSpecs = specs.map(rewriteSpecs)
+            val newFd = inner.copy(fullBody = reconstructSpecs(newSpecs, newBody, inner.returnType))
             val (bodyRes, bodyScope, bodyFun) = toFunction(b)
             (bodyRes, (b2: Expr) => LetRec(Seq(newFd.toLocal), bodyScope(b2)).setPos(fd).copiedFrom(expr), bodyFun)
           }
@@ -414,28 +415,36 @@ class ImperativeCodeElimination(override val s: Trees)(override val t: s.type)
       case _ => false
     }
 
+    // NOTE: We assume that lets wrapping specs require no rewriting
+    def rewriteSpecs(spec: Specification)(using State): Specification = {
+      def toFn(expr: Expr): Expr = {
+        val (res, scope, _) = toFunction(expr)
+        scope(res)
+      }
+      spec match {
+        case Postcondition(ld @ Lambda(params, body)) =>
+          // Remove `Old` trees for function parameters on which no effect occurred
+          val newBody = replaceSingle(
+            fd.params.map(vd => Old(vd.toVariable) -> vd.toVariable).toMap,
+            body
+          )
+          Postcondition(Lambda(params, toFn(newBody)).copiedFrom(ld))
+
+        case spec => spec.transform(toFn)
+      }
+    }
+
     if (exprOps.exists(requireRewriting)(fd.fullBody)) {
+      given State = State(fd, Set(), Map())
       def topLevelRewrite(expr: Expr): Expr = {
-        val (res, scope, _) = toFunction(expr)(using State(fd, Set(), Map()))
+        val (res, scope, _) = toFunction(expr)
         scope(res)
       }
 
       val specced = BodyWithSpecs(fd.fullBody)
 
-      // NOTE: We assume that lets wrapping specs require no rewriting
       val newSpecced = specced.copy(
-        specs = specced.specs.map {
-          case Postcondition(ld @ Lambda(params, body)) =>
-            // Remove `Old` trees for function parameters on which no effect occurred
-            val newBody = replaceSingle(
-              fd.params.map(vd => Old(vd.toVariable) -> vd.toVariable).toMap,
-              body
-            )
-            Postcondition(Lambda(params, topLevelRewrite(newBody)).copiedFrom(ld))
-
-          case spec => spec.transform(topLevelRewrite(_))
-        },
-
+        specs = specced.specs.map(rewriteSpecs),
         body = topLevelRewrite(specced.body)
       )
 

@@ -98,6 +98,7 @@ case class FileInputStream(var filename: Option[String], var consumed: BigInt) {
   @cCode.drop
   @extern
   private def nativeReadByte(seed: BigInt): (Boolean, Byte) = {
+    require(isOpen)
     val in = new java.io.FileInputStream(filename.get)
 
     // Skip what was already consumed by previous reads
@@ -110,12 +111,12 @@ case class FileInputStream(var filename: Option[String], var consumed: BigInt) {
 
     in.close()
 
-    if (read != 1) (false, 0)
+    if (read != 1) (false, 0.toByte)
     else {
       consumed += read
       (true, b(0))
     }
-  }
+  }.ensuring(_ => isOpen)
 
   /** Attempt to read the next byte of data.
     */
@@ -140,27 +141,29 @@ case class FileInputStream(var filename: Option[String], var consumed: BigInt) {
       cIncludes = ""
     )
     def impl(): Byte = {
+      require(isOpen)
       state.seed += 1
       val (check, value) = nativeReadByte(state.seed)
       valid = check
       value
-    }
+    }.ensuring(_ => isOpen)
 
     val res = impl()
-    if (valid) Some(res) else None()
-  }
+    if (valid) Some(res) else None[Byte]()
+  }.ensuring(_ => isOpen)
 
   @library
   def readInt(implicit state: State): Int = {
     require(isOpen)
     state.seed += 1
     nativeReadInt(state.seed)
-  }
+  }.ensuring(_ => isOpen)
 
   // Implementation detail
   @library
   @extern
   private def nativeReadInt(seed: BigInt): Int = {
+    require(isOpen)
     /* WARNING This code is singificantly a duplicate of stainless.io.StdIn.nativeReadInt
      *         because there's no clean way to refactor this in Leon's library.
      *
@@ -231,8 +234,6 @@ case class FileInputStream(var filename: Option[String], var consumed: BigInt) {
 
     // Safely wrap the addition of the accumulator with a digit character
     def safeAdd(acc: Int, c: Int): Int = {
-      require(isDigit(c))
-
       val x = c - '0'
       val r = acc * 10 + x
 
@@ -261,6 +262,6 @@ case class FileInputStream(var filename: Option[String], var consumed: BigInt) {
       case c if isDigit(c) => readDecInt(c - '0', true)
       case _               => fail(-3)
     }
-  } ensuring ((x: Int) => true)
+  }.ensuring(_ => isOpen)
 
 }

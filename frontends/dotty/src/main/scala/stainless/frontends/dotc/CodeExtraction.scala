@@ -55,6 +55,9 @@ class CodeExtraction(inoxCtx: inox.Context, symbolMapping: SymbolMapping)(using 
     }
   }
 
+  def outOfSubsetError(pos: inox.utils.Position, msg: String): Nothing =
+    throw frontend.UnsupportedCodeException(pos, msg)
+
   def outOfSubsetError(pos: SourcePosition, msg: String): Nothing =
     throw frontend.UnsupportedCodeException(dottyPosToInoxPos(pos), msg)
 
@@ -813,17 +816,35 @@ class CodeExtraction(inoxCtx: inox.Context, symbolMapping: SymbolMapping)(using 
       }
     }
 
+    // For @extern function, check that their extracted body does not contain further specs that couldn't be extracted out.
+    // For instance, this is fine:
+    //   @extern
+    //   def f(x: BigInt): Unit = {
+    //      require(x >= 10)
+    //      val t = x + 3
+    //   }
+    // the `require(x >= 10)` will be recognized and treated as a precondition, and the extracted body (val t = x + 3),
+    // does not contain any further specs.
+    // On the other hand, the following will be rejected:
+    //    @extern
+    //    def f(x: BigInt): Unit = {
+    //      var t = x
+    //      t += 1
+    //      require(t >= 10)
+    //    }
+    // The `require(t >= 10)` won't be recognized as a precondition (due to the presence of impure constructs)
+    // even though that is the intent. As such, it would be wise to reject the program.
     object KeywordChecker extends xt.ConcreteStainlessSelfTreeTraverser {
       override def traverse(e: xt.Expr) = {
         e match {
           case _: xt.Require =>
-            reporter.warning(e.getPos, s"This require is ignored for verification because it is not at the top-level of this @extern function.")
+            outOfSubsetError(e.getPos, s"This require does not appear at the top-level of this @extern function.")
           case _: xt.Ensuring =>
-            reporter.warning(e.getPos, s"This ensuring is ignored for verification because it is not at the top-level of this @extern function.")
+            outOfSubsetError(e.getPos, s"This ensuring does not appear not at the top-level of this @extern function.")
           case _: xt.Reads =>
-            reporter.warning(e.getPos, s"This reads is ignored for verification because it is not at the top-level of this @extern function.")
+            outOfSubsetError(e.getPos, s"This reads does not appear at the top-level of this @extern function.")
           case _: xt.Modifies =>
-            reporter.warning(e.getPos, s"This modifies is ignored for verification because it is not at the top-level of this @extern function.")
+            outOfSubsetError(e.getPos, s"This modifies does not appear at the top-level of this @extern function.")
           case _ =>
             ()
         }
@@ -1000,6 +1021,7 @@ class CodeExtraction(inoxCtx: inox.Context, symbolMapping: SymbolMapping)(using 
     } catch {
       case e: frontend.UnsupportedCodeException =>
         if (dctx.isExtern) {
+          checkNoSpecsRemaining(tr)
           xt.NoTree(extractType(tr)).setPos(tr.sourcePos)
         } else {
           throw e
@@ -1061,10 +1083,24 @@ class CodeExtraction(inoxCtx: inox.Context, symbolMapping: SymbolMapping)(using 
       (lcds + (cd.symbol -> lcd), dctx.withLocalClass(lcd))
     }
 
+    def recOrNoTree(es: List[tpd.Tree]): xt.Expr = {
+      try {
+        rec(es)
+      } catch {
+        case e: frontend.UnsupportedCodeException =>
+          if (dctx.isExtern) {
+            es.foreach(checkNoSpecsRemaining)
+            xt.NoTree(extractType(es.last)).setPos(es.last.sourcePos)
+          } else {
+            throw e
+          }
+      }
+    }
+
     def rec(es: List[tpd.Tree]): xt.Expr = es match {
       case Nil => xt.UnitLiteral()
 
-      case (i: tpd.Import) :: xs => rec(xs)
+      case (i: tpd.Import) :: xs => recOrNoTree(xs)
 
       case (e @ ExAssertExpression(contract, oerr, isStatic)) :: xs =>
         def wrap(x: xt.Expr) = if (isStatic) xt.Annotated(x, Seq(xt.Ghost)).setPos(x) else x
@@ -1075,7 +1111,7 @@ class CodeExtraction(inoxCtx: inox.Context, symbolMapping: SymbolMapping)(using 
           // having the body of the xt.Assert to be a NoTree of Nothing.
           case xt.BooleanLiteral(false) if xs.isEmpty =>
             xt.NoTree(xt.NothingType())
-          case _ => rec(xs)
+          case _ => recOrNoTree(xs)
         }
         xt.Assert(wrap(contr), oerr, b).setPos(e.sourcePos)
 
@@ -1083,26 +1119,26 @@ class CodeExtraction(inoxCtx: inox.Context, symbolMapping: SymbolMapping)(using 
         def wrap(x: xt.Expr) = if (isStatic) xt.Annotated(x, Seq(xt.Ghost)).setPos(x) else x
 
         val pre = extractTree(contract)(using cctx)
-        val b   = rec(xs)
+        val b   = recOrNoTree(xs)
         xt.Require(wrap(pre), b).setPos(e.sourcePos)
 
       case (e @ ExDecreasesExpression(ranks)) :: xs =>
         val measure = xt.tupleWrap(ranks.map(extractTree(_)(using cctx)))
-        val b       = rec(xs)
+        val b       = recOrNoTree(xs)
         xt.Decreases(measure, b).setPos(e.sourcePos)
 
       case (e @ ExReadsExpression(objs)) :: xs =>
-        xt.Reads(extractTree(objs)(using cctx), rec(xs)).setPos(e.sourcePos)
+        xt.Reads(extractTree(objs)(using cctx), recOrNoTree(xs)).setPos(e.sourcePos)
 
       case (e @ ExModifiesExpression(objs)) :: xs =>
-        xt.Modifies(extractTree(objs)(using cctx), rec(xs)).setPos(e.sourcePos)
+        xt.Modifies(extractTree(objs)(using cctx), recOrNoTree(xs)).setPos(e.sourcePos)
 
       case (d @ ExFunctionDef(sym, tparams, params, ret, b)) :: xs =>
         val (id, tdefs, _) = cctx.localFuns(sym)
         val fd = extractFunction(sym, d, tparams, params, b, typeParams = Some(tdefs.map(_.tp)))(using cctx)
         val letRec = xt.LocalFunDef(id, tdefs, fd.params, fd.returnType, fd.fullBody, fd.flags).setPos(d.sourcePos)
 
-        rec(xs) match {
+        recOrNoTree(xs) match {
           case xt.LetRec(defs, body) => xt.LetRec(letRec +: defs, body).setPos(d.sourcePos)
           case other => xt.LetRec(Seq(letRec), other).setPos(d.sourcePos)
         }
@@ -1112,23 +1148,23 @@ class CodeExtraction(inoxCtx: inox.Context, symbolMapping: SymbolMapping)(using 
 
         // Drop companion object and/or synthetic modules Dotty inserts after local class declarations
         val rest = xs.dropWhile(x => x.symbol.is(Synthetic) && x.symbol.is(Module))
-        rec(rest) match {
+        recOrNoTree(rest) match {
           case xt.LetClass(defs, body) => xt.LetClass(lcd +: defs, body).setPos(cd.sourcePos)
           case other => xt.LetClass(Seq(lcd), other).setPos(cd.sourcePos)
         }
 
       case (v @ ValDef(name, tpt, _)) :: xs =>
         if (v.symbol is Mutable) {
-          xt.LetVar(vds(v.symbol), extractTree(v.rhs)(using cctx), rec(xs)).setPos(v.sourcePos)
+          xt.LetVar(vds(v.symbol), extractTree(v.rhs)(using cctx), recOrNoTree(xs)).setPos(v.sourcePos)
         } else {
-          xt.Let(vds(v.symbol), extractTree(v.rhs)(using cctx), rec(xs)).setPos(v.sourcePos)
+          xt.Let(vds(v.symbol), extractTree(v.rhs)(using cctx), recOrNoTree(xs)).setPos(v.sourcePos)
         }
 
       case x :: Nil =>
         extractTree(x)(using cctx)
 
       case (x @ Block(_, _)) :: rest =>
-        val re = rec(rest)
+        val re = recOrNoTree(rest)
         val (elems, last) = re match {
           case xt.Block(elems, last) => (elems, last)
           case e => (Seq(), e)
@@ -1143,7 +1179,7 @@ class CodeExtraction(inoxCtx: inox.Context, symbolMapping: SymbolMapping)(using 
         }
 
       case x :: rest =>
-        rec(rest) match {
+        recOrNoTree(rest) match {
           case xt.Block(elems, last) =>
             xt.Block(extractTree(x)(using cctx) +: elems, last).setPos(x.sourcePos)
           case e =>
@@ -1151,7 +1187,7 @@ class CodeExtraction(inoxCtx: inox.Context, symbolMapping: SymbolMapping)(using 
         }
     }
 
-    rec(es)
+    recOrNoTree(es)
   }
 
   private def extractArgs(sym: Symbol, args: Seq[tpd.Tree])(using dctx: DefContext): Seq[xt.Expr] = {
@@ -2362,5 +2398,50 @@ class CodeExtraction(inoxCtx: inox.Context, symbolMapping: SymbolMapping)(using 
         dctx.vars.get(sym).map(e => e())
       case _ => None
     }
+  }
+
+  // @extern function may contain constructs that are not supported by Stainless.
+  // However, we must be sure that we have captured all contracts.
+  // For instance, the following function uses the `.toString` method that we do not support:
+  //   @extern
+  //   def f(x: BigInt, y: BigInt): Unit = {
+  //     require(x >= 10)
+  //     val t = x.toString
+  //     ...
+  //   }
+  // We will recognize the `require(x >= 10)` as a spec.
+  // The extraction will stop at `val t = x.toString` and replace it (and the rest of the function) with a NoTree.
+  // This is fine if there is no further specs, as the body of @extern function are meant to be removed anyway.
+  // On the other hand, if a spec appears further, that spec won't be extracted, which is problematic because
+  // the implementation may rely on such assumption.
+  // For instance, the `require(x >= y)` will be dropped
+  //   @extern
+  //   def f(x: BigInt, y: BigInt): Unit = {
+  //     require(x >= 10)
+  //     val t = x.toString
+  //     require(x >= y)
+  //     ...
+  //   }
+  // Here, the `t` does not interfere with the below require, but in general, specs cannot always be faithfully extracted
+  // in presence of previously-encountered unsupported features.
+  private def checkNoSpecsRemaining(tree: tpd.Tree): Unit = {
+    val traverser = new tpd.TreeTraverser {
+      override def traverse(tree: tpd.Tree)(using DottyContext): Unit = tree match {
+        case ExRequiredExpression(_, _) =>
+          outOfSubsetError(tree, s"This require cannot be extracted due to encountering an unsupported feature before.")
+
+        case ExEnsuredExpression(_, _, _) =>
+          outOfSubsetError(tree, s"This ensure cannot be extracted due to encountering an unsupported feature before.")
+
+        case ExReadsExpression(_) =>
+          outOfSubsetError(tree, s"This reads cannot be extracted due to encountering an unsupported feature before.")
+
+        case ExModifiesExpression(_) =>
+          outOfSubsetError(tree, s"This modifies cannot be extracted due to encountering an unsupported feature before.")
+
+        case _ => traverseChildren(tree)
+      }
+    }
+    traverser.traverse(tree)
   }
 }

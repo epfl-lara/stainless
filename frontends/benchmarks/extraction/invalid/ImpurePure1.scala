@@ -1,6 +1,6 @@
 import stainless.annotation.pure
 
-object ImpurePure {
+object ImpurePure1 {
   case class Box(var length: Int)
   def makeBox(): Box = Box(0)
 
