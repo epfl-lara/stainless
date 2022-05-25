@@ -539,7 +539,12 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
               }
 
               val newBody = transform(b, env.withTargets(vd, targs ++ extraTarget).withBinding(vd))
-              LetVar(vd, newExpr, newBody).copiedFrom(l)
+              // Note: even though there are no effects on `vd`, we still need to re-assign it
+              // in case it aliases a target that gets updated.
+              // As such, we use appearsInAssignment (on the transformed body) instead of checking for effects (on the original body)
+              val canLetVal = !appearsInAssignment(vd.toVariable, newBody)
+              if (canLetVal) Let(vd, newExpr, newBody).copiedFrom(l)
+              else LetVar(vd, newExpr, newBody).copiedFrom(l)
             } else if ((varsOfExprDealiased(e, env) & varsOfExprDealiased(b, env)).forall(v => !isMutableType(v.tpe))) {
               // The above condition is similar to the one in EffectsChecker#check#traverser#traverse#Let, with the
               // difference that we also account for rewrites (which may introduce other variables, as in i1099.scala).
@@ -647,10 +652,14 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
             val vis: Set[Variable] = varsInScope(fd)
               .flatMap(v =>
                 env.targets.get(v.toVal).toSet.flatMap(_.map(_.receiver).toSet) ++ Set(v))
-            // Then, get all variables contained in the arguments, and follow their target aliases.
+            // Then, compute the (dealiased) targets for all arguments.
             // If we find out that a captured variable is also passed as an argument, we declare the program ill-formed
             // because the argument will alias the captured variable.
-            args.flatMap(varsOfExprDealiased(_, env)).find(vis contains _)
+            // For argument whose target cannot be computed, we resort to computing the set of mutable FV
+            // (and follow their aliases), which is less precise.
+            args.flatMap(a => getAllTargetsDealiased(a, env).map(_.map(_.receiver))
+              .getOrElse(varsOfExprDealiased(a, env)))
+              .find(vis contains _)
               .foreach(v => context.reporter.fatalError(alr.getPos, "Illegal passing of aliased local variable: " + v))
 
             val nfi = ApplyLetRec(
@@ -902,6 +911,19 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
       case BooleanLiteral(b) => BooleanLiteral(!b).copiedFrom(e)
       case Not(e) => e
       case e => Not(e).copiedFrom(e)
+    }
+
+    def appearsInAssignment(vd: Variable, e: Expr): Boolean = {
+      class Traverser(var seen: Boolean = false) extends ConcreteOOSelfTreeTraverser {
+        override def traverse(e: Expr): Unit = e match {
+          case Assignment(`vd`, _) => seen = true
+          case _ => super.traverse(e)
+        }
+      }
+
+      val traverser = new Traverser
+      traverser.traverse(e)
+      traverser.seen
     }
 
     // Pre-transformation phase to ease the burden of makeSideEffectsExplicit.

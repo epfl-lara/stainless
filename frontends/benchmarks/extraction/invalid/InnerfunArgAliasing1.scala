@@ -2,7 +2,7 @@ import stainless._
 import stainless.lang._
 import stainless.annotation._
 
-object InnerfunArgAliasing {
+object InnerfunArgAliasing1 {
 
   case class Box(var value: Int)
 

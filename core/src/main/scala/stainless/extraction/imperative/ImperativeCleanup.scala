@@ -94,6 +94,9 @@ class ImperativeCleanup(override val s: Trees, override val t: oo.Trees)
 
         case ReconstructTuple(tuple) => Some(tuple)
 
+        case s.LetRec(fds, body) =>
+          Some(s.LetRec(fds.map(fd => fd.copy(flags = fd.flags filterNot isImperativeFlag)), body))
+
         case _ => None
       } } (expr))
 
