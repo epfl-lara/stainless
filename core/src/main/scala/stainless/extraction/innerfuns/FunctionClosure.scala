@@ -138,7 +138,9 @@ class FunctionClosure(override val s: Trees, override  val t: ast.Trees)
           nestedFuns.map { fd =>
             val transFreeVars = (callGraph(fd.id) + fd.id).flatMap(current)
             val fdFreeVars = fd.freeVariables
-            val fdsFreeVars = transFreeVars ++ fdFreeVars // This fns + the other fns
+            // This fns + the other fns FVs, taking into account the variables appearing in their type as well
+            val fdsFreeVars = (transFreeVars ++ fdFreeVars)
+              .flatMap(v => Set(v) ++ typeOps.variablesOf(v.tpe))
 
             // Take all variables (free + bound) of PC that are relevant to the fns FVs.
             // For this fixpoint computation, we will consider PC-bound variable as free
@@ -163,9 +165,11 @@ class FunctionClosure(override val s: Trees, override  val t: ast.Trees)
             val path = nestedWithPaths(fd)
             val picked = path.elements.toSet.flatMap {
               case Path.CloseBound(vd, e) if fdsFreeVars.contains(vd.toVariable) =>
+                // Take all FVs of `e` so that we can "reconstruct" `vd` from them in `closeFd`
+                // (note that this `vd` is already picked because it appears in `fdsFreeVars`).
                 exprOps.variablesOf(e)
               case Path.CloseBound(vd, e) if exprOps.variablesOf(e).intersect(fdsFreeVars).nonEmpty =>
-                // `vd` may occur in a constraint somewhere, which can also transitively constraint the FVs
+                // `vd` may occur in a constrain somewhere, which can also transitively constraint the FVs
                 Set(vd.toVariable)
               case Path.Condition(cond) =>
                 val varsCond = exprOps.variablesOf(cond)
@@ -180,7 +184,7 @@ class FunctionClosure(override val s: Trees, override  val t: ast.Trees)
 
         val init = nestedFuns.map(fd => (fd.id, fd.freeVariables)).toMap
         val fix = inox.utils.fixpoint(step)(init)
-        val res = fix.map {
+        fix.map {
           case (fid, allVars) =>
             // We filter out the PC-bound variables in `allVars`, since these can be reconstructed using their definition
             // (which `closeFd` will do). We also remove path elements that are irrelevant to this fn.
@@ -192,11 +196,10 @@ class FunctionClosure(override val s: Trees, override  val t: ast.Trees)
                 // Some constraints on some relevant variables (including PC-bound, which can transitively
                 // constrain the FVs in its definition).
                 exprOps.variablesOf(cond).intersect(allVars.toSet).nonEmpty
-              case Path.OpenBound(vd) => false // These are unused in closeFd anyway
+              case Path.OpenBound(_) => false // These are unused in closeFd anyway
             })
             fid -> (allVars.filterNot(boundVars), filteredPath)
         }
-        res
       }
 
       val transFree: Map[Identifier, (Seq[Variable], Path)] =
