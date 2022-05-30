@@ -169,7 +169,7 @@ class FunctionClosure(override val s: Trees, override  val t: ast.Trees)
                 // (note that this `vd` is already picked because it appears in `fdsFreeVars`).
                 exprOps.variablesOf(e)
               case Path.CloseBound(vd, e) if exprOps.variablesOf(e).intersect(fdsFreeVars).nonEmpty =>
-                // `vd` may occur in a constrain somewhere, which can also transitively constraint the FVs
+                // `vd` may occur in a constraint somewhere, which can also transitively constrain the FVs
                 Set(vd.toVariable)
               case Path.Condition(cond) =>
                 val varsCond = exprOps.variablesOf(cond)
