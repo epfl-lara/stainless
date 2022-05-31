@@ -914,16 +914,10 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
     }
 
     def appearsInAssignment(vd: Variable, e: Expr): Boolean = {
-      class Traverser(var seen: Boolean = false) extends ConcreteOOSelfTreeTraverser {
-        override def traverse(e: Expr): Unit = e match {
-          case Assignment(`vd`, _) => seen = true
-          case _ => super.traverse(e)
-        }
-      }
-
-      val traverser = new Traverser
-      traverser.traverse(e)
-      traverser.seen
+      exprOps.exists {
+        case Assignment(`vd`, _) => true
+        case _ => false
+      }(e)
     }
 
     // Pre-transformation phase to ease the burden of makeSideEffectsExplicit.
