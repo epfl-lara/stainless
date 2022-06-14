@@ -83,7 +83,7 @@ trait VerificationCache extends VerificationChecker { self =>
         }
 
         val result = super.checkVC(vc, origVC, sf)
-        if (result.isValid) {
+        if (result.isValid && vc.condition != BooleanLiteral(true)) {
           vccache addPersistently key
         }
 

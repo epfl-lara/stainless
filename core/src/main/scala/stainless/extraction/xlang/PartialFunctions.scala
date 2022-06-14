@@ -85,7 +85,7 @@ class PartialFunctions(override val s: Trees)(override val t: s.type)
               "unapply syntactic sugar for partial function creation.")
         }
 
-        ClassConstructor(ct, Seq(pre, body)).setPos(fi)
+        ClassConstructor(ct, Seq(exprOps.freshenLocals(pre), body)).setPos(fi)
 
       case other => other
     }
