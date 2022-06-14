@@ -5,18 +5,49 @@ package verification
 
 import inox.Options
 import inox.solvers._
+import stainless.transformers.LatticesSimplifier
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger}
-import scala.util.{ Success, Failure }
+import scala.util.{Failure, Success}
 import scala.concurrent.Future
 import scala.collection.mutable
 
 object optFailEarly extends inox.FlagOptionDef("fail-early", false)
 object optFailInvalid extends inox.FlagOptionDef("fail-invalid", false)
 object optVCCache extends inox.FlagOptionDef("vc-cache", true)
+object optSimplifier extends inox.OptionDef[SimplifierKind] {
+  override val name: String = "simplifier"
+
+  def default: SimplifierKind = SimplifierKind.Vanilla
+
+  def parser: inox.OptionParsers.OptionParser[SimplifierKind] = SimplifierKind.tryFromString
+
+  def usageRhs: String = "vanilla|ocbsl|ol|bland"
+}
 
 object DebugSectionVerification extends inox.DebugSection("verification")
 object DebugSectionFullVC extends inox.DebugSection("full-vc")
+
+enum SimplifierKind {
+  case Vanilla
+  case OCBSL
+  case OL
+  case Bland
+}
+object SimplifierKind {
+  def tryFromString(s: String): Option[SimplifierKind] = s.toLowerCase match {
+    case "vanilla" => Some(Vanilla)
+    case "ocbsl" => Some(OCBSL)
+    case "ol" | "olympique lyonnais" => Some(OL)
+    case "bland" | "unflavored" | "lattice-core" => Some(Bland)
+    case _ => None
+  }
+  def toLatticeAlgo(self: OCBSL.type | OL.type | Bland.type): LatticesSimplifier.UnderlyingAlgo = self match {
+    case OCBSL => LatticesSimplifier.UnderlyingAlgo.OCBSL
+    case OL => LatticesSimplifier.UnderlyingAlgo.OL
+    case Bland => LatticesSimplifier.UnderlyingAlgo.Bland
+  }
+}
 
 trait VerificationChecker { self =>
   val program: Program
@@ -97,12 +128,23 @@ trait VerificationChecker { self =>
     val initMap: Map[VC, VCResult] = vcs.map(vc => vc -> unknownResult).toMap
 
     import MainHelpers._
+    import SimplifierKind._
+
+    val simplifyVC: Expr => Expr = {
+      context.options.findOptionOrDefault(optSimplifier) match {
+        case lat@(OCBSL | OL | Bland) =>
+          // Note: the class instance is outside of the closure scope to avoid repeated creation instances
+          // (so that computation can be preserved across VCs)
+          val latticeSimp = LatticesSimplifier(trees, symbols, PurityOptions.assumeChecked, toLatticeAlgo(lat))
+          (e: Expr) => latticeSimp.simplify(simplifyLets(removeAssertions(e)))
+        case Vanilla =>
+          (e: Expr) => simplifyExpr(simplifyLets(removeAssertions(e)))(using PurityOptions.assumeChecked)
+      }
+    }
 
     def processVC(vc: VC): Option[(VC, VCResult)] = {
       if (stop) None else {
-        val simplifiedCondition = simplifyExpr(
-          simplifyLets(removeAssertions(vc.condition))
-        )(using PurityOptions.assumeChecked)
+        val simplifiedCondition = simplifyVC(vc.condition)
 
         // For some reasons, the synthesized copy method lacks default parameters...
         val simplifiedVC = (vc.copy()(condition = simplifiedCondition, fid = vc.fid, kind = vc.kind, satisfiability = vc.satisfiability): VC).setPos(vc)
@@ -212,8 +254,10 @@ trait VerificationChecker { self =>
   private def removeAssertions(expr: Expr): Expr = {
     exprOps.postMap {
       case Assert(_, _, e) => Some(e)
-      case Annotated(e, Seq(DropVCs)) => Some(e)
-      case Annotated(e, Seq(DropConjunct)) => Some(e)
+      case Annotated(e, flags0) =>
+        val flags = flags0.filter(f => f != DropVCs && f != DropConjunct)
+        if (flags.isEmpty) Some(e)
+        else Some(Annotated(e, flags).copiedFrom(expr))
       case _ => None
     }(expr)
   }
@@ -239,6 +283,10 @@ trait VerificationChecker { self =>
         reporter.debug(s" - Now solving '${vc.kind}' VC for ${vc.fid.asString} @${vc.getPos}...")
         debugVC(vc, origVC)
         reporter.debug("Solving with: " + s.name)
+      }
+
+      if (cond == BooleanLiteral(true)) {
+        return VCResult(VCStatus.Valid, Some("(trivial)"), Some(0))
       }
 
       val (time, tryRes) = timers.verification.runAndGetTime {

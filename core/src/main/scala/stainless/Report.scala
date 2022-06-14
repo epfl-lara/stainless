@@ -123,7 +123,7 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
       f"valid: ${stats.valid}%-4d (${stats.validFromCache} from cache) " +
       f"invalid: ${stats.invalid}%-4d " +
       f"unknown: ${stats.unknown}%-4d " +
-      f"time: ${stats.time/1000d}%7.1f"
+      f"time: ${stats.time/1000d}%7.2f"
 
     var t = Table(withColor(s"$name summary", color))
     t ++= rows
