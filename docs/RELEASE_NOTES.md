@@ -1,5 +1,18 @@
 # Release Notes
 
+## Version 0.9.6 (2022-07-03)
+
+### Stainless frontend, library and internals
+
+- Fix issues #1268 #1269 #1270 #1272 #1273 #1274 (#1277)
+- Avoid unnecessary capture of PC variables when hoisting functions (#1265)
+- Minor fixes (#1260, #1263, #1280, #1292)
+
+### GenC
+
+- Annotate unexported function as `static` (#1261)
+
+
 ## Version 0.9.5 (2022-05-06)
 
 ### Stainless frontend, library and internals
