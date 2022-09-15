@@ -7,9 +7,11 @@ package trace
 trait Trees extends termination.Trees { self =>
 
   case object TraceInduct extends Flag("traceInduct", Seq())
+  case object MkTest extends Flag("mkTest", Seq())
 
   override def extractFlag(name: String, args: Seq[Expr]): Flag = (name, args) match {
     case ("traceInduct", Seq()) => TraceInduct
+    case("mkTest", Seq(n)) => MkTest
     case _ => super.extractFlag(name, args)
   }
 
@@ -32,6 +34,7 @@ trait TreeDeconstructor extends termination.TreeDeconstructor {
 
   override def deconstruct(f: s.Flag): DeconstructedFlag = f match {
     case s.TraceInduct => (Seq(), Seq(), Seq(), (_, _, _) => t.TraceInduct)
+    case s.MkTest => (Seq(), Seq(), Seq(), (_, _, _) => t.MkTest)
     case _ => super.deconstruct(f)
   }
 }

@@ -23,6 +23,9 @@ class induct extends Annotation
 @ignore
 class traceInduct(fun: String) extends Annotation
 
+@ignore
+class mkTest extends Annotation
+
 /** Only extract the contracts and replace the annotated function's body with a choose. */
 @ignore @field @getter @setter @param
 class extern extends Annotation

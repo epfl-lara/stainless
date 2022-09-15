@@ -274,6 +274,7 @@ trait VerificationChecker { self =>
             VCResult(status, s.getResultSolver.map(_.name), Some(time))
 
           case SatWithModel(model) if !vc.satisfiability =>
+            extraction.trace.Trace.reportCounterexample(program)(model)(vc.fid)
             VCResult(VCStatus.Invalid(VCStatus.CounterExample(model)), s.getResultSolver.map(_.name), Some(time))
 
           case Sat if vc.satisfiability =>
