@@ -96,15 +96,19 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
     case Level.Error   => Console.RED
   }
 
-  def hasError(identifier: Identifier)(using inox.Context): Boolean = {
-    annotatedRows.exists(elem => elem match {
-      case RecordRow(id, pos, level, extra, time) => level == Level.Error && id == identifier
+  def hasError(identifier: Option[Identifier])(using inox.Context): Boolean = identifier match {
+    case None => false
+    case Some(i) => annotatedRows.exists(elem => elem match {
+      case RecordRow(id, pos, level, extra, time) => {
+        (level == Level.Error && id == i)
+      }
     })
   }
 
-  def hasUnknown(identifier: Identifier)(using inox.Context): Boolean = {
-    annotatedRows.exists(elem => elem match {
-      case RecordRow(id, pos, level, extra, time) => level == Level.Warning && id == identifier
+  def hasUnknown(identifier: Option[Identifier])(using inox.Context): Boolean = identifier match {
+    case None => false
+    case Some(i) => annotatedRows.exists(elem => elem match {
+      case RecordRow(id, pos, level, extra, time) => level == Level.Warning && id == i
     })
   }
 
