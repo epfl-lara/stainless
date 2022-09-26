@@ -40,7 +40,7 @@ class AssertionInjector(override val s: ast.Trees, override val t: ast.Trees, va
   }
 
   private def bindIfCannotDuplicate(e: s.Expr, name: String)(f: t.Expr => t.Expr): t.Expr = {
-    if (canDuplicate(e)) f(transform(e))
+    if (canDuplicate(e)) f(transform(e)).setPos(e)
     else {
       val x = t.ValDef.fresh(name, transform(e.getType)).setPos(e)
       t.Let(x, transform(e), f(x.toVariable)).setPos(e)
@@ -80,7 +80,7 @@ class AssertionInjector(override val s: ast.Trees, override val t: ast.Trees, va
           t.Assert(
             t.IsConstructor(recvx, sel.constructor.id).copiedFrom(e),
             Some("Cast error"),
-            t.ADTSelector(recvx, selector)
+            t.ADTSelector(recvx, selector).copiedFrom(e)
           ).copiedFrom(e)
         }
 

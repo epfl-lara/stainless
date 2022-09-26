@@ -79,7 +79,7 @@ trait SymbolOps extends inox.ast.SymbolOps with TypeOps { self =>
         val tcons = getConstructor(id, tps)
         assert(tcons.fields.size == subps.size)
         val pairs = tcons.fields zip subps
-        val subTests = pairs.map(p => apply(Annotated(adtSelector(in, p._1.id), Seq(DropVCs)), p._2))
+        val subTests = pairs.map(p => apply(Annotated(adtSelector(in, p._1.id), Seq(DropVCs)).copiedFrom(p._1), p._2))
         pp.empty withCond isCons(in, id) merge bind(ob, in) merge subTests
 
       case TuplePattern(ob, subps) =>
@@ -134,7 +134,7 @@ trait SymbolOps extends inox.ast.SymbolOps with TypeOps { self =>
         val tcons = getConstructor(id, tps)
         assert(tcons.fields.size == subps.size)
         val pairs = tcons.fields zip subps
-        val subMaps = pairs.map(p => mapForPattern(Annotated(adtSelector(in, p._1.id), Seq(DropVCs)), p._2))
+        val subMaps = pairs.map(p => mapForPattern(Annotated(adtSelector(in, p._1.id), Seq(DropVCs)).copiedFrom(p._1), p._2))
         val together = subMaps.flatten.toMap
         bindIn(b) ++ together
 
@@ -173,7 +173,7 @@ trait SymbolOps extends inox.ast.SymbolOps with TypeOps { self =>
             case None => patCond
           }
           val newRhs = replaceFromSymbols(map, cse.rhs).copiedFrom(cse.rhs)
-          (realCond.toClause, newRhs, cse)
+          (realCond.toClause.copiedFrom(cse), newRhs, cse)
         }
 
         val (branches, elze) = if (assumeExhaustive) {
