@@ -33,7 +33,7 @@ class ChooseInjector(override val s: inlining.Trees,
 
     override def transform(e: s.Expr): t.Expr = e match {
       case fi @ s.FunctionInvocation(id, tps, args) if toReplace(id) =>
-        t.FunctionInvocation(newIdentifier(id), tps.map(transform), args.map(transform))
+        t.FunctionInvocation(newIdentifier(id), tps.map(transform), args.map(transform)).copiedFrom(fi)
       case _ => super.transform(e)
     }
   }
