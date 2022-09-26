@@ -12,11 +12,14 @@ General Requirement
   It suffices to have headless OpenJDK JRE 8 (e.g. one that one gets with ``apt install openjdk-8-jre-headless`` on Debian/Ubuntu).
   Make sure that ``java -version`` reports a version starting with 1.8, such as ``openjdk version "1.8`` or ``java version "1.8``.
 
+Stainless bundles Scala compiler front-end and runs it before it starts compilation. We recommend using the Scala 3 front end (originally named dotty), though Scala 2 is also available.
 
 .. _running-code:
 
 Running Code with Stainless dependencies
 ----------------------------------------
+
+Using sources:
 
 1. Clone the sources from https://github.com/epfl-lara/stainless
 
@@ -26,6 +29,20 @@ Running Code with Stainless dependencies
 
 4. Run your code (replace ``MyMainClass`` with the name of your main object): ``scala -cp ~/.scala_objects MyMainClass``
 
+Using jar:
+   
+You can package the scala library into a jar to avoid the need to compile it every time. For example (for stainless 0.9.6) you can use:
+
+.. code-block:: bash
+
+    $ cd path/to/stainless/
+    $ sbt stainless-library/package
+
+Add the generated stainless library jar file when invoking the compiler with `scalac` and the JVM with `scala` or `java`:
+
+.. code-block:: bash
+
+    $ scalac -d ~/.scala_objects -cp frontends/library/target/scala-2.13/stainless-library_2.13-0.9.6.jar MyFile.scala
 
 .. _standalone-release:
 
@@ -306,21 +323,25 @@ The following instructions will invoke sbt while using a stainless sub-directory
 
 **Where to find generated files**
 
-The compilation will automatically generate the bash script ``frontends/scalac/target/universal/stage/bin/stainless-scalac`` that uses the ``scalac`` compiler as frontend.
+The compilation will automatically generate the bash script ``stainless-dotty`` (and the Scala2 one ``stainless-scalac``).
 
-You may want to introduce a soft-link from ``frontends/scalac/target/universal/stage/bin/stainless-scalac`` to a file called ``stainless``:
+You may want to introduce a soft-link from to a file called ``stainless``:
 
 .. code-block:: bash
 
-  $ ln -s frontends/scalac/target/universal/stage/bin/stainless-scalac stainless
+  $ ln -s frontends/dotty/target/universal/stage/bin/stainless-dotty stainless
 
+and, for the Scala2 version of the front end,
+
+  $ ln -s frontends/scalac/target/universal/stage/bin/stainless-scalac stainless-scalac-old
+  
 Analogous scripts work for various platforms and allow additional control over the execution, such as passing JVM arguments or system properties:
 
 .. code-block:: bash
 
-  $ frontends/scalac/target/universal/stage/bin/stainless-scalac -Dscalaz3.debug.load=true -J-Xmx6G --help
+  $ stainless -Dscalaz3.debug.load=true -J-Xmx6G --help
 
-Note that Stainless is organized as a structure of several projects. The main project lives in ``core`` while the two available frontends can be found in ``frontends/scalac`` and ``frontends/dotty``.  From a user point of view, this should most of the time be transparent and the build command should take care of everything.
+Note that Stainless is organized as a structure of several projects. The main project lives in ``core`` while the two available frontends can be found in ``frontends/dotty`` (and ``frontends/scalac``).  From a user point of view, this should most of the time be transparent and the build command should take care of everything.
 
 Build from Source on Windows 10
 -------------------------------
