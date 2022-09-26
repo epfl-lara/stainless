@@ -3,7 +3,7 @@
 Frequently Asked Questions
 ==========================
 
-If you have a question, we suggest you post it at http://stackoverflow.com
+If you have a question, you may also post it at http://stackoverflow.com
 (try `searching for the leon tag <http://stackoverflow.com/questions/tagged/leon?sort=newest>`_
 or `the stainless tag <http://stackoverflow.com/questions/tagged/stainless?sort=newest>`_)
 or contact one of the authors of this documentation.
@@ -43,12 +43,4 @@ Compiling Stainless programs to bytecode
 If you don't use special constructs such as ``choose`` or ``forall``, you
 should be able to compile Stainless programs to `.class` using `scalac` and
 execute them directly on the JVM, or integrate them as part as other
-Scala-based projects.
-
-Beware that you need to explicitly include files from the Stainless library
-(that are implicitly bundled when you use the `./stainless` script):
-
-.. code-block:: bash
-
-    $ mkdir out
-    $ scalac $(find path/to/stainless/frontends/library/ -name "*.scala" | xargs) MyFile.scala -d out
+Scala-based projects. See Section ":ref:`running-code`".
