@@ -42,7 +42,7 @@ Add the generated stainless library jar file when invoking the compiler with `sc
 
 .. code-block:: bash
 
-    $ scalac -d ~/.scala_objects -cp frontends/library/target/scala-2.13/stainless-library_2.13-0.9.6.jar MyFile.scala
+    $ scalac -d ~/.scala_objects -cp /path/to/stainless/frontends/library/target/scala-2.13/stainless-library_2.13-0.9.6.jar MyFile.scala
 
 .. _standalone-release:
 
