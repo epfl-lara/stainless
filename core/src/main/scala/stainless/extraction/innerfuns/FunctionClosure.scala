@@ -118,12 +118,23 @@ class FunctionClosure(override val s: Trees, override  val t: ast.Trees)
       val nestedWithPaths: Map[LocalFunDef, Path] = (for((fds, path) <- nestedWithPathsFull; fd <- fds) yield (fd, path)).toMap
       val nestedFuns = nestedWithPaths.keys.toSeq
       val nestedFunsIds = nestedFuns.map(_.id).toSet
+      // Collect all functions defined within lambdas
+      val nfDefInLam = exprOps.collect {
+        case l: Lambda => exprOps.collect {
+          case LetRec(fds, _) => fds.map(_.id).toSet
+          case _ => Set.empty
+        } (l.body)
+        case _ => Set.empty
+      } (fd.fullBody)
+      val nfDefOutsideLam = nestedFunsIds -- nfDefInLam
 
       // Transitively called functions from each function
       val callGraph: Map[Identifier, Set[Identifier]] = inox.utils.GraphOps.transitiveClosure(
         nestedFuns.map { f =>
           val calls = exprOps.innerFunctionCalls(f.fullBody) intersect nestedFunsIds
-          val pcCalls = exprOps.innerFunctionCalls(nestedWithPaths(f).fullClause) intersect nestedFunsIds
+          // Collect all calls that also appear in the PC, but exclude those that calls functions that are defined within lambdas
+          // because these cannot be called without calling the lambdas.
+          val pcCalls = exprOps.innerFunctionCalls(nestedWithPaths(f).fullClause) intersect nfDefOutsideLam
           f.id -> (calls ++ pcCalls)
         }.toMap
       )
