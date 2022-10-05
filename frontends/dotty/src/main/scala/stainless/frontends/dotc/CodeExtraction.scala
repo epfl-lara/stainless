@@ -355,6 +355,19 @@ class CodeExtraction(inoxCtx: inox.Context, symbolMapping: SymbolMapping)(using 
         allFunctions ++= newFunctions
         allTypeDefs ++= newTypeDefs
 
+      // Normal fields
+      case t@ExNonCtorFieldDef(fsym, _, rhs) =>
+        val fd0 = extractFunction(fsym, t, Seq(), Seq(), rhs)
+        val fd = fd0.copy(flags = fd0.flags ++ extraFlags(fsym.name.toTermName))
+        functions :+= fd.id
+        allFunctions :+= fd
+
+      case t@ExLazyFieldDef(fsym, _, rhs) =>
+        val fd0 = extractFunction(fsym, t, Seq.empty, Seq.empty, rhs)
+        val fd = fd0.copy(flags = fd0.flags ++ extraFlags(fsym.name.toTermName))
+        functions :+= fd.id
+        allFunctions :+= fd
+
       // this case goes after `ExObjectDef` in order to explore synthetic objects that may contain
       // field initializers
       case t if (t.symbol is Synthetic) && !canExtractSynthetic(t.symbol) =>
@@ -369,19 +382,6 @@ class CodeExtraction(inoxCtx: inox.Context, symbolMapping: SymbolMapping)(using 
 
       case t @ ExNonCtorMutableFieldDef(fsym, _, _) if annotationsOf(fsym).contains(xt.Extern) =>
         // Ignore @extern variables in static context
-
-      // Normal fields
-      case t @ ExNonCtorFieldDef(fsym, _, rhs) =>
-        val fd0 = extractFunction(fsym, t, Seq(), Seq(), rhs)
-        val fd = fd0.copy(flags = fd0.flags ++ extraFlags(fsym.name.toTermName))
-        functions :+= fd.id
-        allFunctions :+= fd
-
-      case t @ ExLazyFieldDef(fsym, _, rhs) =>
-        val fd0 = extractFunction(fsym, t, Seq.empty, Seq.empty, rhs)
-        val fd = fd0.copy(flags = fd0.flags ++ extraFlags(fsym.name.toTermName))
-        functions :+= fd.id
-        allFunctions :+= fd
 
       case t if t.symbol is Synthetic =>
         // ignore
@@ -528,13 +528,13 @@ class CodeExtraction(inoxCtx: inox.Context, symbolMapping: SymbolMapping)(using 
       case _: tpd.Import =>
         // ignore
 
+      case vd: tpd.ValDef =>
+        methods ++= extractAccessor(classType, isAbstractClass, vd, i)(using tpCtx)
+
       case t if t.symbol.is(Synthetic) && !canExtractSynthetic(t.symbol) =>
         // ignore
 
       case t if annotationsOf(t.symbol).contains(xt.Ignore) && !(t.symbol is CaseAccessor) =>
-        // ignore
-
-      case t if (t.symbol is Synthetic) && !canExtractSynthetic(t.symbol) =>
         // ignore
 
       case DefDef(nme.CONSTRUCTOR, _, _, _) =>
@@ -558,9 +558,6 @@ class CodeExtraction(inoxCtx: inox.Context, symbolMapping: SymbolMapping)(using 
       // Normal methods
       case dd @ ExFunctionDef(fsym, tparams, vparams, _, rhs) =>
         methods :+= extractFunction(fsym, dd, tparams, vparams, rhs)(using tpCtx)
-
-      case vd: tpd.ValDef =>
-        methods ++= extractAccessor(classType, isAbstractClass, vd, i)(using tpCtx)
 
       case t @ ExFieldSetterFunction(setterSym, fieldSym, _, vparam, rhs) =>
         val setterFn0 = extractFunction(setterSym, t, Seq.empty, List(vparam), rhs)(using tpCtx)
