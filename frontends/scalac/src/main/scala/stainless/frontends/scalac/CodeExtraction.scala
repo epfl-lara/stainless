@@ -273,6 +273,16 @@ trait CodeExtraction extends ASTExtractors {
           case _ =>
         }
 
+      case t@ExFieldDef(fsym, _, rhs) =>
+        val fd = extractFunction(fsym, Seq.empty, Seq.empty, rhs)(using DefContext())
+        functions :+= fd.id
+        allFunctions :+= fd
+
+      case t@ExLazyFieldDef(fsym, _, rhs) =>
+        val fd = extractFunction(fsym, Seq.empty, Seq.empty, rhs)(using DefContext())
+        functions :+= fd.id
+        allFunctions :+= fd
+
       // this case goes after `ExObjectDef` in order to explore synthetic objects that may contain
       // field initializers
       case t if t.symbol.isSynthetic && !canExtractSynthetic(t.symbol) =>
@@ -299,16 +309,6 @@ trait CodeExtraction extends ASTExtractors {
 
       case t @ ExMutableFieldDef(fsym, _, _) if fsym.isMutable && annotationsOf(fsym).contains(xt.Extern) =>
         // Ignore @extern variables in static context
-
-      case t @ ExFieldDef(fsym, _, rhs) =>
-        val fd = extractFunction(fsym, Seq.empty, Seq.empty, rhs)(using DefContext())
-        functions :+= fd.id
-        allFunctions :+= fd
-
-      case t @ ExLazyFieldDef(fsym, _, rhs) =>
-        val fd = extractFunction(fsym, Seq.empty, Seq.empty, rhs)(using DefContext())
-        functions :+= fd.id
-        allFunctions :+= fd
 
       case t @ ExFieldAccessorFunction(fsym, _, vparams, rhs) =>
         val fd = extractFunction(fsym, Seq.empty, vparams, rhs)(using DefContext())

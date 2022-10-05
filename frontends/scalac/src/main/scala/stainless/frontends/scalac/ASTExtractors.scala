@@ -780,7 +780,7 @@ trait ASTExtractors(val global: Global) {
           // Implemented fields
           case ValDef(mods, name, tpt, rhs) if (
             !sym.isCaseAccessor && !sym.isParamAccessor &&
-            !sym.isLazy && !sym.isSynthetic && !sym.isVar
+            !sym.isLazy && !sym.isVar
           ) =>
             Some((sym, tpt.tpe, rhs))
           case _ => None

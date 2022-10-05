@@ -872,7 +872,7 @@ trait ASTExtractors {
         vd match {
           case ValDef(_, tpt, _) if
             !(sym is CaseAccessor) && !(sym is ParamAccessor) &&
-            !(sym is Synthetic) && !(sym is Mutable) && !(sym is Lazy)
+            !(sym is Mutable) && !(sym is Lazy)
             => Some((sym, tpt.tpe, vd.rhs))
 
           case _ => None
