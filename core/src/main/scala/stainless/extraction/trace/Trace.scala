@@ -442,8 +442,9 @@ class Trace(override val s: Trees, override val t: termination.Trees)
           fullBody = BodyWithSpecs(withPre).withSpec(post).reconstructed,
           flags = Seq(s.Derived(Some(lemma.id)), s.Derived(Some(model.id)))
         ).copiedFrom(indPattern)
+               
+    case _ => indPattern
     }
-
   }
 
   class Specializer(
