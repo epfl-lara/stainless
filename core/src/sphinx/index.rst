@@ -19,6 +19,7 @@ Contents:
    verification
    laws
    imperative
+   equivalence
    ghost
    wrap
    purescala
