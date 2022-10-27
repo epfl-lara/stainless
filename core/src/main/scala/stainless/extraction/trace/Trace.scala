@@ -879,6 +879,14 @@ object Trace {
       unknowns = List()
       nextFunction
     }
+    if(isDone){
+      println("COUNTER")
+      println(counter)
+      println("SUBLEMMA COUNTER")
+      println(sublemmacounter)
+      println("COUNTER valids")
+      println(valid)
+    }
     !isDone
   }
 
