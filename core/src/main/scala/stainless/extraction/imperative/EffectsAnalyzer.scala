@@ -756,7 +756,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
   def isReferentiallyTransparent(e: Expr)(using syms: Symbols): Boolean = e match {
     case Variable(_, tpe, flags) => !flags.contains(IsVar) && !syms.isMutableType(tpe)
     case ClassSelector(expr, field) =>
-      val c @ ClassType(_, _) = expr.getType
+      val c @ ClassType(_, _) = expr.getType: @unchecked
       !c.getField(field).get.flags.contains(IsVar) && isReferentiallyTransparent(expr)
     case _: (ArraySelect | MutableMapApply) => false
     case _: (Literal[t] | Lambda) => true
@@ -840,7 +840,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
         rec(o, env) ++ rec(v, env) ++ effect(o, env).map(_.precise(accessor))
 
       case Application(callee, args) =>
-        val ft @ FunctionType(_, _) = callee.getType
+        val ft @ FunctionType(_, _) = callee.getType: @unchecked
         val effects = functionTypeEffects(ft)
         rec(callee, env) ++ args.flatMap(rec(_, env)) ++
         args.map(effect(_, env)).zipWithIndex

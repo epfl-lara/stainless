@@ -62,7 +62,7 @@ trait TransformerWithType extends TreeTransformer {
       t.Let(transform(vd), transform(e, vd.getType), transform(b, tpe)).copiedFrom(expr)
 
     case s.Application(caller, args) =>
-      val s.FunctionType(from, to) = widen(caller.getType)
+      val s.FunctionType(from, to) = widen(caller.getType): @unchecked
       t.Application(
         transform(caller, s.FunctionType(from, tpe)),
         (args zip from) map (p => transform(p._1, p._2))
@@ -221,11 +221,11 @@ trait TransformerWithType extends TreeTransformer {
       t.FiniteSet(elems map (transform(_, base)), transform(base)).copiedFrom(expr)
 
     case s.SetAdd(set, elem) =>
-      val st @ s.SetType(base) = widen(set.getType)
+      val st @ s.SetType(base) = widen(set.getType): @unchecked
       t.SetAdd(transform(set, st), transform(elem, base)).copiedFrom(expr)
 
     case s.ElementOfSet(elem, set) =>
-      val st @ s.SetType(base) = widen(set.getType)
+      val st @ s.SetType(base) = widen(set.getType): @unchecked
       t.ElementOfSet(transform(elem, base), transform(set, st)).copiedFrom(expr)
 
     case s.SubsetOf(s1, s2) =>
@@ -251,11 +251,11 @@ trait TransformerWithType extends TreeTransformer {
       ).copiedFrom(expr)
 
     case s.BagAdd(bag, elem) =>
-      val bt @ s.BagType(base) = widen(bag.getType)
+      val bt @ s.BagType(base) = widen(bag.getType): @unchecked
       t.BagAdd(transform(bag, bt), transform(elem, base)).copiedFrom(expr)
 
     case s.MultiplicityInBag(elem, bag) =>
-      val bt @ s.BagType(base) = widen(bag.getType)
+      val bt @ s.BagType(base) = widen(bag.getType): @unchecked
       t.MultiplicityInBag(transform(elem, base), transform(bag, bt)).copiedFrom(expr)
 
     case s.BagIntersection(b1, b2) =>
@@ -279,15 +279,15 @@ trait TransformerWithType extends TreeTransformer {
       ).copiedFrom(expr)
 
     case s.MapApply(map, key) =>
-      val mt @ s.MapType(from, _) = widen(map.getType)
+      val mt @ s.MapType(from, _) = widen(map.getType): @unchecked
       t.MapApply(transform(map, mt), transform(key, from)).copiedFrom(expr)
 
     case s.MapUpdated(map, key, value) =>
-      val mt @ s.MapType(from, to) = widen(map.getType)
+      val mt @ s.MapType(from, to) = widen(map.getType): @unchecked
       t.MapUpdated(transform(map, mt), transform(key, from), transform(value, to)).copiedFrom(expr)
 
     case s.MapMerge(mask, map1, map2) =>
-      val mt @ s.MapType(from, to) = widen(map1.getType)
+      val mt @ s.MapType(from, to) = widen(map1.getType): @unchecked
       t.MapMerge(transform(mask, s.SetType(from)), transform(map1, mt), transform(map2, mt))
 
     // Stainless expressions
@@ -346,7 +346,7 @@ trait TransformerWithType extends TreeTransformer {
       t.ArraySelect(transform(array), transform(index, s.Int32Type())).copiedFrom(expr)
 
     case s.ArrayUpdated(array, index, value) =>
-      val at @ s.ArrayType(base) = widen(array.getType)
+      val at @ s.ArrayType(base) = widen(array.getType): @unchecked
       t.ArrayUpdated(
         transform(array, at),
         transform(index, s.Int32Type()),
@@ -373,7 +373,7 @@ trait TransformerWithType extends TreeTransformer {
       ).copiedFrom(expr)
 
     case s.ApplyLetRec(id, tparams, tpe, tps, args) =>
-      val s.FunctionType(from, _) = s.typeOps.instantiateType(tpe.getType, (tparams zip tps).toMap)
+      val s.FunctionType(from, _) = s.typeOps.instantiateType(tpe.getType, (tparams zip tps).toMap): @unchecked
       t.ApplyLetRec(
         transform(id),
         tparams map (tp => transform(tp).asInstanceOf[t.TypeParameter]),

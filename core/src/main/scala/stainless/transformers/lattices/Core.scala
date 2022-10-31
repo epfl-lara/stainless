@@ -403,7 +403,7 @@ trait Core extends Definitions { ocbsl =>
       if (Thread.interrupted()) throw new InterruptedException()
 
       def inlineAppliedLambda(cLam: Code, in: Code): (Occurrences, Code, PartialCodeRes) = {
-        val Signature(Label.Lambda(params), Seq(body)) = code2sig(cLam)
+        val Signature(Label.Lambda(params), Seq(body)) = code2sig(cLam): @unchecked
         object inliner extends CodeTransformer {
           override type Extra = Unit
 
@@ -633,7 +633,7 @@ trait Core extends Definitions { ocbsl =>
         CodeRes.ifExpr(rcond, rthenn, rels, tpe)
 
       case e: (Lambda | Choose | Forall) =>
-        val (lab: Label.LambdaLike, body) = e match {
+        val (lab: Label.LambdaLike, body) = (e match {
           case Lambda(params, body) =>
             val vParams = params.map(vd => idOfVariable(vd.toVariable))
             (Label.Lambda(vParams), body)
@@ -643,7 +643,7 @@ trait Core extends Definitions { ocbsl =>
           case Forall(params, pred) =>
             val vParams = params.map(vd => idOfVariable(vd.toVariable))
             (Label.Forall(vParams), pred)
-        }
+        }): @unchecked
         val rbody = codeOfExpr(body)(using env.incIf(lab))
         CodeRes.lambdaLike(lab, rbody, tpe)
 
@@ -654,12 +654,12 @@ trait Core extends Definitions { ocbsl =>
         codeOfExpr(body)(using env, re.ctxs, subst + (vd.toVariable -> re.terminal))
 
       case e: (Assume | Assert | Require | Decreases) =>
-        val (lab: Label.AssumeLike, pred, body) = e match {
+        val (lab: Label.AssumeLike, pred, body) = (e match {
           case Assume(pred, body) => (Label.Assume, pred, body)
           case Assert(pred, _, body) => (Label.Assert, pred, body)
           case Require(pred, body) => (Label.Require, pred, body)
           case Decreases(measure, body) => (Label.Decreases, measure, body)
-        }
+        }): @unchecked
         val rpred = codeOfExpr(pred)
         assert(rpred.ctxs.isLitVarOrBoundDef(rpred.terminal))
         codeOfExpr(body)(using env, rpred.ctxs.withAssumeLike(lab, rpred.terminal))
@@ -674,10 +674,10 @@ trait Core extends Definitions { ocbsl =>
       case FunctionInvocation(id, tps, args) => codeOfExprsBound(args, tpe)(mkFunInvoc(id, tps, _))
       case Application(callee, args) => codeOfExprsBound(callee +: args, tpe) { case cCallee +: cArgs => mkApp(cCallee, cArgs) }
       case IsConstructor(e, id) =>
-        val adt @ ADTType(_, _) = e.getType
+        val adt @ ADTType(_, _) = e.getType: @unchecked
         codeOfExprsBound(e, tpe)(mkIsCtor(_, adt, id))
       case s @ ADTSelector(e, selector) =>
-        val adt @ ADTType(_, _) = e.getType
+        val adt @ ADTType(_, _) = e.getType: @unchecked
         codeOfExprsBound(e, tpe)(mkADTSelector(_, adt, s.constructor, selector))
 
       case Annotated(e, flags) => codeOfExprsBound(e, tpe)(mkAnnot(_, flags))
@@ -841,7 +841,7 @@ trait Core extends Definitions { ocbsl =>
           val (rsubs, subst2) = recHelper(subScruts, subps)
           (LabelledPattern.ADT(id, tps, rsubs), subst2)
         case TuplePattern(_, subps) =>
-          val tt@TupleType(_) = codeTpe(scrut)
+          val tt@TupleType(_) = codeTpe(scrut): @unchecked
           val subScruts = tupleSubscrutinees(scrut, tt)
           val (rsubs, subst2) = recHelper(subScruts, subps)
           (LabelledPattern.TuplePattern(rsubs), subst2)
@@ -1116,7 +1116,7 @@ trait Core extends Definitions { ocbsl =>
 
         val fstTry: Option[CodeRes] = {
           def unplugBranch(branch: Code, branchCtx: Ctxs): CodeRes = {
-            val Some((branchCr0, _)) = unplugged(branch)(using env, branchCtx)
+            val Some((branchCr0, _)) = unplugged(branch)(using env, branchCtx): @unchecked
             assert(branchCtx.isPrefixOf(branchCr0.ctxs))
             // resCtxs is like branchCr0.ctx but without the Assumed(cond) (or Assumed(neg(cond))) coming from branchCtx
             val resCtxs = condCtxs.addExtraWithoutAssumed(branchCr0.ctxs)
@@ -1545,7 +1545,7 @@ trait Core extends Definitions { ocbsl =>
     def mkElidable(caseRhs: Code, caseCtxs: Ctxs, rhsCtxs: Ctxs): SimplifiedCases.ElidableMatchExpr = {
       assert(ctxs.isPrefixOf(caseCtxs))
       assert(caseCtxs.isPrefixOf(rhsCtxs))
-      val Some((rhsUnpl, _)) = unplugged(caseRhs)(using env, rhsCtxs)
+      val Some((rhsUnpl, _)) = unplugged(caseRhs)(using env, rhsCtxs): @unchecked
       assert(rhsCtxs.isPrefixOf(rhsUnpl.ctxs))
       // Here, we remove all `Assumed` coming from the guard and the pattern.
       // These are not needed anymore because we will simplify the match expression away.
@@ -2106,7 +2106,7 @@ trait Core extends Definitions { ocbsl =>
           val Seq(e) = eargs
           IsConstructor(e, id)
         case Label.Application =>
-          val callee +: theArgs = eargs
+          val callee +: theArgs = eargs: @unchecked
           Application(callee, theArgs)
 
         case Label.Equals =>
@@ -2130,7 +2130,7 @@ trait Core extends Definitions { ocbsl =>
         case lab@(Label.Plus | Label.Times) =>
           assert(eargs.size >= 2)
           val recons: (Expr, Expr) => Expr = if (lab == Label.Plus) Plus.apply else Times.apply
-          val e1 +: e2 +: rest = eargs
+          val e1 +: e2 +: rest = eargs: @unchecked
           rest.foldLeft(recons(e1, e2))(recons)
         case Label.Minus =>
           val Seq(lhs, rhs) = eargs
@@ -2213,7 +2213,7 @@ trait Core extends Definitions { ocbsl =>
 
         case Label.FiniteArray(base) => FiniteArray(eargs, base)
         case Label.LargeArray(elemsIndices, base) =>
-          val elems :+ default :+ size = eargs
+          val elems :+ default :+ size = eargs: @unchecked
           LargeArray(elemsIndices.zip(elems).toMap, default, size, base)
         case Label.ArraySelect =>
           val Seq(arr, i) = eargs
@@ -2226,7 +2226,7 @@ trait Core extends Definitions { ocbsl =>
           ArrayLength(arr)
 
         case Label.FiniteMap(keyTpe, valueTpe) =>
-          val exprElems :+ exprDefault = eargs
+          val exprElems :+ exprDefault = eargs: @unchecked
           val paired = exprElems.grouped(2).map { case Seq(k, v) => (k, v) }.toSeq
           FiniteMap(paired, exprDefault, keyTpe, valueTpe)
         case Label.MapApply =>
@@ -2284,7 +2284,7 @@ trait Core extends Definitions { ocbsl =>
           val rsubs = recHelper(adtSubScrutinees(scrut, ADTType(id, tps)), subps)
           ADTPattern(bdg, id, tps, rsubs)
         case LabelledPattern.TuplePattern(subps) =>
-          val tt@TupleType(bases) = codeTpe(scrut)
+          val tt@TupleType(bases) = codeTpe(scrut): @unchecked
           assert(bases.size == subps.size)
           val rsubs = recHelper(tupleSubscrutinees(scrut, tt), subps)
           TuplePattern(bdg, rsubs)
@@ -2923,7 +2923,7 @@ trait Core extends Definitions { ocbsl =>
         PatBdgsAndConds(newCtxs, subscruts ++ recBdgs, adtPatCond +: recPatConds)
 
       case LabelledPattern.TuplePattern(subps) =>
-        val tt@TupleType(bases) = codeTpe(scrut)
+        val tt@TupleType(bases) = codeTpe(scrut): @unchecked
         assert(bases.size == subps.size)
         val subscruts = tupleSubscrutinees(scrut, tt)
         val PatBdgsAndConds(newCtxs, recBdgs, recPatConds) = recHelper(ctxs, subscruts, subps)

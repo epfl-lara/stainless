@@ -35,7 +35,7 @@ trait DefaultTactic extends Tactic {
         Seq()
 
       case _ =>
-        val Lambda(Seq(res), b @ TopLevelAnds(es)) = lambda
+        val Lambda(Seq(res), b @ TopLevelAnds(es)) = lambda: @unchecked
         val body = andJoin(es.filterNot {
           case Annotated(e, flags) => flags contains DropConjunct
           case p: Passes => true
@@ -49,7 +49,7 @@ trait DefaultTactic extends Tactic {
         }
     }
 
-    val Lambda(Seq(res), b @ TopLevelAnds(es)) = lambda
+    val Lambda(Seq(res), b @ TopLevelAnds(es)) = lambda: @unchecked
     val examples = es collect { case p: Passes => p.asConstraint }
     val examplesPost = if (examples.nonEmpty) Seq(Let(res, e, andJoin(examples)).copiedFrom(e)) else Seq()
 

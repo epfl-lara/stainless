@@ -44,7 +44,7 @@ class ImperativeCodeElimination(override val s: Trees)(override val t: s.type)
     def toFunction(expr: Expr)(using state: State): (Expr, Expr => Expr, Map[Variable, Variable]) = {
       import state._
 
-      val (res, scope, fun): (Expr, Expr => Expr, Map[Variable, Variable]) = expr match {
+      val (res, scope, fun): (Expr, Expr => Expr, Map[Variable, Variable]) = (expr match {
         case LetVar(vd, e, b) =>
           val newVd = vd.freshen
           val (rhsVal, rhsScope, rhsFun) = toFunction(e)
@@ -400,7 +400,7 @@ class ImperativeCodeElimination(override val s: Trees)(override val t: s.type)
             (argVal +: accArgs, newScope, argFun ++ accFun)
           }
           (recons(recArgs).setPos(n), scope, fun)
-      }
+      }): @unchecked
 
       (res.ensurePos(expr.getPos), scope, fun)
     }

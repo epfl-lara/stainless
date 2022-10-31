@@ -66,7 +66,7 @@ class MeasureInference(override val s: Trees, override val t: Trees)(using overr
 
       private def size(v: Variable): Expr = {
         require(v.getType.isInstanceOf[ADTType])
-        val ADTType(id, tps) = v.getType
+        val ADTType(id, tps) = v.getType: @unchecked
         FunctionInvocation(sizes.fullSizeId(symbols.sorts(id)), tps, Seq(v)).setPos(v)
       }
     }

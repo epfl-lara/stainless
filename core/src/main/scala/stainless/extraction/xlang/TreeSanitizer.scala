@@ -309,7 +309,7 @@ trait TreeSanitizer { self =>
               errors += MalformedStainlessCode(e, "Testing lambdas for equality in non-ghost code is unsound")
 
             case tp =>
-              val TypeOperator(es, _) = tp
+              val TypeOperator(es, _) = tp: @unchecked
               es.foreach(rec)
           }
 
@@ -386,7 +386,7 @@ trait TreeSanitizer { self =>
           errors += MalformedStainlessCode(l, "Calling a method or function on `this` within an invariant is unsound")
 
         case e =>
-          val Operator(es, _) = e
+          val Operator(es, _) = e: @unchecked
           es.foreach(checkThisUsage)
       }
     }

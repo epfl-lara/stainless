@@ -184,7 +184,7 @@ class CompilationUnit(val program: Program, val context: inox.Context)(using val
       m
 
     case lambda: Lambda =>
-      val (l: Lambda, deps) = normalizeStructure(matchToIfThenElse(lambda, assumeExhaustive = false))
+      val (l: Lambda, deps) = normalizeStructure(matchToIfThenElse(lambda, assumeExhaustive = false)): @unchecked
       if (deps.forall { case (_, e, conds) => isValue(e) && conds.isEmpty }) {
         val (afName, closures, tparams, consSig) = compileLambda(l, Seq.empty)
         val depsMap = deps.map { case (v, dep, _) => v.id -> valueToJVM(dep) }.toMap
@@ -254,7 +254,7 @@ class CompilationUnit(val program: Program, val context: inox.Context)(using val
           arr
         }
 
-        val ArrayType(underlying) = a.getType
+        val ArrayType(underlying) = a.getType: @unchecked
         underlying match {
           case Int8Type() =>
             allocArray { case Int8Literal(v) => v }

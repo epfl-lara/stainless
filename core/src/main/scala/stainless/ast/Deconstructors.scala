@@ -123,10 +123,10 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
           rtps = nextTps
 
           if (hasGuard) {
-            val guard +: rhs +: pes = currEs
+            val guard +: rhs +: pes = currEs: @unchecked
             t.MatchCase(precons(currIds, currVs, pes, currTps).setPos(patternPos), Some(guard), rhs).setPos(cazePos)
           } else {
-            val rhs +: pes = currEs
+            val rhs +: pes = currEs: @unchecked
             t.MatchCase(precons(currIds, currVs, pes, currTps).setPos(patternPos), None, rhs).setPos(cazePos)
           }
         }
@@ -153,14 +153,14 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
     case s.MatchExpr(scrut, cases) =>
       val (cids, cvs, ces, ctps, crecons) = deconstructCases(cases)
       (cids, cvs, scrut +: ces, ctps, Seq(), (ids, vs, es, tps, _) => {
-        val newScrut +: nes = es
+        val newScrut +: nes = es: @unchecked
         t.MatchExpr(newScrut, crecons(ids, vs, nes, tps))
       })
 
     case s.Passes(in, out, cases) =>
       val (cids, cvs, ces, ctps, crecons) = deconstructCases(cases)
       (cids, cvs, Seq(in, out) ++ ces, ctps, Seq(), (ids, vs, es, tps, _) => {
-        val newIn +: newOut +: nes = es
+        val newIn +: newOut +: nes = es: @unchecked
         t.Passes(newIn, newOut, crecons(ids, vs, nes, tps))
       })
 

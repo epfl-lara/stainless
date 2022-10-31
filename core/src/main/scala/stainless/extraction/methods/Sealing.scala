@@ -79,7 +79,7 @@ class Sealing(override val s: Trees)(override val t: s.type)
     }
   }
 
-  override protected def getContext(syms: Symbols) = new TransformerContext()(using syms)
+  override protected def getContext(syms: Symbols) = new TransformerContext(using syms)
 
   // For each class, we add a sealed flag, and optionally add a dummy subclass
   // with the corresponding methods

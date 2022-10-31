@@ -27,7 +27,7 @@ object Stream {
     decreases(n)
     indexedAt(n, Stream[BigInt](0, (() =>
       indexedAt(n-1, Stream[BigInt](1, (() =>
-        zipWith[BigInt,BigInt,BigInt](n - 2, (a, b) => a + b, fib(n - 2), fib(n - 1).tail())
+        zipWith[BigInt,BigInt,BigInt](n - 2, (a, b) => a + b, fib(n - 2): (Stream[BigInt] @indexedAtAnnot(n - 2)), (fib(n - 1): (Stream[BigInt] @indexedAtAnnot(n - 2))).tail())
       )))
     )))
   }

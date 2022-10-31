@@ -20,7 +20,7 @@ class InductElimination(override val s: Trees)(override val t: s.type)
   import dsl._
 
   protected class TransformerContext(using val symbols: Symbols)
-  override protected def getContext(syms: Symbols) = new TransformerContext()(using syms)
+  override protected def getContext(syms: Symbols) = new TransformerContext(using syms)
 
   override protected def extractFunction(tcontext: TransformerContext, fd: FunDef): FunDef = {
     val syms = tcontext.symbols

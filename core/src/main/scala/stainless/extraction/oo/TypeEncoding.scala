@@ -90,7 +90,7 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
   }
 
   private[this] def erased[T <: s.Type](tpe: T): T = {
-    val s.NAryType(tps, recons) = tpe
+    val s.NAryType(tps, recons) = tpe: @unchecked
     recons(tps.map(tp => s.AnyType().copiedFrom(tp))).copiedFrom(tpe).asInstanceOf[T]
   }
 

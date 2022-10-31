@@ -182,7 +182,7 @@ trait TreeDeconstructor extends imperative.TreeDeconstructor {
     case s.Try(body, cases, fin) =>
       val (cids, cvs, ces, ctps, crecons) = deconstructCases(cases)
       (cids, cvs, (body +: ces) ++ fin, ctps, Seq(), (ids, vs, es, tps, _) => {
-        val newBody +: rest = es
+        val newBody +: rest = es: @unchecked
         val (nes, newFin) = if (fin.isEmpty) (rest, None) else (rest.init, rest.lastOption)
         t.Try(newBody, crecons(ids, vs, nes, tps), newFin)
       })

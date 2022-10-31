@@ -43,7 +43,7 @@ trait Types extends methods.Trees { self: Trees =>
         val typedMap = allAncestors.groupBy(_.id).map { case (id, cts) =>
           val tps = cts.head.typeArgs.zipWithIndex.map { case (tp, i) =>
             val preInsts = cts.map(_.tps(i))
-            val insts @ (head +: tail) = preInsts.map(i => typeOps.instantiateType(i, subst))
+            val insts @ (head +: tail) = preInsts.map(i => typeOps.instantiateType(i, subst)): @unchecked
             if (tp.isCovariant) s.greatestLowerBound(insts)
             else if (tp.isContravariant) s.leastUpperBound(insts)
             else if (tail.forall(_ == head)) head

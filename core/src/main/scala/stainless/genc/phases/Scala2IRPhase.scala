@@ -546,7 +546,7 @@ private class S2IRImpl(override val s: tt.type,
     // Now proceed with the body
     val body: CIR.FunBody =
       if (fa.isManuallyDefined) {
-        val Seq(StringLiteral(code), StringLiteral(headerIncludes0), StringLiteral(cIncludes0)) = fa.extAnnotations(manualDefAnnotation)
+        val Seq(StringLiteral(code), StringLiteral(headerIncludes0), StringLiteral(cIncludes0)) = fa.extAnnotations(manualDefAnnotation): @unchecked
         val headerIncludes =
           if (headerIncludes0.isEmpty) Nil
           else { headerIncludes0 split ':' }.toSeq
@@ -915,7 +915,7 @@ private class S2IRImpl(override val s: tt.type,
       CIR.Assign(CIR.ArrayAccess(rec(array), rec(index)), rec(value))
 
     case Swap(array1, index1, array2, index2) =>
-      val ArrayType(base) = array1.getType
+      val ArrayType(base) = array1.getType: @unchecked
       val a1 = rec(array1)
       val a2 = rec(array2)
       val i1 = rec(index1)
@@ -993,10 +993,10 @@ private class S2IRImpl(override val s: tt.type,
     case BVNarrowingCast(e, t) => CIR.IntegralCast(rec(e), rec(t).asInstanceOf[CIR.PrimitiveType].primitive.asInstanceOf[PT.IntegralPrimitiveType])
 
     case BVUnsignedToSigned(e) =>
-      val BVType(false, size) = e.getType
+      val BVType(false, size) = e.getType: @unchecked
       CIR.IntegralCast(rec(e), rec(BVType(true, size)).asInstanceOf[CIR.PrimitiveType].primitive.asInstanceOf[PT.IntegralPrimitiveType])
     case BVSignedToUnsigned(e) =>
-      val BVType(true, size) = e.getType
+      val BVType(true, size) = e.getType: @unchecked
       CIR.IntegralCast(rec(e), rec(BVType(false, size)).asInstanceOf[CIR.PrimitiveType].primitive.asInstanceOf[PT.IntegralPrimitiveType])
 
     case MatchExpr(scrutinee, cases) => convertPatMap(scrutinee, cases)

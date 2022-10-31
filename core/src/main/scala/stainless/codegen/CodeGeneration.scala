@@ -745,7 +745,7 @@ trait CodeGeneration { self: CompilationUnit =>
     case Tuple(es) => mkTuple(es, ch)
 
     case TupleSelect(t, i) =>
-      val TupleType(bs) = t.getType
+      val TupleType(bs) = t.getType: @unchecked
       mkExpr(t,ch)
       ch << Ldc(i - 1)
       ch << InvokeVirtual(TupleClass, "get", s"(I)L$ObjectClass;")
@@ -838,7 +838,7 @@ trait CodeGeneration { self: CompilationUnit =>
       }
 
     case MapApply(m, k) =>
-      val MapType(_, tt) = m.getType
+      val MapType(_, tt) = m.getType: @unchecked
       mkExpr(m, ch)
       mkBoxedExpr(k, ch)
       ch << InvokeVirtual(MapClass, "get", s"(L$ObjectClass;)L$ObjectClass;")
@@ -1249,7 +1249,7 @@ trait CodeGeneration { self: CompilationUnit =>
     val (l: Lambda, deps) = normalizeStructure(matchToIfThenElse(
       replaceFromSymbols((vars zip freshVars).toMap, lambda),
       assumeExhaustive = false
-    ))
+    )): @unchecked
 
     val (afName, closures, tparams, consSig) = compileLambda(l, locals.params)
     val closureTypes = variablesOf(l).map(v => v.id -> v.getType).toMap
@@ -1562,8 +1562,8 @@ trait CodeGeneration { self: CompilationUnit =>
       case BVType(_, s) => ch << NOP
     }
 
-    val BVType(_, oldSize) = from
-    val BVType(_, newSize) = to
+    val BVType(_, oldSize) = from: @unchecked
+    val BVType(_, newSize) = to: @unchecked
     ch << Comment(s"Applying BVCast on BitVector instance: $oldSize -> $newSize")
     ch << Ldc(newSize)
     ch << InvokeVirtual(BitVectorClass, "cast", s"(I)L$BitVectorClass;")

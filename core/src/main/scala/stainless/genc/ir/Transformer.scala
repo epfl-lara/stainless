@@ -52,7 +52,7 @@ abstract class Transformer[From <: IR, To <: IR](final val from: From, final val
   protected def rec(prog: Prog)(using Env): to.Prog = {
     if (prog.decls.nonEmpty) {
       val modes = prog.decls.map(_._2)
-      val (to.Block(newDecls), newEnv) = recImpl(Block(prog.decls.map(_._1)))
+      val (to.Block(newDecls), newEnv) = recImpl(Block(prog.decls.map(_._1))): @unchecked
       to.Prog(
         newDecls.map(_.asInstanceOf[to.Decl]).zip(modes),
         prog.functions.map(rec(_)(using newEnv)),
