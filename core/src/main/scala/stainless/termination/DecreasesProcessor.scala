@@ -166,7 +166,7 @@ class DecreasesProcessor(override val checker: ProcessingPipeline)
         builtIf
     }
 
-    val (rel, expr, index) :: rest = measures // safe because of precondition
+    val (rel, expr, index) :: rest = measures: @unchecked // safe because of precondition
 
     val path = rel match { case Some(r) => r.path; case None => Path.empty }
     val flat = flatten(expr, Seq(IntegerLiteral(index)))

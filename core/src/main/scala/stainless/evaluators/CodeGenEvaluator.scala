@@ -126,12 +126,12 @@ class CodeGenEvaluator(override val program: Program,
 
       val groundForall = exprOps.replaceFromSymbols(inputsMap, tpForall)
 
-      val BooleanLiteral(res) = try {
+      val BooleanLiteral(res) = (try {
         self.onForallInvocation(groundForall.asInstanceOf[Forall])
       } catch {
         case e: java.lang.RuntimeException =>
           throw new runtime.CodeGenRuntimeException(e.getMessage)
-      }
+      }): @unchecked
 
       res
     }

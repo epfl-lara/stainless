@@ -36,8 +36,6 @@ class ChainProcessor(override val checker: ProcessingPipeline)
     strengthenPostconditions(problem.funSet)
     strengthenApplications(problem.funSet)
 
-    val api = getAPI
-
     reporter.debug("- Running ChainBuilder")
     val chainsMap = problem.funSet.map { funDef =>
       funDef -> getChains(funDef)
@@ -49,40 +47,41 @@ class ChainProcessor(override val checker: ProcessingPipeline)
 
     if (loopPoints.size > 1) {
       reporter.debug("-+> Multiple looping points, can't build chain proof")
-      return None
-    }
+      None
+    } else {
+      val bases: Seq[FunDef] = {
+        if (loopPoints.nonEmpty) loopPoints
+        else chainsMap.collect {
+          case (fd, (fds, chains)) if chains.nonEmpty => fd
+        }
+      }.toList
 
-    val bases: Seq[FunDef] =
-      {if (loopPoints.nonEmpty) loopPoints
-      else chainsMap.collect {
-        case (fd, (fds, chains)) if chains.nonEmpty => fd
-      }}.toList
-
-    findDecrease(bases,chainsMap,checker.program.symbols) match {
-      case (cs, Some(base), Some(reconstr)) =>
-        annotateChains(cs,base,reconstr)
-        Some(problem.funDefs.map { fd =>
-          measureCache.get(fd) match {
-            case Some(measure) =>
-              val inductiveLemmas =
-                Some((ordering.getPostconditions, ordering.insertedApps))
-              Cleared(fd, Some(measure), inductiveLemmas)
-            case None =>
-              throw FailedMeasureInference(fd,
-                s"No measure annotated in function `${fd.id}` which was cleared in chain processor.")
-          }
-        })
-      case _ => None
+      findDecrease(bases, chainsMap, checker.program.symbols) match {
+        case (cs, Some(base), Some(reconstr)) =>
+          annotateChains(cs, base, reconstr)
+          Some(problem.funDefs.map { fd =>
+            measureCache.get(fd) match {
+              case Some(measure) =>
+                val inductiveLemmas =
+                  Some((ordering.getPostconditions, ordering.insertedApps))
+                Cleared(fd, Some(measure), inductiveLemmas)
+              case None =>
+                throw FailedMeasureInference(fd,
+                  s"No measure annotated in function `${fd.id}` which was cleared in chain processor.")
+            }
+          })
+        case _ => None
+      }
     }
   }
 
-  def findDecrease(bases: Seq[FunDef], chainsMap: Map[FunDef,(Set[FunDef], Set[Chain])], syms: Symbols): (Seq[Chain], Option[FunDef], Option[Expr => Expr]) = {
+  def findDecrease(bases: Seq[FunDef], chainsMap: Map[FunDef, (Set[FunDef], Set[Chain])], syms: Symbols): (Seq[Chain], Option[FunDef], Option[Expr => Expr]) = {
     val depth: Int = 1 // Number of unfoldings
     val api = getAPI
 
-    def solveIter(i: Int,allChains: Set[Chain],cs: Set[Chain],base: FunDef): (Set[Chain], Option[Expr => Expr]) = {
+    def solveIter(i: Int, allChains: Set[Chain], cs: Set[Chain], base: FunDef): (Set[Chain], Option[Expr => Expr]) = {
       reporter.debug("-+> Iteration #" + i)
-      if(i < 0) (cs,None)
+      if (i < 0) (cs, None)
       else {
         val e1s = cs.toSeq.map { chain =>
           val (path, args) = chain.loop
@@ -93,10 +92,10 @@ class ChainProcessor(override val checker: ProcessingPipeline)
         val decreases: Option[(Expr, Expr, Expr => Expr)] = formulas.find { case (query, _, _) =>
           api.solveVALID(query).contains(true)
         }
-        if (decreases.isDefined) (cs,Some(decreases.get._3))
+        if (decreases.isDefined) (cs, Some(decreases.get._3))
         else {
           val newChains = cs.flatMap(c1 => allChains.flatMap(c2 => c1 compose c2))
-          solveIter(i-1,allChains,newChains, base)
+          solveIter(i - 1, allChains, newChains, base)
         }
       }
     }
@@ -106,8 +105,8 @@ class ChainProcessor(override val checker: ProcessingPipeline)
         val chains = chainsMap(base)._2
         val allChains = chainsMap(base)._2
         reporter.debug("- Searching for size decrease")
-        val (cs,reconstr) = solveIter(depth, allChains,chains, base)
-        if(reconstr.isDefined) (cs.toSeq, Some(base), reconstr)
+        val (cs, reconstr) = solveIter(depth, allChains, chains, base)
+        if (reconstr.isDefined) (cs.toSeq, Some(base), reconstr)
         else solveBase(bs)
       case Nil => (Seq(), None, None)
     }
@@ -120,25 +119,26 @@ class ChainProcessor(override val checker: ProcessingPipeline)
    */
   private val measureCache: MutableMap[FunDef, Expr] = MutableMap.empty
 
-  def annotateChains(cs: Seq[Chain],base: FunDef,recons: Expr => Expr): Unit = {
+  def annotateChains(cs: Seq[Chain], base: FunDef, recons: Expr => Expr): Unit = {
     /* Stores for a function f an index i the measure expressions
      holding for those values leaving the chains in i steps.
      If i = -1 then the value loops. */
-    val annotationMap: MutableMap[(FunDef,Int),Seq[(Expr,Expr)]] =
-      MutableMap.empty[(FunDef,Int), Seq[(Expr,Expr)]].withDefaultValue(Seq())
+    val annotationMap: MutableMap[(FunDef, Int), Seq[(Expr, Expr)]] =
+      MutableMap.empty[(FunDef, Int), Seq[(Expr, Expr)]].withDefaultValue(Seq())
 
     /* Gives the index of f in chain c. */
     def domIndex(rs: Seq[Relation], f: FunDef, i: Int): Int = rs match {
-      case Relation(fd,_,fi,_) :: _ if (fd.id == f.id) => i
-      case Relation(fd,_,fi,_) :: _ if (fi.id == f.id) => i+1
-      case r :: rs => domIndex(rs,f,i+1)
+      case Relation(fd, _, fi, _) :: _ if fd.id == f.id => i
+      case Relation(fd, _, fi, _) :: _ if fi.id == f.id => i + 1
+      case r :: rs => domIndex(rs, f, i + 1)
       case _ => -1
     }
 
-    val M = cs.map{ c => c.size }.max
+    val M = cs.map { c => c.size }.max
 
     def measure(expr: Seq[Expr]) =
       ordering.measure(Seq(recons(tupleWrap(expr))))
+
     def tupleMeasure(expr: Expr, j: Int, k: Int) =
       tupleWrap(Seq(expr, IntegerLiteral(j), IntegerLiteral(k)))
 
@@ -146,64 +146,64 @@ class ChainProcessor(override val checker: ProcessingPipeline)
     def annotateBase(base: FunDef, cs: Seq[Chain]) = {
       val args = measure(base.params.map(_.toVariable))
       val baseCond =
-        orJoin(cs.map{ c => Chain(c.relations).loop._1.toClause })
-      val baseMeasure = tupleMeasure(args,0,0)
-      annotationMap += ((base,-1) -> (annotationMap((base,-1)) :+ (baseCond,baseMeasure)))
+        orJoin(cs.map { c => Chain(c.relations).loop._1.toClause })
+      val baseMeasure = tupleMeasure(args, 0, 0)
+      annotationMap += ((base, -1) -> (annotationMap((base, -1)) :+ (baseCond, baseMeasure)))
     }
 
     def annotateLoops(base: FunDef, cs: Seq[Chain]) = {
       // I assume the chains cs start at base
       for (c <- cs; member <- c.fds if member.id != base.id) {
-        val i = domIndex(c.relations,member,0)
+        val i = domIndex(c.relations, member, 0)
         val domRelations = c.relations.drop(i)
 
         // annotate looping condition
-        val (domRpath,args1) = Chain(domRelations).loop
+        val (domRpath, args1) = Chain(domRelations).loop
         val margs1 = bindingsToLets(domRpath.bindings, measure(args1))
         val cond1 = domRpath.toClause
-        val measure1 = tupleMeasure(margs1,M-i,M)
-        annotationMap += ((member,-1) -> (annotationMap((member,-1)) :+ (cond1,measure1)))
+        val measure1 = tupleMeasure(margs1, M - i, M)
+        annotationMap += ((member, -1) -> (annotationMap((member, -1)) :+ (cond1, measure1)))
 
         // annotate escaping steps
         var relations = domRelations.dropRight(1)
-        while(!relations.isEmpty){
-          val (path,_) = Chain(relations).loop
+        while (relations.nonEmpty) {
+          val (path, _) = Chain(relations).loop
           val steps = relations.size
           val cond2 = path.toClause
-          val measure2 = tupleMeasure(IntegerLiteral(0),0,M-(steps))
-          annotationMap += ((member,steps) -> (annotationMap((member,steps)) :+ (cond2,measure2)))
+          val measure2 = tupleMeasure(IntegerLiteral(0), 0, M - (steps))
+          annotationMap += ((member, steps) -> (annotationMap((member, steps)) :+ (cond2, measure2)))
           relations = relations.dropRight(1)
         }
 
         val noCond = not(cond1)
-        val noMeasure = tupleMeasure(IntegerLiteral(0),0,M-i)
-        annotationMap += ((member,0) -> (annotationMap((member,0)) :+ (noCond,noMeasure)))
+        val noMeasure = tupleMeasure(IntegerLiteral(0), 0, M - i)
+        annotationMap += ((member, 0) -> (annotationMap((member, 0)) :+ (noCond, noMeasure)))
       }
     }
 
     def buildMeasure(): Unit = {
-      val default = tupleMeasure(IntegerLiteral(0),0,M)
+      val default = tupleMeasure(IntegerLiteral(0), 0, M)
 
       /* Annotation map with format: f -> (index -> Seq(values)) */
       val indexedByFun =
         annotationMap.groupBy(_._1._1)
-          .view.mapValues(_.map{ case (k,v) => k._2 -> v })
+          .view.mapValues(_.map { case (k, v) => k._2 -> v })
           .toMap
 
-      for((k,v) <- indexedByFun.toSeq) yield {
-        val orderedMeasures: List[(Int, Seq[(Expr,Expr)])] = v.toList.sortBy(_._1)
+      for ((k, v) <- indexedByFun.toSeq) yield {
+        val orderedMeasures: List[(Int, Seq[(Expr, Expr)])] = v.toList.sortBy(_._1)
         /* Measures has -1 at the end and flattened */
-        val measures: List[(Int, Seq[(Expr,Expr)])]  =
-          if(orderedMeasures.head._1 == -1){
+        val measures: List[(Int, Seq[(Expr, Expr)])] =
+          if (orderedMeasures.head._1 == -1) {
             orderedMeasures.tail ++ orderedMeasures.head._2.map(m => -1 -> Seq(m)).toList
           } else {
             orderedMeasures.tail
           }
 
-        val measure = measures.foldLeft(default){ case (acc,(_, seq)) =>
-          if(!seq.isEmpty){
+        val measure = measures.foldLeft(default) { case (acc, (_, seq)) =>
+          if (seq.nonEmpty) {
             val expr = seq.head._2
-            IfExpr(orJoin(seq.map(_._1)),expr,acc)
+            IfExpr(orJoin(seq.map(_._1)), expr, acc)
           } else {
             acc
           }
@@ -214,8 +214,8 @@ class ChainProcessor(override val checker: ProcessingPipeline)
     }
 
     annotateBase(base, cs)
-    annotateLoops(base,cs)
+    annotateLoops(base, cs)
     buildMeasure()
-   }
+  }
 }
 

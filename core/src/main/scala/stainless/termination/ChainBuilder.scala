@@ -77,7 +77,7 @@ trait ChainBuilder extends RelationBuilder { self: Strengthener with OrderingRel
     case Some((subloop, chains, signature)) if signature == funDefChainSignature(funDef) => subloop -> chains
     case _ => {
       def chains(seen: Set[FunDef], chain: List[Relation]): (Set[FunDef], Set[Chain]) = {
-        val Relation(_, _, FunctionInvocation(id, _, _), _) :: _ = chain
+        val Relation(_, _, FunctionInvocation(id, _, _), _) :: _ = chain: @unchecked
         val fd = getFunction(id)
 
         if (!transitivelyCalls(fd, funDef)) {

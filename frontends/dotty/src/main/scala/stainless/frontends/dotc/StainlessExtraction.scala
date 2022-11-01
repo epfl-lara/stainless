@@ -30,8 +30,8 @@ class StainlessExtraction(val inoxCtx: inox.Context) {
     val unit = ctx.compilationUnit
     val tree = unit.tpdTree
     val (id, stats) = tree match {
-      case pd @ PackageDef(refTree, lst) =>
-        val id = lst.collectFirst { case PackageDef(ref, stats) => ref } match {
+      case pd@PackageDef(_, lst) =>
+        val id = lst.collectFirst { case PackageDef(ref, _) => ref } match {
           case Some(ref) => extractRef(ref)
           case None => FreshIdentifier(unit.source.file.name.replaceFirst("[.][^.]+$", ""))
         }
@@ -44,41 +44,41 @@ class StainlessExtraction(val inoxCtx: inox.Context) {
     fragmentChecker.ghostChecker(tree)
     fragmentChecker.checker(tree)
 
-    if (!fragmentChecker.hasErrors()) {
-      val (imports, unitClasses, unitFunctions, unitTypeDefs, subs, classes, functions, typeDefs) = {
-        // If the user annotates a function with @main, the compiler will generate a top-level class
-        // with the same name as the function.
-        // This generated class defines def main(args: Array[String]): Unit
-        // that just wraps the annotated function in a try-catch.
-        // The catch clause intercepts CommandLineParser.ParseError exceptions, causing recovery failure in
-        // later Stainless phases so we simply drop that synthetic class.
-        val filteredStats = findMain(stats)
-          .map(name => stats.filter {
-            case TypeDef(n, _) => name != n.toTermName
-            case _ => true
-          }).getOrElse(stats)
-        try
-          extraction.extractStatic(filteredStats)
-        catch {
-          case UnsupportedCodeException(pos, msg) =>
-            inoxCtx.reporter.error(pos, msg)
-            return None
-          case e => throw e
-        }
-      }
-      assert(unitFunctions.isEmpty, "Packages shouldn't contain functions")
+    if (!fragmentChecker.hasErrors()) tryExtractUnit(extraction, unit, id, stats)
+    else None
+  }
 
+  private def tryExtractUnit(extraction: CodeExtraction,
+                             unit: CompilationUnit,
+                             id: Identifier,
+                             stats: List[tpd.Tree])(using DottyContext): Option[ExtractedUnit] = {
+    // If the user annotates a function with @main, the compiler will generate a top-level class
+    // with the same name as the function.
+    // This generated class defines def main(args: Array[String]): Unit
+    // that just wraps the annotated function in a try-catch.
+    // The catch clause intercepts CommandLineParser.ParseError exceptions, causing recovery failure in
+    // later Stainless phases so we simply drop that synthetic class.
+    val filteredStats = findMain(stats)
+      .map(name => stats.filter {
+        case TypeDef(n, _) => name != n.toTermName
+        case _ => true
+      }).getOrElse(stats)
+    try {
+      val (imports, unitClasses, unitFunctions, _, subs, classes, functions, typeDefs) = extraction.extractStatic(filteredStats)
+      assert(unitFunctions.isEmpty, "Packages shouldn't contain functions")
       val file = unit.source.file.absolute.path
       val isLibrary = stainless.Main.libraryFiles contains file
       val xtUnit = xt.UnitDef(id, imports, unitClasses, subs, !isLibrary)
-
       Some(ExtractedUnit(file, xtUnit, classes, functions, typeDefs))
-    } else {
-      None
+    } catch {
+      case UnsupportedCodeException(pos, msg) =>
+        inoxCtx.reporter.error(pos, msg)
+        None
+      case e => throw e
     }
   }
 
-  def findMain(stats: List[tpd.Tree])(using DottyContext): Option[TermName] = {
+  private def findMain(stats: List[tpd.Tree])(using DottyContext): Option[TermName] = {
     val trAcc = new tpd.TreeAccumulator[Option[TermName]] {
       override def apply(found: Option[TermName], tree: tpd.Tree)(using DottyContext): Option[TermName] = {
         if (found.isDefined) found

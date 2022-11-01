@@ -83,7 +83,7 @@ trait SymbolOps extends inox.ast.SymbolOps with TypeOps { self =>
         pp.empty withCond isCons(in, id) merge bind(ob, in) merge subTests
 
       case TuplePattern(ob, subps) =>
-        val TupleType(tpes) = in.getType
+        val TupleType(tpes) = in.getType: @unchecked
         assert(tpes.size == subps.size)
         val subTests = subps.zipWithIndex.map { case (p, i) => apply(tupleSelect(in, i+1, subps.size), p) }
         bind(ob, in) merge subTests
@@ -139,7 +139,7 @@ trait SymbolOps extends inox.ast.SymbolOps with TypeOps { self =>
         bindIn(b) ++ together
 
       case TuplePattern(b, subps) =>
-        val TupleType(tpes) = in.getType
+        val TupleType(tpes) = in.getType: @unchecked
         assert(tpes.size == subps.size)
 
         val maps = subps.zipWithIndex.map { case (p, i) => mapForPattern(tupleSelect(in, i+1, subps.size), p)}
@@ -177,7 +177,7 @@ trait SymbolOps extends inox.ast.SymbolOps with TypeOps { self =>
         }
 
         val (branches, elze) = if (assumeExhaustive) {
-          val (cases :+ ((_, rhs, _))) = condsAndRhs
+          val (cases :+ ((_, rhs, _))) = condsAndRhs: @unchecked
           (cases, rhs)
         } else {
           (condsAndRhs, Error(m.getType, "match exhaustiveness").copiedFrom(m))

@@ -93,14 +93,14 @@ class SuperCalls(override val s: Trees, override val t: Trees)
 
   override protected final val sortCache = new ExtractionCache[s.ADTSort, SortResult]({ (sort, context) =>
     val symbols = context.symbols
-    val collector = new SuperCollector()(using symbols)
+    val collector = new SuperCollector(using symbols)
     collector.traverse(sort)
     SortKey(sort) + SetKey(collector.getSupers)(using symbols)
   })
 
   override protected final val classCache = new ExtractionCache[s.ClassDef, ClassResult]({ (cd, context) =>
     val symbols = context.symbols
-    val collector = new SuperCollector()(using symbols)
+    val collector = new SuperCollector(using symbols)
     collector.traverse(cd)
     ClassKey(cd) + SetKey(collector.getSupers)(using symbols)
   })

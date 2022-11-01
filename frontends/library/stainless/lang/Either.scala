@@ -26,7 +26,7 @@ sealed abstract class Either[A, B] {
 
   def get: B = {
     require(isRight)
-    val Right(value) = this
+    val Right(value) = this: @unchecked
     value
   }
 }

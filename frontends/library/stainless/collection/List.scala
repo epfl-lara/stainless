@@ -31,7 +31,7 @@ sealed abstract class List[T] {
       else 1 + tSize
     }
   }) ensuring(res => 0 <= res && res <= Int.MaxValue)
-  
+
   @isabelle.function(term = "List.list.set")
   def content: Set[T] = this match {
     case Nil() => Set()
@@ -56,13 +56,13 @@ sealed abstract class List[T] {
 
   def head: T = {
     require(this != Nil[T]())
-    val Cons(h, _) = this
+    val Cons(h, _) = this: @unchecked // Be quiet!
     h
   }
 
   def tail: List[T] = {
     require(this != Nil[T]())
-    val Cons(_, t) = this
+    val Cons(_, t) = this: @unchecked
     t
   }
 
@@ -138,7 +138,7 @@ sealed abstract class List[T] {
        else                     i
      ))
   }
-  
+
   def drop(i: BigInt): List[T] = { (this, i) match {
     case (Nil(), _) => Nil[T]()
     case (Cons(h, t), i) =>
@@ -169,7 +169,7 @@ sealed abstract class List[T] {
   } ensuring { res =>
     res.content.subsetOf(this.content)
   }
-  
+
   def slice(from: BigInt, to: BigInt): List[T] = {
     require(0 <= from && from <= to && to <= size)
     drop(from).take(to-from)
@@ -397,7 +397,7 @@ sealed abstract class List[T] {
 
   def updated(i: BigInt, y: T): List[T] = {
     require(0 <= i && i < this.size)
-    this match {
+    (this: @unchecked) match {
       case Cons(x, tail) if i == 0 =>
         Cons[T](y, tail)
       case Cons(x, tail) =>
@@ -407,14 +407,14 @@ sealed abstract class List[T] {
 
   def iupdated(i: Int, y: T): List[T] = {
     require(0 <= i && i < isize)
-    this match {
+    (this: @unchecked) match {
       case Cons(x, tail) if i == 0 =>
         Cons[T](y, tail)
       case Cons(x, tail) =>
         Cons[T](x, tail.iupdated(i - 1, y))
     }
   }
-  
+
   private def insertAtImpl(pos: BigInt, l: List[T]): List[T] = {
     require(0 <= pos && pos <= size)
     if(pos == BigInt(0)) {
@@ -524,7 +524,7 @@ sealed abstract class List[T] {
   def scanRight[R](z: R)(f: (T,R) => R): List[R] = { this match {
     case Nil() => z :: Nil[R]()
     case Cons(h, t) =>
-      val rest@Cons(h1,_) = t.scanRight(z)(f)
+      val rest@Cons(h1,_) = t.scanRight(z)(f): @unchecked
       f(h, h1) :: rest
   }} ensuring { !_.isEmpty }
 
@@ -810,7 +810,7 @@ object ListSpecs {
     require (!l.isEmpty)
     (l.head == l.reverse.last)
   }.holds because {
-    val Cons(x, xs) = l;
+    val Cons(x, xs) = l: @unchecked;
     {
       (x :: xs).head           ==| trivial                 |
       x                        ==| snocLast(xs.reverse, x) |

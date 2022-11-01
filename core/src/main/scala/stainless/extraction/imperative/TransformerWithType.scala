@@ -37,7 +37,7 @@ trait TransformerWithType extends oo.TransformerWithType {
       ).copiedFrom(expr)
 
     case s.ArrayUpdate(array, index, value) =>
-      val at @ s.ArrayType(base) = widen(array.getType)
+      val at @ s.ArrayType(base) = widen(array.getType): @unchecked
       t.ArrayUpdate(
         transform(array, at),
         transform(index, s.Int32Type()),
@@ -45,7 +45,7 @@ trait TransformerWithType extends oo.TransformerWithType {
       ).copiedFrom(expr)
 
     case s.Swap(array1, index1, array2, index2) =>
-      val at @ s.ArrayType(base) = widen(array1.getType)
+      val at @ s.ArrayType(base) = widen(array1.getType): @unchecked
       t.Swap(
         transform(array1, at),
         transform(index1, s.Int32Type()),
@@ -59,19 +59,19 @@ trait TransformerWithType extends oo.TransformerWithType {
       )
 
     case s.MutableMapApply(map, index) =>
-      val mmt @ s.MutableMapType(from, to) = widen(map.getType)
+      val mmt @ s.MutableMapType(from, to) = widen(map.getType): @unchecked
       t.MutableMapApply(transform(map, mmt), transform(index, from)).copiedFrom(expr)
 
     case s.MutableMapUpdate(map, key, value) =>
-      val mmt @ s.MutableMapType(from, to) = widen(map.getType)
+      val mmt @ s.MutableMapType(from, to) = widen(map.getType): @unchecked
       t.MutableMapUpdate(transform(map, mmt), transform(key, from), transform(value, to)).copiedFrom(expr)
 
     case s.MutableMapUpdated(map, key, value) =>
-      val mmt @ s.MutableMapType(from, to) = widen(map.getType)
+      val mmt @ s.MutableMapType(from, to) = widen(map.getType): @unchecked
       t.MutableMapUpdated(transform(map, mmt), transform(key, from), transform(value, to)).copiedFrom(expr)
 
     case s.MutableMapDuplicate(map) =>
-      val mmt @ s.MutableMapType(from, to) = widen(map.getType)
+      val mmt @ s.MutableMapType(from, to) = widen(map.getType): @unchecked
       t.MutableMapDuplicate(transform(map, mmt)).copiedFrom(expr)
 
     case s.Old(e) =>

@@ -69,7 +69,7 @@ final class Referentiator(val ctx: inox.Context) extends Transformer(LIR, RIR) {
   override def rec(prog: Prog)(using env: Env): to.Prog = {
     if (prog.decls.nonEmpty) {
       val modes = prog.decls.map(_._2)
-      val (to.Block(newDecls), newEnv0) = recImpl(Block(prog.decls.map(_._1)))(using env.copy(inGlobalDeclarations = true))
+      val (to.Block(newDecls), newEnv0) = recImpl(Block(prog.decls.map(_._1)))(using env.copy(inGlobalDeclarations = true)): @unchecked
       val newEnv = newEnv0.copy(inGlobalDeclarations = false)
       to.Prog(
         newDecls.map(_.asInstanceOf[to.Decl]).zip(modes),

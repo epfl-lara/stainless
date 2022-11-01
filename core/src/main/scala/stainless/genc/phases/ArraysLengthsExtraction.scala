@@ -52,7 +52,7 @@ object ArraysLengthsExtraction {
         case HasADTInvariant(inv) =>
           val invFd = syms.getFunction(inv)
           val Seq(tthisVd) = invFd.params
-          val TopLevelAnds(conjuncts) = invFd.fullBody
+          val TopLevelAnds(conjuncts) = invFd.fullBody: @unchecked
           conjuncts.collect(e => e match {
             case Equals(ArrayLength(ClassSelector(tthis: Variable, array)), EvalBV(bv))
               if tthisVd.id == tthis.id && cd.fields.map(_.id).contains(array) =>

@@ -609,7 +609,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
             Ensuring(transform(body, env), Lambda(params, transform(post, env)).copiedFrom(l)).copiedFrom(e)
 
           case l @ Lambda(params, body) =>
-            val ft @ FunctionType(_, _) = l.getType
+            val ft @ FunctionType(_, _) = l.getType: @unchecked
             val ownEffects = functionTypeEffects(ft)
             val aliasedParams: Seq[ValDef] = params.zipWithIndex.flatMap {
               case (vd, i) if ownEffects.contains(i) => Some(vd)
@@ -674,7 +674,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
           case app @ Application(callee, args) =>
             checkAliasing(app, args, env)
 
-            val ft @ FunctionType(from, to) = callee.getType
+            val ft @ FunctionType(from, to) = callee.getType: @unchecked
             val ftEffects = functionTypeEffects(ft)
             if (ftEffects.nonEmpty) {
               val nfi = Application(
@@ -754,7 +754,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
     def updatedTarget(target: Target, newValue: Expr): Expr = {
       def rec(receiver: Expr, path: Seq[Accessor]): Expr = path match {
         case ADTFieldAccessor(id) :: fs =>
-          val adt @ ADTType(_, tps) = receiver.getType
+          val adt @ ADTType(_, tps) = receiver.getType: @unchecked
           val tcons = adt.getSort.constructors.find(_.fields.exists(_.id == id)).get
           val r = rec(Annotated(ADTSelector(receiver, id).copiedFrom(newValue), Seq(DropVCs)).copiedFrom(newValue), fs)
 
@@ -785,7 +785,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
           }).copiedFrom(newValue)
 
         case TupleFieldAccessor(index) :: fs =>
-          val tt @ TupleType(_) = receiver.getType
+          val tt @ TupleType(_) = receiver.getType: @unchecked
           val r = rec(Annotated(TupleSelect(receiver, index).copiedFrom(newValue), Seq(DropVCs)).copiedFrom(newValue), fs)
 
           Tuple((1 to tt.dimension).map { i =>
@@ -1142,7 +1142,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
 
         case _: (And | Or | Implies | Not) =>
           // Similar to if-then-else, we may not hoist expression out of these expressions (in particular && || and ==> are short-circuiting)
-          val Operator(args, recons) = e
+          val Operator(args, recons) = e: @unchecked
           (identity, recons(args.map(normalize)).copiedFrom(e))
 
         case Operator(args, recons) =>
@@ -1276,7 +1276,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
       def normalizeCall(call: Application | FunctionInvocation | ApplyLetRec): (Expr => Expr, Expr) = {
         val (ft, args, ctxCallee: (Expr => Expr), recons: (Seq[Expr] => Expr)) = call match {
           case app @ Application(callee, args) =>
-            val ft @ FunctionType(_, _) = callee.getType
+            val ft @ FunctionType(_, _) = callee.getType: @unchecked
             val (ctxCallee, normCallee) = doNormalize(callee)
             val recons: Seq[Expr] => Expr = Application(normCallee, _).copiedFrom(app)
             (ft, args, ctxCallee, recons)
@@ -1297,7 +1297,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
       // as the set of targets for immutable types is empty.
       def selectionNeedsNorm(e: ClassSelector | TupleSelect | ADTSelector): Boolean = e match {
         case ClassSelector(recv, sel) =>
-          val ct @ ClassType(_, _) = recv.getType
+          val ct @ ClassType(_, _) = recv.getType: @unchecked
           isMutableType(e.getType) || ct.getField(sel).get.flags.contains(IsVar)
         case TupleSelect(_, _) =>
           isMutableType(e.getType)

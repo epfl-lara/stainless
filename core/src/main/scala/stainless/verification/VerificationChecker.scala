@@ -231,23 +231,25 @@ trait VerificationChecker { self =>
       evaluator.eval(wrapped, model)
     }
 
-    val newArgs = evaledArgs.map {
-      case Successful(e) => e
-      case RuntimeError(msg) => return failure(s"- ADT inv. argument leads to runtime error: $msg")
-      case EvaluatorError(msg) => return failure(s"- ADT inv. argument leads to evaluator error: $msg")
+    val (newArgs, errs) = evaledArgs.partitionMap {
+      case Successful(e) => Left(e)
+      case RuntimeError(msg) => Right(failure(s"- ADT inv. argument leads to runtime error: $msg"))
+      case EvaluatorError(msg) => Right(failure(s"- ADT inv. argument leads to evaluator error: $msg"))
     }
+    if (errs.nonEmpty) errs.head
+    else {
+      val newAdt = ADT(adt.id, adt.tps, newArgs)
+      val adtVar = Variable(FreshIdentifier("adt"), adt.getType(using symbols), Seq())
+      val newInv = FunctionInvocation(invId, inv.tps, Seq(adtVar))
+      val newModel = inox.Model(program)(model.vars + (adtVar.toVal -> newAdt), model.chooses)
+      val newCondition = exprOps.replace(Map(inv -> newInv), vc.condition)
 
-    val newAdt = ADT(adt.id, adt.tps, newArgs)
-    val adtVar = Variable(FreshIdentifier("adt"), adt.getType(using symbols), Seq())
-    val newInv = FunctionInvocation(invId, inv.tps, Seq(adtVar))
-    val newModel = inox.Model(program)(model.vars + (adtVar.toVal -> newAdt), model.chooses)
-    val newCondition = exprOps.replace(Map(inv -> newInv), vc.condition)
-
-    evaluator.eval(newCondition, newModel) match {
-      case Successful(BooleanLiteral(false)) => success
-      case Successful(_) => failure("- Invalid model.")
-      case RuntimeError(msg) => failure(s"- Model leads to runtime error: $msg")
-      case EvaluatorError(msg) => failure(s"- Model leads to evaluation error: $msg")
+      evaluator.eval(newCondition, newModel) match {
+        case Successful(BooleanLiteral(false)) => success
+        case Successful(_) => failure("- Invalid model.")
+        case RuntimeError(msg) => failure(s"- Model leads to runtime error: $msg")
+        case EvaluatorError(msg) => failure(s"- Model leads to evaluation error: $msg")
+      }
     }
   }
 
@@ -317,7 +319,7 @@ trait VerificationChecker { self =>
             VCResult(VCStatus.Valid, s.getResultSolver.map(_.name), Some(time))
 
           case SatWithModel(model) if checkModels && vc.kind.isInstanceOf[VCKind.AdtInvariant] =>
-            val VCKind.AdtInvariant(invId) = vc.kind
+            val VCKind.AdtInvariant(invId) = vc.kind: @unchecked
             val status = checkAdtInvariantModel(vc, invId, model)
             VCResult(status, s.getResultSolver.map(_.name), Some(time))
 

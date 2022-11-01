@@ -632,7 +632,7 @@ class ExprOps(override val trees: Trees) extends oo.ExprOps(trees) { self =>
     def rec(e: Expr): Expr = subst.get(e) match {
       case Some(img) => img
       case None =>
-        val Operator(es, recons) = e
+        val Operator(es, recons) = e: @unchecked
         val newEs = es.map(rec)
         if ((es zip newEs) exists (p => p._1 ne p._2)) {
           recons(newEs).copiedFrom(e)

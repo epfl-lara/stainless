@@ -366,7 +366,7 @@ trait CodeExtraction extends ASTExtractors {
   }
 
   private def extractObject(obj: ModuleDef): (xt.ModuleDef, Seq[xt.ClassDef], Seq[xt.FunDef], Seq[xt.TypeDef], Option[Identifier]) = {
-    val ExObjectDef(_, template) = obj
+    val ExObjectDef(_, template) = obj: @unchecked
 
     val (imports, classes, functions, typeDefs, subs, allClasses, allFunctions, allTypeDefs, companionOf) = extractStatic(template.body)
 

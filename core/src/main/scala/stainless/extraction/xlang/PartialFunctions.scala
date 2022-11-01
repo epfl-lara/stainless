@@ -42,7 +42,7 @@ class PartialFunctions(override val s: Trees)(override val t: s.type)
 
     override def transform(e: Expr): Expr = super.transform(e) match {
       case fi @ FunctionInvocation(ast.SymbolIdentifier("stainless.lang.PartialFunction.apply"), _, _) =>
-        val FunctionInvocation(_, froms :+ to, Seq(fun)) = fi
+        val FunctionInvocation(_, froms :+ to, Seq(fun)) = fi: @unchecked
         val ct = ClassType(optPFClass.get.id, Seq(tupleTypeWrap(froms), to))
 
         val (pre, body) = fun match {

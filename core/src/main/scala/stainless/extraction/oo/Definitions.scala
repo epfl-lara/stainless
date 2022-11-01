@@ -26,7 +26,7 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
       val allAncestors = parents.flatMap(_.lookupClass).flatMap(tcd => tcd +: tcd.ancestors)
       val typedMap = allAncestors.groupBy(_.cd).map { case (cd, tcds) =>
         val tps = cd.typeArgs.zipWithIndex.map { case (tp, i) =>
-          val insts @ (head +: tail) = tcds.map(_.tps(i))
+          val insts @ (head +: tail) = tcds.map(_.tps(i)): @unchecked
           if (tp.isCovariant) s.greatestLowerBound(insts)
           else if (tp.isContravariant) s.leastUpperBound(insts)
           else if (tail.forall(_ == head)) head

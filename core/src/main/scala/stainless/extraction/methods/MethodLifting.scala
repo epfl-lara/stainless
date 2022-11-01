@@ -289,7 +289,7 @@ class MethodLifting(override val s: Trees, override val t: oo.Trees)
       }
       (subCalls, elze)
     } else {
-      val conds :+ ((_, elze: t.Expr)) = subCalls
+      val conds :+ ((_, elze: t.Expr)) = subCalls: @unchecked
       (conds, elze)
     }
 

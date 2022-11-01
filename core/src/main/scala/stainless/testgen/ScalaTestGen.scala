@@ -18,7 +18,7 @@ object ScalaTestGen {
   import stainless.trees._
 
   private val testCaseFnRegex: Regex = """\s*def testCase(\d+): Unit = (.+)""".r
-  private val importsRegex: Regex = """import ((?:\w+\.)*)(?:(\w+)|\{((?:\w+\s*,\s*)*\w+)\})""".r("path", "iden", "idens")
+  private val importsRegex: Regex = """import ((?<path>\w+\.)*)(?<iden>(\w+)|\{((?<idens>\w+\s*,\s*)*\w+)\})""".r
 
   def generateTestCases(origSyms: xt.Symbols)
                        (p: inox.Program {val trees: stainless.trees.type})

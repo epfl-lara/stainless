@@ -79,7 +79,7 @@ private[genc] object ExtraOps {
     def getManualType: ManualType = {
       assert(isManuallyTyped)
 
-      val Seq(StringLiteral(alias), StringLiteral(includes0)) = cd.extAnnotations(manualTypeAnnotation)
+      val Seq(StringLiteral(alias), StringLiteral(includes0)) = cd.extAnnotations(manualTypeAnnotation): @unchecked
       val include = if (includes0.isEmpty) None else Some(includes0)
 
       ManualType(alias, include)

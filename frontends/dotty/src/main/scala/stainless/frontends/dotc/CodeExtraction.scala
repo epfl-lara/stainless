@@ -1735,8 +1735,8 @@ class CodeExtraction(inoxCtx: inox.Context, symbolMapping: SymbolMapping)(using 
 
     case ExCastCall(expr, from, to) =>
       // Double check that we are dealing with regular integer types
-      val xt.BVType(true, size) = extractType(from)(using dctx, NoSourcePosition)
-      val newType @ xt.BVType(true, newSize) = extractType(to)(using dctx, NoSourcePosition)
+      val xt.BVType(true, size) = extractType(from)(using dctx, NoSourcePosition): @unchecked
+      val newType @ xt.BVType(true, newSize) = extractType(to)(using dctx, NoSourcePosition): @unchecked
       if (size > newSize) xt.BVNarrowingCast(extractTree(expr), newType)
       else                xt.BVWideningCast(extractTree(expr), newType)
 
