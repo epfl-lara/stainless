@@ -1,5 +1,5 @@
 > + basic/run
 $ exists basic/target/scala-2.13/classes/test/Main.class
-$ exists basic/target/scala-3.0.2/classes/test/Main.class
+$ exists basic/target/scala-3.2.0/classes/test/Main.class
 $ absent basic/target/sneakyGhostCalled basic/target/insideGhostCalled
 > + actor-tests/compile
