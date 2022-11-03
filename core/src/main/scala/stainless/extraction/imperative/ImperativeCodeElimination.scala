@@ -4,6 +4,8 @@ package stainless
 package extraction
 package imperative
 
+import inox.utils.Position
+
 class ImperativeCodeElimination(override val s: Trees)(override val t: s.type)
                                (using override val context: inox.Context)
   extends oo.CachingPhase
@@ -137,23 +139,14 @@ class ImperativeCodeElimination(override val s: Trees)(override val t: s.type)
           toFunction(expr)
 
         case bl @ Block(exprs, expr) =>
-          val (scope, fun) = exprs.foldRight((body: Expr) => body, Map[Variable, Variable]()) { (e, acc) =>
-            val (accScope, accFun) = acc
-            val (rVal, rScope, rFun) = toFunction(e)
-            val scope = (body: Expr) =>
-              rScope(
-                replaceFromSymbols(
-                  rFun,
-                  Let(
-                    ValDef.fresh("tmp", rVal.getType).copiedFrom(body),
-                    rVal,
-                    accScope(body)
-                  ).copiedFrom(body)
-                )
-              )
-            (scope, rFun ++ accFun)
+          val (_, scope, fun) = toFunctionArguments0(exprs) {
+            (rVal, scopedBody, pos) =>
+              Let(
+                ValDef.fresh("tmp", rVal.getType).setPos(pos),
+                rVal,
+                scopedBody
+              ).setPos(pos)
           }
-
           val (lastRes, lastScope, lastFun) = toFunction(expr)
           val finalFun = fun ++ lastFun
           (
@@ -174,14 +167,11 @@ class ImperativeCodeElimination(override val s: Trees)(override val t: s.type)
 
         //a function invocation can update variables in scope.
         case alr @ ApplyLetRec(id, tparams, tpe, tps, args) if localsMapping contains id =>
-          val (recArgs, argScope, argFun) = args.foldRight((Seq[Expr](), (body: Expr) => body, Map[Variable, Variable]())) { (arg, acc) =>
-            val (accArgs, accScope, accFun) = acc
-            val (argVal, argScope, argFun) = toFunction(arg)
-            val newScope = (body: Expr) => argScope(replaceFromSymbols(argFun, accScope(body)))
-            (argVal +: accArgs, newScope, argFun ++ accFun)
-          }
-
-          val (fd, modifiedVars) = localsMapping(id)
+          val (fd, modifiedVars0) = localsMapping(id)
+          val (recArgs, argScope, argFun) = toFunctionArguments(args)
+          // There may be local function call in the arguments that modify the modified vars.
+          // As such, ensure we get the up-to-date modified vars
+          val modifiedVars = modifiedVars0.map(v => argFun.getOrElse(v, v))
           val newReturnType = TupleType(tpe.to +: modifiedVars.map(_.getType))
           val newInvoc = ApplyLetRec(id, fd.tparams.map(_.tp),
             FunctionType(tpe.from ++ modifiedVars.map(_.getType), newReturnType).copiedFrom(tpe),
@@ -199,7 +189,7 @@ class ImperativeCodeElimination(override val s: Trees)(override val t: s.type)
             ))
           }
 
-          (TupleSelect(tmpTuple.toVariable, 1), scope, argFun ++ (modifiedVars zip freshVars))
+          (TupleSelect(tmpTuple.toVariable, 1), scope, argFun ++ (modifiedVars0 zip freshVars) ++ (modifiedVars zip freshVars))
 
         case LetRec(Seq(fd), b) =>
           val inner = Inner(fd)
@@ -234,16 +224,18 @@ class ImperativeCodeElimination(override val s: Trees)(override val t: s.type)
                 (freeVars ++ transitiveVars).intersect(state.varsInScope).toSeq
               }
 
-              //val modifiedVars: List[Identifier] =
-              //  collect[Identifier]({
-              //    case Assignment(v, _) => Set(v)
-              //    case FunctionInvocation(tfd, _) => state.funDefsMapping.get(tfd.fd).map(p => p._2.toSet).getOrElse(Set())
-              //    case _ => Set()
-              //  })(bd).intersect(state.varsInScope).toList
-
               if (modifiedVars.isEmpty) fdWithoutSideEffects else {
                 val freshVars: Seq[Variable] = modifiedVars.map(_.freshen)
                 val newParams: Seq[ValDef] = inner.params ++ freshVars.map(_.toVal)
+
+                def mkRecState(fresh: Seq[Variable]): State = {
+                  assert(modifiedVars.corresponds(fresh)((m, f) => m.getType == f.getType))
+                  val map = modifiedVars.zip(fresh).toMap
+                  State(state.parent, Set(),
+                    state.localsMapping.map { case (v, (fd, mvs)) =>
+                      (v, (fd, mvs.map(v => map.getOrElse(v, v))))
+                    } + (fd.id -> (fd, fresh)))
+                }
 
                 def recHelper(body: Expr,
                               // This map is used by the postcondition rewriting to replace the result variable
@@ -266,11 +258,7 @@ class ImperativeCodeElimination(override val s: Trees)(override val t: s.type)
                   } (body)
                   val wrappedBody = bodyWrapper(freshBody, freshVarDecls)
 
-                  val (res, scope, fun) = toFunction(wrappedBody)(using State(state.parent, Set(),
-                    state.localsMapping.map { case (v, (fd, mvs)) =>
-                      (v, (fd, mvs.map(v => rewritingMap.getOrElse(v, v))))
-                    } + (fd.id -> (fd, freshVarDecls))
-                  ))
+                  val (res, scope, fun) = toFunction(wrappedBody)(using mkRecState(freshVarDecls))
 
                   (res, scope, freshVarDecls.map(fun))
                 }
@@ -314,10 +302,9 @@ class ImperativeCodeElimination(override val s: Trees)(override val t: s.type)
                     Postcondition(Lambda(Seq(newRes), pcScope(pcRes)).setPos(post))
 
                   case spec => spec.transform { cond =>
-                    val fresh = replaceFromSymbols((modifiedVars zip freshVars).toMap, cond)
-                    //still apply recursively to update all function invocation
-                    val (res, scope, _) = toFunction(fresh)
-                    scope(res)
+                    val (res, scope, _) = toFunction(cond)
+                    val scoped = scope(res)
+                    replaceFromSymbols((modifiedVars zip freshVars).toMap, scoped)
                   }
                 }
 
@@ -393,16 +380,33 @@ class ImperativeCodeElimination(override val s: Trees)(override val t: s.type)
           (bodyRes, scope, condFun ++ bodyFun)
 
         case n @ Operator(args, recons) =>
-          val (recArgs, scope, fun) = args.foldRight((Seq[Expr](), (body: Expr) => body, Map[Variable, Variable]())) { (arg, acc) =>
-            val (accArgs, accScope, accFun) = acc
-            val (argVal, argScope, argFun) = toFunction(arg)
-            val newScope = (body: Expr) => argScope(replaceFromSymbols(argFun, accScope(body)))
-            (argVal +: accArgs, newScope, argFun ++ accFun)
-          }
-          (recons(recArgs).setPos(n), scope, fun)
+          foldArguments(args)(recons(_).setPos(n))
       }): @unchecked
 
       (res.ensurePos(expr.getPos), scope, fun)
+    }
+
+    def foldArguments(args: Seq[Expr])(recons: Seq[Expr] => Expr)(using State): (Expr, Expr => Expr, Map[Variable, Variable]) = {
+      val (res, scope, fun) = toFunctionArguments(args)
+      (recons(res), scope, fun)
+    }
+
+    def toFunctionArguments(args: Seq[Expr])(using State): (Seq[Expr], Expr => Expr, Map[Variable, Variable]) =
+      toFunctionArguments0(args)((_, e, _) => e)
+
+    def toFunctionArguments0(args: Seq[Expr])(scopeExpr: (Expr, Expr, Position) => Expr)(using State): (Seq[Expr], Expr => Expr, Map[Variable, Variable]) = {
+      val rec = args.map(toFunction)
+      val funScan = rec.scanLeft(Map.empty[Variable, Variable])(_ ++ _._3)
+      val scope = rec.zip(funScan.init).foldRight(identity[Expr]) {
+        case (((rarg, argScope, _), accFun), accScope) =>
+          (body: Expr) => {
+            val scopedBody = accScope(body)
+            val decorated = scopeExpr(rarg, scopedBody, body.getPos)
+            val scopedDecorated = argScope(decorated)
+            replaceFromSymbols(accFun, scopedDecorated)
+          }
+      }
+      (rec.map(_._1), scope, funScan.last)
     }
 
     def requireRewriting(expr: Expr) = expr match {
