@@ -1069,8 +1069,13 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
         checkType(tc.bindWithValues(from, es.init), es.last, to)
 
       case (Lambda(params1, body), FunctionType(params2, to)) =>
-        val vds = params1.zip(params2).map { case (vd, tp) => vd.copy(tpe = tp) }
-        checkType(tc.bind(vds), body, to)
+        val (vds, retyped) = params1.zip(params2).foldLeft((Seq.empty[ValDef], Map.empty[Variable, Type])) {
+          case ((accVds, accRetyped), (vd, tp)) =>
+            if (vd.tpe == tp) (accVds :+ vd, accRetyped)
+            else (accVds :+ vd.copy(tpe = tp), accRetyped + (vd.toVariable -> tp)) // May happen for refined types
+        }
+        val body2 = retypeVariables(retyped, body)
+        checkType(tc.bind(vds), body2, to)
 
       case (Lambda(params1, body), PiType(params2, to)) =>
         val freshener = Substituter(params1.map(_.id).zip(params2.map(_.id)).toMap)
