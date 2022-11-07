@@ -152,6 +152,15 @@ object TypeCheckerUtils {
     case _ => t
   }
 
+  def retypeVariables(vars: Map[Variable, Type], expr: Expr): Expr = {
+    if (vars.isEmpty) return expr
+
+    new ConcreteStainlessSelfTreeTransformer {
+      override def transform(vd: ValDef): ValDef =
+        vars.get(vd.toVariable).map(tp => vd.copy(tpe = tp)).getOrElse(vd)
+    }.transform(expr)
+  }
+
   def pp(v: Variable)(using PrinterOptions): String = v.tpe match {
     case Truth(e) => e.asString
     case _ => v.asString + ": " + v.tpe.asString
