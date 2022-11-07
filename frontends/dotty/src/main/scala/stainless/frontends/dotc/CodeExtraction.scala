@@ -2233,7 +2233,13 @@ class CodeExtraction(inoxCtx: inox.Context, symbolMapping: SymbolMapping)(using 
         xt.MutableMapType(from, to)
 
       case AppliedType(tr: TypeRef, tps) if TupleSymbol.unapply(tr.classSymbol).isDefined =>
-        xt.TupleType(tps map extractType)
+        // We know the underlying is a tuple, but it may be hidden under an alias
+        // such as type Pair[R] = (R, R)
+        // Using the above `tps` is incorrect in presence of alias
+        // (for Pair[Int], we would just get tps = Seq(Int) instead of Seq(Int, Int))
+        // Instead, we dealias the type and use these tps
+        val AppliedType(_, theTps) = tpt.dealias: @unchecked
+        xt.TupleType(theTps map extractType)
 
       case AppliedType(tr: TypeRef, Seq(tp)) if isArrayClassSym(tr.symbol) =>
         xt.ArrayType(extractType(tp))
