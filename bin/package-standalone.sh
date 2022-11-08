@@ -5,7 +5,7 @@
 #  and packages them into an archive that contains additional Z3
 #  dependencies and a launcher script that makes said dependencies available
 #  to the java process.
-#  Currently, only the Linux version is shipped with ScalaZ3 (macOS & Windows must rely on smt-z3)
+#  Currently, only the Linux & macOS version are shipped with ScalaZ3 (Windows must rely on smt-z3)
 # ====
 set -e
 
@@ -14,15 +14,15 @@ if [[ $(git diff --stat) != '' ]]; then
   STAINLESS_VERSION="$STAINLESS_VERSION-SNAPSHOT"
 fi
 
-SCALA_VERSION="3.0.2"
+SCALA_VERSION="3.2.0"
 Z3_VERSION="4.8.14"
 
 SBT_PACKAGE_SCALAC="sbt stainless-scalac-standalone/assembly"
 SBT_PACKAGE_DOTTY="sbt stainless-dotty-standalone/assembly"
 STAINLESS_SCALAC_JAR_PATH="./frontends/stainless-scalac-standalone/target/scala-$SCALA_VERSION/stainless-scalac-standalone-$STAINLESS_VERSION.jar"
 STAINLESS_DOTTY_JAR_PATH="./frontends/stainless-dotty-standalone/target/scala-$SCALA_VERSION/stainless-dotty-standalone-$STAINLESS_VERSION.jar"
-# Note: though Stainless is compiled with 3.0.2, we use a 2.13 version of ScalaZ3 (which is binary compatible with Scala 3)
-SCALAZ3_JAR_LINUX_PATH="./unmanaged/scalaz3-unix-64-2.13.jar"
+SCALAZ3_JAR_LINUX_PATH="./unmanaged/scalaz3-unix-64-3.jar"
+SCALAZ3_JAR_MAC_PATH="./unmanaged/scalaz3-mac-64-3.jar"
 
 Z3_GITHUB_URL="https://github.com/Z3Prover/z3/releases/download/z3-$Z3_VERSION"
 Z3_LINUX_NAME="z3-$Z3_VERSION-x64-glibc-2.31.zip"
@@ -207,8 +207,8 @@ fetch_z3 "win" $Z3_WIN_NAME
 info "$(tput bold)[] Packaging..."
 package "linux" $STAINLESS_SCALAC_JAR_PATH $SCALAZ3_JAR_LINUX_PATH "scalac"
 package "linux" $STAINLESS_DOTTY_JAR_PATH $SCALAZ3_JAR_LINUX_PATH "dotty"
-package "mac" $STAINLESS_SCALAC_JAR_PATH "" "scalac"
-package "mac" $STAINLESS_DOTTY_JAR_PATH "" "dotty"
+package "mac" $STAINLESS_SCALAC_JAR_PATH $SCALAZ3_JAR_MAC_PATH "scalac"
+package "mac" $STAINLESS_DOTTY_JAR_PATH $SCALAZ3_JAR_MAC_PATH "dotty"
 package "win" $STAINLESS_SCALAC_JAR_PATH "" "scalac"
 package "win" $STAINLESS_DOTTY_JAR_PATH "" "dotty"
 
