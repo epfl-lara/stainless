@@ -1034,7 +1034,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
           normalizeCall(call)
 
         case ite @ IfExpr(cond, thn, els) =>
-          val (ctxCond, normCond) = doNormalize(cond)
+          val (ctxCond, normCond) = normalizeForTarget(cond)
           // We may not hoist bindings out of the branches.
           val normThn = normalize(thn)
           val normEls = normalize(els)
