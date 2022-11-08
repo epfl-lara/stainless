@@ -9,8 +9,10 @@ How to release
    In the tag commit message, include the release notes for that version.
 4. Push the tag to GitHub with `git push --tags`.
 5. Build the standalone archives for macOS and Linux with `./bin/package-standalone.sh`.
-6. Create a new release on GitHub, add the release notes for that version and attach the two archives. Make sure to not rename the archives.
-7. Release the Docker image with `./bin/docker-release.sh VERSION`, where `VERSION` is of the form `X.X.X` (without a leading `v`).
+6. Build the SBT plugin archive for all platform with `./bin/package-sbt-plugin.sh`. 
+7. Create a new release on GitHub, add the release notes for that version and attach the archives. Make sure to not rename the archives.
+
+[//]: # (7. Release the Docker image with `./bin/docker-release.sh VERSION`, where `VERSION` is of the form `X.X.X` &#40;without a leading `v`&#41;.)
 
 ## Notes
 

@@ -5,6 +5,7 @@
 stainless.conf
 .stainless-external-tests/
 .stainless-package-standalone/
+.stainless-package-sbt-plugin/
 
 # Vim
 *.swp

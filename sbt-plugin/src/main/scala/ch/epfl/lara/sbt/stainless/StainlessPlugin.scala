@@ -69,12 +69,9 @@ object StainlessPlugin extends sbt.AutoPlugin {
     ivyConfigurations       += StainlessLibSources,
     libraryDependencies    ++= stainlessModules.value,
 
-    // You can avoid having this resolver if you set up the epfl-lara bintray organization to automatically push artifacts
-    // to maven central. Read https://blog.bintray.com/2014/02/11/bintray-as-pain-free-gateway-to-maven-central/ for how.
     resolvers ++= Seq(
-      Resolver.bintrayRepo("epfl-lara", "maven"),
-      Resolver.bintrayRepo("epfl-lara", "princess"),
-      Resolver.bintrayIvyRepo("epfl-lara", "sbt-plugins"),
+      // https://stackoverflow.com/a/37604126
+      "local-repo" at file("stainless").toURI.toASCIIString,
       ("uuverifiers" at "http://logicrunch.research.it.uu.se/maven").withAllowInsecureProtocol(true),
     )
   ) ++
