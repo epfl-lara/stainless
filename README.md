@@ -4,6 +4,89 @@ Verification framework for a subset of the [Scala](http://scala-lang.org) progra
 * [Tutorial (originally for ASPLOS 2022)](https://epfl-lara.github.io/asplos2022tutorial/)
 * [EPFL LARA Group Page](https://epfl-lara.github.io/)
 
+## Quick start
+[Download the latest `stainless-dotty-standalone` release](https://github.com/epfl-lara/stainless/releases) for your platform.
+Unzip the archive, and run Stainless through the `stainless.sh` (or `stainless.bat`) script.
+Stainless expects a list of space-separated Scala files to verify.
+
+To check if everything works, you may create a file named `HelloStainless.scala` next to the `stainless.sh` script with the following content:
+```scala
+import stainless.collection._
+
+object HelloStainless {
+  def myTail(xs: List[BigInt]): BigInt = {
+    require(xs.nonEmpty)
+    xs match {
+      case Cons(h, _) => h
+      // Match provably exhaustive
+    }
+  }
+}
+```
+
+and run `stainless.sh HelloStainless.scala`.
+If all goes well, Stainless should report something along the lines:
+```
+[  Info  ]   ┌───────────────────┐
+[  Info  ] ╔═╡ stainless summary ╞════════════════════════════════════════════════════════════════════╗
+[  Info  ] ║ └───────────────────┘                                                                    ║
+[  Info  ] ║ HelloStainless.scala:6:5:   myTail  body assertion: match exhaustiveness  nativez3   0,0 ║
+[  Info  ] ╟┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╢
+[  Info  ] ║ total: 1    valid: 1    (0 from cache) invalid: 0    unknown: 0    time:     0,0         ║
+[  Info  ] ╚══════════════════════════════════════════════════════════════════════════════════════════╝
+[  Info  ] Shutting down executor service.
+```
+
+This archive of Stainless only requires JDK17. In particular, it needs neither a Scala compiler nor SBT.
+It is shipped with Z3 4.8.14 and Princess.
+
+## SBT Stainless plugin
+Alternatively, one may integrate Stainless with SBT. The supported Scala versions are `3.2.0` and `2.13.6`
+To do so, download [sbt-stainless](https://github.com/epfl-lara/stainless/releases), and move it to the directory of the project.
+Assuming the project's structure is:
+```
+MyProject
+├── build.sbt
+├── project
+│   └── build.properties
+├── sbt-stainless.zip
+└── src/
+```
+
+Unzipping `sbt-stainless.zip` should yield the following:
+```
+MyProject
+├── build.sbt
+├── project
+│   ├── build.properties
+│   └── lib                     <--------
+│       └── sbt-stainless.jar   <--------
+├── sbt-stainless.zip
+├── src/
+└── stainless/                  <--------
+```
+That is, it should create a `stainless/` directory and a `lib/` directory with `project/`.
+If, instead, the unzipping process creates a `sbt-stainless/` directory containing the `lib/project/` and `stainless/` directories,
+these should be moved according to the above structure.
+
+Finally, the plugin must be explicitly enabled for projects in `build.sbt` desiring Stainless with `.enablePlugins(StainlessPlugin)`.
+For instance:
+```scala
+ThisBuild / version := "0.1.0"
+
+ThisBuild / scalaVersion := "3.2.0"
+
+lazy val myTestProject = (project in file("."))
+  .enablePlugins(StainlessPlugin) // <--------
+  .settings(
+    name := "Test"
+  )
+```
+
+Verification occurs with the usual `compile` command.
+
+Note that this method only ships the Princess SMT solver. Z3 and CVC4 can still be used if their executable can be found in the `$PATH`.
+
 ## Build and Use
 
 To start quickly, install a JVM and use a [recent release](https://github.com/epfl-lara/stainless/releases). To build the project, run `sbt universal:stage`. If all goes well, scripts are generated for Scala 3 and Scala 2 versions of the front end:
@@ -33,7 +116,7 @@ To get started, see videos:
   * [Mini Tutorial](https://epfl-lara.github.io/stainless/tutorial.html)
   
 There is also a [Stainless EPFL Page](https://stainless.epfl.ch).
-  
+
 ## License
 
 Stainless is released under the Apache 2.0 license. See the [LICENSE]() file for more information.

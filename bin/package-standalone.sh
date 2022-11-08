@@ -167,7 +167,7 @@ function package {
   fi
   cp "stainless.conf.default" "$TMPD/stainless.conf" >> $LOG || fail
 
-  local STAINLESS_SCRIPTSS
+  local STAINLESS_SCRIPTS
   if [[ "$PLAT" = "win" ]]; then
     STAINLESS_SCRIPTS=("stainless.bat" "stainless.sh")
   else
