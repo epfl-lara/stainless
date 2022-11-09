@@ -207,9 +207,20 @@ class CICFA(val program: Program { val trees: Trees }, val context: inox.Context
             // record that the lambda is applied
             appliedLambdas += lam
 
+            assert(lam.params.size == absargs.size)
+            // We only keep abstract values that are compatible with the lambda's type
+            val absargsFilt = lam.params.zip(absargs).map {
+              case (vd, absarg) => absarg.filter {
+                case Closure(lam) => isSubtypeOf(lam.getType, vd.getType)
+                case ConsObject(adt, _) => isSubtypeOf(adt.getType, vd.getType)
+                case TupleObject(tp, _) => isSubtypeOf(tp.getType, vd.getType)
+                case External => true
+              }
+            }
+
             // create a new store with mapping for arguments and escaping variables
             val argstore = in.store.view.filterKeys(escapingVars).toMap ++
-              (lam.params.map(_.toVariable) zip absargs) ++
+              (lam.params.map(_.toVariable) zip absargsFilt) ++
               escenv.store ++
               argescenv.store
             val argenv = AbsEnv(argstore)
