@@ -45,8 +45,8 @@ object Map {
     } ensuring { _ =>
       map.contains(a) == keys.contains(a)
     }
-    
-    
+
+
     @extern @pure
     def values: List[B] = {
       List.fromScala(map.theMap.values.toList)
@@ -57,14 +57,14 @@ object Map {
       ()
     } ensuring { _ =>
       !map.contains(a) || values.contains(map(a))
-    }    
+    }
 
     @extern @pure
     def valuesPost2(b: B): A = {
       require(values.contains(b))
       (??? : A)
     } ensuring ((a:A) => b == map(a) && map.contains(a))
-    
+
     @extern @pure
     def toList: List[(A, B)] = {
       List.fromScala(map.theMap.toList)
@@ -73,8 +73,8 @@ object Map {
     @extern @pure
     def toListPost(a: A): Unit = {
       ()
-    } ensuring (_ => map.contains(a) == toList.contains((a, map(a))))
-  
+    } ensuring (_ => map.contains(a) ==> toList.contains((a, map(a))))
+
     @extern @pure
     def toScala: ScalaMap[A, B] = {
       map.theMap

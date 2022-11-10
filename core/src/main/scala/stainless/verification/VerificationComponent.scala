@@ -110,13 +110,14 @@ class VerificationRun private(override val component: VerificationComponent.type
         reporter.debug(s"Finished generating VCs")
       }
 
-      val res =
+      val opaqueEncoder = inox.transformers.ProgramEncoder(vcGenEncoder.targetProgram)(OpaqueChooseInjector(vcGenEncoder.targetProgram))
+      val res: Future[Map[VC[p.trees.type], VCResult[p.Model]]] =
         if (context.options.findOptionOrDefault(optAdmitVCs)) {
           Future(vcs.map(vc => vc -> VCResult(VCStatus.Admitted, None, None)).toMap)
         } else {
-          VerificationChecker.verify(assertionEncoder.targetProgram, context)(vcs).map(_.view.mapValues {
+          VerificationChecker.verify(opaqueEncoder.targetProgram, context)(vcs).map(_.view.mapValues {
             case VCResult(VCStatus.Invalid(VCStatus.CounterExample(model)), s, t) =>
-              VCResult(VCStatus.Invalid(VCStatus.CounterExample(model.encode(assertionEncoder.reverse))), s, t)
+              VCResult(VCStatus.Invalid(VCStatus.CounterExample(model.encode(opaqueEncoder.reverse.andThen(vcGenEncoder.reverse)))), s, t)
             case res => res.asInstanceOf[VCResult[p.Model]]
           }.toMap)
         }

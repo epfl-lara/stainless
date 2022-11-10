@@ -25,7 +25,7 @@ package object inlining {
     utils.DebugPipeline("UnfoldOpaque", UnfoldOpaque(trees)) andThen
     utils.DebugPipeline("CallSiteInline", CallSiteInline(trees)) andThen
     utils.DebugPipeline("ChooseInjector", ChooseInjector(trees)) andThen
-    utils.DebugPipeline("ChooseEncoder", ChooseEncoder(trees)) andThen
+    utils.DebugPipeline("ChooseEncoder", ChooseEncoder(trees, trees)) andThen
     utils.DebugPipeline("FunctionInlining", FunctionInlining(trees, trace.trees))
   }
 

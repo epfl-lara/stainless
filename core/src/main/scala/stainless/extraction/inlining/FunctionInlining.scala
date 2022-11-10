@@ -63,6 +63,7 @@ class FunctionInlining(override val s: Trees, override val t: trace.Trees)
         val (tfd, args) = (fi.tfd, fi.args)
 
         val isSynthetic = tfd.fd.flags contains Synthetic
+        val isOpaqueOrExtern = tfd.fd.flags exists (x => x == Opaque || x == Extern)
         val hasInlineFlag = tfd.fd.flags contains Inline
         val hasInlineOnceFlag = tfd.fd.flags contains InlineOnce
 
@@ -72,18 +73,9 @@ class FunctionInlining(override val s: Trees, override val t: trace.Trees)
 
         val specced = BodyWithSpecs(tfd.fullBody)
         // simple path for inlining when all arguments are values, and the function's body doesn't contain other function invocations
-        if (specced.specs.isEmpty && args.forall(isValue) && !exprOps.containsFunctionCalls(tfd.fullBody) && !isSynthetic) {
+        if (specced.specs.isEmpty && args.forall(isValue) && !exprOps.containsFunctionCalls(tfd.fullBody) && !isSynthetic && !isOpaqueOrExtern) {
           annotated(exprOps.replaceFromSymbols(tfd.params.zip(args).toMap, exprOps.freshenLocals(tfd.fullBody)), DropVCs)
         } else {
-          // We need to keep the body as-is for `@synthetic` methods, such as
-          // `copy` or implicit conversions for implicit classes, in order to
-          // later on check that the class invariant is valid.
-          val body = specced.bodyOpt match {
-            case Some(body) if isSynthetic => body
-            case Some(body) => annotated(body, DropVCs).setPos(fi)
-            case None => context.reporter.fatalError("In FunctionInlining, all functions should have bodies thanks to ChooseEncoder running before.")
-          }
-
           val pre = specced.specs.filter(spec => spec.kind == LetKind || spec.kind == PreconditionKind)
           val n = pre.count(_.kind == PreconditionKind)
           def addPreconditionAssertions(e: Expr): Expr = {
@@ -112,14 +104,29 @@ class FunctionInlining(override val s: Trees, override val t: trace.Trees)
             case _ => e
           }
 
-
-          val res = ValDef.fresh("inlined", tfd.returnType)
-          val inlined = addPreconditionAssertions(addPostconditionAssumption(body))
-
-          val result = (tfd.params zip args).foldRight(inlined) {
-            case ((vd, e), body) => let(vd, e, body).setPos(fi)
+          val (argBinders, inlined) = specced.bodyOpt match {
+            case Some(body) if !isOpaqueOrExtern =>
+              // We need to keep the body as-is for `@synthetic` methods, such as
+              // `copy` or implicit conversions for implicit classes, in order to
+              // later on check that the class invariant is valid.
+              // Note: the body local variables and the parameters are not freshened here
+              val theBody =
+                if (isSynthetic) body
+                else annotated(body, DropVCs).setPos(fi)
+              val decorated = addPreconditionAssertions(addPostconditionAssumption(theBody))
+              (tfd.params, decorated)
+            case Some(_) =>
+              val argBinders = tfd.params.map(_.freshen)
+              val replMap = tfd.params.zip(argBinders.map(_.toVariable)).toMap
+              val decorated = addPreconditionAssertions(addPostconditionAssumption(fi.copy(args = argBinders.map(_.toVariable))))
+              val repled = exprOps.replaceFromSymbols(replMap, decorated)
+              (argBinders, repled)
+            case None => context.reporter.fatalError("In FunctionInlining, all functions should have bodies thanks to ChooseEncoder running before.")
           }
 
+          val result = (argBinders zip args).foldRight(inlined) {
+            case ((vd, e), body) => let(vd, e, body).setPos(fi)
+          }
           val freshened = exprOps.freshenLocals(result)
 
           // For some common shims, fill in missing positions with the position of the inlined call site
@@ -147,6 +154,7 @@ class FunctionInlining(override val s: Trees, override val t: trace.Trees)
     for (fd <- symbols.functions.values) {
       val hasInlineFlag = fd.flags contains Inline
       val hasInlineOnceFlag = fd.flags contains InlineOnce
+      val isOpaqueOrExtern = fd.flags exists (x => x == Opaque || x == Extern)
 
       if (hasInlineFlag && hasInlineOnceFlag) {
         throw MalformedStainlessCode(fd, "Can't annotate a function with both @inline and @inlineOnce")
@@ -154,6 +162,10 @@ class FunctionInlining(override val s: Trees, override val t: trace.Trees)
 
       if (hasInlineFlag && context.transitivelyCalls(fd, fd)) {
         throw MalformedStainlessCode(fd, "Can't inline recursive function, use @inlineOnce instead")
+      }
+
+      if (hasInlineFlag && isOpaqueOrExtern) {
+        throw MalformedStainlessCode(fd, "Can't inline opaque or extern function, use @inlineOnce instead")
       }
 
       if (hasInlineFlag && exprOps.BodyWithSpecs(fd.fullBody).bodyOpt.isEmpty) {
