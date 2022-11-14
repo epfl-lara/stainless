@@ -4,8 +4,8 @@ package stainless
 package verification
 
 import java.util.concurrent.TimeUnit
-
-import inox.solvers._
+import inox.solvers.*
+import stainless.extraction.ExtractionSummary
 import stainless.verification.CoqStatus.Valid
 
 import scala.concurrent.duration.Duration
@@ -34,7 +34,7 @@ trait CoqVerificationChecker { self =>
   type VCResult = verification.VCResult[program.Model]
   val VCResult = verification.VCResult
 
-  def verify(funs: Seq[Identifier]) = {
+  def verify(funs: Seq[Identifier]): Map[VC, VCResult] = {
     val pCoq = CoqEncoder.transformProgram(program, context)
     CoqIO.makeOutputDirectory()
     val files = CoqIO.writeToCoqFile(pCoq.map { case (id, name, com) => (name, com) } )
@@ -78,19 +78,12 @@ trait CoqVerificationChecker { self =>
 
       vc -> VCResult(vcres, None, Some(time))
     }}.toMap
-
-
-    Future(new VerificationAnalysis {
-      override val program: self.program.type = self.program
-      override val sources = Set[stainless.Identifier]()
-      override val results = initMap ++ res
-      override val context = self.context
-    })
+    initMap ++ res
   }
 }
 
 object CoqVerificationChecker {
-  def verify(funs: Seq[Identifier], p: StainlessProgram, ctx: inox.Context) = {
+  def verify(funs: Seq[Identifier], p: StainlessProgram, ctx: inox.Context): Map[VC[p.trees.type], VCResult[p.Model]] = {
     object Checker extends CoqVerificationChecker {
       val program: p.type = p
       val context = ctx

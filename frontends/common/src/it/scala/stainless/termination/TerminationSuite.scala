@@ -107,7 +107,7 @@ class TerminationSuite extends VerificationComponentTestSuite {
       f -> Try {
         val program = loadFiles(List(f))._2
         val programSymbols = frontend.UserFiltering().transform(program.symbols)
-        val exSyms = component.run(extraction.pipeline).extract(programSymbols)
+        val exSyms = component.run(extraction.pipeline).extract(programSymbols)._1
 
         val p = inox.Program(stainless.trees)(exSyms)
         val assertions = AssertionInjector(p, context)

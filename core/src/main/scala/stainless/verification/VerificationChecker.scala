@@ -288,7 +288,7 @@ trait VerificationChecker { self =>
       }
 
       if (cond == BooleanLiteral(true)) {
-        return VCResult(VCStatus.Valid, Some("(trivial)"), Some(0))
+        return VCResult(VCStatus.Valid, Some("(trivial)"), Some(0)) // TODO: No, (trivial) is bad, replace it None and have VCStatus.Trival
       }
 
       val (time, tryRes) = timers.verification.runAndGetTime {

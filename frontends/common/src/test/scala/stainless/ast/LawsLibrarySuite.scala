@@ -58,7 +58,7 @@ class LawsLibrarySuite extends AnyFunSuite with InputUtils {
     extraction.methods.Laws(extraction.methods.trees)
   }
 
-  val symbols = pipeline extract xlangProgram.symbols
+  val symbols = pipeline.extract(xlangProgram.symbols)._1
 
   test("LibraryBigInt#append has @library flag before extraction") {
     assert(libraryAppend.flags.contains(xlangProgram.trees.Library))

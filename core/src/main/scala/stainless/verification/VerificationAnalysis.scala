@@ -3,6 +3,8 @@
 package stainless
 package verification
 
+import stainless.extraction.ExtractionSummary
+
 trait VerificationAnalysis extends AbstractAnalysis {
   val program: StainlessProgram
   val context: inox.Context
@@ -11,6 +13,7 @@ trait VerificationAnalysis extends AbstractAnalysis {
 
   val sources: Set[Identifier] // set of functions that were considered for the analysis
   val results: Map[VC[trees.type], VCResult[Model]]
+  val extractionSummary: ExtractionSummary
 
   lazy val vrs: Seq[(VC[trees.type], VCResult[Model])] =
     results.toSeq.sortBy { case (vc, _) => (vc.fid.name, vc.kind.toString) }
@@ -26,6 +29,6 @@ trait VerificationAnalysis extends AbstractAnalysis {
 
   override type Report = VerificationReport
 
-  override def toReport = new VerificationReport(records, sources)
+  override def toReport = new VerificationReport(records, sources, extractionSummary)
 
 }

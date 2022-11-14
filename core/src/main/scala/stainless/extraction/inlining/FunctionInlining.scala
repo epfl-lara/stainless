@@ -7,12 +7,13 @@ package inlining
 class FunctionInlining(override val s: Trees, override val t: trace.Trees)
                       (using override val context: inox.Context)
   extends CachingPhase
+     with NoSummaryPhase
      with IdentitySorts { self =>
   import s._
 
   // The function inlining transformation depends on all (transitive) callees
   // that will require inlining.
-  override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult]({(fd, symbols) =>
+  override protected final val funCache = new ExtractionCache[s.FunDef, (FunctionResult, FunctionSummary)]({(fd, symbols) =>
     FunctionKey(fd) + SetKey(
       symbols.dependencies(fd.id)
         .flatMap(id => symbols.lookupFunction(id))
@@ -32,7 +33,7 @@ class FunctionInlining(override val s: Trees, override val t: trace.Trees)
   override protected def registerFunctions(symbols: t.Symbols, functions: Seq[Option[t.FunDef]]): t.Symbols =
     symbols.withFunctions(functions.flatten)
 
-  override protected def extractFunction(symbols: s.Symbols, fd: s.FunDef): Option[t.FunDef] = {
+  override protected def extractFunction(symbols: s.Symbols, fd: s.FunDef): (Option[t.FunDef], Unit) = {
     import symbols.{given, _}
 
     class Inliner(inlinedOnce: Set[Identifier] = Set()) extends s.ConcreteStainlessSelfTreeTransformer {
@@ -143,14 +144,14 @@ class FunctionInlining(override val s: Trees, override val t: trace.Trees)
       }
     }
 
-    if ((fd.flags contains Synthetic) && (fd.flags contains Inline)) None
-    else Some(identity.transform(fd.copy(
+    if ((fd.flags contains Synthetic) && (fd.flags contains Inline)) (None, ())
+    else (Some(identity.transform(fd.copy(
       fullBody = new Inliner().transform(fd.fullBody),
       flags = fd.flags filterNot (f => f == Inline || f == InlineOnce)
-    )))
+    ))), ())
   }
 
-  override protected def extractSymbols(context: TransformerContext, symbols: s.Symbols): t.Symbols = {
+  override protected def extractSymbols(context: TransformerContext, symbols: s.Symbols): (t.Symbols, AllSummaries) = {
     for (fd <- symbols.functions.values) {
       val hasInlineFlag = fd.flags contains Inline
       val hasInlineOnceFlag = fd.flags contains InlineOnce
@@ -173,7 +174,7 @@ class FunctionInlining(override val s: Trees, override val t: trace.Trees)
       }
     }
 
-    val newSymbols = super.extractSymbols(context, symbols)
+    val (newSymbols, sum) = super.extractSymbols(context, symbols)
 
     val inlinedOnceFuns = symbols.functions.values.filter(_.flags contains InlineOnce).map(_.id).toSet
 
@@ -183,9 +184,9 @@ class FunctionInlining(override val s: Trees, override val t: trace.Trees)
     def isPrunable(id: Identifier): Boolean =
       isCandidate(id) && newSymbols.transitiveCallers(id).forall(isCandidate)
 
-    t.NoSymbols
+    (t.NoSymbols
       .withSorts(newSymbols.sorts.values.toSeq)
-      .withFunctions(newSymbols.functions.values.filterNot(fd => isPrunable(fd.id)).toSeq)
+      .withFunctions(newSymbols.functions.values.filterNot(fd => isPrunable(fd.id)).toSeq), sum)
   }
 }
 

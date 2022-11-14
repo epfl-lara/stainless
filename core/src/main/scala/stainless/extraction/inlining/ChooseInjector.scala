@@ -12,7 +12,7 @@ class ChooseInjector(override val s: inlining.Trees,
   import s._
   import exprOps._
 
-  override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult]((fd, symbols) =>
+  override protected final val funCache = new ExtractionCache[s.FunDef, (FunctionResult, FunctionSummary)]((fd, symbols) =>
     getDependencyKey(fd.id)(using symbols)
   )
 
@@ -22,12 +22,21 @@ class ChooseInjector(override val s: inlining.Trees,
   private[this] class Identity(override val s: self.s.type, override val t: self.t.type) extends transformers.ConcreteTreeTransformer(s, t)
   private[this] val identity = new Identity(self.s, self.t)
 
-  override def extractFunction(symbols: TransformerContext, fd: s.FunDef): t.FunDef = {
+  enum FunctionSummary {
+    case UserTransformed(fid: Identifier)
+    case UserUntransformed(fid: Identifier)
+    case LibraryTransformed(fid: Identifier)
+    case LibraryUntransformed(fid: Identifier)
+  }
+
+  override def extractFunction(symbols: TransformerContext, fd: s.FunDef): (t.FunDef, FunctionSummary) = {
     val specced = BodyWithSpecs(fd.fullBody)
     val post = specced.getSpec(PostconditionKind)
 
+    var injected = false
     def injectChooses(e: s.Expr): s.Expr = e match {
       case s.NoTree(tpe) =>
+        injected = true
         val vd = ValDef(FreshIdentifier("res"), tpe, Seq(DropVCs)).copiedFrom(e)
         // FIXME: Use `specced.wrapLets` as below, so `choose` refers to function parameters?
         val pred = post
@@ -51,11 +60,38 @@ class ChooseInjector(override val s: inlining.Trees,
     }
 
     val newSpecced = specced.copy(body = injectChooses(specced.body))
-    identity.transform(fd.copy(fullBody = newSpecced.reconstructed).setPos(fd))
+    val summary = {
+      val isLib = fd.flags contains Library
+      if (injected) {
+        if (isLib) FunctionSummary.LibraryTransformed(fd.id)
+        else FunctionSummary.UserTransformed(fd.id)
+      } else {
+        if (isLib) FunctionSummary.LibraryUntransformed(fd.id)
+        else FunctionSummary.UserUntransformed(fd.id)
+      }
+    }
+    (identity.transform(fd.copy(fullBody = newSpecced.reconstructed).setPos(fd)), summary)
+  }
+
+  override protected type SortSummary = Unit
+
+  override protected def combineSummaries(summaries: AllSummaries): ExtractionSummary = {
+    val (userFns, libFn) = summaries.fnsSummary.foldLeft((Set.empty[Identifier], Set.empty[Identifier])) {
+      case ((accUser, accLib), FunctionSummary.UserTransformed(fid)) => (accUser + fid, accLib)
+      case ((accUser, accLib), FunctionSummary.LibraryTransformed(fid)) => (accUser, accLib + fid)
+      case (acc, _) => acc
+    }
+    ExtractionSummary.Leaf(ChooseInjector)(ChooseInjector.SummaryData(userFns, libFn))
   }
 }
 
-object ChooseInjector {
+object ChooseInjector extends ExtractionPipelineCreator {
+  case class SummaryData(affectedUserFns: Set[Identifier] = Set.empty, affectedLibFns: Set[Identifier] = Set.empty) {
+    def ++(other: SummaryData): SummaryData = SummaryData(affectedUserFns ++ other.affectedUserFns, affectedLibFns ++ other.affectedLibFns)
+    def hasRun: Boolean = affectedUserFns.nonEmpty || affectedLibFns.nonEmpty
+  }
+  override val name: String = "ChooseInjector"
+
   def apply(it: inlining.Trees)(using inox.Context): ExtractionPipeline {
     val s: it.type
     val t: it.type

@@ -31,6 +31,7 @@ package object xlang {
   def extractor(using ctx: inox.Context) = {
     class Lowering(override val s: trees.type, override val t: innerclasses.trees.type)(using override val context: inox.Context)
       extends oo.SimplePhase
+         with oo.NoSummaryPhase
          with SimplyCachedFunctions
          with SimplyCachedSorts
          with oo.IdentityTypeDefs
@@ -56,14 +57,14 @@ package object xlang {
         }
       }
 
-      override protected def extractFunction(transformer: TransformerContext, fd: s.FunDef): t.FunDef =
-        transformer.transform(fd.copy(flags = fd.flags.filter(keepFlag)))
+      override protected def extractFunction(transformer: TransformerContext, fd: s.FunDef): (t.FunDef, Unit) =
+        (transformer.transform(fd.copy(flags = fd.flags.filter(keepFlag))), ())
 
-      override protected def extractSort(transformer: TransformerContext, sort: s.ADTSort): t.ADTSort =
-        transformer.transform(sort.copy(flags = sort.flags.filter(keepFlag)))
+      override protected def extractSort(transformer: TransformerContext, sort: s.ADTSort): (t.ADTSort, Unit) =
+        (transformer.transform(sort.copy(flags = sort.flags.filter(keepFlag))), ())
 
-      override protected def extractClass(transformer: TransformerContext, cd: s.ClassDef): t.ClassDef =
-        transformer.transform(cd.copy(flags = cd.flags.filter(keepFlag)))
+      override protected def extractClass(transformer: TransformerContext, cd: s.ClassDef): (t.ClassDef, Unit) =
+        (transformer.transform(cd.copy(flags = cd.flags.filter(keepFlag))), ())
     }
 
     val lowering = new Lowering(trees, innerclasses.trees)

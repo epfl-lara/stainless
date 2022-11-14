@@ -9,6 +9,7 @@ import stainless.utils.CheckFilter
 class Trace(override val s: Trees, override val t: termination.Trees)
            (using override val context: inox.Context)
   extends CachingPhase
+     with NoSummaryPhase
      with IdentityFunctions
      with IdentitySorts { self =>
   import s._
@@ -39,7 +40,7 @@ class Trace(override val s: Trees, override val t: termination.Trees)
     evaluator.eval(expr)
   }
 
-  override protected def extractSymbols(context: TransformerContext, symbols: s.Symbols): t.Symbols = {
+  override protected def extractSymbols(context: TransformerContext, symbols: s.Symbols): (t.Symbols, AllSummaries) = {
     import symbols.{given, _}
     import exprOps._
 
@@ -379,13 +380,13 @@ class Trace(override val s: Trees, override val t: termination.Trees)
       }
     } else List())
 
-    val extractedSymbols = super.extractSymbols(context, symbols)
+    val (extractedSymbols, summary) = super.extractSymbols(context, symbols)
 
     val extracted = t.NoSymbols
       .withSorts(extractedSymbols.sorts.values.toSeq)
       .withFunctions((generatedFunctions.map(fun => identity.transform(fun)) ++ extractedSymbols.functions.values).filterNot(fd => fd.flags.exists(elem => elem.name == "traceInduct")).toSeq)
 
-    registerFunctions(extracted, inductFuns.map(fun => identity.transform(fun)))
+    (registerFunctions(extracted, inductFuns.map(fun => identity.transform(fun))), summary)
   }
 
   // make a copy of the 'model'
@@ -442,7 +443,7 @@ class Trace(override val s: Trees, override val t: termination.Trees)
           fullBody = BodyWithSpecs(withPre).withSpec(post).reconstructed,
           flags = Seq(s.Derived(Some(lemma.id)), s.Derived(Some(model.id)))
         ).copiedFrom(indPattern)
-               
+
     case _ => indPattern
     }
   }
@@ -545,9 +546,9 @@ object Trace {
   def nextEqCheckState: Unit = eqCheckState = eqCheckState match {
     case EqCheckState.InitState => EqCheckState.ModelFirst
     case EqCheckState.ModelFirst => EqCheckState.FunFirst
-    case EqCheckState.FunFirst => EqCheckState.ModelFirstWithSublemmas 
+    case EqCheckState.FunFirst => EqCheckState.ModelFirstWithSublemmas
     case EqCheckState.ModelFirstWithSublemmas => EqCheckState.FunFirstWithSublemmas
-    case EqCheckState.FunFirstWithSublemmas => EqCheckState.InitState  
+    case EqCheckState.FunFirstWithSublemmas => EqCheckState.InitState
   }
 
   def resetEqCheckState = eqCheckState = EqCheckState.InitState
@@ -808,7 +809,7 @@ object Trace {
       allFunctions.foreach(f => {
         state(f).counterexample match {
           case None => None
-          case Some(c) => 
+          case Some(c) =>
             val m = CheckFilter.fixedFullName(f)
             val ce = c.counterexample.map((k, v) => (k.id, v))
             reporter.info(s"Counterexample for the function $m: $ce")

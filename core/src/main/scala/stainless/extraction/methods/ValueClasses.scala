@@ -17,6 +17,7 @@ import inox.utils.Position
 class ValueClasses(override val s: Trees, override val t: Trees)
                   (using override val context: inox.Context)
   extends oo.CachingPhase
+      with oo.NoSummaryPhase
       with IdentitySorts
       with oo.SimpleTypeDefs { self =>
 
@@ -26,7 +27,7 @@ class ValueClasses(override val s: Trees, override val t: Trees)
 
   // The value class erasure transformation depends on all dependencies that ever mention a value class type
 
-  protected val typeDefCache = new ExtractionCache[s.TypeDef, t.TypeDef]({ (td, ctx) =>
+  protected val typeDefCache = new ExtractionCache[s.TypeDef, (t.TypeDef, TypeDefSummary)]({ (td, ctx) =>
     import ctx.symbols
     TypeDefKey(td) + SetKey(
       symbols.dependencies(td.id).filter { id =>
@@ -35,7 +36,7 @@ class ValueClasses(override val s: Trees, override val t: Trees)
     )
   })
 
-  override protected val classCache = new ExtractionCache[s.ClassDef, ClassResult]({ (cd, ctx) =>
+  override protected val classCache = new ExtractionCache[s.ClassDef, (ClassResult, ClassSummary)]({ (cd, ctx) =>
     import ctx.symbols
     ClassKey(cd) + SetKey(
       symbols.dependencies(cd.id).filter { id =>
@@ -44,7 +45,7 @@ class ValueClasses(override val s: Trees, override val t: Trees)
     )
   })
 
-  override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult]({ (fd, ctx) =>
+  override protected final val funCache = new ExtractionCache[s.FunDef, (FunctionResult, FunctionSummary)]({ (fd, ctx) =>
     import ctx.symbols
     FunctionKey(fd) + SetKey(
       symbols.dependencies(fd.id).filter { id =>
@@ -155,16 +156,16 @@ class ValueClasses(override val s: Trees, override val t: Trees)
     }
   }
 
-  override protected def extractClass(context: TransformerContext, cd: s.ClassDef): Option[t.ClassDef] = {
-    if (context.valueClasses contains cd.id) None else Some(context.transform(cd))
+  override protected def extractClass(context: TransformerContext, cd: s.ClassDef): (Option[t.ClassDef], Unit) = {
+    (if (context.valueClasses contains cd.id) None else Some(context.transform(cd)), ())
   }
 
-  override protected def extractFunction(context: TransformerContext, fd: s.FunDef): Option[t.FunDef] = {
-    if (context.valueClassConversions contains fd.id) None else Some(context.transform(fd))
+  override protected def extractFunction(context: TransformerContext, fd: s.FunDef): (Option[t.FunDef], Unit) = {
+    (if (context.valueClassConversions contains fd.id) None else Some(context.transform(fd)), ())
   }
 
-  override protected def extractTypeDef(context: TransformerContext, td: s.TypeDef): t.TypeDef = {
-    context.transform(td)
+  override protected def extractTypeDef(context: TransformerContext, td: s.TypeDef): (t.TypeDef, Unit) = {
+    (context.transform(td), ())
   }
 
   override protected def registerFunctions(symbols: t.Symbols, functions: Seq[Option[t.FunDef]]): t.Symbols =

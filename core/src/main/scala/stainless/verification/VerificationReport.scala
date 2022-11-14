@@ -3,14 +3,14 @@
 package stainless
 package verification
 
-import inox.utils.ASCIIHelpers.{ Cell, Row }
+import inox.utils.ASCIIHelpers.{Cell, Row}
 import stainless.utils.JsonConvertions.given
+import io.circe.*
+import io.circe.syntax.*
+import io.circe.generic.semiauto.*
+import stainless.extraction.ExtractionSummary
 
-import io.circe._
-import io.circe.syntax._
-import io.circe.generic.semiauto._
-
-import scala.util.{ Right, Left }
+import scala.util.{Left, Right}
 
 object VerificationReport {
 
@@ -55,20 +55,20 @@ object VerificationReport {
   given recordEncoder: Encoder[Record] = deriveEncoder
 
   def parse(json: Json) = json.as[(Seq[Record], Set[Identifier])] match {
-    case Right((records, sources)) => new VerificationReport(records, sources)
+    case Right((records, sources)) => new VerificationReport(records, sources, ExtractionSummary.NoSummary)
     case Left(error) => throw error
   }
 
 }
 
-class VerificationReport(val results: Seq[VerificationReport.Record], val sources: Set[Identifier])
+class VerificationReport(val results: Seq[VerificationReport.Record], val sources: Set[Identifier], override val extractionSummary: ExtractionSummary)
   extends BuildableAbstractReport[VerificationReport.Record, VerificationReport] {
   import VerificationReport.{given, _}
 
   override val encoder = recordEncoder
 
   override def build(results: Seq[Record], sources: Set[Identifier]) =
-    new VerificationReport(results, sources)
+    new VerificationReport(results, sources, ExtractionSummary.NoSummary)
 
   lazy val totalConditions: Int = results.size
   lazy val totalTime = results.map(_.time).sum
@@ -87,6 +87,7 @@ class VerificationReport(val results: Seq[VerificationReport.Record], val source
 
       RecordRow(id, pos, level, extra, time)
   }
+
 
   private def levelOf(status: Status) = {
     if (status.isValid) Level.Normal

@@ -77,14 +77,21 @@ class VerificationRun private(override val component: VerificationComponent.type
     val t: self.trees.type = self.trees
   }
 
-  private[stainless] def execute(functions0: Seq[Identifier], symbols: trees.Symbols): Future[VerificationAnalysis] = {
+  override private[stainless] def execute(functions0: Seq[Identifier], symbols: trees.Symbols, exSummary: ExtractionSummary): Future[VerificationAnalysis] = {
     import context._
 
     val functions = functions0.filterNot(fid => symbols.getFunction(fid).flags.contains(trees.DropVCs))
     val p = inox.Program(trees)(symbols)
 
     if (context.options.findOptionOrDefault(optCoq)) {
-      CoqVerificationChecker.verify(functions, p, context)
+      val vcResult = CoqVerificationChecker.verify(functions, p, context)
+      Future.successful(new VerificationAnalysis {
+        override val program: p.type = p
+        override val context = VerificationRun.this.context
+        override val sources = functions.toSet
+        override val results = vcResult
+        override val extractionSummary = exSummary
+      })
     } else {
       val assertions = AssertionInjector(p, context)
       val assertionEncoder = inox.transformers.ProgramEncoder(p)(assertions)
@@ -103,13 +110,15 @@ class VerificationRun private(override val component: VerificationComponent.type
         context.timers.verification.get("type-checker").run {
           TypeChecker(vcGenEncoder.targetProgram, context).checkFunctionsAndADTs(functions)
         }
-      else
+      else {
+        reporter.warning("Old VC generation is deprecated and scheduled for removal in 1.0")
         VerificationGenerator.gen(vcGenEncoder.targetProgram, context)(functions)
+      }
 
       if (!functions.isEmpty) {
         reporter.debug(s"Finished generating VCs")
       }
-
+      // TODO: Faire comme extraction pipeline pour que l'on puisse obtenir les @extern
       val opaqueEncoder = inox.transformers.ProgramEncoder(vcGenEncoder.targetProgram)(OpaqueChooseInjector(vcGenEncoder.targetProgram))
       val res: Future[Map[VC[p.trees.type], VCResult[p.Model]]] =
         if (context.options.findOptionOrDefault(optAdmitVCs)) {
@@ -127,6 +136,7 @@ class VerificationRun private(override val component: VerificationComponent.type
         override val context = VerificationRun.this.context
         override val sources = functions.toSet
         override val results = r
+        override val extractionSummary = exSummary
       })
     }
   }

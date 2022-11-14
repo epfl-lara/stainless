@@ -3,12 +3,12 @@
 package stainless
 package evaluators
 
-import inox.evaluators.EvaluationResults.{ EvaluatorError, RuntimeError, Successful }
-
-import io.circe._
+import inox.evaluators.EvaluationResults.{EvaluatorError, RuntimeError, Successful}
+import io.circe.*
+import stainless.extraction.ExtractionSummary
 
 import scala.concurrent.Future
-import scala.util.{ Success, Failure }
+import scala.util.{Failure, Success}
 
 object DebugSectionEvaluator extends inox.DebugSection("eval")
 
@@ -71,7 +71,7 @@ class EvaluatorRun private(override val component: EvaluatorComponent.type,
 
   override def createFilter = EvaluatorCheckFilter(trees, context)
 
-  private[stainless] def execute(functions: Seq[Identifier], symbols: Symbols): Future[Analysis] = {
+  override private[stainless] def execute(functions: Seq[Identifier], symbols: Symbols, exSummary: ExtractionSummary): Future[Analysis] = {
     import context.{given, _}
 
     val p = inox.Program(trees)(symbols)
@@ -181,6 +181,7 @@ class EvaluatorRun private(override val component: EvaluatorComponent.type,
       override val program = p
       override val sources = functions.toSet
       override val results = functions map (id => processFunction(symbols.getFunction(id)))
+      override val extractionSummary = exSummary
     })
   }
 }

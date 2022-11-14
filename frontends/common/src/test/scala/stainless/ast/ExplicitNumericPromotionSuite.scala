@@ -158,7 +158,7 @@ class ExplicitNumericPromotionSuite extends AnyFunSuite with InputUtils {
   import ctx.given
   val (_, xlangProgram) = load(sources)
   val run = verification.VerificationComponent.run(extraction.pipeline)
-  val program = inox.Program(run.trees)(run extract xlangProgram.symbols)
+  val program = inox.Program(run.trees)(run.extract(xlangProgram.symbols)._1)
 
   import stainless.trees._
 

@@ -149,7 +149,8 @@ package object extraction {
       extends ExtractionPipeline { self =>
 
       override def invalidate(id: Identifier): Unit = ()
-      override def extract(symbols: s.Symbols): t.Symbols = completeSymbols(symbols)(to)
+      override def extract(symbols: s.Symbols): (t.Symbols, ExtractionSummary) =
+        (completeSymbols(symbols)(to), ExtractionSummary.NoSummary)
     }
     new CompleterImpl(extraction.trees, to)
   }
@@ -168,7 +169,7 @@ package object extraction {
   def phaseSemantics(tr: ast.Trees)
                     (pipeline: ExtractionPipeline { val s: tr.type; val t: extraction.trees.type }):
                     inox.SemanticsProvider { val trees: tr.type } = {
-    getSemantics(tr)(syms => pipeline.extract(syms))
+    getSemantics(tr)(syms => pipeline.extract(syms)._1)
   }
 
   def getSemantics(tr: ast.Trees)(processSymbols: tr.Symbols => extraction.trees.Symbols):

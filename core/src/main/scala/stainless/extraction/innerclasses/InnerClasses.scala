@@ -57,6 +57,7 @@ package innerclasses
 class InnerClasses(override val s: Trees, override val t: methods.Trees)
                   (using override val context: inox.Context)
   extends oo.CachingPhase
+     with oo.NoSummaryPhase
      with IdentitySorts
      with oo.IdentityTypeDefs
      with oo.SimpleClasses
@@ -550,13 +551,13 @@ class InnerClasses(override val s: Trees, override val t: methods.Trees)
 
   override protected type FunctionResult = (t.FunDef, Seq[(t.ClassDef, Seq[t.FunDef], Seq[t.TypeDef])])
 
-  override protected val funCache: SimpleCache[s.FunDef, FunctionResult] = new SimpleCache[s.FunDef, FunctionResult]
+  override protected val funCache: SimpleCache[s.FunDef, (FunctionResult, FunctionSummary)] = new SimpleCache
 
-  override protected def extractFunction(context: TransformerContext, fd: s.FunDef): FunctionResult = {
+  override protected def extractFunction(context: TransformerContext, fd: s.FunDef): (FunctionResult, FunctionSummary) = {
     import context.{given, _}
 
     val optClass = fd.flags.collectFirst { case IsMethodOf(cid) => symbols.classes(cid) }
-    liftLocalClasses(fd, Context(currentClass = optClass, currentFunction = Some(fd)))
+    (liftLocalClasses(fd, Context(currentClass = optClass, currentFunction = Some(fd))), ())
   }
 
   override protected def registerFunctions(symbols: t.Symbols, results: Seq[FunctionResult]): t.Symbols = {
@@ -568,9 +569,9 @@ class InnerClasses(override val s: Trees, override val t: methods.Trees)
       .withFunctions(functions ++ localMethods.flatten)
   }
 
-  override protected def extractClass(context: TransformerContext, cd: s.ClassDef): t.ClassDef = {
+  override protected def extractClass(context: TransformerContext, cd: s.ClassDef): (t.ClassDef, ClassSummary) = {
     import context.{given, _}
-    context.transform((new LiftingTransformer).transform(cd, Context.empty))
+    (context.transform((new LiftingTransformer).transform(cd, Context.empty)), ())
   }
 }
 

@@ -5,10 +5,10 @@ package extraction
 package inlining
 
 class CallSiteInline(override val s: Trees, override val t: Trees)
-                    (using override val context: inox.Context) extends CachingPhase with SimpleFunctions with IdentitySorts { self =>
+                    (using override val context: inox.Context) extends CachingPhase with NoSummaryPhase with SimpleFunctions with IdentitySorts { self =>
   import s._
 
-  override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult]((fd, context) =>
+  override protected final val funCache = new ExtractionCache[s.FunDef, (FunctionResult, FunctionSummary)]((fd, context) =>
     getDependencyKey(fd.id)(using context.symbols)
   )
 
@@ -40,8 +40,8 @@ class CallSiteInline(override val s: Trees, override val t: Trees)
 
   override protected def getContext(symbols: s.Symbols) = new TransformerContext(symbols)
 
-  def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = {
-    context.transform(fd)
+  def extractFunction(context: TransformerContext, fd: s.FunDef): (t.FunDef, Unit) = {
+    (context.transform(fd), ())
   }
 
 }

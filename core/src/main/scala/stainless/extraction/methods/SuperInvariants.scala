@@ -13,6 +13,7 @@ import SymbolIdentifier.unsafeToSymbolIdentifier
 class SuperInvariants(override val s: Trees, override val t: Trees)
                      (using override val context: inox.Context)
   extends oo.CachingPhase
+     with oo.NoSummaryPhase
      with IdentitySorts
      with SimpleFunctions
      with oo.IdentityTypeDefs
@@ -80,8 +81,8 @@ class SuperInvariants(override val s: Trees, override val t: Trees)
     }
   }
 
-  override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = {
-    context.transform(fd)
+  override protected def extractFunction(context: TransformerContext, fd: s.FunDef): (t.FunDef, Unit) = {
+    (context.transform(fd), ())
   }
 }
 

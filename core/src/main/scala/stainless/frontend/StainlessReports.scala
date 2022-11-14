@@ -5,6 +5,7 @@ package frontend
 
 import io.circe._
 import io.circe.syntax._
+import stainless.extraction.ExtractionSummary
 
 trait StainlessReports {
   protected trait RunReport { val run: ComponentRun; val report: run.component.Report }
@@ -13,6 +14,10 @@ trait StainlessReports {
 
   protected case class Report(reports: Seq[RunReport]) extends AbstractReport[Report] {
     val name = "stainless"
+
+    override lazy val extractionSummary: ExtractionSummary = reports.foldLeft(ExtractionSummary.NoSummary) {
+      case (acc, report) => ExtractionSummary.Node(acc, report.report.extractionSummary)
+    }
 
     override def ~(other: Report): Report = Report(
       (reports ++ other.reports).groupBy(_.run).map {

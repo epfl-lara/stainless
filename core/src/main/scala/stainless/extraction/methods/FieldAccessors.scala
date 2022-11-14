@@ -7,6 +7,7 @@ package methods
 class FieldAccessors(override val s: Trees, override val t: oo.Trees)
                     (using override val context: inox.Context)
   extends oo.CachingPhase
+     with oo.NoSummaryPhase
      with SimpleSorts
      with oo.SimpleClasses
      with SimplyCachedSorts
@@ -45,7 +46,7 @@ class FieldAccessors(override val s: Trees, override val t: oo.Trees)
   override protected type FunctionResult = Option[t.FunDef]
 
   // The transformation depends on all (transitive) accessors that will be inlined
-  override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult]({
+  override protected final val funCache = new ExtractionCache[s.FunDef, (FunctionResult, FunctionSummary)]({
     (fd, ctx) => FunctionKey(fd) + SetKey(ctx.symbols.dependencies(fd.id)
       .flatMap(id => ctx.symbols.lookupFunction(id))
       .filter(ctx.isConcreteAccessor)
@@ -56,11 +57,11 @@ class FieldAccessors(override val s: Trees, override val t: oo.Trees)
   override protected def registerFunctions(symbols: t.Symbols, functions: Seq[Option[t.FunDef]]): t.Symbols =
     symbols.withFunctions(functions.flatten)
 
-  override protected def extractFunction(context: TransformerContext, fd: s.FunDef): Option[t.FunDef] =
-    if (context.isConcreteAccessor(fd)) None else Some(context.transform(fd))
+  override protected def extractFunction(context: TransformerContext, fd: s.FunDef): (Option[t.FunDef], Unit) =
+    (if (context.isConcreteAccessor(fd)) None else Some(context.transform(fd)), ())
 
-  override protected def extractSort(context: TransformerContext, sort: s.ADTSort) = context.transform(sort)
-  override protected def extractClass(context: TransformerContext, cd: s.ClassDef) = context.transform(cd)
+  override protected def extractSort(context: TransformerContext, sort: s.ADTSort) = (context.transform(sort), ())
+  override protected def extractClass(context: TransformerContext, cd: s.ClassDef) = (context.transform(cd), ())
 }
 
 object FieldAccessors {

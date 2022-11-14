@@ -21,19 +21,19 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
 
   // Function rewriting depends on the effects analysis which relies on all dependencies
   // of the function, so we use a dependency cache here.
-  override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult]((fd, context) =>
+  override protected final val funCache = new ExtractionCache[s.FunDef, (FunctionResult, FunctionSummary)]((fd, context) =>
     getDependencyKey(fd.id)(using context.symbols)
   )
 
   // Function types are rewritten by the transformer depending on the result of the
   // effects analysis, so we again use a dependency cache here.
-  override protected final val sortCache = new ExtractionCache[s.ADTSort, SortResult]((sort, context) =>
+  override protected final val sortCache = new ExtractionCache[s.ADTSort, (SortResult, SortSummary)]((sort, context) =>
     getDependencyKey(sort.id)(using context.symbols)
   )
 
   // Function types are rewritten by the transformer depending on the result of the
   // effects analysis, so we again use a dependency cache here.
-  override protected final val classCache = new ExtractionCache[s.ClassDef, ClassResult]((cd, context) =>
+  override protected final val classCache = new ExtractionCache[s.ClassDef, (ClassResult, ClassSummary)]((cd, context) =>
     getDependencyKey(cd.id)(using context.symbols)
   )
 
@@ -82,7 +82,11 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
   override protected type TransformerContext = SymbolsAnalysis
   override protected def getContext(symbols: Symbols) = SymbolsAnalysis()(using symbols)
 
-  override protected def extractFunction(analysis: SymbolsAnalysis, fd: FunDef): Option[FunDef] = {
+  enum FunctionSummary {
+    case Untransformed(fid: Identifier)
+    case Transformed(fid: Identifier)
+  }
+  override protected def extractFunction(analysis: SymbolsAnalysis, fd: FunDef): (Option[FunDef], FunctionSummary) = {
     import analysis.{given, _}
     import symbols._
 
@@ -90,7 +94,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
 
     checkEffects(fd)(analysis) match {
       case CheckResult.Ok => ()
-      case CheckResult.Skip => return None
+      case CheckResult.Skip => return (None, FunctionSummary.Untransformed(fd.id))
       case CheckResult.Error(err) => throw err
     }
 
@@ -1356,18 +1360,35 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
       }
     }
 
-
-    Some(transformer.transform(updateFunction(Outer(fd), Environment.empty).toFun))
+    val result = transformer.transform(updateFunction(Outer(fd), Environment.empty).toFun)
+    val unchanged = result.id == fd.id && result.tparams == fd.tparams && result.params == fd.params &&
+      result.returnType == fd.returnType && result.flags == fd.flags && result.fullBody == fd.fullBody
+    val summary = if (unchanged) FunctionSummary.Untransformed(fd.id) else FunctionSummary.Transformed(fd.id)
+    (Some(result), summary)
   }
 
-  override protected def extractSort(analysis: SymbolsAnalysis, sort: ADTSort): ADTSort =
-    analysis.transformer.transform(sort)
+  override protected type SortSummary = Unit
+  override protected def extractSort(analysis: SymbolsAnalysis, sort: ADTSort): (ADTSort, Unit) =
+    (analysis.transformer.transform(sort), ())
 
-  override protected def extractClass(analysis: SymbolsAnalysis, cd: ClassDef): ClassDef =
-    analysis.transformer.transform(cd)
+  override protected type ClassSummary = Unit
+  override protected def extractClass(analysis: SymbolsAnalysis, cd: ClassDef): (ClassDef, Unit) =
+    (analysis.transformer.transform(cd), ())
+
+  override protected def combineSummaries(allSummaries: AllSummaries): ExtractionSummary = {
+    val affectedFns = allSummaries.fnsSummary.collect { case FunctionSummary.Transformed(fid) => fid }
+    ExtractionSummary.Leaf(AntiAliasing)(AntiAliasing.SummaryData(affectedFns.toSet))
+  }
 }
 
-object AntiAliasing {
+object AntiAliasing extends ExtractionPipelineCreator {
+  case class SummaryData(affectedFns: Set[Identifier] = Set.empty) {
+    def ++(other: SummaryData): SummaryData = SummaryData(affectedFns ++ other.affectedFns)
+    def hasRun: Boolean = affectedFns.nonEmpty
+  }
+
+  override val name: String = "AntiAliasing"
+
   def apply(trees: Trees)(using inox.Context): ExtractionPipeline {
     val s: trees.type
     val t: trees.type

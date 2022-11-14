@@ -22,6 +22,8 @@ class ReturnElimination(override val s: Trees, override val t: Trees)
 
     // the set of expressions containing a return expression
     val exprHasReturn = collection.mutable.Map[Identifier, collection.mutable.Set[s.Expr]]()
+    // the set of local functions containing a while expression
+    val hasWhile = collection.mutable.Set.empty[Identifier]
 
     def addExpression(id: Identifier, e: s.Expr): Unit = {
       if (exprHasReturn.contains(id))
@@ -30,7 +32,7 @@ class ReturnElimination(override val s: Trees, override val t: Trees)
         exprHasReturn(id) = collection.mutable.Set(e)
     }
 
-    class ReturnFinder(override val trees: self.s.type) extends transformers.Traverser {
+    class ReturnAndWhileFinder(override val trees: self.s.type) extends transformers.Traverser {
       // holds the identifier of the current LocalFunDef
       // initially equal to the top-level `fid`
       type Env = Identifier
@@ -50,11 +52,16 @@ class ReturnElimination(override val s: Trees, override val t: Trees)
 
           if (exprHasReturn.contains(currentId) && es.exists(exprHasReturn(currentId)))
             addExpression(currentId, expr)
+
+          expr match {
+            case s.While(_, _, _, _, _) => hasWhile += currentId
+            case _ => ()
+          }
       }
     }
 
-    val returnFinder = new ReturnFinder(self.s)
-    for (fd <- symbols.functions.values) returnFinder.traverse(fd.fullBody, fd.id)
+    val finder = new ReturnAndWhileFinder(self.s)
+    for (fd <- symbols.functions.values) finder.traverse(fd.fullBody, fd.id)
   }
 
   /* Extract functional result value. Useful to remove side effect from conditions when moving it to post-condition */
@@ -92,7 +99,14 @@ class ReturnElimination(override val s: Trees, override val t: Trees)
 
   override protected def getContext(symbols: s.Symbols) = new TransformerContext(symbols)
 
-  protected def extractFunction(tc: TransformerContext, fd: s.FunDef): t.FunDef = {
+  enum FunctionSummary {
+    case ReturnOnlyTransformed(fid: Identifier)
+    case WhileOnlyTransformed(fid: Identifier)
+    case ReturnAndWhileTransformed(fid: Identifier)
+    case Untransformed(fid: Identifier)
+  }
+
+  protected def extractFunction(tc: TransformerContext, fd: s.FunDef): (t.FunDef, FunctionSummary) = {
     import tc.symbols.given
 
     class SimpleWhileTransformer(override val s: self.s.type, override val t: self.t.type)
@@ -469,19 +483,44 @@ class ReturnElimination(override val s: Trees, override val t: Trees)
     }
 
     val simpleWhileTransformer = new SimpleWhileTransformer(self.s, self.t)
-    new ReturnTransformer(simpleWhileTransformer, s.Outer(fd)).getResult.asInstanceOf[t.Outer].fd
+    val res = new ReturnTransformer(simpleWhileTransformer, s.Outer(fd)).getResult.asInstanceOf[t.Outer].fd
+    val fdHasRet = tc.exprHasReturn.contains(fd.id)
+    val fdHasWhile = tc.hasWhile.contains(fd.id)
+    val fnSum = {
+      if (fdHasRet && fdHasWhile) FunctionSummary.ReturnAndWhileTransformed(fd.id)
+      else if (fdHasRet) FunctionSummary.ReturnOnlyTransformed(fd.id)
+      else if (fdHasWhile) FunctionSummary.WhileOnlyTransformed(fd.id)
+      else FunctionSummary.Untransformed(fd.id)
+    }
+    (res, fnSum)
   }
 
-  override protected def extractSymbols(context: TransformerContext, symbols: s.Symbols): t.Symbols = {
-    if (context.exprHasReturn.nonEmpty)
-      super.extractSymbols(context, symbols)
-        .withSorts(Seq(ControlFlowSort.syntheticControlFlow))
-    else
-      super.extractSymbols(context, symbols)
+  override def combineSummaries(summaries: AllSummaries): ExtractionSummary = {
+    val (retFns, whileFns) = summaries.fnsSummary.foldLeft((Set.empty[Identifier], Set.empty[Identifier])) {
+      case ((retAcc, whileAcc), FunctionSummary.ReturnOnlyTransformed(fid)) => (retAcc + fid, whileAcc)
+      case ((retAcc, whileAcc), FunctionSummary.WhileOnlyTransformed(fid)) => (retAcc, whileAcc + fid)
+      case ((retAcc, whileAcc), FunctionSummary.ReturnAndWhileTransformed(fid)) => (retAcc + fid, whileAcc + fid)
+      case (acc, FunctionSummary.Untransformed(_)) => acc
+    }
+    ExtractionSummary.Leaf(ReturnElimination)(ReturnElimination.SummaryData(retFns, whileFns))
+  }
+
+  override protected def extractSymbols(context: TransformerContext, symbols: s.Symbols): (t.Symbols, OOAllSummaries) = {
+    if (context.exprHasReturn.nonEmpty) {
+      val (exSyms, exSumm) = super.extractSymbols(context, symbols)
+      (exSyms.withSorts(Seq(ControlFlowSort.syntheticControlFlow)), exSumm)
+    } else super.extractSymbols(context, symbols)
   }
 }
 
-object ReturnElimination {
+object ReturnElimination extends ExtractionPipelineCreator {
+  case class SummaryData(retAffectedFns: Set[Identifier] = Set.empty, whileAffectedFns: Set[Identifier] = Set.empty) {
+    def ++(other: SummaryData): SummaryData = SummaryData(retAffectedFns ++ other.retAffectedFns, whileAffectedFns ++ other.whileAffectedFns)
+    def hasReturnRun: Boolean = retAffectedFns.nonEmpty
+    def hasWhileRun: Boolean = whileAffectedFns.nonEmpty
+  }
+  override val name: String = "ReturnElimination"
+
   def apply(trees: Trees)(using inox.Context): ExtractionPipeline {
     val s: trees.type
     val t: trees.type

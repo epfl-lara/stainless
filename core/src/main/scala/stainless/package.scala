@@ -18,10 +18,13 @@ package object stainless {
   }
 
   object optWatch extends inox.FlagOptionDef("watch", false)
-  def isWatchModeOn(using ctx: inox.Context) = ctx.options.findOptionOrDefault(optWatch)
+  def isWatchModeOn(using ctx: inox.Context): Boolean = ctx.options.findOptionOrDefault(optWatch)
 
   object optCompact extends inox.FlagOptionDef("compact", false)
-  def isCompactModeOn(using ctx: inox.Context) = ctx.options.findOptionOrDefault(optCompact)
+  def isCompactModeOn(using ctx: inox.Context): Boolean = ctx.options.findOptionOrDefault(optCompact)
+
+  object optExtendedSummary extends inox.FlagOptionDef("extended-summary", false)
+  def isExtendedSummaryOn(using ctx: inox.Context): Boolean = ctx.options.findOptionOrDefault(optExtendedSummary)
 
   type Program = inox.Program { val trees: ast.Trees }
 

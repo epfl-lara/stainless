@@ -5,6 +5,23 @@ package extraction
 
 import transformers._
 
+enum ExtractionSummary {
+  case Node(lhs: ExtractionSummary, rhs: ExtractionSummary)
+  case Leaf[T <: ExtractionPipelineCreator](pipelineCreator: T)(val summary: pipelineCreator.SummaryData)
+  case NoSummary
+
+  def leafs: Seq[Leaf[?]] = this match {
+    case Node(lhs, rhs) => lhs.leafs ++ rhs.leafs
+    case l@Leaf(_) => Seq(l)
+    case NoSummary => Seq()
+  }
+}
+
+trait ExtractionPipelineCreator {
+  type SummaryData
+  val name: String
+}
+
 trait ExtractionPipeline { self =>
   val s: ast.Trees
   val t: ast.Trees
@@ -15,7 +32,7 @@ trait ExtractionPipeline { self =>
   protected val printerOpts: s.PrinterOptions = s.PrinterOptions.fromContext(context)
   given givenPipelinePrinterOpts: printerOpts.type = printerOpts
 
-  def extract(symbols: s.Symbols): t.Symbols
+  def extract(symbols: s.Symbols): (t.Symbols, ExtractionSummary)
 
   def invalidate(id: Identifier): Unit
 
@@ -26,8 +43,10 @@ trait ExtractionPipeline { self =>
     class AndThenImpl(override val s: self.s.type,
                       override val t: that.t.type)
                      (using override val context: inox.Context) extends ExtractionPipeline {
-      override def extract(symbols: s.Symbols): t.Symbols = {
-        that.extract(self.extract(symbols))
+      override def extract(symbols: s.Symbols): (t.Symbols, ExtractionSummary) = {
+        val (slfSym, slfSum) = self.extract(symbols)
+        val (thatSym, thatSum) = that.extract(slfSym)
+        (thatSym, ExtractionSummary.Node(slfSum, thatSum))
       }
 
       override def invalidate(id: Identifier): Unit = {
@@ -48,11 +67,14 @@ object ExtractionPipeline {
     class Impl(override val s: transformer.s.type,
                override val t: transformer.t.type)
               (using override val context: inox.Context) extends ExtractionPipeline { self =>
-      override def extract(symbols: s.Symbols): t.Symbols =
-        symbols.transform(transformer.asInstanceOf[DefinitionTransformer {
-          val s: self.s.type
-          val t: self.t.type
-        }])
+      override def extract(symbols: s.Symbols): (t.Symbols, ExtractionSummary) =
+        (
+          symbols.transform(transformer.asInstanceOf[DefinitionTransformer {
+            val s: self.s.type
+            val t: self.t.type
+          }]),
+          ExtractionSummary.NoSummary
+        )
 
       override def invalidate(id: Identifier): Unit = ()
     }
@@ -67,7 +89,8 @@ object ExtractionPipeline {
     class Impl(override val s: transformer.s.type,
                override val t: transformer.t.type)
               (using override val context: inox.Context) extends ExtractionPipeline {
-      override def extract(symbols: s.Symbols): t.Symbols = transformer.transform(symbols)
+      override def extract(symbols: s.Symbols): (t.Symbols, ExtractionSummary) =
+        (transformer.transform(symbols), ExtractionSummary.NoSummary)
       override def invalidate(id: Identifier): Unit = ()
     }
     new Impl(transformer.s, transformer.t)
@@ -81,32 +104,40 @@ trait ExtractionContext extends ExtractionPipeline {
 
 trait CachingPhase extends ExtractionContext with ExtractionCaches { self =>
   protected type FunctionResult
-  protected val funCache: ExtractionCache[s.FunDef, FunctionResult]
+  protected type FunctionSummary
+  protected val funCache: ExtractionCache[s.FunDef, (FunctionResult, FunctionSummary)]
 
   protected type SortResult
-  protected val sortCache: ExtractionCache[s.ADTSort, SortResult]
+  protected type SortSummary
+  protected val sortCache: ExtractionCache[s.ADTSort, (SortResult, SortSummary)]
 
-  protected def extractFunction(context: TransformerContext, fd: s.FunDef): FunctionResult
+  protected def extractFunction(context: TransformerContext, fd: s.FunDef): (FunctionResult, FunctionSummary)
   protected def registerFunctions(symbols: t.Symbols, functions: Seq[FunctionResult]): t.Symbols
 
-  protected def extractSort(context: TransformerContext, sort: s.ADTSort): SortResult
+  protected def extractSort(context: TransformerContext, sort: s.ADTSort): (SortResult, SortSummary)
   protected def registerSorts(symbols: t.Symbols, sorts: Seq[SortResult]): t.Symbols
 
-  override final def extract(symbols: s.Symbols): t.Symbols = {
+  class AllSummaries(val fnsSummary: Seq[FunctionSummary] = Seq.empty, val sortsSummary: Seq[SortSummary] = Seq.empty)
+
+  protected def combineSummaries(summaries: AllSummaries): ExtractionSummary
+
+  override final def extract(symbols: s.Symbols): (t.Symbols, ExtractionSummary) = {
     val context = getContext(symbols)
-    extractSymbols(context, symbols)
+    val (exSyms, allSummaries) = extractSymbols(context, symbols)
+    val exSummary = combineSummaries(allSummaries)
+    (exSyms, exSummary)
   }
 
-  protected def extractSymbols(context: TransformerContext, symbols: s.Symbols): t.Symbols = {
-    val functions = symbols.functions.values.map { fd =>
+  protected def extractSymbols(context: TransformerContext, symbols: s.Symbols): (t.Symbols, AllSummaries) = {
+    val (functions, fnsSummary) = symbols.functions.values.map { fd =>
       funCache.cached(fd, context)(extractFunction(context, fd))
-    }.toSeq
+    }.toSeq.unzip
 
-    val sorts = symbols.sorts.values.map { sort =>
+    val (sorts, sortsSummary) = symbols.sorts.values.map { sort =>
       sortCache.cached(sort, context)(extractSort(context, sort))
-    }.toSeq
+    }.toSeq.unzip
 
-    registerSorts(registerFunctions(t.NoSymbols, functions), sorts)
+    (registerSorts(registerFunctions(t.NoSymbols, functions), sorts), AllSummaries(fnsSummary, sortsSummary))
   }
 }
 
@@ -116,15 +147,17 @@ trait SimpleSorts extends CachingPhase {
 }
 
 trait SimplyCachedSorts extends CachingPhase {
-  override protected final val sortCache: ExtractionCache[s.ADTSort, SortResult] = new SimpleCache[s.ADTSort, SortResult]
+  override protected final val sortCache: ExtractionCache[s.ADTSort, (SortResult, SortSummary)] = new SimpleCache[s.ADTSort, (SortResult, SortSummary)]
 }
 
 trait IdentitySorts extends SimpleSorts with SimplyCachedSorts { self =>
+  override protected type SortSummary = Unit
+
   private[this] class IdentitySortsImpl(override val s: self.s.type, override val t: self.t.type)
     extends ConcreteTreeTransformer(s, t)
   private[this] val identity = new IdentitySortsImpl(self.s, self.t)
 
-  override protected def extractSort(context: TransformerContext, sort: s.ADTSort): t.ADTSort = identity.transform(sort)
+  override protected def extractSort(context: TransformerContext, sort: s.ADTSort): (t.ADTSort, Unit) = (identity.transform(sort), ())
 }
 
 trait SimpleFunctions extends CachingPhase {
@@ -133,23 +166,32 @@ trait SimpleFunctions extends CachingPhase {
 }
 
 trait SimplyCachedFunctions extends CachingPhase {
-  override protected final val funCache: ExtractionCache[s.FunDef, FunctionResult] = new SimpleCache[s.FunDef, FunctionResult]
+  override protected final val funCache: ExtractionCache[s.FunDef, (FunctionResult, FunctionSummary)] = new SimpleCache[s.FunDef, (FunctionResult, FunctionSummary)]
 }
 
 trait IdentityFunctions extends SimpleFunctions with SimplyCachedFunctions { self =>
+  override protected type FunctionSummary = Unit
+
   private[this] class IdentityFunctionsImpl(override val s: self.s.type, override val t: self.t.type)
     extends ConcreteTreeTransformer(s, t)
   private[this] val identity = new IdentityFunctionsImpl(self.s, self.t)
 
-  override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = identity.transform(fd)
+  override protected def extractFunction(context: TransformerContext, fd: s.FunDef): (t.FunDef, Unit) = (identity.transform(fd), ())
 }
 
-trait SimplePhase extends ExtractionPipeline with SimpleSorts with SimpleFunctions { self =>
+trait NoSummaryPhase extends CachingPhase {
+  override protected type FunctionSummary = Unit
+  override protected type SortSummary = Unit
+
+  override protected def combineSummaries(summaries: AllSummaries): ExtractionSummary = ExtractionSummary.NoSummary
+}
+
+trait SimplePhase extends ExtractionPipeline with SimpleSorts with SimpleFunctions with NoSummaryPhase { self =>
   override protected type TransformerContext <: TreeTransformer {
     val s: self.s.type
     val t: self.t.type
   }
 
-  override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = context.transform(fd)
-  override protected def extractSort(context: TransformerContext, sort: s.ADTSort): t.ADTSort = context.transform(sort)
+  override protected def extractFunction(context: TransformerContext, fd: s.FunDef): (t.FunDef, Unit) = (context.transform(fd), ())
+  override protected def extractSort(context: TransformerContext, sort: s.ADTSort): (t.ADTSort, Unit) = (context.transform(sort), ())
 }

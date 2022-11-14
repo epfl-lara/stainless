@@ -9,6 +9,7 @@ import scala.collection.mutable.{Map => MutableMap}
 class RefinementLifting(override val s: Trees, override val t: Trees)
                        (using override val context: inox.Context)
   extends CachingPhase
+     with NoSummaryPhase
      with SimpleFunctions
      with IdentityTypeDefs
      with SimpleClasses
@@ -198,7 +199,7 @@ class RefinementLifting(override val s: Trees, override val t: Trees)
     override def transform(tpe: s.Type): t.Type = super.transform(liftRefinements(tpe))
   }
 
-  override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = {
+  override protected def extractFunction(context: TransformerContext, fd: s.FunDef): (t.FunDef, Unit) = {
     import s._
     import exprOps._
 
@@ -226,13 +227,13 @@ class RefinementLifting(override val s: Trees, override val t: Trees)
       case _ => optOldPost
     }).map(exprOps.Postcondition.apply)
 
-    context.transform(fd.copy(
+    (context.transform(fd.copy(
       fullBody = specced.addSpec(optPre).withSpec(optPost).reconstructed,
       returnType = context.dropRefinements(fd.returnType)
-    ).copiedFrom(fd))
+    ).copiedFrom(fd)), ())
   }
 
-  override protected def extractSort(context: TransformerContext, sort: s.ADTSort): (t.ADTSort, Option[t.FunDef]) = {
+  override protected def extractSort(context: TransformerContext, sort: s.ADTSort): ((t.ADTSort, Option[t.FunDef]), Unit) = {
     import s._
     import context.symbols.{given, _}
 
@@ -286,12 +287,12 @@ class RefinementLifting(override val s: Trees, override val t: Trees)
 
     val newInv = optInv.map(fd => context.transform(fd))
 
-    (newSort, newInv)
+    ((newSort, newInv), ())
   }
 
-  override protected def extractClass(context: TransformerContext, cd: s.ClassDef): t.ClassDef = {
+  override protected def extractClass(context: TransformerContext, cd: s.ClassDef): (t.ClassDef, Unit) = {
     // TODO: lift refinements to invariant?
-    context.transform(cd)
+    (context.transform(cd), ())
   }
 }
 

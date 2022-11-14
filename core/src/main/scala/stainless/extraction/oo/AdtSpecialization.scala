@@ -7,6 +7,7 @@ package oo
 class AdtSpecialization(override val s: Trees, override val t: Trees)
                        (using override val context: inox.Context)
   extends CachingPhase
+     with NoSummaryPhase
      with SimpleFunctions
      with SimpleSorts
      with SimpleTypeDefs
@@ -129,17 +130,17 @@ class AdtSpecialization(override val s: Trees, override val t: Trees)
   // The function cache must consider the descendants of all classes on which the
   // function depends as they will determine which classes will be transformed into
   // sorts and which ones will not.
-  override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult](
+  override protected final val funCache = new ExtractionCache[s.FunDef, (FunctionResult, FunctionSummary)](
     (fd, context) => FunctionKey(fd) + descendantKey(fd.id)(using context.symbols)
   )
 
   // If there are any input sorts in this phase, their transformation is simple
-  override protected final val sortCache = new SimpleCache[s.ADTSort, SortResult]
+  override protected final val sortCache = new SimpleCache[s.ADTSort, (SortResult, SortSummary)]
 
   // The class cache must also consider all descendants of dependent classes as they
   // will again determine what will become a sort and what won't.
   // We must further depend on the synthetic OptionSort for the generated unapply function.
-  override protected final val classCache = new ExtractionCache[s.ClassDef, ClassResult]({
+  override protected final val classCache = new ExtractionCache[s.ClassDef, (ClassResult, ClassSummary)]({
     // Note that we could use a more precise key here that determines whether the
     // option sort will be used by the class result, but this shouldn't be necessary
     (cd, context) =>
@@ -147,13 +148,13 @@ class AdtSpecialization(override val s: Trees, override val t: Trees)
       ClassKey(cd) + descendantKey(cd.id)(using symbols) + OptionSort.key(using symbols)
   })
 
-  override protected final val typeDefCache = new ExtractionCache[s.TypeDef, TypeDefResult](
+  override protected final val typeDefCache = new ExtractionCache[s.TypeDef, (TypeDefResult, TypeDefSummary)](
     (td, context) => TypeDefKey(td) + descendantKey(td.id)(using context.symbols)
   )
 
-  override protected final def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = context.transform(fd)
-  override protected final def extractTypeDef(context: TransformerContext, td: s.TypeDef): t.TypeDef = context.transform(td)
-  override protected final def extractSort(context: TransformerContext, sort: s.ADTSort): t.ADTSort = context.transform(sort)
+  override protected final def extractFunction(context: TransformerContext, fd: s.FunDef): (t.FunDef, Unit) = (context.transform(fd), ())
+  override protected final def extractTypeDef(context: TransformerContext, td: s.TypeDef): (t.TypeDef, Unit) = (context.transform(td), ())
+  override protected final def extractSort(context: TransformerContext, sort: s.ADTSort): (t.ADTSort, Unit) = (context.transform(sort), ())
 
   override protected final type ClassResult = Either[t.ClassDef, (Option[t.ADTSort], Seq[t.FunDef])]
   override protected final def registerClasses(symbols: t.Symbols, classes: Seq[ClassResult]): t.Symbols = {
@@ -168,7 +169,7 @@ class AdtSpecialization(override val s: Trees, override val t: Trees)
     case _ => true
   }
 
-  override protected final def extractClass(context: TransformerContext, cd: s.ClassDef): ClassResult = {
+  override protected final def extractClass(context: TransformerContext, cd: s.ClassDef): (ClassResult, Unit) = {
     import context.{t => _, s => _, given, _}
     if (isCandidate(cd.id)) {
       if (cd.parents.isEmpty) {
@@ -231,17 +232,18 @@ class AdtSpecialization(override val s: Trees, override val t: Trees)
           objectFunction.toSeq ++ unapplyFunction
         }
 
-        Right((Some(newSort), functions))
+        (Right((Some(newSort), functions)), ())
       } else {
-        Right((None, Seq()))
+        (Right((None, Seq())), ())
       }
     } else {
-      Left(context.transform(cd))
+      (Left(context.transform(cd)), ())
     }
   }
 
-  override protected final def extractSymbols(context: TransformerContext, symbols: s.Symbols): t.Symbols = {
-    val newSymbols = super.extractSymbols(context, symbols)
+  override protected final def extractSymbols(context: TransformerContext, symbols: s.Symbols): (t.Symbols, OOAllSummaries) = {
+    val (exSyms, summary) = super.extractSymbols(context, symbols)
+    val newSymbols = exSyms
       .withFunctions(OptionSort.functions(using symbols))
       .withSorts(OptionSort.sorts(using symbols))
 
@@ -259,7 +261,7 @@ class AdtSpecialization(override val s: Trees, override val t: Trees)
       .withClasses(newSymbols.classes.values.toSeq.filter(cd => dependencies(cd.id)))
       .withTypeDefs(newSymbols.typeDefs.values.toSeq.filter(td => dependencies(td.id)))
 
-    independentSymbols
+    (independentSymbols, summary)
   }
 }
 

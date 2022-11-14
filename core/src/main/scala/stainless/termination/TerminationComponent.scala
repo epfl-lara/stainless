@@ -3,10 +3,11 @@
 package stainless
 package termination
 
-import io.circe._
+import io.circe.*
+import stainless.extraction.ExtractionSummary
 
 import scala.concurrent.Future
-import scala.util.{ Success, Failure }
+import scala.util.{Failure, Success}
 
 object TerminationComponent extends Component {
   override val name = "termination"
@@ -42,7 +43,7 @@ class TerminationRun private(override val component: TerminationComponent.type,
 
   override def parse(json: Json): Report = TerminationReport.parse(json)
 
-  private[stainless] def execute(functions: Seq[Identifier], symbols: trees.Symbols): Future[Analysis] = {
+  override private[stainless] def execute(functions: Seq[Identifier], symbols: trees.Symbols, exSummary: ExtractionSummary): Future[Analysis] = {
     import trees._
     import context.{given, _}
 
@@ -57,6 +58,7 @@ class TerminationRun private(override val component: TerminationComponent.type,
       override val program: p.type = p
       override val results: Map[p.trees.FunDef, TerminationReport.Status] = res.toMap
       override val sources = functions.toSet
+      override val extractionSummary = exSummary
     })
   }
 }

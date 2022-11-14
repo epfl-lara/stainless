@@ -7,6 +7,7 @@ package throwing
 class ExceptionLifting(override val s: Trees, override val t: imperative.Trees)
                       (using override val context: inox.Context)
   extends oo.ExtractionPipeline
+     with oo.NoSummaryPhase
      with IdentityFunctions
      with IdentitySorts
      with oo.IdentityTypeDefs

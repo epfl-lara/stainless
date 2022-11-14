@@ -10,13 +10,14 @@ import inox.utils.Position
 class MergeInvariants(override val s: Trees, override val t: Trees)
                      (using override val context: inox.Context)
   extends oo.CachingPhase
+     with oo.NoSummaryPhase
      with IdentitySorts
      with SimpleFunctions
      with oo.IdentityTypeDefs { self =>
 
   override protected type ClassResult    = (t.ClassDef, Option[t.FunDef])
 
-  override protected val classCache = new ExtractionCache[s.ClassDef, ClassResult]({ (cd, ctx) =>
+  override protected val classCache = new ExtractionCache[s.ClassDef, (ClassResult, ClassSummary)]({ (cd, ctx) =>
     import ctx.symbols
     val invariants = symbols.functions.values.filter { fd =>
       (fd.flags contains s.IsInvariant) &&
@@ -26,7 +27,7 @@ class MergeInvariants(override val s: Trees, override val t: Trees)
     ClassKey(cd) + SetKey(invariants)
   })
 
-  override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult]({ (fd, ctx) =>
+  override protected final val funCache = new ExtractionCache[s.FunDef, (FunctionResult, FunctionSummary)]({ (fd, ctx) =>
     import ctx.symbols
     FunctionKey(fd)
   })
@@ -74,12 +75,12 @@ class MergeInvariants(override val s: Trees, override val t: Trees)
     }
   }
 
-  override protected def extractClass(context: TransformerContext, cd: s.ClassDef): (t.ClassDef, Option[t.FunDef]) = {
-    (context.transform(cd), context.mergedInvariant.get(cd.id))
+  override protected def extractClass(context: TransformerContext, cd: s.ClassDef): ((t.ClassDef, Option[t.FunDef]), Unit) = {
+    ((context.transform(cd), context.mergedInvariant.get(cd.id)), ())
   }
 
-  override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = {
-    context.transform(fd)
+  override protected def extractFunction(context: TransformerContext, fd: s.FunDef): (t.FunDef, Unit) = {
+    (context.transform(fd), ())
   }
 
   override protected def registerFunctions(symbols: t.Symbols, functions: Seq[t.FunDef]): t.Symbols =

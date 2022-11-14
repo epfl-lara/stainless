@@ -76,11 +76,11 @@ class BatchedCallBack(components: Seq[Component])(using val context: inox.Contex
       .withTypeDefs(currentTypeDefs)
 
     val symbols =
-      userFiltering.debug(UserFiltering().transform)(
-        preprocessing.debug(Preprocessing().transform)(
+      userFiltering.debugWithoutSummary(UserFiltering().transform)(
+        preprocessing.debugWithoutSummary(Preprocessing().transform)(
           allSymbols
-        )
-      )
+        )._1
+      )._1
 
     val errors = TreeSanitizer(xt).enforce(symbols)
     if (!errors.isEmpty) {

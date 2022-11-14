@@ -1524,6 +1524,7 @@ class CodeExtraction(inoxCtx: inox.Context, symbolMapping: SymbolMapping)(using 
       rec(extractBlock(members :+ body))
 
     case ExChooseExpression(tpt, pred) =>
+      reporter.warning(tr.sourcePos, "`choose` expressions may be unsafe due to difficulty in checking their realizability automatically")
       extractTree(pred) match {
         case xt.Lambda(Seq(vd), body) => xt.Choose(vd, body)
         case e => extractType(tpt) match {

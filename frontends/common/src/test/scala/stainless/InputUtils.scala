@@ -84,7 +84,7 @@ trait InputUtils {
 
       override def endExtractions(): Unit = {
         done = true
-        syms = preprocessing.debug(frontend.Preprocessing().transform)(syms)
+        syms = preprocessing.debugWithoutSummary(frontend.Preprocessing().transform)(syms)._1
       }
     }
 

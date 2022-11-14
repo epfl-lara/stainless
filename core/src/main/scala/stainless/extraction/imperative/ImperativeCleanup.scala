@@ -126,7 +126,7 @@ class ImperativeCleanup(override val s: Trees, override val t: oo.Trees)
     case _ => ()
   } (expr)
 
-  override protected def extractFunction(context: TransformerContext, fd: s.FunDef): t.FunDef = {
+  override protected def extractFunction(context: TransformerContext, fd: s.FunDef): (t.FunDef, Unit) = {
     val (specs, body) = s.exprOps.deconstructSpecs(fd.fullBody)
 
     specs foreach {
@@ -143,15 +143,15 @@ class ImperativeCleanup(override val s: Trees, override val t: oo.Trees)
     super.extractFunction(context, fd.copy(flags = fd.flags filterNot context.isImperativeFlag))
   }
 
-  override protected def extractSort(context: TransformerContext, sort: s.ADTSort): t.ADTSort = {
+  override protected def extractSort(context: TransformerContext, sort: s.ADTSort): (t.ADTSort, Unit) = {
     super.extractSort(context, sort.copy(flags = sort.flags filterNot context.isImperativeFlag))
   }
 
-  override protected def extractClass(context: TransformerContext, cd: s.ClassDef): t.ClassDef = {
+  override protected def extractClass(context: TransformerContext, cd: s.ClassDef): (t.ClassDef, Unit) = {
     super.extractClass(context, cd.copy(flags = cd.flags filterNot context.isImperativeFlag))
   }
 
-  override protected def extractTypeDef(context: TransformerContext, td: s.TypeDef): t.TypeDef = {
+  override protected def extractTypeDef(context: TransformerContext, td: s.TypeDef): (t.TypeDef, Unit) = {
     super.extractTypeDef(context, td.copy(flags = td.flags filterNot context.isImperativeFlag))
   }
 }
