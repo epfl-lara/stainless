@@ -557,11 +557,35 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
               }
 
               val resVd = ValDef.fresh("res", b.getType).copiedFrom(b)
-              LetVar(
-                vd, newExpr,
-                Let(resVd, newBody, Block(copyEffects.toSeq, resVd.toVariable).copiedFrom(l)).copiedFrom(l)
-              ).copiedFrom(l)
 
+              // What we would like is the following:
+              //   var vd = newExpr
+              //   val resVd = newBody
+              //   copyEffects // must happen after newBody and newExpr
+              //   resVd
+              // However, newBody may contain an `Ensuring` clause which would get "lost" in the newBody:
+              //   var vd = newExpr
+              //   val resVd = {
+              //      newBody'
+              //   }.ensuring(...) // oh no :(
+              //   copyEffects
+              //   resVd
+              // What we would like is something as follows:
+              //   var vd = newExpr
+              //   {
+              //      newBodyBlocks // e.g. assignments etc.
+              //      val resVd = newBodyLastExpr
+              //      copyEffect
+              //      resVd
+              //    }.ensuring(...)
+              // To achieve this, we "drill" a hole in newBody using the normalizer object,
+              // insert copyEffect and plug it with resVd. This should get us something like the above.
+              val (newBodyCtx, newBodyLastExpr) = normalizer.drill(newBody)
+              val (copyEffectCtx, copyEffectLastExpr) = normalizer.normalizeBlock(Block(copyEffects.toSeq, resVd.toVariable).copiedFrom(l))
+              assert(copyEffectLastExpr == resVd.toVariable) // To be sure we are on the good track.
+              val combined =
+                newBodyCtx(let(resVd, newBodyLastExpr, copyEffectCtx(resVd.toVariable)))
+              LetVar(vd, newExpr, combined).copiedFrom(l)
             } else {
               throw MalformedStainlessCode(l, "Unsupported `val` definition in AntiAliasing (couldn't compute targets and there are mutable variables shared between the binding and the body)")
             }
@@ -958,6 +982,30 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
         ctx(norm)
       }
 
+      def drill(toDrill: Expr): (Expr => Expr, Expr) = {
+        def helper(subpartToDrill: Expr)(recons: Expr => Expr) = {
+          val (subCtx, subExpr) = drill(subpartToDrill)
+          val ctx = (e: Expr) => recons(subCtx(e)).copiedFrom(toDrill)
+          (ctx, subExpr)
+        }
+
+        toDrill match {
+          case Block(stmts, last) => helper(last)(Block(stmts, _))
+          case Let(vd, df, body) => helper(body)(Let(vd, df, _))
+          case LetVar(vd, df, body) => helper(body)(LetVar(vd, df, _))
+          case LetRec(fds, body) => helper(body)(LetRec(fds, _))
+          case Lambda(vds, body) => helper(body)(Lambda(vds, _))
+          case Choose(vd, body) => helper(body)(Choose(vd, _))
+          case Forall(vds, body) => helper(body)(Forall(vds, _))
+          case Ensuring(body, l) => helper(body)(Ensuring(_, l))
+          case Assert(pred, err, body) => helper(body)(Assert(pred, err, _))
+          case Assume(pred, body) => helper(body)(Assume(pred, _))
+          case Decreases(pred, body) => helper(body)(Decreases(pred, _))
+          case Require(pred, body) => helper(body)(Require(pred, _))
+          case _ => (identity, toDrill)
+        }
+      }
+
       // The actual work, we perform normalization using the unreasonably effective "hole technique".
       // The normalization of an expression e, [|e|], yields a context with a hole C, and the normalized expression e'.
       // This context intuitively represents all extra bindings needed for e' to be well-formed.
@@ -1255,12 +1303,14 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
 
       def normalizeBlock(block: Block): (Expr => Expr, Expr) = {
         val normExprs: Seq[(Expr => Expr, Expr)] = (block.exprs :+ block.last).map(doNormalize)
-        assert(normExprs.size >= 2)
 
         val (ctxLast, normLast) = normExprs.last
         val ctxBlock = (e: Expr) => {
-          val init = normExprs.init.map((ctx, e) => ctx(e))
-          Block(init, ctxLast(e)).copiedFrom(block)
+          if (normExprs.size == 1) ctxLast(e).copiedFrom(block) // normExprs == Seq((ctxLast, normLast))
+          else {
+            val init = normExprs.init.map((ctx, e) => ctx(e))
+            Block(init, ctxLast(e)).copiedFrom(block)
+          }
         }
         (ctxBlock, normLast)
       }
