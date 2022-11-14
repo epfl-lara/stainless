@@ -7,6 +7,7 @@ package termination
 class InductElimination(override val s: Trees)(override val t: s.type)
                        (using override val context: inox.Context)
   extends CachingPhase
+     with NoSummaryPhase
      with SimpleFunctions
      with SimplyCachedFunctions
      with IdentitySorts { self =>
@@ -22,7 +23,7 @@ class InductElimination(override val s: Trees)(override val t: s.type)
   protected class TransformerContext(using val symbols: Symbols)
   override protected def getContext(syms: Symbols) = new TransformerContext(using syms)
 
-  override protected def extractFunction(tcontext: TransformerContext, fd: FunDef): FunDef = {
+  override protected def extractFunction(tcontext: TransformerContext, fd: FunDef): (FunDef, Unit) = {
     val syms = tcontext.symbols
     import syms.given
 
@@ -55,7 +56,7 @@ class InductElimination(override val s: Trees)(override val t: s.type)
         }
 
     if (inductionParams.isEmpty) {
-      return fd
+      return (fd, ())
     }
 
     // TODO: Decide what we want to do with multiple inductions and implement it
@@ -171,14 +172,14 @@ class InductElimination(override val s: Trees)(override val t: s.type)
     val newParams = fd.params.map(vd => vd.copy(flags = vd.flags.filterNot(_ == Induct)).copiedFrom(vd))
     val newBody2 = exprOps.replaceFromSymbols(fd.params.zip(newParams.map(_.toVariable)).toMap, newBody1)
 
-    new FunDef(
+    (new FunDef(
       fd.id,
       fd.tparams,
       newParams,
       fd.returnType,
       newBody2,
       fd.flags.filterNot(_ == Induct),
-    ).setPos(fd)
+    ).setPos(fd), ())
   }
 }
 

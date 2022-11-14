@@ -7,6 +7,7 @@ package methods
 class Sealing(override val s: Trees)(override val t: s.type)
              (using override val context: inox.Context)
   extends oo.CachingPhase
+     with oo.NoSummaryPhase
      with IdentitySorts
      with oo.IdentityTypeDefs
      with MutabilityAnalyzer  { self =>
@@ -85,7 +86,7 @@ class Sealing(override val s: Trees)(override val t: s.type)
   // with the corresponding methods
   override protected type ClassResult = (ClassDef, Option[ClassDef], Seq[FunDef], Seq[TypeDef])
 
-  override protected final val classCache = new ExtractionCache[ClassDef, ClassResult]({ (cd, context) =>
+  override protected final val classCache = new ExtractionCache[ClassDef, (ClassResult, ClassSummary)]({ (cd, context) =>
     val symbols = context.symbols
     ClassKey(cd) + ValueKey(context.mustAddSubclass(cd)) + ValueKey(context.isMutable(cd)) + SetKey(
       if (context.mustAddSubclass(cd))
@@ -100,7 +101,7 @@ class Sealing(override val s: Trees)(override val t: s.type)
   // want to check them).
   override protected type FunctionResult = (FunDef, Option[FunDef])
 
-  override protected final val funCache = new ExtractionCache[FunDef, FunctionResult]({ (fd, context) =>
+  override protected final val funCache = new ExtractionCache[FunDef, (FunctionResult, FunctionSummary)]({ (fd, context) =>
     FunctionKey(fd) + ValueKey(context.mustDuplicate(fd))
   })
 
@@ -113,7 +114,7 @@ class Sealing(override val s: Trees)(override val t: s.type)
   // non-final method with an abstract method with no body.
   // For the getters and setters, we create fields and we create concrete
   // setters and getters that operate on those fields.
-  override protected def extractClass(context: TransformerContext, cd: ClassDef): ClassResult = {
+  override protected def extractClass(context: TransformerContext, cd: ClassDef): (ClassResult, ClassSummary) = {
     val symbols = context.symbols
     import symbols.{given, _}
 
@@ -253,9 +254,9 @@ class Sealing(override val s: Trees)(override val t: s.type)
         )
       }
 
-      (newCd, Some(dummyClass), dummyFunOverrides ++ newAccessors, dummyTypeDefOverrides)
+      ((newCd, Some(dummyClass), dummyFunOverrides ++ newAccessors, dummyTypeDefOverrides), ())
     }
-    else (cd, None, Seq.empty, Seq.empty)
+    else ((cd, None, Seq.empty, Seq.empty), ())
   }
 
 
@@ -271,11 +272,11 @@ class Sealing(override val s: Trees)(override val t: s.type)
   }
 
   // We duplicate concrete non-final/accessor/field/invariant functions of non-sealed classes
-  override protected def extractFunction(context: TransformerContext, orig: FunDef): FunctionResult = {
+  override protected def extractFunction(context: TransformerContext, orig: FunDef): (FunctionResult, FunctionSummary) = {
     val fd = context.addPurityAnnotations(orig)
-    if (context.mustDuplicate(fd)) (fd, Some(duplicate(fd)))
-    else if (fd.isFinal) (fd.copy(flags = fd.flags.filterNot(_ == Final)).copiedFrom(fd), None)
-    else (fd, None)
+    if (context.mustDuplicate(fd)) ((fd, Some(duplicate(fd))), ())
+    else if (fd.isFinal) ((fd.copy(flags = fd.flags.filterNot(_ == Final)).copiedFrom(fd), None), ())
+    else ((fd, None), ())
   }
 
 

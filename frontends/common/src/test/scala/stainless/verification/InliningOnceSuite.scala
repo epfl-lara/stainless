@@ -38,7 +38,7 @@ class InliningOnceSuite extends AnyFunSpec with InputUtils {
     import ctx.given
     val (funs, xlangProgram) = load(List(source))
     val run = VerificationComponent.run(extraction.pipeline)
-    val program = inox.Program(run.trees)(run extract xlangProgram.symbols)
+    val program = inox.Program(run.trees)(run.extract(xlangProgram.symbols)._1)
 
     import stainless.trees._
 

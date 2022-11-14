@@ -3,8 +3,9 @@
 package stainless
 
 import utils.{CheckFilter, DefinitionIdFinder, DependenciesFinder}
-import extraction.xlang.{trees => xt}
-import io.circe._
+import extraction.xlang.trees as xt
+import io.circe.*
+import stainless.extraction.ExtractionSummary
 
 import scala.concurrent.Future
 
@@ -91,24 +92,24 @@ trait ComponentRun { self =>
   private[this] final val extractionFilter = createFilter
 
   /** Sends the symbols through the extraction pipeline. */
-  def extract(symbols: xt.Symbols): trees.Symbols = extractionPipeline extract symbols
+  def extract(symbols: xt.Symbols): (trees.Symbols, ExtractionSummary) = extractionPipeline extract symbols
 
   /** Sends the program's symbols through the extraction pipeline. */
   def extract(program: inox.Program { val trees: xt.type }): inox.Program {
     val trees: self.trees.type
-  } = inox.Program(trees)(extract(program.symbols))
+  } = inox.Program(trees)(extract(program.symbols)._1)
 
   /** Passes the provided symbols through the extraction pipeline and compute all
     * functions to process that are derived from the provided identifiers. */
   def apply(ids: Seq[Identifier], symbols: xt.Symbols): Future[Analysis] = {
-    val exSymbols = extract(symbols)
+    val (exSymbols, exSummary) = extract(symbols)
     val toProcess = extractionFilter.filter(ids, exSymbols, component)
-    execute(toProcess, exSymbols)
+    execute(toProcess, exSymbols, exSummary)
   }
 
   def apply(id: Identifier, symbols: xt.Symbols): Future[Analysis] =
     apply(Seq(id), symbols)
 
-  private[stainless] def execute(functions: Seq[Identifier], symbols: trees.Symbols): Future[Analysis]
+  private[stainless] def execute(functions: Seq[Identifier], symbols: trees.Symbols, exSummary: ExtractionSummary): Future[Analysis]
 }
 

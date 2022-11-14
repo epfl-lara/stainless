@@ -11,6 +11,7 @@ object optCheckHeapContracts extends inox.FlagOptionDef("check-heap-contracts", 
 // TODO(gsps): Ghost annotations are currently unchecked. Should be able to reuse `GhostChecker`.
 trait EffectElaboration
   extends oo.CachingPhase
+     with oo.NoSummaryPhase
      with SimpleSorts
      with oo.IdentityTypeDefs
      with RefTransform { self =>
@@ -20,19 +21,19 @@ trait EffectElaboration
 
   // Function rewriting depends on the effects analysis which relies on all dependencies
   // of the function, so we use a dependency cache here.
-  override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult](
+  override protected final val funCache = new ExtractionCache[s.FunDef, (FunctionResult, FunctionSummary)](
     (fd, context) => getDependencyKey(fd.id)(using context.symbols)
   )
 
   // Function types are rewritten by the transformer depending on the result of the
   // effects analysis, so we again use a dependency cache here.
-  override protected final val sortCache = new ExtractionCache[s.ADTSort, SortResult](
+  override protected final val sortCache = new ExtractionCache[s.ADTSort, (SortResult, SortSummary)](
     (sort, context) => getDependencyKey(sort.id)(using context.symbols)
   )
 
   // Function types are rewritten by the transformer depending on the result of the
   // effects analysis, so we again use a dependency cache here.
-  override protected final val classCache = new ExtractionCache[s.ClassDef, ClassResult](
+  override protected final val classCache = new ExtractionCache[s.ClassDef, (ClassResult, ClassSummary)](
     (cd, context) => ClassKey(cd) + OptionSort.key(using context.symbols)
   )
 
@@ -52,7 +53,7 @@ trait EffectElaboration
 
   override protected def getContext(symbols: Symbols) = new TransformerContext(symbols)
 
-  override protected def extractSymbols(tctx: TransformerContext, symbols: s.Symbols): t.Symbols = {
+  override protected def extractSymbols(tctx: TransformerContext, symbols: s.Symbols): (t.Symbols, OOAllSummaries) = {
     val isOldImperative = !context.options.findOptionOrDefault(optFullImperative)
 
     val anyHeapRefCdOpt = AnyHeapRefType.classDefOpt(using symbols)
@@ -73,21 +74,21 @@ trait EffectElaboration
 
     // If we're not using the new imperative phase, we're done.
     if (isOldImperative)
-      return newSymbols
+      return (newSymbols, OOAllSummaries())
 
-    super.extractSymbols(tctx, newSymbols)
+    (super.extractSymbols(tctx, newSymbols)._1
       .withSorts(Seq(heapRefSort) ++ OptionSort.sorts(using newSymbols))
-      .withFunctions(Seq(dummyHeap) ++ OptionSort.functions(using newSymbols))
+      .withFunctions(Seq(dummyHeap) ++ OptionSort.functions(using newSymbols)), OOAllSummaries())
   }
 
-  override protected def extractFunction(tctx: TransformerContext, fd: FunDef): FunctionResult =
-    tctx.transformFun(fd)
+  override protected def extractFunction(tctx: TransformerContext, fd: FunDef): (FunctionResult, FunctionSummary) =
+    (tctx.transformFun(fd), ())
 
-  override protected def extractSort(tctx: TransformerContext, sort: ADTSort): ADTSort =
-    tctx.typeOnlyRefTransformer.transform(sort)
+  override protected def extractSort(tctx: TransformerContext, sort: ADTSort): (ADTSort, SortSummary) =
+    (tctx.typeOnlyRefTransformer.transform(sort), ())
 
-  override protected def extractClass(tctx: TransformerContext, cd: ClassDef): ClassResult =
-    (tctx.typeOnlyRefTransformer.transform(cd), tctx.makeClassUnapply(cd))
+  override protected def extractClass(tctx: TransformerContext, cd: ClassDef): (ClassResult, ClassSummary) =
+    ((tctx.typeOnlyRefTransformer.transform(cd), tctx.makeClassUnapply(cd)), ())
 }
 
 object EffectElaboration {

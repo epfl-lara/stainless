@@ -679,9 +679,9 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
   }
 
 
-  /* ====================================
-   *   TRANFORMATION/ENCODING CONTEXT
-   * ==================================== */
+  /* =====================================
+   *    TRANSFORMATION/ENCODING CONTEXT
+   * ===================================== */
 
   /* Stores meta-data about functions useful during encoding.
    *
@@ -1271,8 +1271,9 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
     }
   }
 
-  override protected def extractSymbols(context: TransformerContext, symbols: s.Symbols): t.Symbols = {
-    val newSymbols = super.extractSymbols(context, symbols)
+  override protected def extractSymbols(context: TransformerContext, symbols: s.Symbols): (t.Symbols, OOAllSummaries) = {
+    val (exSyms, summary) = super.extractSymbols(context, symbols)
+    val newSymbols = exSyms
       .withFunctions(context.functions)
       .withSorts(context.sorts)
 
@@ -1322,25 +1323,30 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
       ))
 
     // result.ensureWellFormed
-    result
+    (result, summary)
   }
 
   // The computation of which type parameters must be rewritten considers all
   // dependencies, so we use a dependency cache for function transformations
-  override protected val funCache = new ExtractionCache[s.FunDef, FunctionResult]({
+  override protected val funCache = new ExtractionCache[s.FunDef, (FunctionResult, FunctionSummary)]({
     (fd, context) => getDependencyKey(fd.id)(using context.symbols)
   })
 
   // Sort transformations are straightforward and can be simply cached
-  override protected val sortCache = new SimpleCache[s.ADTSort, SortResult]
+  override protected val sortCache = new SimpleCache[s.ADTSort, (SortResult, SortSummary)]
 
   // Classes are simply dropped by this phase, so any cache is valid here
-  override protected val classCache = new SimpleCache[s.ClassDef, ClassResult]
+  override protected val classCache = new SimpleCache[s.ClassDef, (ClassResult, ClassSummary)]
 
   // Type definitions are simply dropped by this phase, so any cache is valid here
-  override protected val typeDefCache = new SimpleCache[s.TypeDef, TypeDefResult]
+  override protected val typeDefCache = new SimpleCache[s.TypeDef, (TypeDefResult, TypeDefResult)]
 
-  override protected def extractFunction(context: TransformerContext, fd: s.FunDef): Seq[t.FunDef] = {
+  enum FunctionSummary {
+    case Transformed(fid: Identifier)
+    case Untransformed(fid: Identifier)
+  }
+
+  override protected def extractFunction(context: TransformerContext, fd: s.FunDef): (Seq[t.FunDef], FunctionSummary) = {
     val encoded = context.transform(fd)
 
     // If function has gained new parameters for reifed types,
@@ -1348,26 +1354,58 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
     // as a witness that type arguments do not influence the result
     // of the computation of its invocation.
     if (encoded.params.size > fd.params.size) {
-      context.createTypeArgsElimWitness(encoded, fd)
+      (context.createTypeArgsElimWitness(encoded, fd), FunctionSummary.Transformed(fd.id))
     } else {
-      Seq(encoded)
+      val unchanged = encoded.id == fd.id && encoded.tparams == fd.tparams && encoded.params == fd.params &&
+        encoded.returnType == fd.returnType && encoded.flags == fd.flags && encoded.fullBody == fd.fullBody
+      val summary = if (unchanged) FunctionSummary.Untransformed(fd.id) else FunctionSummary.Transformed(fd.id)
+      (Seq(encoded), summary)
     }
   }
 
-  override protected def extractSort(context: TransformerContext, sort: s.ADTSort): t.ADTSort = context.transform(sort)
+  enum SortSummary {
+    case Transformed(sid: Identifier)
+    case Untransformed(sid: Identifier)
+  }
+  override protected def extractSort(context: TransformerContext, sort: s.ADTSort): (t.ADTSort, SortSummary) = {
+    val encoded = context.transform(sort)
+    val unchanged = encoded.id == sort.id && encoded.tparams == sort.tparams
+      && encoded.flags == sort.flags && encoded.constructors == sort.constructors
+    val summary = if (unchanged) SortSummary.Untransformed(sort.id) else SortSummary.Transformed(sort.id)
+    (encoded, summary)
+  }
 
   // Classes are simply dropped by this extraction phase
   override protected type ClassResult = Unit
-  override protected def extractClass(context: TransformerContext, cd: s.ClassDef): ClassResult = ()
+  override protected type ClassSummary = Identifier // To record that the Class went through TypeEncoding
+  override protected def extractClass(context: TransformerContext, cd: s.ClassDef): (ClassResult, ClassSummary) = ((), cd.id)
   override protected def registerClasses(symbols: t.Symbols, classes: Seq[Unit]): t.Symbols = symbols
 
   // Type definitions are simply dropped by this extraction phase
   override protected type TypeDefResult = Unit
-  override protected def extractTypeDef(context: TransformerContext, cd: s.TypeDef): TypeDefResult = ()
+  override protected type TypeDefSummary = Unit
+  override protected def extractTypeDef(context: TransformerContext, cd: s.TypeDef): (TypeDefResult, TypeDefSummary) = ((), ())
   override protected def registerTypeDefs(symbols: t.Symbols, typeDefs: Seq[Unit]): t.Symbols = symbols
+
+  override protected def combineSummaries(summaries: AllSummaries): ExtractionSummary = {
+    val (fns, sorts, classes) = summaries match {
+      case s: OOAllSummaries => (s.fnsSummary, s.sortsSummary, s.classesSummaries)
+      case s: AllSummaries => (s.fnsSummary, s.sortsSummary, Seq.empty)
+    }
+    val affectedFns = fns.collect { case FunctionSummary.Transformed(fid) => fid }.toSet
+    val affectedSorts = sorts.collect { case SortSummary.Transformed(sid) => sid }.toSet
+    ExtractionSummary.Leaf(TypeEncoding)(TypeEncoding.SummaryData(affectedFns, affectedSorts, classes.toSet))
+  }
 }
 
-object TypeEncoding {
+object TypeEncoding extends ExtractionPipelineCreator {
+  case class SummaryData(affectedFns: Set[Identifier] = Set.empty, affectedSorts: Set[Identifier] = Set.empty, classes: Set[Identifier] = Set.empty) {
+    def ++(other: SummaryData): SummaryData =
+      SummaryData(affectedFns ++ other.affectedFns, affectedSorts ++ other.affectedSorts, classes ++ other.classes)
+    def hasRun: Boolean = affectedFns.nonEmpty || affectedSorts.nonEmpty || classes.nonEmpty
+  }
+  override val name: String = "TypeEncoding"
+
   def apply(ts: Trees, tt: Trees)(using inox.Context): ExtractionPipeline {
     val s: ts.type
     val t: tt.type

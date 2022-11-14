@@ -8,7 +8,8 @@ package genc
 import extraction._
 
 class LeonInlining(override val s: oo.Trees, override val t: oo.Trees)(using override val context: inox.Context)
-  extends CachingPhase
+  extends oo.CachingPhase
+     with oo.NoSummaryPhase
      with extraction.IdentitySorts
      with oo.IdentityClasses
      with oo.IdentityTypeDefs { self =>
@@ -16,7 +17,7 @@ class LeonInlining(override val s: oo.Trees, override val t: oo.Trees)(using ove
 
   // The function inlining transformation depends on all (transitive) callees
   // that will require inlining.
-  override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult]({(fd, symbols) =>
+  override protected final val funCache = new ExtractionCache[s.FunDef, (FunctionResult, FunctionSummary)]({(fd, symbols) =>
     FunctionKey(fd) + SetKey(
       symbols.dependencies(fd.id)
         .flatMap(id => symbols.lookupFunction(id))
@@ -34,7 +35,7 @@ class LeonInlining(override val s: oo.Trees, override val t: oo.Trees)(using ove
   override protected def registerFunctions(symbols: t.Symbols, functions: Seq[Option[t.FunDef]]): t.Symbols =
     symbols.withFunctions(functions.flatten)
 
-  override protected def extractFunction(syms: s.Symbols, fd: s.FunDef): Option[t.FunDef] = {
+  override protected def extractFunction(syms: s.Symbols, fd: s.FunDef): (Option[t.FunDef], Unit) = {
     import syms.{given, _}
 
     object Inliner extends s.ConcreteOOSelfTreeTransformer { inlSelf =>
@@ -106,21 +107,21 @@ class LeonInlining(override val s: oo.Trees, override val t: oo.Trees)(using ove
       }
     }
 
-    if ((fd.flags contains Synthetic) && (fd.flags contains Inline) && (!fd.flags.exists(_.isInstanceOf[ClassParamInit]))) None
-    else Some(identity.transform(fd.copy(
+    if ((fd.flags contains Synthetic) && (fd.flags contains Inline) && (!fd.flags.exists(_.isInstanceOf[ClassParamInit]))) (None, ())
+    else (Some(identity.transform(fd.copy(
       fullBody = Inliner.transform(fd.fullBody),
       flags = fd.flags filterNot (f => f == Inline || f == InlineOnce || f.name == "cCode.inline")
-    )))
+    ))), ())
   }
 
-  override protected def extractSymbols(context: TransformerContext, symbols: s.Symbols): t.Symbols = {
-    val newSymbols = super.extractSymbols(context, symbols)
+  override protected def extractSymbols(context: TransformerContext, symbols: s.Symbols): (t.Symbols, OOAllSummaries) = {
+    val (newSymbols, summary) = super.extractSymbols(context, symbols)
 
-    t.NoSymbols
+    (t.NoSymbols
       .withSorts(newSymbols.sorts.values.toSeq)
       .withClasses(newSymbols.classes.values.toSeq)
       .withTypeDefs(newSymbols.typeDefs.values.toSeq)
-      .withFunctions(newSymbols.functions.values.toSeq)
+      .withFunctions(newSymbols.functions.values.toSeq), summary)
   }
 }
 

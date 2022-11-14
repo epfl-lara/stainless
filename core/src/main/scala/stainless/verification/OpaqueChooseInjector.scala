@@ -48,7 +48,7 @@ class OpaqueChooseInjector private(val trees: ast.Trees)
       .withSorts(symbols.sorts.values.toSeq)
       .withFunctions(symbols.functions.values.toSeq.map(inj.transform))
     val chooseEnc = extraction.inlining.ChooseEncoder(s, t)
-    chooseEnc.extract(syms1)
+    chooseEnc.extract(syms1)._1
   }
 }
 

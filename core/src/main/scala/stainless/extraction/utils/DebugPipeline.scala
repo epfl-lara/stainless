@@ -51,7 +51,7 @@ trait DebugSymbols extends PositionChecker { self =>
   lazy val debugPos: Boolean   = isEnabled && context.reporter.debugSections.contains(DebugSectionPositions)
   lazy val debugSizes: Boolean = isEnabled && context.reporter.debugSections.contains(DebugSectionSizes)
 
-  def debug[A](run: s.Symbols => t.Symbols)(symbols: s.Symbols): t.Symbols = {
+  def debug[A](run: s.Symbols => (t.Symbols, ExtractionSummary))(symbols: s.Symbols): (t.Symbols, ExtractionSummary) = {
     given DebugSectionTrees.type = DebugSectionTrees
     val sPrinterOpts = s.PrinterOptions.fromSymbols(symbols, context)
     val symbolsToPrint = if (debugTrees) symbols.debugString(filterObjects)(using sPrinterOpts) else ""
@@ -61,7 +61,7 @@ trait DebugSymbols extends PositionChecker { self =>
       context.reporter.debug(symbolsToPrint)
     }
 
-    val res = run(symbols)
+    val (res, exSummary) = run(symbols)
     val tPrinterOpts = t.PrinterOptions.fromSymbols(res, context)
 
     val resToPrint = if (debugTrees) res.debugString(filterObjects)(using tPrinterOpts) else ""
@@ -105,8 +105,11 @@ trait DebugSymbols extends PositionChecker { self =>
       context.reporter.debug(s"Total number of AST nodes after phase $name: $size")(using DebugSectionSizes)
     }
 
-    res
+    (res, exSummary)
   }
+
+  def debugWithoutSummary[A](run: s.Symbols => t.Symbols)(symbols: s.Symbols): (t.Symbols, ExtractionSummary) =
+    debug(syms => (run(syms), ExtractionSummary.NoSummary))(symbols)
 
   import inox.transformers.ProgramEncoder
   private type Encoder = ProgramEncoder {
@@ -117,7 +120,7 @@ trait DebugSymbols extends PositionChecker { self =>
   }
 
   def debugEncoder(encoder: Encoder) = {
-    debug(_ => encoder.targetProgram.symbols)(encoder.sourceProgram.symbols)
+    debug(_ => (encoder.targetProgram.symbols, ExtractionSummary.NoSummary))(encoder.sourceProgram.symbols)
   }
 }
 
@@ -132,7 +135,7 @@ class DebugPipeline private(override val name: String, override val context: ino
 
   // `extract` is a wrapper around `super.extract` which outputs trees for
   // debugging and which outputs position checks
-  override def extract(symbols: s.Symbols): t.Symbols = debug { syms =>
+  override def extract(symbols: s.Symbols): (t.Symbols, ExtractionSummary) = debug { syms =>
     context.timers.extraction.get(name).run(underlying.extract(syms))
   } (symbols)
 }

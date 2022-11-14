@@ -7,6 +7,7 @@ package innerfuns
 class FunctionClosure(override val s: Trees, override  val t: ast.Trees)
                      (using override val context: inox.Context)
   extends CachingPhase
+     with NoSummaryPhase
      with SimplyCachedFunctions
      with IdentitySorts { self =>
 
@@ -17,7 +18,7 @@ class FunctionClosure(override val s: Trees, override  val t: ast.Trees)
   override protected def registerFunctions(symbols: t.Symbols, functions: Seq[Seq[t.FunDef]]): t.Symbols =
     symbols.withFunctions(functions.flatten)
 
-  override protected def extractFunction(symbols: s.Symbols, fd: s.FunDef): Seq[t.FunDef] = {
+  override protected def extractFunction(symbols: s.Symbols, fd: s.FunDef): (Seq[t.FunDef], Unit) = {
     import s._
     import symbols.{given, _}
 
@@ -287,7 +288,7 @@ class FunctionClosure(override val s: Trees, override  val t: ast.Trees)
       newFd +: closedFds.flatMap(close)
     }
 
-    close(fd)
+    (close(fd), ())
   }
 }
 

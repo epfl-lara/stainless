@@ -12,6 +12,7 @@ class PartialEvaluation(override val s: extraction.Trees)
                         protected val semantics: inox.SemanticsProvider { val trees: s.type })
                        (using override val context: inox.Context)
   extends extraction.CachingPhase
+     with extraction.NoSummaryPhase
      with extraction.IdentitySorts
      with extraction.SimpleFunctions { self =>
 
@@ -20,7 +21,7 @@ class PartialEvaluation(override val s: extraction.Trees)
 
   given givenDebugSection: DebugSectionPartialEval.type = DebugSectionPartialEval
 
-  override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult]((fd, context) => 
+  override protected final val funCache = new ExtractionCache[s.FunDef, (FunctionResult, FunctionSummary)]((fd, context) =>
     getDependencyKey(fd.id)(using context.symbols)
   )
 
@@ -96,8 +97,8 @@ class PartialEvaluation(override val s: extraction.Trees)
     }
   }
 
-  override protected def extractFunction(context: TransformerContext, fd: FunDef): FunDef = {
-    if (context shouldPartialEval fd) context.transform(fd) else fd
+  override protected def extractFunction(context: TransformerContext, fd: FunDef): (FunDef, Unit) = {
+    (if (context shouldPartialEval fd) context.transform(fd) else fd, ())
   }
 }
 

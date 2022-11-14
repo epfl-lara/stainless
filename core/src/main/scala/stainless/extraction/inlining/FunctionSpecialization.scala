@@ -9,12 +9,13 @@ object DebugSectionFunctionSpecialization extends inox.DebugSection("fun-special
 class FunctionSpecialization(override val s: Trees)(override val t: s.type)
                             (using override val context: inox.Context)
   extends CachingPhase
+     with NoSummaryPhase
      with IdentitySorts { self =>
   import s._
 
   given givenDebugSection: DebugSectionFunctionSpecialization.type = DebugSectionFunctionSpecialization
 
-  override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult](
+  override protected final val funCache = new ExtractionCache[s.FunDef, (FunctionResult, FunctionSummary)](
     (fd, symbols) => getDependencyKey(fd.id)(using symbols)
   )
 
@@ -34,12 +35,12 @@ class FunctionSpecialization(override val s: Trees)(override val t: s.type)
   override protected def registerFunctions(symbols: t.Symbols, functions: Seq[Option[t.FunDef]]): t.Symbols =
     symbols.withFunctions(functions.flatten)
 
-  override protected def extractFunction(symbols: s.Symbols, fd: s.FunDef): Option[t.FunDef] = {
+  override protected def extractFunction(symbols: s.Symbols, fd: s.FunDef): (Option[t.FunDef], Unit) = {
     import symbols.{given, _}
     import exprOps._
 
     if (fd.flags.contains(Template))
-      return None
+      return (None, ())
 
     object SpecializeCall {
       def unapply(e: Expr): Option[FunctionInvocation] = e match {
@@ -130,7 +131,7 @@ class FunctionSpecialization(override val s: Trees)(override val t: s.type)
 
     if (speccedOuter.specs.exists(_.kind == LetKind)) {
       check(fd.fullBody)
-      return Some(fd)
+      return (Some(fd), ())
     }
 
     // Detect whether the outer function is specializing another function `origFd`
@@ -140,7 +141,7 @@ class FunctionSpecialization(override val s: Trees)(override val t: s.type)
         if (isIndirectlyRecursive(fi.id)) {
           context.reporter.fatalError(fi.getPos,
             "Cannot use `specialize` on function with indirect recursion.")
-          return None
+          return (None, ())
         }
 
         val origFd = fi.tfd.fd
@@ -208,7 +209,7 @@ class FunctionSpecialization(override val s: Trees)(override val t: s.type)
 
       case _ =>
         check(fd.fullBody)
-        return Some(fd)
+        return (Some(fd), ())
     }
 
     val fullBodySpecialized = specializer.transform(origFd.fullBody)
@@ -243,9 +244,9 @@ class FunctionSpecialization(override val s: Trees)(override val t: s.type)
 
     check(fullBody3)
 
-    Some(fd.copy(
+    (Some(fd.copy(
       fullBody = fullBody3
-    ).copiedFrom(fd))
+    ).copiedFrom(fd)), ())
   }
 }
 

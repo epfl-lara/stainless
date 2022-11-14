@@ -3,7 +3,8 @@
 package stainless
 package genc
 
-import extraction.xlang.{trees => xt}
+import extraction.xlang.trees as xt
+import stainless.extraction.ExtractionSummary
 
 trait GenCAnalysis extends AbstractAnalysis {
   import GenCRun.Result
@@ -12,6 +13,7 @@ trait GenCAnalysis extends AbstractAnalysis {
   val program: Program { val trees: xt.type }
   val sources: Set[Identifier] // set of functions that were considered for the analysis
   val results: Seq[Result]
+  val extractionSummary: ExtractionSummary
 
   private lazy val records = results map { case Result(fd, status, time) =>
     Record(fd.id, fd.getPos, status, time)
@@ -19,5 +21,5 @@ trait GenCAnalysis extends AbstractAnalysis {
 
   override type Report = GenCReport
   override val name = GenCComponent.name
-  override def toReport = new GenCReport(records, sources)
+  override def toReport = new GenCReport(records, sources, extractionSummary)
 }

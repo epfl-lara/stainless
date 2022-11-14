@@ -1276,8 +1276,10 @@ trait CodeExtraction extends ASTExtractors {
     case ExtractorHelpers.ExSymbol("scala", "Predef", "$qmark$qmark$qmark") => xt.NoTree(extractType(tr))
 
     case chs @ ExChooseExpression(body) =>
+      ctx.reporter.warning(tr.pos, "`choose` expressions may be unsafe due to difficulty in checking their realizability automatically")
       extractTree(body) match {
-        case xt.Lambda(Seq(vd), body) => xt.Choose(vd, body)
+        case xt.Lambda(Seq(vd), body) =>
+          xt.Choose(vd, body)
         case _ => outOfSubsetError(tr, "Unexpected choose definition")
       }
 

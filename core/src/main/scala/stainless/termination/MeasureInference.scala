@@ -9,6 +9,7 @@ object DebugSectionMeasureInference extends inox.DebugSection("measure-inference
 
 class MeasureInference(override val s: Trees, override val t: Trees)(using override val context: inox.Context)
   extends extraction.CachingPhase
+     with extraction.NoSummaryPhase
      with extraction.SimplyCachedSorts
      with extraction.IdentitySorts { self =>
 
@@ -25,7 +26,7 @@ class MeasureInference(override val s: Trees, override val t: Trees)(using overr
 
   // Measure inference depends on functions that are mutually recursive with `fd`,
   // so we include all dependencies in the key calculation
-  override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult]((fd, context) =>
+  override protected final val funCache = new ExtractionCache[s.FunDef, (FunctionResult, FunctionSummary)]((fd, context) =>
     getDependencyKey(fd.id)(using context.symbols)
   )
 
@@ -177,24 +178,26 @@ class MeasureInference(override val s: Trees, override val t: Trees)(using overr
     }
   }
 
-  override protected def extractFunction(context: TransformerContext, fd: s.FunDef): FunctionResult = {
+  override protected def extractFunction(context: TransformerContext, fd: s.FunDef): (FunctionResult, FunctionSummary) = {
     if (options.findOptionOrDefault(optInferMeasures) && context.needsMeasure(fd)) {
       val tfd   = context.transformer.transform(context.inferMeasure(fd))
       val posts = context.getPosts(fd.id)
-      (tfd, posts)
+      ((tfd, posts), ())
     } else {
-      (context.transformer.transform(fd), MutableMap.empty)
+      ((context.transformer.transform(fd), MutableMap.empty), ())
     }
   }
 
   override def registerFunctions(symbols: t.Symbols, functions: Seq[FunctionResult]): t.Symbols =
     symbols
 
-  override protected def extractSymbols(context: TransformerContext, symbols: s.Symbols): t.Symbols = {
-    val results: Seq[(t.FunDef, MutableMap[Identifier,s.Lambda])] =
+  override protected def extractSymbols(context: TransformerContext, symbols: s.Symbols): (t.Symbols, AllSummaries) = {
+    // Note: fnsSummaries is just a Seq of Unit as of now, but is still combined with sortSummaries (Seq of () as well)
+    // for possible future extension
+    val (results, fnsSummaries): (Seq[(t.FunDef, MutableMap[Identifier,s.Lambda])], Seq[FunctionSummary]) =
       symbols.functions.values.map(fd =>
         funCache.cached(fd, context)(extractFunction(context,fd))
-      ).toSeq
+      ).toSeq.unzip
 
     val posts: Map[Identifier, s.Lambda] = results.flatMap{ case (tfd,post) => post }.toMap
 
@@ -227,11 +230,12 @@ class MeasureInference(override val s: Trees, override val t: Trees)(using overr
       annotatePosts(tfd)
     }.toSeq
 
-    val sorts = symbols.sorts.values.map { sort =>
+    val (sorts, sortSummaries) = symbols.sorts.values.map { sort =>
       sortCache.cached(sort, context)(extractSort(context, sort))
-    }.toSeq
+    }.toSeq.unzip
 
-    t.NoSymbols.withSorts(sorts).withFunctions(functions ++ sizeFunctions)
+    // fnsSummaries and sortSummaries are
+    (t.NoSymbols.withSorts(sorts).withFunctions(functions ++ sizeFunctions), AllSummaries(fnsSummaries, sortSummaries))
   }
 }
 

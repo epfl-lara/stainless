@@ -3,6 +3,8 @@
 package stainless
 package evaluators
 
+import stainless.extraction.ExtractionSummary
+
 trait EvaluatorAnalysis extends AbstractAnalysis {
   import EvaluatorRun.Result
   import EvaluatorReport.Record
@@ -10,6 +12,7 @@ trait EvaluatorAnalysis extends AbstractAnalysis {
   val program: StainlessProgram
   val sources: Set[Identifier] // set of functions that were considered for the analysis
   val results: Seq[Result]
+  val extractionSummary: ExtractionSummary
 
   private lazy val records = results map { case Result(fd, status, time) =>
     val textStatus = status match {
@@ -24,6 +27,6 @@ trait EvaluatorAnalysis extends AbstractAnalysis {
 
   override type Report = EvaluatorReport
   override val name = EvaluatorComponent.name
-  override def toReport = new EvaluatorReport(records, sources)
+  override def toReport = new EvaluatorReport(records, sources, extractionSummary)
 }
 

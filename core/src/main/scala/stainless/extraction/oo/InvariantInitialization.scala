@@ -7,6 +7,7 @@ package oo
 class InvariantInitialization(override val s: Trees, override val t: Trees)
                              (using override val context: inox.Context)
   extends CachingPhase
+     with NoSummaryPhase
      with IdentityFunctions
      with IdentityClasses
      with IdentityTypeDefs { self =>
@@ -24,7 +25,7 @@ class InvariantInitialization(override val s: Trees, override val t: Trees)
     }
   }
 
-  override protected final val sortCache = new ExtractionCache[s.ADTSort, SortResult]({
+  override protected final val sortCache = new ExtractionCache[s.ADTSort, (SortResult, SortSummary)]({
     (sort, context) => SortKey(sort) + SetKey(sort.constructors.flatMap { constructor =>
       context.paramInitsMap(constructor).toSet
     }.toSet)
@@ -37,7 +38,7 @@ class InvariantInitialization(override val s: Trees, override val t: Trees)
     }
   }
 
-  override protected final def extractSort(context: TransformerContext, sort: s.ADTSort): SortResult = {
+  override protected final def extractSort(context: TransformerContext, sort: s.ADTSort): (SortResult, Unit) = {
     val sort2 = context.transform(sort)
     val initializationChecks =
       for (
@@ -61,7 +62,7 @@ class InvariantInitialization(override val s: Trees, override val t: Trees)
           Seq(t.Derived(None)),
         ).setPos(constructor)
       }
-    (sort2, initializationChecks)
+    ((sort2, initializationChecks), ())
   }
 }
 

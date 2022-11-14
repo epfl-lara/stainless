@@ -45,6 +45,6 @@ class GenCTestGenRun private(override val component: GenCTestGenComponent.type,
     }
   }
 
-  override private[stainless] def execute(functions: Seq[Identifier], symbols: trees.Symbols): Future[Analysis] =
+  override private[stainless] def execute(functions: Seq[Identifier], symbols: trees.Symbols, exSummary: ExtractionSummary): Future[Analysis] =
     sys.error("Unreachable because def apply was overridden")
 }

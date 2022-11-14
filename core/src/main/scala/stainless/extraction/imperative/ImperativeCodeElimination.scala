@@ -21,7 +21,12 @@ class ImperativeCodeElimination(override val s: Trees)(override val t: s.type)
   override protected type TransformerContext = s.Symbols
   override protected def getContext(symbols: s.Symbols) = symbols
 
-  override protected def extractFunction(symbols: s.Symbols, fd: s.FunDef): t.FunDef = {
+  enum FunctionSummary {
+    case Untransformed(fid: Identifier)
+    case Transformed(fid: Identifier)
+  }
+
+  override protected def extractFunction(symbols: s.Symbols, fd: s.FunDef): (t.FunDef, FunctionSummary) = {
     import symbols.{given, _}
     import exprOps._
     import exprOps.{ replaceKeepPositions => replace }
@@ -452,15 +457,28 @@ class ImperativeCodeElimination(override val s: Trees)(override val t: s.type)
         body = topLevelRewrite(specced.body)
       )
 
-      fd.copy(fullBody = newSpecced.reconstructed)
-
+      (fd.copy(fullBody = newSpecced.reconstructed), FunctionSummary.Transformed(fd.id))
     } else {
-      fd
+      (fd, FunctionSummary.Untransformed(fd.id))
     }
+  }
+
+  override protected type SortSummary = Unit
+  override protected type ClassSummary = Unit
+
+  override protected def combineSummaries(allSummaries: AllSummaries): ExtractionSummary = {
+    val affectedFns = allSummaries.fnsSummary.collect { case FunctionSummary.Transformed(fid) => fid }
+    ExtractionSummary.Leaf(ImperativeCodeElimination)(ImperativeCodeElimination.SummaryData(affectedFns.toSet))
   }
 }
 
-object ImperativeCodeElimination {
+object ImperativeCodeElimination extends ExtractionPipelineCreator {
+  case class SummaryData(affectedFns: Set[Identifier] = Set.empty) {
+    def ++(other: SummaryData): SummaryData = SummaryData(affectedFns ++ other.affectedFns)
+    def hasRun: Boolean = affectedFns.nonEmpty
+  }
+  override val name: String = "ImperativeCodeElimination"
+
   def apply(trees: Trees)(using inox.Context): ExtractionPipeline {
     val s: trees.type
     val t: trees.type

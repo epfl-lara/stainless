@@ -7,6 +7,7 @@ import scala.concurrent.duration._
 
 import stainless.utils.YesNoOnly
 
+import extraction.ExtractionSummary
 import extraction.xlang.{ TreeSanitizer, trees => xt }
 import extraction.utils.DebugSymbols
 
@@ -62,7 +63,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
           val t: xt.type = xt
         }
 
-        val programSymbols = userFiltering.debug(frontend.UserFiltering().transform)(program.symbols)
+        val programSymbols = userFiltering.debugWithoutSummary(frontend.UserFiltering().transform)(program.symbols)._1
         programSymbols.ensureWellFormed
         val errors = TreeSanitizer(xt).enforce(programSymbols)
         if (!errors.isEmpty) {
@@ -71,7 +72,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
 
         val run = component.run(extraction.pipeline)
 
-        val exProgram = inox.Program(run.trees)(run extract programSymbols)
+        val exProgram = inox.Program(run.trees)(run.extract(programSymbols)._1)
         exProgram.symbols.ensureWellFormed
         assert(ctx.reporter.errorCount == 0, "There were errors during extraction")
 
@@ -90,7 +91,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
 
         val funs = defs.filter(i => exProgram.symbols.functions.contains(i) && identifierFilter(i)).toSeq
 
-        val report = Await.result(run.execute(funs, exProgram.symbols), Duration.Inf)
+        val report = Await.result(run.execute(funs, exProgram.symbols, ExtractionSummary.NoSummary), Duration.Inf)
         block(report, ctx.reporter, unit)
       }
     } else {
@@ -106,7 +107,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
         val t: xt.type = xt
       }
 
-      val programSymbols = userFiltering.debug(frontend.UserFiltering().transform)(program.symbols)
+      val programSymbols = userFiltering.debugWithoutSummary(frontend.UserFiltering().transform)(program.symbols)._1
       programSymbols.ensureWellFormed
 
       for {
@@ -123,7 +124,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
           .withTypeDefs(programSymbols.typeDefs.values.filter(td => deps(td.id)).toSeq)
 
         val run = component.run(extraction.pipeline)
-        val exSymbols = run extract symbols
+        val exSymbols = run.extract(symbols)._1
         exSymbols.ensureWellFormed
         assert(ctx.reporter.errorCount == 0, "There were errors during pipeline extraction")
 
@@ -137,7 +138,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
           exSymbols.sorts.values.filter(sort => derived(sort.flags)).map(_.id)
         } (defs).toSeq.filter(exSymbols.functions contains _)
 
-        val report = Await.result(run.execute(funs, exSymbols),Duration.Inf)
+        val report = Await.result(run.execute(funs, exSymbols, ExtractionSummary.NoSummary),Duration.Inf)
         block(report, ctx.reporter, unit)
       }
     }

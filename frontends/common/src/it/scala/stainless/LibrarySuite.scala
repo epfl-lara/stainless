@@ -7,6 +7,7 @@ import org.scalatest.funspec.AnyFunSpec
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
+import extraction.ExtractionSummary
 import stainless.utils.YesNoOnly
 
 abstract class AbstractLibrarySuite(opts: Seq[inox.OptionValue[_]]) extends AnyFunSpec with InputUtils {
@@ -39,12 +40,12 @@ abstract class AbstractLibrarySuite(opts: Seq[inox.OptionValue[_]]) extends AnyF
     it("should verify") {
       import verification.VerificationComponent
       val run = VerificationComponent.run(extraction.pipeline)
-      val exProgram = inox.Program(run.trees)(run extract tryProgram.get.symbols)
+      val exProgram = inox.Program(run.trees)(run.extract(tryProgram.get.symbols)._1)
       assert(reporter.errorCount == 0, "Verification extraction had errors")
 
       import exProgram.trees._
       val funs = exProgram.symbols.functions.values.filter(keep(exProgram.trees)).map(_.id).toSeq
-      val analysis = Await.result(run.execute(funs, exProgram.symbols), Duration.Inf)
+      val analysis = Await.result(run.execute(funs, exProgram.symbols, ExtractionSummary.NoSummary), Duration.Inf)
       val report = analysis.toReport
       assert(report.totalConditions == report.totalValid,
         "Only " + report.totalValid + " valid out of " + report.totalConditions + "\n" +

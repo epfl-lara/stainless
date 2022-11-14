@@ -6,7 +6,7 @@ package inlining
 
 class ChooseEncoder(override val s: ast.Trees, override val t: ast.Trees)
                    (using override val context: inox.Context)
-  extends CachingPhase with SimplyCachedFunctions with IdentitySorts { self =>
+  extends CachingPhase with NoSummaryPhase with SimplyCachedFunctions with IdentitySorts { self =>
 
   type TransformerContext = s.Symbols
   override def getContext(symbols: s.Symbols) = symbols
@@ -15,7 +15,7 @@ class ChooseEncoder(override val s: ast.Trees, override val t: ast.Trees)
   override protected def registerFunctions(symbols: t.Symbols, functions: Seq[Seq[t.FunDef]]): t.Symbols =
     symbols.withFunctions(functions.flatten)
 
-  protected def extractFunction(context: TransformerContext, fd: s.FunDef): Seq[t.FunDef] = {
+  protected def extractFunction(context: TransformerContext, fd: s.FunDef): (Seq[t.FunDef], Unit) = {
     var fdChooses = Seq[t.FunDef]()
 
     object ce extends inox.transformers.Transformer {
@@ -92,7 +92,7 @@ class ChooseEncoder(override val s: ast.Trees, override val t: ast.Trees)
 
     // bind `newFd` before returning so that `fdChooses` gets filled with the new `choose` functions
     val newFd = ce.transform(fd)
-    fdChooses :+ newFd
+    (fdChooses :+ newFd, ())
   }
 
 }

@@ -70,7 +70,7 @@ class GenCRun private(override val component: GenCComponent.type,
   import xt._
 
   override def apply(ids: Seq[Identifier], symbols: Symbols): Future[GenCComponent.Analysis] = try {
-    val symbolsAfterPipeline: tt.Symbols = GenCRun.pipelineBegin.extract(symbols)
+    val (symbolsAfterPipeline: tt.Symbols, exSummary) = GenCRun.pipelineBegin.extract(symbols)
 
     GenerateC.emit(symbolsAfterPipeline)
 
@@ -87,13 +87,14 @@ class GenCRun private(override val component: GenCComponent.type,
         else
           None
       }
+      override val extractionSummary = exSummary
     })
   } catch {
     case extraction.MalformedStainlessCode(tree, msg) =>
       context.reporter.fatalError(tree.getPos, msg)
   }
 
-  private[stainless] def execute(functions: Seq[Identifier], symbols: Symbols): Future[GenCComponent.Analysis] = ???
+  override private[stainless] def execute(functions: Seq[Identifier], symbols: Symbols, exSummary: ExtractionSummary): Future[GenCComponent.Analysis] = ???
 
   def parse(json: io.circe.Json): GenCReport = ???
 
@@ -125,7 +126,7 @@ object GenCReport {
   given recordEncoder: Encoder[Record] = deriveEncoder
 }
 
-case class GenCReport(results: Seq[Record], sources: Set[Identifier]) extends BuildableAbstractReport[Record, GenCReport] {
+case class GenCReport(results: Seq[Record], sources: Set[Identifier], override val extractionSummary: ExtractionSummary) extends BuildableAbstractReport[Record, GenCReport] {
 
   override val name = GenCComponent.name
 
@@ -134,7 +135,7 @@ case class GenCReport(results: Seq[Record], sources: Set[Identifier]) extends Bu
   }
 
   protected def build(results: Seq[Record], sources: Set[Identifier]): GenCReport =
-    new GenCReport(results, sources)
+    GenCReport(results, sources, ExtractionSummary.NoSummary)
 
   override protected val encoder: io.circe.Encoder[Record] = GenCReport.recordEncoder
 

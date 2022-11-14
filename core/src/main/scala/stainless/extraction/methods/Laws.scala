@@ -10,9 +10,10 @@ import SymbolIdentifier.unsafeToSymbolIdentifier
 class Laws(override val s: Trees, override val t: Trees)
           (using override val context: inox.Context)
   extends oo.CachingPhase
+     with oo.NoSummaryPhase
      with oo.IdentityTypeDefs
      with IdentitySorts { self =>
-  
+
   private[this] val lawID = new utils.ConcurrentCached[SymbolIdentifier, SymbolIdentifier](
     id => SymbolIdentifier(id.symbol.name)
   )
@@ -74,7 +75,7 @@ class Laws(override val s: Trees, override val t: Trees)
     }
   }
 
-  override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult]({ (fd, context) =>
+  override protected final val funCache = new ExtractionCache[s.FunDef, (FunctionResult, FunctionSummary)]({ (fd, context) =>
     FunctionKey(fd) + new ValueKey(
       if ((fd.flags exists { case s.IsMethodOf(_) => true case _ => false }) && (fd.flags contains s.Law)) {
         context.symbols.firstSuperMethod(fd.id.unsafeToSymbolIdentifier).toSet[Identifier]
@@ -89,7 +90,7 @@ class Laws(override val s: Trees, override val t: Trees)
     symbols.withFunctions(functions.flatMap(p => p._1 +: p._2.toSeq))
   }
 
-  override protected final def extractFunction(context: TransformerContext, fd: s.FunDef): FunctionResult = {
+  override protected final def extractFunction(context: TransformerContext, fd: s.FunDef): (FunctionResult, Unit) = {
     import context.{s => _, t => _, given, _}
 
     if (fd.flags contains s.Law) {
@@ -168,7 +169,7 @@ class Laws(override val s: Trees, override val t: Trees)
         )
       }
 
-      (newFd, Some(propFd))
+      ((newFd, Some(propFd)), ())
     } else {
       symbols.firstSuperMethod(fd.id.unsafeToSymbolIdentifier)
         .map(id => symbols.getFunction(id))
@@ -201,14 +202,14 @@ class Laws(override val s: Trees, override val t: Trees)
           val returnType = transform(fd.returnType, env)
           val newBody = t.exprOps.reconstructSpecs(newSpecs, specced.bodyOpt.map(transform(_, env)), returnType)
           val newFlags = (fd.flags map (transform(_, env))) :+ t.Law
-          (new t.FunDef(fd.id, tparams, params, returnType, newBody, newFlags).copiedFrom(fd), None)
+          ((new t.FunDef(fd.id, tparams, params, returnType, newBody, newFlags).copiedFrom(fd), None), ())
         }.getOrElse {
-          (context.transform(fd), None)
+          ((context.transform(fd), None), ())
         }
     }
   }
 
-  override protected final val classCache = new ExtractionCache[s.ClassDef, ClassResult]({ (cd, context) =>
+  override protected final val classCache = new ExtractionCache[s.ClassDef, (ClassResult, ClassSummary)]({ (cd, context) =>
     ClassKey(cd) + SetKey(
       if (cd.flags contains s.IsAbstract) Set.empty[CacheKey]
       else context.missingLaws(cd).map { case (acd, fd) =>
@@ -223,7 +224,7 @@ class Laws(override val s: Trees, override val t: Trees)
     symbols.withClasses(cls).withFunctions(funs.flatten)
   }
 
-  override protected final def extractClass(context: TransformerContext, cd: s.ClassDef): ClassResult = {
+  override protected final def extractClass(context: TransformerContext, cd: s.ClassDef): (ClassResult, ClassSummary) = {
     import context.{s => _, t => _, _}
 
     if (!(cd.flags contains s.IsAbstract)) {
@@ -257,9 +258,9 @@ class Laws(override val s: Trees, override val t: Trees)
         ).setPos(cd))
       }
 
-      (transform(cd), functions)
+      ((transform(cd), functions), ())
     } else {
-      (transform(cd), Seq.empty)
+      ((transform(cd), Seq.empty), ())
     }
   }
 }

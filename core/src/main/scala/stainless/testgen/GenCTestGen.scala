@@ -55,7 +55,7 @@ object GenCTestGen {
       .withFunctions(xtTestCases.map(_._1) ++ xtTestCases.map(_._2))
       .withClasses(origSyms.classes.values.toSeq)
 
-    val symbolsAfterPipeline: tt.Symbols = GenCRun.pipelineBegin.extract(testCaseSyms)
+    val symbolsAfterPipeline: tt.Symbols = GenCRun.pipelineBegin.extract(testCaseSyms)._1
     val cprog = GenerateC.pipeline(symbolsAfterPipeline).run(symbolsAfterPipeline)
     val fnTestCases = cprog.functions.filter(f => testNames.contains(f.id.name))
       .toSeq.sortBy(_.id.name.drop("testCase".length).toInt)

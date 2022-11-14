@@ -57,7 +57,8 @@ private class S2IRImpl(override val s: tt.type,
      with IdentityFunctions
      with IdentitySorts
      with oo.IdentityClasses
-     with oo.IdentityTypeDefs{ self =>
+     with oo.IdentityTypeDefs
+     with oo.NoSummaryPhase { self =>
 
   import syms.given
   val symbols = syms

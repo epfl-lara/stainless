@@ -5,6 +5,7 @@ package termination
 
 import inox.utils.ASCIIHelpers.{ Cell, Row }
 import stainless.utils.JsonConvertions.given
+import stainless.extraction.ExtractionSummary
 
 import io.circe._
 import io.circe.syntax._
@@ -38,21 +39,21 @@ object TerminationReport {
   given recordEncoder: Encoder[Record] = deriveEncoder
 
   def parse(json: Json) = json.as[(Seq[Record], Set[Identifier])] match {
-    case Right((records, sources)) => new TerminationReport(records, sources)
+    case Right((records, sources)) => new TerminationReport(records, sources, ExtractionSummary.NoSummary)
     case Left(error) => throw error
   }
 
 }
 
 // Variant of the report without the checker, where all the data is mapped to text
-class TerminationReport(val results: Seq[TerminationReport.Record], val sources: Set[Identifier])
+class TerminationReport(val results: Seq[TerminationReport.Record], val sources: Set[Identifier], override val extractionSummary: ExtractionSummary)
   extends BuildableAbstractReport[TerminationReport.Record, TerminationReport] {
   import TerminationReport.{given, _}
 
   override val encoder = recordEncoder
 
   override def build(results: Seq[Record], sources: Set[Identifier]) =
-    new TerminationReport(results, sources)
+    new TerminationReport(results, sources, ExtractionSummary.NoSummary)
 
   override val name: String = TerminationComponent.name
 

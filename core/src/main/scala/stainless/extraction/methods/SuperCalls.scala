@@ -61,6 +61,7 @@ import SymbolIdentifier.unsafeToSymbolIdentifier
 class SuperCalls(override val s: Trees, override val t: Trees)
                 (using override val context: inox.Context)
   extends oo.CachingPhase
+     with oo.NoSummaryPhase
      with SimpleSorts
      with oo.IdentityTypeDefs
      with oo.SimpleClasses  { self =>
@@ -87,18 +88,18 @@ class SuperCalls(override val s: Trees, override val t: Trees)
     }
   }
 
-  override protected final val funCache = new ExtractionCache[s.FunDef, FunctionResult]({ (fd, context) =>
+  override protected final val funCache = new ExtractionCache[s.FunDef, (FunctionResult, FunctionSummary)]({ (fd, context) =>
     FunctionKey(fd) + ValueKey(context.mustDuplicate(fd))
   })
 
-  override protected final val sortCache = new ExtractionCache[s.ADTSort, SortResult]({ (sort, context) =>
+  override protected final val sortCache = new ExtractionCache[s.ADTSort, (SortResult, SortSummary)]({ (sort, context) =>
     val symbols = context.symbols
     val collector = new SuperCollector(using symbols)
     collector.traverse(sort)
     SortKey(sort) + SetKey(collector.getSupers)(using symbols)
   })
 
-  override protected final val classCache = new ExtractionCache[s.ClassDef, ClassResult]({ (cd, context) =>
+  override protected final val classCache = new ExtractionCache[s.ClassDef, (ClassResult, ClassSummary)]({ (cd, context) =>
     val symbols = context.symbols
     val collector = new SuperCollector(using symbols)
     collector.traverse(cd)
@@ -142,7 +143,7 @@ class SuperCalls(override val s: Trees, override val t: Trees)
     symbols.withFunctions(functions.flatMap { case (fd, ofd) => fd +: ofd.toSeq })
   }
 
-  override protected def extractFunction(context: TransformerContext, fd: s.FunDef): FunctionResult = {
+  override protected def extractFunction(context: TransformerContext, fd: s.FunDef): (FunctionResult, Unit) = {
     import context.symbols
     import s._
 
@@ -162,14 +163,14 @@ class SuperCalls(override val s: Trees, override val t: Trees)
         ).copiedFrom(fd)
       )).copiedFrom(fd)
 
-      (context.transform(newFd), Some(context.transform(superFd)))
+      ((context.transform(newFd), Some(context.transform(superFd))), ())
     } else {
-      (context.transform(fd), None)
+      ((context.transform(fd), None), ())
     }
   }
 
-  override protected def extractSort(context: TransformerContext, sort: s.ADTSort) = context.transform(sort)
-  override protected def extractClass(context: TransformerContext, cd: s.ClassDef) = context.transform(cd)
+  override protected def extractSort(context: TransformerContext, sort: s.ADTSort) = (context.transform(sort), ())
+  override protected def extractClass(context: TransformerContext, cd: s.ClassDef) = (context.transform(cd), ())
 }
 
 object SuperCalls {

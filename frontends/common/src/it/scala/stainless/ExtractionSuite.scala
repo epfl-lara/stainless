@@ -42,7 +42,7 @@ abstract class ExtractionSuite extends AnyFunSpec with inox.ResourceUtils with I
       if (tryProgram.isSuccess) {
         val program = tryProgram.get
         val programSymbols: program.trees.Symbols =
-          userFiltering.debug(frontend.UserFiltering().transform)(program.symbols)
+          userFiltering.debugWithoutSummary(frontend.UserFiltering().transform)(program.symbols)._1
 
         it("should typecheck") {
           programSymbols.ensureWellFormed
@@ -52,7 +52,7 @@ abstract class ExtractionSuite extends AnyFunSpec with inox.ResourceUtils with I
           }
         }
 
-        val tryExSymbols: Try[extraction.trees.Symbols] = Try(extraction.pipeline extract programSymbols)
+        val tryExSymbols: Try[extraction.trees.Symbols] = Try(extraction.pipeline.extract(programSymbols)._1)
         describe("and transformation") {
           it("should be successful") { tryExSymbols.get }
 
@@ -99,8 +99,8 @@ abstract class ExtractionSuite extends AnyFunSpec with inox.ResourceUtils with I
         f -> Try {
           given testCtx: inox.Context = TestContext.empty
           val program = loadFiles(List(f))._2
-          val programSymbols = userFiltering.debug(frontend.UserFiltering().transform)(program.symbols)
-          val exSyms = extraction.pipeline extract programSymbols
+          val programSymbols = userFiltering.debugWithoutSummary(frontend.UserFiltering().transform)(program.symbols)._1
+          val exSyms = extraction.pipeline.extract(programSymbols)._1
           exSyms.ensureWellFormed
           testCtx.reporter.errorCount
         }
