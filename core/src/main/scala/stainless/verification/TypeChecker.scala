@@ -19,9 +19,10 @@ object DebugSectionDerivation extends inox.DebugSection("derivation")
 
 import inox.utils.Position
 
-trait VCFilter { self =>
-  def apply(vc: StainlessVC): Boolean
-  def inverse: VCFilter = vc => !self.apply(vc)
+trait VCFilter extends (StainlessVC => Boolean) { self =>
+  def inverse: VCFilter = vc => !self(vc)
+  def withEmitVCs(emit: Boolean): VCFilter =
+    vc => emit || vc.kind.isMeasureRelated // We always emit VCs for measures, even under DropVCs
 }
 
 object VCFilter {
@@ -975,10 +976,6 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
   def buildVC(tc: TypingContext, e: Expr): TyperResult = {
     require(tc.currentFid.isDefined)
 
-    if (!tc.emitVCs) {
-      return TyperResult.valid
-    }
-
     def splitAndFilterUnchecked(e: Expr): Seq[Expr] = e match {
       case Let(vd, expr, body) => splitAndFilterUnchecked(body).map(Let(vd, expr, _).setPos(e))
       case And(exprs) =>
@@ -1005,7 +1002,7 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
       tc.currentFid.get,
       tc.vcKind,
       tc.checkSAT,
-    ).setPos(tc)).filter(vc => vcFilter(vc))
+    ).setPos(tc)).filter(vcFilter.withEmitVCs(tc.emitVCs))
 
     if (vcs.isEmpty) {
       return TyperResult.valid
