@@ -32,6 +32,11 @@ case class VC[T <: ast.Trees](val trees: T)(val condition: trees.Expr, val fid: 
 sealed abstract class VCKind(val name: String, val abbrv: String) {
   override def toString = name
   def underlying = this
+
+  def isMeasureRelated: Boolean = this match {
+    case VCKind.MeasureDecreases | VCKind.MeasurePositive | VCKind.MeasureMissing => true
+    case _ => false
+  }
 }
 
 object VCKind {

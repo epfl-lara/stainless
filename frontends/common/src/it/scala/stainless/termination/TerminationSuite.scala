@@ -26,6 +26,11 @@ class TerminationSuite extends VerificationComponentTestSuite {
     "solver=" + options.findOptionOrDefault(inox.optSelectedSolvers).head
   }
 
+  override def filter(ctx: inox.Context, name: String): FilterStatus = name match {
+    case "verification/valid/BitsTricksSlow" => Skip
+    case _ => super.filter(ctx, name)
+  }
+
   def getResults(analysis: VerificationAnalysis) = {
     import analysis.program.symbols
     import analysis.program.trees._
