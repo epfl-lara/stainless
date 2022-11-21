@@ -276,19 +276,18 @@ trait VerificationChecker { self =>
 
   protected def checkVC(vc: VC, origVC: VC, sf: SolverFactory { val program: self.program.type }): VCResult = {
     import SolverResponses._
+
+    val cond = vc.condition
+    if (cond == BooleanLiteral(true)) {
+      return VCResult(VCStatus.Trivial, None, None)
+    }
+
     val s = sf.getNewSolver()
-
     try {
-      val cond = vc.condition
-
       reporter.synchronized {
         reporter.debug(s" - Now solving '${vc.kind}' VC for ${vc.fid.asString} @${vc.getPos}...")
         debugVC(vc, origVC)
         reporter.debug("Solving with: " + s.name)
-      }
-
-      if (cond == BooleanLiteral(true)) {
-        return VCResult(VCStatus.Valid, Some("(trivial)"), Some(0)) // TODO: No, (trivial) is bad, replace it None and have VCStatus.Trival
       }
 
       val (time, tryRes) = timers.verification.runAndGetTime {

@@ -65,7 +65,7 @@ class EvaluatorReport(val results: Seq[EvaluatorReport.Record], val sources: Set
   private lazy val totalInvalid = results.size - totalValid
 
   override lazy val stats =
-    ReportStats(results.size, totalTime, totalValid, validFromCache = 0, totalInvalid, unknown = 0)
+    ReportStats(results.size, totalTime, totalValid, validFromCache = 0, trivial = 0, totalInvalid, unknown = 0)
 
   private def levelOf(status: Status) = status match {
     case PostHeld(_) | NoPost(_) => Level.Normal

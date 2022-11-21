@@ -19,8 +19,9 @@ object VerificationReport {
    * inconclusive status mapped to [[Inconclusive]].
    */
   sealed abstract class Status(val name: String) {
-    def isValid = this == Status.Valid || isValidFromCache
+    def isValid = this == Status.Valid || isValidFromCache || isTrivial
     def isValidFromCache = this == Status.ValidFromCache
+    def isTrivial = this == Status.Trivial
     def isInvalid = this.isInstanceOf[Status.Invalid]
     def isInconclusive = this.isInstanceOf[Status.Inconclusive]
   }
@@ -28,6 +29,7 @@ object VerificationReport {
   object Status {
     case object Valid extends Status("valid")
     case object ValidFromCache extends Status("valid from cache")
+    case object Trivial extends Status("trivial")
     case class Inconclusive(reason: String) extends Status(reason)
     case class Invalid(reason: String) extends Status("invalid")
 
@@ -38,6 +40,7 @@ object VerificationReport {
       case VCStatus.Invalid(VCStatus.Unsatisfiable) => Invalid("unsatisfiable")
       case VCStatus.Valid => Valid
       case VCStatus.ValidFromCache => ValidFromCache
+      case VCStatus.Trivial => Trivial
       case inconclusive => Inconclusive(inconclusive.name)
     }
   }
@@ -74,6 +77,7 @@ class VerificationReport(val results: Seq[VerificationReport.Record], val source
   lazy val totalTime = results.map(_.time).sum
   lazy val totalValid = results.count(_.status.isValid)
   lazy val totalValidFromCache = results.count(_.status.isValidFromCache)
+  lazy val totalTrivial = results.count(_.status.isTrivial)
   lazy val totalInvalid = results.count(_.status.isInvalid)
   lazy val totalUnknown = results.count(_.status.isInconclusive)
 
@@ -96,7 +100,7 @@ class VerificationReport(val results: Seq[VerificationReport.Record], val source
   }
 
   override lazy val stats =
-    ReportStats(totalConditions, totalTime, totalValid, totalValidFromCache, totalInvalid, totalUnknown)
+    ReportStats(totalConditions, totalTime, totalValid, totalValidFromCache, totalTrivial, totalInvalid, totalUnknown)
 
 }
 

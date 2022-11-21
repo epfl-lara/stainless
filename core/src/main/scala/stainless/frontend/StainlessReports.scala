@@ -39,6 +39,7 @@ trait StainlessReports {
         reportStats.map(_.time          ).sum,
         reportStats.map(_.valid         ).sum,
         reportStats.map(_.validFromCache).sum,
+        reportStats.map(_.trivial       ).sum,
         reportStats.map(_.invalid       ).sum,
         reportStats.map(_.unknown       ).sum)
     }
