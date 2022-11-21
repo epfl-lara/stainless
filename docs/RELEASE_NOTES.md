@@ -1,5 +1,21 @@
 # Release Notes
 
+## Version 0.9.7 (2022-11-21)
+
+### Stainless frontend, library and internals
+
+- Improve equivalence checking: function call matching, norm, mkTest (#1294)
+- Experimental integration of OL- and OCBSL- based simplifiers (#1315)
+- Upgrade to Scala 3.2 (#1317)
+- Add verification pipeline summary (#1336)
+- Fix issues #1332, #1271, #1333, #731, #1290, #1321, #1322, #1306, #1301, #1302
+
+### Build
+
+- Include macOS ScalaZ3 build
+- Include SBT Stainless plugin
+
+
 ## Version 0.9.6 (2022-07-03)
 
 ### Stainless frontend, library and internals
