@@ -9,12 +9,13 @@ import io.circe.syntax.*
 import stainless.extraction._
 import stainless.utils.JsonConvertions.given
 
-case class ReportStats(total: Int, time: Long, valid: Int, validFromCache: Int, invalid: Int, unknown: Int) {
+case class ReportStats(total: Int, time: Long, valid: Int, validFromCache: Int, trivial: Int, invalid: Int, unknown: Int) {
   def +(more: ReportStats) = ReportStats(
     total + more.total,
     time + more.time,
     valid + more.valid,
     validFromCache + more.validFromCache,
+    trivial + more.trivial,
     invalid + more.invalid,
     unknown + more.unknown
   )
@@ -121,7 +122,7 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
 
     val footer =
       f"total: ${stats.total}%-4d " +
-      f"valid: ${stats.valid}%-4d (${stats.validFromCache} from cache) " +
+      f"valid: ${stats.valid}%-4d (${stats.validFromCache} from cache, ${stats.trivial} trivial) " +
       f"invalid: ${stats.invalid}%-4d " +
       f"unknown: ${stats.unknown}%-4d " +
       f"time: ${stats.time/1000d}%7.2f"
@@ -337,7 +338,7 @@ class NoReport extends AbstractReport[NoReport] { // can't do this CRTP with obj
   override val emitJson = Json.arr()
   override val annotatedRows = Seq.empty
   override val extractionSummary = ExtractionSummary.NoSummary
-  override val stats = ReportStats(0, 0, 0, 0, 0, 0)
+  override val stats = ReportStats(0, 0, 0, 0, 0, 0, 0)
   override def filter(ids: Set[Identifier]) = this
   override def ~(other: NoReport) = this
 }

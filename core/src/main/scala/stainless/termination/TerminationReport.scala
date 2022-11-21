@@ -78,6 +78,6 @@ class TerminationReport(val results: Seq[TerminationReport.Record], val sources:
   }
 
   override lazy val stats =
-    ReportStats(results.size, 0L, totalValid, totalValidFromCache, totalInvalid, totalUnknown)
+    ReportStats(results.size, 0L, totalValid, totalValidFromCache, trivial = 0, totalInvalid, totalUnknown)
 
 }

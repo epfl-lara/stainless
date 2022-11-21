@@ -118,7 +118,6 @@ class VerificationRun private(override val component: VerificationComponent.type
       if (!functions.isEmpty) {
         reporter.debug(s"Finished generating VCs")
       }
-      // TODO: Faire comme extraction pipeline pour que l'on puisse obtenir les @extern
       val opaqueEncoder = inox.transformers.ProgramEncoder(vcGenEncoder.targetProgram)(OpaqueChooseInjector(vcGenEncoder.targetProgram))
       val res: Future[Map[VC[p.trees.type], VCResult[p.Model]]] =
         if (context.options.findOptionOrDefault(optAdmitVCs)) {

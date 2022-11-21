@@ -144,5 +144,5 @@ case class GenCReport(results: Seq[Record], sources: Set[Identifier], override v
   private lazy val totalInvalid = results.size - totalValid
 
   override lazy val stats =
-    ReportStats(results.size, totalTime, totalValid, validFromCache = 0, totalInvalid, unknown = 0)
+    ReportStats(results.size, totalTime, totalValid, validFromCache = 0, trivial = 0, totalInvalid, unknown = 0)
 }
