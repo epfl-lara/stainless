@@ -46,7 +46,7 @@ info "$(tput bold)[] Preparing Stainless library jar..."
 OUT_LIB_DIR="$OUTPUT/stainless/ch/epfl/lara/stainless-library_2.13/$STAINLESS_VERSION"
 mkdir -p "$OUT_LIB_DIR"
 cp "$PUBLISHED_LIB_DIR/srcs/stainless-library_2.13-sources.jar" "$OUT_LIB_DIR/stainless-library_2.13-$STAINLESS_VERSION-sources.jar"
-cp "$PUBLISHED_LIB_DIR/poms/stainless-library_2.13.pom" "$OUT_LIB_DIR/stainless-library_2.13-$STAINLESS_VERSION-sources.pom"
+cp "$PUBLISHED_LIB_DIR/poms/stainless-library_2.13.pom" "$OUT_LIB_DIR/stainless-library_2.13-$STAINLESS_VERSION.pom"
 
 info "$(tput bold)[] Preparing Dotty plugin jar..."
 OUT_DOTTY_DIR="$OUTPUT/stainless/ch/epfl/lara/stainless-dotty-plugin_3.2.0/$STAINLESS_VERSION"
