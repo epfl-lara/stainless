@@ -585,7 +585,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
               // To achieve this, we "drill" a hole in newBody using the normalizer object,
               // insert copyEffect and plug it with resVd. This should get us something like the above.
               val (newBodyCtx, newBodyLastExpr) = normalizer.drill(newBody)
-              val (copyEffectCtx, copyEffectLastExpr) = normalizer.normalizeBlock(Block(copyEffects.toSeq, resVd.toVariable).copiedFrom(l))
+              val (copyEffectCtx, copyEffectLastExpr) = normalizer.normalizeBlock(Block(copyEffects.toSeq, resVd.toVariable).copiedFrom(l))(using normalizer.BlockNorm.Standard)
               assert(copyEffectLastExpr == resVd.toVariable) // To be sure we are on the good track.
               val combined =
                 newBodyCtx(let(resVd, newBodyLastExpr, copyEffectCtx(resVd.toVariable)))
@@ -764,7 +764,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
       }
 
       val transformer = new TransformerImpl(self.s, self.t)
-      val normBody = normalizer.normalize(body)
+      val normBody = normalizer.normalize(body)(using normalizer.BlockNorm.Standard)
       transformer.transform(normBody, env)
     }
 
@@ -981,7 +981,16 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
     //       targetBound.value = 1234
     //
     object normalizer {
-      def normalize(e: Expr): Expr = {
+      // Dictates the normalization to be done on blocks.
+      // Standard is keeping the block while IntoLet sequence the statements into lets.
+      // Let-transformation of blocks is only used for normalizing the predicate of `require` and `decreases`.
+      // These must be chained within lets and not blocks.
+      enum BlockNorm {
+        case Standard
+        case IntoLet
+      }
+
+      def normalize(e: Expr)(using BlockNorm): Expr = {
         val (ctx, norm) = doNormalize(e)
         ctx(norm)
       }
@@ -1023,7 +1032,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
       //   -For [[{stmt1; stmt2; ...; last}|], if [|stmti|] ~> Ci, stmti' and [|last|] ~> Cl, last'
       //    then [[{stmt1; stmt2; ...; last}|] ~> {C1[stmt1']; C2[stmt2']; ..., []}, last'
       //
-      def doNormalize(e: Expr): (Expr => Expr, Expr) = e match {
+      def doNormalize(e: Expr)(using BlockNorm): (Expr => Expr, Expr) = e match {
         case cs @ ClassSelector(_, _) if selectionNeedsNorm(cs) =>
           normalizeForTarget(cs)
 
@@ -1172,11 +1181,11 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
           (ctxPred, Assume(normPred, normalize(body)).copiedFrom(asm))
 
         case dec @ Decreases(pred, body) =>
-          val (ctxPred, normPred) = doNormalize(pred)
+          val (ctxPred, normPred) = doNormalize(pred)(using BlockNorm.IntoLet)
           (ctxPred, Decreases(normPred, normalize(body)).copiedFrom(dec))
 
         case req @ Require(pred, body) =>
-          val (ctxPred, normPred) = doNormalize(pred)
+          val (ctxPred, normPred) = doNormalize(pred)(using BlockNorm.IntoLet)
           (ctxPred, Require(normPred, normalize(body)).copiedFrom(req))
 
         case ens @ Ensuring(body, l @ Lambda(vds, lamBody)) =>
@@ -1203,7 +1212,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
       }
 
       // For indices and keys
-      def normalizeSelector(sel: Expr): (Expr => Expr, Expr) = {
+      def normalizeSelector(sel: Expr)(using BlockNorm): (Expr => Expr, Expr) = {
         assert(!isMutableType(sel.getType))
         if (!isReferentiallyTransparent(sel)) {
           val valIx = Variable(FreshIdentifier("ix"), sel.getType, Seq.empty).copiedFrom(sel)
@@ -1215,7 +1224,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
         }
       }
 
-      def normalizeForTarget(targetExpr: Expr): (Expr => Expr, Expr) = targetExpr match {
+      def normalizeForTarget(targetExpr: Expr)(using BlockNorm): (Expr => Expr, Expr) = targetExpr match {
         case v @ Variable(_, _, flags) =>
           if (flags.contains(IsVar)) {
             val newVal = v.copy(id = FreshIdentifier(s"${v.id.name}Cpy"), flags = flags.filter(_ != IsVar)).copiedFrom(v)
@@ -1258,7 +1267,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
           (ctx, targetVal)
       }
 
-      def normalizeArgs(args: Seq[Expr]): (Expr => Expr, Seq[Expr]) = {
+      def normalizeArgs(args: Seq[Expr])(using BlockNorm): (Expr => Expr, Seq[Expr]) = {
         def occurInAssignment(vs: Set[Variable], expr: Expr): Boolean = expr match {
           case Assignment(v, e) => vs.contains(v) || occurInAssignment(vs, e)
           case FieldAssignment(recv, _, e) => (exprOps.variablesOf(recv) & vs).nonEmpty || occurInAssignment(vs, e)
@@ -1305,21 +1314,28 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
         else Let(vd, value, body).copiedFrom(value)
       }
 
-      def normalizeBlock(block: Block): (Expr => Expr, Expr) = {
+      def normalizeBlock(block: Block)(using bn: BlockNorm): (Expr => Expr, Expr) = {
         val normExprs: Seq[(Expr => Expr, Expr)] = (block.exprs :+ block.last).map(doNormalize)
 
         val (ctxLast, normLast) = normExprs.last
         val ctxBlock = (e: Expr) => {
-          if (normExprs.size == 1) ctxLast(e).copiedFrom(block) // normExprs == Seq((ctxLast, normLast))
-          else {
-            val init = normExprs.init.map((ctx, e) => ctx(e))
-            Block(init, ctxLast(e)).copiedFrom(block)
+          if (normExprs.size == 1) ctxLast(e).copiedFrom(block) // Note: normExprs == Seq((ctxLast, normLast))
+          else bn match {
+            case BlockNorm.Standard =>
+              val init = normExprs.init.map((ctx, e) => ctx(e))
+              Block(init, ctxLast(e)).copiedFrom(block)
+            case BlockNorm.IntoLet =>
+              normExprs.init.foldRight(ctxLast(e)) {
+                case ((ctx, e), acc) =>
+                  val vd = ValDef.fresh("tmp", e.getType).copiedFrom(e)
+                  let(vd, ctx(e), acc)
+              }.copiedFrom(block)
           }
         }
         (ctxBlock, normLast)
       }
 
-      def normalizeLet(lt: Let | LetVar): (Expr => Expr, Expr) = {
+      def normalizeLet(lt: Let | LetVar)(using BlockNorm): (Expr => Expr, Expr) = {
         val (vd, value, body) = unlet(lt)
         val (ctxValue, normValue) = doNormalize(value)
         val (ctxBody, normBody) = doNormalize(body)
@@ -1327,7 +1343,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
         (ctxLet, normBody)
       }
 
-      def normalizeCall(call: Application | FunctionInvocation | ApplyLetRec): (Expr => Expr, Expr) = {
+      def normalizeCall(call: Application | FunctionInvocation | ApplyLetRec)(using BlockNorm): (Expr => Expr, Expr) = {
         val (ft, args, ctxCallee: (Expr => Expr), recons: (Seq[Expr] => Expr)) = call match {
           case app @ Application(callee, args) =>
             val ft @ FunctionType(_, _) = callee.getType: @unchecked
