@@ -135,6 +135,10 @@ class RefinementLifting(override val s: Trees, override val t: Trees)
         case _ => super.transform(e)
       }
 
+      case s.LetRec(fds, body) =>
+        val nlfd = fds.map(lfd => transform(Inner(lfd)).toLocal)
+        t.LetRec(nlfd, transform(body)).copiedFrom(e)
+
       case s.ApplyLetRec(id, tparams, tpe, tps, args) => liftRefinements(tpe) match {
         case s.RefinementType(vd, s.BooleanLiteral(true)) =>
           val ftTpe = vd.tpe.asInstanceOf[s.FunctionType]
@@ -197,41 +201,47 @@ class RefinementLifting(override val s: Trees, override val t: Trees)
     }
 
     override def transform(tpe: s.Type): t.Type = super.transform(liftRefinements(tpe))
-  }
 
-  override protected def extractFunction(context: TransformerContext, fd: s.FunDef): (t.FunDef, Unit) = {
-    import s._
-    import exprOps._
+    def transform(fd: s.FunAbstraction): t.FunAbstraction = {
+      import s._
+      import exprOps._
 
-    // FIXME: Shouldn't we propagate `newParams`?
-    val (newParams, cond) = context.parameterConds(fd.params)
+      val (newParams, cond) = parameterConds(fd.params)
 
-    val specced = exprOps.BodyWithSpecs(fd.fullBody)
+      val specced = exprOps.BodyWithSpecs(fd.fullBody)
 
-    val optPre =
-      if (cond != s.BooleanLiteral(true)) Some(exprOps.Precondition(cond).setPos(cond))
-      else None
+      val optPre =
+        if (cond != s.BooleanLiteral(true)) Some(exprOps.Precondition(cond).setPos(cond))
+        else None
 
-    val optOldPost = specced.getSpec(exprOps.PostconditionKind).map(_.expr)
-    val optPost = (context.liftRefinements(fd.returnType) match {
-      case s.RefinementType(vd2, pred) => optOldPost match {
-        case Some(post @ s.Lambda(Seq(res), body)) =>
-          Some(s.Lambda(Seq(res), s.and(
+      val optOldPost = specced.getSpec(exprOps.PostconditionKind).map(_.expr)
+      val optPost = (liftRefinements(fd.returnType) match {
+        case s.RefinementType(vd2, pred) => optOldPost match {
+          case Some(post@s.Lambda(Seq(res), body)) =>
+            Some(s.Lambda(Seq(res), s.and(
               exprOps.replaceFromSymbols(Map(vd2 -> res.toVariable), pred),
               body).copiedFrom(body)).copiedFrom(post))
-        case Some(post @ s.Lambda(_, _)) =>
-          sys.error(s"Unexpected number of params for postcondition lambda: $post")
-        case None =>
-          Some(s.Lambda(Seq(vd2), pred).copiedFrom(fd))
-      }
-      case _ => optOldPost
-    }).map(exprOps.Postcondition.apply)
+          case Some(post@s.Lambda(_, _)) =>
+            sys.error(s"Unexpected number of params for postcondition lambda: $post")
+          case None =>
+            Some(s.Lambda(Seq(vd2), pred).copiedFrom(fd))
+        }
+        case _ => optOldPost
+      }).map(exprOps.Postcondition.apply)
 
-    (context.transform(fd.copy(
-      fullBody = specced.addSpec(optPre).withSpec(optPost).reconstructed,
-      returnType = context.dropRefinements(fd.returnType)
-    ).copiedFrom(fd)), ())
+      fd.to(t)(
+        fd.id,
+        fd.tparams.map(identity.transform),
+        newParams.map(identity.transform),
+        transform(dropRefinements(fd.returnType)),
+        transform(specced.addSpec(optPre).withSpec(optPost).reconstructed),
+        fd.flags.map(identity.transform)
+      ).copiedFrom(fd)
+    }
   }
+
+  override protected def extractFunction(context: TransformerContext, fd: s.FunDef): (t.FunDef, Unit) =
+    (context.transform(s.Outer(fd)).toFun, ())
 
   override protected def extractSort(context: TransformerContext, sort: s.ADTSort): ((t.ADTSort, Option[t.FunDef]), Unit) = {
     import s._
@@ -293,6 +303,11 @@ class RefinementLifting(override val s: Trees, override val t: Trees)
   override protected def extractClass(context: TransformerContext, cd: s.ClassDef): (t.ClassDef, Unit) = {
     // TODO: lift refinements to invariant?
     (context.transform(cd), ())
+  }
+
+  private val identity = {
+    class IdentityImpl(override val s: self.s.type, override val t: self.t.type) extends ConcreteTreeTransformer(s, t)
+    new IdentityImpl(self.s, self.t)
   }
 }
 
