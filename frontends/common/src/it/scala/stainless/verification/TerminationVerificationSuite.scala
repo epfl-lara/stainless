@@ -10,7 +10,6 @@ class TerminationVerificationSuite extends VerificationComponentTestSuite {
   override def configurations = super.configurations.map { seq =>
     Seq(
       optFailInvalid(true),
-      verification.optTypeChecker(true),
       termination.optInferMeasures(false),
       termination.optCheckMeasures(YesNoOnly.No),
     ) ++ seq

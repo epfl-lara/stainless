@@ -17,7 +17,6 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
 
   override def configurations: Seq[Seq[inox.OptionValue[_]]] = Seq(
     Seq(
-      verification.optTypeChecker(true),
       inox.optSelectedSolvers(Set("smt-z3:z3-4.8.12")),
       inox.optTimeout(300.seconds),
       verification.optStrictArithmetic(false),
@@ -31,8 +30,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
   override protected def optionsString(options: inox.Options): String = {
     "solvr=" + options.findOptionOrDefault(inox.optSelectedSolvers).head + " " +
     "lucky=" + options.findOptionOrDefault(inox.solvers.unrolling.optFeelingLucky) + " " +
-    "check=" + options.findOptionOrDefault(inox.solvers.optCheckModels) + " "
-    "type-checker=" + options.findOptionOrDefault(verification.optTypeChecker)
+    "check=" + options.findOptionOrDefault(inox.solvers.optCheckModels)
   }
 
   protected def filter(ctx: inox.Context, name: String): FilterStatus = Test

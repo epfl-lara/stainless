@@ -173,7 +173,6 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
     val sd = prepareExtractionSummaryData
     val admitted = ctx.options.findOptionOrDefault(verification.optAdmitVCs)
     val termOff = ctx.options.findOptionOrDefault(stainless.termination.optCheckMeasures).isNo
-    val oldVC = !ctx.options.findOptionOrDefault(verification.optTypeChecker)
     val cache = ctx.options.findOptionOrDefault(verification.optVCCache)
     val solvers = ctx.options.findOptionOrDefault(inox.optSelectedSolvers).toSeq.sorted.mkString(", ")
     val batched = ctx.options.findOptionOrDefault(frontend.optBatchedProgram)
@@ -181,7 +180,6 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
     if (isExtendedSummaryOn) {
       val admitStr = if (admitted) withColor("Admitted VCs", Console.RED, Console.BOLD) else ""
       val termOffStr = if (termOff) withColor("Termination turned off", Console.RED, Console.BOLD) else ""
-      val oldVCStr = if (oldVC) withColor("Old VCs generation", Console.RED, Console.BOLD) else ""
       val cacheStr = if (cache) "Cache used" else ""
 
       def touched(sentance: String, ids: Set[Identifier], prefix: String): String =
@@ -216,13 +214,12 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
       val solversUsed = s"Solvers used: $solvers"
       val procMode = s"Processing mode: ${if (batched) "batched" else "partial"}"
 
-      val items = Seq(admitStr, termOffStr, oldVCStr, cacheStr, aaStr, reStr, weStr, ieStr, teStr, ceStr, solversUsed, procMode).filter(_.nonEmpty)
+      val items = Seq(admitStr, termOffStr, cacheStr, aaStr, reStr, weStr, ieStr, teStr, ceStr, solversUsed, procMode).filter(_.nonEmpty)
       s"""Verification pipeline summary:
          |${items.mkString("  ", "\n  ", "")}""".stripMargin // No join(items) here as their sub-items are already split according to the character limit
     } else {
       val admitStr = if (admitted) withColor("admitted VCs", Console.RED, Console.BOLD) else ""
       val termOffStr = if (termOff) withColor("termination off", Console.RED, Console.BOLD) else ""
-      val oldVCStr = if (oldVC) withColor("old VCs gen", Console.RED, Console.BOLD) else ""
       val cacheStr = if (cache) "cache" else ""
       val aaStr = if (sd.antiAliasing.hasRun) "anti-aliasing" else ""
       val reStr = if (sd.retAndWhileTran.hasReturnRun) "return transformation" else ""
@@ -231,7 +228,7 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
       val teStr = if (sd.typeEncoding.hasRun) "type encoding" else ""
       val ceStr = if (sd.chooseInjection.hasRun) withColor("choose injection", Console.YELLOW, Console.BOLD) else ""
       val batchedStr = if (batched) "batched" else ""
-      val items = Seq(admitStr, termOffStr, oldVCStr, cacheStr, aaStr, reStr, weStr, ieStr, teStr, ceStr, solvers, batchedStr).filter(_.nonEmpty)
+      val items = Seq(admitStr, termOffStr, cacheStr, aaStr, reStr, weStr, ieStr, teStr, ceStr, solvers, batchedStr).filter(_.nonEmpty)
       s"""Verification pipeline summary:
          |${join(items, prefix = "  ")}""".stripMargin
     }
