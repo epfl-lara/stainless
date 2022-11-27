@@ -16,7 +16,6 @@ class TerminationSuite extends VerificationComponentTestSuite {
 
   override def configurations = super.configurations.map { seq =>
     Seq(
-      optTypeChecker(true),
       optInferMeasures(true),
       optCheckMeasures(YesNoOnly.Only),
     ) ++ seq

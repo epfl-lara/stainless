@@ -19,11 +19,6 @@ import stainless.termination.MeasureInference
 object optStrictArithmetic extends inox.FlagOptionDef("strict-arithmetic", true)
 
 /**
- * Generate VC via the System FR type-checker instead of the ad-hoc DefaultTactic.
- */
-object optTypeChecker extends inox.FlagOptionDef("type-checker", true)
-
-/**
  * Verify program using Coq
  */
 object optCoq extends inox.FlagOptionDef("coq", false)
@@ -106,13 +101,8 @@ class VerificationRun private(override val component: VerificationComponent.type
 
       val vcGenEncoder = assertionEncoder
 
-      val vcs = if (context.options.findOptionOrDefault(optTypeChecker))
-        context.timers.verification.get("type-checker").run {
-          TypeChecker(vcGenEncoder.targetProgram, context).checkFunctionsAndADTs(functions)
-        }
-      else {
-        reporter.warning("Old VC generation is deprecated and scheduled for removal in 1.0")
-        VerificationGenerator.gen(vcGenEncoder.targetProgram, context)(functions)
+      val vcs = context.timers.verification.get("type-checker").run {
+        TypeChecker(vcGenEncoder.targetProgram, context).checkFunctionsAndADTs(functions)
       }
 
       if (!functions.isEmpty) {
