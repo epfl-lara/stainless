@@ -73,7 +73,7 @@ class SplitCallBack(components: Seq[Component])(using override val context: inox
   final override def failed(): Unit = ()
 
   final override def endExtractions(): Unit = {
-    reporter.terminateIfFatal()
+    reporter.terminateIfError()
 
     processSymbols(symbols)
 

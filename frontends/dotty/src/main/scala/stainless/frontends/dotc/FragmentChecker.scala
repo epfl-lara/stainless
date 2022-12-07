@@ -335,9 +335,8 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
           }
 
         case dd @ DefDef(_, _, _, _) if sym.isConstructor =>
-          // TODO: what is this?
-          if (dd.termParamss.flatten.exists(p => !(sym.owner.info.member(p.name).symbol isOneOf(CaseAccessor | ParamAccessor))))
-            reportError(tree.sourcePos, "Non-field constructor parameters are not allowed in Stainless.")
+          if (!dd.rhs.isEmpty)
+            reportError(tree.sourcePos, "Auxiliary constructors are not allowed in Stainless.")
           if (dd.termParamss.size > 1)
             reportError(tree.sourcePos, "Multi-clauses classes are not allowed in Stainless.")
           if (dd.termParamss.flatten.nonEmpty && (sym.owner isOneOf AbstractOrTrait))
