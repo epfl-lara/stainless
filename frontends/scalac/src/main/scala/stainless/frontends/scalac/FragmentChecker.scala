@@ -305,9 +305,9 @@ trait FragmentChecker extends SubComponent { self: StainlessExtraction =>
 
           atOwner(sym)(traverse(impl))
 
-        case DefDef(_, _, _, _, _, rhs) if sym.isConstructor =>
-          if (sym.info.paramss.flatten.exists(p => !sym.owner.info.member(p.name).isAccessor))
-            reportError(tree.pos, "Non-field constructor parameters are not allowed in Stainless.")
+        case DefDef(_, _, _, _, _, rhs) if sym.isClassConstructor =>
+          if (sym.isAuxiliaryConstructor)
+            reportError(tree.pos, "Auxiliary constructors are not allowed in Stainless.")
           if (!sym.info.paramss.flatten.isEmpty && sym.owner.isAbstractClass)
             reportError(tree.pos, "Abstract class constructor parameters are not allowed in Stainless.")
           atOwner(sym)(traverse(rhs))
