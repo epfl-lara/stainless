@@ -164,24 +164,28 @@ Using sources:
 
 2. Create a folder to put compiled Scala objects: ``mkdir -p ~/.scala_objects``
 
-3. Compile your code (here in ``MyFile.scala``, though you can have more than one file) while referring to the Stainless library sources: ``scalac -d ~/.scala_objects $(find /path/to/Stainless/frontends/library/stainless/ -name "*.scala") MyFile.scala``
+3. Compile your code (here in ``MyFile.scala``, though you can have more than one file) while referring to the Stainless library sources: ``scalac -d ~/.scala_objects $(find /path/to/stainless/frontends/library/stainless/ -name "*.scala") MyFile.scala``
 
 4. Run your code (replace ``MyMainClass`` with the name of your main object): ``scala -cp ~/.scala_objects MyMainClass``
 
 Using jar:
 
-You can package the scala library into a jar to avoid the need to compile it every time. For example (for stainless 0.9.6) you can use:
+You can package the Stainless library into a jar to avoid the need to compile it every time:
 
 .. code-block:: bash
 
     $ cd path/to/stainless/
-    $ sbt stainless-library/package
+    $ sbt stainless-library/packageBin
 
-Add the generated stainless library jar file when invoking the compiler with `scalac` and the JVM with `scala` or `java`:
+Add the generated Stainless library jar file when invoking the compiler with ``scalac`` and the JVM with ``scala`` or ``java``. For instance:
 
 .. code-block:: bash
 
-    $ scalac -d ~/.scala_objects -cp /path/to/stainless/frontends/library/target/scala-2.13/stainless-library_2.13-0.9.6.jar MyFile.scala
+    $ mkdir -p ~/.scala_objects
+    $ scalac -d ~/.scala_objects -cp /path/to/stainless/frontends/library/target/scala-2.13/stainless-library_2.13-X.Y.Z-A-BCDEFGHI.jar MyFile1.scala MyFile2.scala # and so on
+    $ scala -cp ~/.scala_objects:/path/to/stainless/frontends/library/target/scala-2.13/stainless-library_2.13-X.Y.Z-A-BCDEFGHI.jar MyMainClass
+
+where ``X.Y.Z`` is the Stainless version and ``A-BCDEFGHI`` is some hash (which can be autocompleted by the terminal).
 
 .. _smt-solvers:
 
