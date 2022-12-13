@@ -102,7 +102,4 @@ Scala code written with Stainless library dependencies can be compiled and run u
 library sources available on the `Stainless github repository <https://github.com/epfl-lara/stainless>`_,
 along with the scala compiler and runner script.
 
-.. code-block:: bash
-
-  scalac -d /some_folder_for_compiled_classes/ $(find /path/to/stainless/frontends/library/stainless/ -name "*.scala") File1.scala File2.scala ...
-  scala -cp /some_folder_for_compiled_classes/ $(find /path/to/stainless/frontends/library/stainless/ -name "*.scala") MainClassName
+See the :ref:`installation documentation <running-code>` for more information.
