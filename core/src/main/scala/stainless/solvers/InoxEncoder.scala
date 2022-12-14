@@ -102,9 +102,9 @@ private class TreeEncoder[Prog <: Program](val sourceProgram: Prog)
           t.BooleanLiteral(true).copiedFrom(e)
         ).copiedFrom(e)
 
-      case s.Error(tpe, desc) =>
+      case s.Error(tpe, _) =>
         t.Choose(
-          t.ValDef(FreshIdentifier("error: " + desc, true), transform(tpe)).copiedFrom(e),
+          t.ValDef(FreshIdentifier("err", true), transform(tpe)).copiedFrom(e),
           t.BooleanLiteral(true).copiedFrom(e)
         ).copiedFrom(e)
 
