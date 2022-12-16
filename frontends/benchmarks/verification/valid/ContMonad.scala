@@ -27,7 +27,7 @@ object ContMonad {
   @inline
   def cont[R, A](f: (A => R) => R): Cont[R, A] = Cont(f)
 
-  // @inline
+  @inline
   def callCC[R, A, B](f: (A => Cont[R, B]) => Cont[R, A]): Cont[R, A] = cont { k =>
     f(a => cont(_ => k(a))).runCont(k)
   }
@@ -46,6 +46,7 @@ object ContMonad_Throw {
     }
   */
 
+  @inline
   def tryCont[R, E, A](h: E => Cont[R, A])(c: (E => Cont[R, A]) => Cont[R, A]): Cont[R, A] =
     callCC[R, A, E] { ok =>
       val ifErr = callCC[R, E, A] { notOk =>
@@ -55,6 +56,7 @@ object ContMonad_Throw {
       ifErr flatMap h
     }
 
+  @inline
   def div[R](a: Int, b: Int)(onError: DivideByZero => Cont[R, Int]): Cont[R, Int] =
     tryCont(onError) { throws =>
       if (b == 0) throws(DivideByZero(a))

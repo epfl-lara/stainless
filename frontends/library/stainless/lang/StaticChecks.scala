@@ -11,12 +11,12 @@ object StaticChecks {
 
   @library @ignore
   implicit class WhileDecorations(val u: Unit) {
-    def invariant(@ghost x: Boolean): Unit = {
+    def invariant(@ghost x: => Boolean): Unit = {
       require(x)
       u
     }
 
-    def noReturnInvariant(@ghost x: Boolean): Unit = {
+    def noReturnInvariant(@ghost x: => Boolean): Unit = {
       require(x)
       u
     }
@@ -26,10 +26,10 @@ object StaticChecks {
   }
 
   @library
-  def require(@ghost pred: Boolean): Unit = ()
+  def require(@ghost pred: => Boolean): Unit = ()
 
   @library
-  def assert(@ghost pred: Boolean): Unit = ()
+  def assert(@ghost pred: => Boolean): Unit = ()
 
 }
 

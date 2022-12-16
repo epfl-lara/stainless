@@ -8,7 +8,7 @@ import stainless.lang.StaticChecks._
 package object lang {
 
   @library
-  def ghost[A](@ghost value: A): Unit = ()
+  def ghost[A](@ghost value: => A): Unit = ()
 
   @library
   def indexedAt[T](n: BigInt, t: T): T = (??? : T)
