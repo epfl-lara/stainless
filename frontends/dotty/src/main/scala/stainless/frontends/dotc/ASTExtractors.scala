@@ -1567,6 +1567,15 @@ trait ASTExtractors {
       }
     }
 
+    object ExGhost {
+      def unapply(tree: tpd.Apply): Option[tpd.Tree] = tree match {
+        case Apply(TypeApply(ExSymbol("stainless", "lang", "package$", "ghost"), _), List(body)) =>
+          Some(body)
+        case _ =>
+          None
+      }
+    }
+
     object ExIndexedAt {
       def unapply(annot: Annotation): Option[tpd.Tree] = annot match {
         case ConcreteAnnotation(

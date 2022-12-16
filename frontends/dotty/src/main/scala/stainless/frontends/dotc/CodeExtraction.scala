@@ -1723,6 +1723,9 @@ class CodeExtraction(inoxCtx: inox.Context, symbolMapping: SymbolMapping)(using 
     case ExSplitAnd(lhs, rhs) =>
       xt.SplitAnd(extractTree(lhs), extractTree(rhs))
 
+    case ExGhost(body) =>
+      xt.Annotated(extractTree(body), Seq(xt.Ghost))
+
     case app @ Apply(tree, args) if defn.isFunctionType(tree.tpe) =>
       xt.Application(extractTree(tree), args map extractTree).setPos(app.sourcePos)
 

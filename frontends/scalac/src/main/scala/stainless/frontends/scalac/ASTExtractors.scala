@@ -369,6 +369,14 @@ trait ASTExtractors(val global: Global) {
       }
     }
 
+    object ExGhost {
+      def unapply(tree: Apply): Option[Tree] = tree match {
+        case a@Apply(TypeApply(s@ExSymbol("stainless", "lang", "ghost"), _), body :: Nil) =>
+          Some(body)
+        case _ => None
+      }
+    }
+
     /** Extracts the 'require' contract from an expression (only if it's the
      * first call in the block). */
     object ExRequiredExpression {

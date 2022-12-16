@@ -1491,6 +1491,9 @@ trait CodeExtraction extends ASTExtractors {
     case ExSplitAnd(lhs, rhs) =>
       xt.SplitAnd(extractTree(lhs), extractTree(rhs))
 
+    case ExGhost(body) =>
+      xt.Annotated(extractTree(body), Seq(xt.Ghost))
+
     case c @ ExCall(rec, sym, tps, args) => rec match {
       case None if sym.owner.isModuleClass && sym.owner.isCase =>
         val ct = extractType(sym.owner.tpe)(using dctx, c.pos).asInstanceOf[xt.ClassType]
