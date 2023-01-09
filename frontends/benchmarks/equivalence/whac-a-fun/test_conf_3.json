@@ -1,0 +1,8 @@
+{
+  "models": [
+    "WhacAFun.flip1"
+  ],
+  "comparefuns": [
+    "WhacAFun.flip2"
+  ]
+}

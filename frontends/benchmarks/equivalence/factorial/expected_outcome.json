@@ -1,0 +1,13 @@
+{
+  "equivalent": [
+    {
+      "model": "Factorial.fact14_1",
+      "functions": [
+        "Factorial.fact14_2"
+      ]
+    }
+  ],
+  "erroneous": [],
+  "timeout": [],
+  "wrong": []
+}

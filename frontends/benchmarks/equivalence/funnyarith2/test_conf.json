@@ -1,0 +1,9 @@
+{
+  "models": [
+    "Model.eval"
+  ],
+  "comparefuns": [
+    "Candidate.eval"
+  ],
+  "max-perm": 32
+}

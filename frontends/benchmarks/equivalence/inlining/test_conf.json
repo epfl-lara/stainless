@@ -1,0 +1,8 @@
+{
+  "models": [
+    "Inlining.inlining_1"
+  ],
+  "comparefuns": [
+    "Inlining.inlining_2"
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "models": [
+    "Model.isEvenTopLvl"
+  ],
+  "comparefuns": [
+    "Candidate.isEvenTopLvl"
+  ]
+}

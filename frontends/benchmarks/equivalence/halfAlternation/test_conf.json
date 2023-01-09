@@ -1,0 +1,8 @@
+{
+  "models": [
+    "HalfAlternation.h1"
+  ],
+  "comparefuns": [
+    "HalfAlternation.h2"
+  ]
+}

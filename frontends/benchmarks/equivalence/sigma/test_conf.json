@@ -1,0 +1,9 @@
+{
+  "models": [
+    "Model.sigma"
+  ],
+  "comparefuns": [
+    "Candidate.sigma"
+  ],
+  "tests": []
+}

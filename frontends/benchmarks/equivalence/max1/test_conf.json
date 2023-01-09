@@ -1,0 +1,9 @@
+{
+  "models": [
+    "Max.maxR"
+  ],
+  "comparefuns": [
+    "Max.maxC",
+    "Max.maxT"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "equivalent": [
+    {
+      "model": "Fibonacci.f1",
+      "functions": [
+        "Fibonacci.f2"
+      ]
+    }
+  ],
+  "erroneous": [],
+  "timeout": [],
+  "wrong": []
+}

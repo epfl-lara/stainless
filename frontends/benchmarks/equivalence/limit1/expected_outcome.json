@@ -1,0 +1,13 @@
+{
+  "equivalent": [
+    {
+      "model": "Limit1.limit1_1",
+      "functions": [
+        "Limit1.limit1_2"
+      ]
+    }
+  ],
+  "erroneous": [],
+  "timeout": [],
+  "wrong": []
+}

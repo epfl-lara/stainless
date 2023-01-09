@@ -1,0 +1,8 @@
+{
+  "models": [
+    "AddHorn.add_horn_1"
+  ],
+  "comparefuns": [
+    "AddHorn.add_horn_2"
+  ]
+}

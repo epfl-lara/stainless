@@ -1,0 +1,14 @@
+{
+  "models": [
+    "Model.validCitySettlement"
+  ],
+  "comparefuns": [
+    "Candidate1.validCitySettlement",
+    "Candidate2.validCitySettlement",
+    "Candidate3.validCitySettlement",
+    "Candidate4.validCitySettlement"
+  ],
+  "tests": [
+    "Model.testsValidCitySettlement"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "equivalent": [
+    {
+      "model": "i1264.replace",
+      "functions": [
+        "i1264.slowReplace"
+      ]
+    }
+  ],
+  "erroneous": [],
+  "timeout": [],
+  "wrong": []
+}

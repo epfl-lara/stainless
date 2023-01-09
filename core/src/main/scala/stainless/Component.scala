@@ -3,10 +3,11 @@
 package stainless
 
 import utils.{CheckFilter, DefinitionIdFinder, DependenciesFinder}
-import extraction.xlang.trees as xt
-import io.circe.*
+import extraction.xlang.{trees => xt}
+import io.circe._
 import stainless.extraction.ExtractionSummary
 
+import java.io.File
 import scala.concurrent.Future
 
 trait Component { self =>
@@ -29,27 +30,6 @@ object optFunctions extends inox.OptionDef[Seq[String]] {
   val default = Seq[String]()
   val parser = inox.OptionParsers.seqParser(inox.OptionParsers.stringParser)
   val usageRhs = "f1,f2,..."
-}
-
-object optCompareFuns extends inox.OptionDef[Seq[String]] {
-  val name = "comparefuns"
-  val default = Seq[String]()
-  val parser = inox.OptionParsers.seqParser(inox.OptionParsers.stringParser)
-  val usageRhs = "f1,f2,..."
-}
-
-object optModels extends inox.OptionDef[Seq[String]] {
-  val name = "models"
-  val default = Seq[String]()
-  val parser = inox.OptionParsers.seqParser(inox.OptionParsers.stringParser)
-  val usageRhs = "f1,f2,..."
-}
-
-object optNorm extends inox.OptionDef[String] {
-  val name = "norm"
-  val default = ""
-  val parser = inox.OptionParsers.stringParser
-  val usageRhs = "f"
 }
 
 trait ComponentRun { self =>

@@ -1,0 +1,12 @@
+{
+  "models": [
+    "Model.solution_1",
+    "Model.solution_2",
+    "Model.solution_3",
+    "Model.solution_4"
+  ],
+  "comparefuns": [
+    "Candidate1.uniq",
+    "Candidate2.uniq"
+  ]
+}

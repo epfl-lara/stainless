@@ -1,0 +1,22 @@
+{
+  "equivalent": [
+    {
+      "model": "Model.adjacencyBonus2",
+      "functions": [
+        "Candidate1.adjacencyBonus"
+      ]
+    },
+    {
+      "model": "Model.adjacencyBonus1",
+      "functions": [
+        "Candidate2.adjacencyBonus"
+      ]
+    }
+  ],
+  "erroneous": [
+    "Candidate3.adjacencyBonus",
+    "Candidate4.adjacencyBonus"
+  ],
+  "timeout": [],
+  "wrong": []
+}

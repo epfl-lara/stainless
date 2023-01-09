@@ -1,0 +1,12 @@
+{
+  "models": [
+    "Model.unfoldingSorted"
+  ],
+  "comparefuns": [
+    "Candidate1.unfoldingSorted",
+    "Candidate2.unfoldingSorted",
+    "Candidate3.unfoldingSorted",
+    "Candidate4.unfoldingSorted",
+    "Candidate5.unfoldingSorted"
+  ]
+}

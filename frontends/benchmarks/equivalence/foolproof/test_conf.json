@@ -1,0 +1,9 @@
+{
+  "models": [
+    "Model.funnyZip"
+  ],
+  "comparefuns": [
+    "Candidate.funnyZip"
+  ],
+  "tests": []
+}

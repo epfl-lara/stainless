@@ -1,0 +1,17 @@
+{
+  "equivalent": [
+    {
+      "model": "Model.validCitySettlement",
+      "functions": [
+        "Candidate1.validCitySettlement"
+      ]
+    }
+  ],
+  "erroneous": [
+    "Candidate2.validCitySettlement",
+    "Candidate3.validCitySettlement",
+    "Candidate4.validCitySettlement"
+  ],
+  "timeout": [],
+  "wrong": []
+}

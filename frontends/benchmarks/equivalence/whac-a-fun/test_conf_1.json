@@ -1,0 +1,8 @@
+{
+  "models": [
+    "WhacAFun.andThen1"
+  ],
+  "comparefuns": [
+    "WhacAFun.andThen2"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "equivalent": [
+    {
+      "model": "Uniq.uniqR",
+      "functions": [
+        "Uniq.uniqA"
+      ]
+    }
+  ],
+  "erroneous": [],
+  "timeout": [],
+  "wrong": []
+}

@@ -1,0 +1,13 @@
+{
+  "equivalent": [
+    {
+      "model": "Model.sculpteurDeNuage",
+      "functions": [
+        "Candidate.sculpteurDeNuage"
+      ]
+    }
+  ],
+  "erroneous": [],
+  "timeout": [],
+  "wrong": []
+}

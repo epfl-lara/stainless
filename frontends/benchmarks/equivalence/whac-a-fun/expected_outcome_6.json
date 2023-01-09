@@ -1,0 +1,13 @@
+{
+  "equivalent": [
+    {
+      "model": "WhacAFun.repeat1",
+      "functions": [
+        "WhacAFun.repeat2"
+      ]
+    }
+  ],
+  "erroneous": [],
+  "timeout": [],
+  "wrong": []
+}

@@ -1,0 +1,13 @@
+{
+  "equivalent": [
+    {
+      "model": "WhacAFun.curry1",
+      "functions": [
+        "WhacAFun.curry2"
+      ]
+    }
+  ],
+  "erroneous": [],
+  "timeout": [],
+  "wrong": []
+}
