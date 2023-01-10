@@ -189,8 +189,9 @@ lazy val libFilesFile = "libfiles.txt" // file storing list of library file name
 
 lazy val regenFilesFile = false
 
-lazy val libraryFiles: Seq[(String, File)] = {
-  val libFiles = ((root.base / "frontends" / "library" / "stainless") ** "*.scala").get
+def libraryFiles(baseDir: File): Seq[(String, File)] = {
+  // Note baseDir.value is either frontends/scalac or frontends/dotty, so we need to go up two levels with / .. / .. /
+  val libFiles = ((baseDir / ".." / ".." / "frontends" / "library" / "stainless") ** "*.scala").get
   val dropCount = (libFiles.head.getPath indexOfSlice "library") + ("library".size + 1 /* for separator */)
   val res : Seq[(String, File)] = libFiles.map(file => (file.getPath drop dropCount, file)) // Drop the prefix of the path (i.e. everything before "library")
   if (regenFilesFile) {
@@ -206,15 +207,16 @@ def commonFrontendSettings(compilerVersion: String): Seq[Setting[_]] = Defaults.
   /**
     * NOTE: IntelliJ seems to have trouble including sources located outside the base directory of an
     *   sbt project. You can temporarily disable the following four lines when importing the project.
+    * NOTE 2: baseDirectory.value is either frontends/scalac or frontends/dotty, so we need to go up two levels with / .. / .. /
     */
-  IntegrationTest / unmanagedResourceDirectories += (root.base / "frontends" / "benchmarks"),
-  Compile / unmanagedSourceDirectories           += (root.base.getAbsoluteFile / "frontends" / "common" / "src" / "main" / "scala"),
-  Test / unmanagedSourceDirectories              += (root.base.getAbsoluteFile / "frontends" / "common" / "src" / "test" / "scala"),
-  IntegrationTest / unmanagedSourceDirectories   += (root.base.getAbsoluteFile / "frontends" / "common" / "src" / "it" / "scala"),
+  IntegrationTest / unmanagedResourceDirectories += (baseDirectory.value / ".." / ".." / "frontends" / "benchmarks"),
+  Compile / unmanagedSourceDirectories           += (baseDirectory.value / ".." / ".." / "frontends" / "common" / "src" / "main" / "scala"),
+  Test / unmanagedSourceDirectories              += (baseDirectory.value / ".." / ".." / "frontends" / "common" / "src" / "test" / "scala"),
+  IntegrationTest / unmanagedSourceDirectories   += (baseDirectory.value / ".." / ".." / "frontends" / "common" / "src" / "it" / "scala"),
 
   // We have to use managed resources here to keep sbt's source watcher happy
   Compile / resourceGenerators += Def.task {
-    for ((libPath, libFile) <- libraryFiles) yield {
+    for ((libPath, libFile) <- libraryFiles(baseDirectory.value)) yield {
       val resourceFile = (Compile / resourceManaged).value / libPath
       IO.write(resourceFile, IO.read(libFile))
       resourceFile
@@ -240,7 +242,7 @@ def commonFrontendSettings(compilerVersion: String): Seq[Setting[_]] = Defaults.
           |    reporter.info(s"Bundled Scala compiler: $$compilerVersion")
           |  }
           |
-          |  val defaultPaths = List(${removeSlashU(libraryFiles.map(_._1).mkString("\"\"\"", "\"\"\",\n \"\"\"", "\"\"\""))})
+          |  val defaultPaths = List(${removeSlashU(libraryFiles(baseDirectory.value).map(_._1).mkString("\"\"\"", "\"\"\",\n \"\"\"", "\"\"\""))})
           |  val libPaths = try {
           |    val source = scala.io.Source.fromFile(\"${libFilesFile}\")
           |    try source.getLines().toList finally source.close()
