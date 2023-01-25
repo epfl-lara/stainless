@@ -170,6 +170,11 @@ trait Definitions {
       case _ => false
     }
 
+    def isIfExpr: Boolean = this match {
+      case IfExpr => true
+      case _ => false
+    }
+
     lazy val hc: Int = java.util.Objects.hash(this.ordinal)
     override def hashCode(): Int = hc
   }
@@ -177,6 +182,8 @@ trait Definitions {
     type AssumeLike = Label.Assume.type | Label.Assert.type | Label.Require.type | Label.Decreases.type
 
     type LambdaLike = Label.Lambda | Label.Choose | Label.Forall
+
+    type Rel = Label.Equals.type | Label.GreaterEquals.type | Label.GreaterThan.type | Label.LessEquals.type | Label.LessThan.type
 
     object LambdaLike {
       def unapply(l: LambdaLike): Seq[VarId] = l match {

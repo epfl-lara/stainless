@@ -136,9 +136,9 @@ trait VerificationChecker { self =>
           // Note: the class instance is outside of the closure scope to avoid repeated creation instances
           // (so that computation can be preserved across VCs)
           val latticeSimp = LatticesSimplifier(trees, symbols, PurityOptions.assumeChecked, toLatticeAlgo(lat))
-          (e: Expr) => latticeSimp.simplify(simplifyLets(removeAssertions(e)))
+          (e: Expr) => latticeSimp.simplify(simplifyLets(removeAssertionsAndGhostAnnotations(e)))
         case Vanilla =>
-          (e: Expr) => simplifyExpr(simplifyLets(removeAssertions(e)))(using PurityOptions.assumeChecked)
+          (e: Expr) => simplifyExpr(simplifyLets(removeAssertionsAndGhostAnnotations(e)))(using PurityOptions.assumeChecked)
       }
     }
 
@@ -253,11 +253,11 @@ trait VerificationChecker { self =>
     }
   }
 
-  private def removeAssertions(expr: Expr): Expr = {
+  private def removeAssertionsAndGhostAnnotations(expr: Expr): Expr = {
     exprOps.postMap {
       case Assert(_, _, e) => Some(e)
       case Annotated(e, flags0) =>
-        val flags = flags0.filter(f => f != DropVCs && f != DropConjunct)
+        val flags = flags0.filter(f => f != DropVCs && f != DropConjunct && f != Ghost)
         if (flags.isEmpty) Some(e)
         else Some(Annotated(e, flags).copiedFrom(expr))
       case _ => None
@@ -276,7 +276,6 @@ trait VerificationChecker { self =>
 
   protected def checkVC(vc: VC, origVC: VC, sf: SolverFactory { val program: self.program.type }): VCResult = {
     import SolverResponses._
-
     val cond = vc.condition
     if (cond == BooleanLiteral(true)) {
       return VCResult(VCStatus.Trivial, None, None)

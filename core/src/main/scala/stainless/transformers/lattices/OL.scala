@@ -11,11 +11,19 @@ trait OL extends Core {
   import Purity._
   import scala.collection.mutable
 
+  private val leqCacheThreshold = 50000
   private val leqCache = mutable.Map.empty[(Code, Code), Boolean]
 
   override final def impliedImpl(rhs: Code)(using env: Env, ctxs: Ctxs): Boolean = {
     val lhsConj = conjunct(ctxs.allConds)
     latticesLeq(lhsConj, rhs)
+  }
+
+  override def clearCaches(): Unit = {
+    super.clearCaches()
+    if (leqCache.size > leqCacheThreshold) {
+      leqCache.clear()
+    }
   }
 
   final def latticesLeq(lhs: Code, rhs: Code): Boolean = {
@@ -39,20 +47,107 @@ trait OL extends Core {
       case (OrSig(disjs, false), _) =>
         disjs.exists(c => latticesLeq(negCodeOf(c), rhs))
 
-      case (EqSig(lhs1, rhs1), LeqSig(lhs2, rhs2)) => lhs1 == lhs2 && rhs1 == rhs2
-      case (EqSig(lhs1, rhs1), GeqSig(lhs2, rhs2)) => lhs1 == lhs2 && rhs1 == rhs2
-      case (LtSig(lhs1, rhs1), LeqSig(lhs2, rhs2)) => lhs1 == lhs2 && rhs1 == rhs2
-      case (GtSig(lhs1, rhs1), GeqSig(lhs2, rhs2)) => lhs1 == lhs2 && rhs1 == rhs2
+      case (ArithRel(lhs, lhsKind), ArithRel(rhs, rhsKind)) =>
+        arithLeq(ArithRel(lhs, lhsKind), ArithRel(rhs, rhsKind))
 
-      case (LtSig(lhs1, rhs1), NotSig(EqCode(lhs2, rhs2))) => lhs1 == lhs2 && rhs1 == rhs2
-      case (GtSig(lhs1, rhs1), NotSig(EqCode(lhs2, rhs2))) => lhs1 == lhs2 && rhs1 == rhs2
+      // i == j ==> a(i) == a(j)
+      case (EqSig(i, j), EqSig(ArraySelCode(a1, ii), ArraySelCode(a2, jj))) => a1 == a2 && i == ii && j == jj
+      // i == j ==> a[i := v](j) == v
+      //            a[j := v](i) == v
+      case (EqSig(i, j), EqSig(ArraySelCode(ArrayUpdCode(_, updIx, v1), selIx), v2)) => v1 == v2 && ((updIx == i && selIx == j) || (updIx == j && selIx == i))
+      // i != j ==> a[i := v](j) = a(j)
+      //            a[j := v](i) = a(i)
+      case (NotSig(EqCode(i, j)), EqSig(c1, c2)) =>
+        def leq(a1: Code, updIx: Code, selIx1: Code, a2: Code, selIx2: Code): Boolean =
+          a1 == a2 && selIx1 == selIx2 && ((updIx == i && selIx1 == j) || (updIx == j && selIx1 == i))
+
+        (code2sig(c1), code2sig(c2)) match {
+          case (ArraySelSig(ArrayUpdCode(a1, updIx, _), selIx1), ArraySelSig(a2, selIx2)) => leq(a1, updIx, selIx1, a2, selIx2)
+          case (ArraySelSig(a2, selIx2), ArraySelSig(ArrayUpdCode(a1, updIx, _), selIx1)) => leq(a1, updIx, selIx1, a2, selIx2)
+          case _ => false
+        }
+
+      case (Signature(Label.IfExpr, Seq(cond, thn, els)), _) =>
+        latticesLeq(adaptIf(cond, thn, els), rhs)
+
+      case (_, Signature(Label.IfExpr, Seq(cond, thn, els))) =>
+        latticesLeq(lhs, adaptIf(cond, thn, els))
 
       case _ => false
     })
   }
 
-  override final def doSimplifyDisjunction(disjs: Seq[Code], polarity: Boolean)(using Env, Ctxs): Seq[Code] = {
-    if (disjs.size <= 1) return disjs
+  enum ArithRelKind {
+    case Eq
+    case Neq
+    case Lt
+    case Leq
+  }
+  // rhs is always 0
+  case class ArithRel(lhs: LinComb, kind: ArithRelKind)
+  object ArithRel {
+    def unapply(sig: Signature): Option[ArithRel] = {
+      val (lhs, rhs, kind) = sig match {
+        case EqSig(lhs, rhs) => (lhs, rhs, ArithRelKind.Eq)
+        case LeqSig(lhs, rhs) => (lhs, rhs, ArithRelKind.Leq)
+        case LtSig(lhs, rhs) => (lhs, rhs, ArithRelKind.Lt)
+        case GeqSig(lhs, rhs) => (rhs, lhs, ArithRelKind.Leq)
+        case GtSig(lhs, rhs) => (rhs, lhs, ArithRelKind.Lt)
+        case NotSig(EqCode(lhs, rhs)) => (lhs, rhs, ArithRelKind.Neq)
+        case _ => return None
+      }
+      assert(codeTpe(lhs) == codeTpe(rhs))
+      if (isIntLikeType(lhs)) // Guard against RealType
+        Some(ArithRel(toLinComb(lhs) - toLinComb(rhs), kind))
+      else None
+    }
+  }
+
+  final def arithLeq(lhs: ArithRel, rhs: ArithRel): Boolean = {
+    if (lhs.lhs.tpe != rhs.lhs.tpe) {
+      return false
+    }
+    val unbounded = lhs.lhs.tpe == IntegerType()
+    val diff = lhs.lhs - rhs.lhs
+    diff.terms.isEmpty && ((lhs.kind, rhs.kind) match {
+      case (ArithRelKind.Neq, ArithRelKind.Neq) => diff.cst == 0
+      case (ArithRelKind.Eq, ArithRelKind.Eq) => diff.cst == 0
+      // x + a <= 0  ==> x + b <= 0  <==   a >= b
+      case (ArithRelKind.Leq, ArithRelKind.Leq) =>
+        if (unbounded) diff.cst >= 0
+        else diff.cst == 0
+      // x + a < 0   ==> x + b < 0   <==   a >= b
+      case (ArithRelKind.Lt, ArithRelKind.Lt) =>
+        if (unbounded) diff.cst >= 0
+        else diff.cst == 0
+
+      // x + a <= 0  ==> x + b < 0   <==   a >= b + 1
+      case (ArithRelKind.Leq, ArithRelKind.Lt) =>
+        if (unbounded) diff.cst >= 1
+        else diff.cst == 1
+      // x + a < 0   ==> x + b <= 0  <==   a >= b - 1
+      case (ArithRelKind.Lt, ArithRelKind.Leq) =>
+        if (unbounded) diff.cst >= -1
+        else diff.cst == -1
+
+      // x + a < 0 ==> x + b != 0    <==   a == b
+      case (ArithRelKind.Lt, ArithRelKind.Neq) => diff.cst == 0
+
+      // x + a == 0 ==> x + b <= 0   <==   a >= b
+      case (ArithRelKind.Eq, ArithRelKind.Leq) =>
+        if (unbounded) diff.cst >= 0
+        else diff.cst == 0
+      // x + a == 0 ==> x + b < 0    <==   a >= b + 1
+      case (ArithRelKind.Eq, ArithRelKind.Lt) =>
+        if (unbounded) diff.cst >= 1
+        else diff.cst == 1
+
+      case _ => false
+    })
+  }
+
+  override final def doSimplifyDisjunction(disjs: Seq[Code], polarity: Boolean)(using env: Env, ctxs: Ctxs): Seq[Code] = {
+    if (disjs.size <= 1 || env.forceBinding) return disjs
 
     val nonSimp = {
       val or = codeOfDisjs(disjs)
@@ -60,23 +155,49 @@ trait OL extends Core {
       else codeOfSig(mkNot(or), BoolTy)
     }
 
+    // An expression must be pure in order to be dropped
+    def canBeDropped(c: Code): Boolean = {
+      val isPure = codePurity(c).isPure
+      code2sig(c) match {
+        case OrSig(disjs, _) =>
+          // For disjunctions, we furthermore require that all of their disjunctions to be pure as well.
+          // Note that if `c` is bound, it is considered pure even though its disjunction are impure.
+          isPure && disjs.forall(codePurity(_).isPure)
+
+        case _ => isPure
+      }
+    }
+
     def treatChild(phiKs: Code): Seq[Code] = code2sig(phiKs) match {
       case OrSig(psiJs, true) => psiJs
       case OrSig(psiJs, false) =>
+        val psiJsDropability = psiJs.map(canBeDropped)
         if (polarity) {
-          findMap(psiJs) { psiJ =>
+          findMap(psiJs.zipWithIndex) { case (psiJ, j) =>
+            val doTreatChild = psiJsDropability.zipWithIndex.forall {
+              // We drop the other psiJ if we meet these two conditions
+              // -The other psiJs can be dropped (i.e. are pure)
+              // -The current psiJ that we will keep is already bound (i.e. "evaluated")
+              case (drop, k) => drop || (j == k && ctxs.isBoundDef(psiJ))
+            }
             val neg = negCodeOf(psiJ)
-            if (latticesLeq(neg, nonSimp)) Some(treatChild(neg))
+            if (doTreatChild && latticesLeq(neg, nonSimp)) Some(treatChild(neg))
             else None
           }.getOrElse(Seq(phiKs))
         } else {
-          findMap(psiJs) { psiJ =>
-            if (latticesLeq(nonSimp, psiJ)) Some(treatChild(negCodeOf(psiJ)))
+          findMap(psiJs.zipWithIndex) { case (psiJ, j) =>
+            val doTreatChild = psiJsDropability.zipWithIndex.forall {
+              case (drop, k) => drop || (j == k && ctxs.isBoundDef(psiJ))
+            }
+            if (doTreatChild && latticesLeq(nonSimp, psiJ)) Some(treatChild(negCodeOf(psiJ)))
             else None
           }.getOrElse(Seq(phiKs))
         }
       case _ => Seq(phiKs)
     }
+
+    val disjs2 = disjs.flatMap(treatChild)
+    val disjs2Dropability = disjs2.forall(canBeDropped)
 
     def rec(remaining: Seq[Code], accepted: Seq[Code]): Seq[Code] = remaining match {
       case Seq() => accepted
@@ -84,13 +205,12 @@ trait OL extends Core {
         if (remaining.size + accepted.size == 0) Seq(current)
         else {
           val all = codeOfDisjs(remaining ++ accepted)
-          val accept = !latticesLeq(current, all) || !codePurity(current).isPure
+          val accept = !disjs2Dropability || !latticesLeq(current, all)
           rec(remaining, if (accept) accepted :+ current else accepted)
         }
     }
 
-    val disjs2 = disjs.flatMap(treatChild)
-    rec(disjs2, Seq.empty)
+    rec(disjs2, Seq.empty).distinct
   }
 
   // (We denote disjunctions phi_1,...,phi_n)
@@ -112,11 +232,22 @@ trait OL extends Core {
     assert(disjs.size >= 2)
     val negDisjs = disjs map negCodeOf
     val disjsCode = codeOfDisjs(disjs)
-    for {
-      i <- indexWhereOpt(negDisjs)(latticesLeq(_, disjsCode))
-      negPhiI = negDisjs(i)
-      k <- indexWhereOpt(disjs)(latticesLeq(negPhiI, _))
-    } yield math.max(i, k)
+    indexWhereOpt(negDisjs)(latticesLeq(_, disjsCode)).map { i =>
+      val negPhiI = negDisjs(i)
+      val k = indexWhereOpt(disjs)(latticesLeq(negPhiI, _))
+        .getOrElse(disjs.length - 1)
+      math.max(i, k)
+    }
+  }
+
+  private def adaptIf(cond: Code, thn: Code, els: Code): Code = {
+    // cond ==> thn && !cond ==> els
+    // !cond \/ thn && cond \/ els
+    // !(!(cond \/ thn) \/ !(cond \/ els))
+    val thnPart = codeOfSig(mkOr(Seq(negCodeOf(cond), thn)), BoolTy)
+    val elsPart = codeOfSig(mkOr(Seq(cond, els)), BoolTy)
+    val disj = codeOfSig(mkOr(Seq(negCodeOf(thnPart), negCodeOf(elsPart))), BoolTy)
+    negCodeOf(disj)
   }
 }
 
