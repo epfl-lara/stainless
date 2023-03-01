@@ -236,14 +236,16 @@ trait ASTExtractors(val global: Global) {
     /** Extracts the 'ensuring' contract from an expression. */
     object ExEnsuredExpression {
       def unapply(tree: Apply): Option[(Tree,Tree,Boolean)] = tree match {
+        // An optional message may comes after `contract`, but we do not make use of it.
         case Apply(Select(Apply(TypeApply(
               ExSelected("scala", "Predef", "Ensuring"),
-              _ :: Nil), body :: Nil), ExNamed("ensuring")), contract :: Nil)
+              _ :: Nil), body :: Nil), ExNamed("ensuring")), contract :: _)
           => Some((body, contract, false))
 
+        // Ditto
         case Apply(Select(Apply(TypeApply(
               ExSelected("stainless", "lang", "StaticChecks", "Ensuring"),
-              _ :: Nil), body :: Nil), ExNamed("ensuring")), contract :: Nil)
+              _ :: Nil), body :: Nil), ExNamed("ensuring")), contract :: _)
           => Some((body, contract, true))
 
         case _ => None
@@ -381,10 +383,12 @@ trait ASTExtractors(val global: Global) {
      * first call in the block). */
     object ExRequiredExpression {
       def unapply(tree: Apply): Option[(Tree, Boolean)] = tree match {
-        case Apply(ExSelected("scala", "Predef", "require"), contractBody :: Nil) =>
+        // An optional message may comes after `contractBody`, but we do not make use of it.
+        case Apply(ExSelected("scala", "Predef", "require"), contractBody :: _) =>
           Some((contractBody, false))
 
-        case Apply(ExSelected("stainless", "lang", "StaticChecks", "require"), contractBody :: Nil) =>
+        // Ditto
+        case Apply(ExSelected("stainless", "lang", "StaticChecks", "require"), contractBody :: _) =>
           Some((contractBody, true))
 
         case _ => None

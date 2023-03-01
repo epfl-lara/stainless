@@ -1026,10 +1026,12 @@ trait ASTExtractors {
       * first call in the block). */
     object ExRequiredExpression {
       def unapply(tree: tpd.Apply): Option[(tpd.Tree, Boolean)] = tree match {
-        case Apply(ExSymbol("scala", "Predef$", "require"), Seq(body)) =>
+        // An optional message may comes after `body`, but we do not make use of it.
+        case Apply(ExSymbol("scala", "Predef$", "require"), body +: _) =>
           Some((body, false))
 
-        case Apply(ExSymbol("stainless", "lang", "StaticChecks$", "require"), Seq(body)) =>
+        // Ditto
+        case Apply(ExSymbol("stainless", "lang", "StaticChecks$", "require"), body +: _) =>
           Some((body, true))
 
         case _ => None
@@ -1106,14 +1108,16 @@ trait ASTExtractors {
 
     object ExEnsuredExpression {
       def unapply(tree: tpd.Tree): Option[(tpd.Tree, tpd.Tree, Boolean)] = tree match {
+        // An optional message may comes after `contract`, but we do not make use of it.
         case ExCall(Some(rec),
           ExSymbol("scala", "Predef$", "Ensuring", "ensuring"),
-          _, Seq(contract)
+          _, contract +: _
         ) => Some((rec, contract, false))
 
+        // Ditto
         case ExCall(Some(rec),
           ExSymbol("stainless", "lang", "StaticChecks$", "Ensuring", "ensuring"),
-          _, Seq(contract)
+          _, contract +: _
         ) => Some((rec, contract, true))
 
         case _ => None
