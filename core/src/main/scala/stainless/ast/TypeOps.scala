@@ -61,11 +61,10 @@ trait TypeOps extends inox.ast.TypeOps {
               unapplyAccessorResultType(get, unapp.returnType).exists {
                 case TupleType(tps) =>
                   tps.size == subs.size &&
-                  ((tps zip subs) forall (patternIsTyped(_, _)).tupled)
+                  ((tps zip subs) forall patternIsTyped.tupled)
                 case tpe if subs.size == 1 =>
                   patternIsTyped(tpe, subs.head)
-                case UnitType() if subs.isEmpty => true
-                case _ => false
+                case _ => subs.isEmpty
               }
             }
         }
