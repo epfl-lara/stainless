@@ -13,8 +13,6 @@ class CFileOutputPhase(using override val context: inox.Context) extends UnitPha
   val description = "Output converted C program to the specified file (default leon.c)"
 
   def apply(program: CAST.Prog): Unit = {
-    val timer = context.timers.genc.print.start()
-
     // Get the output file name from command line options, or use default
     val cFileName = context.options.findOptionOrDefault(optOutputFile)
     val cOutputFile = new File(cFileName)
@@ -53,8 +51,6 @@ class CFileOutputPhase(using override val context: inox.Context) extends UnitPha
     } catch {
       case _ : java.io.IOException => context.reporter.fatalError("Could not write C ouptut on " + cOutputFile)
     }
-
-    timer.stop()
   }
 
 }
