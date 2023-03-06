@@ -643,6 +643,11 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
               case (vd, i) if ownEffects.contains(i) => Some(vd)
               case _ => None
             }
+            // Disallow capturing of variables of mutable type
+            val captured = varsOfExprDealiased(body, env).filter(vd => isMutableType(vd.tpe)) -- aliasedParams.map(_.toVariable).toSet
+            if (captured.nonEmpty) {
+              context.reporter.fatalError(l.getPos, "Illegal capturing of variables with mutable type: " + captured.mkString(", "))
+            }
 
             if (aliasedParams.isEmpty) {
               Lambda(params, transform(body, env)).copiedFrom(l)
@@ -685,9 +690,10 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
             // because the argument will alias the captured variable.
             // For argument whose target cannot be computed, we resort to computing the set of mutable FV
             // (and follow their aliases), which is less precise.
-            args.flatMap(a => getAllTargetsDealiased(a, env).map(_.map(_.receiver))
-              .getOrElse(varsOfExprDealiased(a, env)))
-              .find(vis contains _)
+            args.flatMap { a =>
+              getAllTargetsDealiased(a, env).map(_.map(_.receiver))
+                .getOrElse(varsOfExprDealiased(a, env))
+            }.find(vis.contains)
               .foreach(v => context.reporter.fatalError(alr.getPos, "Illegal passing of aliased local variable: " + v))
 
             val nfi = ApplyLetRec(
