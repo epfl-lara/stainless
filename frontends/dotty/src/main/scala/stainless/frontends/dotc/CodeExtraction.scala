@@ -919,7 +919,7 @@ class CodeExtraction(inoxCtx: inox.Context, symbolMapping: SymbolMapping)(using 
     case Ident(nme.WILDCARD) =>
       (xt.WildcardPattern(binder).setPos(p.sourcePos), dctx)
 
-    case s @ Select(_, b) if s.tpe.widenDealias.typeSymbol isOneOf (Case | Module) =>
+    case s @ Select(_, b) if (s.tpe.widenDealias.typeSymbol isOneOf (Case | Module)) || (s.tpe.termSymbol is Case) =>
       extractType(s)(using dctx.setResolveTypes(true)) match {
         case ct: xt.ClassType =>
           (xt.ClassPattern(binder, ct, Seq()).setPos(p.sourcePos), dctx)
