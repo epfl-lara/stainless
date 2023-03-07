@@ -1,0 +1,19 @@
+{
+  "equivalent": [
+    {
+      "model": "Model.unfoldingSorted",
+      "functions": [
+        "Candidate1.unfoldingSorted",
+        "Candidate5.unfoldingSorted"
+      ]
+    }
+  ],
+  "erroneous": [
+    "Candidate3.unfoldingSorted",
+    "Candidate4.unfoldingSorted"
+  ],
+  "timeout": [],
+  "wrong": [
+    "Candidate2.unfoldingSorted"
+  ]
+}

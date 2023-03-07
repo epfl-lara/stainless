@@ -1,0 +1,13 @@
+{
+  "equivalent": [
+    {
+      "model": "Model.funnyZip",
+      "functions": [
+        "Candidate.funnyZip"
+      ]
+    }
+  ],
+  "erroneous": [],
+  "timeout": [],
+  "wrong": []
+}

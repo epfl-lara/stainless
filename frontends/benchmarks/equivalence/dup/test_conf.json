@@ -1,0 +1,14 @@
+{
+  "models": [
+    "Model.dup"
+  ],
+  "comparefuns": [
+    "Candidate1.dup",
+    "Candidate2.dup",
+    "Candidate3.dup",
+    "Candidate4.dup",
+    "Candidate5.dup"
+  ],
+  "tests": [],
+  "norm": "Model.norm"
+}

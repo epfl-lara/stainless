@@ -80,4 +80,65 @@ trait TypeOps extends inox.ast.TypeOps {
     }.transform(tpe)
   }
 
+  protected class Unsolvable extends Exception
+  protected def unsolvable = throw new Unsolvable
+
+  /** Collects the constraints that need to be solved for [[unify]].
+   * Note: this is an override point. */
+  protected def unificationConstraints(t1: Type, t2: Type, free: Seq[TypeParameter]): List[(TypeParameter, Type)] = (t1, t2) match {
+    case (adt: ADTType, _) if adt.lookupSort.isEmpty => unsolvable
+    case (_, adt: ADTType) if adt.lookupSort.isEmpty => unsolvable
+
+    case _ if t1 == t2 => Nil
+
+    case (adt1: ADTType, adt2: ADTType) if adt1.id == adt2.id =>
+      (adt1.tps zip adt2.tps).toList flatMap (p => unificationConstraints(p._1, p._2, free))
+
+    case (rt: RefinementType, _) => unificationConstraints(rt.getType, t2, free)
+    case (_, rt: RefinementType) => unificationConstraints(t1, rt.getType, free)
+
+    case (pi: PiType, _) => unificationConstraints(pi.getType, t2, free)
+    case (_, pi: PiType) => unificationConstraints(t1, pi.getType, free)
+
+    case (sigma: SigmaType, _) => unificationConstraints(sigma.getType, t2, free)
+    case (_, sigma: SigmaType) => unificationConstraints(t1, sigma.getType, free)
+
+    case (tp: TypeParameter, _) if !(typeOps.typeParamsOf(t2) contains tp) && (free contains tp) => List(tp -> t2)
+    case (_, tp: TypeParameter) if !(typeOps.typeParamsOf(t1) contains tp) && (free contains tp) => List(tp -> t1)
+    case (_: TypeParameter, _) => unsolvable
+    case (_, _: TypeParameter) => unsolvable
+
+    case typeOps.Same(NAryType(ts1, _), NAryType(ts2, _)) if ts1.size == ts2.size =>
+      (ts1 zip ts2).toList flatMap (p => unificationConstraints(p._1, p._2, free))
+    case _ => unsolvable
+  }
+
+  /** Solves the constraints collected by [[unificationConstraints]].
+   * Note: this is an override point. */
+  protected def unificationSolution(const: List[(Type, Type)]): List[(TypeParameter, Type)] = const match {
+    case Nil => Nil
+    case (tp: TypeParameter, t) :: tl =>
+      val replaced = tl map { case (t1, t2) =>
+        (typeOps.instantiateType(t1, Map(tp -> t)), typeOps.instantiateType(t2, Map(tp -> t)))
+      }
+      (tp -> t) :: unificationSolution(replaced)
+    case (adt: ADTType, _) :: tl if adt.lookupSort.isEmpty => unsolvable
+    case (_, adt: ADTType) :: tl if adt.lookupSort.isEmpty => unsolvable
+    case (ADTType(id1, tps1), ADTType(id2, tps2)) :: tl if id1 == id2 =>
+      unificationSolution((tps1 zip tps2).toList ++ tl)
+    case typeOps.Same(NAryType(ts1, _), NAryType(ts2, _)) :: tl if ts1.size == ts2.size =>
+      unificationSolution((ts1 zip ts2).toList ++ tl)
+    case _ =>
+      unsolvable
+  }
+
+  /** Unifies two types, under a set of free variables */
+  def unify(t1: Type, t2: Type, free: Seq[TypeParameter]): Option[List[(TypeParameter, Type)]] = {
+    try {
+      Some(unificationSolution(unificationConstraints(t1, t2, free)))
+    } catch {
+      case _: Unsolvable => None
+    }
+  }
+
 }

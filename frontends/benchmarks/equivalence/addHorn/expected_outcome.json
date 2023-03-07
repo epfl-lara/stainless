@@ -1,0 +1,13 @@
+{
+  "equivalent": [
+    {
+      "model": "AddHorn.add_horn_1",
+      "functions": [
+        "AddHorn.add_horn_2"
+      ]
+    }
+  ],
+  "erroneous": [],
+  "timeout": [],
+  "wrong": []
+}

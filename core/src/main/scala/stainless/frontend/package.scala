@@ -43,6 +43,7 @@ package object frontend {
     genc.GenCComponent,
     testgen.ScalaTestGenComponent,
     testgen.GenCTestGenComponent,
+    equivchk.EquivalenceCheckingComponent
   )
 
   /**
@@ -78,7 +79,7 @@ package object frontend {
 
   private def batchSymbols(activeComponents: Seq[Component])(using ctx: inox.Context): Boolean = {
     ctx.options.findOptionOrDefault(optBatchedProgram) ||
-    activeComponents.exists(Set(genc.GenCComponent, testgen.ScalaTestGenComponent, testgen.GenCTestGenComponent).contains) ||
+    activeComponents.exists(Set(genc.GenCComponent, testgen.ScalaTestGenComponent, testgen.GenCTestGenComponent, equivchk.EquivalenceCheckingComponent).contains) ||
     ctx.options.findOptionOrDefault(optKeep).nonEmpty
   }
 

@@ -1,0 +1,19 @@
+{
+  "equivalent": [
+    {
+      "model": "Max.maxR",
+      "functions": [
+        "Max.maxC"
+      ]
+    },
+    {
+      "model": "Max.maxC",
+      "functions": [
+        "Max.maxT"
+      ]
+    }
+  ],
+  "erroneous": [],
+  "timeout": [],
+  "wrong": []
+}

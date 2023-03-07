@@ -1,0 +1,8 @@
+{
+  "models": [
+    "WhacAFun.uncurry1"
+  ],
+  "comparefuns": [
+    "WhacAFun.uncurry2"
+  ]
+}

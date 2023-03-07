@@ -1,0 +1,8 @@
+{
+  "models": [
+    "Limit3.limit3_1"
+  ],
+  "comparefuns": [
+    "Limit3.limit3_2"
+  ]
+}

@@ -23,14 +23,14 @@ trait MainHelpers extends inox.MainHelpers { self =>
   case object TestsGeneration extends Category {
     override def toString: String = "Tests Generation"
   }
+  case object EquivChk extends Category {
+    override def toString: String = "Equivalence checking"
+  }
 
   override protected def getOptions: Map[inox.OptionDef[_], Description] = super.getOptions - inox.solvers.optAssumeChecked ++ Map(
     optVersion -> Description(General, "Display the version number"),
     optConfigFile -> Description(General, "Path to configuration file, set to false to disable (default: stainless.conf or .stainless.conf)"),
     optFunctions -> Description(General, "Only consider functions f1,f2,..."),
-    optCompareFuns -> Description(General, "Only consider functions f1,f2,... for equivalence checking"),
-    optModels -> Description(General, "Consider functions f1, f2, ... as model functions for equivalence checking"),
-    optNorm -> Description(General, "Use function f as normalization function for equivalence checking"),
     extraction.utils.optDebugObjects -> Description(General, "Only print debug output for functions/adts named o1,o2,..."),
     extraction.utils.optDebugPhases -> Description(General, {
       // f interpolator does not process escape sequence, we workaround that with the following trick.
@@ -44,6 +44,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
     evaluators.optCodeGen -> Description(Evaluators, "Use code generating evaluator"),
     codegen.optInstrumentFields -> Description(Evaluators, "Instrument ADT field access during code generation"),
     codegen.optSmallArrays -> Description(Evaluators, "Assume all arrays fit into memory during code generation"),
+    verification.optSilent -> Description(Verification, "Do not print any message when a verification condition fails due to invalidity or timeout"),
     verification.optFailEarly -> Description(Verification, "Halt verification as soon as a check fails (invalid or unknown)"),
     verification.optFailInvalid -> Description(Verification, "Halt verification as soon as a check is invalid"),
     verification.optVCCache -> Description(Verification, "Enable caching of verification conditions"),
@@ -77,6 +78,13 @@ trait MainHelpers extends inox.MainHelpers { self =>
     utils.Caches.optCacheDir -> Description(General, "Specify the directory in which cache files should be stored"),
     testgen.optOutputFile -> Description(TestsGeneration, "Specify the output file"),
     testgen.optGenCIncludes -> Description(TestsGeneration, "(GenC variant only) Specify header includes"),
+    equivchk.optCompareFuns -> Description(EquivChk, "Only consider functions f1,f2,... for equivalence checking"),
+    equivchk.optModels -> Description(EquivChk, "Consider functions f1, f2, ... as model functions for equivalence checking"),
+    equivchk.optNorm -> Description(EquivChk, "Use function f as normalization function for equivalence checking"),
+    equivchk.optEquivalenceOutput -> Description(EquivChk, "JSON output file for equivalence checking"),
+    equivchk.optN -> Description(EquivChk, "Consider the top N models"),
+    equivchk.optInitScore -> Description(EquivChk, "Initial score for models, must be positive"),
+    equivchk.optMaxPerm -> Description(EquivChk, "Maximum number of permutations to be tested when matching auxiliary functions"),
   ) ++ MainHelpers.components.map { component =>
     val option = inox.FlagOptionDef(component.name, default = false)
     option -> Description(Pipelines, component.description)
@@ -108,6 +116,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
     frontend.DebugSectionRecovery,
     frontend.DebugSectionExtraDeps,
     genc.DebugSectionGenC,
+    equivchk.DebugSectionEquivChk
   )
 
   override protected def displayVersion(reporter: inox.Reporter): Unit = {
@@ -186,11 +195,6 @@ trait MainHelpers extends inox.MainHelpers { self =>
       }
 
       import ctx.{reporter, timers}
-
-      if (extraction.trace.Trace.optionsError) {
-        reporter.fatalError(s"Equivalence checking for --comparefuns and --models only works in batched mode.")
-      }
-
       if (!useParallelism) {
         reporter.warning(s"Parallelism is disabled.")
       }

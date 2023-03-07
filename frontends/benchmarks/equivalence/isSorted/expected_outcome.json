@@ -1,0 +1,21 @@
+{
+  "equivalent": [
+    {
+      "model": "IsSorted.isSortedR",
+      "functions": [
+        "IsSorted.isSortedB"
+      ]
+    },
+    {
+      "model": "IsSorted.isSortedB",
+      "functions": [
+        "IsSorted.isSortedC"
+      ]
+    }
+  ],
+  "erroneous": [
+    "IsSorted.isSortedA"
+  ],
+  "timeout": [],
+  "wrong": []
+}

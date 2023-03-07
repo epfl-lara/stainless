@@ -1,0 +1,13 @@
+{
+  "equivalent": [
+    {
+      "model": "Pascal.p1",
+      "functions": [
+        "Pascal.p2"
+      ]
+    }
+  ],
+  "erroneous": [],
+  "timeout": [],
+  "wrong": []
+}

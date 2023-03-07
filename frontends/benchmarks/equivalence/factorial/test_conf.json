@@ -1,0 +1,8 @@
+{
+  "models": [
+    "Factorial.fact14_1"
+  ],
+  "comparefuns": [
+    "Factorial.fact14_2"
+  ]
+}

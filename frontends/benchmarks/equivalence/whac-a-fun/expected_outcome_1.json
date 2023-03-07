@@ -1,0 +1,13 @@
+{
+  "equivalent": [
+    {
+      "model": "WhacAFun.andThen1",
+      "functions": [
+        "WhacAFun.andThen2"
+      ]
+    }
+  ],
+  "erroneous": [],
+  "timeout": [],
+  "wrong": []
+}

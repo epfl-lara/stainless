@@ -54,7 +54,7 @@ package object extraction {
     "ChooseEncoder"             -> "Encodes chooses as functions",
     "FunctionInlining"          -> "Transitively inline marked functions",
     "LeonInlining"              -> "Transitively inline marked functions (closer to what Leon did)",
-    "Trace"                     -> "Compare --compareFuns functions for equivalence. Expand @traceInduct",
+    "TraceInductElimination"    -> "Expand @traceInduct",
     "SizedADTExtraction"        -> "Transform calls to 'indexedAt' to the 'SizedADT' tree",
     "InductElimination"         -> "Replace @induct annotation by explicit recursion",
     "MeasureInference"          -> "Infer and inject measures in recursive functions",

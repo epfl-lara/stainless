@@ -1,0 +1,10 @@
+{
+  "models": [
+    "Model.sculpteurDeNuage"
+  ],
+  "comparefuns": [
+    "Candidate.sculpteurDeNuage"
+  ],
+  "tests": [],
+  "max-perm": 144
+}

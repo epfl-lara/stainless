@@ -1,0 +1,8 @@
+{
+  "models": [
+    "WhacAFun.repeat1"
+  ],
+  "comparefuns": [
+    "WhacAFun.repeat2"
+  ]
+}

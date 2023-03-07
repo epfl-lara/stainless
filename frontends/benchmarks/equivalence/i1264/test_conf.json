@@ -1,0 +1,8 @@
+{
+  "models": [
+    "i1264.replace"
+  ],
+  "comparefuns": [
+    "i1264.slowReplace"
+  ]
+}

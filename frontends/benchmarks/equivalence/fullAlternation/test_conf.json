@@ -1,0 +1,8 @@
+{
+  "models": [
+    "FullAlternation.m1"
+  ],
+  "comparefuns": [
+    "FullAlternation.m2"
+  ]
+}

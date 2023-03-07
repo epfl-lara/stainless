@@ -1,0 +1,10 @@
+{
+  "models": [
+    "Model.max"
+  ],
+  "comparefuns": [
+    "Candidate.max"
+  ],
+  "tests": [],
+  "norm": "Model.norm"
+}

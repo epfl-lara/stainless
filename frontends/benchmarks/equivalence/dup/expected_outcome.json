@@ -1,0 +1,19 @@
+{
+  "equivalent": [
+    {
+      "model": "Model.dup",
+      "functions": [
+        "Candidate1.dup",
+        "Candidate5.dup"
+      ]
+    }
+  ],
+  "erroneous": [
+    "Candidate2.dup",
+    "Candidate4.dup"
+  ],
+  "timeout": [],
+  "wrong": [
+    "Candidate3.dup"
+  ]
+}

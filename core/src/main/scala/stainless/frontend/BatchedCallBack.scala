@@ -6,7 +6,6 @@ package frontend
 import stainless.extraction.xlang.{trees => xt, TreeSanitizer}
 import stainless.extraction.utils.DebugSymbols
 import stainless.utils.LibraryFilter
-import stainless.extraction.trace.Trace
 
 import scala.util.{Try, Success, Failure}
 import scala.concurrent.Await
@@ -101,18 +100,12 @@ class BatchedCallBack(components: Seq[Component])(using val context: inox.Contex
         reporter.debug(e)
         reportError(defn.getPos, e.getMessage, symbols)
     }
-
-    var rerunPipeline = true
-    while (rerunPipeline) {
-      val reports = runs map { run =>
-        val ids = symbols.functions.keys.toSeq
-        val analysis = Await.result(run(ids, symbols), Duration.Inf)
-        RunReport(run)(analysis.toReport)
-      }
-      report = Report(reports)
-      rerunPipeline = Trace.nextIteration(report)
-      if (!rerunPipeline) Trace.printEverything
+    val reports = runs map { run =>
+      val ids = symbols.functions.keys.toSeq
+      val analysis = Await.result(run(ids, symbols), Duration.Inf)
+      RunReport(run)(analysis.toReport)
     }
+    report = Report(reports)
   }
 
   def stop(): Unit = {

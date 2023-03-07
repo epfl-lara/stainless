@@ -2,13 +2,12 @@ package stainless
 package testgen
 
 import stainless.ast.SymbolIdentifier
-import stainless.extraction.xlang.trees as xt
-import stainless.verification.*
+import stainless.extraction.xlang.{trees => xt}
+import stainless.verification._
 
-object XLangTestGen {
-  import stainless.trees._
-
-  case class TyParamSubst(numericTpe: Type, numericExprCtor: BigInt => Option[Expr])
+object XLangTestGen extends utils.CtexRemapping {
+  override val trees: stainless.trees.type = stainless.trees
+  import trees._
 
   case class TestCaseCtx(origSyms: xt.Symbols,
                          p: inox.Program {val trees: stainless.trees.type},
@@ -64,45 +63,28 @@ object XLangTestGen {
       return None
     }
 
-    val vdMapping: Map[ValDef, (ValDef, Int)] = cex.vars.keySet.flatMap(cexVd =>
-      faultyFd.params.zipWithIndex.find(_._1.id.name == cexVd.id.name).map(fnVd => cexVd -> fnVd)).toMap
-    if (vdMapping.size != cex.vars.size) {
-      recognizeFailure(s"due to the inability of reconciling the variables of the model and the parameters of ${vc.fid}")
-      return None
+    val (args, newTparams) = tryRemapCtex(faultyFd.params, faultyFd.tparams, tcCtx.p)(tcCtx.cex.vars) match {
+      case RemappedCtex.Success(args, newTparams) => (args, newTparams)
+      case RemappedCtex.Failure(FailureReason.NonUniqueParams(name, vds)) =>
+        recognizeFailure(s"due to name collision with the parameters of ${faultyFd.id.name}: $name has multiple correspondances $vds")
+        return None
+      case RemappedCtex.Failure(FailureReason.NonUniqueCtexVars(name, vds)) =>
+        recognizeFailure(s"due to name collision with the variables of the counter-examples: $name has multiple correspondances $vds")
+        return None
+      case RemappedCtex.Failure(FailureReason.NonUniqueTypeParams(name, tpds)) =>
+        recognizeFailure(s"due to name collision with the type parameters of ${faultyFd.id.name}: $name has multiple correspondances $tpds")
+        return None
+      case RemappedCtex.Failure(FailureReason.UnmappedCtexVars(vds)) =>
+        recognizeFailure(s"due to counter-example having extra unknown variables: $vds")
+        return None
+      case RemappedCtex.Failure(FailureReason.ExprRewrite(exprs)) =>
+        recognizeFailure(s"the inability of rewriting ${exprs.mkString(", ")}")
+        return None
+      case RemappedCtex.Failure(FailureReason.NoSimpleValue(tps)) =>
+        recognizeFailure(s"the inability of find a default values for ${tps.mkString(", ")}")
+        return None
     }
-    if (vdMapping.keys.size != cex.vars.size) {
-      recognizeFailure(s"due to name collision with the parameters of ${vc.fid}")
-      return None
-    }
-
-    val missingMapping: Set[(ValDef, Int)] = faultyFd.params.zipWithIndex.toSet -- vdMapping.values.toSet
-    val (defaultArgsErrs, defaultArgs) = missingMapping.toSeq.partitionMap {
-      case (fnVd, pos) =>
-        val expr = tryFindDefaultValue(substTypeParams(fnVd.tpe))
-        expr.map(e => pos -> e)
-    }
-    if (defaultArgsErrs.nonEmpty) {
-      recognizeFailure(
-        s"""due to:
-           |${defaultArgsErrs.flatten.mkString("  - ", "\n", "")}""".stripMargin)
-      return None
-    }
-
-    val (cexArgsErr, cexArgs) = cex.vars.toSeq.partitionMap {
-      case (cexVd, expr) =>
-        val pos = vdMapping(cexVd)._2
-        val rewrittenExpr = tryRewriteExpr(expr)
-        rewrittenExpr.map(e => pos -> e)
-    }
-    if (cexArgsErr.nonEmpty) {
-      recognizeFailure(
-        s"""due to:
-           |${cexArgsErr.flatten.mkString("  - ", "\n", "")}""".stripMargin)
-      return None
-    }
-    val args = (defaultArgs ++ cexArgs).sortBy(_._1).map(_._2)
-
-    val testCaseBody = FunctionInvocation(vc.fid, faultyFd.tparams.map(_ => IntegerType()), args)
+    val testCaseBody = FunctionInvocation(vc.fid, newTparams, args)
     val testCaseId = SymbolIdentifier(s"testCase$testCaseNbr")
     val testCaseFd = FunDef(testCaseId, Seq.empty, Seq.empty, UnitType(), testCaseBody, Seq.empty)
 
@@ -126,28 +108,6 @@ object XLangTestGen {
       s"""Could not generate a test case from the following counter-example:
          |  ${tcCtx.cex.asString(using PrinterOptions()).replaceAll("\n", "\n  ")}
          |$msg""".stripMargin)
-  }
-
-  def tryFindDefaultValue(tpe: Type)(using faultyFd: FaultyFd, tcCtx: TestCaseCtx, tps: TyParamSubst, ctx: inox.Context): Either[List[String], Expr] = {
-    try {
-      tryRewriteExpr(tcCtx.p.symbols.simplestValue(tpe, allowSolver = false)(using tcCtx.p.getSemantics))
-    } catch {
-      case _: tcCtx.p.symbols.NoSimpleValue => Left(s"the inability of finding a default value for $tpe" :: Nil)
-    }
-  }
-
-  def substTypeParams(tpe: Type)(using faultyFd: FaultyFd, tps: TyParamSubst): Type = {
-    val subst = new SubstTypeParamsAndGenericValues(faultyFd.fd.tparams)
-    val newTpe = subst.transform(tpe)
-    assert(subst.failures.isEmpty, "failures are impossible when substituting for types (only for Expr)")
-    newTpe
-  }
-
-  def tryRewriteExpr(expr: Expr)(using faultyFd: FaultyFd, tps: TyParamSubst): Either[List[String], Expr] = {
-    val subst = new SubstTypeParamsAndGenericValues(faultyFd.fd.tparams)
-    val newExpr = subst.transform(expr)
-    if (subst.failures.isEmpty) Right(newExpr)
-    else Left(subst.failures.map(e => s"the inability of rewriting $e"))
   }
 
   /////////////////////////////////////////////////////////////////////////////////////////////////
@@ -189,31 +149,4 @@ object XLangTestGen {
         .map((clsId, _) => xt.ClassType(clsId, adtType.tps.map(transform)))
     }
   }
-
-  private class SubstTypeParamsAndGenericValues(tparams: Seq[TypeParameterDef])
-                                               (using tyParamSubst: TyParamSubst) extends ConcreteSelfTreeTransformer {
-    var failures: List[Expr] = Nil
-
-    override def transform(tpe: Type): Type = tpe match {
-      case tp: TypeParameter if tparams.exists(_.tp.id.name == tp.id.name) => tyParamSubst.numericTpe
-      case _ => super.transform(tpe)
-    }
-
-    override def transform(expr: Expr): Expr = expr match {
-      case GenericValue(tp, id) =>
-        val newExpr = tparams.zipWithIndex
-          .find((tpDef, _) => tpDef.tp.id.name == tp.id.name)
-          .flatMap { (_, tpIx) =>
-            tyParamSubst.numericExprCtor(BigInt(id) * BigInt(tparams.size) + BigInt(tpIx))
-          }
-        newExpr match {
-          case Some(e) => e
-          case None =>
-            failures = expr :: failures
-            expr
-        }
-      case _ => super.transform(expr)
-    }
-  }
-
 }

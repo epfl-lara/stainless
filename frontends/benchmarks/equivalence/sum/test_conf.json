@@ -1,0 +1,8 @@
+{
+  "models": [
+    "Sum.sum1"
+  ],
+  "comparefuns": [
+    "Sum.sum2"
+  ]
+}

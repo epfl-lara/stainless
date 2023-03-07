@@ -1,0 +1,18 @@
+{
+  "equivalent": [
+    {
+      "model": "Model.max",
+      "functions": [
+        "Candidate1.max",
+        "Candidate2.max",
+        "Candidate3.max"
+      ]
+    }
+  ],
+  "erroneous": [
+    "Candidate4.max",
+    "Candidate5.max"
+  ],
+  "timeout": [],
+  "wrong": []
+}

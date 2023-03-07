@@ -1,0 +1,15 @@
+{
+  "models": [
+    "Model.adjacencyBonus1",
+    "Model.adjacencyBonus2"
+  ],
+  "comparefuns": [
+    "Candidate1.adjacencyBonus",
+    "Candidate2.adjacencyBonus",
+    "Candidate3.adjacencyBonus",
+    "Candidate4.adjacencyBonus"
+  ],
+  "tests": [
+    "Model.testsAdjacencyBonus"
+  ]
+}

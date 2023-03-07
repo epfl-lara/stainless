@@ -1,0 +1,13 @@
+{
+  "equivalent": [
+    {
+      "model": "HalfAlternation.h1",
+      "functions": [
+        "HalfAlternation.h2"
+      ]
+    }
+  ],
+  "erroneous": [],
+  "timeout": [],
+  "wrong": []
+}

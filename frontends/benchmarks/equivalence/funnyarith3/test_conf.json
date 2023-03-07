@@ -1,0 +1,8 @@
+{
+  "models": [
+    "Model.eval"
+  ],
+  "comparefuns": [
+    "Candidate.eval"
+  ]
+}

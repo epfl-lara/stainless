@@ -1,0 +1,13 @@
+{
+  "equivalent": [
+    {
+      "model": "Model.isEvenTopLvl",
+      "functions": [
+        "Candidate.isEvenTopLvl"
+      ]
+    }
+  ],
+  "erroneous": [],
+  "timeout": [],
+  "wrong": []
+}

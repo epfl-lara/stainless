@@ -1,0 +1,13 @@
+{
+  "equivalent": [
+    {
+      "model": "FullAlternation.m1",
+      "functions": [
+        "FullAlternation.m2"
+      ]
+    }
+  ],
+  "erroneous": [],
+  "timeout": [],
+  "wrong": []
+}

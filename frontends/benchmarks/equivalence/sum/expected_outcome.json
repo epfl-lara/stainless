@@ -1,0 +1,13 @@
+{
+  "equivalent": [
+    {
+      "model": "Sum.sum1",
+      "functions": [
+        "Sum.sum2"
+      ]
+    }
+  ],
+  "erroneous": [],
+  "timeout": [],
+  "wrong": []
+}

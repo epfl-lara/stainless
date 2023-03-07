@@ -1,0 +1,13 @@
+{
+  "equivalent": [
+    {
+      "model": "FibonacciUnused.t1",
+      "functions": [
+        "FibonacciUnused.t2"
+      ]
+    }
+  ],
+  "erroneous": [],
+  "timeout": [],
+  "wrong": []
+}

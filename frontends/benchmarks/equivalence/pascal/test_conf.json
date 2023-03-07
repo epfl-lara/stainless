@@ -1,0 +1,8 @@
+{
+  "models": [
+    "Pascal.p1"
+  ],
+  "comparefuns": [
+    "Pascal.p2"
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "models": [
+    "Uniq.uniqR"
+  ],
+  "comparefuns": [
+    "Uniq.uniqA"
+  ]
+}

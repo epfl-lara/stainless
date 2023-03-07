@@ -157,10 +157,8 @@ package object stainless {
 
   lazy val useParallelism: Boolean = nParallel.isEmpty || nParallel.exists(_ > 1)
 
-  private lazy val currentThreadExecutionContext: ExecutionContext =
-    ExecutionContext.fromExecutor(new java.util.concurrent.Executor {
-      def execute(runnable: Runnable): Unit = { runnable.run() }
-    })
+  private lazy val singleThreadExecutionContext: ExecutionContext =
+    ExecutionContext.fromExecutor(Executors.newFixedThreadPool(1))
 
   private lazy val multiThreadedExecutor: java.util.concurrent.ExecutorService =
     nParallel.map(Executors.newFixedThreadPool(_)).getOrElse(ForkJoinTasks.defaultForkJoinPool)
@@ -169,7 +167,7 @@ package object stainless {
 
   implicit def executionContext(using ctx: inox.Context): ExecutionContext =
     if (useParallelism && ctx.reporter.debugSections.isEmpty) multiThreadedExecutionContext
-    else currentThreadExecutionContext
+    else singleThreadExecutionContext
 
   def shutdown(): Unit = if (useParallelism) multiThreadedExecutor.shutdown()
 }

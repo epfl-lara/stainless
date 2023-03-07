@@ -1,0 +1,10 @@
+{
+  "models": [
+    "IsSorted.isSortedR"
+  ],
+  "comparefuns": [
+    "IsSorted.isSortedA",
+    "IsSorted.isSortedB",
+    "IsSorted.isSortedC"
+  ]
+}

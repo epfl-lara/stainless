@@ -1,0 +1,13 @@
+{
+  "equivalent": [
+    {
+      "model": "Inlining.inlining_1",
+      "functions": [
+        "Inlining.inlining_2"
+      ]
+    }
+  ],
+  "erroneous": [],
+  "timeout": [],
+  "wrong": []
+}

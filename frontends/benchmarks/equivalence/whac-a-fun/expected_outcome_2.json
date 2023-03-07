@@ -1,0 +1,13 @@
+{
+  "equivalent": [
+    {
+      "model": "WhacAFun.compose1",
+      "functions": [
+        "WhacAFun.compose2"
+      ]
+    }
+  ],
+  "erroneous": [],
+  "timeout": [],
+  "wrong": []
+}

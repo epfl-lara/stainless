@@ -1,0 +1,8 @@
+{
+  "models": [
+    "WhacAFun.compose1"
+  ],
+  "comparefuns": [
+    "WhacAFun.compose2"
+  ]
+}

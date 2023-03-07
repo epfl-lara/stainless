@@ -12,6 +12,7 @@ import scala.util.{Failure, Success}
 import scala.concurrent.Future
 import scala.collection.mutable
 
+object optSilent extends inox.FlagOptionDef("silent-verification", false)
 object optFailEarly extends inox.FlagOptionDef("fail-early", false)
 object optFailInvalid extends inox.FlagOptionDef("fail-invalid", false)
 object optVCCache extends inox.FlagOptionDef("vc-cache", true)
@@ -322,7 +323,6 @@ trait VerificationChecker { self =>
             VCResult(status, s.getResultSolver.map(_.name), Some(time))
 
           case SatWithModel(model) if !vc.satisfiability =>
-            extraction.trace.Trace.reportCounterexample(program)(model)(vc.fid)
             VCResult(VCStatus.Invalid(VCStatus.CounterExample(model)), s.getResultSolver.map(_.name), Some(time))
 
           case Sat if vc.satisfiability =>
@@ -348,35 +348,37 @@ trait VerificationChecker { self =>
       val vcResultMsg = VCResultMessage(vc, vcres)
       reporter.debug(vcResultMsg)
 
-      reporter.synchronized {
-        val descr = s" - Result for '${vc.kind}' VC for ${vc.fid.asString} @${vc.getPos}:"
+      val silent = options.findOptionOrDefault(optSilent)
+      if (!silent) {
+        reporter.synchronized {
+          val descr = s" - Result for '${vc.kind}' VC for ${vc.fid.asString} @${vc.getPos}:"
+          vcres.status match {
+            case VCStatus.Valid =>
+              reporter.debug(descr)
+              reporter.debug(" => VALID")
 
-        vcres.status match {
-          case VCStatus.Valid =>
-            reporter.debug(descr)
-            reporter.debug(" => VALID")
+            case VCStatus.Invalid(reason) =>
+              reporter.warning(descr)
+              // avoid reprinting VC if --debug=verification is enabled
+              if (!reporter.isDebugEnabled(using DebugSectionVerification))
+                reporter.warning(prettify(vc.condition).asString)
+              reporter.warning(vc.getPos, " => INVALID")
+              reason match {
+                case VCStatus.CounterExample(cex) =>
+                  reporter.warning("Found counter-example:")
+                  reporter.warning("  " + cex.asString.replaceAll("\n", "\n  "))
 
-          case VCStatus.Invalid(reason) =>
-            reporter.warning(descr)
-            // avoid reprinting VC if --debug=verification is enabled
-            if (!reporter.isDebugEnabled(using DebugSectionVerification))
-              reporter.warning(prettify(vc.condition).asString)
-            reporter.warning(vc.getPos, " => INVALID")
-            reason match {
-              case VCStatus.CounterExample(cex) =>
-                reporter.warning("Found counter-example:")
-                reporter.warning("  " + cex.asString.replaceAll("\n", "\n  "))
+                case VCStatus.Unsatisfiable =>
+                  reporter.warning("Property wasn't satisfiable")
+              }
 
-              case VCStatus.Unsatisfiable =>
-                reporter.warning("Property wasn't satisfiable")
-            }
-
-          case status =>
-            reporter.warning(descr)
-            // avoid reprinting VC if --debug=verification is enabled
-            if (!reporter.isDebugEnabled(using DebugSectionVerification))
-              reporter.warning(prettify(vc.condition).asString)
-            reporter.warning(vc.getPos, " => " + status.name.toUpperCase)
+            case status =>
+              reporter.warning(descr)
+              // avoid reprinting VC if --debug=verification is enabled
+              if (!reporter.isDebugEnabled(using DebugSectionVerification))
+                reporter.warning(prettify(vc.condition).asString)
+              reporter.warning(vc.getPos, " => " + status.name.toUpperCase)
+          }
         }
       }
 

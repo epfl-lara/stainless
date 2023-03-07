@@ -1,0 +1,13 @@
+{
+  "equivalent": [
+    {
+      "model": "Model.eval",
+      "functions": [
+        "Candidate.eval"
+      ]
+    }
+  ],
+  "erroneous": [],
+  "timeout": [],
+  "wrong": []
+}

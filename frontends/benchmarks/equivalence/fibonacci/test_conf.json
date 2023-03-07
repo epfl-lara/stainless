@@ -1,0 +1,8 @@
+{
+  "models": [
+    "Fibonacci.f1"
+  ],
+  "comparefuns": [
+    "Fibonacci.f2"
+  ]
+}

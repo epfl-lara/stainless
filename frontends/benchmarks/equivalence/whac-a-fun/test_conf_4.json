@@ -1,0 +1,8 @@
+{
+  "models": [
+    "WhacAFun.curry1"
+  ],
+  "comparefuns": [
+    "WhacAFun.curry2"
+  ]
+}
