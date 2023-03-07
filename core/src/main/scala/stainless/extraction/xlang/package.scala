@@ -68,6 +68,7 @@ package object xlang {
     }
 
     val lowering = new Lowering(trees, innerclasses.trees)
+    utils.DebugPipeline("ConstructsUsage", ConstructsUsage(trees)) andThen
     utils.DebugPipeline("PartialFunctions", PartialFunctions(trees)) andThen
     utils.DebugPipeline("XlangLowering", lowering)
   }
