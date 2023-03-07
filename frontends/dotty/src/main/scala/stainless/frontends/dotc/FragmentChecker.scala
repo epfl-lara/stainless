@@ -247,7 +247,7 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
 
     val RequireMethods =
       defn.ScalaPredefModule.info.decl(Names.termName("require")).alternatives.toSet
-        + Symbols.requiredModule("stainless.lang.StaticChecks").info.decl(Names.termName("require"))
+        ++ Symbols.requiredModule("stainless.lang.StaticChecks").info.decl(Names.termName("require")).alternatives.toSet
 
     private val stainlessReplacement = mutable.Map(
       defn.ListClass -> "stainless.collection.List",

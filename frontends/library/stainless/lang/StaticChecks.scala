@@ -6,7 +6,9 @@ object StaticChecks {
 
   @library
   implicit class Ensuring[A](val x: A) extends AnyVal {
-    def ensuring(@ghost cond: (A) => Boolean): A = x
+    def ensuring(@ghost cond: A => Boolean): A = x
+
+    def ensuring(@ghost cond: A => Boolean, msg: => String): A = x
   }
 
   @library @ignore
@@ -29,7 +31,13 @@ object StaticChecks {
   def require(@ghost pred: => Boolean): Unit = ()
 
   @library
+  def require(@ghost pred: => Boolean, msg: => String): Unit = ()
+
+  @library
   def assert(@ghost pred: => Boolean): Unit = ()
+
+  @library
+  def assert(@ghost pred: => Boolean, msg: => String): Unit = ()
 
 }
 

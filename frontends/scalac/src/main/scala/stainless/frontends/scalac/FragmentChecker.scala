@@ -209,8 +209,8 @@ trait FragmentChecker extends SubComponent { self: StainlessExtraction =>
       ++ rootMirror.getRequiredModule("scala.math.BigInt").info.decl(nme.apply).alternatives).toSet
 
     val RequireMethods =
-      (definitions.PredefModule.info.decl(newTermName("require")).alternatives.toSet
-        + rootMirror.getRequiredModule("stainless.lang.StaticChecks").info.decl(newTermName("require")))
+      definitions.PredefModule.info.decl(newTermName("require")).alternatives.toSet
+        ++ rootMirror.getRequiredModule("stainless.lang.StaticChecks").info.decl(newTermName("require")).alternatives.toSet
 
 
     private val stainlessReplacement = mutable.Map(
