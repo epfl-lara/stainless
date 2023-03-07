@@ -16,12 +16,13 @@ trait LatticesSimplifier { self =>
   import trees._
   import symbols.{given, _}
 
+  private def newAlgo(): lattices.Core{val trees: self.trees.type; val symbols: self.symbols.type} = algo match {
+    case UnderlyingAlgo.OCBSL => lattices.OCBSL(trees, symbols, opts)
+    case UnderlyingAlgo.OL => lattices.OL(trees, symbols, opts)
+    case UnderlyingAlgo.Bland => lattices.Bland(trees, symbols, opts)
+  }
   private val coreTL: ThreadLocal[lattices.Core{val trees: self.trees.type; val symbols: self.symbols.type}] =
-    ThreadLocal.withInitial(() => algo match {
-      case UnderlyingAlgo.OCBSL => lattices.OCBSL(trees, symbols, opts)
-      case UnderlyingAlgo.OL => lattices.OL(trees, symbols, opts)
-      case UnderlyingAlgo.Bland => lattices.Bland(trees, symbols, opts)
-    })
+    ThreadLocal.withInitial(() => newAlgo())
 
   def simplify(e: Expr): Expr = {
     val core = coreTL.get()
@@ -31,7 +32,17 @@ trait LatticesSimplifier { self =>
 
     val resE = core.codeOfExpr(e)
     val codeE = resE.selfPlugged(core.Ctxs.empty)._2
-    core.uncodeOf(codeE).expr.copiedFrom(e)
+    val result = core.uncodeOf(codeE).expr.copiedFrom(e)
+    core.shouldRetire() match {
+      case core.Retirement.KeepGoing =>
+        core.clearCaches()
+      case core.Retirement.WellDeserved(fnPurityCache) =>
+        // So long, `core` instance
+        val newInst = newAlgo()
+        newInst.setFunctionPurityCache(fnPurityCache)
+        coreTL.set(newInst)
+    }
+    result
   }
 }
 object LatticesSimplifier {
