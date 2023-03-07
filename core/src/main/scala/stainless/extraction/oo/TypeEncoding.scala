@@ -563,11 +563,12 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
         val cons = constructors(cd)
         def condition(e: t.Expr): t.Expr = t.orJoin(cons.map(t.IsConstructor(e, _)))
 
-        val vd = t.ValDef.fresh("v", ref)
-        val returnType = t.RefinementType(vd, condition(vd.toVariable))
+        val scope = context.emptyScope.in(cd.id)
+        val returnType = t.tupleTypeWrap(cd.fields.map(vd => scope.transform(vd.tpe)))
         (Seq("x" :: ref), T(option)(returnType), { case Seq(x) =>
           if_ (condition(x)) {
-            C(some)(returnType)(x)
+            val r = t.tupleWrap(cd.fields.map(vd => t.ADTSelector(x, vd.id)))
+            C(some)(returnType)(r)
           } else_ {
             C(none)(returnType)()
           }
