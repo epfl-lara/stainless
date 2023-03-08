@@ -44,8 +44,8 @@ object Model {
   )
 
   def testsAdjacencyBonus1: (WorldMap, BigInt, BigInt, DistrictKind) = {
-    val G = Tile(TileBase.FlatTerrain(BaseTerrain.Grassland()), None(), None(), None())
-    val M = Tile(TileBase.Mountain(), None(), None(), None())
+    val G = Tile(TileBase.FlatTerrain(BaseTerrain.Grassland), None(), None(), None())
+    val M = Tile(TileBase.Mountain, None(), None(), None())
     val X = G // The emplacement where we would like to compute for potential adjacency
     val wm = List(
             G, M, X, M, G,
@@ -54,33 +54,33 @@ object Model {
       G, G, G, G, G,
     )
     // Note: the coordinates are upside down
-    (WorldMap(wm, 5, 4), 2, 0, DistrictKind.Campus())
+    (WorldMap(wm, 5, 4), 2, 0, DistrictKind.Campus)
   }
 
   //////////////////////
 
   def adj(wm: WorldMap, x: BigInt, y: BigInt, districtKind: DistrictKind): BigInt = {
     if (y < 0 || y >= wm.height) BigInt(0)
-    else adj(wm(x, y), districtKind)
+    else adj(tileInWorld(wm, x, y), districtKind)
   }
 
   def adj(tile: Tile, districtKind: DistrictKind): BigInt = {
     (districtKind, tile) match {
-      case (DistrictKind.Campus(), Tile(TileBase.Mountain(), _, _, _)) => BigInt(2)
-      case (DistrictKind.Campus(), Tile(_, _, _, Some(Construction.City(_)))) => BigInt(1)
-      case (DistrictKind.Campus(), Tile(_, _, _, Some(Construction.District(_)))) => BigInt(1)
-      case (DistrictKind.Campus(), _) => BigInt(0)
-      case (DistrictKind.IndustrialZone(), Tile(_, _, res, ctor)) =>
+      case (DistrictKind.Campus, Tile(TileBase.Mountain, _, _, _)) => BigInt(2)
+      case (DistrictKind.Campus, Tile(_, _, _, Some(Construction.City(_)))) => BigInt(1)
+      case (DistrictKind.Campus, Tile(_, _, _, Some(Construction.District(_)))) => BigInt(1)
+      case (DistrictKind.Campus, _) => BigInt(0)
+      case (DistrictKind.IndustrialZone, Tile(_, _, res, ctor)) =>
         val resAdj = res match {
-          case Some(Resource.Iron()) => BigInt(2)
-          case Some(Resource.Coal()) => BigInt(2)
+          case Some(Resource.Iron) => BigInt(2)
+          case Some(Resource.Coal) => BigInt(2)
           case _ => BigInt(0)
         }
         val resCtor = ctor match {
           case Some(Construction.City(_)) => BigInt(1)
           case Some(Construction.District(_)) => BigInt(1)
-          case Some(Construction.Exploitation(ResourceImprovement.Mine())) => BigInt(1)
-          case Some(Construction.Exploitation(ResourceImprovement.Quarry())) => BigInt(2)
+          case Some(Construction.Exploitation(ResourceImprovement.Mine)) => BigInt(1)
+          case Some(Construction.Exploitation(ResourceImprovement.Quarry)) => BigInt(2)
           case _ => BigInt(0)
         }
         resAdj + resCtor
@@ -108,7 +108,7 @@ object Model {
 
   def testValidCitySettlement1: (WorldMap, BigInt, BigInt) = {
     // Ok, can be settled
-    val G = Tile(TileBase.FlatTerrain(BaseTerrain.Grassland()), None(), None(), None())
+    val G = Tile(TileBase.FlatTerrain(BaseTerrain.Grassland), None(), None(), None())
     val X = G // where we would like to settle
     val wm = List(
             G, G, G, G, G,
@@ -122,8 +122,8 @@ object Model {
 
   def testValidCitySettlement2: (WorldMap, BigInt, BigInt) = {
     // A lake in the center, we can't settle there
-    val G = Tile(TileBase.FlatTerrain(BaseTerrain.Grassland()), None(), None(), None())
-    val L = Tile(TileBase.Lake(), None(), None(), None())
+    val G = Tile(TileBase.FlatTerrain(BaseTerrain.Grassland), None(), None(), None())
+    val L = Tile(TileBase.Lake, None(), None(), None())
     val wm = List(
           G, G, G, G, G,
         G, G, L, G, G,
@@ -135,9 +135,9 @@ object Model {
 
   def testValidCitySettlement3: (WorldMap, BigInt, BigInt) = {
     // A city in the second ring of the place where we want to settle
-    val G = Tile(TileBase.FlatTerrain(BaseTerrain.Grassland()), None(), None(), None())
+    val G = Tile(TileBase.FlatTerrain(BaseTerrain.Grassland), None(), None(), None())
     val X = G // where we would like to settle
-    val Y = Tile(TileBase.FlatTerrain(BaseTerrain.Grassland()), None(), None(), Some(Construction.City(42))) // Oh no, someone's already there :(
+    val Y = Tile(TileBase.FlatTerrain(BaseTerrain.Grassland), None(), None(), Some(Construction.City(42))) // Oh no, someone's already there :(
     val wm = List(
             G, G, Y, G, G,
           G, G, G, G, G,
@@ -152,7 +152,7 @@ object Model {
 
   def tileOkForCity(wm: WorldMap, x: BigInt, y: BigInt): Boolean = {
     require(0 <= y && y < wm.height)
-    val tile = wm(x, y)
+    val tile = tileInWorld(wm, x, y)
     val baseOk = tile.base match {
       case TileBase.FlatTerrain(_) => true
       case TileBase.HillTerrain(_) => true
@@ -232,22 +232,24 @@ object Model {
       val xx = x + diffX
       val yy = y + diffY
       val includeThis = {
-        if (0 <= yy && yy < wm.height) List(wm(xx, yy))
-        else Nil()
+        if (0 <= yy && yy < wm.height) List(tileInWorld(wm, xx, yy))
+        else Nil[Tile]()
       }
       if (i == 6 * radius - 1) includeThis
       else includeThis ++ loop(i + 1)
     }
-    if (radius == 0) List(wm(x, y))
+    if (radius == 0) List(tileInWorld(wm, x, y))
     else loop(0)
   }
 
-  extension (wm: WorldMap) {
-    def apply(x: BigInt, y: BigInt): Tile = {
-      require(0 <= y && y < wm.height)
-      val xx = (x % wm.width + wm.width) % wm.width
-      val ix = y * wm.width + xx
-      wm.tiles(ix)
-    }
+  // Note: Using extension method here on wm will create a match with candidates `tileInWorld`.
+  // Since we must be Scala 2-compatible, we could be tempted in having an implicit class.
+  // However, the signature will be different to candidates `tileInWorld` (leading to equiv. checking resulting in unknown)
+  // As such, we use a plain function...
+  def tileInWorld(wm: WorldMap, x: BigInt, y: BigInt): Tile = {
+    require(0 <= y && y < wm.height)
+    val xx = (x % wm.width + wm.width) % wm.width
+    val ix = y * wm.width + xx
+    wm.tiles(ix)
   }
 }

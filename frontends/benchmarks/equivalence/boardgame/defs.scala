@@ -16,58 +16,65 @@ object defs {
     require(tiles.length == width * height)
   }
 
-  enum TileBase {
-    case FlatTerrain(base: BaseTerrain)
-    case HillTerrain(base: BaseTerrain)
-    case Mountain()
-    case Lake()
-    case Coast()
-    case Ocean()
+  sealed trait TileBase
+  object TileBase {
+    case class FlatTerrain(base: BaseTerrain) extends TileBase
+    case class HillTerrain(base: BaseTerrain) extends TileBase
+    case object Mountain extends TileBase
+    case object Lake extends TileBase
+    case object Coast extends TileBase
+    case object Ocean extends TileBase
   }
 
-  enum BaseTerrain {
-    case Plains()
-    case Grassland()
-    case Desert()
-    case Tundra()
-    case Snow()
+  sealed trait BaseTerrain
+  object BaseTerrain {
+    case object Plains extends BaseTerrain
+    case object Grassland extends BaseTerrain
+    case object Desert extends BaseTerrain
+    case object Tundra extends BaseTerrain
+    case object Snow extends BaseTerrain
   }
 
-  enum Feature {
-    case Forest()
-    case RainForest()
-    case Marsh()
+  sealed trait Feature
+  object Feature {
+    case object Forest extends Feature
+    case object RainForest extends Feature
+    case object Marsh extends Feature
     // etc.
   }
 
-  enum Resource {
-    case Iron() // can't make Stainless Steel without Iron, so this must be here
-    case Wheat()
-    case Rice()
-    case Stone() // weak
-    case Crabs() // the best
-    case Fish()
-    case Coal() // cursed
+  sealed trait Resource
+  object Resource {
+    case object Iron extends Resource // can't make Stainless Steel without Iron, so this must be here
+    case object Wheat extends Resource
+    case object Rice extends Resource
+    case object Stone extends Resource
+    case object Crabs extends Resource
+    case object Fish extends Resource
+    case object Coal extends Resource
     // etc.
   }
 
-  enum Construction {
-    case City(id: BigInt)
-    case District(kind: DistrictKind)
-    case Exploitation(kind: ResourceImprovement)
+  sealed trait Construction
+  object Construction {
+    case class City(id: BigInt) extends Construction
+    case class District(kind: DistrictKind) extends Construction
+    case class Exploitation(kind: ResourceImprovement) extends Construction
   }
 
-  enum DistrictKind {
-    case Campus()
-    case IndustrialZone()
+  sealed trait DistrictKind
+  object DistrictKind {
+    case object Campus extends DistrictKind
+    case object IndustrialZone extends DistrictKind
     // etc.
   }
 
-  enum ResourceImprovement {
-    case Farm()
-    case Fishery()
-    case Mine()
-    case Quarry()
+  sealed trait ResourceImprovement
+  object ResourceImprovement {
+    case object Farm extends ResourceImprovement
+    case object Fishery extends ResourceImprovement
+    case object Mine extends ResourceImprovement
+    case object Quarry extends ResourceImprovement
     // etc.
   }
 }
