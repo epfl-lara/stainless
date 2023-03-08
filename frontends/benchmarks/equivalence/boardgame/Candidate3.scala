@@ -19,25 +19,25 @@ object Candidate3 {
     // oops, forgot to check for OOB y...
     val tile = tileInWorld(wm, x, y)
     districtKind match {
-      case DistrictKind.Campus() => tile.base match {
-        case TileBase.Mountain() => BigInt(2)
+      case DistrictKind.Campus => tile.base match {
+        case TileBase.Mountain => BigInt(2)
         case _ => tile.construction match {
           case Some(Construction.City(_))  => BigInt(1)
           case Some(Construction.District(_)) => BigInt(1)
           case _ => BigInt(0)
         }
       }
-      case DistrictKind.IndustrialZone() =>
+      case DistrictKind.IndustrialZone =>
         val resAdj = tile.resource match {
-          case Some(Resource.Iron()) => BigInt(2)
-          case Some(Resource.Coal()) => BigInt(2)
+          case Some(Resource.Iron) => BigInt(2)
+          case Some(Resource.Coal) => BigInt(2)
           case _ => BigInt(0)
         }
         tile.construction match {
           case Some(Construction.City(_)) => resAdj + BigInt(1)
           case Some(Construction.District(_)) => resAdj + BigInt(1)
-          case Some(Construction.Exploitation(ResourceImprovement.Mine())) => resAdj + BigInt(1)
-          case Some(Construction.Exploitation(ResourceImprovement.Quarry())) => resAdj + BigInt(2)
+          case Some(Construction.Exploitation(ResourceImprovement.Mine)) => resAdj + BigInt(1)
+          case Some(Construction.Exploitation(ResourceImprovement.Quarry)) => resAdj + BigInt(2)
           case _ => resAdj
         }
     }
@@ -128,7 +128,7 @@ object Candidate3 {
       val yy = y + diffY
       val includeThis = {
         if (0 <= yy && yy < wm.height) List(tileInWorld(wm, xx, yy))
-        else Nil()
+        else Nil[Tile]()
       }
       if (i == 6 * ring - 1) includeThis
       else includeThis ++ loop(i + 1)

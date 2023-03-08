@@ -1,10 +1,8 @@
-import stainless.lang._
-import stainless.collection._
-
 object defs {
-  enum OpKind {
-    case Add()
-    case Sub()
-    case Mul()
+  sealed trait OpKind
+  object OpKind {
+    case object Add extends OpKind
+    case object Sub extends OpKind
+    case object Mul extends OpKind
   }
 }

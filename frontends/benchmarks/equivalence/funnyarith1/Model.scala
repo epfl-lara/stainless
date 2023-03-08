@@ -8,9 +8,9 @@ import defs._
 object Model {
   // Top level
   def eval(op: OpKind, x: BigInt, y: BigInt): BigInt = op match {
-    case OpKind.Add() => add(x, y)
-    case OpKind.Sub() => sub(x, y)
-    case OpKind.Mul() => mul(x, y)
+    case OpKind.Add => add(x, y)
+    case OpKind.Sub => sub(x, y)
+    case OpKind.Mul => mul(x, y)
   }
 
   def add(x: BigInt, y: BigInt): BigInt = {

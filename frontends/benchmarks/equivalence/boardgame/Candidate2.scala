@@ -19,25 +19,25 @@ object Candidate2 {
     else {
       val tile = tileInWorld(wm, x, y)
       districtKind match {
-        case DistrictKind.Campus() => tile.base match {
-          case TileBase.Mountain() => BigInt(2)
+        case DistrictKind.Campus => tile.base match {
+          case TileBase.Mountain => BigInt(2)
           case _ => tile.construction match {
             case Some(Construction.City(_))  => BigInt(1)
             case Some(Construction.District(_)) => BigInt(1)
             case _ => BigInt(0)
           }
         }
-        case DistrictKind.IndustrialZone() =>
+        case DistrictKind.IndustrialZone =>
           val resAdj = tile.resource match {
-            case Some(Resource.Iron()) => BigInt(2)
-            case Some(Resource.Coal()) => BigInt(2)
+            case Some(Resource.Iron) => BigInt(2)
+            case Some(Resource.Coal) => BigInt(2)
             case _ => BigInt(0)
           }
           tile.construction match {
             case Some(Construction.City(_)) => resAdj + BigInt(1)
             case Some(Construction.District(_)) => resAdj + BigInt(1)
-            case Some(Construction.Exploitation(ResourceImprovement.Mine())) => resAdj + BigInt(1)
-            case Some(Construction.Exploitation(ResourceImprovement.Quarry())) => resAdj + BigInt(2)
+            case Some(Construction.Exploitation(ResourceImprovement.Mine)) => resAdj + BigInt(1)
+            case Some(Construction.Exploitation(ResourceImprovement.Quarry)) => resAdj + BigInt(2)
             case _ => resAdj
           }
       }

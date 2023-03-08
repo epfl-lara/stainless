@@ -5,9 +5,9 @@ import defs._
 object Candidate {
 
   def eval(op: OpKind, x: BigInt, y: BigInt): BigInt = op match {
-    case OpKind.Sub() => mySub(y, x)
-    case OpKind.Mul() => myMul(x, y)
-    case OpKind.Add() => myAdd(x, y)
+    case OpKind.Sub => mySub(y, x)
+    case OpKind.Mul => myMul(x, y)
+    case OpKind.Add => myAdd(x, y)
   }
 
   def myAdd(x: BigInt, y: BigInt): BigInt = {
