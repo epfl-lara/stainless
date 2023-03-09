@@ -20,7 +20,7 @@ class EquivChkSuite extends ComponentTestSuite {
 
   override def configurations = super.configurations.map { seq =>
     Seq(
-      inox.optTimeout(3.seconds),
+      inox.optTimeout(4.seconds),
       termination.optInferMeasures(true),
       termination.optCheckMeasures(YesNoOnly.Yes),
     ) ++ seq
@@ -99,6 +99,7 @@ class EquivChkSuite extends ComponentTestSuite {
           optModels(conf.models.toSeq.sorted),
           optCompareFuns(conf.candidates.toSeq.sorted),
           optSilent(true)) ++
+          conf.timeout.map(inox.optTimeout.apply) ++
           conf.norm.map(optNorm.apply).toSeq ++
           conf.n.map(optN.apply).toSeq ++
           conf.initScore.map(optInitScore.apply).toSeq ++
@@ -137,7 +138,8 @@ class EquivChkSuite extends ComponentTestSuite {
                               norm: Option[String],
                               n: Option[Int],
                               initScore: Option[Int],
-                              maxPerm: Option[Int])
+                              maxPerm: Option[Int],
+                              timeout: Option[Duration])
 
   private def extractResults(candidates: Set[String], analysis: component.Analysis): EquivResults = {
     import EquivalenceCheckingReport._
@@ -187,9 +189,10 @@ class EquivChkSuite extends ComponentTestSuite {
     val n = jsonObj("n").map(_.asNumber.getOrCry("Expected 'n' to be an int").toInt.getOrCry("'n' is too large"))
     val initScore = jsonObj("init-score").map(_.asNumber.getOrCry("Expected 'init-score' to be an int").toInt.getOrCry("'init-score' is too large"))
     val maxPerm = jsonObj("max-perm").map(_.asNumber.getOrCry("Expected 'max-perm' to be an int").toInt.getOrCry("'max-perm' is too large"))
+    val timeout = jsonObj("timeout").map(_.asNumber.getOrCry("Expected 'timeout' to be an double").toDouble)
     assert(models.nonEmpty, "At least one model must be specified")
     assert(candidates.nonEmpty, "At least one candidate must be specified")
-    TestConf(models.toSet, candidates.toSet, tests.toSet, norm, n, initScore, maxPerm)
+    TestConf(models.toSet, candidates.toSet, tests.toSet, norm, n, initScore, maxPerm, timeout.map(_.seconds))
   }
 
   extension[T] (o: Option[T]) {
