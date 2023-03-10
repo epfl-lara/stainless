@@ -154,7 +154,16 @@ class EquivalenceChecker(override val trees: Trees,
   // Pairs of model - candidate sub functions with argument permutation
   type SubFnsMatching = Matching[Identifier, ArgPermutation]
 
-  case class SubFnsMatchingStrat(curr: SubFnsMatching, rest: Seq[SubFnsMatching], all: Seq[SubFnsMatching])
+  case class SubFnsMatchingStrat(// Matching to try next
+                                 curr: SubFnsMatching,
+                                 // *all* remaining matching (sublist of `all`), unpruned
+                                 rest: LazyList[SubFnsMatching],
+                                 // # of matching picked so far, starting at 1, for a maximum of `maxMatchingPermutation`
+                                 nbPickedMatching: Int,
+                                 // *all* generated matching, unpruned
+                                 all: LazyList[SubFnsMatching]) {
+    assert(1 <= nbPickedMatching && nbPickedMatching <= maxMatchingPermutation)
+  }
 
   extension (matching: SubFnsMatching) {
     def pretty: String = matching.pairs
@@ -353,59 +362,60 @@ class EquivalenceChecker(override val trees: Trees,
           case (EquivCheckOrder.CandidateFirst, None) =>
             val subFnsMatching = allSubFnsMatches(model, cand)
             val pruned = pruneSubFnsMatching(subFnsMatching)
-            if (pruned.passed.isEmpty) {
-              // No matching for subfunctions available, we pick the next model if available
-              nextModelOrUnknown(pruned.invalidPairs)
-            } else {
-              val nextStrat = EquivCheckStrategy(EquivCheckOrder.ModelFirst,
-                Some(SubFnsMatchingStrat(pruned.passed.head, pruned.passed.tail, pruned.passed)))
-              val nextRS = RoundState(model, remainingModels, nextStrat, EquivLemmas.ToGenerate, currCumulativeSolvingTime + solvingInfo.time)
-              examinationState = ExaminationState.Examining(cand, nextRS)
-              RoundConclusion.NextRound(cand, model, nextStrat, pruned.invalidPairs)
+            pruned.next match {
+              case Some((nextMatching, rest)) =>
+                val nextStrat = EquivCheckStrategy(EquivCheckOrder.ModelFirst,
+                  Some(SubFnsMatchingStrat(nextMatching, rest, nbPickedMatching = 1, subFnsMatching)))
+                val nextRS = RoundState(model, remainingModels, nextStrat, EquivLemmas.ToGenerate, currCumulativeSolvingTime + solvingInfo.time)
+                examinationState = ExaminationState.Examining(cand, nextRS)
+                RoundConclusion.NextRound(cand, model, nextStrat, pruned.invalidPairs)
+              case None =>
+                // No matching for subfunctions available, we pick the next model if available
+                nextModelOrUnknown(pruned.invalidPairs)
             }
 
           case (EquivCheckOrder.ModelFirst, Some(matchingStrat)) =>
-            // Prune the remaining once again, maybe we got new ctex in the meantime
             val pruned = pruneSubFnsMatching(matchingStrat.rest)
-            if (pruned.passed.nonEmpty) {
+            if (pruned.next.isDefined && matchingStrat.nbPickedMatching < maxMatchingPermutation) {
+              val (nextMatching, rest) = pruned.next.get
               // Try with the next matching
               val nextStrat = EquivCheckStrategy(EquivCheckOrder.ModelFirst,
-                Some(matchingStrat.copy(curr = pruned.passed.head, rest = pruned.passed.tail)))
+                Some(matchingStrat.copy(curr = nextMatching, rest = rest, nbPickedMatching = matchingStrat.nbPickedMatching + 1)))
               val nextRS = RoundState(model, remainingModels, nextStrat, EquivLemmas.ToGenerate, currCumulativeSolvingTime + solvingInfo.time)
               examinationState = ExaminationState.Examining(cand, nextRS)
               RoundConclusion.NextRound(cand, model, nextStrat, pruned.invalidPairs)
             } else {
-              // Move to function first with subfns matching, if possible
-              // Reuse the computed matching instead of computing it again,
-              // but prune it once again, maybe we got new ctex in the meantime.
-              val allPruned = pruneSubFnsMatching(matchingStrat.all)
-              if (allPruned.passed.isEmpty) {
-                // No matching for subfunctions available.
-                // We pick the next model if available
-                nextModelOrUnknown(pruned.invalidPairs ++ allPruned.invalidPairs)
-              } else {
-                val nextStrat = EquivCheckStrategy(EquivCheckOrder.CandidateFirst,
-                  Some(SubFnsMatchingStrat(
-                    allPruned.passed.head, allPruned.passed.tail,
-                    // Update `all` with its re-pruned version
-                    allPruned.passed)))
-                val nextRS = RoundState(model, remainingModels, nextStrat, EquivLemmas.ToGenerate, currCumulativeSolvingTime + solvingInfo.time)
-                examinationState = ExaminationState.Examining(cand, nextRS)
-                RoundConclusion.NextRound(cand, model, nextStrat, pruned.invalidPairs ++ allPruned.invalidPairs)
+              // Move to "candidate first with subfns matching", if possible.
+              // Reuse the computed matching instead of computing it again.
+              val prunedAll = pruneSubFnsMatching(matchingStrat.all)
+              prunedAll.next match {
+                case Some((nextMatching, rest)) =>
+                  val nextStrat = EquivCheckStrategy(EquivCheckOrder.CandidateFirst,
+                    Some(matchingStrat.copy(curr = nextMatching, rest = rest,
+                      // Since we move to "candidate first", we reset the number of picked matching to 1.
+                      nbPickedMatching = 1)))
+                  val nextRS = RoundState(model, remainingModels, nextStrat, EquivLemmas.ToGenerate, currCumulativeSolvingTime + solvingInfo.time)
+                  examinationState = ExaminationState.Examining(cand, nextRS)
+                  RoundConclusion.NextRound(cand, model, nextStrat, pruned.invalidPairs ++ prunedAll.invalidPairs)
+                case None =>
+                  // No matching for subfunctions available.
+                  // We pick the next model if available
+                  nextModelOrUnknown(pruned.invalidPairs ++ prunedAll.invalidPairs)
               }
             }
 
           case (EquivCheckOrder.CandidateFirst, Some(matchingStrat)) =>
             val pruned = pruneSubFnsMatching(matchingStrat.rest)
-            if (pruned.passed.nonEmpty) {
-              // Try with the next matching
-              val nextStrat = EquivCheckStrategy(EquivCheckOrder.CandidateFirst,
-                Some(matchingStrat.copy(curr = pruned.passed.head, rest = pruned.passed.tail)))
-              val nextRS = RoundState(model, remainingModels, nextStrat, EquivLemmas.ToGenerate, currCumulativeSolvingTime + solvingInfo.time)
-              examinationState = ExaminationState.Examining(cand, nextRS)
-              RoundConclusion.NextRound(cand, model, nextStrat, pruned.invalidPairs)
-            } else {
-              nextModelOrUnknown(pruned.invalidPairs)
+            pruned.next match {
+              case Some((nextMatching, rest)) =>
+                // Try with the next matching
+                val nextStrat = EquivCheckStrategy(EquivCheckOrder.CandidateFirst,
+                  Some(matchingStrat.copy(curr = nextMatching, rest = rest, nbPickedMatching = matchingStrat.nbPickedMatching + 1)))
+                val nextRS = RoundState(model, remainingModels, nextStrat, EquivLemmas.ToGenerate, currCumulativeSolvingTime + solvingInfo.time)
+                examinationState = ExaminationState.Examining(cand, nextRS)
+                RoundConclusion.NextRound(cand, model, nextStrat, pruned.invalidPairs)
+              case None =>
+                nextModelOrUnknown(pruned.invalidPairs)
             }
         }
       }
@@ -752,38 +762,42 @@ class EquivalenceChecker(override val trees: Trees,
 
   //region Pruning of sub function matching
 
-  private case class PrunedSubFnsMatching(passed: Seq[SubFnsMatching], invalidPairs: Set[(Identifier, Identifier, ArgPermutation)])
+  private case class PrunedSubFnsMatching(next: Option[(SubFnsMatching, LazyList[SubFnsMatching])], invalidPairs: Set[(Identifier, Identifier, ArgPermutation)])
 
-  private def pruneSubFnsMatching(matching: Seq[SubFnsMatching]): PrunedSubFnsMatching = {
-    def loop(matching: Seq[SubFnsMatching],
-             acc: Seq[SubFnsMatching],
-             invalidPairs: Set[(Identifier, Identifier, ArgPermutation)]): (Seq[SubFnsMatching], Set[(Identifier, Identifier, ArgPermutation)]) = matching match {
-      case Seq() => (acc, invalidPairs)
-      case m +: rest =>
-        // If this matching contains pairs that are invalid, skip it and go to the next
-        val mpairs = m.pairs.map { case ((mod, cand), perm) => (mod, cand, perm) }.toSet
-        if (mpairs.intersect(invalidPairs).nonEmpty) loop(rest, acc, invalidPairs)
-        else {
-          // Otherwise, try to falsify this matching by finding an invalid pair
-          val newInvPair = findMap(m.pairs.toSeq) { case ((mod, cand), perm) =>
-            evalCheckCtexOnly(symbols.functions(mod), symbols.functions(cand), perm)
-              .map(_ => (mod, cand, perm))
+  // Tries to find the first matching that passes all collected counter-examples.
+  // If one matching is found, it is returned alongside the remaining matching from `matching`.
+  // Also returns all invalid pairs gathered by ctex falsification.
+  private def pruneSubFnsMatching(matching: LazyList[SubFnsMatching]): PrunedSubFnsMatching = {
+    def loop(matching: LazyList[SubFnsMatching],
+             invalidPairs: Set[(Identifier, Identifier, ArgPermutation)]): (Option[(SubFnsMatching, LazyList[SubFnsMatching])], Set[(Identifier, Identifier, ArgPermutation)]) = {
+      matching.headOption match {
+        case None => (None, invalidPairs)
+        case Some(m) =>
+          // If this matching contains pairs that are invalid, skip it and go to the next
+          val mpairs = m.pairs.map { case ((mod, cand), perm) => (mod, cand, perm) }.toSet
+          if (mpairs.intersect(invalidPairs).nonEmpty) loop(matching.tail, invalidPairs)
+          else {
+            // Otherwise, try to falsify this matching by finding an invalid pair
+            val newInvPair = findMap(m.pairs.toSeq) { case ((mod, cand), perm) =>
+              evalCheckCtexOnly(symbols.functions(mod), symbols.functions(cand), perm)
+                .map(_ => (mod, cand, perm))
+            }
+            newInvPair match {
+              case Some((mod, cand, perm)) =>
+                // A fine addition to my collection of invalid pairs
+                loop(matching.tail, invalidPairs + ((mod, cand, perm)))
+              case None =>
+                // This matching passed the pruning
+                (Some((m, matching.tail)), invalidPairs)
+            }
           }
-          newInvPair match {
-            case Some((mod, cand, perm)) =>
-              // A fine addition to my collection of invalid pairs
-              loop(rest, acc, invalidPairs + ((mod, cand, perm)))
-            case None =>
-              // This matching passed the pruning, add it to the result
-              loop(rest, acc :+ m, invalidPairs)
-          }
-        }
+      }
     }
     val startInvPairs = invalidFunctionsPairsCache.toSet
-    val (remaining, invalidPairs) = loop(matching, Seq.empty, startInvPairs)
+    val (next, invalidPairs) = loop(matching, startInvPairs)
     val extra = invalidPairs -- startInvPairs
     invalidFunctionsPairsCache ++= extra
-    PrunedSubFnsMatching(remaining, extra)
+    PrunedSubFnsMatching(next, extra)
   }
   //endregion
 
@@ -792,7 +806,7 @@ class EquivalenceChecker(override val trees: Trees,
   //region Generation of all possible matching for model and candidate subfunctions
 
   // Note: does not perform pruning by counter-example evaluation
-  private def allSubFnsMatches(model: Identifier, cand: Identifier): Seq[SubFnsMatching] = {
+  private def allSubFnsMatches(model: Identifier, cand: Identifier): LazyList[SubFnsMatching] = {
     import math.Ordering.Implicits.seqOrdering
     // Get all the (non-library) function transitive calls in the body of fd - excluding fd itself
     def getTransitiveCalls(f: Identifier): Set[FunDef] =
@@ -832,56 +846,44 @@ class EquivalenceChecker(override val trees: Trees,
 
     // Matches between identifiers, with all possible permutation
     val resMatching0: Set[Matching[Identifier, Seq[ArgPermutation]]] = allMatching(allValidPairs2)
-    if (resMatching0.isEmpty) return Seq.empty
+    if (resMatching0.isEmpty) return LazyList.empty
 
     // Sort the results to ensure deterministic traversal and picking
     val resMatching1: Seq[Matching[Identifier, Seq[ArgPermutation]]] = resMatching0.toSeq.sortBy(_.pairs.keys.toSeq)
-
-    // To avoid explosion of all possible function matching with all combination of argument permutation,
-    // we distribute the number of maximum permutations per function matching s.t. we don't exceed maxMatchingPermutation
-    def distributePermutations(budget: Int, perms: Seq[Int]): Seq[Int] = {
-      type Ix = Int
-      def helper(budget: Int, remaining: Map[Ix, Int], distributed: Map[Ix, Int]): Seq[Int] = {
-        assert(budget >= 0)
-        assert(remaining.forall(_._2 > 0))
-        assert(distributed.forall(_._2 >= 0))
-        if (remaining.isEmpty) distributed.toSeq.sortBy(_._1).map(_._2)
-        else {
-          val toDistr0 = budget / remaining.size
-          if (toDistr0 == 0) {
-            val toInc = remaining.keys.toSeq.sorted.take(budget % remaining.size)
-            val distr2 = distributed ++ toInc.map(ix => ix -> (distributed(ix) + 1)).toMap
-            distr2.toSeq.sortBy(_._1).map(_._2)
-          } else {
-            val toDistr = math.min(toDistr0, remaining.values.min)
-            val rem2 = remaining.view.mapValues(_ - toDistr).filter(_._2 != 0).toMap
-            val distr2 = distributed ++ remaining.keys.map(ix => ix -> (distributed(ix) + toDistr)).toMap
-            val res = helper(budget - toDistr * remaining.size, rem2, distr2)
-            res
-          }
-        }
-      }
-      helper(budget, perms.zipWithIndex.map { case (p, ix) => ix -> p }.toMap, perms.indices.map(_ -> 0).toMap)
-    }
-    val nbPermutations = resMatching1.map(_.pairs.map(_._2.size).product)
-    val nbPermutationsDistr = distributePermutations(maxMatchingPermutation, nbPermutations)
-
-    // We want a Matching[Identifier, ArgPermutation] and not a Seq[ArgPermutation] as "edge data"
-    def allPermutation(m: Matching[Identifier, Seq[ArgPermutation]], maxPerms: Int): Seq[Matching[Identifier, ArgPermutation]] = {
+    // Lazily generate all permutations for each `m` in `resMatching1`.
+    // Note that we will mutate the Iterator as we will do a round-robin of permutations.
+    val allPermsPerMatching: Seq[Iterator[Matching[Identifier, ArgPermutation]]] = resMatching1.map { m =>
       val tuples = m.pairs.toSeq.map { case ((mod, cand), perms) =>
         perms.map(perm => (mod, cand, perm))
       }
-      cartesianProduct(tuples).take(maxPerms).map { pairs =>
+      cartesianProduct(tuples).map { pairs =>
         val pairs2 = pairs.map { case (mod, cand, perm) => (mod, cand) -> perm }.toMap
         assert(m.pairs.keySet == pairs2.keySet, "Cartesian product is hard")
         assert(pairs2.forall { case ((mod, cand), perm) => m.pairs((mod, cand)).contains(perm) }, "Making sense of all of this is hard")
         Matching(pairs2)
-      }.toSeq
+      }
     }
-
-    val res = resMatching1.zipWithIndex.flatMap { case (m, ix) => allPermutation(m, nbPermutationsDistr(ix)) }
-    assert(res.size <= maxMatchingPermutation, "oh no, I lied :(")
-    res
+    // Interleaving `allPermsPerMatching`
+    def interleaved(matchingIx: Int): LazyList[Matching[Identifier, ArgPermutation]] = {
+      def nextNonEmptyIter(start: Int, curr: Int): Option[Int] = {
+        assert(0 <= curr && curr < allPermsPerMatching.size)
+        assert(0 <= start && start < allPermsPerMatching.size)
+        if (allPermsPerMatching(curr).hasNext) Some(curr)
+        else {
+          val nxt = (curr + 1) % allPermsPerMatching.size
+          if (nxt == start) None
+          else nextNonEmptyIter(start, nxt)
+        }
+      }
+      nextNonEmptyIter(matchingIx, matchingIx) match {
+        case Some(matchingIx) =>
+          val m = allPermsPerMatching(matchingIx).next()
+          val nxtMatchingIx = (matchingIx + 1) % allPermsPerMatching.size
+          m #:: interleaved(nxtMatchingIx)
+        case None => LazyList.empty
+      }
+    }
+    interleaved(0)
   }
 
   // Note: tparams are not checked for permutation
