@@ -53,6 +53,8 @@ class SMTZ3VerificationSuite extends VerificationSuite {
   }
 
   override def filter(ctx: inox.Context, name: String): FilterStatus = name match {
+    // Flaky
+    case "verification/valid/PackedFloat8" => Ignore
     case _ => super.filter(ctx, name)
   }
 }

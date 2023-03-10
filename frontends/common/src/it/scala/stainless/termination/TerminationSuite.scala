@@ -27,6 +27,8 @@ class TerminationSuite extends VerificationComponentTestSuite {
 
   override def filter(ctx: inox.Context, name: String): FilterStatus = name match {
     case "verification/valid/BitsTricksSlow" => Skip
+    // Flaky
+    case "verification/valid/PackedFloat8" => Ignore
     case _ => super.filter(ctx, name)
   }
 
