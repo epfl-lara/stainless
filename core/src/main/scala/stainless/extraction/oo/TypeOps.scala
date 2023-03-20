@@ -117,8 +117,9 @@ trait TypeOps extends innerfuns.TypeOps { self =>
 
     case (t1, t2) if t1 == t2 => Some(t1)
 
-    // maps are covariant in the OO type system
-    case (MapType(f1, t1), MapType(f2, t2)) if f1 == f2 =>
+    // maps are covariant in the OO type system (in their values)
+    // and invariant in their keys (using lub = glb to ensure TypeApply are correctly handled).
+    case (MapType(f1, t1), MapType(f2, t2)) if leastUpperBound(f1, f2) == greatestLowerBound(f1, f2) =>
       Some(MapType(f1, typeBound(t1, t2, upper)))
 
     case _ => None
