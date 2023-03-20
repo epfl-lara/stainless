@@ -544,6 +544,7 @@ trait CodeExtraction extends ASTExtractors {
       case Select(q, name) => name :: rec(q)
       case Ident(name) => List(name)
       case EmptyTree => List()
+      case This(sym) => List(sym)
       case _ =>
         ctx.reporter.internalError("getSelectChain: unexpected Tree:\n" + e.toString)
     }
