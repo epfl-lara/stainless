@@ -186,7 +186,7 @@ class CompilationUnit(val program: Program, val context: inox.Context)(using val
     case lambda: Lambda =>
       val (l: Lambda, deps) = normalizeStructure(matchToIfThenElse(lambda, assumeExhaustive = false)): @unchecked
       if (deps.forall { case (_, e, conds) => isValue(e) && conds.isEmpty }) {
-        val (afName, closures, tparams, consSig) = compileLambda(l, Seq.empty)
+        val (afName, closures, tparams, consSig) = compileLambda(l, Seq.empty)(using ContractsCtx(locallyIgnored = false))
         val depsMap = deps.map { case (v, dep, _) => v.id -> valueToJVM(dep) }.toMap
 
         val args = closures.map { case (id, _) =>
@@ -444,7 +444,7 @@ class CompilationUnit(val program: Program, val context: inox.Context)(using val
       case (v, i) => v.id -> (i + 1)
     }.toMap
 
-    mkExpr(e, ch)(using NoLocals.withVars(newMapping))
+    mkExpr(e, ch)(using NoLocals.withVars(newMapping), ContractsCtx(locallyIgnored = false))
 
     e.getType match {
       case JvmIType() =>

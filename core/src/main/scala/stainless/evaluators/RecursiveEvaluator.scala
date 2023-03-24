@@ -14,7 +14,7 @@ abstract class RecursiveEvaluator(override val program: Program,
 
   override def e(expr: Expr)(using rctx: RC, gctx: GC): Expr = expr match {
     case Require(pred, body) =>
-      if (!ignoreContracts && e(pred) != BooleanLiteral(true))
+      if (!ignoreContractsOn(expr) && e(pred) != BooleanLiteral(true))
         throw RuntimeError("Requirement did not hold @" + expr.getPos)
       e(body)
 
@@ -25,7 +25,7 @@ abstract class RecursiveEvaluator(override val program: Program,
       e(body)
 
     case Assert(pred, err, body) =>
-      if (!ignoreContracts && e(pred) != BooleanLiteral(true))
+      if (!ignoreContractsOn(expr) && e(pred) != BooleanLiteral(true))
         throw RuntimeError(err.getOrElse("Assertion failed @" + expr.getPos))
       e(body)
 
@@ -77,10 +77,29 @@ abstract class RecursiveEvaluator(override val program: Program,
     case NoTree(tpe) =>
       throw RuntimeError("Reached empty tree in evaluation @" + expr.getPos)
 
-    case Annotated(body, _) =>
-      e(body)
+    case Annotated(body, flags) =>
+      val nrctx = {
+        if (flags.contains(DropVCs) || flags.contains(DropConjunct)) rctx.withLocallyIgnoredContracts
+        else rctx
+      }
+      e(body)(using nrctx)
 
     case _ => super.e(expr)
+  }
+
+  override def ignoreContractsOn(expr: Expr)(using rctx: RC, gctx: GC): Boolean = {
+    def isAnnotatedDrop(e: Expr) = e match {
+      case Annotated(_, flags) => flags.contains(DropVCs) || flags.contains(DropConjunct)
+      case _ => false
+    }
+
+    super.ignoreContractsOn(expr) || (expr match {
+      case Assume(pred, _) => isAnnotatedDrop(pred)
+      case Assert(pred, _, _) => isAnnotatedDrop(pred)
+      case Require(pred, _) => isAnnotatedDrop(pred)
+      case Ensuring(_, pred) => isAnnotatedDrop(pred) || isAnnotatedDrop(pred.body)
+      case _ => isAnnotatedDrop(expr)
+    })
   }
 
   protected def matchesCase(scrut: Expr, caze: MatchCase)

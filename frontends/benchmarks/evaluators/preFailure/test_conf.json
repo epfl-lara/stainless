@@ -1,0 +1,9 @@
+{
+  "recursive": true,
+  "codegen": true,
+  "failure": [
+    {
+      "function": "ohno"
+    }
+  ]
+}

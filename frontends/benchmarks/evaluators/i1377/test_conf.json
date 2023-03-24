@@ -1,0 +1,10 @@
+{
+  "recursive": true,
+  "codegen": true,
+  "successful": [
+    {
+      "function": "list2",
+      "expected": "expectedList2"
+    }
+  ]
+}
