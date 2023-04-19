@@ -1590,6 +1590,30 @@ trait ASTExtractors {
     }
   }
 
+  object ExAndThen {
+    def unapply(tree: tpd.Apply): Option[(tpd.Tree, tpd.Tree)] = tree match {
+      case Apply(TypeApply(sel@Select(lhs, _), _), List(rhs)) =>
+        sel match {
+          case ExSymbol("scala", "Function1", "andThen") => Some((lhs, rhs))
+          case _ => None
+        }
+      case _ =>
+        None
+    }
+  }
+
+  object ExCompose {
+    def unapply(tree: tpd.Apply): Option[(tpd.Tree, tpd.Tree)] = tree match {
+      case Apply(TypeApply(sel@Select(lhs, _), _), List(rhs)) =>
+        sel match {
+          case ExSymbol("scala", "Function1", "compose") => Some((lhs, rhs))
+          case _ => None
+        }
+      case _ =>
+        None
+    }
+  }
+
   object ExIdentity {
     def unapply(tree: tpd.Apply): Option[tpd.Tree] = tree match {
       case Apply(TypeApply(ExSymbol("scala", "Predef$", "identity"), Seq(_)), Seq(body)) =>
