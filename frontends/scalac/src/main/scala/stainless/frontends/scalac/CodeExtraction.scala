@@ -1495,6 +1495,26 @@ trait CodeExtraction extends ASTExtractors {
     case ExGhost(body) =>
       xt.Annotated(extractTree(body), Seq(xt.Ghost))
 
+    case at@ExAndThen(lhs, rhs) =>
+      val elhs = extractTree(lhs)
+      val erhs = extractTree(rhs)
+      extractType(at) match {
+        case xt.FunctionType(Seq(from), to) =>
+          val x = xt.ValDef.fresh("x", from)
+          xt.Lambda(Seq(x), xt.Application(erhs, Seq(xt.Application(elhs, Seq(x.toVariable)))))
+        case other => outOfSubsetError(at, s"Unexpected type $other for andThen combinator")
+      }
+
+    case at@ExCompose(lhs, rhs) =>
+      val elhs = extractTree(lhs)
+      val erhs = extractTree(rhs)
+      extractType(at) match {
+        case xt.FunctionType(Seq(from), to) =>
+          val x = xt.ValDef.fresh("x", from)
+          xt.Lambda(Seq(x), xt.Application(elhs, Seq(xt.Application(erhs, Seq(x.toVariable)))))
+        case other => outOfSubsetError(at, s"Unexpected type $other for compose combinator")
+      }
+
     case c @ ExCall(rec, sym, tps, args) => rec match {
       case None if sym.owner.isModuleClass && sym.owner.isCase =>
         val ct = extractType(sym.owner.tpe)(using dctx, c.pos).asInstanceOf[xt.ClassType]

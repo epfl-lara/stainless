@@ -1445,6 +1445,30 @@ trait ASTExtractors(val global: Global) {
       }
     }
 
+    object ExAndThen {
+      def unapply(tree: Apply): Option[(Tree, Tree)] = tree match {
+        case Apply(TypeApply(sel@Select(lhs, _), _), List(rhs)) =>
+          sel match {
+            case ExSymbol("scala", "Function1", "andThen") => Some((lhs, rhs))
+            case _ => None
+          }
+        case _ =>
+          None
+      }
+    }
+
+    object ExCompose {
+      def unapply(tree: Apply): Option[(Tree, Tree)] = tree match {
+        case Apply(TypeApply(sel@Select(lhs, _), _), List(rhs)) =>
+          sel match {
+            case ExSymbol("scala", "Function1", "compose") => Some((lhs, rhs))
+            case _ => None
+          }
+        case _ =>
+          None
+      }
+    }
+
     object ExCall {
       def unapply(tree: Tree): Option[(Option[Tree], Symbol, Seq[Tree], Seq[Tree])] = {
         val res = tree match {

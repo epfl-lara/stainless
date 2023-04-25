@@ -1726,6 +1726,26 @@ class CodeExtraction(inoxCtx: inox.Context, symbolMapping: SymbolMapping)(using 
     case ExGhost(body) =>
       xt.Annotated(extractTree(body), Seq(xt.Ghost))
 
+    case at @ ExAndThen(lhs, rhs) =>
+      val elhs = extractTree(lhs)
+      val erhs = extractTree(rhs)
+      extractType(at) match {
+        case xt.FunctionType(Seq(from), to) =>
+          val x = xt.ValDef.fresh("x", from)
+          xt.Lambda(Seq(x), xt.Application(erhs, Seq(xt.Application(elhs, Seq(x.toVariable)))))
+        case other => outOfSubsetError(at, s"Unexpected type $other for andThen combinator")
+      }
+
+    case at @ ExCompose(lhs, rhs) =>
+      val elhs = extractTree(lhs)
+      val erhs = extractTree(rhs)
+      extractType(at) match {
+        case xt.FunctionType(Seq(from), to) =>
+          val x = xt.ValDef.fresh("x", from)
+          xt.Lambda(Seq(x), xt.Application(elhs, Seq(xt.Application(erhs, Seq(x.toVariable)))))
+        case other => outOfSubsetError(at, s"Unexpected type $other for compose combinator")
+      }
+
     case app @ Apply(tree, args) if defn.isFunctionType(tree.tpe) =>
       xt.Application(extractTree(tree), args map extractTree).setPos(app.sourcePos)
 
