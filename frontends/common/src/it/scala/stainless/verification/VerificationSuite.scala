@@ -92,7 +92,6 @@ class SMTCVC4VerificationSuite extends VerificationSuite {
     case "verification/valid/BigIntMonoidLaws" => Ignore
     case "verification/valid/BigIntRing" => Ignore
     case "verification/valid/ConcRope" => Ignore
-    case "verification/valid/CovariantList" => Ignore
     case "verification/valid/Huffman" => Ignore
     case "verification/valid/InnerClasses4" => Ignore
     case "verification/valid/Iterables" => Ignore
@@ -159,7 +158,7 @@ class PrincessVerificationSuite extends VerificationSuite {
     case "verification/valid/ConcTree" => Ignore
     case "verification/valid/ContMonad" => Ignore
     case "verification/valid/Count" => Ignore
-    case "verification/valid/CovariantList" => Ignore
+    case "verification/valid/CovCollection" => Ignore
     case "verification/valid/Filter" => Ignore
     case "verification/valid/FiniteSort" => Ignore
     case "verification/valid/FlatMap" => Ignore

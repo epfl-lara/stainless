@@ -15,8 +15,8 @@ trait ASTExtractors(val global: Global) {
     rootMirror.getClassByName(str)
   }
 
-  def objectFromName(str: String) = {
-    rootMirror.getClassByName(str)
+  def moduleFromName(str: String) = {
+    rootMirror.getModuleByName(str)
   }
 
   /**
@@ -82,6 +82,10 @@ trait ASTExtractors(val global: Global) {
   protected lazy val listSymbol = classFromName("stainless.collection.List")
   protected lazy val consSymbol = classFromName("stainless.collection.Cons")
   protected lazy val nilSymbol  = classFromName("stainless.collection.Nil")
+
+  protected lazy val covListSymbol = classFromName("stainless.covcollection.List")
+  protected lazy val covConsSymbol = classFromName("stainless.covcollection.$colon$colon")
+  protected lazy val covNilSymbol  = moduleFromName("stainless.covcollection.Nil").moduleClass
 
   protected lazy val arraySym           = classFromName("scala.Array")
   protected lazy val someClassSym       = classFromName("scala.Some")
@@ -674,6 +678,18 @@ trait ASTExtractors(val global: Global) {
       def unapply(tree: Apply): Option[(Tree, List[Tree])] = tree  match {
         case Apply(
               TypeApply(ExSelected("stainless", "collection", "List", "apply"), tpe :: Nil),
+              args) =>
+          Some((tpe, args))
+        case _ =>
+          None
+      }
+    }
+
+    /** Matches the construct covcollection.List[tpe](a, b, ...) and returns tpe and arguments */
+    object ExCovListLiteral {
+      def unapply(tree: Apply): Option[(Tree, List[Tree])] = tree  match {
+        case Apply(
+              TypeApply(ExSelected("stainless", "covcollection", "List", "apply"), tpe :: Nil),
               args) =>
           Some((tpe, args))
         case _ =>

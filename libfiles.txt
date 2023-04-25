@@ -15,6 +15,8 @@ stainless/lang/Map.scala
 stainless/collection/ListMap.scala
 stainless/collection/List.scala
 stainless/collection/CMap.scala
+stainless/covcollection/List.scala
+stainless/covcollection/Option.scala
 stainless/equations/package.scala
 stainless/math/BitVectors.scala
 stainless/math/Nat.scala
