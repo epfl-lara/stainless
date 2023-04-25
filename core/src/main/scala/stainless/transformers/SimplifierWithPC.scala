@@ -12,12 +12,6 @@ trait SimplifierWithPC extends Transformer with inox.transformers.SimplifierWith
   given givenPP: pp.type = pp
 
   override protected def simplify(e: Expr, path: Env): (Expr, Boolean) = e match {
-    case Let(vd, a @ Annotated(ADTSelector(v: Variable, _), flags), b) if flags.contains(DropVCs) =>
-      simplify(exprOps.replaceFromSymbols(Map(vd -> a), b), path)
-
-    case Let(vd, cs @ ADTSelector(v: Variable, _), b) =>
-      simplify(exprOps.replaceFromSymbols(Map(vd -> cs), b), path)
-
     case Assert(pred, oerr, body) => simplify(pred, path) match {
       case (BooleanLiteral(true), true) => simplify(body, path)
       case (BooleanLiteral(false), true) =>
