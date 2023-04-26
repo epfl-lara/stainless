@@ -1477,14 +1477,9 @@ trait CodeExtraction extends ASTExtractors {
 
     case ExArrayApply(array, index) => xt.ArraySelect(extractTree(array), extractTree(index))
 
-    case l @ ExListLiteral(tpe, elems) =>
-      val rtpe = extractType(tpe)
-      val cons = xt.ClassType(getIdentifier(consSymbol), Seq(rtpe))
-      val nil  = xt.ClassType(getIdentifier(nilSymbol),  Seq(rtpe))
+    case l @ ExListLiteral(tpe, elems) => invariantListLiteral(tpe, elems, l.pos)
 
-      elems.foldRight(xt.ClassConstructor(nil, Seq())) {
-        case (e, ls) => xt.ClassConstructor(cons, Seq(extractTree(e), ls))
-      }
+    case l @ ExCovListLiteral(tpe, elems) => covariantListLiteral(tpe, elems, l.pos)
 
     case ExImplies(lhs, rhs) =>
       xt.Implies(extractTree(lhs), extractTree(rhs))
@@ -1815,6 +1810,22 @@ trait CodeExtraction extends ASTExtractors {
     // default behaviour is to complain :)
     case _ => outOfSubsetError(tr, s"Stainless does not support expression (${tr.getClass}): `$tr`")
   }).ensurePos(tr.pos)
+
+  private def invariantListLiteral(tpt: Tree, args: List[Tree], pos: inox.utils.Position)(using dctx: DefContext): xt.Expr =
+    listLiteral(tp => xt.ClassType(getIdentifier(consSymbol), Seq(tp)), tp => xt.ClassType(getIdentifier(nilSymbol), Seq(tp)))(tpt, args, pos)
+
+  private def covariantListLiteral(tpt: Tree, args: List[Tree], pos: inox.utils.Position)(using dctx: DefContext): xt.Expr =
+    listLiteral(tp => xt.ClassType(getIdentifier(covConsSymbol), Seq(tp)), _ => xt.ClassType(getIdentifier(covNilSymbol), Seq.empty))(tpt, args, pos)
+
+  private def listLiteral(mkCons: xt.Type => xt.ClassType, mkNil: xt.Type => xt.ClassType)
+                         (tpe: Tree, elems: Seq[Tree], pos: inox.utils.Position)(using dctx: DefContext): xt.Expr = {
+    val rtpe = extractType(tpe)
+    val cons = mkCons(rtpe)
+    val nil = mkNil(rtpe)
+    elems.foldRight(xt.ClassConstructor(nil, Seq()).setPos(pos)) {
+      case (e, ls) => xt.ClassConstructor(cons, Seq(extractTree(e), ls))
+    }
+  }
 
   /** Inject casts for our BitVectors library for methods toByte, toShort, toInt, toLong */
   private def toSigned(e: xt.Expr, signed: Boolean, size1: Int, size2: Int): xt.Expr = {

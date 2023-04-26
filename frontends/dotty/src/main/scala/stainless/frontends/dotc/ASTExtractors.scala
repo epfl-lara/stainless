@@ -114,6 +114,10 @@ trait ASTExtractors {
   protected lazy val consSymbol = classFromName("stainless.collection.Cons")
   protected lazy val nilSymbol  = classFromName("stainless.collection.Nil")
 
+  protected lazy val covListSymbol = classFromName("stainless.covcollection.List")
+  protected lazy val covConsSymbol = classFromName("stainless.covcollection.::")
+  protected lazy val covNilSymbol  = moduleFromName("stainless.covcollection.Nil").moduleClass
+
   protected lazy val optionClassSym     = classFromName("scala.Option")
   protected lazy val arraySym           = classFromName("scala.Array")
   protected lazy val someClassSym       = classFromName("scala.Some")
@@ -1541,6 +1545,16 @@ trait ASTExtractors {
     object ExListLiteral {
       def unapply(tree: tpd.Apply): Option[(tpd.Tree, List[tpd.Tree])] = tree match {
         case Apply(TypeApply(ExSymbol("stainless", "collection", "List$", "apply"), List(tpt)), args) =>
+          Some((tpt, args))
+        case _ =>
+          None
+      }
+    }
+
+    /** Matches the construct covcollection.List[tpe](a, b, ...) and returns tpe and arguments */
+    object ExCovListLiteral {
+      def unapply(tree: tpd.Apply): Option[(tpd.Tree, List[tpd.Tree])] = tree match {
+        case Apply(TypeApply(ExSymbol("stainless", "covcollection", "List$", "apply"), List(tpt)), args) =>
           Some((tpt, args))
         case _ =>
           None

@@ -1709,13 +1709,9 @@ class CodeExtraction(inoxCtx: inox.Context, symbolMapping: SymbolMapping)(using 
 
     case ExArrayApply(array, index) => xt.ArraySelect(extractTree(array), extractTree(index))
 
-    case ExListLiteral(tpt, args) =>
-      val tpe = extractType(tpt)
-      val cons = xt.ClassType(getIdentifier(consSymbol), Seq(tpe))
-      val nil  = xt.ClassType(getIdentifier(nilSymbol),  Seq(tpe))
-      extractSeq(args).foldRight(xt.ClassConstructor(nil, Seq.empty).setPos(tr.sourcePos)) {
-        case (e, ls) => xt.ClassConstructor(cons, Seq(e, ls)).setPos(e)
-      }
+    case ExListLiteral(tpt, args) => invariantListLiteral(tpt, args, tr.sourcePos)
+
+    case ExCovListLiteral(tpt, args) => covariantListLiteral(tpt, args, tr.sourcePos)
 
     case ExImplies(lhs, rhs) =>
       xt.Implies(extractTree(lhs), extractTree(rhs))
@@ -1770,6 +1766,22 @@ class CodeExtraction(inoxCtx: inox.Context, symbolMapping: SymbolMapping)(using 
     // default behaviour is to complain :)
     case _ => outOfSubsetError(tr, s"Stainless does not support expression: `$tr`")
   }).ensurePos(tr.sourcePos)
+
+  private def invariantListLiteral(tpt: tpd.Tree, args: List[tpd.Tree], pos: inox.utils.Position)(using dctx: DefContext): xt.Expr =
+    listLiteral(tp => xt.ClassType(getIdentifier(consSymbol), Seq(tp)), tp => xt.ClassType(getIdentifier(nilSymbol), Seq(tp)))(tpt, args, pos)
+
+  private def covariantListLiteral(tpt: tpd.Tree, args: List[tpd.Tree], pos: inox.utils.Position)(using dctx: DefContext): xt.Expr =
+    listLiteral(tp => xt.ClassType(getIdentifier(covConsSymbol), Seq(tp)), _ => xt.ClassType(getIdentifier(covNilSymbol), Seq.empty))(tpt, args, pos)
+
+  private def listLiteral(mkCons: xt.Type => xt.ClassType, mkNil: xt.Type => xt.ClassType)
+                         (tpt: tpd.Tree, args: List[tpd.Tree], pos: inox.utils.Position)(using dctx: DefContext): xt.Expr = {
+    val tpe = extractType(tpt)
+    val cons = mkCons(tpe)
+    val nil = mkNil(tpe)
+    extractSeq(args).foldRight(xt.ClassConstructor(nil, Seq.empty).setPos(pos)) {
+      case (e, ls) => xt.ClassConstructor(cons, Seq(e, ls)).setPos(e)
+    }
+  }
 
   private def classSelector(ct: xt.ClassType | xt.LocalClassType, lhs: xt.Expr, fieldId: SymbolIdentifier)(using dctx: DefContext): xt.Expr = ct match {
     case _: xt.ClassType =>

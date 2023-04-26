@@ -23,7 +23,7 @@ abstract class AbstractLibrarySuite(opts: Seq[inox.OptionValue[_]]) extends AnyF
   }
 
   protected def keep(tr: ast.Trees)(fd: tr.FunDef): Boolean = fd match {
-    case fd if fd.flags.exists(_.name == "unchecked") => false
+    case fd if fd.flags.exists(f => f.name == "unchecked" || f.name == "synthetic") => false
     case fd => true
   }
 

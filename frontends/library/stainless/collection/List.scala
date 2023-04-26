@@ -10,6 +10,7 @@ import stainless.lang._
 import stainless.lang.StaticChecks._
 import stainless.annotation._
 import stainless.proof._
+import stainless.covcollection.{List => CovList, Nil => CovNil}
 
 @library
 @isabelle.typ(name = "List.list")
@@ -638,6 +639,8 @@ sealed abstract class List[T] {
   def toSet: Set[T] = foldLeft(Set[T]()){
     case (current, next) => current ++ Set(next)
   }
+
+  def toCovariantList: CovList[T] = foldRight(CovNil: CovList[T])(_ :: _)
 
   @extern @pure
   def toScala: ScalaList[T] = {

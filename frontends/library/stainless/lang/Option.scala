@@ -4,6 +4,7 @@ package stainless.lang
 
 import stainless.annotation._
 import stainless.lang.StaticChecks._
+import stainless.covcollection.{Option => CovOption, Some => CovSome, None => CovNone}
 
 @library
 @isabelle.typ(name = "Option.option")
@@ -59,7 +60,7 @@ sealed abstract class Option[T] {
   def withFilter(p: T => Boolean): Option[T] = filter(p)
 
   def forall(p: T => Boolean) = this match {
-    case Some(x) if !p(x) => false 
+    case Some(x) if !p(x) => false
     case _ => true
   }
 
@@ -72,7 +73,12 @@ sealed abstract class Option[T] {
     case Some(x) => List(x)
   }
   */
-  
+
+  def toCovariantOption: CovOption[T] = this match {
+    case None() => CovNone
+    case Some(x) => CovSome[T](x)
+  }
+
   def toSet: Set[T] = this match {
     case None() => Set[T]()
     case Some(x) => Set(x)
