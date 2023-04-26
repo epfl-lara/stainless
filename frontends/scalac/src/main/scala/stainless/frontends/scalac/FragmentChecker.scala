@@ -263,7 +263,8 @@ trait FragmentChecker extends SubComponent { self: StainlessExtraction =>
 
         // ignore param accessors because they are duplicates of constructor parameters.
         // We catch them when we check constructors
-        if ((sym.tpe ne null) && !sym.isParamAccessor) {
+        // Also ignore *here* class constructors because they contain param accessors.
+        if ((sym.tpe ne null) && !sym.isParamAccessor && !sym.isClassConstructor) {
           checkType(tree.pos, sym.tpe)
         }
       } else {
