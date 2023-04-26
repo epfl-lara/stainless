@@ -132,8 +132,6 @@ trait Strengthener { self: OrderingRelation =>
   def strengthenApplications(funDefs: Set[FunDef])(using dbg: inox.DebugSection): Unit = {
     reporter.debug("- Strengthening applications")
 
-    val api = getAPI
-
     val transitiveFunDefs = funDefs ++ funDefs.flatMap(transitiveCallees)
     val sortedFunDefs = transitiveFunDefs.toSeq.sorted
 
@@ -152,6 +150,10 @@ trait Strengthener { self: OrderingRelation =>
       }
 
       val formulaMap = allFormulas.groupBy(_._1).view.mapValues(_.map(_._2).unzip).toMap
+
+      // Further definitions may be added by `checker.terminates(fd)`,
+      // we therefore must create a fresh solver for each iteration.
+      val api = getAPI
 
       val constraints = for ((v, (weakFormulas, strongFormulas)) <- formulaMap) yield v -> {
         if (api.solveVALID(andJoin(weakFormulas.toSeq)).contains(true)) {
