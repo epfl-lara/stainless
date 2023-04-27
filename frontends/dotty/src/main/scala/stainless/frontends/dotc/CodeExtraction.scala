@@ -2093,11 +2093,7 @@ class CodeExtraction(inoxCtx: inox.Context, symbolMapping: SymbolMapping)(using 
         }
 
         case (tpe, name, args) =>
-          outOfSubsetError(tr,
-            s"Unknown call to $name on $lhs of type $tpe (${lhs.tpe}) with " +
-              s"arguments ${args mkString ", "} of type " +
-              s"${args.map(a => extractType(a)(using dctx.setResolveTypes(true))).mkString(", ")}"
-          )
+          outOfSubsetError(tr, s"Unsupported call to $name on ${lhs.show}")
       }
     }
   }
@@ -2240,7 +2236,7 @@ class CodeExtraction(inoxCtx: inox.Context, symbolMapping: SymbolMapping)(using 
 
       // `isRef` seems to be needed here instead of `==`, as the latter
       // seems to be too lax, and makes the whole test suite fail. - @romac
-      case tpe if tpe.isRef(defn.AnyClass) => xt.AnyType()
+      case tpe if tpe.isRef(defn.AnyClass) || tpe.isRef(defn.ObjectClass) => xt.AnyType()
 
       case ct: ConstantType => extractType(ct.value.tpe)
       case TypeBounds(lo, hi) =>
@@ -2400,7 +2396,7 @@ class CodeExtraction(inoxCtx: inox.Context, symbolMapping: SymbolMapping)(using 
 
       case pp @ TypeParamRef(binder, num) =>
         dctx.tparams.collect { case (k, v) if k.name == pp.paramName => v }.lastOption.getOrElse {
-          outOfSubsetError(tpt.typeSymbol.sourcePos, s"Stainless does not support type $tpt in context ${dctx.tparams}")
+          outOfSubsetError(tpt.typeSymbol.sourcePos, s"Stainless does not support type ${tpt.show} in context ${dctx.tparams}")
         }
 
       case tp: TypeVar => extractType(tp.stripTypeVar)
@@ -2412,7 +2408,7 @@ class CodeExtraction(inoxCtx: inox.Context, symbolMapping: SymbolMapping)(using 
 
       case _ =>
         if (tpt ne null) {
-          outOfSubsetError(tpt.typeSymbol.sourcePos, s"Stainless does not support type $tpt")
+          outOfSubsetError(tpt.typeSymbol.sourcePos, s"Stainless does not support type ${tpt.show}")
         } else {
           outOfSubsetError(NoSourcePosition, "Tree with null-pointer as type found")
         }

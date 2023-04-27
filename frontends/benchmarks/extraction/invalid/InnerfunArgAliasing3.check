@@ -1,0 +1,3 @@
+[ Fatal  ] InnerfunArgAliasing3.scala:24:5: Illegal passing of aliased local variable: boxes
+               inner(boxes(j))
+               ^^^^^^^^^^^^^^^

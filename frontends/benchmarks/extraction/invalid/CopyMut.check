@@ -1,0 +1,3 @@
+[ Error  ] CopyMut.scala:8:23: Cannot call 'copy' on a class with mutable fields
+               def double: Foo = this.copy(bar = bar * 2)
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^

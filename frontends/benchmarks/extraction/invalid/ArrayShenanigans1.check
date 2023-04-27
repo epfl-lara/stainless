@@ -1,0 +1,3 @@
+[ Error  ] ArrayShenanigans1.scala:13:14: Illegal aliasing: arrij
+               arr(i) = arrij
+                        ^^^^^

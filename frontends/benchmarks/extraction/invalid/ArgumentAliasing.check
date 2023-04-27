@@ -1,0 +1,3 @@
+[ Error  ] ArgumentAliasing.scala:14:5: Illegal passing of aliased parameters c1 (with target: Target(c1, None, )) and c2 (with target: Target(c1, None, ))
+               g(c1, c2)
+               ^^^^^^^^^

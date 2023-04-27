@@ -1,0 +1,3 @@
+[ Error  ] i1274a.scala:11:5: This require does not appear at the top-level of this @extern function.
+               require(t >= 10)
+               ^^^^^^^^^^^^^^^^

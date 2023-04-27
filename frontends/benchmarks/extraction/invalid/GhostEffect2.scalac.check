@@ -1,0 +1,3 @@
+[ Error  ] GhostEffect2.scala:10:12: Right-hand side of ghost variable must only have effects on ghost fields (state.seed is not ghost)
+               @ghost val test = Random.nextBigInt
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

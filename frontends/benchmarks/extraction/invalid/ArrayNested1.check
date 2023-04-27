@@ -1,0 +1,3 @@
+[ Error  ] ArrayNested1.scala:10:13: Cannot bind expression of a mutable type to a `var`: Array(1, 2, 0)
+               var a = Array(1, 2, 0)
+                       ^^^^^^^^^^^^^^

@@ -1,0 +1,3 @@
+[ Error  ] i492b.scala:3:35: Method eq on Object is not supported
+             def isEq(a: A, b: A): Boolean = a eq b
+                                             ^^^^^^

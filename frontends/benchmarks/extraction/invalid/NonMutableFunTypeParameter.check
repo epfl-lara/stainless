@@ -1,0 +1,3 @@
+[ Error  ] NonMutableFunTypeParameter.scala:10:17: Cannot instantiate a non-mutable function type parameter T in f[A](a) with the mutable type A
+             def g(a: A) = f(a)
+                           ^^^^

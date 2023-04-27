@@ -1,0 +1,3 @@
+[ Error  ] OldInBody.scala:8:22: Stainless `old` can only occur in postconditions.
+                 assert(f(this, old(this)))
+                                ^^^^^^^^^

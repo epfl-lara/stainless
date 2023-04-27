@@ -2,18 +2,21 @@
 
 package stainless
 
-import extraction.xlang.{ trees => xt, TreeSanitizer }
+import extraction.xlang.{TreeSanitizer, trees as xt}
 import extraction.utils.DebugSymbols
-import frontend.{ CallBack, Recovery, RecoveryResult }
+import frontend.{CallBack, Recovery, RecoveryResult}
+import inox.TestSilentReporter
 import utils.CheckFilter
 
 import scala.collection.mutable.ListBuffer
-
-import java.io.{ File, BufferedWriter, FileWriter }
+import java.io.{BufferedWriter, File, FileWriter}
 
 trait InputUtils {
 
   type Filter = CheckFilter { val trees: xt.type }
+
+  case class ExtractionError(errs: Seq[String]) extends Exception(s"Got the following errors:\n${errs.mkString("  ", "\n  ", "")}")
+  case class SanitizationError(errs: Seq[String]) extends Exception(s"Got the following errors:\n${errs.mkString("  ", "\n  ", "")}")
 
   def compilerVersion: String = Main.compilerVersion
 
@@ -97,9 +100,16 @@ trait InputUtils {
     // Ensure the callback yields all classes and functions (unless using a custom filter)
     assert(done)
 
+    if (ctx.reporter.errorCount != 0) {
+      throw ExtractionError(ctx.reporter.errorsOrNil)
+    }
+
     if (sanitize) {
       // Check that extracted symbols are valid
       TreeSanitizer(xt) enforce syms
+      if (ctx.reporter.errorCount != 0) {
+        throw SanitizationError(ctx.reporter.errorsOrNil)
+      }
     }
 
     // Check that extracted symbols are well-formed
@@ -107,11 +117,17 @@ trait InputUtils {
       syms.ensureWellFormed
     } catch {
       case e @ xt.NotWellFormedException(defn, _) =>
-        throw new extraction.MalformedStainlessCode(defn, e.getMessage)
+        throw extraction.MalformedStainlessCode(defn, e.getMessage)
     }
 
     (units.sortBy(_.id.name).toSeq, inox.Program(xt)(syms))
   }
 
+  extension (rep: inox.Reporter) {
+    def errorsOrNil: Seq[String] = rep match {
+      case reporter: TestSilentReporter => reporter.lastErrors
+      case _ => Seq.empty
+    }
+  }
 }
 

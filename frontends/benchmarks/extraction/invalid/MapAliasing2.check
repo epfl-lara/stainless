@@ -1,0 +1,3 @@
+[ Error  ] MapAliasing2.scala:15:5: Unsupported `val` definition in AntiAliasing (couldn't compute targets and there are mutable variables shared between the binding and the body)
+               val a = f(m, 123)
+               ^^^^^^^^^^^^^^^^^

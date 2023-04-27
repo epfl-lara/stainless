@@ -2,23 +2,17 @@ import stainless.annotation._
 
 object Purity2 {
 
-  case class Box(var value: BigInt) {
-    def setMe(x: BigInt): Unit = {
-      value = x
+  @pure
+  def hello = {
+    var test: Int = 1
+
+    @pure
+    def world = {
+      test = test + 1
+      test
     }
-  }
 
-  def noMutation(@pure box: Box): Boolean = {
-    box.value > 0
-  }
-
-  def mutation(@pure box: Box): Boolean = {
-    doStuff(box)
-    true
-  }
-
-  def doStuff(box: Box): Unit = {
-    box.setMe(42)
+    test
   }
 
 }

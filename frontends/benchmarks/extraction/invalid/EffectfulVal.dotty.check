@@ -1,0 +1,3 @@
+[ Error  ] EffectfulVal.scala:8:9: A field must be pure, but rand has effects: ReplacementEffect(thiss.state.seed)
+               val rand = Random.nextBigInt(state)
+                   ^

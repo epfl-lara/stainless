@@ -1,0 +1,9 @@
+[ Error  ] GhostCaseClasses.scala:17:19: Cannot access a ghost symbol outside of a ghost context. [ x in val foo ]
+                   val foo = x // error: x is ghost
+                             ^
+[ Error  ] GhostCaseClasses.scala:18:19: Cannot access a ghost symbol outside of a ghost context. [ y in val bar ]
+                   val bar = y // error: y is ghost
+                             ^
+[ Error  ] GhostCaseClasses.scala:19:19: Cannot access a ghost symbol outside of a ghost context. [ t in val baz ]
+                   val baz = t // error: t is ghost
+                             ^

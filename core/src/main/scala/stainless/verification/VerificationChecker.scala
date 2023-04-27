@@ -4,7 +4,7 @@ package stainless
 package verification
 
 import inox.Options
-import inox.solvers._
+import inox.solvers.*
 import stainless.transformers.LatticesSimplifier
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger}
@@ -65,6 +65,7 @@ trait VerificationChecker { self =>
   private lazy val checkModels = options.findOptionOrDefault(optCheckModels)
 
   given givenDebugSection: DebugSectionVerification.type = DebugSectionVerification
+  private case object VCReportTag
 
   type VC = verification.VC[program.trees.type]
   val VC = verification.VC
@@ -124,7 +125,7 @@ trait VerificationChecker { self =>
     @volatile var stop = false
 
     VerificationChecker.total.addAndGet(vcs.length)
-    reporter.onCompilerProgress(VerificationChecker.verified.get(), VerificationChecker.total.get())
+    infoReportVCProgress(VerificationChecker.verified.get(), VerificationChecker.total.get())
 
     val initMap: Map[VC, VCResult] = vcs.map(vc => vc -> unknownResult).toMap
 
@@ -157,7 +158,7 @@ trait VerificationChecker { self =>
         val verif =
           if (res.isValid) VerificationChecker.verified.incrementAndGet()
           else VerificationChecker.verified.get()
-        reporter.onCompilerProgress(verif, VerificationChecker.total.get())
+        infoReportVCProgress(verif, VerificationChecker.total.get())
 
         interruptManager.synchronized { // Make sure that we only interrupt the manager once.
           if (shouldStop && !stop && !interruptManager.isInterrupted) {
@@ -386,6 +387,10 @@ trait VerificationChecker { self =>
     } finally {
       s.free()
     }
+  }
+
+  protected def infoReportVCProgress(curr: Int, total: Int): Unit = {
+    reporter.emit(reporter.ProgressMessage(reporter.INFO, VCReportTag, s"Verified: $curr / $total"))
   }
 
   protected def debugVC(simplifiedVC: VC, origVC: VC)(using inox.DebugSection): Unit = {

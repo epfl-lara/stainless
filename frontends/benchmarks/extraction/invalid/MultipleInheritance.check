@@ -1,0 +1,3 @@
+[ Error  ] MultipleInheritance.scala:9:3: Stainless supports only simple type hierarchies: Classes can only inherit from a single class/trait
+             case class Bar() extends Foo1 with Foo2
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

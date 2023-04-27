@@ -1,0 +1,4 @@
+[ Error  ] i933.scala:7:13: Cannot use effectfull computations within Array.fill (i = (i + 1)
+[ Error  ] i)
+               val a = Array.fill(10) { i += 1; i }
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

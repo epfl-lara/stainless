@@ -1,0 +1,3 @@
+[ Error  ] TraitVarDefault.scala:3:5: Mutable fields in traits or abstract classes cannot have default values
+               var v = BigInt(0)
+               ^^^^^^^^^^^^^^^^^

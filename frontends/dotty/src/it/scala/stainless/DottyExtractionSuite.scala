@@ -6,6 +6,7 @@ class DottyExtractionSuite extends ExtractionSuite {
 
   testExtractAll("extraction/valid")
   testRejectAll("extraction/invalid",
+    "FunnyScalacInference.scala",
     // These tests are actually extracted, due to our needs of handling given instances (see ASTExtractor.ExFancyObjectDef).
     "ObjectParent1.scala",
     "ObjectParent2.scala")
@@ -32,6 +33,4 @@ class DottyExtractionSuite extends ExtractionSuite {
     "RefinedTypeMember.scala",
     "SortedListHead.scala",
     "ErasedTerms1.scala")
-
-  testRejectAll("dotty-specific/extraction-reject")
 }

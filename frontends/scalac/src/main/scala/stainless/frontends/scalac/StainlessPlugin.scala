@@ -152,7 +152,9 @@ class ReporterAdapter(underlying: ScalacReporter, debugSections: Set[DebugSectio
       Position.range(toSourceFile(file), pointFrom, pointFrom, pointTo)
   }
 
-  override def emit(message: Message): Unit = {
+  override def clearProgress(): Unit = ()
+
+  override def doEmit(message: Message): Unit = {
     val pos = toScalaPos(message.position)
 
     message.msg match {

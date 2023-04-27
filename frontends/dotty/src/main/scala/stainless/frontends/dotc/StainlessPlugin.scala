@@ -138,7 +138,9 @@ class StainlessPlugin extends StandardPlugin {
         SourcePosition(toSourceFile(file), Spans.Span(pointFrom, pointFrom, pointTo))
     }
 
-    override def emit(message: Message): Unit = {
+    override def clearProgress(): Unit = ()
+
+    override def doEmit(message: Message): Unit = {
       val pos = toDottyPos(message.position)
 
       message.msg match {

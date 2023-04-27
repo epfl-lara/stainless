@@ -1,0 +1,4 @@
+[ Error  ] BitVectors1.scala:6:10: Found:    (v2 : stainless.math.BitVectors.UInt5)
+[ Error  ] Required: stainless.math.BitVectors.BV[stainless.math.BitVectors.u3.type]
+               v1 + v2
+                    ^

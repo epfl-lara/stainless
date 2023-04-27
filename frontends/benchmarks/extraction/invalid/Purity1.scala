@@ -13,18 +13,4 @@ object Purity1 {
       x
     }
   }
-
-  @pure
-  def hello = {
-    var test: Int = 1
-
-    @pure
-    def world = {
-      test = test + 1
-      test
-    }
-
-    test
-  }
-
 }

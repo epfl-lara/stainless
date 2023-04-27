@@ -1,0 +1,3 @@
+[ Error  ] List2.scala:4:3: Scala API `Nil` is not directly supported, please use `stainless.collection.Nil` instead.
+             def foobar = Nil
+             ^^^^^^^^^^^^^^^^

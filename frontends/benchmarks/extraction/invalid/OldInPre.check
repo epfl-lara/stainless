@@ -1,0 +1,3 @@
+[ Error  ] OldInPre.scala:5:13: Stainless `old` can only occur in postconditions.
+               require(old(x) == x)
+                       ^^^^^^

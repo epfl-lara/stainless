@@ -1,0 +1,3 @@
+[ Error  ] Objects cannot extend classes or implement traits, use a case object instead
+             object bar extends Foo
+             ^^^^^^^^^^^^^^^^^^^^^^

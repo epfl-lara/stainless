@@ -1,0 +1,3 @@
+[ Error  ] BadAliasing1.scala:9:5: Illegal aliasing: a
+               a.x = 0
+               ^

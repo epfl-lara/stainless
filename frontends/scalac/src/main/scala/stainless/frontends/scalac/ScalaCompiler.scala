@@ -127,10 +127,17 @@ class ScalaCompiler(settings: NSCSettings, val ctx: inox.Context, val callback: 
       analyzer.namerFactory   -> "resolve names, attach symbols to named trees",
       analyzer.packageObjects -> "load package objects",
       analyzer.typerFactory   -> "the meat and potatoes: type the trees",
-      stainlessExtraction     -> "extracts stainless trees out of scala trees"
-      // TODO drop in replacement? add next phases, plus last phase to report VC results
+      stainlessExtraction     -> "extracts stainless trees out of scala trees",
+      // We only care about the phases preceding Stainless *plus* refChecks.
+      // Note that the Stainless phase is only about extracting the Scala tree into Stainless tree,
+      // the actual processing is not done as a compiler phase but is done once the compiler finishes.
+      superAccessors          -> "add super accessors in traits and nested classes",
+      patmat                  -> "translate match expressions",
+      extensionMethods        -> "add extension methods for inline classes",
+      pickler                 -> "serialize symbol tables",
+      refChecks               -> "reference/override checking, translate nested objects"
     )
-    phs foreach { phasesSet += _._1 }
+    phs foreach (addToPhasesSet _).tupled
   }
 }
 

@@ -1,0 +1,3 @@
+[ Error  ] ArrayShenanigans4.scala:12:31: Illegal aliasing: arr(j)
+               val arr2 = arr.updated(i, arr(j))
+                                         ^^^^^^

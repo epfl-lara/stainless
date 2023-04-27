@@ -1,0 +1,4 @@
+[ Error  ] ReturnInLambda.scala:2:16: Found:    Int => Nothing
+[ Error  ] Required: Int
+             def f: Int = (x: Int) => return 5
+                          ^

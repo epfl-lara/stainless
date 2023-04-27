@@ -1,0 +1,6 @@
+[ Error  ] ClassBody.scala:4:3: Only definitions are allowed inside class bodies.
+             "abcdef" // not allowed here
+             ^^^^^^^^
+[ Error  ] ClassBody.scala:8:3: Only definitions are allowed inside class bodies.
+             bar(42) // not allowed here
+             ^^^^^^^

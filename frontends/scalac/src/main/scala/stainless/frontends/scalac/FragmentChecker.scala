@@ -25,19 +25,26 @@ trait FragmentChecker extends SubComponent { self: StainlessExtraction =>
   import ExpressionExtractors.ExCall
   import StructuralExtractors.ExObjectDef
 
-  private val erroneousPositions = mutable.Set.empty[Int]
+  private val errors = mutable.Set.empty[(Int, Int, String)]
 
   /**
-   * Report an error, unless there is already an error reported at the same position.
+   * Report an error, unless there is already an error with the same message reported in an enclosing position.
    */
-  def reportError(pos: Position, msg: String): Unit = {
-    if (!erroneousPositions(pos.start)) {
+  private def reportError(pos: Position, msg: String): Unit = {
+    if (!errorsEnclosing(pos.start, pos.end)(msg)) {
       ctx.reporter.error(pos, msg)
-      erroneousPositions += pos.start
+      errors += ((pos.start, pos.end, msg))
     }
   }
 
-  def hasErrors(): Boolean = erroneousPositions.nonEmpty
+  private def errorsEnclosing(start: Int, end: Int): Set[String] = {
+    errors.flatMap { case (s, e, msg) =>
+      if (s <= start && end <= e) Some(msg)
+      else None
+    }.toSet
+  }
+
+  def hasErrors(): Boolean = errors.nonEmpty
 
   class GhostAnnotationChecker extends Traverser {
     val ghostAnnotation = rootMirror.getRequiredClass("stainless.annotation.ghost")
@@ -199,19 +206,22 @@ trait FragmentChecker extends SubComponent { self: StainlessExtraction =>
   }
 
   class Checker extends Traverser {
-    val StainlessLangPackage = rootMirror.getPackage("stainless.lang")
-    val ExternAnnotation = rootMirror.getRequiredClass("stainless.annotation.extern")
-    val IgnoreAnnotation = rootMirror.getRequiredClass("stainless.annotation.ignore")
-    val StainlessOld = StainlessLangPackage.info.decl(newTermName("old"))
-
-    val BigInt_ApplyMethods =
+    private val StainlessLangPackage = rootMirror.getPackage("stainless.lang")
+    private val ExternAnnotation = rootMirror.getRequiredClass("stainless.annotation.extern")
+    private val IgnoreAnnotation = rootMirror.getRequiredClass("stainless.annotation.ignore")
+    private val StainlessOld = StainlessLangPackage.info.decl(newTermName("old"))
+    private val StainlessBVObject = rootMirror.getRequiredModule("stainless.math.BitVectors")
+    private val StainlessBVClass = rootMirror.getRequiredClass("stainless.math.BitVectors.BV")
+    private val StainlessBVArrayIndex = rootMirror.getRequiredClass("stainless.math.BitVectors.ArrayIndexing").companionClass
+    private val ScalaEnsuringMethod = rootMirror.getRequiredModule("scala.Predef").info.decl(newTermName("Ensuring"))
+      .alternatives.filter(_.isMethod).head
+    private val BigInt_ApplyMethods =
       (StainlessLangPackage.info.decl(newTermName("BigInt")).info.decl(nme.apply).alternatives
       ++ rootMirror.getRequiredModule("scala.math.BigInt").info.decl(nme.apply).alternatives).toSet
 
-    val RequireMethods =
+    private val RequireMethods =
       definitions.PredefModule.info.decl(newTermName("require")).alternatives.toSet
         ++ rootMirror.getRequiredModule("stainless.lang.StaticChecks").info.decl(newTermName("require")).alternatives.toSet
-
 
     private val stainlessReplacement = mutable.Map(
       definitions.ListClass -> "stainless.collection.List",
@@ -219,8 +229,34 @@ trait FragmentChecker extends SubComponent { self: StainlessExtraction =>
       definitions.OptionClass -> "stainless.lang.Option",
       rootMirror.getRequiredClass("scala.util.Either") -> "stainless.lang.Either",
       definitions.ScalaPackageClass.info.decl(newTermName("Nil")) -> "stainless.collection.Nil",
+      rootMirror.getRequiredClass("scala.collection.Map") -> "stainless.lang.Map",
       rootMirror.getRequiredClass("scala.collection.immutable.Map") -> "stainless.lang.Map",
-      rootMirror.getRequiredClass("scala.collection.immutable.Set") -> "stainless.lang.Set"
+      rootMirror.getRequiredClass("scala.collection.Set") -> "stainless.lang.Set",
+      rootMirror.getRequiredClass("scala.collection.immutable.Set") -> "stainless.lang.Set",
+    )
+
+    // We do not in general support the types for these methods, but we do extract them.
+    // We therefore skip the typing check for them.
+    private val bvSpecialFunctions = Set(
+      StainlessBVObject.info.decl(newTermName("min")),
+      StainlessBVObject.info.decl(newTermName("max")),
+      StainlessBVArrayIndex.info.decl(nme.apply),
+      StainlessBVClass.info.decl(newTermName("widen")),
+      StainlessBVClass.info.decl(newTermName("narrow")),
+      StainlessBVClass.info.decl(newTermName("toSigned")),
+      StainlessBVClass.info.decl(newTermName("toUnsigned")),
+    )
+
+    private val objectMethods = Set[Symbol](
+      definitions.Object_eq, definitions.Object_ne, definitions.Object_synchronized, definitions.Object_clone,
+      definitions.Object_finalize, definitions.Object_notify, definitions.Object_notifyAll, definitions.Object_getClass
+    )
+
+    // Types that may show up due to inference that will later cause a missing dependency error
+    // should we not report an error before.
+    private val unsupportedTypes: Set[Symbol] = Set(
+      definitions.SerializableClass,
+      definitions.ProductRootClass,
     )
 
     // method println is overloaded, so we need to add all overloads to our map
@@ -230,14 +266,95 @@ trait FragmentChecker extends SubComponent { self: StainlessExtraction =>
       sym.alternatives.foreach(a => stainlessReplacement += a -> replacement)
     }
 
-    private def checkType(pos: Position, tpe: Type): Unit = {
-      val errors = for {
-        tp <- tpe
-        if stainlessReplacement.contains(tp.dealias.typeSymbol)
-      } yield tp -> stainlessReplacement(tp.typeSymbol)
+    private def checkType(tree: Tree, tpe0: Type): Unit = {
+      object Errors {
+        def empty: Errors = Errors(Set.empty, Set.empty)
+      }
+      case class Errors(libRepls: Set[(Symbol, String)], unsupported: Set[Type]) {
+        def addReplacement(ts: (Symbol, String)): Errors = copy(libRepls = libRepls + ts)
+        def addUnsupported(t: Type): Errors = copy(unsupported = unsupported + t)
+      }
+      var errs = Errors.empty
+      def strip(tpe: Type): Type = {
+        // The extraction frontend filters out type that are unsupported before extracting them,
+        // so we do here the same to avoid having false positive.
+        tpe.map {
+          case tpe@RefinedType(parents, defs) if defs.isEmpty =>
+            val filtered = parents.filterNot(isIgnored)
+            if (filtered.size == 1) filtered.head
+            else tpe
+          case tpe => tpe
+        }
+      }
+      val tpe = strip(tpe0)
+      for (tp <- tpe) {
+        val tpSym = tp.typeSymbol
+        if (stainlessReplacement.contains(tpSym))
+          errs = errs.addReplacement(tpSym -> stainlessReplacement(tpSym))
+        else tp match {
+          case _: ExistentialType => errs = errs.addUnsupported(tp)
+          case _ => ()
+        }
+      }
 
-      for ((tp, replacement) <- errors.distinct) {
-        reportError(pos, s"Scala API `$tp` is not directly supported, please use `$replacement` instead.")
+      for ((sym, replacement) <- errs.libRepls) {
+        reportError(tree.pos, s"Scala API `${sym.name}` is not directly supported, please use `$replacement` instead.")
+      }
+
+      def contains(hay: Type, needle: Type): Boolean = {
+        var found = false
+        hay.foreach { tp => if (tp eq needle) found = true }
+        found
+      }
+
+      def sourceOfType(tree: Tree, tp: Type): Unit = {
+        tree match {
+          case dd: DefDef =>
+            // It seems to be impossible to know whether a type was inferred or ascribed
+            val ddTpe = strip(dd.tpt.tpe)
+            if (existentialsInType(ddTpe).nonEmpty) {
+              reportError(dd.tpt.pos, s"Hint: the return type of ${dd.name} is `$ddTpe`")
+              sourceOfType(dd.rhs, tp)
+            }
+          case bl: Block => sourceOfType(bl.expr, tp)
+          case vd: ValDef =>
+            val vdTpe = strip(repackExistential(vd.tpt.tpe))
+            if (existentialsInType(vdTpe).nonEmpty) {
+              reportError(vd.tpt.pos, s"Hint: the type of ${vd.name} is `$vdTpe`")
+              sourceOfType(vd.rhs, tp)
+            }
+          case ite: If =>
+            def branches(ite: If): Seq[Tree] = {
+              Seq(ite.thenp) ++ (ite.elsep match {
+                case ite2: If => branches(ite2)
+                case t => Seq(t)
+              })
+            }
+            val iteTp = strip(repackExistential(ite.tpe))
+            val iteTpWiden = iteTp.widen
+            if (existentialsInType(iteTpWiden).nonEmpty) {
+              reportError(ite.pos, s"Hint: the widened type of this if expression is `$iteTpWiden`")
+              val brchs = branches(ite)
+              for (branch <- brchs) {
+                reportError(branch.pos, s"Hint: this branch type is `${branch.tpe}`")
+              }
+            }
+          case mtch: Match =>
+            val mtchTp = strip(repackExistential(mtch.tpe))
+            val mtchTpWiden = mtchTp.widen
+            if (existentialsInType(mtchTpWiden).nonEmpty) {
+              reportError(mtch.pos, s"Hint: the widened type of this match expression is `$mtchTpWiden`")
+              for (branch <- mtch.cases) {
+                reportError(branch.pos, s"Hint: this case type is `${branch.tpe}`")
+              }
+            }
+          case _ => ()
+        }
+      }
+
+      for (tp <- errs.unsupported) {
+        reportError(tree.pos, s"Type `$tp` is unsupported")
+        sourceOfType(tree, tp)
       }
     }
 
@@ -253,22 +370,17 @@ trait FragmentChecker extends SubComponent { self: StainlessExtraction =>
     override def traverse(tree: Tree): Unit = {
       val sym = tree.symbol
       if (sym ne null) {
-        val isExtern = sym.hasAnnotation(ExternAnnotation)
-        val isIgnore = sym.hasAnnotation(IgnoreAnnotation)
-
         // exit early if it's a subtree we shouldn't validate
-        if (isExtern || isIgnore || sym.isSynthetic) {
-          return ()
+        if (skipTraversal(sym)) {
+          return
         }
-
-        // ignore param accessors because they are duplicates of constructor parameters.
-        // We catch them when we check constructors
-        // Also ignore *here* class constructors because they contain param accessors.
-        if ((sym.tpe ne null) && !sym.isParamAccessor && !sym.isClassConstructor) {
-          checkType(tree.pos, sym.tpe)
+        // Ignore class constructors because they duplicate param accessors (fields) which we already check
+        // or skip if they are annotated with @extern.
+        // We do not check the *type* for unapply call since these refer to Scala Option API
+        // These can be extracted anyway (note that we still validate the sub-trees)
+        if ((sym.tpe ne null) && !sym.isClassConstructor && sym.name != nme.unapply) {
+          checkType(tree, sym.tpe)
         }
-      } else {
-        super.traverse(tree)
       }
 
       tree match {
@@ -327,20 +439,37 @@ trait FragmentChecker extends SubComponent { self: StainlessExtraction =>
             case t =>
               reportError(t.pos, s"Stainless `old` is only defined on `this` and variables.")
           }
+          super.traverse(tree)
 
         case Apply(fun, args) if BigInt_ApplyMethods(sym) =>
           if (args.size != 1 || !args.head.isInstanceOf[Literal])
             reportError(args.head.pos, "Only literal arguments are allowed for BigInt.")
+          super.traverse(tree)
 
         case ExCall(Some(s @ Select(rec: Super, _)), _, _, _) =>
           if (s.symbol.isAbstract && !s.symbol.isConstructor)
             reportError(tree.pos, "Cannot issue a super call to an abstract method.")
+          super.traverse(tree)
+
+        case Throw(ex) =>
+          reportError(tree.pos, "throw expressions are unsupported in Stainless")
+          super.traverse(tree)
 
         case Apply(fun, args) =>
           if (stainlessReplacement.contains(sym))
             reportError(tree.pos, s"Scala API ($sym) no longer extracted, please use ${stainlessReplacement(sym)}")
+          if (objectMethods(sym))
+            reportError(tree.pos, s"Method ${sym.name} on Object is not supported")
+          super.traverse(tree)
 
-        case Template(parents, self, body) =>
+        case Try(_, cases, finalizer) =>
+          if (cases.isEmpty && finalizer.isEmpty) reportError(tree.pos, "try expressions are not supported in Stainless")
+          else if (cases.isEmpty && !finalizer.isEmpty) reportError(tree.pos, "try-finally expressions are not supported in Stainless")
+          else if (finalizer.isEmpty) reportError(tree.pos, "try-catch expressions are not supported in Stainless")
+          else reportError(tree.pos, "try-catch-finally expressions are not supported in Stainless")
+          super.traverse(tree)
+
+        case Template(_, self, body) =>
           for (t <- body if !(t.isDef || t.isType || t.isEmpty || t.isInstanceOf[Import])) {
             // `require` is allowed inside classes, but not inside objects
             if (RequireMethods(t.symbol))
@@ -350,12 +479,28 @@ trait FragmentChecker extends SubComponent { self: StainlessExtraction =>
             else
               reportError(t.pos, "Only definitions are allowed inside class bodies.")
           }
-
-          super.traverse(tree)
+          // We do not visit parents, as they will contain reference to synthetic classes such as Product, Serializable, etc.
+          atOwner(sym) {
+            traverse(self)
+            traverseTrees(body)
+          }
 
         case _ =>
           super.traverse(tree)
       }
+    }
+
+    private def skipTraversal(sym: Symbol): Boolean = {
+      val isExtern = sym.hasAnnotation(ExternAnnotation)
+      val isIgnore = sym.hasAnnotation(IgnoreAnnotation)
+      // * If it's a synthetic symbol, we will still visit if it is either:
+      //    -the scala Ensuring method (that creates the Ensuring class), which for some reasons is synthetic (though StaticChecks.Ensuring is not for instance)
+      //    -an anonymous function
+      //    -an anonymous class
+      // * We furthermore ignore ClassTag[T].apply() that appear for Array operations, which we can still extract.
+      isExtern || isIgnore || (sym.isSynthetic && (sym ne ScalaEnsuringMethod) && !sym.isAnonymousFunction && !sym.isAnonymousFunction) ||
+        (sym.owner eq definitions.ClassTagModule.moduleClass) ||
+        bvSpecialFunctions(sym) || (sym eq StainlessBVClass)
     }
   }
 }

@@ -1,0 +1,3 @@
+[ Error  ] InvalidTypeParamInstantiation.scala:8:10: Cannot instantiate a non-mutable class type parameter T with a mutable type Box
+             def f2(b: Container[Box]): Unit = ()
+                    ^

@@ -1,0 +1,3 @@
+[ Fatal  ] MutateInside4.scala:14:16: Ambiguous effect CombinedEffect(m.t) on Mut[Thing](thing)
+               resetThing(Mut(thing))
+                          ^^^^^^^^^^

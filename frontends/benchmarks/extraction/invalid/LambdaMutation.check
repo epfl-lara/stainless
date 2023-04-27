@@ -1,0 +1,3 @@
+[ Error  ] LambdaMutation.scala:4:13: Illegal effects in lambda body
+               val g = () => { x = x + 1 }
+                       ^^^^^^^^^^^^^^^^^^^

@@ -121,6 +121,7 @@ package object extraction {
     object printer extends Printer { val trees: extraction.trees.type = extraction.trees }
   }
 
+  case class ExtractionFailed() extends Exception
   case class MalformedStainlessCode(tree: inox.ast.Trees#Tree, msg: String)
     extends Exception(msg)
 

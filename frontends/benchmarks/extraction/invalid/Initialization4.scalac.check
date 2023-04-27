@@ -1,0 +1,8 @@
+[ Error  ] Initialization4.scala:3:5: Not well formed definition @private
+[ Error  ] @field
+[ Error  ] @fieldDefPosition(1)
+[ Error  ] @method(NoThis)
+[ Error  ] def nothis: Int = this.f
+[ Error  ] 	because field `nothis` can only refer to previous fields, not to `g`
+               val nothis = f()
+               ^^^^^^^^^^^^^^^^

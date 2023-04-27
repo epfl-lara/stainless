@@ -1,0 +1,3 @@
+[ Fatal  ] ReturnInReturn.scala:2:23: Keyword `return` is not allowed here
+             def f: Int = return return 5
+                                 ^^^^^^^^

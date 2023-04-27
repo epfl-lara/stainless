@@ -1801,8 +1801,7 @@ trait CodeExtraction extends ASTExtractors {
           }
 
           case (tpe, name, args) =>
-            outOfSubsetError(tr, "Unknown call to " + name +
-              s" on $lhs (${extractType(lhs)}) with arguments $args of type ${args.map(a => extractType(a))}")
+            outOfSubsetError(tr, s"Unsupported call to $name on $lhs")
         }
       }
     }
@@ -1948,14 +1947,14 @@ trait CodeExtraction extends ASTExtractors {
   }
 
   private def extractType(tpt: Type)(using dctx: DefContext, pos: Position): xt.Type = (tpt match {
-    case CharTpe    => xt.CharType()
-    case ByteTpe    => xt.Int8Type()
-    case ShortTpe   => xt.Int16Type()
-    case IntTpe     => xt.Int32Type()
-    case LongTpe    => xt.Int64Type()
+    case CharTpe => xt.CharType()
+    case ByteTpe => xt.Int8Type()
+    case ShortTpe => xt.Int16Type()
+    case IntTpe => xt.Int32Type()
+    case LongTpe => xt.Int64Type()
     case BooleanTpe => xt.BooleanType()
-    case UnitTpe    => xt.UnitType()
-    case AnyTpe     => xt.AnyType()
+    case UnitTpe => xt.UnitType()
+    case AnyTpe | ObjectTpe | AnyRefTpe => xt.AnyType()
     case NothingTpe => xt.NothingType()
 
     case ct: ConstantType =>

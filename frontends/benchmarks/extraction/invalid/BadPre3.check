@@ -1,0 +1,3 @@
+[ Error  ] BadPre3.scala:8:5: Unexpected `require`. (This error message might occur when a function has return type Unit while its body has another type).
+               require(x < 0) // should be rejected
+               ^^^^^^^^^^^^^^

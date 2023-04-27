@@ -3,13 +3,14 @@
 package stainless
 package frontend
 
-import stainless.extraction.xlang.{trees => xt, TreeSanitizer}
+import stainless.extraction.ExtractionFailed
+import stainless.extraction.xlang.{TreeSanitizer, trees as xt}
 import stainless.extraction.utils.DebugSymbols
 import stainless.utils.LibraryFilter
 
-import scala.util.{Try, Success, Failure}
+import scala.util.{Failure, Success, Try}
 import scala.concurrent.Await
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class BatchedCallBack(components: Seq[Component])(using val context: inox.Context) extends CallBack with StainlessReports { self =>
   import context.reporter
@@ -67,7 +68,10 @@ class BatchedCallBack(components: Seq[Component])(using val context: inox.Contex
   def failed(): Unit = {}
 
   def endExtractions(): Unit = {
-    context.reporter.terminateIfError()
+    if (reporter.errorCount != 0) {
+      reporter.reset()
+      throw ExtractionFailed()
+    }
 
     val allSymbols = xt.NoSymbols
       .withClasses(currentClasses)

@@ -1,0 +1,3 @@
+[ Error  ] i1051b.scala:11:5: Illegal passing of aliased parameters c (with target: Target(c, None, )) and Cons[C](c, Nil[C]()) (with target: Target(c, None, ))
+               Cons(c, Cons(c, Nil[C]())) // Illegal passing of aliased parameters
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -1,0 +1,3 @@
+[ Error  ] Println.scala:4:21: Scala API (method println) no longer extracted, please use stainless.io.StdOut.println
+             def foo(): Unit = println("a")
+                               ^^^^^^^^^^^^

@@ -1,0 +1,3 @@
+[ Fatal  ] i1365a.scala:14:7: Illegal capturing of variables with mutable type: d
+                 (c1 : Cell[BigInt]) => c1.content = c1.content + d.content
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
