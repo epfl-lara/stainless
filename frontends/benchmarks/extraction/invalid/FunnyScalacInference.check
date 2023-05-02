@@ -1,0 +1,21 @@
+[ Error  ] FunnyScalacInference.scala:39:3: Type `stainless.collection.List[_ >: FunnyScalacInference.Red with FunnyScalacInference.Blue <: FunnyScalacInference.Color]` is unsupported
+             def product5(c: Color) = {
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^...
+[ Error  ] FunnyScalacInference.scala:39:7: Hint: the return type of product5 is `stainless.collection.List[_ >: FunnyScalacInference.Red with FunnyScalacInference.Blue <: FunnyScalacInference.Color]`
+             def product5(c: Color) = {
+                 ^
+[ Error  ] FunnyScalacInference.scala:40:9: Hint: the type of x is `stainless.collection.List[_ >: FunnyScalacInference.Red with FunnyScalacInference.Blue <: FunnyScalacInference.Color]`
+               val x = c match {
+                   ^
+[ Error  ] FunnyScalacInference.scala:40:13: Hint: the widened type of this match expression is `stainless.collection.List[_ >: FunnyScalacInference.Red with FunnyScalacInference.Blue <: FunnyScalacInference.Color]`
+               val x = c match {
+                       ^^^^^^^^^...
+[ Error  ] FunnyScalacInference.scala:41:12: Hint: this case type is `stainless.collection.List[FunnyScalacInference.Red]`
+                 case Red() => List(Red())
+                      ^^^^^^^^^^^^^^^^^^^^
+[ Error  ] FunnyScalacInference.scala:42:12: Hint: this case type is `stainless.collection.List[FunnyScalacInference.Red]`
+                 case Green() => List(Red())
+                      ^^^^^^^^^^^^^^^^^^^^^^
+[ Error  ] FunnyScalacInference.scala:43:12: Hint: this case type is `stainless.collection.List[FunnyScalacInference.Blue]`
+                 case Blue() => List(Blue())
+                      ^^^^^^^^^^^^^^^^^^^^^^

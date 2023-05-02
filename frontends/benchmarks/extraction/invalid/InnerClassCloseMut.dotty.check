@@ -1,0 +1,3 @@
+[ Error  ] InnerClassCloseMut.scala:13:9: Local classes cannot close over mutable variables
+                   x = x + 1
+                   ^

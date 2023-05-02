@@ -1,0 +1,10 @@
+[ Error  ] FieldInheritance2.scala:12:9: Access non-initialized value y. Calling trace:
+[ Error  ] -> case class Bar[X](override val thisIsIt: BigInt) extends Foo[X] {	[ FieldInheritance2.scala:11 ]
+[ Error  ]    ^
+[ Error  ] -> sealed abstract class Foo[B] {	[ FieldInheritance2.scala:5 ]
+[ Error  ]    ^
+[ Error  ] -> val z: BigInt = y	[ FieldInheritance2.scala:8 ]
+[ Error  ]                    ^
+[ Error  ]
+               val y = thisIsIt
+                   ^

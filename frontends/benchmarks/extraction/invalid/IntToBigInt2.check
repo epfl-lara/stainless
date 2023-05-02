@@ -1,0 +1,3 @@
+[ Error  ] IntToBigInt2.scala:2:26: Only literal arguments are allowed for BigInt.
+             def g(i: Int) = BigInt(i)
+                                    ^

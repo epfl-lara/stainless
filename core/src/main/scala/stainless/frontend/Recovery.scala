@@ -1,8 +1,12 @@
 package stainless
 package frontend
 
-import utils.StringUtils
-import extraction.xlang.{trees => xt}
+import utils.{StringUtils, XLangDependenciesFinder}
+import extraction.xlang.trees as xt
+import inox.utils.Position
+import stainless.ast.SymbolIdentifier
+import stainless.extraction.oo.{DefinitionTraverser, Trees}
+import stainless.utils.XLangDependenciesFinder.{DependencyInfo, IdentifierKind}
 
 object DebugSectionRecovery extends inox.DebugSection("recovery")
 
@@ -14,6 +18,7 @@ object DebugSectionRecovery extends inox.DebugSection("recovery")
 sealed abstract class RecoveryResult
 object RecoveryResult {
   final case class Success(symbols: xt.Symbols) extends RecoveryResult
+  // For each definition, the symbol we could not find as well as its occurrences
   final case class Failure(failures: Seq[(xt.Definition, Set[Identifier])]) extends RecoveryResult
 }
 
@@ -47,9 +52,9 @@ class Recovery(symbols: xt.Symbols)(using val context: inox.Context) {
         )
 
         strategy.recover(d, missings(d.id)) match {
-          case Left(errs) =>
+          case Left((d, missing)) =>
             reporter.debug(" => FAIL")
-            Left(errs)
+            Left((d, missing))
 
           case Right(result) =>
             reporter.debug(" => SUCCESS")
@@ -86,7 +91,7 @@ object Recovery {
       symbols.typeDefs.values
     ).toSeq
 
-    val missings = allDefs.toSeq.flatMap { defn =>
+    val missings = allDefs.flatMap { defn =>
       val missingDeps = findMissingDeps(defn, symbols)
       if (missingDeps.isEmpty) None
       else Some(defn.id -> missingDeps)
@@ -96,17 +101,13 @@ object Recovery {
       symbols
     } else {
       val recovery = new Recovery(symbols)
-      val recovered = recovery.recover(missings) match {
+      val recovered = recovery.recover(missings.view.mapValues(_.keySet).toMap) match {
         case RecoveryResult.Success(recovered) =>
           recovered
 
         case RecoveryResult.Failure(errors) =>
-          errors foreach { case (definition, unknowns) =>
-            ctx.reporter.error(
-              s"${definition.id.uniqueName} depends on missing dependencies: " +
-              s"${unknowns map (_.uniqueName) mkString ", "}."
-            )
-          }
+          reportMissingDependencies(errors, missings)
+          hintExternClasses(errors, missings)
           ctx.reporter.fatalError(s"Cannot recover from missing dependencies")
       }
 
@@ -114,13 +115,76 @@ object Recovery {
     }
   }
 
-  private def findMissingDeps(defn: xt.Definition, symbols: xt.Symbols): Set[Identifier] = {
-    val finder = new utils.XLangDependenciesFinder
+  private def findMissingDeps(defn: xt.Definition, symbols: xt.Symbols): Map[Identifier, DependencyInfo] = {
+    val finder = new XLangDependenciesFinder
     val deps = finder(defn)
-    deps.filter { dep =>
+    deps.filter { case (dep, _) =>
       !symbols.classes.contains(dep) &&
       !symbols.functions.contains(dep) &&
       !symbols.typeDefs.contains(dep)
+    }
+  }
+
+  private def reportMissingDependencies(errs: Seq[(xt.Definition, Set[Identifier])], missings: Map[Identifier, Map[Identifier, DependencyInfo]])(using ctx: inox.Context): Unit = {
+    for (((definition, unknowns), ix) <- errs.sortBy(_._1.id.fullName).zipWithIndex) {
+      val info = missings(definition.id)
+      assert(unknowns.subsetOf(info.keySet))
+      ctx.reporter.error(definition.getPos, s"${definition.id.name} depends on missing dependencies:")
+      val missingInfo = info.filter(p => unknowns(p._1)).toSeq.sortBy(_._1.fullName)
+      for ((unknId, info) <- missingInfo) {
+        reportMissingDependency(unknId, info)
+      }
+
+      if (ix < errs.size - 1) {
+        ctx.reporter.error("")
+      }
+    }
+  }
+
+  private def hintExternClasses(errs: Seq[(xt.Definition, Set[Identifier])], missings: Map[Identifier, Map[Identifier, DependencyInfo]])(using ctx: inox.Context): Unit = {
+    val missing = errs.flatMap(_._2).toSet
+    val someClass = missings.values.flatten.toSeq
+      .sortBy(_._1.fullName)
+      .find { case (id, info) => missing(id) && info.kind == IdentifierKind.Class }
+      .map(_._1)
+    someClass match {
+      case Some(cls) =>
+        ctx.reporter.error(
+          s"""
+            |Hint: to use a class reported as unknown, you may create a new class wrapping it in a field, annotated with @extern.
+            |For instance:
+            |    import stainless.annotation.extern
+            |    class ${cls.name}(@extern underlying: ${cls.fullName}) {
+            |      // ... methods
+            |    }
+            |See https://epfl-lara.github.io/stainless/wrap.html for more information.""".stripMargin)
+      case None =>
+    }
+  }
+
+  private def reportMissingDependency(id: Identifier, info: DependencyInfo)(using ctx: inox.Context): Unit = {
+    def cap(str: String): String = if (str.isEmpty) str else s"${str(0).toUpper}${str.drop(1)}"
+
+    val kindStr = info.kind match {
+      case IdentifierKind.Class => "class"
+      case IdentifierKind.TypeDef => "type definition"
+      case IdentifierKind.MethodOrFunction => "method"
+      case IdentifierKind.TypeSelection => "type selection"
+    }
+    val hint = {
+      id match {
+        case s: SymbolIdentifier =>
+          val orig = s.symbol.path.headOption.filter(hd => hd == "java" || hd == "scala").map(cap)
+          orig.map { orig =>
+            s"Hint: this $kindStr comes from the $orig standard library and is currently not supported."
+          }
+        case _ => None
+      }
+    }
+    ctx.reporter.error(s"${cap(kindStr)} ${id.name}")
+    hint.foreach(ctx.reporter.error)
+    for (pos <- info.positions) {
+      ctx.reporter.error(pos, "")
     }
   }
 }

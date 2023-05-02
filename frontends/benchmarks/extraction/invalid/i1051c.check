@@ -1,0 +1,3 @@
+[ Error  ] i1051c.scala:19:13: Illegal passing of aliased parameters from (with target: Target(from, None, )) and from (with target: Target(from, None, ))
+               execute(Transaction(from, from, false)) // Illegal aliasing within expr
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

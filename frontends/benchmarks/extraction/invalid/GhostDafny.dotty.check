@@ -1,0 +1,27 @@
+[ Error  ] GhostDafny.scala:19:11: Cannot access a ghost symbol outside of a ghost context. [ g in method M ]
+                 r = g;         // error: RHS is ghost, LHS is not
+                     ^
+[ Error  ] GhostDafny.scala:20:11: Cannot access a ghost symbol outside of a ghost context. [ GhostDafny.GhostTests.F in method M ]
+                 r = F(18, g);  // error: RHS is a ghost and will not be available at run time
+                     ^
+[ Error  ] GhostDafny.scala:24:13: Cannot access a ghost symbol outside of a ghost context. [ g in method M ]
+                 r = N(g, 22);  // error: passing in 'g' as non-ghost parameter
+                       ^
+[ Error  ] GhostDafny.scala:25:11: Cannot access a ghost symbol outside of a ghost context. [ GhostDafny.GhostTests.P in method M ]
+                 r = P(24, 22); // error: 'P' is ghost, but its result is assigned to a non-ghost
+                     ^
+[ Error  ] GhostDafny.scala:32:17: Cannot access a ghost symbol outside of a ghost context. [ gg in method M ]
+                     r = G(gg, gg);  // error: cannot pass ghost 'gg' as non-ghost parameter to 'G'
+                           ^^
+[ Error  ] GhostDafny.scala:37:25: Cannot access a ghost symbol outside of a ghost context. [ g in method M ]
+                 dd = GhostDt.Cons(g, dt, 2);  // error: cannot pass 'g' as non-ghost parameter
+                                   ^
+[ Error  ] GhostDafny.scala:49:7: Cannot access a ghost symbol outside of a ghost context. [ y in method G ]
+                 y // error: cannot return a ghost from a non-ghost function
+                 ^
+[ Error  ] GhostDafny.scala:54:33: Cannot access a ghost symbol outside of a ghost context. [ gg in method H ]
+                   case GhostDt.Nil(gg) => gg  // error: cannot return a ghost from a non-ghost function
+                                           ^^
+[ Error  ] GhostDafny.scala:55:48: Cannot access a ghost symbol outside of a ghost context. [ gg in method H ]
+                   case GhostDt.Cons(dd, tt, gg) =>  dd + gg  // error: ditto
+                                                          ^^

@@ -1,0 +1,3 @@
+[ Error  ] i1051d.scala:6:7: Illegal passing of aliased parameters b (with target: Target(b, None, )) and b (with target: Target(b, None, ))
+               f((b, b)) // Illegal aliasing within expr
+                 ^^^^^^

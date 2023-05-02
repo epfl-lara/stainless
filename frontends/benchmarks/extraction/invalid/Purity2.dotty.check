@@ -1,0 +1,3 @@
+[ Error  ] Purity2.scala:9:5: Functions marked @pure cannot have side-effects
+               @pure
+               ^^^^^...

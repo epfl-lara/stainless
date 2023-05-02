@@ -1,0 +1,4 @@
+[ Error  ] BadOverride1.scala:7:9: error overriding value x in class Abs of type Int;
+[ Error  ]   method x of type => Int needs to be a stable, immutable value
+               def x: Int = 1
+                   ^

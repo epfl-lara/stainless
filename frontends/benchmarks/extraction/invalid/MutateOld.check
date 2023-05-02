@@ -1,0 +1,3 @@
+[ Error  ] MutateOld.scala:7:18: Postcondition tries to mutate old(thiss)
+               } ensuring { _ =>
+                            ^^^^...

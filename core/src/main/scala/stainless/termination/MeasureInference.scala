@@ -23,6 +23,7 @@ class MeasureInference(override val s: Trees, override val t: Trees)(using overr
   type FunctionResult = (t.FunDef, Postconditions)
 
   given givenDebugSection: DebugSectionMeasureInference.type = DebugSectionMeasureInference
+  private case object MeasureInferenceTag
 
   // Measure inference depends on functions that are mutually recursive with `fd`,
   // so we include all dependencies in the key calculation
@@ -126,7 +127,7 @@ class MeasureInference(override val s: Trees, override val t: Trees)(using overr
 
       case None => try {
         val guarantee = timers.evaluators.termination.inference.run {
-          reporter.debug(s"  - Inferring measure for ${original.id.asString}...")
+          reporter.emit(reporter.ProgressMessage(reporter.INFO, MeasureInferenceTag, s"Inferring measure for ${original.id.asString}..."))
           pipeline.terminates(original)
         }
 
@@ -233,6 +234,8 @@ class MeasureInference(override val s: Trees, override val t: Trees)(using overr
     val (sorts, sortSummaries) = symbols.sorts.values.map { sort =>
       sortCache.cached(sort, context)(extractSort(context, sort))
     }.toSeq.unzip
+
+    reporter.emit(reporter.ProgressMessage(reporter.INFO, MeasureInferenceTag, s"Measure inference finished"))
 
     (t.NoSymbols.withSorts(sorts).withFunctions(functions ++ sizeFunctions), AllSummaries(fnsSummaries, sortSummaries))
   }

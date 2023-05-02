@@ -22,6 +22,6 @@ object InnerfunArgAliasing4 {
     }
 
     // Illegal aliasing due to boxi aliasing boxes(z) for i == z and j != z
-    inner(boxes.updated(j, Box(123))(z))
+    inner(boxes.updated(j, Box(123)).apply(z))
   }
 }

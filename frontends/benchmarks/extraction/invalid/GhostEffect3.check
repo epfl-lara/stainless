@@ -1,0 +1,3 @@
+[ Error  ] GhostEffect3.scala:13:9: Argument to ghost field `value` of class `Foo` must only have effects on ghost fields
+               Foo(Random.nextBigInt(state))
+                   ^^^^^^^^^^^^^^^^^^^^^^^^

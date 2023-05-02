@@ -1,0 +1,3 @@
+[ Error  ] BadAliasing3.scala:8:9: Cannot instantiate a non-mutable class type parameter T with a mutable type A
+               val m2 = m.updated(0, a)
+                   ^

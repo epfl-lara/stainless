@@ -1,0 +1,3 @@
+[ Error  ] BitVectors4.scala:6:5: Method `narrow` must be used with a bitvector type of a smaller size
+               v.narrow[UInt5]
+               ^^^^^^^^^^^^^^^

@@ -121,6 +121,9 @@ package object stainless {
     val debugStack = ctx.reporter.debugSections.contains(frontend.DebugSectionStack)
     val isMalformedError =
       e match {
+        case extraction.ExtractionFailed() =>
+          // The errors have already been reported, nothing special to do
+          true
         case extraction.MalformedStainlessCode(tree, msg) =>
           ctx.reporter.error(tree.getPos, msg)
           true

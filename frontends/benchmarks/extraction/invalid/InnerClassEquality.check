@@ -1,0 +1,3 @@
+[ Error  ] InnerClassEquality.scala:16:13: Testing classes with local subclasses for equality in non-ghost code is unsound
+               require(a != b)
+                       ^^^^^^

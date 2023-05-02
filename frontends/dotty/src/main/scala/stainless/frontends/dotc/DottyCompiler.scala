@@ -23,12 +23,14 @@ class DottyCompiler(ctx: inox.Context, callback: CallBack) extends Compiler {
     val allOrigPhases = super.phases
     val extractionPhase = new ExtractionPhase
     val scheduled = Plugins.schedule(allOrigPhases, List(extractionPhase))
-    // We only care about the phases preceding Stainless.
-    // We drop the rest as we are not interested in the full compilation pipeline
-    // (the whole pipeline is used for StainlessPlugin).
-    val necessary = scheduled.takeWhile(_.forall(_.phaseName != extractionPhase.phaseName))
-    // We also include init.Checker (which happens in the same mini-phase as FirstTransform, therefore not contained in `necessary`)
-    necessary :+ List(new init.Checker) :+ List(extractionPhase)
+    // We only care about the phases preceding Stainless *plus* some phases that are after Stainless,
+    // namely RefChecker, init.Checker and ForwardDepChecks.
+    // Note that the Stainless phase is only about extracting the Scala tree into Stainless tree,
+    // the actual processing is not done as a compiler phase but is done once the compiler finishes.
+    // Note: Since we are interested in ForwardDepChecks and that this mini-phase is contained in the group
+    // of PatternMatcher, we must include it as well. However, PatternMatcher does a phase jump and accesses
+    // ExplicitOuter, which we should therefore include as well.
+    takeAllPhasesIncluding(scheduled, ExplicitOuter.name)
   }
 
   private class ExtractionPhase extends PluginPhase {
@@ -37,22 +39,23 @@ class DottyCompiler(ctx: inox.Context, callback: CallBack) extends Compiler {
     override val runsBefore = Set(FirstTransform.name)
     // Note: this must not be instantiated within `run`, because we need the underlying `symbolMapping` in `StainlessExtraction`
     // to be shared across multiple compilation unit.
-    val extraction = new StainlessExtraction(ctx)
-
-    override def runOn(units: List[CompilationUnit])(using dottyCtx: DottyContext): List[CompilationUnit] = {
-      dottyCtx.reporter match {
-        case sr: SimpleReporter if sr.hasSafeInitWarnings =>
-          // Do not run the Stainless extraction phase by returning no compilation units
-          Nil
-        case _ =>
-          super.runOn(units)
-      }
-    }
+    private val extraction = new StainlessExtraction(ctx)
 
     // This method id called for every compilation unit, and in the same thread.
     override def run(using dottyCtx: DottyContext): Unit =
       extraction.extractUnit.foreach(extracted =>
         callback(extracted.file, extracted.unit, extracted.classes, extracted.functions, extracted.typeDefs))
+  }
+
+  // Pick all phases until `including` (with its group included)
+  private def takeAllPhasesIncluding(phases: List[List[Phase]], including: String): List[List[Phase]] = {
+    def rec(phases: List[List[Phase]], acc: List[List[Phase]]): List[List[Phase]] = phases match {
+      case Nil => acc.reverse // Should not happen, since we are interested in trimming the phases
+      case group :: rest =>
+        if (group.exists(_.phaseName == including)) (group :: acc).reverse
+        else rec(rest, group :: acc)
+    }
+    rec(phases, Nil)
   }
 }
 
@@ -95,7 +98,8 @@ private class SimpleReporter(val reporter: inox.Reporter) extends DottyReporter 
       msg.contains("Promote the value under initialization") ||
       msg.contains("on a value with an unknown initialization") ||
       msg.contains("may cause initialization errors") ||
-      msg.contains("Promoting the value to fully-initialized is unsafe")
+      msg.contains("Promoting the value to fully-initialized is unsafe") ||
+      msg.contains("Cannot prove the argument is fully initialized.")
     safeInitWarnings |= warn
     warn
   }

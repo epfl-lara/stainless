@@ -4,21 +4,20 @@ package stainless
 package frontend
 
 import stainless.utils.LibraryFilter
-
-import extraction.xlang.{ TreeSanitizer, trees => xt }
+import extraction.xlang.{TreeSanitizer, trees as xt}
 import extraction.utils.ConcurrentCache
 import extraction.utils.DebugSymbols
-import utils.{ CheckFilter, JsonUtils }
+import utils.{CheckFilter, JsonUtils}
 
-import scala.collection.mutable.{ ListBuffer, Set => MutableSet }
-
-import io.circe._
-import io.circe.syntax._
+import scala.collection.mutable.{ListBuffer, Set as MutableSet}
+import io.circe.*
+import io.circe.syntax.*
+import stainless.extraction.ExtractionFailed
 
 import java.io.File
-import scala.util.{Try, Success, Failure}
-import scala.concurrent.{ Await, Future }
-import scala.concurrent.duration._
+import scala.util.{Failure, Success, Try}
+import scala.concurrent.{Await, Future}
+import scala.concurrent.duration.*
 
 
 class SplitCallBack(components: Seq[Component])(using override val context: inox.Context)
@@ -73,7 +72,10 @@ class SplitCallBack(components: Seq[Component])(using override val context: inox
   final override def failed(): Unit = ()
 
   final override def endExtractions(): Unit = {
-    reporter.terminateIfError()
+    if (reporter.errorCount != 0) {
+      reporter.reset()
+      throw ExtractionFailed()
+    }
 
     processSymbols(symbols)
 

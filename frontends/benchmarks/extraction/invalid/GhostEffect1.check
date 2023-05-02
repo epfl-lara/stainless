@@ -1,0 +1,3 @@
+[ Error  ] GhostEffect1.scala:14:23: Argument to ghost parameter `ignoreMe` of `doStuff` must only have effects on ghost fields (thiss.state.seed is not ghost)
+               def foo = doStuff(Random.nextBigInt(state))
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^

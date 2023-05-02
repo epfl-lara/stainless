@@ -1,0 +1,3 @@
+[ Error  ] i1408a.scala:3:5: Scala API `Option` is not directly supported, please use `stainless.lang.Option` instead.
+               val x = scala.Option(2)
+               ^^^^^^^^^^^^^^^^^^^^^^^

@@ -46,7 +46,7 @@ object i1295 {
 
   }
   case object Leaf extends Tree
-  case class Node(s: State, bkd1: Tree, bkd2: Tree) extends Tree
+  case class Node(override val s: State, bkd1: Tree, bkd2: Tree) extends Tree
 
   @opaque @pure
   def plantThm(s: State): Unit = {

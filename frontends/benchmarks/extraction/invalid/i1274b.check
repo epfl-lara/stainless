@@ -1,0 +1,3 @@
+[ Error  ] i1274b.scala:6:5: This require cannot be extracted due to encountering an unsupported feature before.
+               require(x >= 10)
+               ^^^^^^^^^^^^^^^^

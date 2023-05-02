@@ -1,0 +1,2 @@
+[ Error  ] Not well formed definition abstract class Forest
+[ Error  ] case class Forest(x: Tree, left: Forest, right: Forest) extends Forest

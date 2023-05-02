@@ -32,7 +32,7 @@ class ExplicitNumericPromotionSuite extends AnyFunSuite with InputUtils {
         // load did not throw an exception. It may have reported the error to the reporter
         assert(ctx.reporter.errorCount == 1)
       } catch {
-        case uce: UnsupportedCodeException => () // Ok
+        case _: (UnsupportedCodeException | ExtractionError) => () // Ok
         case NonFatal(e) => fail(e)
       }
     }

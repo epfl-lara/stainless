@@ -1,0 +1,3 @@
+[ Error  ] IllegalAliasing.scala:9:13: Illegal aliasing: Mut[S](a)
+               val b = Mut(a)
+                       ^^^^^^

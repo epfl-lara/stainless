@@ -1,0 +1,3 @@
+[ Error  ] InnerClassesInvariants2.scala:6:21: value value is not a member of ref
+               require(0 < ref.value && ref.value < 10)
+                               ^

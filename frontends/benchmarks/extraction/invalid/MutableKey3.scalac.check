@@ -1,0 +1,3 @@
+[ Error  ] MutableKey3.scala:9:12: Cannot instantiate a set Set[Box] with a mutable type Box
+             def test(set: Set[Box]): Unit = ()
+                      ^^^^^^^^^^^^^

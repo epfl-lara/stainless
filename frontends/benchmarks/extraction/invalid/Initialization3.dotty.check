@@ -1,0 +1,10 @@
+[ Error  ] Initialization3.scala:3:9: Access non-initialized value nothis. Calling trace:
+[ Error  ] -> case class NoThis() {	[ Initialization3.scala:2 ]
+[ Error  ]    ^
+[ Error  ] -> val nothis: Boolean = h()	[ Initialization3.scala:3 ]
+[ Error  ]                          ^^^
+[ Error  ] -> def h(): Boolean = f().nothis	[ Initialization3.scala:6 ]
+[ Error  ]                       ^^^^^^^^^^
+[ Error  ]
+               val nothis: Boolean = h()
+                   ^

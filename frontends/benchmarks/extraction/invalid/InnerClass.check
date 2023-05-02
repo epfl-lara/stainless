@@ -1,0 +1,9 @@
+[ Error  ] InnerClass.scala:5:5: Classes can only be defined at the top-level, within objects, or within methods
+               case class TraitInner()
+               ^^^^^^^^^^^^^^^^^^^^^^^
+[ Error  ] InnerClass.scala:9:5: Classes can only be defined at the top-level, within objects, or within methods
+               case class ClassInner()
+               ^^^^^^^^^^^^^^^^^^^^^^^
+[ Error  ] InnerClass.scala:13:5: Classes can only be defined at the top-level, within objects, or within methods
+               case class CaseInner()
+               ^^^^^^^^^^^^^^^^^^^^^^

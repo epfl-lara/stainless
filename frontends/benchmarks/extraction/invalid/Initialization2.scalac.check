@@ -1,0 +1,8 @@
+[ Error  ] Initialization2.scala:3:5: Not well formed definition @private
+[ Error  ] @field
+[ Error  ] @fieldDefPosition(1)
+[ Error  ] @method(Hello)
+[ Error  ] def message: Int = this.answer + 3
+[ Error  ] 	because field `message` can only refer to previous fields, not to `answer`
+               val message = answer + 3
+               ^^^^^^^^^^^^^^^^^^^^^^^^

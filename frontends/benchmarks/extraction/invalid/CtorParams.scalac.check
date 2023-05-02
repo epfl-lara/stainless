@@ -1,0 +1,3 @@
+[ Error  ] CtorParams.scala:4:24: Abstract class constructor parameters are not allowed in Stainless.
+           abstract class MyClass(x: String) {
+                                  ^^^^^^^^^

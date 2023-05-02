@@ -1,0 +1,3 @@
+[ Error  ] OldInMeasure.scala:5:15: Stainless `old` can only occur in postconditions.
+               decreases(old(x))
+                         ^^^^^^

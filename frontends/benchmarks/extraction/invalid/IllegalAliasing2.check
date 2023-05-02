@@ -1,0 +1,3 @@
+[ Error  ] IllegalAliasing2.scala:12:5: Illegal passing of aliased parameters a(0) (with target: Target(a, None, (0))) and a(zero) (with target: Target(a, None, (zero)))
+               f(a(0), a(zero)) // Illegal passing of aliased parameters
+               ^^^^^^^^^^^^^^^^

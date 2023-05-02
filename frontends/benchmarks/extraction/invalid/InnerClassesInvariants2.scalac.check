@@ -1,0 +1,6 @@
+[ Error  ] InnerClassesInvariants2.scala:6:21: object value is not a member of package ref
+               require(0 < ref.value && ref.value < 10)
+                               ^
+[ Error  ] InnerClassesInvariants2.scala:6:34: object value is not a member of package ref
+               require(0 < ref.value && ref.value < 10)
+                                            ^

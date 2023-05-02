@@ -1,0 +1,3 @@
+[ Error  ] List3.scala:4:3: Scala API `List` is not directly supported, please use `stainless.collection.List` instead.
+             def foobar = 1 :: Nil
+             ^^^^^^^^^^^^^^^^^^^^^

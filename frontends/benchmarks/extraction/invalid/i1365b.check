@@ -1,0 +1,3 @@
+[ Fatal  ] i1365b.scala:15:17: Illegal capturing of variables with mutable type: x
+               val inner = (innoncentLooking: Box) => {
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^...

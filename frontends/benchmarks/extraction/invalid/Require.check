@@ -1,0 +1,3 @@
+[ Error  ] Require.scala:4:3: `require` is not allowed inside object bodies.
+             require(1 > 0) // not allowed inside objects
+             ^^^^^^^^^^^^^^

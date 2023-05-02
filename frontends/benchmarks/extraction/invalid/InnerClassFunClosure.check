@@ -1,0 +1,3 @@
+[ Error  ] InnerClassFunClosure.scala:14:17: Local classes cannot close over local function definitions
+                 def bar = go(100)
+                           ^^^^^^^

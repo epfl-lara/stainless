@@ -1,0 +1,3 @@
+[ Error  ] MutableKey1.scala:9:12: Cannot instantiate a map Map[Box, Option[BigInt]] with a mutable key type Box
+             def test(map: Map[Box, BigInt]): Unit = ()
+                      ^^^^^^^^^^^^^^^^^^^^^

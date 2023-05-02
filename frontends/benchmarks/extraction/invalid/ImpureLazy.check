@@ -1,0 +1,3 @@
+[ Error  ] ImpureLazy.scala:4:24: Stainless does not support effects in lazy val's on: x
+               lazy val hello = { x = x + 1 }
+                                  ^^^^^^^^^

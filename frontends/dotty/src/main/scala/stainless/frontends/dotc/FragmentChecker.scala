@@ -39,19 +39,26 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
   import ExpressionExtractors._
   import StructuralExtractors._
 
-  private val erroneousPositions = mutable.Set.empty[Int]
+  private val errors = mutable.Set.empty[(Int, Int, String)]
 
   /**
-   * Report an error, unless there is already an error reported at the same position.
+   * Report an error, unless there is already an error with the same message reported in an enclosing position.
    */
   private def reportError(pos: SourcePosition, msg: String): Unit = {
-    if (!erroneousPositions(pos.start)) {
+    if (!errorsEnclosing(pos.start, pos.end)(msg)) {
       inoxCtx.reporter.error(pos, msg)
-      erroneousPositions += pos.start
+      errors += ((pos.start, pos.end, msg))
     }
   }
 
-  def hasErrors(): Boolean = erroneousPositions.nonEmpty
+  private def errorsEnclosing(start: Int, end: Int): Set[String] = {
+    errors.flatMap { case (s, e, msg) =>
+      if (s <= start && end <= e) Some(msg)
+      else None
+    }.toSet
+  }
+
+  def hasErrors(): Boolean = errors.nonEmpty
 
   def ghostChecker(tree: tpd.Tree): Unit = (new GhostAnnotationChecker)((), tree)
 
@@ -236,16 +243,20 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
   }
 
   class Checker extends tpd.TreeTraverser {
-    val StainlessLangPackage = Symbols.requiredPackage("stainless.lang")
-    val ExternAnnotation = Symbols.requiredClass("stainless.annotation.extern")
-    val IgnoreAnnotation = Symbols.requiredClass("stainless.annotation.ignore")
-    val StainlessOld = StainlessLangPackage.info.decl(Names.termName("old")).symbol
+    private val StainlessLangPackage = Symbols.requiredPackage("stainless.lang")
+    private val ExternAnnotation = Symbols.requiredClass("stainless.annotation.extern")
+    private val IgnoreAnnotation = Symbols.requiredClass("stainless.annotation.ignore")
+    private val StainlessOld = StainlessLangPackage.info.decl(Names.termName("old")).symbol
+    private val StainlessBVObject = Symbols.requiredModule("stainless.math.BitVectors").moduleClass
+    private val StainlessBVClass = Symbols.requiredClass("stainless.math.BitVectors.BV")
+    private val StainlessBVArrayIndex = Symbols.requiredModule("stainless.math.BitVectors.ArrayIndexing").moduleClass
+    private val ScalaEnsuringMethod = Symbols.requiredMethod("scala.Predef.Ensuring")
 
-    val BigInt_ApplyMethods =
+    private val BigInt_ApplyMethods =
       (StainlessLangPackage.info.decl(Names.termName("BigInt")).info.decl(nme.apply).alternatives
       ++ Symbols.requiredModule("scala.math.BigInt").info.decl(nme.apply).alternatives).toSet
 
-    val RequireMethods =
+    private val RequireMethods =
       defn.ScalaPredefModule.info.decl(Names.termName("require")).alternatives.toSet
         ++ Symbols.requiredModule("stainless.lang.StaticChecks").info.decl(Names.termName("require")).alternatives.toSet
 
@@ -255,8 +266,34 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
       defn.OptionClass -> "stainless.lang.Option",
       Symbols.requiredClass("scala.util.Either") -> "stainless.lang.Either",
       defn.ScalaPackageClass.info.decl(Names.termName("Nil")) -> "stainless.collection.Nil",
+      Symbols.requiredClass("scala.collection.Map") -> "stainless.lang.Map",
       Symbols.requiredClass("scala.collection.immutable.Map") -> "stainless.lang.Map",
-      Symbols.requiredClass("scala.collection.immutable.Set") -> "stainless.lang.Set"
+      Symbols.requiredClass("scala.collection.Set") -> "stainless.lang.Set",
+      Symbols.requiredClass("scala.collection.immutable.Set") -> "stainless.lang.Set",
+    )
+
+    // We do not in general support the types for these methods, but we do extract them.
+    // We therefore skip the typing check for them.
+    private val bvSpecialFunctions = Set(
+      StainlessBVObject.info.decl(termName("min")),
+      StainlessBVObject.info.decl(termName("max")),
+      StainlessBVArrayIndex.info.decl(StdNames.nme.apply),
+      StainlessBVClass.info.decl(termName("widen")),
+      StainlessBVClass.info.decl(termName("narrow")),
+      StainlessBVClass.info.decl(termName("toSigned")),
+      StainlessBVClass.info.decl(termName("toUnsigned")),
+    )
+
+    // Types that may show up due to inference that will later cause a missing dependency error
+    // should we not report an error before.
+    private val unsupportedTypes: Set[Symbol] = Set(
+      defn.EnumClass,
+      defn.SerializableClass,
+      defn.ProductClass,
+      defn.Mirror_ProductClass,
+      defn.Mirror_SumClass,
+      defn.Mirror_SingletonClass,
+      defn.MatchableClass,
     )
 
     // method println is overloaded, so we need to add all overloads to our map
@@ -265,19 +302,99 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
     private def addOverloadsToMap(denot: Denotation, replacement: String): Unit =
       denot.alternatives.foreach(a => stainlessReplacement += a.symbol -> replacement)
 
-    private def checkType(pos: SourcePosition, tpe: Type): Unit = {
-      val tyAcc = new TypeAccumulator[Set[(Type, String)]] {
-        override def apply(acc: Set[(Type, String)], tp: Type): Set[(Type, String)] = {
-          val repl =
-            if (stainlessReplacement.contains(tp.typeSymbol))
-              Set(tp -> stainlessReplacement(tp.typeSymbol))
-            else Set.empty
-          foldOver(acc ++ repl, tp)
+    private def checkType(tree: tpd.Tree, tpe: Type): Unit = {
+      object Errors {
+        def empty: Errors = Errors(Set.empty, Set.empty)
+      }
+      case class Errors(libRepls: Set[(Symbol, String)], unsupported: Set[Type]) {
+        def addReplacement(ts: (Symbol, String)): Errors = copy(libRepls = libRepls + ts)
+        def addUnsupported(t: Type): Errors = copy(unsupported = unsupported + t)
+      }
+      val tyAcc = new TypeAccumulator[Errors] {
+        override def apply(acc: Errors, tp: Type): Errors = {
+          tp match {
+            case SuperType(_, _) =>
+              // We do not traverse SuperType as it contains all hierarchy,
+              // including traits such as Product, etc. we do not support.
+              return acc
+            case _ => ()
+          }
+          val newAcc = {
+            val tpSym = tp.typeSymbol
+            if (stainlessReplacement.contains(tpSym))
+              acc.addReplacement(tpSym -> stainlessReplacement(tpSym))
+            else if (unsupportedTypes.contains(tpSym))
+              acc.addUnsupported(tp)
+            else acc
+          }
+          foldOver(newAcc, tp)
         }
       }
 
-      for ((tp, replacement) <- tyAcc(Set.empty, tpe)) {
-        reportError(pos, s"Scala API `${tp.show}` is not directly supported, please use `$replacement` instead.")
+      val errs = tyAcc(Errors.empty, tpe)
+      for ((sym, replacement) <- errs.libRepls) {
+        reportError(tree.sourcePos, s"Scala API `${sym.name.show}` is not directly supported, please use `$replacement` instead.")
+      }
+
+      def contains(hay: Type, needle: Type): Boolean = {
+        var found = false
+        val tr = new TypeTraverser() {
+          override def traverse(tp: Type): Unit = {
+            if (tp eq needle) found = true
+            else traverseChildren(tp)
+          }
+        }
+        tr.traverse(hay)
+        found
+      }
+
+      def sourceOfType(tree: tpd.Tree, tp: Type): Unit = {
+        tree match {
+          case dd: tpd.DefDef =>
+            dd.tpt match {
+              case inf: tpd.InferredTypeTree if contains(inf.tpe, tp) =>
+                reportError(inf.sourcePos, s"Hint: the inferred return type of ${dd.name.show} is `${inf.tpe.show}`")
+                sourceOfType(dd.rhs, tp)
+              case _ => ()
+            }
+          case bl: tpd.Block => sourceOfType(bl.expr, tp)
+          case vd: tpd.ValDef =>
+            vd.tpt match {
+              case inf: tpd.InferredTypeTree if contains(inf.tpe, tp) =>
+                reportError(inf.sourcePos, s"Hint: the inferred type of ${vd.name.show} is `${inf.tpe.show}`")
+                sourceOfType(vd.rhs, tp)
+              case _ => ()
+            }
+          case ite: tpd.If =>
+            def branches(ite: tpd.If): Seq[tpd.Tree] = {
+              Seq(ite.thenp) ++ (ite.elsep match {
+                case ite2: tpd.If => branches(ite2)
+                case t => Seq(t)
+              })
+            }
+            val iteTpWiden = ite.tpe.widenUnion
+            if (contains(iteTpWiden, tp)) {
+              reportError(ite.sourcePos, s"Hint: the widened type of this if expression is `${iteTpWiden.show}`")
+              val brchs = branches(ite)
+              for (branch <- brchs) {
+                reportError(branch.sourcePos, s"Hint: this branch type is `${branch.tpe.widenTermRefExpr.widenSingleton.show}`")
+              }
+            }
+          case mtch: tpd.Match =>
+            val mtchTpWiden = mtch.tpe.widenUnion
+            if (contains(mtchTpWiden, tp)) {
+              reportError(mtch.sourcePos, s"Hint: the widened type of this match expression is `${mtchTpWiden.show}`")
+              for (branch <- mtch.cases) {
+                reportError(branch.sourcePos, s"Hint: this case type is `${branch.tpe.widenTermRefExpr.widenSingleton.show}`")
+              }
+            }
+          case _ => ()
+        }
+      }
+
+      for (tp <- errs.unsupported) {
+        reportError(tree.sourcePos, s"Type `${tp.show}` is unsupported")
+        sourceOfType(tree, tp)
       }
     }
 
@@ -293,22 +410,26 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
     override def traverse(tree: tpd.Tree)(using ctx: DottyContext): Unit = {
       val sym = tree.symbol
       if (sym.exists) {
-        val isExtern = sym.hasAnnotation(ExternAnnotation)
-        val isIgnore = sym.hasAnnotation(IgnoreAnnotation)
-
         // exit early if it's a subtree we shouldn't validate
-        if (isExtern || isIgnore || (sym is Synthetic)) {
-          return ()
+        if (skipTraversal(sym)) {
+          return
         }
 
-        // ignore param & case accessors because they are duplicates of constructor parameters.
-        // We catch them when we check constructors
-        if (!((sym is ParamAccessor) || (sym is CaseAccessor))) {
-          checkType(tree.sourcePos, tree.tpe)
+        // Ignore class constructors because they duplicate param accessors (fields) which we already check
+        // or skip if they are annotated with @extern.
+        if (!sym.isConstructor) {
+          // Widening TermRef allows to check for method type parameter, ValDef type, etc.
+          // But do we not check type for ident, otherwise we will report each occurrence of the variable as erroneous
+          // which will rapidly overwhelm the console.
+          tree match {
+            case _: tpd.Ident => return // Nothing to check further, so we return
+            case Typed(_: tpd.Ident, _) =>
+              // To avoid traversing the type tree which will result in reporting unsupported type again
+              return
+            case _ =>
+              checkType(tree, tree.tpe.widenTermRefExpr)
+          }
         }
-      } else {
-        traverseChildren(tree)
-        return ()
       }
 
       tree match {
@@ -347,7 +468,7 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
           // recur only inside `dd.rhs`, as parameter/type parameters have been checked already in `checkType`
           traverse(dd.rhs)
 
-        case vd @ ValDef(_, _, _) if sym.owner.isClass && !(sym.owner isOneOf AbstractOrTrait) && (sym is Mutable) && !sym.isOneOf(CaseAccessor | ParamAccessor) =>
+        case vd @ ValDef(_, _, _) if sym.exists && sym.owner.isClass && !(sym.owner isOneOf AbstractOrTrait) && (sym is Mutable) && !sym.isOneOf(CaseAccessor | ParamAccessor) =>
           reportError(tree.sourcePos, "Variables are only allowed within functions and as constructor parameters in Stainless.")
 
         case Apply(fun, List(arg)) if sym == StainlessOld =>
@@ -357,20 +478,37 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
             case t =>
               reportError(t.sourcePos, s"Stainless `old` is only defined on `this` and variables.")
           }
+          traverseChildren(tree)
 
         case Apply(fun, args) if BigInt_ApplyMethods(sym) =>
           if (args.size != 1 || !args.head.isInstanceOf[tpd.Literal])
             reportError(args.head.sourcePos, "Only literal arguments are allowed for BigInt.")
+          traverseChildren(tree)
 
         case ExCall(Some(s @ Select(Super(_, _), _)), _, _, _) =>
           if ((s.symbol is Abstract) && !s.symbol.isConstructor)
             reportError(tree.sourcePos, "Cannot issue a super call to an abstract method.")
+          traverseChildren(tree)
+
+        case Apply(ex, Seq(arg)) if ex.symbol == defn.throwMethod =>
+          reportError(tree.sourcePos, "throw expressions are unsupported in Stainless")
+          traverseChildren(tree)
 
         case Apply(fun, args) =>
           if (stainlessReplacement.contains(sym))
             reportError(tree.sourcePos, s"Scala API ($sym) no longer extracted, please use ${stainlessReplacement(sym)}")
+          if (defn.ObjectMethods.contains(sym))
+            reportError(tree.sourcePos, s"Method ${sym.name} on Object is not supported")
+          traverseChildren(tree)
 
-        case tpl @ Template(parents, _, self, _) =>
+        case Try(_, cases, finalizer) =>
+          if (cases.isEmpty && finalizer.isEmpty) reportError(tree.sourcePos, "try expressions are not supported in Stainless")
+          else if (cases.isEmpty && !finalizer.isEmpty) reportError(tree.sourcePos, "try-finally expressions are not supported in Stainless")
+          else if (finalizer.isEmpty) reportError(tree.sourcePos, "try-catch expressions are not supported in Stainless")
+          else reportError(tree.sourcePos, "try-catch-finally expressions are not supported in Stainless")
+          traverseChildren(tree)
+
+        case tpl @ Template(_, _, _, _) =>
           for (t <- tpl.body if !(t.isDef || t.isType || t.isEmpty || t.isInstanceOf[tpd.Import])) {
             // `require` is allowed inside classes, but not inside objects
             if (RequireMethods(t.symbol) && (ctx.owner is ModuleClass))
@@ -378,12 +516,27 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
             else
               reportError(t.sourcePos, "Only definitions are allowed inside class bodies.")
           }
-
-          traverseChildren(tree)
+          traverse(tpl.constr)
+          // We do not visit parents, as they will contain reference to synthetic classes such as Product, Serializable, etc.
+          traverse(tpl.self)
+          traverse(tpl.body)
 
         case _ =>
           traverseChildren(tree)
       }
+    }
+
+    private def skipTraversal(sym: Symbol): Boolean = {
+      val isExtern = sym.hasAnnotation(ExternAnnotation)
+      val isIgnore = sym.hasAnnotation(IgnoreAnnotation)
+      // * If it's a synthetic symbol, we will still visit if it is either:
+      //    -the scala Ensuring method (that creates the Ensuring class), which for some reasons is synthetic (though StaticChecks.Ensuring is not for instance)
+      //    -an anonymous function
+      //    -an anonymous class
+      // * We furthermore ignore ClassTag[T].apply() that appear for Array operations, which we can still extract.
+      isExtern || isIgnore || ((sym is Synthetic) && (sym ne ScalaEnsuringMethod) && !sym.isAnonymousFunction && !sym.isAnonymousFunction) ||
+        (sym.owner eq defn.ClassTagModule_apply) ||
+        bvSpecialFunctions(sym) || (sym eq StainlessBVClass)
     }
   }
 }

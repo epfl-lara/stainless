@@ -1,0 +1,3 @@
+[ Error  ] MutateInside12.scala:14:15: Illegal aliasing: Mut[Thing[Int]](thing)
+               val mut = Mut(thing)
+                         ^^^^^^^^^^

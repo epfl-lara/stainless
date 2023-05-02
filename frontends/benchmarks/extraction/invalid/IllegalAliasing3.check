@@ -1,0 +1,7 @@
+[ Error  ] IllegalAliasing3.scala:11:13: Cannot bind expression of a mutable type to a `var`: if (b1) {
+[ Error  ]   a1
+[ Error  ] } else {
+[ Error  ]   a2
+[ Error  ] }
+               var x = if (b1) a1 else a2
+                       ^^^^^^^^^^^^^^^^^^

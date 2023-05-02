@@ -1,0 +1,3 @@
+[ Error  ] i827a.scala:3:40: Unsupported call to isEmpty on s
+             def testString(s: String): Boolean = s.isEmpty
+                                                  ^^^^^^^^^

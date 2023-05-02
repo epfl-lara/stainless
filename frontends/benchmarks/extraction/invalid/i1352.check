@@ -1,0 +1,3 @@
+[ Error  ] i1352.scala:3:5: Auxiliary constructors are not allowed in Stainless.
+               def this(smth: Int) = this(smth, 42)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

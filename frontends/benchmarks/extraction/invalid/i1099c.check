@@ -1,0 +1,3 @@
+[ Error  ] i1099c.scala:19:5: Unsupported `val` definition in AntiAliasing (couldn't compute targets and there are mutable variables shared between the binding and the body)
+               val c = C(a3)
+               ^^^^^^^^^^^^^
