@@ -21,12 +21,12 @@ package object inlining {
   }
 
   def extractor(using inox.Context) = {
-    utils.DebugPipeline("FunctionSpecialization", FunctionSpecialization(trees)) andThen
-    utils.DebugPipeline("UnfoldOpaque", UnfoldOpaque(trees)) andThen
-    utils.DebugPipeline("CallSiteInline", CallSiteInline(trees)) andThen
-    utils.DebugPipeline("ChooseInjector", ChooseInjector(trees)) andThen
-    utils.DebugPipeline("ChooseEncoder", ChooseEncoder(trees, trees)) andThen
-    utils.DebugPipeline("FunctionInlining", FunctionInlining(trees, trace.trees))
+    utils.NamedPipeline("FunctionSpecialization", FunctionSpecialization(trees)) andThen
+    utils.NamedPipeline("UnfoldOpaque", UnfoldOpaque(trees)) andThen
+    utils.NamedPipeline("CallSiteInline", CallSiteInline(trees)) andThen
+    utils.NamedPipeline("ChooseInjector", ChooseInjector(trees)) andThen
+    utils.NamedPipeline("ChooseEncoder", ChooseEncoder(trees, trees)) andThen
+    utils.NamedPipeline("FunctionInlining", FunctionInlining(trees, trace.trees))
   }
 
   def fullExtractor(using inox.Context) = extractor andThen nextExtractor

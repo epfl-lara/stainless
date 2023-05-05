@@ -17,6 +17,8 @@ class BatchedCallBack(components: Seq[Component])(using val context: inox.Contex
 
   private given givenDebugSection: DebugSectionFrontend.type = DebugSectionFrontend
 
+  private case object PreprocessingTag
+
   private var currentClasses = Seq[xt.ClassDef]()
   private var currentFunctions = Seq[xt.FunDef]()
   private var currentTypeDefs = Seq[xt.TypeDef]()
@@ -68,11 +70,15 @@ class BatchedCallBack(components: Seq[Component])(using val context: inox.Contex
   def failed(): Unit = {}
 
   def endExtractions(): Unit = {
+    def reportProgress(msg: String) =
+      context.reporter.emit(context.reporter.ProgressMessage(context.reporter.INFO, PreprocessingTag, msg))
+
     if (reporter.errorCount != 0) {
       reporter.reset()
       throw ExtractionFailed()
     }
 
+    reportProgress("Preprocessing the symbols...")
     val allSymbols = xt.NoSymbols
       .withClasses(currentClasses)
       .withFunctions(currentFunctions)
@@ -104,6 +110,9 @@ class BatchedCallBack(components: Seq[Component])(using val context: inox.Contex
         reporter.debug(e)
         reportError(defn.getPos, e.getMessage, symbols)
     }
+
+    reportProgress("Preprocessing finished")
+
     val reports = runs map { run =>
       val ids = symbols.functions.keys.toSeq
       val analysis = Await.result(run(ids, symbols), Duration.Inf)

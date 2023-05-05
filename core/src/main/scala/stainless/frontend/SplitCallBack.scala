@@ -40,6 +40,8 @@ class SplitCallBack(components: Seq[Component])(using override val context: inox
 
   private given givenDebugSection: DebugSectionFrontend.type = DebugSectionFrontend
 
+  private case object PreprocessingTag
+
   /******************* Public Interface: Override CallBack ***************************************/
 
   final override def beginExtractions(): Unit = {
@@ -154,7 +156,7 @@ class SplitCallBack(components: Seq[Component])(using override val context: inox
         }
       }
     }
-
+    reportProgress("Preprocessing the symbols...")
     processFunctions(syms.functions.keys.flatMap(shouldProcess).toSet, syms)
   }
 
@@ -190,6 +192,7 @@ class SplitCallBack(components: Seq[Component])(using override val context: inox
         reportError(defn.getPos, e.getMessage, syms)
     }
 
+    reportProgress("Preprocessing finished")
     reporter.debug(s"Solving program with ${syms.functions.size} functions & ${syms.classes.size} classes")
 
     // Dispatch a task to the executor service instead of blocking this thread.
@@ -221,4 +224,7 @@ class SplitCallBack(components: Seq[Component])(using override val context: inox
     reporter.debug(s"typedefs  -> [\n  ${syms.typeDefs.values mkString "\n  "}\n]")
     reporter.fatalError(s"Well-formedness check failed after extraction")
   }
+
+  private def reportProgress(msg: String) =
+    context.reporter.emit(context.reporter.ProgressMessage(context.reporter.INFO, PreprocessingTag, msg))
 }

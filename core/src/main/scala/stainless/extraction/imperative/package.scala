@@ -37,17 +37,17 @@ package object imperative {
   }
 
   def oldImperative(using inox.Context) = {
-    utils.DebugPipeline("EffectElaboration", EffectElaboration(trees)) andThen  // only drops definitions
-    utils.DebugPipeline("AntiAliasing", AntiAliasing(trees)) andThen
-    utils.DebugPipeline("ReturnElimination", ReturnElimination(trees)) andThen
-    utils.DebugPipeline("ImperativeCodeElimination", ImperativeCodeElimination(trees)) andThen
-    utils.DebugPipeline("ImperativeCleanup", ImperativeCleanup(trees, oo.trees))
+    utils.NamedPipeline("EffectElaboration", EffectElaboration(trees)) andThen  // only drops definitions
+    utils.NamedPipeline("AntiAliasing", AntiAliasing(trees)) andThen
+    utils.NamedPipeline("ReturnElimination", ReturnElimination(trees)) andThen
+    utils.NamedPipeline("ImperativeCodeElimination", ImperativeCodeElimination(trees)) andThen
+    utils.NamedPipeline("ImperativeCleanup", ImperativeCleanup(trees, oo.trees))
   }
 
   def newImperative(using inox.Context) = {
-    utils.DebugPipeline("EffectElaboration", EffectElaboration(trees)) andThen
-    utils.DebugPipeline("ImperativeCodeElimination", ImperativeCodeElimination(trees)) andThen
-    utils.DebugPipeline("ImperativeCleanup", ImperativeCleanup(trees, oo.trees))
+    utils.NamedPipeline("EffectElaboration", EffectElaboration(trees)) andThen
+    utils.NamedPipeline("ImperativeCodeElimination", ImperativeCodeElimination(trees)) andThen
+    utils.NamedPipeline("ImperativeCleanup", ImperativeCleanup(trees, oo.trees))
   }
 
   def extractor(using ctx: inox.Context) =

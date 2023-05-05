@@ -124,7 +124,7 @@ trait DebugSymbols extends PositionChecker { self =>
   }
 }
 
-class DebugPipeline private(override val name: String, override val context: inox.Context, val underlying: ExtractionPipeline)
+class NamedPipeline private(override val name: String, override val context: inox.Context, val underlying: ExtractionPipeline)
                            (override val s: underlying.s.type, override val t: underlying.t.type)
   extends ExtractionPipeline with DebugSymbols { self =>
 
@@ -136,18 +136,19 @@ class DebugPipeline private(override val name: String, override val context: ino
   // `extract` is a wrapper around `super.extract` which outputs trees for
   // debugging and which outputs position checks
   override def extract(symbols: s.Symbols): (t.Symbols, ExtractionSummary) = debug { syms =>
+    context.reporter.emit(context.reporter.ProgressMessage(context.reporter.INFO, PhaseExtractionTag, s"Running phase $name"))
     context.timers.extraction.get(name).run(underlying.extract(syms))
   } (symbols)
 }
 
-object DebugPipeline {
+object NamedPipeline {
   def apply(nme: String, pipln: ExtractionPipeline): ExtractionPipeline {
     val s: pipln.s.type
     val t: pipln.t.type
   } = {
     class Impl(override val underlying: pipln.type)
               (override val s: underlying.s.type,
-               override val t: underlying.t.type) extends DebugPipeline(nme, underlying)
+               override val t: underlying.t.type) extends NamedPipeline(nme, underlying)
     new Impl(pipln)(pipln.s, pipln.t)
   }
 }

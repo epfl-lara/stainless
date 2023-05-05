@@ -68,9 +68,9 @@ package object xlang {
     }
 
     val lowering = new Lowering(trees, innerclasses.trees)
-    utils.DebugPipeline("ConstructsUsage", ConstructsUsage(trees)) andThen
-    utils.DebugPipeline("PartialFunctions", PartialFunctions(trees)) andThen
-    utils.DebugPipeline("XlangLowering", lowering)
+    utils.NamedPipeline("ConstructsUsage", ConstructsUsage(trees)) andThen
+    utils.NamedPipeline("PartialFunctions", PartialFunctions(trees)) andThen
+    utils.NamedPipeline("XlangLowering", lowering)
   }
 
   def fullExtractor(using inox.Context) = extractor andThen nextExtractor

@@ -3,7 +3,7 @@
 package stainless
 package frontends.dotc
 
-import dotty.tools.dotc._
+import dotty.tools.dotc.{Main => _, _}
 import plugins._
 import dotty.tools.dotc.reporting.{Diagnostic, Reporter => DottyReporter}
 import dotty.tools.dotc.interfaces.Diagnostic.{ERROR, WARNING, INFO}
@@ -68,7 +68,18 @@ private class DottyDriver(args: Seq[String], compiler: DottyCompiler, reporter: 
 }
 
 private class SimpleReporter(val reporter: inox.Reporter) extends DottyReporter {
-  private var safeInitWarnings: Boolean = false
+
+  override def doReport(dia: Diagnostic)(using DottyContext): Unit = {
+    // For -Ysafe-init warning messages, raise the level to error
+    val level = if (isSafeInitWarning(dia)) ERROR else dia.level
+    printMessage(dia.pos, dia.msg.message, level)
+  }
+
+  // Hide pattern matching exhaustivity warning.
+  // Note: The difference between an unreported diagnostic (i.e. not printing it in `doReport`) and
+  // a hidden one is that a hidden diagnostic is not counted towards warning/error counts
+  override def isHidden(dia: Diagnostic)(using DottyContext): Boolean =
+    super.isHidden(dia) || isPatmatExhaustivity(dia)
 
   private def printMessage(msg: String, pos: inox.utils.Position, severity: Int): Unit = severity match {
     case `ERROR` =>
@@ -92,29 +103,27 @@ private class SimpleReporter(val reporter: inox.Reporter) extends DottyReporter 
     }
   }
 
-  private def checkSafeInitWarning(msg: String): Boolean = {
+  private def isSafeInitWarning(dia: Diagnostic): Boolean = {
     // It seems that we can't extract the type of warning we got, so we have to resort to using questionable practices
-    val warn = msg.contains("Access non-initialized") ||
-      msg.contains("Promote the value under initialization") ||
-      msg.contains("on a value with an unknown initialization") ||
-      msg.contains("may cause initialization errors") ||
-      msg.contains("Promoting the value to fully-initialized is unsafe") ||
-      msg.contains("Cannot prove the argument is fully initialized.")
-    safeInitWarnings |= warn
-    warn
+    val msgs = Set("Access non-initialized",
+      "Promote the value under initialization",
+      "on a value with an unknown initialization",
+      "may cause initialization errors",
+      "Promoting the value to fully-initialized is unsafe",
+      "Cannot prove the argument is fully initialized")
+    dia.level == WARNING && msgs.exists(dia.message.contains)
   }
 
-  def hasSafeInitWarnings: Boolean = safeInitWarnings
-
-  def doReport(dia: Diagnostic)(using DottyContext): Unit = {
-    val isSafeInitMsg = dia.level == WARNING && checkSafeInitWarning(dia.msg.message)
-    // For -Ysafe-init warning messages, raise the level to error
-    val level = if (isSafeInitMsg) ERROR else dia.level
-    printMessage(dia.pos, dia.msg.message, level)
+  private def isPatmatExhaustivity(dia: Diagnostic): Boolean = {
+    val msgs = Set("If the narrowing is intentional, this can be communicated",
+      "match may not be exhaustive")
+    dia.level == WARNING && msgs.exists(dia.message.contains)
   }
 }
 
 object DottyCompiler {
+
+  private case object CompilationTag
 
   /** Complying with [[frontend]]'s interface */
   class Factory(
@@ -148,7 +157,12 @@ object DottyCompiler {
 
         override def initRun(): Unit = ()
 
-        override def onRun(): Unit = driver.run()
+        override def onRun(): Unit = {
+          def report(msg: String) = ctx.reporter.emit(ctx.reporter.ProgressMessage(ctx.reporter.INFO, CompilationTag, msg))
+          report(s"Compiling with standard Scala ${Main.compilerVersion} compiler front end...")
+          driver.run()
+          report("Finished compiling")
+        }
 
         override def onEnd(): Unit = ()
 

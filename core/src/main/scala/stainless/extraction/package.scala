@@ -72,6 +72,9 @@ package object extraction {
     "IR2C"                      -> "(GenC) From IR to C",
   )
 
+  // The tag used when printing progress about which phase is currently running
+  case object PhaseExtractionTag
+
   val phaseNames: Set[String] = phases.map(_._1).toSet
 
   /** Unifies all stainless tree definitions */

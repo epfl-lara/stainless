@@ -113,8 +113,8 @@ class EquivalenceCheckingRun private(override val component: EquivalenceChecking
   private val tracePostPipeline: ExtractionPipeline { val s: trace.trees.type; val t: trees.type } =
     trace.extractor andThen
     termination.extractor andThen
-    extraction.utils.DebugPipeline("MeasureInference", MeasureInference(extraction.trees)) andThen
-    extraction.utils.DebugPipeline("PartialEvaluation", PartialEvaluation(extraction.trees)) andThen
+    extraction.utils.NamedPipeline("MeasureInference", MeasureInference(extraction.trees)) andThen
+    extraction.utils.NamedPipeline("PartialEvaluation", PartialEvaluation(extraction.trees)) andThen
     extraction.completer(trees)
 
   override def apply(ids: Seq[Identifier], symbols: xt.Symbols): Future[Analysis] = {

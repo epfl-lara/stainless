@@ -59,8 +59,8 @@ class VerificationRun private(override val component: VerificationComponent.type
 
   override def createPipeline = {
     pipeline andThen
-    extraction.utils.DebugPipeline("MeasureInference", MeasureInference(extraction.trees)) andThen
-    extraction.utils.DebugPipeline("PartialEvaluation", PartialEvaluation(extraction.trees))
+    extraction.utils.NamedPipeline("MeasureInference", MeasureInference(extraction.trees)) andThen
+    extraction.utils.NamedPipeline("PartialEvaluation", PartialEvaluation(extraction.trees))
   }
 
   given givenDebugSection: DebugSectionVerification.type = DebugSectionVerification
@@ -96,7 +96,12 @@ class VerificationRun private(override val component: VerificationComponent.type
       }
 
       if (!functions.isEmpty) {
-        reporter.debug(s"Generating VCs for functions: ${functions map { _.uniqueName } mkString ", "}")
+        val plural = if (functions.size == 1) "" else "s"
+        val msg = {
+          if (reporter.isDebugEnabled) s"Generating VCs for function$plural: ${functions map { _.uniqueName } mkString ", "}..."
+          else s"Generating VCs for ${functions.size} function$plural..."
+        }
+        reportVCProgress(msg)
       }
 
       val vcGenEncoder = assertionEncoder
@@ -106,7 +111,7 @@ class VerificationRun private(override val component: VerificationComponent.type
       }
 
       if (!functions.isEmpty) {
-        reporter.debug(s"Finished generating VCs")
+        reportVCProgress(s"Finished generating VCs")
       }
       val opaqueEncoder = inox.transformers.ProgramEncoder(vcGenEncoder.targetProgram)(OpaqueChooseInjector(vcGenEncoder.targetProgram))
       val res: Future[Map[VC[p.trees.type], VCResult[p.Model]]] =
@@ -128,6 +133,13 @@ class VerificationRun private(override val component: VerificationComponent.type
         override val extractionSummary = exSummary
       })
     }
+  }
+
+  private case object VCProgressTag
+  private def reportVCProgress(msg: String): Unit = {
+    import context._
+    import context.reporter._
+    emit(ProgressMessage(INFO, VCProgressTag, msg))
   }
 }
 
