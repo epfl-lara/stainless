@@ -44,7 +44,7 @@ object List {
           assert(M.combine(M.combine(y1, y2), ys.foldRight(M.identity)(M.combine)) == M.combine(y1, M.combine(y2, ys.foldRight(M.identity)(M.combine))))
           assert(M.combine(y1, M.combine(y2, ys.foldRight(M.identity)(M.combine))) == M.combine(y1, (y2 :: ys).foldRight(M.identity)(M.combine)))
           assert(M.combine(y1, (y2 :: ys).foldRight(M.identity)(M.combine)) == (y1 :: y2 :: ys).foldRight(M.identity)(M.combine))
-          check((y1 :: y2 :: ys).foldLeft(M.identity)(M.combine) == (y1 :: y2 :: ys).foldRight(M.identity)(M.combine))
+          (y1 :: y2 :: ys).foldLeft(M.identity)(M.combine) == (y1 :: y2 :: ys).foldRight(M.identity)(M.combine)
       }
     }
   }.holds
