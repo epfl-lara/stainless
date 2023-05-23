@@ -83,7 +83,8 @@ trait MainHelpers extends inox.MainHelpers { self =>
     equivchk.optNorm -> Description(EquivChk, "Use function f as normalization function for equivalence checking"),
     equivchk.optEquivalenceOutput -> Description(EquivChk, "JSON output file for equivalence checking"),
     equivchk.optN -> Description(EquivChk, "Consider the top N models"),
-    equivchk.optInitScore -> Description(EquivChk, "Initial score for models, must be positive"),
+    equivchk.optInitScore -> Description(EquivChk, "Initial score for models"),
+    equivchk.optInitWeights -> Description(EquivChk, "Initial weights for models, overriding the initial score"),
     equivchk.optMaxPerm -> Description(EquivChk, "Maximum number of permutations to be tested when matching auxiliary functions"),
   ) ++ MainHelpers.components.map { component =>
     val option = inox.FlagOptionDef(component.name, default = false)

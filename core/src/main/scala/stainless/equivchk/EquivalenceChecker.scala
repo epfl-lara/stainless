@@ -57,7 +57,7 @@ class EquivalenceChecker(override val trees: Trees,
                          private val allCandidates: Seq[Identifier],
                          private val norm: Option[Identifier],
                          private val N: Int,
-                         private val initScore: Int,
+                         private val initWeights: Map[Identifier, Int],
                          private val maxMatchingPermutation: Int,
                          private val maxCtex: Int,
                          private val maxStepsEval: Int)
@@ -66,6 +66,7 @@ class EquivalenceChecker(override val trees: Trees,
                         (using val context: inox.Context)
   extends Utils with stainless.utils.CtexRemapping { self =>
   import trees._
+  require(initWeights.keySet == allModels.toSet)
 
   //region Examination and rounds ADTs
 
@@ -88,7 +89,7 @@ class EquivalenceChecker(override val trees: Trees,
 
   enum Classification {
     case Valid(directModel: Identifier)
-    case Invalid(ctex: Seq[Map[ValDef, Expr]])
+    case Invalid(ctex: Seq[Seq[(ValDef, Expr)]])
     case Unknown
   }
 
@@ -111,12 +112,13 @@ class EquivalenceChecker(override val trees: Trees,
                      // Candidates that will need to be manually inspected...
                      unknowns: Map[Identifier, UnknownData],
                      // Incorrect signature
-                     wrongs: Set[Identifier])
-  case class Ctex(mapping: Map[ValDef, Expr], expected: Expr, got: Expr)
+                     wrongs: Set[Identifier],
+                     weights: Map[Identifier, Int])
+  case class Ctex(mapping: Seq[(ValDef, Expr)], expected: Expr, got: Expr)
   case class ValidData(path: Seq[Identifier], solvingInfo: SolvingInfo)
   // The list of counter-examples can be empty; the candidate is still invalid but a ctex could not be extracted
   // If the solvingInfo is None, the candidate has been pruned.
-  case class ErroneousData(ctexs: Seq[Map[ValDef, Expr]], solvingInfo: Option[SolvingInfo])
+  case class ErroneousData(ctexs: Seq[Seq[(ValDef, Expr)]], solvingInfo: Option[SolvingInfo])
   case class UnknownData(solvingInfo: SolvingInfo)
   // Note: fromCache and trivial are only relevant for valid candidates
   case class SolvingInfo(time: Long, solverName: Option[String], fromCache: Boolean, trivial: Boolean) {
@@ -125,7 +127,7 @@ class EquivalenceChecker(override val trees: Trees,
 
   def getCurrentResults(): Results = {
     val equiv = clusters.map { case (model, clst) => model -> clst.toSet }.toMap
-    Results(equiv, valid.toMap, erroneous.toMap, unknowns.toMap, signatureMismatch.toSet)
+    Results(equiv, valid.toMap, erroneous.toMap, unknowns.toMap, signatureMismatch.toSet, models.toMap)
   }
   //endregion
 
@@ -219,7 +221,8 @@ class EquivalenceChecker(override val trees: Trees,
     }
   }
 
-  private val models = mutable.LinkedHashMap.from(allModels.map(_ -> initScore))
+  // Note: we build the LinkedHashMap using `allModels` as insertion order to be deterministic
+  private val models = mutable.LinkedHashMap.from(allModels.map(m => m -> initWeights(m)))
   private val remainingCandidates = mutable.LinkedHashSet.from(allCandidates)
   // Candidate -> set of models for tested so far for the candidate, but resulted in an unknown
   private val candidateTestedModels = mutable.Map.from(allCandidates.map(_ -> mutable.Set.empty[Identifier]))
@@ -253,7 +256,7 @@ class EquivalenceChecker(override val trees: Trees,
       val ordCtexs = ctexOrderedArguments(fun, pr)(counterex.vars).toSeq
       ordCtexs.foreach(addCtex)
       val fd = symbols.functions(fun)
-      val ctexVars = ordCtexs.map(ctex => fd.params.zip(ctex).toMap)
+      val ctexVars = ordCtexs.map(ctex => fd.params.zip(ctex))
       erroneous += fun -> ErroneousData(ctexVars, Some(extractSolvingInfo(analysis, fun, Seq.empty)))
       Some(Set(fun))
     } else candidatesCallee.get(fun) match {
@@ -454,7 +457,7 @@ class EquivalenceChecker(override val trees: Trees,
           val candFd = symbols.functions(cand)
           // Take all ctex for `cand`, `eqLemma` and `proof`
           val ctexOrderedArgs = (Seq(cand, eqLemma) ++ proof.toSeq).flatMap(id => allCtexs.getOrElse(id, Seq.empty))
-          val ctexsMap = ctexOrderedArgs.map(ctex => candFd.params.zip(ctex).toMap)
+          val ctexsMap = ctexOrderedArgs.map(ctex => candFd.params.zip(ctex))
           erroneous += cand -> ErroneousData(ctexsMap, Some(solvingInfo.withAddedTime(currCumulativeSolvingTime)))
           examinationState = ExaminationState.PickNext
           RoundConclusion.CandidateClassified(cand, Classification.Invalid(ctexsMap), Set.empty)
@@ -608,7 +611,7 @@ class EquivalenceChecker(override val trees: Trees,
         findMap(samples.zipWithIndex) { case (arg, sampleIx) =>
           passTestSample(arg, instParams).map(_ -> sampleIx)
         }.map { case ((evalArgs, expected, got), sampleIx) =>
-          EvalCheck.FailsTest(id, sampleIx, Ctex(cand.params.zip(evalArgs).toMap, expected, got))
+          EvalCheck.FailsTest(id, sampleIx, Ctex(cand.params.zip(evalArgs), expected, got))
         }
       }
 
@@ -753,7 +756,7 @@ class EquivalenceChecker(override val trees: Trees,
       .map { case (ctex, expected, got) =>
         // ctex is ordered according to the model, so we need to reorder cand according to the permutation
         val candReorg = candPerm.m2c.map(cand.params)
-        Ctex(candReorg.zip(ctex).toMap, expected, got)
+        Ctex(candReorg.zip(ctex), expected, got)
       }
   }
   //endregion
@@ -1091,8 +1094,16 @@ object EquivalenceChecker {
     }
     val testsOk = testsOk0.toMap
 
+    val initWeightsPath = context.options.findOptionOrDefault(optInitWeights)
+      .toSeq.map { case (fn, w) => CheckFilter.fullNameToPath(fn) -> w }
+
+    val initWeights = models.map { mod =>
+      indexOfPath(Some(initWeightsPath.map(_._1)), mod)
+        .map(ix => mod -> initWeightsPath(ix)._2)
+        .getOrElse(mod -> initScore)
+    }.toMap
     class EquivalenceCheckerImpl(override val trees: ts.type, override val symbols: syms.type)
-      extends EquivalenceChecker(ts, models, functions, norm, n, initScore, maxPerm, maxCtex, defaultMaxStepsEval)(testsOk, symbols)
+      extends EquivalenceChecker(ts, models, functions, norm, n, initWeights, maxPerm, maxCtex, defaultMaxStepsEval)(testsOk, symbols)
     val ec = new EquivalenceCheckerImpl(ts, syms)
     class SuccessImpl(override val trees: ts.type, override val symbols: syms.type, override val equivChker: ec.type) extends Creation.Success
     new SuccessImpl(ts, syms, ec)

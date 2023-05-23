@@ -37,6 +37,31 @@ object optEquivalenceOutput extends FileOptionDef {
 
 object optN extends inox.IntOptionDef("equivchk-n", EquivalenceChecker.defaultN, "<int>")
 object optInitScore extends inox.IntOptionDef("equivchk-init-score", EquivalenceChecker.defaultInitScore, "<int>")
+object optInitWeights extends inox.OptionDef[Map[String, Int]] {
+  val name = "equivchk-init-weights"
+  val default = Map.empty
+  val parser = s => {
+    def tryParsePair(s: String): Option[(String, Int)] = {
+      val ix = s.lastIndexOf(':')
+      if (ix <= 0) None // Also exclude empty function name
+      else {
+        val (fn, w) = s.splitAt(ix)
+        w.drop(1).toIntOption.map(fn -> _)
+      }
+    }
+    val pairs = s.split(",")
+
+    def go(i: Int, acc: Map[String, Int]): Option[Map[String, Int]] = {
+      if (i >= pairs.length) Some(acc)
+      else tryParsePair(pairs(i)) match {
+        case Some(p) => go(i + 1, acc + p)
+        case None => None
+      }
+    }
+    go(0, Map.empty)
+  }
+  val usageRhs = "fn1:w1,fn2:w2,..."
+}
 object optMaxPerm extends inox.IntOptionDef("equivchk-max-perm", EquivalenceChecker.defaultMaxMatchingPermutation, "<int>")
 object optMaxCtex extends inox.IntOptionDef("equivchk-max-ctex", EquivalenceChecker.defaultMaxCtex, "<int>")
 
@@ -214,8 +239,11 @@ class EquivalenceCheckingRun private(override val component: EquivalenceChecking
       val rsonStr = reason match {
         case ec.PruningReason.SignatureMismatch => "signature mismatch"
         case ec.PruningReason.ByTest(testId, sampleIx, ctex) =>
-          s"test falsification by ${testId.fullName} sample n°${sampleIx + 1} with ${prettyCtex(ec)(ctex.mapping)}\n    Expected: ${ctex.expected} but got: ${ctex.got}"
-        case ec.PruningReason.ByPreviousCtex(ctex) => s"counter-example falsification with ${prettyCtex(ec)(ctex.mapping)}\n    Expected: ${ctex.expected} but got: ${ctex.got}"
+          s"""test falsification by ${testId.fullName} sample n°${sampleIx + 1} with ${prettyCtex(ec)(ctex.mapping)}
+             |    Expected: ${ctex.expected} but got: ${ctex.got}""".stripMargin
+        case ec.PruningReason.ByPreviousCtex(ctex) =>
+          s"""counter-example falsification with ${prettyCtex(ec)(ctex.mapping)}
+             |    Expected: ${ctex.expected} but got: ${ctex.got}""".stripMargin
       }
       s"${fn.fullName}: $rsonStr"
     }
@@ -291,15 +319,19 @@ class EquivalenceCheckingRun private(override val component: EquivalenceChecking
     }
   }
 
-  private def prettyCtex(ec: EquivalenceChecker)(ctex: Map[ec.trees.ValDef, ec.trees.Expr]): String =
-    ctex.toSeq.map { case (vd, e) => s"${vd.id.name} -> $e" }.mkString(", ")
+  private def prettyCtex(ec: EquivalenceChecker)(ctex: Seq[(ec.trees.ValDef, ec.trees.Expr)]): String =
+    ctex.map { case (vd, e) => s"${vd.id.name} -> $e" }.mkString(", ")
 
   private def dumpResultsJson(out: File, ec: EquivalenceChecker)(res: ec.Results): Unit = {
     val equivs = res.equiv.map { case (m, l) => m.fullName -> l.map(_.fullName).toSeq.sorted }
       .toSeq.sortBy(_._1)
-    val errns = res.erroneous.keys.toSeq.map(_.fullName).sorted
+    val errns = res.erroneous.map { case (fn, errn) =>
+      fn.fullName -> errn.ctexs.map(_.map { case (vd, expr) => (vd.id.name, expr.toString) })
+    }.toSeq.sortBy(_._1)
     val unknowns = res.unknowns.keys.toSeq.map(_.fullName).sorted
     val wrongs = res.wrongs.toSeq.map(_.fullName).sorted
+    val weights = res.weights.map { case (mod, w) => mod.fullName -> w }.toSeq
+      .sortBy { case (mod, w) => (-w, mod) }
 
     val json = Json.fromFields(Seq(
       "equivalent" -> Json.fromValues(equivs.map { case (m, l) =>
@@ -308,9 +340,19 @@ class EquivalenceCheckingRun private(override val component: EquivalenceChecking
           "functions" -> Json.fromValues(l.map(Json.fromString))
         ))
       }),
-      "erroneous" -> Json.fromValues(errns.map(Json.fromString)),
+      "erroneous" -> Json.fromValues(errns.map { case (fn, ctexs) =>
+        Json.fromFields(Seq(
+          "function" -> Json.fromString(fn),
+          "ctexs" -> Json.fromValues(
+            ctexs.map { ctex =>
+              Json.fromFields(ctex.map { case (vd, expr) => vd -> Json.fromString(expr) })
+            }
+          )
+        ))
+      }),
       "timeout" -> Json.fromValues(unknowns.sorted.map(Json.fromString)),
       "wrong" -> Json.fromValues(wrongs.sorted.map(Json.fromString)),
+      "weights" -> Json.fromFields(weights.map { case (mod, w) => mod -> Json.fromInt(w) })
     ))
     JsonUtils.writeFile(out, json)
   }
