@@ -404,7 +404,7 @@ sealed abstract class List[T] {
       case Cons(x, tail) =>
         Cons[T](x, tail.updated(i - 1, y))
     }
-  }
+  }.ensuring(res => res.size == this.size && res(i) == y)
 
   def iupdated(i: Int, y: T): List[T] = {
     require(0 <= i && i < isize)
@@ -700,6 +700,24 @@ object List {
       case Cons(a, b) => f(a) + rec(b)
     }
   }
+
+  @library
+  implicit class ListBigIntOps(l: List[BigInt]) {
+    def sum: BigInt = ListOps.sum(l)
+    def sorted: List[BigInt] = ListOps.sorted(l)
+    def isSorted: Boolean = ListOps.isSorted(l)
+  }
+
+  @library
+  implicit class FlattenableList[A](l: List[List[A]]) {
+    def flatten: List[A] = ListOps.flatten(l)
+  }
+
+  @library
+  implicit class ToMapOps[K, V](l: List[(K, V)]) {
+    def toMap: Map[K, V] = ListOps.toMap(l)
+    def toListMap: ListMap[K, V] = ListOps.toListMap(l)
+  }
 }
 
 @library
@@ -720,7 +738,7 @@ object ListOps {
   def sorted(ls: List[BigInt]): List[BigInt] = { ls match {
     case Cons(h, t) => sortedIns(sorted(t), h)
     case Nil() => Nil[BigInt]()
-  }} ensuring { isSorted _ }
+  }} ensuring(isSorted)
 
   private def sortedIns(ls: List[BigInt], v: BigInt): List[BigInt] = {
     require(isSorted(ls))
@@ -739,6 +757,10 @@ object ListOps {
 
   def toMap[K, V](l: List[(K, V)]): Map[K, V] = l.foldLeft(Map[K, V]()){
     case (current, (k, v)) => current ++ Map(k -> v)
+  }
+
+  def toListMap[K, V](l: List[(K, V)]): ListMap[K, V] = l.foldLeft(ListMap.empty[K, V]) {
+    case (current, (k, v)) => current + (k -> v)
   }
 
   @tailrec

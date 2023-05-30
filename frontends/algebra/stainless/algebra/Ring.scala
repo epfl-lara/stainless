@@ -29,13 +29,13 @@ object Ring {
   import Monoid._
 
   /* FIXME TypeChecker reports an error on this example, because of type encoding:
-		[info] [ Fatal  ] Type checking failed with message:
-		[info] [ Fatal  ] An ADT (Object$0), and a function (is$anon$7) cannot be mutually recursive
-		[info] [ Fatal  ] Run has failed with error: inox.package$FatalError: Type checking failed with message:
-		[info] [ Fatal  ] An ADT (Object$0), and a function (is$anon$7) cannot be mutually recursive
-	*/
+    [info] [ Fatal  ] Type checking failed with message:
+    [info] [ Fatal  ] An ADT (Object$0), and a function (is$anon$7) cannot be mutually recursive
+    [info] [ Fatal  ] Run has failed with error: inox.package$FatalError: Type checking failed with message:
+    [info] [ Fatal  ] An ADT (Object$0), and a function (is$anon$7) cannot be mutually recursive
+  */
 
-	def ringBigInt: Ring[BigInt] = new Ring[BigInt] {
+  def ringBigInt: Ring[BigInt] = new Ring[BigInt] {
     def addition: AbelianGroup[BigInt] = additionAbelianGroup
 
     def multiplication: Monoid[BigInt] = new Monoid[BigInt] {

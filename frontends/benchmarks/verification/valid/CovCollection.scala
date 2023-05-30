@@ -4,10 +4,10 @@ import ListOps._
 
 object CovCollection {
   def zipWith[A,B,C](f: (A,B) => C)(l1: List[A], l2: List[B]): List[C] = {
-    require(l1.length == l2.length)
+    require(l1.blength == l2.blength)
     (l1, l2) match {
       case (Nil, Nil) => Nil
-      case (a ::as, b ::bs) => f(a,b) :: zipWith(f)(as, bs)
+      case (a :: as, b :: bs) => f(a,b) :: zipWith(f)(as, bs)
     }
   }
 

@@ -14,6 +14,8 @@ case class ListMap[A, B](toList: List[(A, B)]) {
 
   def isEmpty: Boolean = toList.isEmpty
 
+  def nonEmpty: Boolean = !isEmpty
+
   def head: (A, B) = {
     require(!isEmpty)
     toList.head
@@ -49,7 +51,7 @@ case class ListMap[A, B](toList: List[(A, B)]) {
     assert(ListSpecs.noDuplicate(toList.filter(_._1 != keyValue._1).map(_._1)))
 
     ListMap(keyValue :: toList.filter(_._1 != keyValue._1))
-  }
+  }.ensuring(res => res.contains(keyValue._1) && res(keyValue._1) == keyValue._2)
 
   def ++(keyValues: List[(A, B)]): ListMap[A, B] = {
     decreases(keyValues)
@@ -76,6 +78,30 @@ case class ListMap[A, B](toList: List[(A, B)]) {
   def forall(p: ((A, B)) => Boolean): Boolean = {
     toList.forall(p)
   }
+
+  def updated(a: A, b: B): ListMap[A, B] = this + (a -> b)
+
+  def values: List[B] = toList.map(_._2)
+
+  def keys: List[A] = toList.map(_._1)
+
+  def map[A2, B2](f: ((A, B)) => (A2, B2)): ListMap[A2, B2] = {
+    def rec(curr: List[(A, B)], acc: ListMap[A2, B2]): ListMap[A2, B2] = curr match {
+      case Nil() => acc
+      case Cons(h, tl) => rec(tl, acc + f(h))
+    }
+    rec(toList, ListMap.empty)
+  }
+
+  def filter(p: ((A, B)) => Boolean): ListMap[A, B] = {
+    ListSpecs.filterSubseq(toList, p)
+    ListMapLemmas.noDuplicatePairs(this)
+    ListSpecs.noDuplicateSubseq(toList.filter(p), toList)
+    ListMapLemmas.noDuplicateKeysSubseq(toList.filter(p), toList)
+    ListMap(toList.filter(p))
+  }
+
+  def size: BigInt = toList.size
 }
 
 @library
@@ -86,6 +112,38 @@ object ListMap {
 @library
 object ListMapLemmas {
   import ListSpecs._
+
+  @opaque
+  def noDuplicatePairs[A, B](lm: ListMap[A, B]): Unit = {
+    lm.toList match {
+      case Nil() => ()
+      case Cons(x, xs) =>
+        noDuplicatePairs(ListMap(xs))
+        tailDoesNotContainPair(lm)
+    }
+  }.ensuring(ListOps.noDuplicate(lm.toList))
+
+  @opaque
+  def noDuplicateKeysSubseq[A, B](l1: List[(A, B)], l2: List[(A, B)]): Unit = {
+    require(ListOps.noDuplicate(l2.map(_._1)))
+    require(ListSpecs.subseq(l1, l2))
+    decreases(l2.size)
+    ((l1, l2): @unchecked) match {
+      case (Nil(), _) => ()
+      case (x :: xs, y :: ys) =>
+        if (x == y && ListSpecs.subseq(xs, ys)) {
+          noDuplicateKeysSubseq(xs, ys)
+          assert(ListOps.noDuplicate(xs.map(_._1)))
+          assert(!ys.map(_._1).contains(y._1))
+          subseqKeys(xs, ys)
+          ListSpecs.subseqNotContains(xs.map(_._1), ys.map(_._1), x._1)
+          assert(!xs.map(_._1).contains(x._1))
+        } else {
+          assert(ListSpecs.subseq(l1, ys))
+          noDuplicateKeysSubseq(l1, ys)
+        }
+    }
+  }.ensuring(ListOps.noDuplicate(l1.map(_._1)))
 
   @opaque
   def addValidProp[A, B](lm: ListMap[A, B], p: ((A, B)) => Boolean, a: A, b: B): Unit = {
@@ -303,4 +361,57 @@ object ListMapLemmas {
   }.ensuring(_ =>
     lm.keysOf(value).forall(key => lm.get(key) == Some[B](value))
   )
+
+  @opaque
+  def containsByKeyEquiv[A, B](lm: ListMap[A, B], a: A): Unit = {
+    lm.toList match {
+      case Nil() => ()
+      case Cons((x, _), xs) if x == a => ()
+      case Cons(x, xs) =>
+        containsByKeyEquiv(ListMap(xs), a)
+    }
+  }.ensuring(lm.contains(a) == lm.toList.map(_._1).contains(a))
+
+  @opaque
+  def tailDoesNotContainKey[A, B](lm: ListMap[A, B]): Unit = {
+    require(lm.nonEmpty)
+    decreases(lm.size)
+    val Cons(x, xs) = lm.toList: @unchecked
+    containsByKeyEquiv(ListMap(xs), x._1)
+  }.ensuring(!lm.tail.contains(lm.head._1))
+
+  @opaque
+  def tailDoesNotContainPair[A, B](lm: ListMap[A, B]): Unit = {
+    require(lm.nonEmpty)
+    decreases(lm.size)
+
+    def rec(x: (A, B), @induct xs: List[(A, B)]): Unit = {
+      require(ListOps.noDuplicate(xs.map(_._1)))
+      require(!ListMap(xs).contains(x._1))
+    }.ensuring(!xs.contains(x))
+
+    (lm.toList: @unchecked) match {
+      case Cons(x, xs) =>
+        tailDoesNotContainKey(lm)
+        rec(x, xs)
+    }
+  }.ensuring(!lm.toList.tail.contains(lm.toList.head))
+
+  @opaque
+  def subseqKeys[A, B](l1: List[(A, B)], l2: List[(A, B)]): Unit = {
+    require(ListOps.noDuplicate(l1.map(_._1)))
+    require(ListOps.noDuplicate(l2.map(_._1)))
+    require(ListSpecs.subseq(l1, l2))
+    decreases(l2.size)
+    ((l1, l2): @unchecked) match {
+      case (Nil(), _) => ()
+      case (x :: xs, y :: ys) =>
+        if (x == y && ListSpecs.subseq(xs, ys)) {
+          subseqKeys(xs, ys)
+        } else {
+          assert(ListSpecs.subseq(l1, ys))
+          subseqKeys(l1, ys)
+        }
+    }
+  }.ensuring(ListSpecs.subseq(l1.map(_._1), l2.map(_._1)))
 }
