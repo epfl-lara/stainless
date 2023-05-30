@@ -1,5 +1,18 @@
 # Release Notes
 
+## Version 0.9.8 (2023-05-30)
+
+### Stainless frontend, library and internals
+
+- Expand Stainless library (#1400, #1402, #1418)
+- Improved reporting (#1396, #1410)
+- Support for enum case objects (#1384)
+- Support `require` and `ensuring` message overloads (#1382)
+- Make `ghost`, `assert` and `require` arguments by-name (#1364)
+- Move equivalence checking to a component (#1378)
+- Some improvements to OL and OCBSL based simplifiers (#1380)
+- Fix issues #1343, #1214, #1351, #1352, #1353, #1365, #1379, #1389, #1390, #1377, #1349, #1405, #1401
+
 ## Version 0.9.7 (2022-11-21)
 
 ### Stainless frontend, library and internals
