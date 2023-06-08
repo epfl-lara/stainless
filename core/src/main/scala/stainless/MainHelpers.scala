@@ -226,7 +226,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
           reporter.debug(e)(using frontend.DebugSectionStack)
         case e: Throwable =>
           reporter.debug(e)(using frontend.DebugSectionStack)
-          reporter.error(e.getMessage)
+          reporter.error(Option(e.getMessage).getOrElse(""))
       } finally {
         reporter.reset()
         compiler = newCompiler()
