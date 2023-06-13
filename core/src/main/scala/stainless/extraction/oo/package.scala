@@ -35,10 +35,10 @@ package object oo {
     }
     val lowering = ExtractionPipeline(new LoweringImpl(trees, innerfuns.trees))
 
-    utils.DebugPipeline("AdtSpecialization", AdtSpecialization(trees, trees)) andThen
-    utils.DebugPipeline("RefinementLifting", RefinementLifting(trees, trees)) andThen
-    utils.DebugPipeline("TypeEncoding",      TypeEncoding(trees, trees))      andThen
-    utils.DebugPipeline("InvariantInitialization", InvariantInitialization(trees, trees)) andThen
+    utils.NamedPipeline("AdtSpecialization", AdtSpecialization(trees, trees)) andThen
+    utils.NamedPipeline("RefinementLifting", RefinementLifting(trees, trees)) andThen
+    utils.NamedPipeline("TypeEncoding",      TypeEncoding(trees, trees))      andThen
+    utils.NamedPipeline("InvariantInitialization", InvariantInitialization(trees, trees)) andThen
     lowering
   }
 

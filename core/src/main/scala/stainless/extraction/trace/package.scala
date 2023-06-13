@@ -21,7 +21,7 @@ package object trace {
   }
 
   def extractor(using inox.Context) = {
-    utils.DebugPipeline("TraceInductElimination", TraceInductElimination(trees, termination.trees))
+    utils.NamedPipeline("TraceInductElimination", TraceInductElimination(trees, termination.trees))
   }
 
   def fullExtractor(using inox.Context) = extractor andThen nextExtractor

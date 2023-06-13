@@ -143,6 +143,8 @@ class ScalaCompiler(settings: NSCSettings, val ctx: inox.Context, val callback: 
 
 object ScalaCompiler {
 
+  private case object CompilationTag
+
   /** Complying with [[frontend]]'s interface */
   class Factory(
     override val extraCompilerArguments: Seq[String],
@@ -166,7 +168,10 @@ object ScalaCompiler {
         }
 
         override def onRun(): Unit = {
+          def report(msg: String) = ctx.reporter.emit(ctx.reporter.ProgressMessage(ctx.reporter.INFO, CompilationTag, msg))
+          report(s"Compiling with standard Scala ${Main.compilerVersion} compiler front end...")
           underlying.compile(sources)
+          report("Finished compiling")
         }
 
         override def onEnd(): Unit = {

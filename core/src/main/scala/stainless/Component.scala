@@ -84,6 +84,7 @@ trait ComponentRun { self =>
   def apply(ids: Seq[Identifier], symbols: xt.Symbols): Future[Analysis] = {
     val (exSymbols, exSummary) = extract(symbols)
     val toProcess = extractionFilter.filter(ids, exSymbols, component)
+    reportExtractionDone()
     execute(toProcess, exSymbols, exSummary)
   }
 
@@ -91,5 +92,11 @@ trait ComponentRun { self =>
     apply(Seq(id), symbols)
 
   private[stainless] def execute(functions: Seq[Identifier], symbols: trees.Symbols, exSummary: ExtractionSummary): Future[Analysis]
+
+  private def reportExtractionDone(): Unit = {
+    import context._
+    import reporter._
+    emit(ProgressMessage(INFO, extraction.PhaseExtractionTag, s"Finished lowering the symbols"))
+  }
 }
 

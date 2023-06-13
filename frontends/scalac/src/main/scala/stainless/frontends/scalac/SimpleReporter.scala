@@ -3,21 +3,32 @@
 package stainless
 package frontends.scalac
 
+import scala.reflect.internal.Reporter
+import scala.reflect.internal.util.{FakePos, NoPosition, Position, StringOps}
 import scala.tools.nsc.Settings
 import scala.tools.nsc.reporters.FilteringReporter
-
-import scala.reflect.internal.util.{Position, NoPosition, FakePos, StringOps}
 
 /** This implements a reporter that calls the callback with every line that a
   * regular ConsoleReporter would display. */
 class SimpleReporter(val settings: Settings, reporter: inox.Reporter) extends FilteringReporter {
   final val ERROR_LIMIT = 5
 
-  val count = scala.collection.mutable.Map[Severity, Int](
-    ERROR   -> 0,
+  private val count = scala.collection.mutable.Map[Severity, Int](
+    ERROR -> 0,
     WARNING -> 0,
-    INFO    -> 0,
+    INFO -> 0,
   )
+
+  override def doReport(pos: Position, msg: String, severity: Severity): Unit =
+    printMessage(pos, msg, severity)
+
+  override def filter(pos: Position, msg: String, severity: Severity): Int = {
+    if (isPatmatExhaustivity(msg)) Reporter.Suppress
+    else super.filter(pos, msg, severity)
+  }
+
+  private def isPatmatExhaustivity(msg: String): Boolean =
+    msg.contains("match may not be exhaustive")
 
   private def label(severity: Severity): String = {
     // the labels are not stable identifier, as such we cannot directly pattern patch on them, so we must explicitly compare them with ==
@@ -79,7 +90,4 @@ class SimpleReporter(val settings: Settings, reporter: inox.Reporter) extends Fi
   }
 
   def displayPrompt(): Unit = {}
-
-  def doReport(pos: Position, msg: String, severity: Severity): Unit =
-    printMessage(pos, msg, severity)
 }

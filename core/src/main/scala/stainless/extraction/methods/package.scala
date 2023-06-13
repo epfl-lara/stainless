@@ -40,15 +40,15 @@ package object methods {
   }
 
   def extractor(using inox.Context) = {
-    utils.DebugPipeline("Laws",            Laws(trees))            andThen
-    utils.DebugPipeline("SuperInvariants", SuperInvariants(trees))      andThen
-    utils.DebugPipeline("SuperCalls",      SuperCalls(trees))      andThen
-    utils.DebugPipeline("Sealing",         Sealing(trees))         andThen
-    utils.DebugPipeline("MethodLifting",   MethodLifting(trees))   andThen
-    utils.DebugPipeline("MergeInvariants", MergeInvariants(trees)) andThen
-    utils.DebugPipeline("FieldAccessors",  FieldAccessors(trees))  andThen
-    utils.DebugPipeline("ValueClasses",    ValueClasses(trees))    andThen
-    utils.DebugPipeline("MethodsLowering", lowering)
+    utils.NamedPipeline("Laws",            Laws(trees))            andThen
+    utils.NamedPipeline("SuperInvariants", SuperInvariants(trees)) andThen
+    utils.NamedPipeline("SuperCalls",      SuperCalls(trees))      andThen
+    utils.NamedPipeline("Sealing",         Sealing(trees))         andThen
+    utils.NamedPipeline("MethodLifting",   MethodLifting(trees))   andThen
+    utils.NamedPipeline("MergeInvariants", MergeInvariants(trees)) andThen
+    utils.NamedPipeline("FieldAccessors",  FieldAccessors(trees))  andThen
+    utils.NamedPipeline("ValueClasses",    ValueClasses(trees))    andThen
+    utils.NamedPipeline("MethodsLowering", lowering)
   }
 
   def fullExtractor(using inox.Context) = extractor andThen nextExtractor

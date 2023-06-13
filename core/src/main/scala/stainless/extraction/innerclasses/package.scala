@@ -35,7 +35,7 @@ package object innerclasses {
   }
 
   def extractor(using inox.Context) = {
-    utils.DebugPipeline("InnerClasses", InnerClasses(trees, methods.trees))
+    utils.NamedPipeline("InnerClasses", InnerClasses(trees, methods.trees))
   }
 
   def fullExtractor(using inox.Context) = extractor andThen nextExtractor

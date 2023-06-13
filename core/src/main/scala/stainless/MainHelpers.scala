@@ -218,6 +218,8 @@ trait MainHelpers extends inox.MainHelpers { self =>
       def watchRunCycle() = try {
         baseRunCycle()
       } catch {
+        case extraction.ExtractionFailed() =>
+          // The errors have already been printed, there is nothing special to do.
         case e @ extraction.MalformedStainlessCode(tree, msg) =>
           reporter.debug(e)(using frontend.DebugSectionStack)
           ctx.reporter.error(tree.getPos, msg)
