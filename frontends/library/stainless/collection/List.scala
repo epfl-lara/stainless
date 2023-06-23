@@ -75,7 +75,7 @@ sealed abstract class List[T] {
     } else {
       tail(index-1)
     }
-  }
+  }.ensuring(contains)
 
   def iapply(index: Int): T = {
     require(0 <= index && index < isize)
@@ -84,7 +84,7 @@ sealed abstract class List[T] {
     } else {
       tail.iapply(index-1)
     }
-  }
+  }.ensuring(contains)
 
   @isabelle.function(term = "%xs x. x # xs")
   def ::(t:T): List[T] = Cons(t, this)
@@ -312,8 +312,9 @@ sealed abstract class List[T] {
       if (rec == BigInt(-1)) BigInt(-1)
       else rec + 1
   }} ensuring { res =>
-    (res >= 0) == content.contains(elem)
-        }
+    (res >= 0) == content.contains(elem) &&
+    res < size
+  }
 
   def init: List[T] = {
     require(!isEmpty)
