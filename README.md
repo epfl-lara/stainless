@@ -1,18 +1,16 @@
 # Stainless [![Release][release-img]][latest-release] [![Nightly Build Status][nightly-larabot-img]][nightly-larabot-ref] [![Build Status][larabot-img]][larabot-ref] [![Gitter chat][gitter-img]][gitter-ref] [![Apache 2.0 License][license-img]][license-ref]
 
-Verification framework for a subset of the [Scala](http://scala-lang.org) programming language. See
-* [Tutorial (originally for ASPLOS 2022)](https://epfl-lara.github.io/asplos2022tutorial/)
-* [EPFL LARA Group Page](https://epfl-lara.github.io/)
+Verification framework for a subset of the [Scala](http://scala-lang.org) programming language. See the [tutorial](https://epfl-lara.github.io/asplos2022tutorial/).
 
 ## Quick start
-[Download the latest `stainless-dotty-standalone` release](https://github.com/epfl-lara/stainless/releases) for your platform.
-Unzip the archive, and run Stainless through the `stainless.sh` (or `stainless.bat`) script.
-Stainless expects a list of space-separated Scala files to verify.
+
+We test mostly on [Ubuntu](https://ubuntu.com/download); on [Windows](https://www.microsoft.com/eb-gb/software-download/windows10), you can get sufficient text-based Ubuntu environment by installing [Windows Subsystem for Linux](https://learn.microsoft.com/en-us/windows/wsl/install) (e.g. `wsl --install`, then `wsl --install -d ubuntu`). Ensure you have a [Java](https://openjdk.org/projects/jdk/17/) version ready (it can be headless); on Ubuntu `sudo apt install openjdk-17-jdk-headless` suffices.
+
+Once ready, [Download the latest `stainless-dotty-standalone` release](https://github.com/epfl-lara/stainless/releases) for your platform. Unzip the archive, and run Stainless through the `stainless.sh` script. Stainless expects a list of space-separated Scala files to verify but also has other [Command-line Options](https://epfl-lara.github.io/stainless/options.html).
 
 To check if everything works, you may create a file named `HelloStainless.scala` next to the `stainless.sh` script with the following content:
 ```scala
 import stainless.collection._
-
 object HelloStainless {
   def myTail(xs: List[BigInt]): BigInt = {
     require(xs.nonEmpty)
@@ -23,7 +21,6 @@ object HelloStainless {
   }
 }
 ```
-
 and run `stainless.sh HelloStainless.scala`.
 If all goes well, Stainless should report something along the lines:
 ```
@@ -36,11 +33,13 @@ If all goes well, Stainless should report something along the lines:
 [  Info  ] ╚══════════════════════════════════════════════════════════════════════════════════════════╝
 [  Info  ] Shutting down executor service.
 ```
+If you see funny symbols instead of the beautiful ASCII art, run Stainless with `--no-colors` option for clean ASCII output with standardized error message format. 
 
-This archive of Stainless only requires JDK17. In particular, it needs neither a Scala compiler nor SBT.
-It is shipped with Z3 4.8.14 and Princess.
+The release archive of Stainless only requires JDK17. In particular, it needs neither a Scala compiler nor SBT.
+It is shipped with Z3 4.8.14 and Princess. If z3 API is not found, use option `--solvers=smt-z3` to rely on the executable.
 
 ## SBT Stainless plugin
+
 Alternatively, one may integrate Stainless with SBT. The supported Scala versions are `3.2.0` and `2.13.6`
 To do so, download [sbt-stainless](https://github.com/epfl-lara/stainless/releases), and move it to the directory of the project.
 Assuming the project's structure is:
@@ -120,7 +119,6 @@ There is also a [Stainless EPFL Page](https://stainless.epfl.ch).
 ## License
 
 Stainless is released under the Apache 2.0 license. See the [LICENSE]() file for more information.
-
 ---
 
 ### Relation to [Inox](https://github.com/epfl-lara/inox)
