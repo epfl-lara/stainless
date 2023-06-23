@@ -73,7 +73,7 @@ sealed abstract class List[+T] {
     } else {
       tail.bapply(index-1)
     }
-  }
+  }.ensuring(contains(_))
 
   def apply(index: Int): T = {
     require(0 <= index && index < size)
@@ -83,7 +83,7 @@ sealed abstract class List[+T] {
     } else {
       tail(index-1)
     }
-  }
+  }.ensuring(contains(_))
 
   def :: [TT >: T](elem: TT): List[TT] = new ::(elem, this)
 
@@ -334,7 +334,8 @@ sealed abstract class List[+T] {
         else rec + 1
     }
   } ensuring { res =>
-    (res >= 0) == content.contains(elem)
+    (res >= 0) == content.contains(elem) &&
+    res <= size
   }
 
   def bindexOf[TT >: T](elem: TT): BigInt = { this match {
@@ -345,7 +346,8 @@ sealed abstract class List[+T] {
       if (rec == BigInt(-1)) BigInt(-1)
       else rec + 1
   }} ensuring { res =>
-    (res >= 0) == content.contains(elem)
+    (res >= 0) == content.contains(elem) &&
+    res < bsize
   }
 
   def init: List[T] = {
