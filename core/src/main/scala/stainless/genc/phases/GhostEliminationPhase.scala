@@ -120,13 +120,15 @@ class GhostElimination(override val s: tt.type, // to use `isExported` from `gen
       case fi: s.FunctionInvocation =>
         val fd = symbols.getFunction(fi.id)
         fd.id.name == "ghost" && fd.params.length == 1 && fd.params.head.flags.contains(s.Ghost)
+      case s.Annotated(_, flags) => flags.contains(s.Ghost)
       case _ => false
     }.map(transform(_, env)), transform(last, env))
 
     case s.While(cond, body, _, _, flags) => t.While(transform(cond, env), transform(body, env), None, None, flags.map(transform(_, env)))
 
-    case _ => super.transform(expr, env)
+    case s.Annotated(_, flags) if flags.contains(s.Ghost) && expr.getType(using symbols) == s.UnitType() => t.UnitLiteral()
 
+    case _ => super.transform(expr, env)
   }
 
   def transform(symbols: s.Symbols): t.Symbols = {
