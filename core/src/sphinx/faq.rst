@@ -55,7 +55,7 @@ It is best to deploy formal verification when starting to develop software. In t
 Can I use Stainless with Java?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Scala has excellent interoperability with Java, so external libraries can be used to build application where some parts are verified using Stainless. Stainless uses Scala syntax trees and does not support verification of Java itself. Whereas functional Scala works as a both specification and implementation language, Java does appear to be a good language for specifications, so much that Java verification tools in the past introduced their own logical notation that developers then must learn in addition to Java.
+Scala has excellent interoperability with Java, so external libraries can be used to build application where some parts are verified using Stainless. Stainless uses Scala syntax trees and does not support verification of Java itself. Whereas functional Scala works as a both specification and implementation language, Java does not appear to be a good language for specifications, so much that Java verification tools in the past introduced their own logical notation that developers then must learn in addition to Java.
 
 Can I use Stainless with Rust?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
