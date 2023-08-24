@@ -5,5 +5,7 @@
   "comparefuns": [
     "Candidate.funnyZip"
   ],
+  "unequivalent": [],
+  "unsafe": [],
   "tests": []
 }

@@ -38,7 +38,7 @@ object EquivalenceCheckingReport {
 
     def isInvalid: Boolean = this match {
       case Verification(status) => status.isInvalid
-      case Equivalence(EquivalenceStatus.Erroneous | EquivalenceStatus.Wrong) => true
+      case Equivalence(EquivalenceStatus.Unequivalent | EquivalenceStatus.Unsafe | EquivalenceStatus.Wrong) => true
       case _ => false
     }
 
@@ -51,7 +51,8 @@ object EquivalenceCheckingReport {
 
   enum EquivalenceStatus {
     case Valid(model: Identifier, fromCache: Boolean, trivial: Boolean)
-    case Erroneous
+    case Unequivalent
+    case Unsafe
     case Wrong
     case Unknown
   }
@@ -87,7 +88,8 @@ class EquivalenceCheckingReport(override val results: Seq[EquivalenceCheckingRep
         case Status.Verification(stat) => stat.name
         case Status.Equivalence(EquivalenceStatus.Valid(model, _, _)) => CheckFilter.fixedFullName(model)
         case Status.Equivalence(EquivalenceStatus.Wrong) => "signature mismatch"
-        case Status.Equivalence(EquivalenceStatus.Erroneous) => "erroneous"
+        case Status.Equivalence(EquivalenceStatus.Unequivalent) => "not equivalent"
+        case Status.Equivalence(EquivalenceStatus.Unsafe) => "unsafe"
         case Status.Equivalence(EquivalenceStatus.Unknown) => "unknown"
       }
       val level = levelOf(status)

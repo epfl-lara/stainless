@@ -124,12 +124,13 @@ class EquivChkSuite extends ComponentTestSuite {
   }
 
   private case class EquivResults(equiv: Map[String, Set[String]],
-                                  erroneous: Set[String],
+                                  unequivalent: Set[String],
+                                  unsafe: Set[String],
                                   timeout: Set[String],
                                   wrong: Set[String])
   private object EquivResults {
     def empty: EquivResults =
-      EquivResults(Map.empty[String, Set[String]], Set.empty[String], Set.empty[String], Set.empty[String])
+      EquivResults(Map.empty, Set.empty, Set.empty, Set.empty, Set.empty)
   }
 
   private case class TestConf(models: Set[String],
@@ -151,7 +152,8 @@ class EquivChkSuite extends ComponentTestSuite {
             case Status.Equivalence(EquivalenceStatus.Valid(mod, _, _)) =>
               val currCluster = acc.equiv.getOrElse(mod.fullName, Set.empty)
               acc.copy(equiv = acc.equiv + (mod.fullName -> (currCluster + fn)))
-            case Status.Equivalence(EquivalenceStatus.Erroneous) => acc.copy(erroneous = acc.erroneous + fn)
+            case Status.Equivalence(EquivalenceStatus.Unequivalent) => acc.copy(unequivalent = acc.unequivalent + fn)
+            case Status.Equivalence(EquivalenceStatus.Unsafe) => acc.copy(unsafe = acc.unsafe + fn)
             case Status.Equivalence(EquivalenceStatus.Unknown) => acc.copy(timeout = acc.timeout + fn)
             case Status.Equivalence(EquivalenceStatus.Wrong) => acc.copy(wrong = acc.wrong + fn)
             case Status.Verification(_) => acc
@@ -173,10 +175,11 @@ class EquivChkSuite extends ComponentTestSuite {
       val fns = elemObj.getStringArrayOrCry("functions").toSet
       model -> fns
     }.toMap
-    val erroneous = jsonObj.getStringArrayOrCry("erroneous").toSet
+    val unequivalent = jsonObj.getStringArrayOrCry("unequivalent").toSet
+    val unsafe = jsonObj.getStringArrayOrCry("unsafe").toSet
     val timeout = jsonObj.getStringArrayOrCry("timeout").toSet
     val wrong = jsonObj.getStringArrayOrCry("wrong").toSet
-    EquivResults(equiv, erroneous, timeout, wrong)
+    EquivResults(equiv, unequivalent, unsafe, timeout, wrong)
   }
 
   private def parseTestConf(f: File): TestConf = {

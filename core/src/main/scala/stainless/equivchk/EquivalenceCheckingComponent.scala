@@ -128,7 +128,7 @@ class EquivalenceCheckingRun private(override val component: EquivalenceChecking
     for {
       gen <- underlyingRun.execute(toProcess, plainSyms, ExtractionSummary.Node(traceSummary, plainSummary))
       invalidVCsCands = counterExamples(gen).flatMap {
-        case (vc, ctex) => ec.reportErroneous(gen.program)(gen, ctex)(vc.fid).getOrElse(Set.empty)
+        case (vc, ctex) => ec.reportUnsafe(gen.program)(gen, vc, ctex).getOrElse(Set.empty)
       }.toSeq.distinct
       _ = debugInvalidVCsCandidates(invalidVCsCands)
       trRes <- equivCheck(ec)
@@ -148,12 +148,19 @@ class EquivalenceCheckingRun private(override val component: EquivalenceChecking
           Status.Equivalence(EquivalenceStatus.Valid(directModel, data.solvingInfo.fromCache, data.solvingInfo.trivial)),
           data.solvingInfo.solverName, "equivalence", fd.source)
     }
-    val errns = trRes.erroneous.toSeq.sortBy(_._1).map {
-      case (errn, data) =>
+    val unequiv = trRes.unequivalent.toSeq.sortBy(_._1).flatMap {
+      case (errn, ec.UnequivalentData(_, solvingInfo)) =>
         val fd = ec.symbols.getFunction(errn)
-        Record(errn, fd.getPos, data.solvingInfo.map(_.time).getOrElse(0L),
-          Status.Equivalence(EquivalenceStatus.Erroneous),
-          data.solvingInfo.flatMap(_.solverName), "equivalence", fd.source)
+        Some(Record(errn, fd.getPos, solvingInfo.map(_.time).getOrElse(0L),
+          Status.Equivalence(EquivalenceStatus.Unequivalent),
+          solvingInfo.flatMap(_.solverName), "equivalence", fd.source))
+    }
+    val unsafe = trRes.unsafe.toSeq.sortBy(_._1).flatMap {
+      case (errn, ec.UnsafeData(_, _)) =>
+        val fd = ec.symbols.getFunction(errn)
+        Some(Record(errn, fd.getPos, 0L,
+          Status.Equivalence(EquivalenceStatus.Unsafe),
+          None, "safety", fd.source))
     }
     val wrgs = trRes.wrongs.toSeq.sorted.map { wrong =>
       val fd = ec.symbols.getFunction(wrong)
@@ -166,7 +173,7 @@ class EquivalenceCheckingRun private(override val component: EquivalenceChecking
         Record(unknown, fd.getPos, data.solvingInfo.time, Status.Equivalence(EquivalenceStatus.Unknown), data.solvingInfo.solverName, "equivalence", fd.source)
     }
 
-    val allRecords = genRecors ++ valid ++ errns ++ wrgs ++ unknws
+    val allRecords = genRecors ++ valid ++ unsafe ++ unequiv ++ wrgs ++ unknws
     new EquivalenceCheckingAnalysis(ids.toSet, allRecords, general.extractionSummary)
   }
 
@@ -301,7 +308,7 @@ class EquivalenceCheckingRun private(override val component: EquivalenceChecking
       val lStr = l.map(_.fullName)
       info(s"List of functions that are equivalent to model ${m.fullName}: ${lStr.mkString(", ")}")
     }
-    val errns = res.erroneous.keys.toSeq.map(_.fullName).sorted.mkString(", ")
+    val errns = res.unequivalent.keys.toSeq.map(_.fullName).sorted.mkString(", ")
     val unknowns = res.unknowns.keys.toSeq.map(_.fullName).sorted.mkString(", ")
     val wrongs = res.wrongs.toSeq.map(_.fullName).sorted.mkString(", ")
     info(s"List of erroneous functions: $errns")
@@ -312,10 +319,27 @@ class EquivalenceCheckingRun private(override val component: EquivalenceChecking
       val pathStr = data.path.map(_.fullName).mkString(", ")
       info(s"Path for the function ${cand.fullName}: $pathStr")
     }
-    res.erroneous.foreach { case (cand, data) =>
-      val ctexsStr = data.ctexs.map(ctex => ctex.map { case (vd, arg) => s"${vd.id.name} -> $arg" }.mkString(", "))
-      info(s"Counterexample for the function ${cand.fullName}:")
-      ctexsStr.foreach(s => info(s"  $s"))
+    res.unequivalent.foreach { case (cand, data) =>
+        val ctexsStr = data.ctexs.map(ctex => ctex.map { case (vd, arg) => s"${vd.id.name} -> $arg" }.mkString(", "))
+        info(s"Unequivalence counterexample for the function ${cand.fullName}:")
+        ctexsStr.foreach(s => info(s"  $s"))
+    }
+
+    def unsafeCtexStr(data: ec.UnsafeCtex): String = {
+      val ctexsStr = data.ctex.map(ctex => ctex.map { case (vd, arg) => s"${vd.id.name} -> $arg" }.mkString(", "))
+        .getOrElse("(could not extract counter-examples)")
+      s"${data.kind.name} @ ${data.pos.line}:${data.pos.col}: $ctexsStr"
+    }
+    res.unsafe.foreach { case (cand, data) =>
+      info(s"Unsafety for the function ${cand.fullName}")
+      if (data.self.nonEmpty) {
+        info(s"  Direct unsafety:")
+        data.self.foreach(ctex => info(s"    ${unsafeCtexStr(ctex)}"))
+      }
+      data.auxiliaries.toSeq.sortBy(_._1.fullName).foreach { (aux, ctexs) =>
+        info(s"  Transitive unsafety by calling ${aux.fullName}:")
+        ctexs.foreach(ctex => info(s"    ${unsafeCtexStr(ctex)}"))
+      }
     }
   }
 
@@ -323,11 +347,16 @@ class EquivalenceCheckingRun private(override val component: EquivalenceChecking
     ctex.map { case (vd, e) => s"${vd.id.name} -> $e" }.mkString(", ")
 
   private def dumpResultsJson(out: File, ec: EquivalenceChecker)(res: ec.Results): Unit = {
+    def ctexJson(ctex: Seq[(ec.trees.ValDef, ec.trees.Expr)]): Json =
+      Json.fromFields(ctex.map { case (vd, expr) => vd.id.name -> Json.fromString(expr.toString) })
+    def unsafeCtexJson(data: ec.UnsafeCtex): Json = Json.fromFields(Seq(
+      "kind" -> Json.fromString(data.kind.name),
+      "position" -> Json.fromString(s"${data.pos.line}:${data.pos.col}"),
+      "ctex" -> data.ctex.map(ctexJson).getOrElse(Json.Null)
+    ))
+
     val equivs = res.equiv.map { case (m, l) => m.fullName -> l.map(_.fullName).toSeq.sorted }
       .toSeq.sortBy(_._1)
-    val errns = res.erroneous.map { case (fn, errn) =>
-      fn.fullName -> errn.ctexs.map(_.map { case (vd, expr) => (vd.id.name, expr.toString) })
-    }.toSeq.sortBy(_._1)
     val unknowns = res.unknowns.keys.toSeq.map(_.fullName).sorted
     val wrongs = res.wrongs.toSeq.map(_.fullName).sorted
     val weights = res.weights.map { case (mod, w) => mod.fullName -> w }.toSeq
@@ -340,13 +369,20 @@ class EquivalenceCheckingRun private(override val component: EquivalenceChecking
           "functions" -> Json.fromValues(l.map(Json.fromString))
         ))
       }),
-      "erroneous" -> Json.fromValues(errns.map { case (fn, ctexs) =>
+      "unequivalent" -> Json.fromValues(res.unequivalent.toSeq.sortBy(_._1).map { case (cand, data) =>
         Json.fromFields(Seq(
-          "function" -> Json.fromString(fn),
-          "ctexs" -> Json.fromValues(
-            ctexs.map { ctex =>
-              Json.fromFields(ctex.map { case (vd, expr) => vd -> Json.fromString(expr) })
-            }
+          "function" -> Json.fromString(cand.fullName),
+          "ctexs" -> Json.fromValues(data.ctexs.map(ctexJson))
+        ))
+      }),
+      "unsafe" -> Json.fromValues(res.unsafe.toSeq.sortBy(_._1).map { case (cand, data) =>
+        Json.fromFields(Seq(
+          "function" -> Json.fromString(cand.fullName),
+          "self" -> Json.fromValues(data.self.map(unsafeCtexJson)),
+          "auxiliaries" -> Json.fromFields(
+            data.auxiliaries.toSeq.map { case (aux, ctexs) =>
+              aux.fullName -> Json.fromValues(ctexs.map(unsafeCtexJson))
+            }.sortBy(_._1)
           )
         ))
       }),

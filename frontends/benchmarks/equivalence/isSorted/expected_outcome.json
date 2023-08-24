@@ -13,9 +13,10 @@
       ]
     }
   ],
-  "erroneous": [
+  "unequivalent": [
     "IsSorted.isSortedA"
   ],
+  "unsafe": [],
   "timeout": [],
   "wrong": []
 }

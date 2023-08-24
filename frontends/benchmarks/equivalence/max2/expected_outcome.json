@@ -9,10 +9,11 @@
       ]
     }
   ],
-  "erroneous": [
+  "unequivalent": [
     "Candidate4.max",
     "Candidate5.max"
   ],
+  "unsafe": [],
   "timeout": [],
   "wrong": []
 }

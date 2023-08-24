@@ -7,6 +7,7 @@ import inox.utils.Position
 import io.circe.{Json, JsonObject}
 import stainless.equivchk.EquivalenceChecker._
 import stainless.extraction.trace._
+import stainless.verification._
 import stainless.utils.{CheckFilter, JsonUtils}
 import stainless.verification.{VCResult, VCStatus, VerificationAnalysis}
 import stainless.{FreshIdentifier, Identifier, Program, StainlessProgram, evaluators}
@@ -20,8 +21,8 @@ import scala.util.control.NonFatal
 //
 // The preliminary analysis is done outside of EquivalenceChecker: it is a general verification pass over all candidates
 // to catch for invalid VCs (such as division by zero and so on).
-// These invalid VCs are communicated to EquivalenceChecker with reportErroneous.
-// Candidates having at least one invalid VCs are classified as "erroneous" and
+// These invalid VCs are communicated to EquivalenceChecker with reportUnsafe.
+// Candidates having at least one invalid VCs are classified as "unsafe" and
 // are not considered for equivalence checking any further.
 //
 // After this pass, EquivalenceChecker works in examination and rounds.
@@ -107,8 +108,8 @@ class EquivalenceChecker(override val trees: Trees,
   case class Results(// Clusters
                      equiv: Map[Identifier, Set[Identifier]],
                      valid: Map[Identifier, ValidData],
-                     // Incorrect, either due to not being equivalent or having invalid VCs
-                     erroneous: Map[Identifier, ErroneousData],
+                     unequivalent: Map[Identifier, UnequivalentData],
+                     unsafe: Map[Identifier, UnsafeData],
                      // Candidates that will need to be manually inspected...
                      unknowns: Map[Identifier, UnknownData],
                      // Incorrect signature
@@ -118,7 +119,10 @@ class EquivalenceChecker(override val trees: Trees,
   case class ValidData(path: Seq[Identifier], solvingInfo: SolvingInfo)
   // The list of counter-examples can be empty; the candidate is still invalid but a ctex could not be extracted
   // If the solvingInfo is None, the candidate has been pruned.
-  case class ErroneousData(ctexs: Seq[Seq[(ValDef, Expr)]], solvingInfo: Option[SolvingInfo])
+  case class UnequivalentData(ctexs: Seq[Seq[(ValDef, Expr)]], solvingInfo: Option[SolvingInfo])
+  case class UnsafeData(self: Seq[UnsafeCtex], auxiliaries: Map[Identifier, Seq[UnsafeCtex]])
+  case class UnsafeCtex(kind: VCKind, pos: Position, ctex: Option[Seq[(ValDef, Expr)]], solvingInfo: SolvingInfo)
+
   case class UnknownData(solvingInfo: SolvingInfo)
   // Note: fromCache and trivial are only relevant for valid candidates
   case class SolvingInfo(time: Long, solverName: Option[String], fromCache: Boolean, trivial: Boolean) {
@@ -127,7 +131,7 @@ class EquivalenceChecker(override val trees: Trees,
 
   def getCurrentResults(): Results = {
     val equiv = clusters.map { case (model, clst) => model -> clst.toSet }.toMap
-    Results(equiv, valid.toMap, erroneous.toMap, unknowns.toMap, signatureMismatch.toSet, models.toMap)
+    Results(equiv, valid.toMap, unequivalent.toMap, unsafe.toMap, unknowns.toMap, signatureMismatch.toSet, models.toMap)
   }
   //endregion
 
@@ -229,8 +233,8 @@ class EquivalenceChecker(override val trees: Trees,
   private var nbExaminedCandidates = allCandidates.size
   private var examinationState: ExaminationState = ExaminationState.PickNext
   private val valid = mutable.Map.empty[Identifier, ValidData]
-  // candidate -> list of counter-examples (can be empty, in which case the candidate is invalid but a ctex could not be extracted)
-  private val erroneous = mutable.Map.empty[Identifier, ErroneousData]
+  private val unequivalent = mutable.Map.empty[Identifier, UnequivalentData]
+  private val unsafe = mutable.Map.empty[Identifier, UnsafeData]
   private val unknowns = mutable.LinkedHashMap.empty[Identifier, UnknownData]
   private val signatureMismatch = mutable.ArrayBuffer.empty[Identifier]
   private val clusters = mutable.Map.empty[Identifier, mutable.ArrayBuffer[Identifier]]
@@ -250,24 +254,32 @@ class EquivalenceChecker(override val trees: Trees,
 
   //region Public API
 
-  def reportErroneous(pr: StainlessProgram)(analysis: VerificationAnalysis, counterex: pr.Model)(fun: Identifier): Option[Set[Identifier]] = {
+  def reportUnsafe(pr: StainlessProgram)(analysis: VerificationAnalysis, vc: VC[pr.trees.type], counterex: pr.Model): Option[Set[Identifier]] = {
+    val fun = vc.fid
+    val ordCtexs = ctexOrderedArguments(fun, pr)(counterex.vars)
+    val fd = symbols.functions(fun)
+    val ctexVars = ordCtexs.map(ctex => fd.params.zip(ctex))
     if (allCandidates.contains(fun)) {
       remainingCandidates -= fun
-      val ordCtexs = ctexOrderedArguments(fun, pr)(counterex.vars).toSeq
       ordCtexs.foreach(addCtex)
-      val fd = symbols.functions(fun)
-      val ctexVars = ordCtexs.map(ctex => fd.params.zip(ctex))
-      erroneous += fun -> ErroneousData(ctexVars, Some(extractSolvingInfo(analysis, fun, Seq.empty)))
+      val currUnsafeData = unsafe.getOrElse(fun, UnsafeData(Seq.empty, Map.empty))
+      val newUnsafeData = currUnsafeData.copy(self = currUnsafeData.self :+ UnsafeCtex(vc.kind, vc.getPos, ctexVars, extractSolvingInfo(analysis, fun, Seq.empty)))
+      unsafe += fun -> newUnsafeData
       Some(Set(fun))
     } else candidatesCallee.get(fun) match {
       case Some(cands) =>
         // This means this erroneous `fun` is called by all candidates in `cands`.
+        // Note: we do not add the ctexs with `addCtex`, because counterex corresponds to the signature of `fun` not necessarily `cand`
+
         // `cands` should be of size 1 because a function called by multiple candidates must be either a library fn or
         // a provided function which are all assumed to be correct.
         cands.foreach { cand =>
           remainingCandidates -= cand
-          // No ctex available, because counterex corresponds to the signature of `fun` not necessarily `cand`
-          erroneous += cand -> ErroneousData(Seq.empty, Some(extractSolvingInfo(analysis, cand, Seq.empty)))
+          val currUnsafeData = unsafe.getOrElse(cand, UnsafeData(Seq.empty, Map.empty))
+          val currUnsafeCtexs = currUnsafeData.auxiliaries.getOrElse(fun, Seq.empty)
+          val newUnsafeCtexs = currUnsafeCtexs :+ UnsafeCtex(vc.kind, vc.getPos, ctexVars, extractSolvingInfo(analysis, fun, Seq.empty))
+          val newUnsafeData = currUnsafeData.copy(auxiliaries = currUnsafeData.auxiliaries + (fun -> newUnsafeCtexs))
+          unsafe += cand -> newUnsafeData
         }
         Some(cands)
       case None =>
@@ -292,10 +304,10 @@ class EquivalenceChecker(override val trees: Trees,
           case EvalCheck.Ok =>
             picked = Some(candId)
           case EvalCheck.FailsTest(testId, sampleIx, ctex) =>
-            erroneous += candId -> ErroneousData(Seq(ctex.mapping), None)
+            unequivalent += candId -> UnequivalentData(Seq(ctex.mapping), None)
             pruned += candId -> PruningReason.ByTest(testId, sampleIx, ctex)
           case EvalCheck.FailsCtex(ctex) =>
-            erroneous += candId -> ErroneousData(Seq(ctex.mapping), None)
+            unequivalent += candId -> UnequivalentData(Seq(ctex.mapping), None)
             pruned += candId -> PruningReason.ByPreviousCtex(ctex)
         }
       } else {
@@ -458,7 +470,7 @@ class EquivalenceChecker(override val trees: Trees,
           // Take all ctex for `cand`, `eqLemma` and `proof`
           val ctexOrderedArgs = (Seq(cand, eqLemma) ++ proof.toSeq).flatMap(id => allCtexs.getOrElse(id, Seq.empty))
           val ctexsMap = ctexOrderedArgs.map(ctex => candFd.params.zip(ctex))
-          erroneous += cand -> ErroneousData(ctexsMap, Some(solvingInfo.withAddedTime(currCumulativeSolvingTime)))
+          unequivalent += cand -> UnequivalentData(ctexsMap, Some(solvingInfo.withAddedTime(currCumulativeSolvingTime)))
           examinationState = ExaminationState.PickNext
           RoundConclusion.CandidateClassified(cand, Classification.Invalid(ctexsMap), Set.empty)
         }
@@ -631,14 +643,19 @@ class EquivalenceChecker(override val trees: Trees,
         evaluate(arg) match {
           case inox.evaluators.EvaluationResults.Successful(evalArg) => evalArg
           case _ =>
-            return None // If we cannot evaluate the argument (which should be a tuple), then we consider this test to be "successful"
+            return None // If we cannot evaluate the argument, then we consider this test to be "successful"
         }
       } catch {
         case NonFatal(_) => return None
       }
-      val argsSplit = evalArg match {
-        case Tuple(args) => args
-        case _ => return None // ditto, we will not crash
+      val argsSplit = {
+        if (model.params.size == 1) Seq(evalArg)
+        else {
+          evalArg match {
+            case Tuple(args) => args
+            case _ => return None // ditto, we will not crash
+          }
+        }
       }
 
       val invocationCand = FunctionInvocation(cand.id, instTparams, argsSplit)
