@@ -1,6 +1,7 @@
 {
   "equivalent": [],
-  "erroneous": [],
+  "unequivalent": [],
+  "unsafe": [],
   "timeout": ["Candidate.max"],
   "wrong": []
 }

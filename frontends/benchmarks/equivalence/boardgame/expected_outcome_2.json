@@ -13,9 +13,11 @@
       ]
     }
   ],
-  "erroneous": [
-    "Candidate3.adjacencyBonus",
+  "unequivalent": [
     "Candidate4.adjacencyBonus"
+  ],
+  "unsafe": [
+    "Candidate3.adjacencyBonus"
   ],
   "timeout": [],
   "wrong": []

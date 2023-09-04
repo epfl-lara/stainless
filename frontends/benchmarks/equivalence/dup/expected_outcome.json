@@ -8,10 +8,11 @@
       ]
     }
   ],
-  "erroneous": [
+  "unequivalent": [
     "Candidate2.dup",
     "Candidate4.dup"
   ],
+  "unsafe": [],
   "timeout": [],
   "wrong": [
     "Candidate3.dup"

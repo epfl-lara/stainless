@@ -8,10 +8,11 @@
       ]
     }
   ],
-  "erroneous": [
+  "unequivalent": [
     "Candidate3.unfoldingSorted",
     "Candidate4.unfoldingSorted"
   ],
+  "unsafe": [],
   "timeout": [],
   "wrong": [
     "Candidate2.unfoldingSorted"

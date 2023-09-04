@@ -13,7 +13,8 @@
       ]
     }
   ],
-  "erroneous": [],
+  "unequivalent": [],
+  "unsafe": [],
   "timeout": [],
   "wrong": []
 }

@@ -7,11 +7,12 @@
       ]
     }
   ],
-  "erroneous": [
+  "unequivalent": [
     "Candidate2.validCitySettlement",
     "Candidate3.validCitySettlement",
     "Candidate4.validCitySettlement"
   ],
+  "unsafe": [],
   "timeout": [],
   "wrong": []
 }
