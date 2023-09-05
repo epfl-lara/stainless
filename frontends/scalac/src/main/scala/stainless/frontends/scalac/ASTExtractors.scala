@@ -426,17 +426,6 @@ trait ASTExtractors(val global: Global) {
       }
     }
 
-    /** Matches the `A computes B` expression at the end of any expression A, and returns (A, B). */
-    object ExComputesExpression {
-      def unapply(tree: Apply) : Option[(Tree, Tree)] = tree match {
-        case Apply(Select(
-          Apply(TypeApply(ExSelected("stainless", "lang", "`package`", "SpecsDecorations"), List(_)), realExpr :: Nil),
-          ExNamed("computes")), expected::Nil)
-         => Some((realExpr, expected))
-        case _ => None
-       }
-    }
-
     /** Extracts the `(input, output) passes { case In => Out ...}`
      *  and returns (input, output, list of case classes) */
     object ExPasses {

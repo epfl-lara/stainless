@@ -1102,13 +1102,6 @@ trait CodeExtraction extends ASTExtractors {
       val b = extractTreeOrNoTree(body)
       xt.Ensuring(b, post).setPos(post)
 
-    case t @ ExComputesExpression(body, expected) =>
-      val b = extractTreeOrNoTree(body).setPos(body.pos)
-      val expectedExpr = extractTree(expected).setPos(expected.pos)
-      val vd = xt.ValDef.fresh("res", extractType(body)).setPos(tr.pos)
-      val post = xt.Lambda(Seq(vd), xt.Equals(vd.toVariable, expectedExpr)).setPos(tr.pos)
-      xt.Ensuring(b, post).setPos(post)
-
     case ExPasses(in, out, cases) =>
       val ine = extractTree(in)
       val oute = extractTree(out)

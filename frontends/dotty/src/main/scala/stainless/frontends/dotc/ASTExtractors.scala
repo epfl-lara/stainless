@@ -1178,15 +1178,6 @@ trait ASTExtractors {
       }
     }
 
-    object ExComputesExpression {
-      def unapply(tree: tpd.Tree): Option[(tpd.Tree, tpd.Tree)] = tree match {
-        case ExCall(Some(rec),
-          ExSymbol("stainless", "lang", "package$", "SpecsDecorations", "computes"),
-          _, Seq(expected)) => Some((rec, expected))
-        case _ => None
-      }
-    }
-
     /** Extracts the `(input, output) passes { case In => Out ...}` and returns (input, output, list of case classes) */
     object ExPasses {
       import ExpressionExtractors._

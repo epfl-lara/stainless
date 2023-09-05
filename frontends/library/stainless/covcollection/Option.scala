@@ -1,9 +1,9 @@
 package stainless
 package covcollection
 
-import stainless.annotation._
-import stainless.lang.{Option => InvOption, Some => InvSome, None => InvNone, _}
-import StaticChecks._
+import annotation._
+import lang.Set
+import lang.StaticChecks._
 
 @library
 sealed abstract class Option[+T] {
@@ -65,11 +65,6 @@ sealed abstract class Option[+T] {
   def toSet[TT >: T]: Set[TT] = this match {
     case None => Set[TT]()
     case Some(x) => Set(x)
-  }
-
-  def toInvariantOption[TT >: T]: InvOption[TT] = this match {
-    case None => InvNone[TT]()
-    case Some(x) => InvSome[TT](x)
   }
 }
 

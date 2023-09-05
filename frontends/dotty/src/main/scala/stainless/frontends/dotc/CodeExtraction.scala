@@ -1306,14 +1306,6 @@ class CodeExtraction(inoxCtx: inox.Context, symbolMapping: SymbolMapping)(using 
       val b = extractTreeOrNoTree(body)
       xt.Ensuring(b, post).setPos(post)
 
-    case t @ ExComputesExpression(body, expected) =>
-      val tpe = extractType(body)
-      val vd = xt.ValDef.fresh("holds", tpe).setPos(tr.sourcePos)
-      val post = xt.Lambda(Seq(vd),
-        xt.Equals(vd.toVariable, extractTreeOrNoTree(expected)).setPos(tr.sourcePos)
-      ).setPos(tr.sourcePos)
-      xt.Ensuring(extractTreeOrNoTree(body), post).setPos(post)
-
     case ExPasses(in, out, cases) =>
       val ine = extractTree(in)
       val oute = extractTree(out)

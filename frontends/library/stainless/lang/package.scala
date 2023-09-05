@@ -104,16 +104,6 @@ package object lang {
   @partialEval
   def partialEval[A](x: A): A = x
 
-  @library
-  implicit class SpecsDecorations[A](val underlying: A) {
-    @ignore
-    def computes(target: A) = {
-      underlying
-    } ensuring {
-      res => res == target
-    }
-  }
-
   @ignore
   implicit class Passes[A, B](io: (A, B)) {
     val (in, out) = io

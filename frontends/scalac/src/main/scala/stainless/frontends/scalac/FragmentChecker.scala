@@ -46,9 +46,28 @@ trait FragmentChecker extends SubComponent { self: StainlessExtraction =>
 
   def hasErrors(): Boolean = errors.nonEmpty
 
+  // Note: we wrap Symbols into an Option to emphasize the fact that the symbol may not exist
+  // and that care must be taken in case it does not.
+  private def getClassIfDefinedOrNone(cls: String): Option[ClassSymbol] = {
+    val sym = rootMirror.getClassIfDefined(cls)
+    if (sym.exists) Some(sym.asClass) else None
+  }
+
+  private def getModuleIfDefinedOrNone(mod: String): Option[ModuleSymbol] = {
+    val sym = rootMirror.getModuleIfDefined(mod)
+    if (sym.exists) Some(sym.asModule) else None
+  }
+
+  private def getModuleClassIfDefinedOrNone(cls: String): Option[Symbol] =
+    getModuleIfDefinedOrNone(cls).map(_.moduleClass)
+
+  private def getPackageIfDefinedOrNone(pkg: String): Option[ModuleSymbol] = {
+    val sym = rootMirror.getPackageIfDefined(pkg)
+    if (sym.exists) Some(sym.asModule) else None
+  }
+
   class GhostAnnotationChecker extends Traverser {
-    val ghostAnnotation = rootMirror.getRequiredClass("stainless.annotation.ghost")
-    val ghostMethod = rootMirror.getPackage("stainless.lang").info.member(TermName("ghost"))
+    private val ghostAnnotation = getClassIfDefinedOrNone("stainless.annotation.ghost")
 
     private var ghostContext: Boolean = false
 
@@ -72,7 +91,7 @@ trait FragmentChecker extends SubComponent { self: StainlessExtraction =>
 
     private def isGhostDefaultGetter(m: Tree): Boolean = m match {
       case DefDef(mods, name, tparams, vparamss, tpt, field @ Select(This(_), f)) =>
-        field.symbol.hasAnnotation(ghostAnnotation)
+        field.symbol.hasGhostAnnotation
       case _ => false
     }
 
@@ -85,27 +104,27 @@ trait FragmentChecker extends SubComponent { self: StainlessExtraction =>
       val sym = m.symbol
 
       if (sym.isArtifact) m match {
-        case vd @ ValDef(mods, _, _, ExCall(_, c, _, _)) if isDefaultGetter(c) && c.hasAnnotation(ghostAnnotation) =>
-          sym.addAnnotation(ghostAnnotation)
+        case vd @ ValDef(mods, _, _, ExCall(_, c, _, _)) if isDefaultGetter(c) && c.hasGhostAnnotation =>
+          sym.addGhostAnnotation()
         case _ => ()
       }
       else if (sym.isCaseCopy) {
         val caseClassParams = sym.owner.primaryConstructor.info.params
-        for ((copyParam, caseParam) <- sym.info.params.zip(caseClassParams) if caseParam.hasAnnotation(ghostAnnotation))
-          copyParam.addAnnotation(ghostAnnotation)
+        for ((copyParam, caseParam) <- sym.info.params.zip(caseClassParams) if caseParam.hasGhostAnnotation)
+          copyParam.addGhostAnnotation()
       }
       else if (sym.isDefaultGetter && isGhostDefaultGetter(m)) {
-        sym.addAnnotation(ghostAnnotation)
+        sym.addGhostAnnotation()
       }
-      else if (sym.isSetter && sym.hasAnnotation(ghostAnnotation)) {
+      else if (sym.isSetter && sym.hasGhostAnnotation) {
         // make the setter parameter ghost but the setter itself stays non-ghost. this allows it
         // to be called from non-ghost code and at the same time allows assigning ghost state via the ghost argument
-        sym.removeAnnotation(ghostAnnotation)
-        sym.info.params.head.addAnnotation(ghostAnnotation)
+        sym.removeGhostAnnotation()
+        sym.info.params.head.addGhostAnnotation()
       }
-      else if (sym.isModuleOrModuleClass && sym.companionClass.hasAnnotation(ghostAnnotation)) {
-        sym.addAnnotation(ghostAnnotation)
-        sym.moduleClass.addAnnotation(ghostAnnotation)
+      else if (sym.isModuleOrModuleClass && sym.companionClass.hasGhostAnnotation) {
+        sym.addGhostAnnotation()
+        sym.moduleClass.addGhostAnnotation()
       }
     }
 
@@ -140,10 +159,10 @@ trait FragmentChecker extends SubComponent { self: StainlessExtraction =>
     override def traverse(tree: Tree): Unit = {
       val sym = tree.symbol
       tree match {
-        case Ident(_) if sym.hasAnnotation(ghostAnnotation) && !ghostContext =>
+        case Ident(_) if sym.hasGhostAnnotation && !ghostContext =>
           reportError(tree.pos, s"Cannot access a ghost symbol outside of a ghost context. [ $tree in $currentOwner ]")
 
-        case Select(qual, _) if sym.hasAnnotation(ghostAnnotation) && !ghostContext =>
+        case Select(qual, _) if sym.hasGhostAnnotation && !ghostContext =>
           reportError(tree.pos, s"Cannot access a ghost symbol outside of a ghost context. [ $tree in $currentOwner ]")
           super.traverse(tree)
 
@@ -154,7 +173,7 @@ trait FragmentChecker extends SubComponent { self: StainlessExtraction =>
           // We consider some synthetic methods values as being inside ghost
           // but don't auto-annotate as such because we don't want all code to be removed.
           // They are synthetic case class methods that are harmless if they see some ghost nulls
-          if (m.symbol.hasAnnotation(ghostAnnotation) || effectivelyGhost(sym))
+          if (m.symbol.hasGhostAnnotation || effectivelyGhost(sym))
             withinGhostContext(super.traverse(m))
           else
             super.traverse(m)
@@ -164,7 +183,7 @@ trait FragmentChecker extends SubComponent { self: StainlessExtraction =>
           traverse(guard)
           traverse(body)
 
-        case f @ Apply(fun, args) if fun.symbol.hasAnnotation(ghostAnnotation) =>
+        case f @ Apply(fun, args) if fun.symbol.hasGhostAnnotation =>
           traverse(fun)
           withinGhostContext(traverseTrees(args))
 
@@ -173,10 +192,10 @@ trait FragmentChecker extends SubComponent { self: StainlessExtraction =>
 
           // pattern match variables need to get the ghost annotation from their case class argument
           for ((param, arg) <- fun.tpe.paramLists(symbolIndex(fun)).zip(args))
-            if (param.hasAnnotation(ghostAnnotation)) {
+            if (param.hasGhostAnnotation) {
               arg match {
                 case b@Bind(_, body) =>
-                  b.symbol.addAnnotation(ghostAnnotation)
+                  b.symbol.addGhostAnnotation()
                   traverse(body)
                 case _ =>
                   traverse(arg)
@@ -188,13 +207,13 @@ trait FragmentChecker extends SubComponent { self: StainlessExtraction =>
           traverse(fun)
 
           for ((param, arg) <- f.symbol.info.paramLists(symbolIndex(fun)).zip(args))
-            if (param.hasAnnotation(ghostAnnotation))
+            if (param.hasGhostAnnotation)
               withinGhostContext(traverse(arg))
             else
               traverse(arg)
 
         case Assign(lhs, rhs) =>
-          if (lhs.symbol.hasAnnotation(ghostAnnotation))
+          if (lhs.symbol.hasGhostAnnotation)
             withinGhostContext(traverse(rhs))
           else
             super.traverse(tree)
@@ -203,25 +222,32 @@ trait FragmentChecker extends SubComponent { self: StainlessExtraction =>
           super.traverse(tree)
       }
     }
+
+    extension (sym: Symbol) {
+      private def hasGhostAnnotation: Boolean = ghostAnnotation.exists(sym.hasAnnotation)
+      private def addGhostAnnotation(): Unit = ghostAnnotation.foreach(sym.addAnnotation)
+      private def removeGhostAnnotation(): Unit = ghostAnnotation.foreach(sym.removeAnnotation)
+    }
   }
 
   class Checker extends Traverser {
-    private val StainlessLangPackage = rootMirror.getPackage("stainless.lang")
-    private val ExternAnnotation = rootMirror.getRequiredClass("stainless.annotation.extern")
-    private val IgnoreAnnotation = rootMirror.getRequiredClass("stainless.annotation.ignore")
-    private val StainlessOld = StainlessLangPackage.info.decl(newTermName("old"))
-    private val StainlessBVObject = rootMirror.getRequiredModule("stainless.math.BitVectors")
-    private val StainlessBVClass = rootMirror.getRequiredClass("stainless.math.BitVectors.BV")
-    private val StainlessBVArrayIndex = rootMirror.getRequiredClass("stainless.math.BitVectors.ArrayIndexing").companionClass
     private val ScalaEnsuringMethod = rootMirror.getRequiredModule("scala.Predef").info.decl(newTermName("Ensuring"))
       .alternatives.filter(_.isMethod).head
+
+    private val StainlessLangPackage = getPackageIfDefinedOrNone("stainless.lang")
+    private val ExternAnnotation = getClassIfDefinedOrNone("stainless.annotation.extern")
+    private val IgnoreAnnotation = getClassIfDefinedOrNone("stainless.annotation.ignore")
+    private val StainlessOld = StainlessLangPackage.map(_.info.decl(newTermName("old")))
+    private val StainlessBVObject = getModuleIfDefinedOrNone("stainless.math.BitVectors")
+    private val StainlessBVClass = getClassIfDefinedOrNone("stainless.math.BitVectors.BV")
+    private val StainlessBVArrayIndex = getClassIfDefinedOrNone("stainless.math.BitVectors.ArrayIndexing").map(_.companionClass)
     private val BigInt_ApplyMethods =
-      (StainlessLangPackage.info.decl(newTermName("BigInt")).info.decl(nme.apply).alternatives
+      (StainlessLangPackage.map(_.info.decl(newTermName("BigInt")).info.decl(nme.apply).alternatives).getOrElse(Nil)
       ++ rootMirror.getRequiredModule("scala.math.BigInt").info.decl(nme.apply).alternatives).toSet
 
     private val RequireMethods =
       definitions.PredefModule.info.decl(newTermName("require")).alternatives.toSet
-        ++ rootMirror.getRequiredModule("stainless.lang.StaticChecks").info.decl(newTermName("require")).alternatives.toSet
+        ++ getModuleIfDefinedOrNone("stainless.lang.StaticChecks").map(_.info.decl(newTermName("require")).alternatives.toSet).getOrElse(Set.empty)
 
     private val stainlessReplacement = mutable.Map(
       definitions.ListClass -> "stainless.collection.List",
@@ -237,15 +263,18 @@ trait FragmentChecker extends SubComponent { self: StainlessExtraction =>
 
     // We do not in general support the types for these methods, but we do extract them.
     // We therefore skip the typing check for them.
-    private val bvSpecialFunctions = Set(
-      StainlessBVObject.info.decl(newTermName("min")),
-      StainlessBVObject.info.decl(newTermName("max")),
-      StainlessBVArrayIndex.info.decl(nme.apply),
-      StainlessBVClass.info.decl(newTermName("widen")),
-      StainlessBVClass.info.decl(newTermName("narrow")),
-      StainlessBVClass.info.decl(newTermName("toSigned")),
-      StainlessBVClass.info.decl(newTermName("toUnsigned")),
-    )
+    private val bvSpecialFunctions =
+      StainlessBVObject.map(bvObj => Set(
+        bvObj.info.decl(newTermName("min")),
+        bvObj.info.decl(newTermName("max"))
+      )).getOrElse(Set.empty) ++
+      StainlessBVArrayIndex.map(bvArray => Set(bvArray.info.decl(nme.apply))).getOrElse(Set.empty) ++
+      StainlessBVClass.map(bvClass => Set(
+        bvClass.info.decl(newTermName("widen")),
+        bvClass.info.decl(newTermName("narrow")),
+        bvClass.info.decl(newTermName("toSigned")),
+        bvClass.info.decl(newTermName("toUnsigned")),
+      )).getOrElse(Set.empty)
 
     private val objectMethods = Set[Symbol](
       definitions.Object_eq, definitions.Object_ne, definitions.Object_synchronized, definitions.Object_clone,
@@ -432,7 +461,7 @@ trait FragmentChecker extends SubComponent { self: StainlessExtraction =>
         case vd @ ValDef(mods, _, _, _) if sym.owner.isClass && !sym.owner.isAbstractClass && mods.isMutable && !mods.isCaseAccessor =>
           reportError(tree.pos, "Variables are only allowed within functions and as constructor parameters in Stainless.")
 
-        case Apply(fun, List(arg)) if sym == StainlessOld =>
+        case Apply(fun, List(arg)) if StainlessOld.contains(sym) =>
           arg match {
             case This(_) => ()
             case t if t.symbol != null && t.symbol.isVariable => ()
@@ -491,8 +520,8 @@ trait FragmentChecker extends SubComponent { self: StainlessExtraction =>
     }
 
     private def skipTraversal(sym: Symbol): Boolean = {
-      val isExtern = sym.hasAnnotation(ExternAnnotation)
-      val isIgnore = sym.hasAnnotation(IgnoreAnnotation)
+      val isExtern = ExternAnnotation.exists(sym.hasAnnotation)
+      val isIgnore = IgnoreAnnotation.exists(sym.hasAnnotation)
       // * If it's a synthetic symbol, we will still visit if it is either:
       //    -the scala Ensuring method (that creates the Ensuring class), which for some reasons is synthetic (though StaticChecks.Ensuring is not for instance)
       //    -an anonymous function
@@ -500,7 +529,7 @@ trait FragmentChecker extends SubComponent { self: StainlessExtraction =>
       // * We furthermore ignore ClassTag[T].apply() that appear for Array operations, which we can still extract.
       isExtern || isIgnore || (sym.isSynthetic && (sym ne ScalaEnsuringMethod) && !sym.isAnonymousFunction && !sym.isAnonymousFunction) ||
         (sym.owner eq definitions.ClassTagModule.moduleClass) ||
-        bvSpecialFunctions(sym) || (sym eq StainlessBVClass)
+        bvSpecialFunctions(sym) || StainlessBVClass.contains(sym)
     }
   }
 }
