@@ -1046,6 +1046,7 @@ object BitVectors {
   implicit def intToBV[T <: BVKind with Singleton](i: Int): BV[T] = ???
   implicit def bigIntToBV[T <: BVKind with Singleton](i: BigInt): BV[T] = ???
 
+  @library
   implicit class ArrayIndexing[T](underlying: Array[T]) {
     def apply[X <: BVKind with Singleton](bv: BV[X]): T = underlying(bv.toInt)
   }

@@ -80,6 +80,16 @@ object Map {
       map.theMap
     }
   }
+
+  @library
+  def fromList[K, V](l: List[(K, V)]): Map[K, V] = l.foldLeft(Map[K, V]()) {
+    case (current, (k, v)) => current ++ Map(k -> v)
+  }
+
+  @library
+  implicit class ToMapOps[K, V](l: List[(K, V)]) {
+    def toMap: Map[K, V] = fromList(l)
+  }
 }
 
 @ignore

@@ -70,9 +70,30 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
     clsInfo.decls.iterator.filter(s => !(s is Method) && ((s is ParamAccessor) || (s is CaseAccessor))).toList
   }
 
+  // Note: we wrap Symbols into an Option to emphasize the fact that the symbol may not exist
+  // and that care must be taken in case it does not.
+  private def getClassIfDefinedOrNone(cls: String)(using DottyContext): Option[ClassSymbol] = {
+    val sym = getClassIfDefined(cls)
+    if (sym.exists) Some(sym.asClass) else None
+  }
+
+  private def getModuleIfDefinedOrNone(mod: String)(using DottyContext): Option[Symbol] = {
+    val sym = getModuleIfDefined(mod)
+    if (sym.exists) Some(sym) else None
+  }
+
+  private def getModuleClassIfDefinedOrNone(cls: String)(using DottyContext): Option[Symbol] =
+    getModuleIfDefinedOrNone(cls).map(_.moduleClass)
+
+  private def getPackageIfDefinedOrNone(pkg: String)(using DottyContext): Option[Symbol] = {
+    val name = termName(pkg)
+    val ref = staticRef(name, generateStubs = false, isPackage = true)
+    if (ref.exists) Some(ref.requiredSymbol("package", name)(_.is(Package)).asTerm)
+    else None
+  }
+
   class GhostAnnotationChecker extends tpd.TreeTraverser {
-    val ghostAnnotation = Symbols.requiredClass("stainless.annotation.ghost")
-    val ghostMethod = Symbols.requiredPackage("stainless.lang").denot.info.member(Names.termName("ghost"))
+    private val ghostAnnotation = getClassIfDefinedOrNone("stainless.annotation.ghost")
 
     private var ghostContext: Boolean = false
 
@@ -155,27 +176,27 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
           else sym.owner.companionClass.denot.asClass.classInfo
         val ctorFields = ctorFieldsOf(clsInfo)
         val params = m.asInstanceOf[tpd.DefDef].termParamss.flatten.map(_.symbol)
-        for ((ctorField, param) <- ctorFields.zip(params) if ctorField.hasAnnotation(ghostAnnotation))
-          param.addAnnotation(ghostAnnotation)
-      } else if (sym.isSetter && sym.hasAnnotation(ghostAnnotation)) {
+        for ((ctorField, param) <- ctorFields.zip(params) if ctorField.hasGhostAnnotation)
+          param.addGhostAnnotation()
+      } else if (sym.isSetter && sym.hasGhostAnnotation) {
         // make the setter parameter ghost but the setter itself stays non-ghost. this allows it
         // to be called from non-ghost code and at the same time allows assigning ghost state via the ghost argument
-        sym.removeAnnotation(ghostAnnotation)
+        sym.removeGhostAnnotation()
         val param = m.asInstanceOf[tpd.DefDef].termParamss.flatten.head
-        param.symbol.addAnnotation(ghostAnnotation)
-      } else if (((sym is Module) || (sym is ModuleClass)) && sym.companionClass.hasAnnotation(ghostAnnotation)) {
-        sym.addAnnotation(ghostAnnotation)
-        sym.moduleClass.addAnnotation(ghostAnnotation)
+        param.symbol.addGhostAnnotation()
+      } else if (((sym is Module) || (sym is ModuleClass)) && sym.companionClass.hasGhostAnnotation) {
+        sym.addGhostAnnotation()
+        sym.moduleClass.addGhostAnnotation()
       }
     }
 
     override def traverse(tree: tpd.Tree)(using ctx: DottyContext): Unit = {
       val sym = tree.symbol
       tree match {
-        case Ident(_) if sym.hasAnnotation(ghostAnnotation) && !ghostContext =>
+        case Ident(_) if sym.hasGhostAnnotation && !ghostContext =>
           reportError(tree.sourcePos, s"Cannot access a ghost symbol outside of a ghost context. [ ${tree.show} in ${ctx.owner} ]")
 
-        case Select(qual, _) if sym.hasAnnotation(ghostAnnotation) && !ghostContext =>
+        case Select(qual, _) if sym.hasGhostAnnotation && !ghostContext =>
           reportError(tree.sourcePos, s"Cannot access a ghost symbol outside of a ghost context. [ ${tree.show} in ${ctx.owner} ]")
           traverseChildren(tree)
 
@@ -186,12 +207,12 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
           // We consider some synthetic methods values as being inside ghost
           // but don't auto-annotate as such because we don't want all code to be removed.
           // They are synthetic case class methods that are harmless if they see some ghost nulls
-          if (m.symbol.hasAnnotation(ghostAnnotation) || effectivelyGhost(sym))
+          if (m.symbol.hasGhostAnnotation || effectivelyGhost(sym))
             withinGhostContext(traverseChildren(m))
           else
             traverseChildren(m)
 
-        case f @ Apply(fun, args) if fun.symbol.hasAnnotation(ghostAnnotation) =>
+        case f @ Apply(fun, args) if fun.symbol.hasGhostAnnotation =>
           traverse(fun)
           withinGhostContext(args foreach traverse)
 
@@ -206,10 +227,10 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
             .classInfo
           val ctorFields = ctorFieldsOf(caseClassInfo)
           for ((param, arg) <- ctorFields.zip(args))
-            if (param.hasAnnotation(ghostAnnotation)) {
+            if (param.hasGhostAnnotation) {
               arg match {
                 case b@Bind(_, body) =>
-                  b.symbol.addAnnotation(ghostAnnotation)
+                  b.symbol.addGhostAnnotation()
                   traverse(body)
                 case _ =>
                   traverse(arg)
@@ -225,13 +246,13 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
           val termParams = if (leadingTypeParams) params.tail else params
 
           for ((param, arg) <- termParams(symbolIndex(fun)).zip(args))
-            if (param.hasAnnotation(ghostAnnotation))
+            if (param.hasGhostAnnotation)
               withinGhostContext(traverse(arg))
             else
               traverse(arg)
 
         case Assign(lhs, rhs) =>
-          if (lhs.symbol.hasAnnotation(ghostAnnotation))
+          if (lhs.symbol.hasGhostAnnotation)
             withinGhostContext(traverse(rhs))
           else
             traverseChildren(tree)
@@ -240,25 +261,32 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
           traverseChildren(tree)
       }
     }
+
+    extension (sym: Symbol) {
+      private def hasGhostAnnotation(using DottyContext): Boolean = ghostAnnotation.exists(sym.hasAnnotation)
+      private def addGhostAnnotation()(using DottyContext): Unit = ghostAnnotation.foreach(sym.addAnnotation)
+      private def removeGhostAnnotation()(using DottyContext): Unit = ghostAnnotation.foreach(sym.removeAnnotation)
+    }
   }
 
   class Checker extends tpd.TreeTraverser {
-    private val StainlessLangPackage = Symbols.requiredPackage("stainless.lang")
-    private val ExternAnnotation = Symbols.requiredClass("stainless.annotation.extern")
-    private val IgnoreAnnotation = Symbols.requiredClass("stainless.annotation.ignore")
-    private val StainlessOld = StainlessLangPackage.info.decl(Names.termName("old")).symbol
-    private val StainlessBVObject = Symbols.requiredModule("stainless.math.BitVectors").moduleClass
-    private val StainlessBVClass = Symbols.requiredClass("stainless.math.BitVectors.BV")
-    private val StainlessBVArrayIndex = Symbols.requiredModule("stainless.math.BitVectors.ArrayIndexing").moduleClass
-    private val ScalaEnsuringMethod = Symbols.requiredMethod("scala.Predef.Ensuring")
+    private val ScalaEnsuringMethod = requiredMethod("scala.Predef.Ensuring")
+
+    private val StainlessLangPackage = getPackageIfDefinedOrNone("stainless.lang")
+    private val ExternAnnotation = getClassIfDefinedOrNone("stainless.annotation.extern")
+    private val IgnoreAnnotation = getClassIfDefinedOrNone("stainless.annotation.ignore")
+    private val StainlessOld = StainlessLangPackage.map(_.info.decl(Names.termName("old")).symbol)
+    private val StainlessBVObject = getModuleClassIfDefinedOrNone("stainless.math.BitVectors")
+    private val StainlessBVClass = getClassIfDefinedOrNone("stainless.math.BitVectors.BV")
+    private val StainlessBVArrayIndex = getModuleClassIfDefinedOrNone("stainless.math.BitVectors.ArrayIndexing")
 
     private val BigInt_ApplyMethods =
-      (StainlessLangPackage.info.decl(Names.termName("BigInt")).info.decl(nme.apply).alternatives
+      (StainlessLangPackage.map(_.info.decl(Names.termName("BigInt")).info.decl(nme.apply).alternatives).getOrElse(Nil)
       ++ Symbols.requiredModule("scala.math.BigInt").info.decl(nme.apply).alternatives).toSet
 
     private val RequireMethods =
       defn.ScalaPredefModule.info.decl(Names.termName("require")).alternatives.toSet
-        ++ Symbols.requiredModule("stainless.lang.StaticChecks").info.decl(Names.termName("require")).alternatives.toSet
+        ++ getModuleIfDefinedOrNone("stainless.lang.StaticChecks").map(_.info.decl(Names.termName("require")).alternatives.toSet).getOrElse(Set.empty)
 
     private val stainlessReplacement = mutable.Map(
       defn.ListClass -> "stainless.collection.List",
@@ -274,15 +302,18 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
 
     // We do not in general support the types for these methods, but we do extract them.
     // We therefore skip the typing check for them.
-    private val bvSpecialFunctions = Set(
-      StainlessBVObject.info.decl(termName("min")),
-      StainlessBVObject.info.decl(termName("max")),
-      StainlessBVArrayIndex.info.decl(StdNames.nme.apply),
-      StainlessBVClass.info.decl(termName("widen")),
-      StainlessBVClass.info.decl(termName("narrow")),
-      StainlessBVClass.info.decl(termName("toSigned")),
-      StainlessBVClass.info.decl(termName("toUnsigned")),
-    )
+    private val bvSpecialFunctions =
+      StainlessBVObject.map(bvObj => Set(
+        bvObj.info.decl(termName("min")),
+        bvObj.info.decl(termName("max"))
+      )).getOrElse(Set.empty) ++
+      StainlessBVArrayIndex.map(bvArray => Set(bvArray.info.decl(StdNames.nme.apply))).getOrElse(Set.empty) ++
+      StainlessBVClass.map(bvClass => Set(
+        bvClass.info.decl(termName("widen")),
+        bvClass.info.decl(termName("narrow")),
+        bvClass.info.decl(termName("toSigned")),
+        bvClass.info.decl(termName("toUnsigned")),
+      )).getOrElse(Set.empty)
 
     // Types that may show up due to inference that will later cause a missing dependency error
     // should we not report an error before.
@@ -471,7 +502,7 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
         case vd @ ValDef(_, _, _) if sym.exists && sym.owner.isClass && !(sym.owner isOneOf AbstractOrTrait) && (sym is Mutable) && !sym.isOneOf(CaseAccessor | ParamAccessor) =>
           reportError(tree.sourcePos, "Variables are only allowed within functions and as constructor parameters in Stainless.")
 
-        case Apply(fun, List(arg)) if sym == StainlessOld =>
+        case Apply(fun, List(arg)) if StainlessOld.contains(sym) =>
           arg match {
             case This(_) => ()
             case t if t.symbol.isTerm && (t.symbol is Mutable) && !(t.symbol is Method) => ()
@@ -527,8 +558,8 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
     }
 
     private def skipTraversal(sym: Symbol): Boolean = {
-      val isExtern = sym.hasAnnotation(ExternAnnotation)
-      val isIgnore = sym.hasAnnotation(IgnoreAnnotation)
+      val isExtern = ExternAnnotation.exists(sym.hasAnnotation)
+      val isIgnore = IgnoreAnnotation.exists(sym.hasAnnotation)
       // * If it's a synthetic symbol, we will still visit if it is either:
       //    -the scala Ensuring method (that creates the Ensuring class), which for some reasons is synthetic (though StaticChecks.Ensuring is not for instance)
       //    -an anonymous function
@@ -536,7 +567,7 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
       // * We furthermore ignore ClassTag[T].apply() that appear for Array operations, which we can still extract.
       isExtern || isIgnore || ((sym is Synthetic) && (sym ne ScalaEnsuringMethod) && !sym.isAnonymousFunction && !sym.isAnonymousFunction) ||
         (sym.owner eq defn.ClassTagModule_apply) ||
-        bvSpecialFunctions(sym) || (sym eq StainlessBVClass)
+        bvSpecialFunctions(sym) || StainlessBVClass.contains(sym)
     }
   }
 }
