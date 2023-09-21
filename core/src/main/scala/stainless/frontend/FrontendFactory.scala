@@ -16,36 +16,43 @@ trait FrontendFactory {
   private lazy val cl = getClass.getClassLoader
 
   /** Paths to the library files used by this frontend. */
-  final lazy val libraryFiles: Seq[String] = libraryPaths.map  { libPath =>
-    // There are two run modes: either the library is not packaged in a jar, and therefore
-    // directly available as is from the disk, or it is embedded in stainless' jar file, in
-    // which case we need to extract the files to a temporary location in order to let the
-    // underlying compiler read them.
+  final lazy val libraryFiles: Seq[String] = libraryPaths
+    .filterNot(libPath => libPath.isBlank || libPath.startsWith("#"))
+    .map { libPath =>
+      // There are two run modes: either the library is not packaged in a jar, and therefore
+      // directly available as is from the disk, or it is embedded in stainless' jar file, in
+      // which case we need to extract the files to a temporary location in order to let the
+      // underlying compiler read them.
 
-    // we replace `\` by `/` for windows because `getResource` (called later) expects `/`
-    // this can be unsafe for strange file names (e.g. containing `\` on linux/mac)
-    val url = cl.getResource(libPath.replace('\\', '/'))
-    val path = url.getFile
-    val file = new File(path)
+      // we replace `\` by `/` for windows because `getResource` (called later) expects `/`
+      // this can be unsafe for strange file names (e.g. containing `\` on linux/mac)
+      val url = cl.getResource(libPath.replace('\\', '/'))
+      // If `url` is null, the file does not exist.
+      // We return the path unmodified, and the Scala compiler will report an error for us.
+      if (url == null) libPath
+      else {
+        val path = url.getFile
+        val file = new File(path)
 
-    if (file.exists && file.isFile) file.getPath()
-    else {
-      // JAR URL syntax: jar:<url>!/{filepath}, Expected path syntax: file:/path/a.jar!/{filepath}
-      assert(path startsWith "file:")
-      val Array(_, filepath) = path split "!/"
+        if (file.exists && file.isFile) file.getPath()
+        else {
+          // JAR URL syntax: jar:<url>!/{filepath}, Expected path syntax: file:/path/a.jar!/{filepath}
+          assert(path startsWith "file:")
+          val Array(_, filepath) = path split "!/"
 
-      // Path should always use '/' as a separator (because of the replacement above in `getResource`)
-      val filename = filepath.replace("/", "_")
-      val splitPos = filename lastIndexOf '.'
-      val (prefix, suffix) = filename splitAt splitPos
-      val tmpFilePath = Files.createTempFile(prefix, suffix)
-      val stream = url.openStream()
-      Files.copy(stream, tmpFilePath, StandardCopyOption.REPLACE_EXISTING)
-      stream.close()
-      tmpFilePath.toFile.deleteOnExit()
-      tmpFilePath.toString
+          // Path should always use '/' as a separator (because of the replacement above in `getResource`)
+          val filename = filepath.replace("/", "_")
+          val splitPos = filename lastIndexOf '.'
+          val (prefix, suffix) = filename splitAt splitPos
+          val tmpFilePath = Files.createTempFile(prefix, suffix)
+          val stream = url.openStream()
+          Files.copy(stream, tmpFilePath, StandardCopyOption.REPLACE_EXISTING)
+          stream.close()
+          tmpFilePath.toFile.deleteOnExit()
+          tmpFilePath.toString
+        }
+      }
     }
-  }
 
   protected def extraSourceFiles(ctx: inox.Context): Seq[String] = {
     val extraDeps = ctx.options.findOptionOrDefault(optExtraDeps)
