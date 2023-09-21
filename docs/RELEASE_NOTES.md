@@ -1,5 +1,19 @@
 # Release Notes
 
+## Version 0.9.8.1 (2023-09-21)
+
+### Stainless frontend, library and internals
+
+- Fix `--watch` crashing on compilation error (#1424)
+- Expand options for equivalence checking (#1422, #1435)
+- Add more info messages (#1425)
+- Add further postconditions for indexOf and apply (#1428)
+- Documentation updates (#1429, #1434, #1431)
+- Fix ghost elimination for GenC (#1433)
+- Reorganize some library files and allow for verification without Stainless library (#1436)
+- Fix issue #1399
+
+
 ## Version 0.9.8 (2023-05-30)
 
 ### Stainless frontend, library and internals
