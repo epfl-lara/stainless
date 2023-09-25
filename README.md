@@ -102,6 +102,10 @@ See [frontends/benchmarks/verification/valid/](frontends/benchmarks/verification
 [bolts repository](https://github.com/epfl-lara/bolts/) for a larger collection.
 More information is available in the documentation links.
 
+### Github Codespaces
+
+We also provide a sample repository to use Stainless with Github Codespaces. These allow to use Stainless without installing anything on your machine. Github Codespaces are cloud machines that can be access via Visual Studio Code locally or in the browser. See [this sample](https://github.com/samuelchassot/Stainless-codespaces) repository to get started.
+
 ## Further Documentation and Learning Materials
 
 To get started, see videos:
