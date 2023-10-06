@@ -1,10 +1,10 @@
 [ Error  ] FunnyDottyInference.scala:5:3: Type `Matchable` is unsupported
              def matchable1(b: Boolean) = {
              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^...
-[ Error  ] FunnyDottyInference.scala:5:29: Hint: the inferred return type of matchable1 is `Matchable`
+[ Error  ] FunnyDottyInference.scala:5:29: Hint: the inferred return type of matchable1 is `Int | String`, and is widened to Matchable
              def matchable1(b: Boolean) = {
                                        ^
-[ Error  ] FunnyDottyInference.scala:6:5: Hint: the widened type of this if expression is `Matchable`
+[ Error  ] FunnyDottyInference.scala:6:5: Hint: the type of this if expression is (1 : Int) | ("2" : String) and is widened to `Matchable`
                if (b) 1
                ^^^^^^^^...
 [ Error  ] FunnyDottyInference.scala:6:12: Hint: this branch type is `Int`
@@ -16,10 +16,10 @@
 [ Error  ] FunnyDottyInference.scala:11:5: Type `Matchable` is unsupported
                val x = if (b) 1 else if (b && b) "2" else true
                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-[ Error  ] FunnyDottyInference.scala:11:10: Hint: the inferred type of x is `Matchable`
+[ Error  ] FunnyDottyInference.scala:11:10: Hint: the inferred type of x is `Int | (String | Boolean)`, and is widened to Matchable
                val x = if (b) 1 else if (b && b) "2" else true
                     ^
-[ Error  ] FunnyDottyInference.scala:11:13: Hint: the widened type of this if expression is `Matchable`
+[ Error  ] FunnyDottyInference.scala:11:13: Hint: the type of this if expression is (1 : Int) | (("2" : String) | (true : Boolean)) and is widened to `Matchable`
                val x = if (b) 1 else if (b && b) "2" else true
                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 [ Error  ] FunnyDottyInference.scala:11:20: Hint: this branch type is `Int`
@@ -34,13 +34,13 @@
 [ Error  ] FunnyDottyInference.scala:20:3: Type `Matchable` is unsupported
              def matchable3(c: Color) = {
              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^...
-[ Error  ] FunnyDottyInference.scala:20:27: Hint: the inferred return type of matchable3 is `Matchable`
+[ Error  ] FunnyDottyInference.scala:20:27: Hint: the inferred return type of matchable3 is `Int | String | Boolean`, and is widened to Matchable
              def matchable3(c: Color) = {
                                      ^
-[ Error  ] FunnyDottyInference.scala:21:10: Hint: the inferred type of x is `Matchable`
+[ Error  ] FunnyDottyInference.scala:21:10: Hint: the inferred type of x is `Int | String | Boolean`, and is widened to Matchable
                val x = c match {
                     ^
-[ Error  ] FunnyDottyInference.scala:21:13: Hint: the widened type of this match expression is `Matchable`
+[ Error  ] FunnyDottyInference.scala:21:13: Hint: the type of this match expression is (1 : Int) | ("green" : String) | (true : Boolean) and is widened to `Matchable`
                val x = c match {
                        ^^^^^^^^^...
 [ Error  ] FunnyDottyInference.scala:22:7: Hint: this case type is `Int`
@@ -55,13 +55,13 @@
 [ Error  ] FunnyDottyInference.scala:29:3: Type `Matchable` is unsupported
              def matchable4(c: Color) = {
              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^...
-[ Error  ] FunnyDottyInference.scala:29:27: Hint: the inferred return type of matchable4 is `stainless.collection.List[Matchable]`
+[ Error  ] FunnyDottyInference.scala:29:27: Hint: the inferred return type of matchable4 is `stainless.collection.List[Int | String | Boolean]`, and is widened to stainless.collection.List[Matchable]
              def matchable4(c: Color) = {
                                      ^
-[ Error  ] FunnyDottyInference.scala:30:10: Hint: the inferred type of x is `Matchable`
+[ Error  ] FunnyDottyInference.scala:30:10: Hint: the inferred type of x is `Int | String | Boolean`, and is widened to Matchable
                val x = c match {
                     ^
-[ Error  ] FunnyDottyInference.scala:30:13: Hint: the widened type of this match expression is `Matchable`
+[ Error  ] FunnyDottyInference.scala:30:13: Hint: the type of this match expression is (1 : Int) | ("green" : String) | (true : Boolean) and is widened to `Matchable`
                val x = c match {
                        ^^^^^^^^^...
 [ Error  ] FunnyDottyInference.scala:31:7: Hint: this case type is `Int`
@@ -76,21 +76,21 @@
 [ Error  ] FunnyDottyInference.scala:38:3: Type `Matchable` is unsupported
              def matchable5(c: Color) = {
              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^...
-[ Error  ] FunnyDottyInference.scala:38:27: Hint: the inferred return type of matchable5 is `stainless.collection.List[Matchable]`
+[ Error  ] FunnyDottyInference.scala:38:27: Hint: the inferred return type of matchable5 is `stainless.collection.List[Boolean | (String | Int)]`, and is widened to stainless.collection.List[Matchable]
              def matchable5(c: Color) = {
                                      ^
-[ Error  ] FunnyDottyInference.scala:39:10: Hint: the inferred type of x is `stainless.collection.List[Matchable]`
+[ Error  ] FunnyDottyInference.scala:39:10: Hint: the inferred type of x is `stainless.collection.List[Boolean | (String | Int)]`, and is widened to stainless.collection.List[Matchable]
                val x = c match {
                     ^
-[ Error  ] FunnyDottyInference.scala:39:13: Hint: the widened type of this match expression is `stainless.collection.List[Matchable]`
+[ Error  ] FunnyDottyInference.scala:39:13: Hint: the type of this match expression is stainless.collection.List[Boolean | (String | Int)] and is widened to `stainless.collection.List[Matchable]`
                val x = c match {
                        ^^^^^^^^^...
-[ Error  ] FunnyDottyInference.scala:40:7: Hint: this case type is `stainless.collection.List[Matchable]`
+[ Error  ] FunnyDottyInference.scala:40:7: Hint: this case type is `stainless.collection.List[Boolean | (String | Int)]`
                  case Color.Red => List(1)
                  ^^^^^^^^^^^^^^^^^^^^^^^^^
-[ Error  ] FunnyDottyInference.scala:41:7: Hint: this case type is `stainless.collection.List[Matchable]`
+[ Error  ] FunnyDottyInference.scala:41:7: Hint: this case type is `stainless.collection.List[Boolean | (String | Int)]`
                  case Color.Green => List("green")
                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-[ Error  ] FunnyDottyInference.scala:42:7: Hint: this case type is `stainless.collection.List[Matchable]`
+[ Error  ] FunnyDottyInference.scala:42:7: Hint: this case type is `stainless.collection.List[Boolean | (String | Int)]`
                  case Color.Blue => List(true)
                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

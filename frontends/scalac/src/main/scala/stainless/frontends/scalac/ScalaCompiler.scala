@@ -108,7 +108,7 @@ class ScalaCompiler(settings: NSCSettings, val ctx: inox.Context, val callback: 
                                 override val ctx: self.ctx.type,
                                 override val callback: self.callback.type,
                                 override val cache: self.cache.type)
-    extends StainlessExtraction with ASTExtractors(global)
+    extends StainlessExtraction with ASTExtractors
 
   val stainlessExtraction = new StainlessExtractionImpl(
     global = self,

@@ -348,8 +348,22 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
               // We do not traverse SuperType as it contains all hierarchy,
               // including traits such as Product, etc. we do not support.
               return acc
+
+            case ot: OrType =>
+              // The extraction replace OrType with their join, so we do the same here to catch potential "Matchable" types
+              return apply(acc, ot.join)
+
+            // The extraction explicitly ignore Product and Serializable when they appear in AndType, we do the same here
+            case AndType(tp, prod) if prod.typeSymbol == defn.ProductClass => return apply(acc, tp)
+            case AndType(prod, tp) if prod.typeSymbol == defn.ProductClass => return apply(acc, tp)
+            case AndType(tp, prod) if defn.isProductClass(prod.typeSymbol) => return apply(acc, tp)
+            case AndType(prod, tp) if defn.isProductClass(prod.typeSymbol) => return apply(acc, tp)
+            case AndType(tp, ser) if ser.typeSymbol == defn.SerializableClass => return apply(acc, tp)
+            case AndType(ser, tp) if ser.typeSymbol == defn.SerializableClass => return apply(acc, tp)
+
             case _ => ()
           }
+
           val newAcc = {
             val tpSym = tp.typeSymbol
             if (stainlessReplacement.contains(tpSym))
@@ -367,33 +381,53 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
         reportError(tree.sourcePos, s"Scala API `${sym.name.show}` is not directly supported, please use `$replacement` instead.")
       }
 
-      def contains(hay: Type, needle: Type): Boolean = {
+      // Returns true if `needle` is in `hay` where the OrType in `needle` are replaced with their join, and return the transformed `needle` as well
+      def contains(hay: Type, needle: Type): (Boolean, Type) = {
         var found = false
-        val tr = new TypeTraverser() {
-          override def traverse(tp: Type): Unit = {
-            if (tp eq needle) found = true
-            else traverseChildren(tp)
+        val tm = new TypeMap() {
+          override def apply(tp: Type): Type = {
+            if (tp eq needle) {
+              found = true
+              tp
+            } else {
+              tp match {
+                case ot: OrType => apply(ot.join)
+                case AndType(tp, prod) if prod.typeSymbol == defn.ProductClass => apply(tp)
+                case AndType(prod, tp) if prod.typeSymbol == defn.ProductClass => apply(tp)
+                case AndType(tp, prod) if defn.isProductClass(prod.typeSymbol) => apply(tp)
+                case AndType(prod, tp) if defn.isProductClass(prod.typeSymbol) => apply(tp)
+                case AndType(tp, ser) if ser.typeSymbol == defn.SerializableClass => apply(tp)
+                case AndType(ser, tp) if ser.typeSymbol == defn.SerializableClass => apply(tp)
+                case _ => mapOver(tp)
+              }
+            }
           }
         }
-        tr.traverse(hay)
-        found
+        val widened = tm(hay)
+        (found, widened)
       }
 
       def sourceOfType(tree: tpd.Tree, tp: Type): Unit = {
         tree match {
           case dd: tpd.DefDef =>
             dd.tpt match {
-              case inf: tpd.InferredTypeTree if contains(inf.tpe, tp) =>
-                reportError(inf.sourcePos, s"Hint: the inferred return type of ${dd.name.show} is `${inf.tpe.show}`")
-                sourceOfType(dd.rhs, tp)
+              case inf: tpd.InferredTypeTree =>
+                val (contained, widened) = contains(inf.tpe, tp)
+                if (contained) {
+                  reportError(inf.sourcePos, s"Hint: the inferred return type of ${dd.name.show} is `${inf.tpe.show}`, and is widened to ${widened.show}")
+                  sourceOfType(dd.rhs, tp)
+                }
               case _ => ()
             }
           case bl: tpd.Block => sourceOfType(bl.expr, tp)
           case vd: tpd.ValDef =>
             vd.tpt match {
-              case inf: tpd.InferredTypeTree if contains(inf.tpe, tp) =>
-                reportError(inf.sourcePos, s"Hint: the inferred type of ${vd.name.show} is `${inf.tpe.show}`")
-                sourceOfType(vd.rhs, tp)
+              case inf: tpd.InferredTypeTree =>
+                val (contained, widened) = contains(inf.tpe, tp)
+                if (contained) {
+                  reportError(inf.sourcePos, s"Hint: the inferred type of ${vd.name.show} is `${inf.tpe.show}`, and is widened to ${widened.show}")
+                  sourceOfType(vd.rhs, tp)
+                }
               case _ => ()
             }
           case ite: tpd.If =>
@@ -403,18 +437,18 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
                 case t => Seq(t)
               })
             }
-            val iteTpWiden = ite.tpe.widenUnion
-            if (contains(iteTpWiden, tp)) {
-              reportError(ite.sourcePos, s"Hint: the widened type of this if expression is `${iteTpWiden.show}`")
+            val (contained, widened) = contains(ite.tpe, tp)
+            if (contained) {
+              reportError(ite.sourcePos, s"Hint: the type of this if expression is ${ite.tpe.show} and is widened to `${widened.show}`")
               val brchs = branches(ite)
               for (branch <- brchs) {
                 reportError(branch.sourcePos, s"Hint: this branch type is `${branch.tpe.widenTermRefExpr.widenSingleton.show}`")
               }
             }
           case mtch: tpd.Match =>
-            val mtchTpWiden = mtch.tpe.widenUnion
-            if (contains(mtchTpWiden, tp)) {
-              reportError(mtch.sourcePos, s"Hint: the widened type of this match expression is `${mtchTpWiden.show}`")
+            val (contained, widened) = contains(mtch.tpe, tp)
+            if (contained) {
+              reportError(mtch.sourcePos, s"Hint: the type of this match expression is ${mtch.tpe.show} and is widened to `${widened.show}`")
               for (branch <- mtch.cases) {
                 reportError(branch.sourcePos, s"Hint: this case type is `${branch.tpe.widenTermRefExpr.widenSingleton.show}`")
               }

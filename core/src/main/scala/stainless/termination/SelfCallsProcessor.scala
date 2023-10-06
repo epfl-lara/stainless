@@ -5,7 +5,7 @@ package termination
 
 import scala.collection.mutable.{Set => MutableSet}
 
-class SelfCallsProcessor(chker: ProcessingPipeline) extends Processor("Self Calls Processor", chker) {
+class SelfCallsProcessor(override val checker: ProcessingPipeline) extends Processor("Self Calls Processor", checker) {
   import checker._
   import checker.context._
   import checker.program._
