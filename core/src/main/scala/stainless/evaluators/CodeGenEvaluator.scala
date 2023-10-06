@@ -19,7 +19,7 @@ import inox.evaluators._
 import evaluators._
 
 import scala.util.Try
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.collection.mutable.{Map => MutableMap}
 
 class CodeGenEvaluator(override val program: Program,

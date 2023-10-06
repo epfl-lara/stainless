@@ -36,11 +36,11 @@ lazy val nTestParallelism = {
 }
 
 // The Scala version with which Stainless is compiled.
-val stainlessScalaVersion = "3.2.0"
-// Stainless supports Scala 2.13 and Scala 3.2 programs.
+val stainlessScalaVersion = "3.3.0"
+// Stainless supports Scala 2.13 and Scala 3.3 programs.
 val frontendScalacVersion = "2.13.10"
 val frontendDottyVersion = stainlessScalaVersion
-// The Stainless libraries use Scala 2.13, but they are compatible with Scala 3.2 as well.
+// The Stainless libraries use Scala 2.13, but they are compatible with Scala 3.3 as well.
 val stainlessLibScalaVersion = frontendScalacVersion
 
 scalaVersion := stainlessScalaVersion
@@ -275,7 +275,7 @@ val scriptSettings: Seq[Setting[_]] = Seq(
 def ghProject(repo: String, version: String) = RootProject(uri(s"${repo}#${version}"))
 
 // lazy val inox = RootProject(file("../inox"))
-lazy val inox = ghProject("https://github.com/epfl-lara/inox.git", "206c261b80d673436e6f83fe5bf0322c1cdadf74")
+lazy val inox = ghProject("https://github.com/epfl-lara/inox.git", "6bf9302bd9dae1b00ee902654b46b73ac5b01fcd")
 lazy val cafebabe = ghProject("https://github.com/epfl-lara/cafebabe.git", "616e639b34379e12b8ac202849de3ebbbd0848bc")
 
 // Allow integration test to use facilities from regular tests

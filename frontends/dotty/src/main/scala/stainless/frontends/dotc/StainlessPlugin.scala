@@ -4,6 +4,7 @@ package frontends.dotc
 import dotty.tools.dotc
 import dotc._
 import core._
+import Decorators.toMessage
 import dotc.util._
 import Contexts.{Context => DottyContext}
 import plugins._
@@ -150,7 +151,7 @@ class StainlessPlugin extends StandardPlugin {
         case msg: String =>
           message.severity match {
             case INFO                     => dottyCtx.reporter.report(Info(msg, pos))
-            case WARNING                  => dottyCtx.reporter.report(Warning(msg, pos))
+            case WARNING                  => dottyCtx.reporter.report(Warning(msg.toMessage, pos))
             case ERROR | FATAL | INTERNAL => dottyCtx.reporter.report(Diagnostic.Error(msg, pos))
             case _                        => dottyCtx.reporter.report(Info(msg, pos)) // DEBUG messages are at reported at INFO level
           }

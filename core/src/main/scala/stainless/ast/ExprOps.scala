@@ -412,12 +412,8 @@ class ExprOps(override val trees: Trees) extends inox.ast.ExprOps(trees) { self 
    * Freshening of local variables
    * ============================= */
 
-  protected class StainlessFreshener(override val s: self.trees.type,
-                                     override val t: self.trees.type,
-                                     freshenChooses: Boolean)
+  protected class StainlessFreshener(freshenChooses: Boolean)
     extends Freshener(freshenChooses) with transformers.Transformer {
-
-    def this(freshenChooses: Boolean) = this(self.trees, self.trees, freshenChooses)
 
     override def transformCase(cse: MatchCase, env: Env): MatchCase = {
       val MatchCase(pat, guard, rhs) = cse

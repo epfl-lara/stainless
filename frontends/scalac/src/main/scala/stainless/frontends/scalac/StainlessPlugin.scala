@@ -89,7 +89,7 @@ class StainlessPluginComponent(
   val pluginOptions: PluginOptions,
   override val global: Global,
   val stainlessContext: inox.Context
-) extends PluginComponent with StainlessExtraction with ASTExtractors(global) {
+) extends PluginComponent with StainlessExtraction with ASTExtractors {
 
   override def enabled: Boolean = pluginOptions.enableVerification
 

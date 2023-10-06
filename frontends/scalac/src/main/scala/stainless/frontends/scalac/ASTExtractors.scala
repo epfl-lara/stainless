@@ -7,7 +7,8 @@ import scala.tools.nsc._
 import scala.collection.mutable.{Map => MutableMap}
 
 /** Contains extractors to pull-out interesting parts of the Scala ASTs. */
-trait ASTExtractors(val global: Global) {
+trait ASTExtractors {
+  val global: Global
   import global._
   import global.definitions._
 

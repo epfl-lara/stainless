@@ -3,7 +3,6 @@ package frontends.dotc
 
 import scala.language.implicitConversions
 import dotty.tools.dotc._
-import typer.Inliner
 import ast.tpd
 import ast.Trees._
 import core.Contexts.{NoContext, Context => DottyContext}
@@ -22,7 +21,7 @@ import scala.collection.mutable.{Map => MutableMap}
 
 trait ASTExtractors {
   val dottyCtx: DottyContext
-  import dottyCtx.given
+  given DottyContext = dottyCtx
 
   def classFromName(nameStr: String): ClassSymbol = requiredClass(typeName(nameStr))
   def moduleFromName(nameStr: String): TermSymbol = requiredModule(typeName(nameStr))

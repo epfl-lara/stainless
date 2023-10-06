@@ -110,7 +110,8 @@ private class SimpleReporter(val reporter: inox.Reporter) extends DottyReporter 
       "on a value with an unknown initialization",
       "may cause initialization errors",
       "Promoting the value to fully-initialized is unsafe",
-      "Cannot prove the argument is fully initialized")
+      "Cannot prove the argument is fully initialized",
+      "Cannot prove the method argument is hot")
     dia.level == WARNING && msgs.exists(dia.message.contains)
   }
 
