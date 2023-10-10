@@ -32,7 +32,9 @@ class GhostAccessRewriter extends PluginPhase { self =>
     override protected def newTransformer(using DottyContext): Transformer = new GhostRewriteTransformer
 
     private class GhostRewriteTransformer(using DottyContext) extends Transformer {
-      val ghostAnnotation = Symbols.requiredClass("stainless.annotation.ghost")
+      private val StainlessLangPackage = Symbols.requiredPackage("stainless.lang")
+      private val ghostAnnotation = Symbols.requiredClass("stainless.annotation.ghost")
+      private val ghostFun = StainlessLangPackage.info.decl(Names.termName("ghost")).alternatives.toSet
 
       /**
         * Is this symbol @ghost, or enclosed inside a ghost definition?
@@ -78,7 +80,7 @@ class GhostAccessRewriter extends PluginPhase { self =>
         case vd@ValDef(name, tpt, _) if effectivelyGhost(tree.symbol) =>
           cpy.ValDef(tree)(name, tpt, mkZero(vd.rhs.tpe))
 
-        case Apply(fun, args) if effectivelyGhost(fun.symbol) =>
+        case Apply(fun, args) if effectivelyGhost(fun.symbol) || ghostFun(fun.symbol) =>
           mkZero(tree.tpe)
 
         case f@Apply(fun, args) =>
