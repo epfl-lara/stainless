@@ -37,7 +37,7 @@ trait DottyVerificationSuite extends VerificationComponentTestSuite {
 class SMTZ3DottyVerificationSuite extends DottyVerificationSuite {
   override def configurations = super.configurations.map {
     seq => Seq(
-      inox.optSelectedSolvers(Set("smt-z3:z3-4.8.12")),
+      inox.optSelectedSolvers(Set("smt-z3")),
       inox.solvers.optCheckModels(true)
     ) ++ seq
   }
