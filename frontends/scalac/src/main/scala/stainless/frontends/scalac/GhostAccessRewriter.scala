@@ -31,6 +31,8 @@ trait GhostAccessRewriter extends Transform {
   }
 
   private class GhostRewriteTransformer extends Transformer {
+    private val StainlessLangPackage = rootMirror.getPackageIfDefined("stainless.lang")
+    private val ghostFun = StainlessLangPackage.info.decl(newTermName("ghost")).alternatives.toSet
 
     /**
      * Is this symbol @ghost, or enclosed inside a ghost definition?
@@ -71,7 +73,7 @@ trait GhostAccessRewriter extends Transform {
       case Apply(tt@TypeTree(), args) =>
         treeCopy.Apply(tree, tt, transformTrees(args))
 
-      case f @ Apply(fun, args) if effectivelyGhost(fun.symbol) =>
+      case f @ Apply(fun, args) if effectivelyGhost(fun.symbol) || ghostFun(fun.symbol) =>
         gen.mkZero(tree.tpe)
 
       case f @ Apply(fun, args) =>
