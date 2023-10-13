@@ -90,16 +90,14 @@ class ConstructsUsage(override val s: Trees)(override val t: s.type)(using overr
         case _ => sys.error(s"Expected to be in OuterClass or InnerClass env (but is in $this)")
       }
 
-      def isExternFunction: Boolean = {
-        val flags = this match {
-          case OuterFreeFun => syms.functions(outermostId).flags
-          case InnerFreeFun(lfd) => lfd.flags
-          case Method(m, _) => m.flags
-          case InnerOfMethod(lmd, _, _) => lmd.flags
-          case _ => Seq.empty
-        }
-        flags.contains(Extern)
+      def flags: Seq[Flag] = this match {
+        case OuterFreeFun => syms.functions(outermostId).flags
+        case InnerFreeFun(lfd) => lfd.flags
+        case Method(m, _) => m.flags
+        case InnerOfMethod(lmd, _, _) => lmd.flags
+        case _ => Seq.empty
       }
+      def isExternOrAbstractFunction: Boolean = flags.exists(f => f == IsAbstract || f == Extern)
     }
 
     def buildSummary: SummaryData = {
@@ -142,9 +140,9 @@ class ConstructsUsage(override val s: Trees)(override val t: s.type)(using overr
         addUsedConstruct(UsedConstruct.Choose, env)
         super.traverse(e, env)
       case NoTree(_) =>
-        // Note that @extern function have their bodies replaced with "???" by the frontend.
-        // Therefore, we do not report @extern functions (as they are already reported for being @extern).
-        if (!env.isExternFunction) {
+        // Note that @extern and abstract function have their bodies replaced with "???" by the frontend.
+        // We do not report @extern functions because they are already reported for being @extern.
+        if (!env.isExternOrAbstractFunction) {
           addUsedConstruct(UsedConstruct.NotImplemented, env)
         }
         super.traverse(e, env)
