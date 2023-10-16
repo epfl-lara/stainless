@@ -22,6 +22,7 @@ object NestedFunState5 {
 
     var i = BigInt(0)
     (while(i < n) {
+      decreases(n - i)
       i += 1
       iter(a)
     }) invariant(i >= 0 && i <= n && a >= 2*i)

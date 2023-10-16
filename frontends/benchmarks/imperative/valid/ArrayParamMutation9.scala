@@ -5,6 +5,7 @@ object ArrayParamMutation9 {
     require(a.length > 0)
     var i = 0;
     (while (i < a.length) {
+      decreases(a.length - i)
       a(i) = if (a(i) < 0) -a(i) else a(i)
       i = i + 1
     }) invariant(i >= 0)

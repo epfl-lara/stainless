@@ -21,6 +21,15 @@ trait Definitions extends extraction.Trees { self: Trees =>
       params.foldRight(typeOps.variablesOf(returnType) ++ exprOps.variablesOf(fullBody)) {
         case (vd, vars) => vars - vd.toVariable ++ typeOps.variablesOf(vd.tpe)
       }
+
+    def copy(
+      id: Identifier = id,
+      tparams: Seq[TypeParameterDef] = tparams,
+      params: Seq[ValDef] = params,
+      returnType: Type = returnType,
+      fullBody: Expr = fullBody,
+      flags: Seq[Flag] = flags
+    ): LocalFunDef = LocalFunDef(id, tparams, params, returnType, fullBody, flags).copiedFrom(this)
   }
 
 

@@ -9,7 +9,8 @@ object NestedFunState11 {
     def getI = i
 
     def rec(): Unit = {
-      require(getI >= 0)
+      require(getI >= 0 && getI <= 10)
+      decreases(10 - i)
       if(i < 10) {
         i += 1
         rec()
