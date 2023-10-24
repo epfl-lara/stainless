@@ -16,6 +16,13 @@ lazy val basic = (project in file("basic"))
     Compile / run / mainClass := Some("test.Main")
   )
 
+lazy val tailrec = (project in file("tailrec"))
+  .enablePlugins(StainlessPlugin)
+  .settings(commonSettings)
+  .settings(
+    Compile / run / mainClass := Some("test.Main")
+  )
+
 lazy val `actor-tests` = (project in file("actor-tests"))
   .enablePlugins(StainlessPlugin)
   .settings(commonSettings)

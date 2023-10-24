@@ -272,7 +272,7 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
   class Checker extends tpd.TreeTraverser {
     private val ScalaEnsuringMethod = requiredMethod("scala.Predef.Ensuring")
 
-    private val StainlessLangPackage = getPackageIfDefinedOrNone("stainless.lang")
+    private val StainlessLangPackage = getClassIfDefinedOrNone("stainless.lang.package$")
     private val ExternAnnotation = getClassIfDefinedOrNone("stainless.annotation.extern")
     private val IgnoreAnnotation = getClassIfDefinedOrNone("stainless.annotation.ignore")
     private val StainlessOld = StainlessLangPackage.map(_.info.decl(Names.termName("old")).symbol)

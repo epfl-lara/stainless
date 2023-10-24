@@ -1,3 +1,4 @@
+> + tailrec/run
 > + basic/run
 $ exists basic/target/scala-2.13/classes/test/Main.class
 $ exists basic/target/scala-3.3.0/classes/test/Main.class
