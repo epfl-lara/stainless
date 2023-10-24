@@ -279,7 +279,7 @@ class ImperativeCodeElimination(override val s: Trees)(override val t: s.type)
                 val newReturnType = TupleType(inner.returnType +: modifiedVars.map(_.tpe))
 
                 val newSpecs = specs.map {
-                  case Postcondition(post @ Lambda(Seq(res), postBody)) =>
+                  case spec @ Postcondition(post @ Lambda(Seq(res), postBody)) =>
                     /*
                     Essentially translates:
                       (res: (R, T1, T2, ...)) => {
@@ -304,7 +304,7 @@ class ImperativeCodeElimination(override val s: Trees)(override val t: s.type)
                           case (body, (vr, ix)) => LetVar(vr.toVal, TupleSelect(newRes.toVariable, ix + 2), body)
                         }
                     }
-                    Postcondition(Lambda(Seq(newRes), pcScope(pcRes)).setPos(post))
+                    Postcondition(Lambda(Seq(newRes), pcScope(pcRes)).copiedFrom(post)).setPos(spec)
 
                   case spec => spec.transform { cond =>
                     val (res, scope, _) = toFunction(cond)
@@ -327,11 +327,11 @@ class ImperativeCodeElimination(override val s: Trees)(override val t: s.type)
           }
 
         //TODO: no support for true mutual recursion
-        case LetRec(fds, b) =>
+        case lr @ LetRec(fds, b) =>
           if (fds.isEmpty)
             toFunction(b)
           else
-            toFunction(LetRec(Seq(fds.head), LetRec(fds.tail, b)))
+            toFunction(LetRec(Seq(fds.head), LetRec(fds.tail, b).copiedFrom(lr)).copiedFrom(lr))
 
         //TODO: handle vars in scope, just like LetRec
         case ld @ Lambda(params, body) =>
@@ -437,7 +437,7 @@ class ImperativeCodeElimination(override val s: Trees)(override val t: s.type)
             fd.params.map(vd => Old(vd.toVariable) -> vd.toVariable).toMap,
             body
           )
-          Postcondition(Lambda(params, toFn(newBody)).copiedFrom(ld))
+          Postcondition(Lambda(params, toFn(newBody)).copiedFrom(ld)).setPos(spec)
 
         case spec => spec.transform(toFn)
       }

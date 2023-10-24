@@ -39,39 +39,17 @@ class TerminationSuite extends VerificationComponentTestSuite {
     analysis.sources
       .toSeq
       .sortBy(_.name)
-      .map(symbols.getFunction(_))
+      .map(symbols.getFunction)
       .map { fd =>
         fd -> fd.flags.collectFirst { case TerminationStatus(status) => status }
       }
   }
 
-  testAll("termination/valid") { (analysis, reporter, _) =>
-    val failures = getResults(analysis).collect {
-      case (fd, Some(status)) if !status.isTerminating => fd
-    }
+  testAllTerminating("termination/valid")
 
-    assert(failures.isEmpty, "Functions " + failures.map(_.id) + " should be annotated as terminating")
+  testAllTerminating("verification/valid")
 
-    for ((vc, vr) <- analysis.vrs) {
-      if (vr.isInvalid) fail(s"The following verification condition was invalid: $vc @${vc.getPos}")
-      if (vr.isInconclusive) fail(s"The following verification condition was inconclusive: $vc @${vc.getPos}")
-    }
-    reporter.terminateIfError()
-  }
-
-  testAll("verification/valid") { (analysis, reporter, _) =>
-    val failures = getResults(analysis).collect {
-      case (fd, Some(status)) if !status.isTerminating => fd
-    }
-
-    assert(failures.isEmpty, "Functions " + failures.map(_.id) + " should be annotated as terminating")
-
-    for ((vc, vr) <- analysis.vrs) {
-      if (vr.isInvalid) fail(s"The following verification condition was invalid: $vc @${vc.getPos}")
-      if (vr.isInconclusive) fail(s"The following verification condition was inconclusive: $vc @${vc.getPos}")
-    }
-    reporter.terminateIfError()
-  }
+  testAllTerminating("imperative/valid")
 
   testAll("termination/looping") { (analysis, reporter, _) =>
     import analysis.program.symbols
@@ -127,6 +105,22 @@ class TerminationSuite extends VerificationComponentTestSuite {
       case Failure(_) => ()
       case Success(_) => fail(s"$f was successfully extracted")
     }}
+  }
+
+  private def testAllTerminating(dir: String): Unit = {
+    testAll(dir) { (analysis, reporter, _) =>
+      val failures = getResults(analysis).collect {
+        case (fd, Some(status)) if !status.isTerminating => fd
+      }
+
+      assert(failures.isEmpty, "Functions " + failures.map(_.id) + " should be annotated as terminating")
+
+      for ((vc, vr) <- analysis.vrs) {
+        if (vr.isInvalid) fail(s"The following verification condition was invalid: $vc @${vc.getPos}")
+        if (vr.isInconclusive) fail(s"The following verification condition was inconclusive: $vc @${vc.getPos}")
+      }
+      reporter.terminateIfError()
+    }
   }
 
   // Workaround for a compiler crash caused by calling super.test

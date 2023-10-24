@@ -16,6 +16,7 @@ object NestedFunState3 {
 
     var i = 0
     (while(i < n) {
+      decreases(n - i)
       inc()
       i += 1
     }) invariant(i >= 0 && counter == i && i <= n)

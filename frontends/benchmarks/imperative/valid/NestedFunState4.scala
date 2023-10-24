@@ -16,10 +16,11 @@ object NestedFunState4 {
 
       def nestedIter(): Unit = {
         b += 1
-      } 
+      }
 
       var i = BigInt(0)
       (while(i < n) {
+        decreases(n - i)
         i += 1
         nestedIter()
       }) invariant(i >= 0 && i <= n && b == i)
@@ -30,6 +31,7 @@ object NestedFunState4 {
 
     var i = BigInt(0)
     (while(i < n) {
+      decreases(n - i)
       i += 1
       iter()
     }) invariant(i >= 0 && i <= n && a >= i)
