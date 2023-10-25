@@ -72,6 +72,17 @@ class AssertionInjector(override val s: ast.Trees, override val t: ast.Trees, va
         ).copiedFrom(e)
       }}}
 
+    case s.LargeArray(elems, default, size, base) =>
+      val recElems = elems.view.mapValues(transform).toMap
+      val recDefault = transform(default)
+      bindIfCannotDuplicate(size, "sz") { sz =>
+        t.Assert(
+          t.GreaterEquals(sz, t.Int32Literal(0)),
+          Some("Non-negative array size"),
+          t.LargeArray(recElems, recDefault, sz, transform(base)).copiedFrom(e)
+        ).copiedFrom(e)
+      }
+
     case sel @ s.ADTSelector(recv, selector) =>
       if (sel.constructor.sort.constructors.size == 1)
         t.ADTSelector(transform(recv), selector).copiedFrom(e)
