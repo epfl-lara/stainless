@@ -13,9 +13,9 @@ import Contexts.{Context => DottyContext}
 import plugins._
 import transform._
 
-class GhostAccessRewriter extends PluginPhase { self =>
+class GhostAccessRewriter(afterPhase: String) extends PluginPhase { self =>
   override val phaseName = "ghost-removal"
-  override val runsAfter = Set("stainless")
+  override val runsAfter = Set(afterPhase)
   override val runsBefore = Set(FirstTransform.name)
 
   override def run(using dottyCtx: DottyContext): Unit = (new GhostAccessMacroTransform).run
