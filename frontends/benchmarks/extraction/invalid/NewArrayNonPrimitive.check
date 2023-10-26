@@ -1,0 +1,4 @@
+[ Error  ] NewArrayNonPrimitive.scala:5:15: Cannot use array constructor for non-primitive type String
+[ Error  ] Hint: you may use `Array.fill` instead
+               val arr = new Array[String](len)
+                         ^^^^^^^^^^^^^^^^^^^^^^
