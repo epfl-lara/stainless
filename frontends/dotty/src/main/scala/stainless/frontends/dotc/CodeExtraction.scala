@@ -1530,6 +1530,8 @@ class CodeExtraction(inoxCtx: inox.Context, symbolMapping: SymbolMapping)(using 
     case ExSwapExpression(array1, index1, array2, index2) =>
       xt.Swap(extractTree(array1), extractTree(index1), extractTree(array2), extractTree(index2))
 
+    case ExCellApply(value, tpt) => xt.Cell(extractTree(value), extractType(tpt))
+
     case ExCellSwapExpression(cell1, cell2) =>
         xt.CellSwap(extractTree(cell1), extractTree(cell2))
 
