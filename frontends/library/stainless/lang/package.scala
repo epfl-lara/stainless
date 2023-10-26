@@ -4,6 +4,7 @@ package stainless
 
 import stainless.annotation._
 import stainless.lang.StaticChecks._
+import stainless.lang.Cell
 
 package object lang {
 
@@ -179,6 +180,13 @@ package object lang {
     val t = a1(i1)
     a1(i1) = a2(i2)
     a2(i2) = t
+  }
+
+  @ignore @library
+    def swapCell[@mutable T](c1: Cell[T], c2: Cell[T]): Unit = {
+      val t = c2.v
+      c2.v = c1.v
+      c1.v = t
   }
 
   @extern @library @mutable @anyHeapRef

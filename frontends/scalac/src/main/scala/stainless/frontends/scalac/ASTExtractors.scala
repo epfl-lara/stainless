@@ -73,6 +73,7 @@ trait ASTExtractors {
   protected lazy val mutableMapSym = classFromName("stainless.lang.MutableMap")
   protected lazy val bagSym        = classFromName("stainless.lang.Bag")
   protected lazy val realSym       = classFromName("stainless.lang.Real")
+  protected lazy val cellSym       = classFromName("stainless.lang.Cell")
 
   protected lazy val bvSym         = classFromName("stainless.math.BitVectors.BV")
 
@@ -130,6 +131,10 @@ trait ASTExtractors {
 
   def isRealSym(sym: Symbol) : Boolean = {
     getResolvedTypeSym(sym) == realSym
+  }
+
+  def isCellClassSym(sym: Symbol): Boolean = {
+    sym == cellSym
   }
 
   def isMapSym(sym: Symbol) : Boolean = {
@@ -909,6 +914,17 @@ trait ASTExtractors {
               TypeApply(ExSymbol("stainless", "lang", "swap"), _),
               array1 :: index1 :: array2 :: index2 :: Nil) =>
             Some((array1, index1, array2, index2))
+        case _ => None
+      }
+    }
+
+    object ExCellSwapExpression {
+      def unapply(tree: Apply): Option[(Tree, Tree)] = tree match {
+        case Apply(
+              TypeApply(ExSymbol("stainless", "lang", "swapCell"), _),
+              cell1 :: cell2 :: Nil
+            ) =>
+          Some((cell1, cell2))
         case _ => None
       }
     }

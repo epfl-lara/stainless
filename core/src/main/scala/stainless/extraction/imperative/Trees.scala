@@ -33,6 +33,21 @@ trait Trees extends oo.Trees with Definitions { self =>
       }
   }
 
+  /* Cell Operations */
+
+  sealed case class CellType(v: Type) extends Type
+
+    /** Swap values from two (not necessarily distinct) cells */
+  sealed case class CellSwap(cell1: Expr, cell2: Expr) extends Expr with CachingTyped {
+    override protected def computeType(using Symbols): Type =
+      println("TEST SAM ")
+      (cell1.getType, cell2.getType) match {
+        case (CellType(base1), CellType(base2)) if base1 == base2 => UnitType()
+        case _ =>
+          Untyped
+      }
+  }
+
   /** $encodingof `{ expr1; expr2; ...; exprn; last }` */
   case class Block(exprs: Seq[Expr], last: Expr) extends Expr with CachingTyped {
     protected def computeType(using Symbols): Type = if (exprs.forall(_.isTyped)) last.getType else Untyped
