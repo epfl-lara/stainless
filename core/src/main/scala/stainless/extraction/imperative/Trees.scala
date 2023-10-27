@@ -41,7 +41,6 @@ trait Trees extends oo.Trees with Definitions { self =>
       val cellClassDef = s.lookup.get[ClassDef]("stainless.lang.Cell")
       (cell1.getType, cell2.getType) match {
         case (ClassType(id1, tps1), ClassType(id2, tps2)) if cellClassDef.isDefined && id1 == cellClassDef.get.id && id1 == id2 && tps1 == tps2 => {
-          throw new Exception(s"CellSwap: ${id1} + $tps1, ${cell2.getType}") // TODO: remove
           UnitType() 
         }
         case _ =>

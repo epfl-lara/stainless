@@ -930,6 +930,21 @@ private class S2IRImpl(override val s: tt.type,
         CIR.Assign(CIR.ArrayAccess(a2, i2), tmp),
       ))
 
+    case CellSwap(cell1, cell2) =>
+      val cellType = cell1.getType
+      val c1 = rec(cell1)
+      val c2 = rec(cell2)
+      val tmpId = rec(FreshIdentifier("tmp"))
+      // TODO
+      // val tmpVd = CIR.ValDef(tmpId, rec(base), false)
+      // val tmp = CIR.Binding(tmpVd)
+      CIR.buildBlock(Seq(
+        // CIR.Decl(tmpVd, Some(CIR.ArrayAccess(a1, i1))),
+        // CIR.Assign(CIR.ArrayAccess(a1, i1), CIR.ArrayAccess(a2, i2)),
+        // CIR.Assign(CIR.ArrayAccess(a2, i2), tmp),
+      ))
+
+
     case array @ FiniteArray(elems, base) =>
       val arrayType = CIR.ArrayType(rec(base), None)
       val length = elems.size

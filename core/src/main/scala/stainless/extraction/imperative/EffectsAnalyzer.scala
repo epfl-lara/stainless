@@ -761,7 +761,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     case _: (ArraySelect | MutableMapApply) => false
     case _: (Literal[t] | Lambda) => true
     case fi @ FunctionInvocation(_, _, _) => functionTypeEffects(fi.tfd.functionType).isEmpty
-    case _: (Application | ApplyLetRec | Swap | ArrayUpdate | MutableMapUpdate | FieldAssignment | Assignment) => false
+    case _: (Application | ApplyLetRec | Swap | CellSwap | ArrayUpdate | MutableMapUpdate | FieldAssignment | Assignment) => false
     case Operator(es, _) => es.forall(isReferentiallyTransparent)
   }
 
