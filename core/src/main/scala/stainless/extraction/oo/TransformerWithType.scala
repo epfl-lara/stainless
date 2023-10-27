@@ -197,17 +197,17 @@ trait TransformerWithType extends TreeTransformer {
       val atpe = getArithmeticType(lhs, tpe)
       t.BVLShiftRight(transform(lhs, atpe), transform(rhs, atpe)).copiedFrom(expr)
 
-    case s.BVNarrowingCast(expr, tpe) =>
-      t.BVNarrowingCast(transform(expr), transform(tpe).asInstanceOf[t.BVType]).copiedFrom(expr)
+    case s.BVNarrowingCast(e, tpe) =>
+      t.BVNarrowingCast(transform(e), transform(tpe).asInstanceOf[t.BVType]).copiedFrom(expr)
 
-    case s.BVWideningCast(expr, tpe) =>
-      t.BVWideningCast(transform(expr), transform(tpe).asInstanceOf[t.BVType]).copiedFrom(expr)
+    case s.BVWideningCast(e, tpe) =>
+      t.BVWideningCast(transform(e), transform(tpe).asInstanceOf[t.BVType]).copiedFrom(expr)
 
-    case s.BVUnsignedToSigned(expr) =>
-      t.BVUnsignedToSigned(transform(expr)).copiedFrom(expr)
+    case s.BVUnsignedToSigned(e) =>
+      t.BVUnsignedToSigned(transform(e)).copiedFrom(expr)
 
-    case s.BVSignedToUnsigned(expr) =>
-      t.BVSignedToUnsigned(transform(expr)).copiedFrom(expr)
+    case s.BVSignedToUnsigned(e) =>
+      t.BVSignedToUnsigned(transform(e)).copiedFrom(expr)
 
     case s.Tuple(es) => widen(tpe) match {
       case s.TupleType(tps) => t.Tuple((es zip tps) map (p => transform(p._1, p._2))).copiedFrom(expr)
