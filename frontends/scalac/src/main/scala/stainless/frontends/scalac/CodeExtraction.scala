@@ -1279,6 +1279,8 @@ trait CodeExtraction extends ASTExtractors {
 
     case swap @ ExSwapExpression(array1, index1, array2, index2) =>
       xt.Swap(extractTree(array1), extractTree(index1), extractTree(array2), extractTree(index2))
+
+    // case ExCellApply(value, tpt) => xt.Cell(extractTree(value), extractType(tpt))
     
     case cellSwap @ ExCellSwapExpression(cell1, cell2) =>
       xt.CellSwap(extractTree(cell1), extractTree(cell2))
