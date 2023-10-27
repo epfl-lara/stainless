@@ -918,14 +918,6 @@ trait ASTExtractors {
       }
     }
 
-    // object ExCellApply {
-    //   def unapply(tree: Apply): Option[(Tree, Tree)] = tree match {
-    //     // This implicit conversion to ArrayOps is shadowed. We therefore skip it here.
-    //     case Apply(TypeApply(ExSymbol("stainless", "lang", "Cell", "apply"), List(typ)), value :: Nil)  => Some(( value, typ))
-    //     case _ => None
-    //   }
-    // }
-
     object ExCellSwapExpression {
       def unapply(tree: Apply): Option[(Tree, Tree)] = tree match {
         case Apply(

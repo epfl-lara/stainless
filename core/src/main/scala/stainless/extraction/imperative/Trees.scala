@@ -37,12 +37,12 @@ trait Trees extends oo.Trees with Definitions { self =>
 
     /** Swap values from two (not necessarily distinct) cells */
   sealed case class CellSwap(cell1: Expr, cell2: Expr) extends Expr with CachingTyped {
-    override protected def computeType(using Symbols): Type =
-      
+    override protected def computeType(using s: Symbols): Type =
+      val cellClassDef = s.lookup.get[ClassDef]("stainless.lang.Cell")
       (cell1.getType, cell2.getType) match {
-        case (ClassType(id1, tps1), ClassType(id2, tps2)) if id1.name == "Cell" && id2.name == "Cell" && tps1 == tps2=> {
-          // throw new Exception(s"CellSwap: ${id1} + $tps1, ${cell2.getType}") // TODO: remove
-          UnitType() // TODO
+        case (ClassType(id1, tps1), ClassType(id2, tps2)) if cellClassDef.isDefined && id1 == cellClassDef.get.id && id1 == id2 && tps1 == tps2 => {
+          throw new Exception(s"CellSwap: ${id1} + $tps1, ${cell2.getType}") // TODO: remove
+          UnitType() 
         }
         case _ =>
           Untyped

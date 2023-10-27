@@ -273,13 +273,6 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
     }
   }
 
-
-  sealed case class Cell(elem: Expr, base: Type) extends Expr with CachingTyped {
-    override protected def computeType(using s: Symbols): Type = {
-      checkParamType(elem.getType, base, unveilUntyped(CellType(base)))
-    }
-  }
-
   /** $encodingof `decreases(measure); body` */
   case class Decreases(measure: Expr, body: Expr) extends Expr with CachingTyped {
     protected def computeType(using s: Symbols): Type = measure.getType match {
