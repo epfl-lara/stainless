@@ -18,60 +18,18 @@ import scala.concurrent.duration.*
 class EvaluatorComponentTest extends ComponentTestSuite {
   override val component: EvaluatorComponent.type = EvaluatorComponent
 
-  private def testConfName = "test_conf.json"
-
   override protected def optionsString(options: inox.Options): String = ""
 
-  ///////////////////////////////////////////////
+  import EvaluatorComponentTest._
 
-  for (benchmark <- getFolders("evaluators")) {
-    testEval(s"evaluators/$benchmark")
-  }
-
-  ///////////////////////////////////////////////
-
-  private def getFolders(dir: String): Seq[String] = {
-    Option(getClass.getResource(s"/$dir")).toSeq.flatMap { dirUrl =>
-      val dirFile = new File(dirUrl.getPath)
-      Option(dirFile.listFiles().toSeq).getOrElse(Seq.empty).filter(_.isDirectory)
-        .map(_.getName)
-    }.sorted
-  }
-
-  private def testEval(benchmarkDir: String): Unit = {
-    val files = resourceFiles(benchmarkDir, f => f.endsWith(".scala") || f.endsWith(".json")).sorted
-    if (files.isEmpty) return // Empty folder -- skip
-
-    val scalaFiles = files.filter(_.getName.endsWith(".scala"))
-    val testConfFile = files.find(_.getName == testConfName)
-      .getOrElse(fail(s"Test configuration file $testConfName not found in $benchmarkDir"))
-    val testConf = parseTestConf(testConfFile)
-
-    /////////////////////////////////////
-
-    val dummyCtx: inox.Context = inox.TestContext.empty
-    import dummyCtx.given
-    val (_, program) = loadFiles(scalaFiles.map(_.getPath))
-    assert(dummyCtx.reporter.errorCount == 0, "There should be no error while loading the files")
-
-    val userFiltering = new DebugSymbols {
-      val name = "UserFiltering"
-      val context = dummyCtx
-      val s: xt.type = xt
-      val t: xt.type = xt
-    }
-
-    val programSymbols = userFiltering.debugWithoutSummary(frontend.UserFiltering().transform)(program.symbols)._1
-    programSymbols.ensureWellFormed
-
-    /////////////////////////////////////
-
+  for ((benchmarkDir, (testConf, programSymbols)) <- evalBenchmarkData) {
     for (evaluator <- testConf.evaluators) {
       test(s"$benchmarkDir ($evaluator)") { ctx0 ?=>
         val opt = evaluator match {
           case Evaluator.Recursive => optCodeGen(false)
           case Evaluator.Codegen => optCodeGen(true)
         }
+
         given ctx: inox.Context = ctx0.withOpts(opt)
 
         // Note that `run` must be defined here to pick the `ctx` with updated evaluator option.
@@ -115,6 +73,17 @@ class EvaluatorComponentTest extends ComponentTestSuite {
       }
     }
   }
+}
+object EvaluatorComponentTest extends inox.ResourceUtils with InputUtils {
+
+  private lazy val evalBenchmarkData = getFolders("evaluators").flatMap(benchmark => loadEvalBenchmark(s"evaluators/$benchmark").map(benchmark -> _))
+
+  private val testConfName = "test_conf.json"
+
+  private case class TestConf(evaluators: Seq[Evaluator],
+                              expected: Seq[EvalResult]) {
+    def needsEvaluation(fn: Identifier): Boolean = expected.exists(_.testedFn == fn.name)
+  }
 
   private enum Evaluator {
     case Recursive
@@ -131,9 +100,40 @@ class EvaluatorComponentTest extends ComponentTestSuite {
     }
   }
 
-  private case class TestConf(evaluators: Seq[Evaluator],
-                              expected: Seq[EvalResult]) {
-    def needsEvaluation(fn: Identifier): Boolean = expected.exists(_.testedFn == fn.name)
+  private def getFolders(dir: String): Seq[String] = {
+    Option(getClass.getResource(s"/$dir")).toSeq.flatMap { dirUrl =>
+      val dirFile = new File(dirUrl.getPath)
+      Option(dirFile.listFiles().toSeq).getOrElse(Seq.empty).filter(_.isDirectory)
+        .map(_.getName)
+    }.sorted
+  }
+
+  private def loadEvalBenchmark(benchmarkDir: String): Option[(TestConf, xt.Symbols)] = {
+    val files = resourceFiles(benchmarkDir, f => f.endsWith(".scala") || f.endsWith(".json")).sorted
+    if (files.isEmpty) return None // Empty folder -- skip
+
+    val scalaFiles = files.filter(_.getName.endsWith(".scala"))
+    val testConfFile = files.find(_.getName == testConfName)
+      .getOrElse(sys.error(s"Test configuration file $testConfName not found in $benchmarkDir"))
+    val testConf = parseTestConf(testConfFile)
+
+    /////////////////////////////////////
+
+    val dummyCtx: inox.Context = inox.TestContext.empty
+    import dummyCtx.given
+    val (_, program) = loadFiles(scalaFiles.map(_.getPath))
+    assert(dummyCtx.reporter.errorCount == 0, "There should be no error while loading the files")
+
+    val userFiltering = new DebugSymbols {
+      val name = "UserFiltering"
+      val context = dummyCtx
+      val s: xt.type = xt
+      val t: xt.type = xt
+    }
+
+    val programSymbols = userFiltering.debugWithoutSummary(frontend.UserFiltering().transform)(program.symbols)._1
+    programSymbols.ensureWellFormed
+    Some((testConf, programSymbols))
   }
 
   private def parseTestConf(f: File): TestConf = {
@@ -142,7 +142,7 @@ class EvaluatorComponentTest extends ComponentTestSuite {
     val recEval = jsonObj("recursive").exists(_.asBoolean.getOrCry("Expected 'recursive' to be a boolean"))
     val codegenEval = jsonObj("codegen").exists(_.asBoolean.getOrCry("Expected 'codegen' to be a boolean"))
     if (!recEval && !codegenEval) {
-      fail("At least one of 'recursive' or 'codegen' evaluator option must be set to true")
+      sys.error("At least one of 'recursive' or 'codegen' evaluator option must be set to true")
     }
     val evaluators = (if (recEval) Seq(Evaluator.Recursive) else Seq.empty) ++ (if (codegenEval) Seq(Evaluator.Codegen) else Seq.empty)
 
@@ -165,7 +165,7 @@ class EvaluatorComponentTest extends ComponentTestSuite {
   }
 
   extension[T] (o: Option[T]) {
-    private def getOrCry(msg: String): T = o.getOrElse(fail(msg))
+    private def getOrCry(msg: String): T = o.getOrElse(sys.error(msg))
   }
 
   extension (jsonObj: JsonObject) {

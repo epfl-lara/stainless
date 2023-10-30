@@ -16,7 +16,13 @@ class ImperativeSuite extends VerificationComponentTestSuite {
     case _ => super.filter(ctx, name)
   }
 
-  testPosAll("imperative/valid")
+  import ImperativeSuite._
 
-  testNegAll("imperative/invalid")
+  testPosAll("imperative/valid", valid._1, valid._2)
+
+  testNegAll("imperative/invalid", invalid._1, invalid._2)
+}
+object ImperativeSuite {
+  private lazy val valid = ComponentTestSuite.loadPrograms("imperative/valid")
+  private lazy val invalid = ComponentTestSuite.loadPrograms("imperative/invalid")
 }

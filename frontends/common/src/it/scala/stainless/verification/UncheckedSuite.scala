@@ -19,8 +19,11 @@ class UncheckedSuite extends VerificationComponentTestSuite {
     }
   }
 
-  override val component: VerificationComponent.type = VerificationComponent
-
-  testUncheckedAll("verification/unchecked-invalid")
-  testUncheckedAll("verification/unchecked-valid")
+  import UncheckedSuite._
+  testUncheckedAll("verification/unchecked-invalid", uncheckedInvalid._1, uncheckedInvalid._2)
+  testUncheckedAll("verification/unchecked-valid", uncheckedValid._1, uncheckedValid._2)
+}
+object UncheckedSuite {
+  private lazy val uncheckedInvalid = ComponentTestSuite.loadPrograms("verification/unchecked-invalid")
+  private lazy val uncheckedValid = ComponentTestSuite.loadPrograms("verification/unchecked-valid")
 }

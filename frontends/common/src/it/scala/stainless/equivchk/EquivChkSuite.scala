@@ -26,73 +26,12 @@ class EquivChkSuite extends ComponentTestSuite {
     ) ++ seq
   }
 
-  private val testConfPattern = "test_conf(_(\\d+))?.json".r
-  private val expectedOutcomePattern = "expected_outcome(_(\\d+))?.json".r
-
   override protected def optionsString(options: inox.Options): String = ""
 
-  ///////////////////////////////////////////////
+  import EquivChkSuite._
 
-  for (benchmark <- getFolders("equivalence")) {
-    testEquiv(s"equivalence/$benchmark")
-  }
-
-  ///////////////////////////////////////////////
-
-  private def getFolders(dir: String): Seq[String] = {
-    Option(getClass.getResource(s"/$dir")).toSeq.flatMap { dirUrl =>
-      val dirFile = new File(dirUrl.getPath)
-      Option(dirFile.listFiles().toSeq).getOrElse(Seq.empty).filter(_.isDirectory)
-        .map(_.getName)
-    }.sorted
-  }
-
-  private def testEquiv(benchmarkDir: String): Unit = {
-    val files = resourceFiles(benchmarkDir, f => f.endsWith(".scala") || f.endsWith(".conf") || f.endsWith(".json")).sorted
-    if (files.isEmpty) return // Empty folder -- skip
-
-    val scalaFiles = files.filter(_.getName.endsWith(".scala"))
-
-    val confs = files.flatMap(f => f.getName match {
-      case testConfPattern(_, num) => Some(Option(num).map(_.toInt) -> f)
-      case _ => None
-    }).toMap
-    assert(confs.nonEmpty, s"No test_conf.json found in $benchmarkDir")
-
-    val expectedOutcomes = files.flatMap(f => f.getName match {
-      case expectedOutcomePattern(_, num) => Some(Option(num).map(_.toInt) -> f)
-      case _ => None
-    }).toMap
-    assert(expectedOutcomes.nonEmpty, s"No expected_outcome.json found in $benchmarkDir")
-    assert(confs.keySet == expectedOutcomes.keySet, "Test configuration and expected outcome files do not match")
-
-    val runs = confs.keySet.toSeq.sorted.map { num =>
-      (num, confs(num), expectedOutcomes(num))
-    }
-
-    /////////////////////////////////////
-
-    val dummyCtx: inox.Context = inox.TestContext.empty
-    import dummyCtx.given
-    val (_, program) = loadFiles(scalaFiles.map(_.getPath))
-    assert(dummyCtx.reporter.errorCount == 0, "There should be no error while loading the files")
-
-    val userFiltering = new DebugSymbols {
-      val name = "UserFiltering"
-      val context = dummyCtx
-      val s: xt.type = xt
-      val t: xt.type = xt
-    }
-
-    val programSymbols = userFiltering.debugWithoutSummary(frontend.UserFiltering().transform)(program.symbols)._1
-    programSymbols.ensureWellFormed
-
-    /////////////////////////////////////
-
-    for ((num, confFile, expectedOutomeFile) <- runs) {
-      val conf = parseTestConf(confFile)
-      val expected = parseExpectedOutcome(expectedOutomeFile)
-
+  for ((benchmarkDir, (runs, programSymbols)) <- equivChkkBenchmarkData) {
+    for (Run(num, conf, expected) <- runs) {
       val testName = s"$benchmarkDir${num.map(n => s" (variant $n)").getOrElse("")}"
       test(testName, ctx => filter(ctx, benchmarkDir)) { ctx0 ?=>
         val opts = Seq(
@@ -123,25 +62,6 @@ class EquivChkSuite extends ComponentTestSuite {
     }
   }
 
-  private case class EquivResults(equiv: Map[String, Set[String]],
-                                  unequivalent: Set[String],
-                                  unsafe: Set[String],
-                                  timeout: Set[String],
-                                  wrong: Set[String])
-  private object EquivResults {
-    def empty: EquivResults =
-      EquivResults(Map.empty, Set.empty, Set.empty, Set.empty, Set.empty)
-  }
-
-  private case class TestConf(models: Set[String],
-                              candidates: Set[String],
-                              tests: Set[String],
-                              norm: Option[String],
-                              n: Option[Int],
-                              initScore: Option[Int],
-                              maxPerm: Option[Int],
-                              timeout: Option[Duration])
-
   private def extractResults(candidates: Set[String], analysis: component.Analysis): EquivResults = {
     import EquivalenceCheckingReport._
     analysis.records.foldLeft(EquivResults.empty) {
@@ -160,6 +80,88 @@ class EquivChkSuite extends ComponentTestSuite {
           }
         } else acc
     }
+  }
+}
+object EquivChkSuite extends inox.ResourceUtils with InputUtils {
+
+  private lazy val equivChkkBenchmarkData = getFolders("equivalence").flatMap(benchmark => loadEquivChkBenchmark(s"equivalence/$benchmark").map(benchmark -> _))
+
+  private val testConfPattern = "test_conf(_(\\d+))?.json".r
+  private val expectedOutcomePattern = "expected_outcome(_(\\d+))?.json".r
+
+  private case class EquivResults(equiv: Map[String, Set[String]],
+                                  unequivalent: Set[String],
+                                  unsafe: Set[String],
+                                  timeout: Set[String],
+                                  wrong: Set[String])
+
+  private object EquivResults {
+    def empty: EquivResults =
+      EquivResults(Map.empty, Set.empty, Set.empty, Set.empty, Set.empty)
+  }
+
+  private case class TestConf(models: Set[String],
+                              candidates: Set[String],
+                              tests: Set[String],
+                              norm: Option[String],
+                              n: Option[Int],
+                              initScore: Option[Int],
+                              maxPerm: Option[Int],
+                              timeout: Option[Duration])
+
+  private case class Run(num: Option[Int], testConf: TestConf, expected: EquivResults)
+
+  private def loadEquivChkBenchmark(benchmarkDir: String): Option[(Seq[Run], xt.Symbols)] = {
+    val files = resourceFiles(benchmarkDir, f => f.endsWith(".scala") || f.endsWith(".conf") || f.endsWith(".json")).sorted
+    if (files.isEmpty) return None // Empty folder -- skip
+
+    val scalaFiles = files.filter(_.getName.endsWith(".scala"))
+
+    val confs = files.flatMap(f => f.getName match {
+      case testConfPattern(_, num) =>
+        val conf = parseTestConf(f)
+        Some(Option(num).map(_.toInt) -> conf)
+      case _ => None
+    }).toMap
+    assert(confs.nonEmpty, s"No test_conf.json found in $benchmarkDir")
+
+    val expectedOutcomes = files.flatMap(f => f.getName match {
+      case expectedOutcomePattern(_, num) =>
+        val outcome = parseExpectedOutcome(f)
+        Some(Option(num).map(_.toInt) -> outcome)
+      case _ => None
+    }).toMap
+    assert(expectedOutcomes.nonEmpty, s"No expected_outcome.json found in $benchmarkDir")
+    assert(confs.keySet == expectedOutcomes.keySet, "Test configuration and expected outcome files do not match")
+
+    val runs = confs.keySet.toSeq.sorted.map(num => Run(num, confs(num), expectedOutcomes(num)))
+
+    /////////////////////////////////////
+
+    val dummyCtx: inox.Context = inox.TestContext.empty
+    import dummyCtx.given
+    val (_, program) = loadFiles(scalaFiles.map(_.getPath))
+    assert(dummyCtx.reporter.errorCount == 0, "There should be no error while loading the files")
+
+    val userFiltering = new DebugSymbols {
+      val name = "UserFiltering"
+      val context = dummyCtx
+      val s: xt.type = xt
+      val t: xt.type = xt
+    }
+
+    val programSymbols = userFiltering.debugWithoutSummary(frontend.UserFiltering().transform)(program.symbols)._1
+    programSymbols.ensureWellFormed
+
+    Some((runs, programSymbols))
+  }
+
+  private def getFolders(dir: String): Seq[String] = {
+    Option(getClass.getResource(s"/$dir")).toSeq.flatMap { dirUrl =>
+      val dirFile = new File(dirUrl.getPath)
+      Option(dirFile.listFiles().toSeq).getOrElse(Seq.empty).filter(_.isDirectory)
+        .map(_.getName)
+    }.sorted
   }
 
   private def parseExpectedOutcome(f: File): EquivResults = {
@@ -207,7 +209,7 @@ class EquivChkSuite extends ComponentTestSuite {
   extension (jsonObj: JsonObject) {
     private def getStringArrayOrCry(field: String): Seq[String] =
       jsonObj(field).getOrCry(s"Expected a '$field' field")
-      .asArray.getOrCry(s"Expected '$field' to be an array of strings")
-      .map(_.asString.getOrCry(s"Expected '$field' array elements to be strings"))
+        .asArray.getOrCry(s"Expected '$field' to be an array of strings")
+        .map(_.asString.getOrCry(s"Expected '$field' array elements to be strings"))
   }
 }
