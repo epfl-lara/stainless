@@ -11,6 +11,7 @@ object WhileAsFun1 {
     var i = 0
     def rec(): Unit = {
       require(i >= 0 && i <= n)
+      decreases(n - i)
       if(i < n) {
         i += 1
         rec()

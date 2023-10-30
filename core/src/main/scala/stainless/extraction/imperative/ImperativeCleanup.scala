@@ -87,15 +87,15 @@ class ImperativeCleanup(override val s: Trees, override val t: oo.Trees)
           Some(s.Variable(id, tpe, flags filterNot isImperativeFlag).copiedFrom(expr))
 
         case s.MutableMapWithDefault(from, to, default) =>
-          Some(s.FiniteMap(Seq(), s.Application(default, Seq()), from, to))
-        case s.MutableMapApply(map, index) => Some(s.MapApply(map, index))
-        case s.MutableMapUpdated(map, key, value) => Some(s.MapUpdated(map, key, value))
+          Some(s.FiniteMap(Seq(), s.Application(default, Seq()).copiedFrom(default), from, to).copiedFrom(expr))
+        case s.MutableMapApply(map, index) => Some(s.MapApply(map, index).copiedFrom(expr))
+        case s.MutableMapUpdated(map, key, value) => Some(s.MapUpdated(map, key, value).copiedFrom(expr))
         case s.MutableMapDuplicate(map) => Some(map)
 
         case ReconstructTuple(tuple) => Some(tuple)
 
         case s.LetRec(fds, body) =>
-          Some(s.LetRec(fds.map(fd => fd.copy(flags = fd.flags filterNot isImperativeFlag)), body))
+          Some(s.LetRec(fds.map(fd => fd.copy(flags = fd.flags filterNot isImperativeFlag)), body).copiedFrom(expr))
 
         case _ => None
       } } (expr))

@@ -37,7 +37,7 @@ class StainlessPlugin extends StandardPlugin {
         Some(new ExtractionAndVerification)
       else None,
       if (pluginOpts.enableGhostElimination)
-        Some(new GhostAccessRewriter)
+        Some(new GhostAccessRewriter(if (pluginOpts.enableVerification) "stainless" else Pickler.name))
       else None
     ).flatten
   }

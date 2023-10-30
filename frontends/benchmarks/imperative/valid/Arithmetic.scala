@@ -10,12 +10,14 @@ object Arithmetic {
     if(y < 0) {
       var n = y
       (while(n != BigInt(0)) {
+        decreases(-n)
         r = r - x
         n = n + 1
       }) invariant(r == x * (y - n) && 0 <= -n)
     } else {
       var n = y
       (while(n != BigInt(0)) {
+        decreases(n)
         r = r + x
         n = n - 1
       }) invariant(r == x * (y - n) && 0 <= n)
@@ -29,12 +31,14 @@ object Arithmetic {
     if(y < 0) {
       var n = y
       (while(n != BigInt(0)) {
+        decreases(-n)
         r = r - 1
         n = n + 1
       }) invariant(r == x + y - n && 0 <= -n)
     } else {
       var n = y
       (while(n != BigInt(0)) {
+        decreases(n)
         r = r + 1
         n = n - 1
       }) invariant(r == x + y - n && 0 <= n)
@@ -48,6 +52,7 @@ object Arithmetic {
     var r = BigInt(0)
     var i = BigInt(0)
     (while(i < n) {
+      decreases(n - i)
       i = i + 1
       r = r + i
     }) invariant(r >= i && i >= 0 && r >= 0)
@@ -59,6 +64,7 @@ object Arithmetic {
     var r = x
     var q = BigInt(0)
     (while(r >= y) {
+      decreases(r - y)
       r = r - y
       q = q + 1
     }) invariant(x == y*q + r && r >= 0)

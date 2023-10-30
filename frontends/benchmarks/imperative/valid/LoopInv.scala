@@ -21,6 +21,7 @@ object LoopInv {
     var state   = 0
 
     (while (left) {
+      decreases(remains)
       remains match {
         case Nil() =>
           left = false

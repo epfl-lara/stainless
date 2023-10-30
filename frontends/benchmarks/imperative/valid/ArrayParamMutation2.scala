@@ -4,6 +4,7 @@ object ArrayParamMutation2 {
 
   def rec(a: Array[BigInt]): BigInt = {
     require(a.length > 1 && a(0) >= 0)
+    decreases(a(0))
     if(a(0) == 0)
       a(1)
     else {

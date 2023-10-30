@@ -25,6 +25,7 @@ object Lists {
     var res: BigInt = 0
     var lst: List[A] = l
     (while(!isEmpty(lst)) {
+      decreases(lst)
       lst = tail(lst)
       res += 1
     }) invariant(res + sizeSpec(lst) == sizeSpec(l))
@@ -111,6 +112,7 @@ object Banking {
     var i = 0
     var success = false
     (while(i < times && !success) {
+      decreases(times - i)
       success = transaction.execute()
       i += 1
     }) invariant(i >= 0 && i <= times && success == transaction.executed)
@@ -186,6 +188,20 @@ object Banking {
 }
 
 object SFuns {
+  def parallel[S1,S2,B1,B2](t1: SFun[Unit,S1,B1],
+                            t2: SFun[Unit,S2,B2]): (B1, B2) =
+    (t1(()), t2(()))
+
+  def testOrder(t1: SFun[Unit,Int,Int], t2: SFun[Unit,Int,Int], init: Int): Unit = {
+    t1.state.value = init
+    t2.state.value = init
+    val (v1, v2) = parallel(t1, t2)
+    t1.state.value = init
+    t2.state.value = init
+    val (u2, u1) = parallel(t2, t1)
+    assert(v1 == u1)
+    assert(v2 == u2)
+  }
 
   case class State[A](var value: A)
 

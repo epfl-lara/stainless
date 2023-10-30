@@ -1355,6 +1355,14 @@ trait CodeExtraction extends ASTExtractors {
           xt.LocalClassConstructor(lct, args.map(extractTree))
         case ct: xt.ClassType =>
           xt.ClassConstructor(ct, args.map(extractTree))
+        case at: xt.ArrayType if args.size == 1 && extractType(args.head.tpe)(using dctx, tr.pos) == xt.Int32Type() =>
+          mkZeroForPrimitive(at.base) match {
+            case Some(zero) =>
+              val recArg = extractTree(args.head)
+              xt.LargeArray(Map.empty, zero, recArg, at.base)
+            case None =>
+              outOfSubsetError(tr, s"Cannot use array constructor for non-primitive type ${at.base}\nHint: you may use `Array.fill` instead")
+          }
         case _ =>
           outOfSubsetError(tr, "Construction of a non-class type.")
       }
@@ -2074,6 +2082,13 @@ trait CodeExtraction extends ASTExtractors {
         outOfSubsetError(NoPosition, "Tree with null-pointer as type found")
       }
   }).setPos(pos)
+
+  private def mkZeroForPrimitive(tp: xt.Type): Option[xt.Expr] = tp match {
+    case xt.BooleanType() => Some(xt.BooleanLiteral(false))
+    case xt.BVType(signed, size) => Some(xt.BVLiteral(signed, 0, size))
+    case xt.CharType() => Some(xt.CharLiteral(0.toChar))
+    case _ => None
+  }
 
   // @extern function may contain constructs that are not supported by Stainless.
   // However, we must be sure that we have captured all contracts.

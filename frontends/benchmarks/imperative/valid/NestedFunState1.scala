@@ -1,5 +1,7 @@
 /* Copyright 2009-2021 EPFL, Lausanne */
 
+import stainless.lang._
+
 object NestedFunState1 {
 
   def sum(n: BigInt): BigInt = {
@@ -8,7 +10,8 @@ object NestedFunState1 {
     var res = BigInt(0)
 
     def iter(): Unit = {
-      require(res >= i && i >= 0)
+      require(res >= i && i >= 0 && n >= i)
+      decreases(n - i)
       if(i < n) {
         i += 1
         res += i
