@@ -53,6 +53,13 @@ trait TransformerWithType extends oo.TransformerWithType {
         transform(index2, s.Int32Type()),
       ).copiedFrom(expr)
 
+    case s.CellSwap(cell1, cell2) =>
+      val at = widen(cell1.getType): @unchecked
+      t.CellSwap(
+        transform(cell1, at),
+        transform(cell2, at),
+      ).copiedFrom(expr)
+
     case s.MutableMapWithDefault(from, to, default) =>
       t.MutableMapWithDefault(transform(from), transform(to),
         transform(default, s.FunctionType(Seq(), to))

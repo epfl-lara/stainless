@@ -931,17 +931,19 @@ private class S2IRImpl(override val s: tt.type,
       ))
 
     case CellSwap(cell1, cell2) =>
-      val cellType = cell1.getType
+      val cellBaseType = cell1.getType.asInstanceOf[ClassType].tps.head
+      val cellClassDef = symbols.lookup.get[ClassDef]("stainless.lang.Cell").get
+      val vFieldId: Identifier = cellClassDef.fields.head.id
       val c1 = rec(cell1)
       val c2 = rec(cell2)
       val tmpId = rec(FreshIdentifier("tmp"))
-      // TODO
-      // val tmpVd = CIR.ValDef(tmpId, rec(base), false)
-      // val tmp = CIR.Binding(tmpVd)
+      val tmpVd = CIR.ValDef(tmpId, rec(cellBaseType), false)
+      val tmp = CIR.Binding(tmpVd)
+      throw new Exception(f"CellSwap to IR phase: cellBase type = $cellBaseType; vField Id = $vFieldId")
       CIR.buildBlock(Seq(
-        // CIR.Decl(tmpVd, Some(CIR.ArrayAccess(a1, i1))),
-        // CIR.Assign(CIR.ArrayAccess(a1, i1), CIR.ArrayAccess(a2, i2)),
-        // CIR.Assign(CIR.ArrayAccess(a2, i2), tmp),
+        CIR.Decl(tmpVd, Some(CIR.FieldAccess(c2, rec(vFieldId, withUnique = false)))),
+        CIR.Assign(CIR.FieldAccess(c2, rec(vFieldId, withUnique = false)), CIR.FieldAccess(c1, rec(vFieldId, withUnique = false))),
+        CIR.Assign(CIR.FieldAccess(c1, rec(vFieldId, withUnique = false)), tmp),
       ))
 
 

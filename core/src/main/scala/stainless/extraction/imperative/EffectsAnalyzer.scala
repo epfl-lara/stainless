@@ -818,6 +818,12 @@ trait EffectsAnalyzer extends oo.CachingPhase {
         effect(array1, env).map(_.precise(ArrayAccessor(index1))) ++
         effect(array2, env).map(_.precise(ArrayAccessor(index2)))
 
+      case CellSwap(cell1, cell2) =>
+        val vFieldId = symbols.lookup.get[ClassDef]("stainless.lang.Cell").get.fields.head.id
+        rec(cell1, env) ++ rec(cell2, env) ++
+        effect(cell1, env).map(_.precise(ClassFieldAccessor(vFieldId))) ++
+        effect(cell2, env).map(_.precise(ClassFieldAccessor(vFieldId)))
+
       case ArrayUpdate(o, idx, v) =>
         rec(o, env) ++ rec(idx, env) ++ rec(v, env) ++
         effect(o, env).map(_.precise(ArrayAccessor(idx)))
