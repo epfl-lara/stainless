@@ -506,9 +506,9 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
             val vFieldId = cellClassDef.fields.head.id
 
             val temp = ValDef.fresh("temp", base).setPos(cellSwap)
-            val targets1 = getDirectTargetsDealiased(cell1, ClassFieldAccessor(vFieldId), env)
+            val targets1 = getDirectTargetsDealiased(recCell1, ClassFieldAccessor(vFieldId), env)
               .getOrElse(throw MalformedStainlessCode(cellSwap, "Unsupported cellSwap (first cell)"))
-            val targets2 = getDirectTargetsDealiased(cell2, ClassFieldAccessor(vFieldId), env)
+            val targets2 = getDirectTargetsDealiased(recCell2, ClassFieldAccessor(vFieldId), env)
               .getOrElse(throw MalformedStainlessCode(cellSwap, "Unsupported cellSwap (second cell)"))
 
             val updates1 = updatedTargetsAndAliases(targets2, ClassSelector(cell1, vFieldId).setPos(cellSwap), env, cellSwap.getPos)
@@ -516,7 +516,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
             val updates = updates1 ++ updates2
             if (updates.isEmpty) UnitLiteral().setPos(cellSwap)
             else
-              Let(temp, transform(ClassSelector(cell2, vFieldId).setPos(cellSwap), env),
+              Let(temp, transform(ClassSelector(recCell2, vFieldId).setPos(cellSwap), env),
                 Block(updates.init, updates.last).setPos(cellSwap)
               ).setPos(cellSwap)
 
@@ -1122,6 +1122,11 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
           val (ctxArr2, normArr2) = normalizeForTarget(arr2)
           val (ctxI2, normI2) = normalizeSelector(i2)
           (ctxArr1 compose ctxI1 compose ctxArr2 compose ctxI2, Swap(normArr1, normI1, normArr2, normI2).copiedFrom(swp))
+
+        case swp @ CellSwap(cell1, cell2) =>
+          val (ctxCell1, normCell1) = normalizeForTarget(cell1)
+          val (ctxCell2, normCell2) = normalizeForTarget(cell2)
+          (ctxCell1 compose ctxCell2, CellSwap(normCell1, normCell2).copiedFrom(swp))
 
         case call: (Application | FunctionInvocation | ApplyLetRec) =>
           normalizeCall(call)

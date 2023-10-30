@@ -939,7 +939,6 @@ private class S2IRImpl(override val s: tt.type,
       val tmpId = rec(FreshIdentifier("tmp"))
       val tmpVd = CIR.ValDef(tmpId, rec(cellBaseType), false)
       val tmp = CIR.Binding(tmpVd)
-      throw new Exception(f"CellSwap to IR phase: cellBase type = $cellBaseType; vField Id = $vFieldId")
       CIR.buildBlock(Seq(
         CIR.Decl(tmpVd, Some(CIR.FieldAccess(c2, rec(vFieldId, withUnique = false)))),
         CIR.Assign(CIR.FieldAccess(c2, rec(vFieldId, withUnique = false)), CIR.FieldAccess(c1, rec(vFieldId, withUnique = false))),
