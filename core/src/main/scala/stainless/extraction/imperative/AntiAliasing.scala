@@ -7,7 +7,6 @@ package imperative
 import inox.FatalError
 
 import scala.util.{Failure, Success, Try}
-import stainless.extraction.methods.FieldAccessors
 
 class AntiAliasing(override val s: Trees)(override val t: s.type)(using override val context: inox.Context)
   extends oo.CachingPhase
