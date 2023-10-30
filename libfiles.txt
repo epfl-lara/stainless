@@ -1,6 +1,7 @@
 stainless/util/Random.scala
 stainless/util/Timepoint.scala
 stainless/lang/Option.scala
+stainless/lang/Cell.scala
 stainless/lang/PartialFunction.scala
 stainless/lang/StaticChecks.scala
 stainless/lang/Real.scala

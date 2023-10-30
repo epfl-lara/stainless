@@ -33,6 +33,21 @@ trait Trees extends oo.Trees with Definitions { self =>
       }
   }
 
+  /* Cell Operations */
+
+    /** Swap values from two (not necessarily distinct) cells */
+  sealed case class CellSwap(cell1: Expr, cell2: Expr) extends Expr with CachingTyped {
+    override protected def computeType(using s: Symbols): Type =
+      val cellClassDef = s.lookup.get[ClassDef]("stainless.lang.Cell")
+      (cell1.getType, cell2.getType) match {
+        case (ClassType(id1, tps1), ClassType(id2, tps2)) if cellClassDef.isDefined && id1 == cellClassDef.get.id && id1 == id2 && tps1 == tps2 => {
+          UnitType() 
+        }
+        case _ =>
+          Untyped
+      }
+  }
+
   /** $encodingof `{ expr1; expr2; ...; exprn; last }` */
   case class Block(exprs: Seq[Expr], last: Expr) extends Expr with CachingTyped {
     protected def computeType(using Symbols): Type = if (exprs.forall(_.isTyped)) last.getType else Untyped
@@ -278,6 +293,9 @@ trait Printer extends oo.Printer {
     case Swap(array1, index1, array2, index2) =>
       p"swap($array1, $index1, $array2, $index2)"
 
+    case CellSwap(cell1, cell2) => 
+      p"swap($cell1, $cell2)"
+
     case LetVar(vd, value, expr) =>
       p"""|var $vd = $value
           |$expr"""
@@ -428,6 +446,9 @@ trait TreeDeconstructor extends oo.TreeDeconstructor {
 
     case s.Swap(array1, index1, array2, index2) =>
       (Seq(), Seq(), Seq(array1, index1, array2, index2), Seq(), Seq(), (_, _, es, _, _) => t.Swap(es(0), es(1), es(2), es(3)))
+
+    case s.CellSwap(cell1, cell2) =>
+      (Seq(), Seq(), Seq(cell1, cell2), Seq(), Seq(), (_, _, es, _, _) => t.CellSwap(es(0), es(1)))
 
     case s.MutableMapWithDefault(from, to, default) =>
       (Seq(), Seq(), Seq(default), Seq(from, to), Seq(), (_, _, es, tps, _) => t.MutableMapWithDefault(tps(0), tps(1), es(0)))
