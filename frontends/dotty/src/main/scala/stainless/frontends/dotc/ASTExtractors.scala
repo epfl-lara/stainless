@@ -1413,7 +1413,7 @@ trait ASTExtractors {
         tree match {
           case Apply(
                 TypeApply(
-                  ExSymbol("stainless", "lang", "package$", "swapCell"),
+                  ExSymbol("stainless", "lang", "package$", "swap"),
                   _
                 ),
                 cell1 :: cell2 :: Nil

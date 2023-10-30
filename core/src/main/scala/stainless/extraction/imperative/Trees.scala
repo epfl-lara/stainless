@@ -294,7 +294,7 @@ trait Printer extends oo.Printer {
       p"swap($array1, $index1, $array2, $index2)"
 
     case CellSwap(cell1, cell2) => 
-      p"swapCell($cell1, $cell2)"
+      p"swap($cell1, $cell2)"
 
     case LetVar(vd, value, expr) =>
       p"""|var $vd = $value

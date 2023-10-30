@@ -183,7 +183,7 @@ package object lang {
   }
 
   @ignore @library
-    def swapCell[@mutable T](c1: Cell[T], c2: Cell[T]): Unit = {
+    def swap[@mutable T](c1: Cell[T], c2: Cell[T]): Unit = {
       val t = c2.v
       c2.v = c1.v
       c1.v = t

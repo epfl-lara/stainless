@@ -921,7 +921,7 @@ trait ASTExtractors {
     object ExCellSwapExpression {
       def unapply(tree: Apply): Option[(Tree, Tree)] = tree match {
         case Apply(
-              TypeApply(ExSymbol("stainless", "lang", "swapCell"), _),
+              TypeApply(ExSymbol("stainless", "lang", "swap"), _),
               cell1 :: cell2 :: Nil
             ) =>
           Some((cell1, cell2))
