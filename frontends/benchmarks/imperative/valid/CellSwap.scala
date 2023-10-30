@@ -1,7 +1,8 @@
 import stainless.lang.swap
+import stainless.lang.Cell
 
 object CellSwap {
-  def test(c1: Cell[BigInt], c2: Cell[BigInt]): Unit = {
+  def test(c1: Cell[Int], c2: Cell[Int]): Unit = {
     require(c1.v == 1 && c2.v == 2)
 
     swap(c1, c2)

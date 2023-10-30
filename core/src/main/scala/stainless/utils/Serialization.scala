@@ -146,7 +146,7 @@ class XLangSerializer(override val trees: extraction.xlang.Trees, serializeProdu
       stainlessClassSerializer[MutableMapUpdated]      (252),
       stainlessClassSerializer[MutableMapDuplicate]    (253),
       stainlessClassSerializer[Swap]                   (259),
-      stainlessClassSerializer[Swap]                   (262),
+      stainlessClassSerializer[CellSwap]               (262),
       stainlessClassSerializer[FreshCopy]              (260),
       stainlessClassSerializer[Reads]                  (182),
       stainlessClassSerializer[Modifies]               (210),
