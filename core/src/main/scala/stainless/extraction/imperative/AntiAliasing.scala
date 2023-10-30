@@ -494,6 +494,32 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
                 Block(updates.init, updates.last).setPos(swap)
               ).setPos(swap)
 
+          case cellSwap @ CellSwap(cell1, cell2) =>
+            // Though `cell1`, `cell2` are all normalized, we still need to recursively transform
+            // them, as they can refer to constructs that needs transformation, such as lambdas that mutate their params
+            val recCell1 = transform(cell1, env)
+            val recCell2 = transform(cell2, env)
+
+            val base = recCell1.getType.asInstanceOf[ClassType].tps.head
+
+            val cellClassDef = symbols.lookup.get[ClassDef]("stainless.lang.Cell").get
+            val vFieldId = cellClassDef.fields.head.id
+
+            val temp = ValDef.fresh("temp", base).setPos(cellSwap)
+            val targets1 = getDirectTargetsDealiased(recCell1, ClassFieldAccessor(vFieldId), env)
+              .getOrElse(throw MalformedStainlessCode(cellSwap, "Unsupported cellSwap (first cell)"))
+            val targets2 = getDirectTargetsDealiased(recCell2, ClassFieldAccessor(vFieldId), env)
+              .getOrElse(throw MalformedStainlessCode(cellSwap, "Unsupported cellSwap (second cell)"))
+
+            val updates1 = updatedTargetsAndAliases(targets2, ClassSelector(cell1, vFieldId).setPos(cellSwap), env, cellSwap.getPos)
+            val updates2 = updatedTargetsAndAliases(targets1, temp.toVariable, env, cellSwap.getPos)
+            val updates = updates1 ++ updates2
+            if (updates.isEmpty) UnitLiteral().setPos(cellSwap)
+            else
+              Let(temp, transform(ClassSelector(recCell2, vFieldId).setPos(cellSwap), env),
+                Block(updates.init, updates.last).setPos(cellSwap)
+              ).setPos(cellSwap)
+
           case l @ Let(vd, e, b) if isMutableType(vd.tpe) =>
             // see https://github.com/epfl-lara/stainless/pull/920 for discussion
 
@@ -1096,6 +1122,11 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
           val (ctxArr2, normArr2) = normalizeForTarget(arr2)
           val (ctxI2, normI2) = normalizeSelector(i2)
           (ctxArr1 compose ctxI1 compose ctxArr2 compose ctxI2, Swap(normArr1, normI1, normArr2, normI2).copiedFrom(swp))
+
+        case swp @ CellSwap(cell1, cell2) =>
+          val (ctxCell1, normCell1) = normalizeForTarget(cell1)
+          val (ctxCell2, normCell2) = normalizeForTarget(cell2)
+          (ctxCell1 compose ctxCell2, CellSwap(normCell1, normCell2).copiedFrom(swp))
 
         case call: (Application | FunctionInvocation | ApplyLetRec) =>
           normalizeCall(call)

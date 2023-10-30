@@ -761,7 +761,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     case _: (ArraySelect | MutableMapApply) => false
     case _: (Literal[t] | Lambda) => true
     case fi @ FunctionInvocation(_, _, _) => functionTypeEffects(fi.tfd.functionType).isEmpty
-    case _: (Application | ApplyLetRec | Swap | ArrayUpdate | MutableMapUpdate | FieldAssignment | Assignment) => false
+    case _: (Application | ApplyLetRec | Swap | CellSwap | ArrayUpdate | MutableMapUpdate | FieldAssignment | Assignment) => false
     case Operator(es, _) => es.forall(isReferentiallyTransparent)
   }
 
@@ -817,6 +817,12 @@ trait EffectsAnalyzer extends oo.CachingPhase {
         rec(array1, env) ++ rec(index1, env) ++ rec(array2, env) ++ rec(index2, env) ++
         effect(array1, env).map(_.precise(ArrayAccessor(index1))) ++
         effect(array2, env).map(_.precise(ArrayAccessor(index2)))
+
+      case CellSwap(cell1, cell2) =>
+        val vFieldId = symbols.lookup.get[ClassDef]("stainless.lang.Cell").get.fields.head.id
+        rec(cell1, env) ++ rec(cell2, env) ++
+        effect(cell1, env).map(_.precise(ClassFieldAccessor(vFieldId))) ++
+        effect(cell2, env).map(_.precise(ClassFieldAccessor(vFieldId)))
 
       case ArrayUpdate(o, idx, v) =>
         rec(o, env) ++ rec(idx, env) ++ rec(v, env) ++
