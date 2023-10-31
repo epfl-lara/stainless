@@ -411,8 +411,8 @@ class ReturnElimination(override val s: Trees, override val t: Trees)
             case Seq(e) => transform(e, currentType)
 
             case e +: rest if exprHasReturn(e) =>
-              val firstType = e.getType
-              val firstTypeChecked = simpleWhileTransformer.transform(e.getType)
+              val firstType = widenTp(e.getType)
+              val firstTypeChecked = simpleWhileTransformer.transform(firstType)
               val controlFlowVal =
                 t.ValDef.fresh("cf",
                   ControlFlowSort.controlFlow(retTypeChecked, firstTypeChecked)
@@ -458,13 +458,15 @@ class ReturnElimination(override val s: Trees, override val t: Trees)
             case Seq() => recons(ids, tvs, tes, ttps, tflags)
             case e +: rest if !exprHasReturn(e) =>
               // We use a let-binding here to preserve execution order.
-              val vd = t.ValDef.fresh("x", simpleWhileTransformer.transform(e.getType), true).copiedFrom(e)
+              val eTpe = widenTp(e.getType)
+              val vd = t.ValDef.fresh("x", simpleWhileTransformer.transform(eTpe), true).copiedFrom(e)
               t.Let(vd, simpleWhileTransformer.transform(e), rec(rest, tes :+ vd.toVariable)).copiedFrom(e)
             case e +: rest =>
-              val firstType = simpleWhileTransformer.transform(e.getType)
+              val eTpe = widenTp(e.getType)
+              val firstType = simpleWhileTransformer.transform(eTpe)
               ControlFlowSort.andThen(
                 retTypeChecked, firstType, currentTypeChecked,
-                transform(e, e.getType),
+                transform(e, eTpe),
                 (v: t.Variable) => {
                   val transformedRest = rec(rest, tes :+ v)
                   if (rest.exists(exprHasReturn))
@@ -493,6 +495,19 @@ class ReturnElimination(override val s: Trees, override val t: Trees)
       else FunctionSummary.Untransformed(fd.id)
     }
     (res, fnSum)
+  }
+
+  // Recursively widen class types to their top ancestor, and strips sigma, pi and refinement types.
+  // This is used to type the control flow type parameters in order to avoid triggering AdtSpecialization
+  // generation of refinement types.
+  private def widenTp(tp: s.Type)(using s.Symbols): s.Type = {
+    s.typeOps.postMap {
+      case ct @ s.ClassType(_, _) =>
+        val ancestors = ct.tcd.ancestors
+        if (ancestors.isEmpty) None else Some(ancestors.last.toType)
+      case tp @ (s.SigmaType(_, _) | s.PiType(_, _) | s.RefinementType(_, _)) => Some(tp.getType)
+      case _ => None
+    } (tp)
   }
 
   override def combineSummaries(summaries: AllSummaries): ExtractionSummary = {
