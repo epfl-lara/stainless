@@ -22,8 +22,11 @@ val osArch = System.getProperty("sun.arch.data.model")
 
 val circeVersion = "0.14.1"
 
-lazy val nTestParallelism = {
-  val p = System.getProperty("test-parallelism")
+// The number of test suites (e.g. VerificationSuite, UncheckedSuite) run in parallel
+// Note that this does not dictate the parallelism per test case (e.g. verification/valid/AbstractPost.scala,
+// verification/valid/AbstractRefinementMap$.scala) which is instead set with -Dtestcase-parallelism=<...>
+lazy val nTestSuiteParallelism = {
+  val p = System.getProperty("testsuite-parallelism")
   if (p ne null) {
     try {
       p.toInt
@@ -256,12 +259,12 @@ def commonFrontendSettings(compilerVersion: String): Seq[Setting[_]] = Defaults.
     Seq(main)
   }) ++
   inConfig(IntegrationTest)(Defaults.testTasks ++ Seq(
-    logBuffered := (nTestParallelism > 1),
-    parallelExecution := (nTestParallelism > 1),
+    logBuffered := (nTestSuiteParallelism > 1),
+    parallelExecution := (nTestSuiteParallelism > 1),
   ))
 
 Global / concurrentRestrictions := Seq(
-  Tags.limit(Tags.Test, nTestParallelism)
+  Tags.limit(Tags.Test, nTestSuiteParallelism)
 )
 
 val scriptSettings: Seq[Setting[_]] = Seq(

@@ -6,6 +6,7 @@ package termination
 import org.scalatest.funsuite.AnyFunSuite
 import stainless.utils.YesNoOnly
 import stainless.verification._
+import extraction.xlang.{trees => xt}
 
 import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
@@ -45,13 +46,15 @@ class TerminationSuite extends VerificationComponentTestSuite {
       }
   }
 
-  testAllTerminating("termination/valid")
+  import TerminationSuite._
 
-  testAllTerminating("verification/valid")
+  testAllTerminating("termination/valid", terminationValid._1, terminationValid._2)
 
-  testAllTerminating("imperative/valid")
+  testAllTerminating("verification/valid", verificationValid._1, verificationValid._2)
 
-  testAll("termination/looping") { (analysis, reporter, _) =>
+  testAllTerminating("imperative/valid", imperativeValid._1, imperativeValid._2)
+
+  testAll("termination/looping", terminationLooping._1, terminationLooping._2) { (analysis, reporter, _) =>
     import analysis.program.symbols
     import analysis.program.trees._
 
@@ -76,10 +79,10 @@ class TerminationSuite extends VerificationComponentTestSuite {
     reporter.terminateIfError()
   }
 
-  testUncheckedAll("termination/unchecked-invalid")
+  testUncheckedAll("termination/unchecked-invalid", terminationUncheckedInvalid._1, terminationUncheckedInvalid._2)
 
   // Tests that should be verified, but aren't (not compatible with System FR type-checker, or needs more inference)
-  testNegAll("termination/false-invalid")
+  testNegAll("termination/false-invalid", terminationFalseInvalid._1, terminationFalseInvalid._2)
 
   // Looping programs that are already correctly rejected by the type-checker
   // Since these are rejected at extraction (and not due to invalid VCs), we need
@@ -107,8 +110,8 @@ class TerminationSuite extends VerificationComponentTestSuite {
     }}
   }
 
-  private def testAllTerminating(dir: String): Unit = {
-    testAll(dir) { (analysis, reporter, _) =>
+  private def testAllTerminating(dir: String, structure: Seq[xt.UnitDef], programSymbols: xt.Symbols): Unit = {
+    testAll(dir, structure, programSymbols) { (analysis, reporter, _) =>
       val failures = getResults(analysis).collect {
         case (fd, Some(status)) if !status.isTerminating => fd
       }
@@ -126,4 +129,12 @@ class TerminationSuite extends VerificationComponentTestSuite {
   // Workaround for a compiler crash caused by calling super.test
   def superTest(self: AnyFunSuite, testName: String)(body: => Unit): Unit =
     self.test(testName)(body)
+}
+object TerminationSuite {
+  private lazy val terminationValid = ComponentTestSuite.loadPrograms("termination/valid")
+  private lazy val verificationValid = ComponentTestSuite.loadPrograms("verification/valid")
+  private lazy val imperativeValid = ComponentTestSuite.loadPrograms("imperative/valid")
+  private lazy val terminationLooping = ComponentTestSuite.loadPrograms("termination/looping")
+  private lazy val terminationUncheckedInvalid = ComponentTestSuite.loadPrograms("termination/unchecked-invalid")
+  private lazy val terminationFalseInvalid = ComponentTestSuite.loadPrograms("termination/false-invalid")
 }

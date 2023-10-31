@@ -2,6 +2,7 @@ package stainless
 package verification
 
 import scala.util.Try
+import extraction.xlang.{trees => xt}
 
 trait VerificationComponentTestSuite extends ComponentTestSuite { self =>
 
@@ -14,8 +15,8 @@ trait VerificationComponentTestSuite extends ComponentTestSuite { self =>
     ) ++ seq
   }
 
-  def testPosAll(dir: String, recursive: Boolean = false, keepOnly: String => Boolean = _ => true, identifierFilter: Identifier => Boolean = _ => true): Unit =
-    testAll(dir, recursive, keepOnly, identifierFilter) { (analysis, reporter, _) =>
+  def testPosAll(dir: String, structure: Seq[xt.UnitDef], programSymbols: xt.Symbols, identifierFilter: Identifier => Boolean = _ => true): Unit =
+    testAll(dir, structure, programSymbols, identifierFilter) { (analysis, reporter, _) =>
       assert(analysis.toReport.stats.validFromCache == 0, "no cache should be used for these tests")
       for ((vc, vr) <- analysis.vrs) {
         if (vr.isInvalid) fail(s"The following verification condition was invalid: $vc @${vc.getPos}")
@@ -24,14 +25,14 @@ trait VerificationComponentTestSuite extends ComponentTestSuite { self =>
       reporter.terminateIfError()
     }
 
-  def testNegAll(dir: String, recursive: Boolean = false, keepOnly: String => Boolean = _ => true, identifierFilter: Identifier => Boolean = _ => true): Unit =
-    testAll(dir, recursive, keepOnly, identifierFilter) { (analysis, reporter, _) =>
+  def testNegAll(dir: String, structure: Seq[xt.UnitDef], programSymbols: xt.Symbols, identifierFilter: Identifier => Boolean = _ => true): Unit =
+    testAll(dir, structure, programSymbols, identifierFilter) { (analysis, reporter, _) =>
       val report = analysis.toReport
       assert(report.totalInvalid > 0, "There should be at least one invalid verification condition. " + report.stats)
     }
 
-  def testUncheckedAll(dir: String, recursive: Boolean = false, keepOnly: String => Boolean = _ => true, identifierFilter: Identifier => Boolean = _ => true): Unit =
-    testAll(dir, recursive, keepOnly, identifierFilter) { (analysis, reporter, _) =>
+  def testUncheckedAll(dir: String, structure: Seq[xt.UnitDef], programSymbols: xt.Symbols, identifierFilter: Identifier => Boolean = _ => true): Unit =
+    testAll(dir, structure, programSymbols, identifierFilter) { (analysis, reporter, _) =>
       val report = analysis.toReport
       assert(report.totalInvalid > 0 || report.totalUnknown > 0,
         "There should be at least one invalid/unknown verification condition.")

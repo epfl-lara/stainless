@@ -4,6 +4,8 @@ package stainless
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
+import org.scalatest.time.Span
+import org.scalatest.FixedThreadPoolParallelExecution
 
 import stainless.utils.YesNoOnly
 
@@ -11,7 +13,22 @@ import extraction.ExtractionSummary
 import extraction.xlang.{ TreeSanitizer, trees => xt }
 import extraction.utils.DebugSymbols
 
-trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with InputUtils { self =>
+// Note: this class extends FixedThreadPoolParallelExecution which extends ParallelTestExecution.
+// When extending ParallelTestExecution, scalatest will create a new instance for each parallel test,
+// running the class init code many times.
+// Therefore, to avoid duplicating work, one should instead load the program (with loadPrograms)
+// in the companion object and save it to a lazy val, and then call testAll with the program symbols
+// (or other relevant functions). See for instance ImperativeSuite.
+//
+// When a custom logic is necessary without involving testAll, care must be again taken to not
+// run "heavy work" in the test class itself but rather in its companion object, saved in a lazy val.
+// See for instance EvaluatorComponentTest.
+trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with InputUtils with FixedThreadPoolParallelExecution { self =>
+
+  override def threadPoolSize: Int =
+    scala.sys.props.get("testcase-parallelism").flatMap(_.toIntOption).getOrElse(1)
+
+  override protected def sortingTimeout: Span = Span.Max
 
   val component: Component
 
@@ -20,6 +37,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
       inox.optSelectedSolvers(Set("smt-z3")),
       inox.optTimeout(300.seconds),
       verification.optStrictArithmetic(false),
+      frontend.optBatchedProgram(true),
       termination.optInferMeasures(false),
       termination.optCheckMeasures(YesNoOnly.No),
     )
@@ -35,84 +53,14 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
 
   protected def filter(ctx: inox.Context, name: String): FilterStatus = Test
 
-  // Note: Scala files that are not kept will not even be loaded and extracted.
-  def testAll(dir: String, recursive: Boolean = false, keepOnly: String => Boolean = _ => true, identifierFilter: Identifier => Boolean = _ => true)(block: (component.Analysis, inox.Reporter, xt.UnitDef) => Unit): Unit = {
-    require(dir != null, "Function testAll must be called with a non-null directory string")
-    val fs = resourceFiles(dir, f => f.endsWith(".scala") && keepOnly(f), recursive).toList
-
-    // Toggle this variable if you need to debug one specific test.
-    // You might also want to run `it:testOnly *<some test suite>* -- -z "<some test filter>"`.
-    val DEBUG = false
-
-    if (DEBUG) {
-      for {
-        file <- fs.sortBy(_.getPath)
-        path = file.getPath
-        name = file.getName stripSuffix ".scala"
-      } test(s"$dir/$name", ctx => filter(ctx, s"$dir/$name")) { ctx ?=>
-        val (structure, program) = loadFiles(Seq(path))
-        assert(ctx.reporter.errorCount == 0, "There should be no error while loading the files")
-        assert((structure count { _.isMain }) == 1, "Expecting only one main unit")
-
-        val userFiltering = new DebugSymbols {
-          val name = "UserFiltering"
-          val context = ctx
-          val s: xt.type = xt
-          val t: xt.type = xt
-        }
-
-        val programSymbols = userFiltering.debugWithoutSummary(frontend.UserFiltering().transform)(program.symbols)._1
-        programSymbols.ensureWellFormed
-        val errors = TreeSanitizer(xt).enforce(programSymbols)
-        if (!errors.isEmpty) {
-          ctx.reporter.fatalError("There were errors in TreeSanitizer")
-        }
-
-        val run = component.run(extraction.pipeline)
-
-        val exProgram = inox.Program(run.trees)(run.extract(programSymbols)._1)
-        exProgram.symbols.ensureWellFormed
-        assert(ctx.reporter.errorCount == 0, "There were errors during extraction")
-
-        val unit = structure.find(_.isMain).get
-        assert(unit.id.name == name, "Expecting compilation unit to have same name as source file")
-
-        val defs = inox.utils.fixpoint { (defs: Set[Identifier]) =>
-          def derived(flags: Seq[run.trees.Flag]): Boolean =
-            (defs & flags.collect { case run.trees.Derived(Some(id)) => id }.toSet).nonEmpty ||
-            flags.contains(run.trees.Derived(None))
-
-          defs ++
-          exProgram.symbols.functions.values.filter(fd => derived(fd.flags)).map(_.id) ++
-          exProgram.symbols.sorts.values.filter(sort => derived(sort.flags)).map(_.id)
-        } (unit.allFunctions(using program.symbols).toSet ++ unit.allClasses)
-
-        val funs = defs.filter(i => exProgram.symbols.functions.contains(i) && identifierFilter(i)).toSeq
-
-        val report = Await.result(run.execute(funs, exProgram.symbols, ExtractionSummary.NoSummary), Duration.Inf)
-        block(report, ctx.reporter, unit)
-      }
-    } else {
-      val ctx: inox.Context = inox.TestContext.empty
-      import ctx.given
-      val (structure, program) = loadFiles(fs.map(_.getPath))
-      assert(ctx.reporter.errorCount == 0, "There should be no error while loading the files")
-
-      val userFiltering = new DebugSymbols {
-        val name = "UserFiltering"
-        val context = ctx
-        val s: xt.type = xt
-        val t: xt.type = xt
-      }
-
-      val programSymbols = userFiltering.debugWithoutSummary(frontend.UserFiltering().transform)(program.symbols)._1
-      programSymbols.ensureWellFormed
-
-      for {
-        unit <- structure
-        if unit.isMain
-        name = unit.id.name
-      } test(s"$dir/$name", ctx => filter(ctx, s"$dir/$name")) { ctx ?=>
+  def testAll(dir: String, structure: Seq[xt.UnitDef], programSymbols: xt.Symbols, identifierFilter: Identifier => Boolean = _ => true)
+              (block: (component.Analysis, inox.Reporter, xt.UnitDef) => Unit): Unit = {
+    for {
+      unit <- structure
+      if unit.isMain
+      name = unit.id.name
+    } {
+      test(s"$dir/$name", ctx => filter(ctx, s"$dir/$name")) { ctx ?=>
         val defs = (unit.allFunctions(using programSymbols).toSet ++ unit.allClasses).filter(identifierFilter)
 
         val deps = defs.flatMap(id => programSymbols.dependencies(id) + id)
@@ -129,16 +77,38 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
         val funs = inox.utils.fixpoint { (defs: Set[Identifier]) =>
           def derived(flags: Seq[run.trees.Flag]): Boolean =
             (defs & flags.collect { case run.trees.Derived(Some(id)) => id }.toSet).nonEmpty ||
-            flags.contains(run.trees.Derived(None))
+              flags.contains(run.trees.Derived(None))
 
           defs ++
-          exSymbols.functions.values.filter(fd => derived(fd.flags)).map(_.id) ++
-          exSymbols.sorts.values.filter(sort => derived(sort.flags)).map(_.id)
+            exSymbols.functions.values.filter(fd => derived(fd.flags)).map(_.id) ++
+            exSymbols.sorts.values.filter(sort => derived(sort.flags)).map(_.id)
         } (defs).toSeq.filter(exSymbols.functions contains _)
 
-        val report = Await.result(run.execute(funs, exSymbols, ExtractionSummary.NoSummary),Duration.Inf)
+        val report = Await.result(run.execute(funs, exSymbols, ExtractionSummary.NoSummary), Duration.Inf)
         block(report, ctx.reporter, unit)
       }
     }
+  }
+}
+object ComponentTestSuite extends inox.ResourceUtils with InputUtils {
+  // Note: Scala files that are not kept will not even be loaded and extracted.
+  def loadPrograms(dir: String, recursive: Boolean = false, keepOnly: String => Boolean = _ => true): (Seq[xt.UnitDef], xt.Symbols) = {
+    val fs = resourceFiles(dir, f => f.endsWith(".scala") && keepOnly(f), recursive).toList
+    val ctx: inox.Context = inox.TestContext.empty
+    import ctx.given
+
+    val (structure, program) = loadFiles(fs.map(_.getPath))
+    assert(ctx.reporter.errorCount == 0, "There should be no error while loading the files")
+
+    val userFiltering = new DebugSymbols {
+      val name = "UserFiltering"
+      val context = ctx
+      val s: xt.type = xt
+      val t: xt.type = xt
+    }
+
+    val programSymbols = userFiltering.debugWithoutSummary(frontend.UserFiltering().transform)(program.symbols)._1
+    programSymbols.ensureWellFormed
+    (structure, programSymbols)
   }
 }
