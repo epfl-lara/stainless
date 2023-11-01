@@ -24,17 +24,19 @@ class GhostAccessRewriter(afterPhase: String) extends PluginPhase { self =>
   // However, the MacroTransform class is better suited for our needs.
   // Because PluginPhase extends MiniPhase (which is a class) and that MacroTransform is a class, we can't extend
   // both. So we use composition instead of inheritance to achieve our goal.
+  private class GhostAccessMacroTransform(using override val dottyCtx: DottyContext) extends MacroTransform with ASTExtractors {
+    import StructuralExtractors._
+    import AuxiliaryExtractors._
 
-  private class GhostAccessMacroTransform extends MacroTransform {
+    private val ghostAnnotation = Symbols.requiredClass("stainless.annotation.ghost")
+    private val ghostFun = Symbols.requiredMethod("stainless.lang.ghost")
+
     override val phaseName = self.phaseName
     override val runsAfter = self.runsAfter
 
     override protected def newTransformer(using DottyContext): Transformer = new GhostRewriteTransformer
 
     private class GhostRewriteTransformer(using DottyContext) extends Transformer {
-      private val StainlessLangPackage = Symbols.requiredPackage("stainless.lang")
-      private val ghostAnnotation = Symbols.requiredClass("stainless.annotation.ghost")
-      private val ghostFun = StainlessLangPackage.info.decl(Names.termName("ghost")).alternatives.toSet
 
       /**
         * Is this symbol @ghost, or enclosed inside a ghost definition?
@@ -80,8 +82,22 @@ class GhostAccessRewriter(afterPhase: String) extends PluginPhase { self =>
         case vd@ValDef(name, tpt, _) if effectivelyGhost(tree.symbol) =>
           cpy.ValDef(tree)(name, tpt, mkZero(vd.rhs.tpe))
 
-        case Apply(fun, args) if effectivelyGhost(fun.symbol) || ghostFun(fun.symbol) =>
+        case Apply(fun, args) if effectivelyGhost(fun.symbol) || fun.symbol == ghostFun =>
           mkZero(tree.tpe)
+
+        case ExRequiredExpression(_, true) => tpd.Literal(Constant(()))
+        case ExDecreasesExpression(_) => tpd.Literal(Constant(()))
+        case ExAssertExpression(_, _, true) => tpd.Literal(Constant(()))
+        case ExEnsuredExpression(body, _, true) =>
+          transform(body) match {
+            case Apply(ExSymbol("stainless", "lang", "StaticChecks$", "Ensuring"), Seq(unwrapped)) => unwrapped
+            case body => body
+          }
+
+        case ExWhile.WithInvariant(_, body) => transform(body)
+        case ExWhile.WithWeakInvariant(_, body) => transform(body)
+        case ExWhile.WithInline(body) => transform(body)
+        case ExWhile.WithOpaque(body) => transform(body)
 
         case f@Apply(fun, args) =>
           val fun1 = super.transform(fun)
@@ -102,6 +118,19 @@ class GhostAccessRewriter(afterPhase: String) extends PluginPhase { self =>
 
         case Assign(lhs, rhs) if effectivelyGhost(lhs.symbol) =>
           cpy.Assign(tree)(lhs, mkZero(rhs.tpe))
+
+        case Block(stats, last) =>
+          val recStats = transform(stats).filter {
+            case tpd.Literal(_) => false
+            case _ => true
+          }
+          val recLast = transform(last)
+          // Transform `val v = e; v` into `e` to allow for tail recursion elimination
+          (recStats.lastOption, recLast) match {
+            case (Some(vd @ ValDef(_, _, _)), iden @ (Ident(_) | Typed(Ident(_), _))) if iden.symbol == vd.symbol =>
+              cpy.Block(tree)(recStats.init, vd.rhs)
+            case _ => cpy.Block(tree)(recStats, recLast)
+          }
 
         case _ => super.transform(tree)
       }
