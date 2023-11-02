@@ -81,6 +81,9 @@ trait GhostChecker { self: EffectsAnalyzer =>
       case FieldAssignment(_, _, _) => false
       case Block(_, e) => isGhostExpression(e)
 
+      // Invariants on `while` are allowed to be ghost
+      case While(cond, body, _, _, flags) => flags.contains(Ghost) || isGhostExpression(cond) || isGhostExpression(body)
+
       case Operator(es, _) => es.exists(isGhostExpression)
     }
 
