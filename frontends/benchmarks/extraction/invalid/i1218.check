@@ -1,3 +1,10 @@
 [ Error  ] i1218.scala:6:16: Illegal aliasing: arr.updated(1, B(42))
+[ Error  ] Hint: this error occurs due to:
+[ Error  ]   -the type of arr2 (Array[B]) being mutable
+[ Error  ]   -the definition of arr2 not being fresh
+[ Error  ]   -the definition of arr2 containing variables of mutable types
+[ Error  ]   that also appear after the declaration of arr2:
+[ Error  ]     -arr (of type Array[B])
+[ Error  ]
                val arr2 = arr.updated(1, B(42))
                           ^^^^^^^^^^^^^^^^^^^^^

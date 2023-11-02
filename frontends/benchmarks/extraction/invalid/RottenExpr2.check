@@ -1,0 +1,11 @@
+[ Error  ] RottenExpr2.scala:23:19: Illegal aliasing: Trout(c11, c12)
+[ Error  ] Hint: this error occurs due to:
+[ Error  ]   -the type of f (Fish) being mutable
+[ Error  ]   -the definition of f not being fresh
+[ Error  ]   -the definition of f containing variables of mutable types
+[ Error  ]   that also appear after the declaration of f:
+[ Error  ]     -c11 (of type C1)
+[ Error  ]     -c12 (of type C1)
+[ Error  ]
+               val f: Fish = Trout(c11, c12)
+                             ^^^^^^^^^^^^^^^

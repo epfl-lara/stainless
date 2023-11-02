@@ -698,8 +698,9 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       case Old(_) => true
 
       case fi @ FunctionInvocation(id, _, _) if !symbols.isRecursive(id) =>
-        BodyWithSpecs(symbols.simplifyLets(fi.inlined))
-          .bodyOpt
+        val specced = BodyWithSpecs(symbols.simplifyLets(fi.inlined))
+        specced.bodyOpt
+          .map(specced.wrapLets)
           .forall(isExpressionFresh)
 
       // other function invocations always return a fresh expression, by hypothesis (global assumption)
@@ -719,7 +720,9 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       // For `Let`, it is safe to add `vd` as a fresh binding because we disallow
       // `FieldAssignments` with non-fresh expressions in `EffetsChecker.check(fd: FunAbstraction)`.
       // See discussion on: https://github.com/epfl-lara/stainless/pull/985#discussion_r614583479
-      case Let(vd, e, b) => rec(e, bindings) && rec(b, bindings + vd)
+      case Let(vd, e, b) =>
+        val eFresh = rec(e, bindings)
+        rec(b, if (eFresh) bindings + vd else bindings)
 
       // A `LetVar` can be fresh if `vd` is only assigned fresh values both
       // here and in all subsequent Assign statements.
@@ -736,7 +739,12 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       case Block(_, e) => rec(e, bindings)
 
       case IfExpr(_, e1, e2) => rec(e1, bindings) && rec(e2, bindings)
-      case MatchExpr(_, cases) => cases.forall(cse => rec(cse.rhs, bindings))
+      case MatchExpr(scrut, cases) =>
+        val scrutFresh = rec(scrut, bindings)
+        cases.forall {  cse =>
+          val extraBdgs = if (scrutFresh) cse.pattern.binders else Set.empty
+          rec(cse.rhs, bindings ++ extraBdgs)
+        }
 
       //any other expression is conservatively assumed to be non-fresh if
       //any sub-expression is non-fresh

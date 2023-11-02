@@ -1,3 +1,10 @@
 [ Error  ] IllegalAliasing.scala:9:13: Illegal aliasing: Mut[S](a)
+[ Error  ] Hint: this error occurs due to:
+[ Error  ]   -the type of b (Mut[S]) being mutable
+[ Error  ]   -the definition of b not being fresh
+[ Error  ]   -the definition of b containing variables of mutable types
+[ Error  ]   that also appear after the declaration of b:
+[ Error  ]     -a (of type S)
+[ Error  ]
                val b = Mut(a)
                        ^^^^^^

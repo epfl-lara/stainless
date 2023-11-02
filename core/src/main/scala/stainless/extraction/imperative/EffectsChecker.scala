@@ -104,16 +104,24 @@ trait EffectsChecker { self: EffectsAnalyzer =>
 
         override def traverse(e: Expr): Unit = e match {
           case l @ Let(vd, e, b) =>
-            if (
-              (variablesOf(e) & variablesOf(b)).exists(v => isMutableType(v.tpe)) &&
-              !isExpressionFresh(e) &&
-              isMutableType(vd.tpe)
-            ) try {
-              // Check if precise targets can be computed
-              getAllTargets(e)
-            } catch {
-              case _: MalformedStainlessCode =>
-                throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
+            lazy val commonVars = (variablesOf(e) & variablesOf(b)).filter(v => isMutableType(v.tpe))
+            if (isMutableType(vd.tpe) && commonVars.nonEmpty && !isExpressionFresh(e)) {
+              try {
+                // Check if precise targets can be computed
+                getAllTargets(e)
+              } catch {
+                case _: MalformedStainlessCode =>
+                  val msg =
+                    s"""Illegal aliasing: $e
+                       |Hint: this error occurs due to:
+                       |  -the type of ${vd.id} (${vd.tpe}) being mutable
+                       |  -the definition of ${vd.id} not being fresh
+                       |  -the definition of ${vd.id} containing variables of mutable types
+                       |  that also appear after the declaration of ${vd.id}:
+                       |    ${commonVars.toSeq.sortBy(_.id).map(v => s"-${v.id} (of type ${v.tpe})").mkString("", "\n    ", "")}
+                       |""".stripMargin
+                  throw ImperativeEliminationException(e, msg)
+              }
             }
 
             super.traverse(l)
@@ -126,25 +134,26 @@ trait EffectsChecker { self: EffectsAnalyzer =>
 
           case au @ ArrayUpdate(a, i, e) =>
             if (isMutableType(e.getType) && !isExpressionFresh(e))
-              throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
+              throw ImperativeEliminationException(e, s"Cannot update an array whose element type (${e.getType}) is mutable with a non-fresh expression")
 
             super.traverse(au)
 
           case au @ ArrayUpdated(a, i, e) =>
             if (isMutableType(e.getType) && !isExpressionFresh(e))
-              throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
+              throw ImperativeEliminationException(e, s"Cannot update an array whose element type (${e.getType}) is mutable with a non-fresh expression")
 
             super.traverse(au)
 
           case mu @ MapUpdated(m, k, e) =>
             if (isMutableType(e.getType) && !isExpressionFresh(e))
-              throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
+              throw ImperativeEliminationException(e, s"Cannot update a map whose value type (${e.getType}) is mutable with a non-fresh expression")
 
             super.traverse(mu)
 
           case fa @ FieldAssignment(o, sel, e) =>
-            if (isMutableType(fa.getField.get.getType) && !isExpressionFresh(e))
-              throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
+            val fdTpe = fa.getField.get.getType
+            if (isMutableType(fdTpe) && !isExpressionFresh(e))
+              throw ImperativeEliminationException(e, s"Cannot update a field whose type ($fdTpe) is mutable with a non-fresh expression")
 
             super.traverse(fa)
 
@@ -154,7 +163,7 @@ trait EffectsChecker { self: EffectsAnalyzer =>
 
           case l @ Lambda(args, body) =>
             if (isMutableType(body.getType) && !isExpressionFresh(body))
-              throw ImperativeEliminationException(l, "Illegal aliasing in lambda body")
+              throw ImperativeEliminationException(l, s"Cannot create a lambda whose return type (${body.getType}) is mutable and whose body is non-fresh")
             if (effects(body).exists(e => !args.contains(e.receiver.toVal)))
               throw ImperativeEliminationException(l, "Illegal effects in lambda body")
             super.traverse(l)
