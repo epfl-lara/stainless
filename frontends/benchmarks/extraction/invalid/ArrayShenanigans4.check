@@ -1,3 +1,3 @@
-[ Error  ] ArrayShenanigans4.scala:12:31: Illegal aliasing: arr(j)
+[ Error  ] ArrayShenanigans4.scala:12:31: Cannot update an array whose element type (Ref) is mutable with a non-fresh expression
                val arr2 = arr.updated(i, arr(j))
                                          ^^^^^^

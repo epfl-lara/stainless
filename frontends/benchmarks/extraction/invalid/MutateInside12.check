@@ -1,3 +1,10 @@
 [ Error  ] MutateInside12.scala:14:15: Illegal aliasing: Mut[Thing[Int]](thing)
+[ Error  ] Hint: this error occurs due to:
+[ Error  ]   -the type of mut (Mut[Thing[Int]]) being mutable
+[ Error  ]   -the definition of mut not being fresh
+[ Error  ]   -the definition of mut containing variables of mutable types
+[ Error  ]   that also appear after the declaration of mut:
+[ Error  ]     -thing (of type Thing[Int])
+[ Error  ]
                val mut = Mut(thing)
                          ^^^^^^^^^^

@@ -1,3 +1,3 @@
-[ Error  ] BadAliasing2.scala:10:5: Illegal aliasing: a
+[ Error  ] BadAliasing2.scala:10:5: Cannot update an array whose element type (A) is mutable with a non-fresh expression
                a.x = 0
                ^

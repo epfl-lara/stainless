@@ -1,0 +1,3 @@
+[ Error  ] RottenExpr3.scala:11:3: Illegal recursive functions returning non-fresh result
+             def test(c11: C1, x: BigInt): Fish = {
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^...

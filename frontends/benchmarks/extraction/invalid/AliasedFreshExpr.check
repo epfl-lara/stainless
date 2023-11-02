@@ -1,0 +1,3 @@
+[ Error  ] AliasedFreshExpr.scala:14:5: Illegal passing of aliased parameters c1 (with target: Target(c1, None, )) and c1 (with target: Target(c1, None, ))
+               Trout(c1, c1)
+               ^^^^^^^^^^^^^
