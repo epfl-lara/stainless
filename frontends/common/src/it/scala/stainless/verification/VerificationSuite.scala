@@ -8,7 +8,7 @@ import scala.concurrent.duration._
 import org.scalatest._
 
 class VerificationSuite extends VerificationComponentTestSuite {
-  private val solvers = Seq("smt-z3", "smt-cvc4", "smt-cvc5", "princess")
+  private val solvers = Seq("smt-z3", "smt-cvc5", "princess")
 
   private val ignoreCommon = Set(
     // Hangs

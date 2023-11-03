@@ -1,6 +1,6 @@
-[ Error  ] TraitVar1.scala:13:3: Abstract values `prop` must be overridden with fields in concrete subclass
+[ Error  ] TraitVar1.scala:13:14: Abstract values `prop` must be overridden with fields in concrete subclass
              case class Bar(var stuff: BigInt) extends Foo {
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^...
-[ Error  ] TraitVar1.scala:15:5: Cannot override a `var` accessor with a non-accessor method.
+                        ^^^
+[ Error  ] TraitVar1.scala:15:9: Cannot override a `var` accessor with a non-accessor method.
                def prop_=(y: BigInt): Unit = {
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^...
+                   ^^^^^^

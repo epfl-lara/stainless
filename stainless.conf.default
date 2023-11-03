@@ -2,9 +2,9 @@
 # options listed by `stainless --help`
 
 vc-cache     = true
-debug        = ["verification"]
 timeout      = 30
 check-models = true
 print-ids    = false
 print-types  = false
 batched      = true
+solvers      = "smt-z3,smt-cvc5"

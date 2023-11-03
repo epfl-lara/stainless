@@ -19,7 +19,7 @@ Stainless bundles Scala compiler front-end and runs it before it starts compilat
 Use Standalone Release (recommended)
 ------------------------------------
 
-1. Download the latest Stainless release from the `Releases page on GitHub <https://github.com/epfl-lara/stainless/releases>`_, under the **Assets** section. Make sure to pick the appropriate ZIP for your operating system. This release is bundled with Z3 4.8.14.
+1. Download the latest Stainless release from the `Releases page on GitHub <https://github.com/epfl-lara/stainless/releases>`_, under the **Assets** section. Make sure to pick the appropriate ZIP for your operating system. This release is bundled with Z3 4.12.2 and cvc5 1.0.8.
 
 2. Unzip the the file you just downloaded to a directory.
 
@@ -45,7 +45,7 @@ Use Standalone Release (recommended)
 
 .. code-block:: bash
 
-  $ /path/to/unzipped/directory/stainless.sh HelloStainless.scala
+  $ /path/to/unzipped/directory/stainless HelloStainless.scala
 
 6. The output should read:
 
@@ -192,27 +192,27 @@ where ``X.Y.Z`` is the Stainless version and ``A-BCDEFGHI`` is some hash (which 
 External Solver Binaries
 ------------------------
 
-If no external SMT solvers (such as Z3 or CVC4) are found, Stainless will use the bundled Scala-based `Princess solver <http://www.philipp.ruemmer.org/princess.shtml>`_
+If no external SMT solvers (such as Z3 or cvc5) are found, Stainless will use the bundled Scala-based `Princess solver <http://www.philipp.ruemmer.org/princess.shtml>`_
 
 To improve performance, we highly recommend that you install the following two additional external SMT solvers as binaries for your platform:
 
-* CVC4 1.8, http://cvc4.cs.stanford.edu
-* Z3 4.8.14, https://github.com/Z3Prover/z3
+* cvc5 1.0.8, https://cvc5.github.io/
+* Z3 4.12.2, https://github.com/Z3Prover/z3
 
-You can enable these solvers using ``--solvers=smt-z3`` and ``--solvers=smt-cvc4`` flags.
+You can enable these solvers using ``--solvers=smt-z3`` and ``--solvers=smt-cvc5`` flags.
 
-Solver binaries that you install should match your operating system and your architecture. We recommend that you install these solvers as a binary and have their binaries available in the ``$PATH`` (as ``z3`` or ``cvc4``).
+Solver binaries that you install should match your operating system and your architecture. We recommend that you install these solvers as a binary and have their binaries available in the ``$PATH`` (as ``z3`` or ``cvc5``).
 
 Note that somewhat lower version numbers of solvers should work as well and might even have different sets of soundness-related issues.
 
-You can use multiple solvers in portfolio mode, as with the options ``--timeout=15 --solvers=smt-z3,smt-cvc4``, where verification succeeds if at least one of the solvers proves (within the given number of seconds) each the verification conditions. We suggest to order the solvers starting from the one most likely to succeed quickly.
+You can use multiple solvers in portfolio mode, as with the options ``--timeout=15 --solvers=smt-z3,smt-cvc5``, where verification succeeds if at least one of the solvers proves (within the given number of seconds) each the verification conditions. We suggest to order the solvers starting from the one most likely to succeed quickly.
 
 For final verification runs of highly critical software, we recommend that (instead of the portfolio mode) you obtain several solvers and their versions, then try a single solver at a time and ensure that each verification run succeeds (thus applying N-version programming to SMT solver implementations).
 
-Install Z3 4.8.14 (Linux & macOS)
-*********************************
+Install Z3 4.12.2
+*****************
 
-1. Download Z3 4.8.14 from https://github.com/Z3Prover/z3/releases/tag/z3-4.8.14
+1. Download Z3 4.12.2 from https://github.com/Z3Prover/z3/releases/tag/z3-4.12.2
 2. Unzip the downloaded archive
 3. Copy the ``z3`` binary found in the ``bin/`` directory of the inflated archive to a directory in your ``$PATH``, eg., ``/usr/local/bin``.
 4. Make sure ``z3`` can be found, by opening a new terminal window and typing:
@@ -225,44 +225,27 @@ Install Z3 4.8.14 (Linux & macOS)
 
 .. code-block:: text
 
-  Z3 version 4.8.14 - 64 bit`
+  Z3 version 4.12.2 - 64 bit`
 
 
-Install CVC 1.8 (Linux)
-***********************
+Install cvc5 1.0.8
+******************
 
-1. Download CVC4 1.8 from http://cvc4.cs.stanford.edu/downloads/builds/x86_64-linux-opt/ (reachable from https://cvc4.github.io/ )
+1. Download cvc5 1.0.8 from https://github.com/cvc5/cvc5/releases/tag/cvc5-1.0.8 for your platform.
 
-2. Copy or link the downloaded binary under name ``cvc4`` to a directory in your ``$PATH``, eg., ``/usr/local/bin``.
+2. Copy or link the downloaded binary under name ``cvc5`` to a directory in your ``$PATH``, eg., ``/usr/local/bin``.
 
-4. Make sure ``cvc4`` can be found, by opening a new terminal window and typing:
+4. Make sure ``cvc5`` can be found, by opening a new terminal window and typing:
 
 .. code-block:: bash
 
-  $ cvc4 --version | head
+  $ cvc5 --version | head
 
 5. The output should begin with:
 
 .. code-block:: text
 
-  This is CVC4 version 1.8
-
-Install CVC 1.6 (macOS)
-***********************
-
-1. Install `Homebrew <https://brew.sh>`_
-2. Install CVC4 using the Homebrew tap at https://github.com/CVC4/homebrew-cvc4
-3. Make sure ``cvc4`` can be found, by opening a new terminal window and typing:
-
-.. code-block:: bash
-
-  $ cvc4 --version
-
-4. The output should begin with:
-
-.. code-block:: text
-
-  This is CVC4 version 1.6
+  This is cvc5 version 1.0.8
 
 
 Build from Source on Linux & macOS
@@ -273,7 +256,7 @@ in an attempt to be more reproducible and independent from SBT cache and path, t
 
 **Install SBT**
 
-Follow the instructions at http://www.scala-sbt.org/ to install ``sbt`` 1.5.6 (or somewhat later version).
+Follow the instructions at http://www.scala-sbt.org/ to install ``sbt`` 1.7.3 (or somewhat later version).
 
 **Check out sources**
 
@@ -333,7 +316,7 @@ Instead, please use ``sbt stainless-scalac-standalone/assembly`` as follows:
   $ sbt stainless-scalac-standalone/assembly
   // takes about 1 minutes
 
-Running Stainless can then be done with the command: ``java -jar frontends\stainless-dotty-standalone\target\scala-3.0.2\stainless-dotty-standalone-{VERSION}.jar``, where ``VERSION`` denotes Stainless version.
+Running Stainless can then be done with the command: ``java -jar frontends\stainless-dotty-standalone\target\scala-3.3.0\stainless-dotty-standalone-{VERSION}.jar``, where ``VERSION`` denotes Stainless version.
 
 Running Tests
 -------------

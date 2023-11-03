@@ -78,6 +78,7 @@ _canonicalize_file_path() {
 
 BASE_DIR="$( dirname "$( realpath "${BASH_SOURCE[0]}" )" )"
 Z3_DIR="$BASE_DIR/z3"
+CVC5_DIR="$BASE_DIR/cvc5"
 STAINLESS_JAR="$BASE_DIR/lib/{STAINLESS_JAR_BASENAME}"
 SCALAZ3_JAR="$BASE_DIR/lib/{SCALAZ3_JAR_BASENAME}"
 JARS="$STAINLESS_JAR:$SCALAZ3_JAR"
@@ -90,4 +91,4 @@ for JAR in "$STAINLESS_JAR" "$SCALAZ3_JAR"; do
 done
 
 # NOTE: $JAVA_OPTS not quoted, as it may be empty!
-exec env PATH="$Z3_DIR:$PATH" java -cp "$JARS" $JAVA_OPTS stainless.Main "$@"
+exec env PATH="$CVC5_DIR:$Z3_DIR:$PATH" java -cp "$JARS" $JAVA_OPTS stainless.Main "$@"

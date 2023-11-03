@@ -134,11 +134,11 @@ These options are available to all Stainless components:
 
     Native Z3 with z3-templates for unfolding recursive functions (default).
 
-  * ``smt-cvc4``
+  * ``smt-cvc5``
 
-    CVC4 through SMT-LIB. An algorithm within Stainless takes up the unfolding
+    cvc5 through SMT-LIB. An algorithm within Stainless takes up the unfolding
     of recursive functions, handling of lambdas etc. To use this or any
-    of the following CVC4-based solvers, you need to have the ``cvc4``
+    of the following cvc5-based solvers, you need to have the ``cvc5``
     executable in your system path (the latest unstable version is recommended).
 
   * ``smt-z3``
@@ -146,7 +146,7 @@ These options are available to all Stainless components:
     Z3 through SMT-LIB. To use this or the next solver, you need to
     have the ``z3`` executable in your program path (the latest stable version
     is recommended). Inductive reasoning happens on the Stainless side
-    (similarly to ``smt-cvc4``).
+    (similarly to ``smt-cvc5``).
 
   * ``unrollz3``
 
@@ -276,12 +276,12 @@ Unrolling Solver
 
 
 
-CVC4 Solver
+cvc5 Solver
 ***********
 
-* ``--solver:cvc4=<cvc4-opt>``
+* ``--solver:cvc5=<cvc5-opt>``
 
-  Pass extra command-line arguments to CVC4.
+  Pass extra command-line arguments to cvc5.
 
 
 
