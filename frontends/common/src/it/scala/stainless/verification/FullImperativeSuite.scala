@@ -29,6 +29,9 @@ class FullImperativeSuite extends VerificationComponentTestSuite with inox.MainH
     // FIXME(gsps): Works, but flaky on CI?
     case "full-imperative/valid/TreeImmutMapGeneric" => Skip
 
+    // Timeout on z3-4.12.2
+    case "full-imperative/valid/StackSimple" => Skip
+
     case _ => super.filter(ctx, name)
   }
 

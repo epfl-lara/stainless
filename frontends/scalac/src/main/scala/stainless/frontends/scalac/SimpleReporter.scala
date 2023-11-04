@@ -4,7 +4,7 @@ package stainless
 package frontends.scalac
 
 import scala.reflect.internal.Reporter
-import scala.reflect.internal.util.{FakePos, NoPosition, Position, StringOps}
+import scala.reflect.internal.util.{CodeAction, FakePos, NoPosition, Position, StringOps}
 import scala.tools.nsc.Settings
 import scala.tools.nsc.reporters.FilteringReporter
 
@@ -19,7 +19,7 @@ class SimpleReporter(val settings: Settings, reporter: inox.Reporter) extends Fi
     INFO -> 0,
   )
 
-  override def doReport(pos: Position, msg: String, severity: Severity): Unit =
+  override def doReport(pos: Position, msg: String, severity: Severity, actions: List[CodeAction]): Unit =
     printMessage(pos, msg, severity)
 
   override def filter(pos: Position, msg: String, severity: Severity): Int = {
