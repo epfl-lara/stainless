@@ -4,5 +4,19 @@
   ],
   "comparefuns": [
     "AddHorn.add_horn_2"
-  ]
+  ],
+  "outcome": {
+    "equivalent": [
+      {
+        "model": "AddHorn.add_horn_1",
+        "functions": [
+          "AddHorn.add_horn_2"
+        ]
+      }
+    ],
+    "unequivalent": [],
+    "unsafe": [],
+    "timeout": [],
+    "wrong": []
+  }
 }

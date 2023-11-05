@@ -6,5 +6,27 @@
     "IsSorted.isSortedA",
     "IsSorted.isSortedB",
     "IsSorted.isSortedC"
-  ]
+  ],
+  "outcome": {
+    "equivalent": [
+      {
+        "model": "IsSorted.isSortedR",
+        "functions": [
+          "IsSorted.isSortedB"
+        ]
+      },
+      {
+        "model": "IsSorted.isSortedB",
+        "functions": [
+          "IsSorted.isSortedC"
+        ]
+      }
+    ],
+    "unequivalent": [
+      "IsSorted.isSortedA"
+    ],
+    "unsafe": [],
+    "timeout": [],
+    "wrong": []
+  }
 }

@@ -84,7 +84,14 @@ object SymbolMapping {
       sym.fullName.toString.trim.split("\\.")
         .filter(_ != "package$")
         .map(name => if (name.endsWith("$")) name.init else name)
-        .map(name => if (name.startsWith("_$")) name.drop(2) else name)
+        .map { name =>
+          // Strip the _$ introduced for each scope of inner function
+          var nme = name
+          while (nme.startsWith("_$")) {
+            nme = nme.drop(2)
+          }
+          nme
+        }
         .mkString(".")
     }
 }

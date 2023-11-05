@@ -30,8 +30,8 @@ class EquivChkSuite extends ComponentTestSuite {
 
   import EquivChkSuite._
 
-  for ((benchmarkDir, (runs, programSymbols)) <- equivChkkBenchmarkData) {
-    for (Run(num, conf, expected) <- runs) {
+  for (Benchmark(benchmarkDir, runs, programSymbols) <- benchmarkData) {
+    for (Run(num, conf) <- runs) {
       val testName = s"$benchmarkDir${num.map(n => s" (variant $n)").getOrElse("")}"
       test(testName, ctx => filter(ctx, benchmarkDir)) { ctx0 ?=>
         val opts = Seq(
@@ -57,14 +57,14 @@ class EquivChkSuite extends ComponentTestSuite {
         given inox.Context = ctx
         val report = Await.result(component.run(extraction.pipeline).apply(ids, programSymbols2), Duration.Inf)
         val got = extractResults(conf.candidates, report)
-        got shouldEqual expected
+        got shouldEqual conf.results
       }
     }
   }
 
-  private def extractResults(candidates: Set[String], analysis: component.Analysis): EquivResults = {
+  private def extractResults(candidates: Set[String], analysis: component.Analysis): Results = {
     import EquivalenceCheckingReport._
-    analysis.records.foldLeft(EquivResults.empty) {
+    analysis.records.foldLeft(Results.empty) {
       case (acc, record) =>
         val fn = record.id.fullName
         if (candidates(fn)) {
@@ -82,92 +82,48 @@ class EquivChkSuite extends ComponentTestSuite {
     }
   }
 }
-object EquivChkSuite extends inox.ResourceUtils with InputUtils {
+object EquivChkSuite extends ConfigurableTests {
+  override val baseFolder: String = "equivalence"
 
-  private lazy val equivChkkBenchmarkData = getFolders("equivalence").flatMap(benchmark => loadEquivChkBenchmark(s"equivalence/$benchmark").map(benchmark -> _))
+  case class Results(equiv: Map[String, Set[String]],
+                     unequivalent: Set[String],
+                     unsafe: Set[String],
+                     timeout: Set[String],
+                     wrong: Set[String])
 
-  private val testConfPattern = "test_conf(_(\\d+))?.json".r
-  private val expectedOutcomePattern = "expected_outcome(_(\\d+))?.json".r
-
-  private case class EquivResults(equiv: Map[String, Set[String]],
-                                  unequivalent: Set[String],
-                                  unsafe: Set[String],
-                                  timeout: Set[String],
-                                  wrong: Set[String])
-
-  private object EquivResults {
-    def empty: EquivResults =
-      EquivResults(Map.empty, Set.empty, Set.empty, Set.empty, Set.empty)
+  object Results {
+    def empty: Results =
+      Results(Map.empty, Set.empty, Set.empty, Set.empty, Set.empty)
   }
 
-  private case class TestConf(models: Set[String],
-                              candidates: Set[String],
-                              tests: Set[String],
-                              norm: Option[String],
-                              n: Option[Int],
-                              initScore: Option[Int],
-                              maxPerm: Option[Int],
-                              timeout: Option[Duration])
+  case class TestConf(models: Set[String],
+                      candidates: Set[String],
+                      tests: Set[String],
+                      norm: Option[String],
+                      n: Option[Int],
+                      initScore: Option[Int],
+                      maxPerm: Option[Int],
+                      timeout: Option[Duration],
+                      results: Results)
 
-  private case class Run(num: Option[Int], testConf: TestConf, expected: EquivResults)
-
-  private def loadEquivChkBenchmark(benchmarkDir: String): Option[(Seq[Run], xt.Symbols)] = {
-    val files = resourceFiles(benchmarkDir, f => f.endsWith(".scala") || f.endsWith(".conf") || f.endsWith(".json")).sorted
-    if (files.isEmpty) return None // Empty folder -- skip
-
-    val scalaFiles = files.filter(_.getName.endsWith(".scala"))
-
-    val confs = files.flatMap(f => f.getName match {
-      case testConfPattern(_, num) =>
-        val conf = parseTestConf(f)
-        Some(Option(num).map(_.toInt) -> conf)
-      case _ => None
-    }).toMap
-    assert(confs.nonEmpty, s"No test_conf.json found in $benchmarkDir")
-
-    val expectedOutcomes = files.flatMap(f => f.getName match {
-      case expectedOutcomePattern(_, num) =>
-        val outcome = parseExpectedOutcome(f)
-        Some(Option(num).map(_.toInt) -> outcome)
-      case _ => None
-    }).toMap
-    assert(expectedOutcomes.nonEmpty, s"No expected_outcome.json found in $benchmarkDir")
-    assert(confs.keySet == expectedOutcomes.keySet, "Test configuration and expected outcome files do not match")
-
-    val runs = confs.keySet.toSeq.sorted.map(num => Run(num, confs(num), expectedOutcomes(num)))
-
-    /////////////////////////////////////
-
-    val dummyCtx: inox.Context = inox.TestContext.empty
-    import dummyCtx.given
-    val (_, program) = loadFiles(scalaFiles.map(_.getPath))
-    assert(dummyCtx.reporter.errorCount == 0, "There should be no error while loading the files")
-
-    val userFiltering = new DebugSymbols {
-      val name = "UserFiltering"
-      val context = dummyCtx
-      val s: xt.type = xt
-      val t: xt.type = xt
-    }
-
-    val programSymbols = userFiltering.debugWithoutSummary(frontend.UserFiltering().transform)(program.symbols)._1
-    programSymbols.ensureWellFormed
-
-    Some((runs, programSymbols))
-  }
-
-  private def getFolders(dir: String): Seq[String] = {
-    Option(getClass.getResource(s"/$dir")).toSeq.flatMap { dirUrl =>
-      val dirFile = new File(dirUrl.getPath)
-      Option(dirFile.listFiles().toSeq).getOrElse(Seq.empty).filter(_.isDirectory)
-        .map(_.getName)
-    }.sorted
-  }
-
-  private def parseExpectedOutcome(f: File): EquivResults = {
+  override def parseTestConf(f: File): TestConf = {
     val json = JsonUtils.parseFile(f)
     val jsonObj = json.asObject.getOrCry("Expected top-level json to be an object")
+    val models = jsonObj.getStringArrayOrCry("models")
+    val candidates = jsonObj.getStringArrayOrCry("comparefuns")
+    val tests = if (jsonObj.contains("tests")) jsonObj.getStringArrayOrCry("tests") else Seq.empty
+    val norm = jsonObj("norm").map(_.asString.getOrCry("Expected 'norm' to be a string"))
+    val n = jsonObj("n").map(_.asNumber.getOrCry("Expected 'n' to be an int").toInt.getOrCry("'n' is too large"))
+    val initScore = jsonObj("init-score").map(_.asNumber.getOrCry("Expected 'init-score' to be an int").toInt.getOrCry("'init-score' is too large"))
+    val maxPerm = jsonObj("max-perm").map(_.asNumber.getOrCry("Expected 'max-perm' to be an int").toInt.getOrCry("'max-perm' is too large"))
+    val timeout = jsonObj("timeout").map(_.asNumber.getOrCry("Expected 'timeout' to be an double").toDouble)
+    assert(models.nonEmpty, "At least one model must be specified")
+    assert(candidates.nonEmpty, "At least one candidate must be specified")
+    val res = parseExpectedOutcome(jsonObj.getObjectOrCry("outcome"))
+    TestConf(models.toSet, candidates.toSet, tests.toSet, norm, n, initScore, maxPerm, timeout.map(_.seconds), res)
+  }
 
+  private def parseExpectedOutcome(jsonObj: JsonObject): Results = {
     val equivObj = jsonObj("equivalent").getOrCry("Expected 'equivalent' field")
       .asArray.getOrCry("Expected 'equivalent' to be an array")
     val equiv = equivObj.map { elem =>
@@ -181,35 +137,6 @@ object EquivChkSuite extends inox.ResourceUtils with InputUtils {
     val unsafe = jsonObj.getStringArrayOrCry("unsafe").toSet
     val timeout = jsonObj.getStringArrayOrCry("timeout").toSet
     val wrong = jsonObj.getStringArrayOrCry("wrong").toSet
-    EquivResults(equiv, unequivalent, unsafe, timeout, wrong)
-  }
-
-  private def parseTestConf(f: File): TestConf = {
-    val json = JsonUtils.parseFile(f)
-    val jsonObj = json.asObject.getOrCry("Expected top-level json to be an object")
-    val models = jsonObj.getStringArrayOrCry("models")
-    val candidates = jsonObj.getStringArrayOrCry("comparefuns")
-    val tests = if (jsonObj.contains("tests")) jsonObj.getStringArrayOrCry("tests") else Seq.empty
-    val norm = jsonObj("norm").map(_.asString.getOrCry("Expected 'norm' to be a string"))
-    val n = jsonObj("n").map(_.asNumber.getOrCry("Expected 'n' to be an int").toInt.getOrCry("'n' is too large"))
-    val initScore = jsonObj("init-score").map(_.asNumber.getOrCry("Expected 'init-score' to be an int").toInt.getOrCry("'init-score' is too large"))
-    val maxPerm = jsonObj("max-perm").map(_.asNumber.getOrCry("Expected 'max-perm' to be an int").toInt.getOrCry("'max-perm' is too large"))
-    val timeout = jsonObj("timeout").map(_.asNumber.getOrCry("Expected 'timeout' to be an double").toDouble)
-    assert(models.nonEmpty, "At least one model must be specified")
-    assert(candidates.nonEmpty, "At least one candidate must be specified")
-    TestConf(models.toSet, candidates.toSet, tests.toSet, norm, n, initScore, maxPerm, timeout.map(_.seconds))
-  }
-
-  extension[T] (o: Option[T]) {
-    private def getOrCry(msg: String): T = o.getOrElse(throw AssertionError(msg))
-  }
-  extension (id: Identifier) {
-    private def fullName: String = CheckFilter.fixedFullName(id)
-  }
-  extension (jsonObj: JsonObject) {
-    private def getStringArrayOrCry(field: String): Seq[String] =
-      jsonObj(field).getOrCry(s"Expected a '$field' field")
-        .asArray.getOrCry(s"Expected '$field' to be an array of strings")
-        .map(_.asString.getOrCry(s"Expected '$field' array elements to be strings"))
+    Results(equiv, unequivalent, unsafe, timeout, wrong)
   }
 }

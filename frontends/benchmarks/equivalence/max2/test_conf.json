@@ -10,5 +10,24 @@
     "Candidate5.max"
   ],
   "tests": [],
-  "norm": "Model.norm"
+  "norm": "Model.norm",
+  "outcome": {
+    "equivalent": [
+      {
+        "model": "Model.max",
+        "functions": [
+          "Candidate1.max",
+          "Candidate2.max",
+          "Candidate3.max"
+        ]
+      }
+    ],
+    "unequivalent": [
+      "Candidate4.max",
+      "Candidate5.max"
+    ],
+    "unsafe": [],
+    "timeout": [],
+    "wrong": []
+  }
 }

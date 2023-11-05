@@ -5,5 +5,19 @@
   "comparefuns": [
     "Candidate.eval"
   ],
-  "max-perm": 32
+  "max-perm": 32,
+  "outcome": {
+    "equivalent": [
+      {
+        "model": "Model.eval",
+        "functions": [
+          "Candidate.eval"
+        ]
+      }
+    ],
+    "unequivalent": [],
+    "unsafe": [],
+    "timeout": [],
+    "wrong": []
+  }
 }
