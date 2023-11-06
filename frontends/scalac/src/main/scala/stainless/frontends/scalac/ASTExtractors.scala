@@ -20,6 +20,21 @@ trait ASTExtractors {
     rootMirror.getModuleByName(str)
   }
 
+  // Annotations that are propagated to symbols owned by an owner containing these.
+  // Note: we do not necessarily want @opaque/@inlineOnce function to have their inner functions
+  // automatically annotated with @opaque/@inlineOnce, we therefore leave them out
+  private val propagatedAnnotations: Set[String] = Set(
+    "stainless.annotation.ignore",
+    "stainless.annotation.library",
+    "stainless.annotation.extern",
+    "stainless.annotation.dropVCs",
+    "stainless.annotation.pure",
+    "stainless.annotation.wrapping",
+    "stainless.annotation.keep",
+    "stainless.annotation.keepFor",
+    "stainless.annotation.cCode.drop"
+  )
+
   /**
    * Extract the annotations for [[sym]], combined with its owner (unless
    * [[ignoreOwner]] is true).
@@ -37,10 +52,9 @@ trait ASTExtractors {
     val selfs = actualSymbol.annotations
     val owners =
       if (ignoreOwner) Set.empty
-      else actualSymbol.owner.annotations.filter(annot =>
-        annot.toString != "stainless.annotation.export" &&
-        !annot.toString.startsWith("stainless.annotation.cCode.global")
-      )
+      else actualSymbol.ownersIterator.drop(1) // drop(1) to skip `actualSymbol` itself
+        .flatMap(_.annotations.filter(annon => propagatedAnnotations(annon.symbol.fullName)))
+        .toSet
     val companions = if (actualSymbol.isSynthetic) actualSymbol.companionSymbol.annotations else Set.empty
     (for {
       a <- (selfs ++ owners ++ companions)
