@@ -337,14 +337,78 @@ trait EffectsChecker { self: EffectsAnalyzer =>
 
     def checkPurity(fd: FunAbstraction): Unit = {
       val effs = effects(fd.fullBody)
+      val callsToImpure = computeCallsToImpure(fd)
+      checkEnforcedPurity(fd, effs, callsToImpure)
+      checkPureParameters(fd, effs, callsToImpure)
+    }
 
-      if ((fd.flags contains IsPure) && !effs.isEmpty)
-        throw ImperativeEliminationException(fd, s"Functions marked @pure cannot have side-effects")
-
-      effs filter (_.receiver.flags.contains(IsPure)) foreach { eff =>
-        throw ImperativeEliminationException(fd,
-          s"Function `${fd.id.asString}` has effect on @pure parameter `${eff.receiver.asString}`")
+    def checkEnforcedPurity(fd: FunAbstraction, effs: Set[Effect], callsToImpure: Seq[(Identifier, Set[Variable])]): Unit = {
+      val isPure = fd.flags contains IsPure
+      val isInv = fd.flags contains IsInvariant
+      if ((isPure || isInv) && effs.nonEmpty) {
+        val isInv = fd.flags contains IsInvariant
+        val fnName = if (isInv) "the invariant" else fd.id.asString
+        val head = Seq(if (isInv) "Invariants cannot have side-effects" else "Functions marked @pure cannot have side-effects")
+        val externs = callsToImpure.filter { case (id, _) => symbols.getFunction(id).flags contains Extern }.map(_._1).toSet
+        val hint1 = {
+          if (callsToImpure.isEmpty) Seq.empty[String]
+          else Seq(s"Hint: $fnName calls the following impure functions:") ++
+            callsToImpure.map { case (id, _) =>
+              val extra = if (externs(id)) " (an @extern function)" else ""
+              s"  -${id.asString}$extra"
+            }
+        }
+        val hint2 = {
+          if (externs.isEmpty) Seq.empty
+          else Seq("Hint: @extern functions taking mutable types are considered as impure, unless annotated with @pure")
+        }
+        throw ImperativeEliminationException(fd, (head ++ hint1 ++ hint2).mkString("\n"))
       }
+    }
+
+    def checkPureParameters(fd: FunAbstraction, effs: Set[Effect], callsToImpure: Seq[(Identifier, Set[Variable])]): Unit = {
+      val mutatedPure = effs.filter(_.receiver.flags.contains(IsPure))
+        .map(_.receiver).toSeq.sortBy(v => fd.params.indexWhere(_.id == v))
+      if (mutatedPure.nonEmpty) {
+        val head = Seq(s"Function `${fd.id.asString}` has effect on the following @pure parameters:",
+          mutatedPure.map(_.id.asString).mkString("  -", ", ", ""))
+        val externs = callsToImpure.filter { case (id, _) => symbols.getFunction(id).flags contains Extern }.map(_._1).toSet
+        val hint1 = mutatedPure.flatMap { v =>
+          val fns = callsToImpure.filter(_._2(v)).map(_._1)
+          if (fns.isEmpty) Seq.empty
+          else Seq(s"Hint: ${v.id.asString} is modified by the calls to the following functions:") ++
+            fns.map { id =>
+              val extra = if (externs(id)) " (an @extern function)" else ""
+              s"  -${id.asString}$extra"
+            }
+        }
+        val hint2 = {
+          if (externs.isEmpty) Seq.empty
+          else Seq("Hint: @extern functions taking mutable types are considered as impure, unless annotated with @pure")
+        }
+        throw ImperativeEliminationException(fd, (head ++ hint1 ++ hint2).mkString("\n"))
+      }
+    }
+
+    // Collect all impure functions called within `fd`, alongside the
+    // set of parameters of `fd` that are mutated by these calls.
+    // Note that if an impure function is called multiple times,
+    // we merge the set of mutated parameters.
+    def computeCallsToImpure(fd: FunAbstraction): Seq[(Identifier, Set[Variable])] = {
+      exprOps.collect {
+        case FunctionInvocation(id, _, args) =>
+          val invokedFd = symbols.getFunction(id)
+          val effs = effects(invokedFd)
+          if (effs.isEmpty) Set.empty[(Identifier, Set[Variable])]
+          else {
+            // `effs` not only contains parameter variable but also locals, so we filter these out.
+            val ixs = effs.map(eff => invokedFd.params.indexWhere(_.id == eff.receiver.id)).filter(_ >= 0)
+            val affectedParams = ixs.flatMap(ix => exprOps.variablesOf(args(ix)) & fd.params.map(_.toVariable).toSet)
+            Set((id, affectedParams))
+          }
+        case _ => Set.empty[(Identifier, Set[Variable])]
+      }(fd.fullBody).groupMapReduce(_._1)(_._2)(_ ++ _)
+        .toSeq.sortBy(_._1)
     }
 
     try {
