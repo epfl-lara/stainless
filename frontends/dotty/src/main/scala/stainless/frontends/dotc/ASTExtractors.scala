@@ -40,6 +40,21 @@ trait ASTExtractors {
     defn.AnyValType,
   )
 
+  // Annotations that are propagated to symbols owned by an owner containing these.
+  // Note: we do not necessarily want @opaque/@inlineOnce function to have their inner functions
+  // automatically annotated with @opaque/@inlineOnce, we therefore leave them out
+  private val propagatedAnnotations: Set[String] = Set(
+    "stainless.annotation.ignore",
+    "stainless.annotation.library",
+    "stainless.annotation.extern",
+    "stainless.annotation.dropVCs",
+    "stainless.annotation.pure",
+    "stainless.annotation.wrapping",
+    "stainless.annotation.keep",
+    "stainless.annotation.keepFor",
+    "stainless.annotation.cCode.drop"
+  )
+
   def isIgnored(tp: Type): Boolean = ignoredClasses.exists(_ frozen_=:= tp)
 
   def getAnnotations(sym: Symbol, ignoreOwner: Boolean = false): Seq[(String, Seq[tpd.Tree])] = {
@@ -50,10 +65,9 @@ trait ASTExtractors {
     val selfs = sym.annotations
     val owners =
       if (ignoreOwner) List.empty[Annotation]
-      else sym.owner.annotations.filter(annot =>
-        annot.toString != "stainless.annotation.export" &&
-          !annot.toString.startsWith("stainless.annotation.cCode.global")
-      )
+      else sym.ownersIterator.drop(1) // drop(1) to skip `sym` itself
+        .flatMap(_.annotations.filter(annot => propagatedAnnotations(annot.symbol.fullName.toString)))
+        .toList
     val companions = List(sym.denot.companionModule).filter(_ ne NoSymbol).flatMap(_.annotations)
     erased ++ (for {
       a <- selfs ++ owners ++ companions
