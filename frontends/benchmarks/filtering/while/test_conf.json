@@ -1,0 +1,33 @@
+{
+  "toKeep": [
+    "myFunction1",
+    "myFunction2",
+    "myFunction3"
+  ],
+  "expected": [
+    {
+      "fn": "myFunction1",
+      "occurrences": 1
+    },
+    {
+      "fn": "myFunction1While",
+      "occurrences": 1
+    },
+    {
+      "fn": "myFunction2",
+      "occurrences": 1
+    },
+    {
+      "fn": "myFunction2While",
+      "occurrences": 2
+    },
+    {
+      "fn": "myFunction3",
+      "occurrences": 1
+    },
+    {
+      "fn": "myFunction3While",
+      "occurrences": 2
+    }
+  ]
+}

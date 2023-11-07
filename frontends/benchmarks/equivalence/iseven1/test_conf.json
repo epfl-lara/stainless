@@ -4,5 +4,19 @@
   ],
   "comparefuns": [
     "Candidate.isEvenTopLvl"
-  ]
+  ],
+  "outcome": {
+    "equivalent": [
+      {
+        "model": "Model.isEvenTopLvl",
+        "functions": [
+          "Candidate.isEvenTopLvl"
+        ]
+      }
+    ],
+    "unequivalent": [],
+    "unsafe": [],
+    "timeout": [],
+    "wrong": []
+  }
 }

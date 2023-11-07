@@ -1,0 +1,13 @@
+{
+  "toKeep": [
+    "myOuterFun1"
+  ],
+  "expected": [
+    "myOuterFun1",
+    "myInnerFun1_1",
+    "myInnerFun1_2",
+    "myInnerInnerFun1_1",
+    "myInnerInnerFun1_2",
+    "myInnerInnerInnerFun1_1"
+  ]
+}

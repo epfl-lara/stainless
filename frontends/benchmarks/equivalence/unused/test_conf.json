@@ -4,5 +4,19 @@
   ],
   "comparefuns": [
     "FibonacciUnused.t2"
-  ]
+  ],
+  "outcome": {
+    "equivalent": [
+      {
+        "model": "FibonacciUnused.t1",
+        "functions": [
+          "FibonacciUnused.t2"
+        ]
+      }
+    ],
+    "unequivalent": [],
+    "unsafe": [],
+    "timeout": [],
+    "wrong": []
+  }
 }

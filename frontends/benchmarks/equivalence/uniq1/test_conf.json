@@ -4,5 +4,19 @@
   ],
   "comparefuns": [
     "Uniq.uniqA"
-  ]
+  ],
+  "outcome": {
+    "equivalent": [
+      {
+        "model": "Uniq.uniqR",
+        "functions": [
+          "Uniq.uniqA"
+        ]
+      }
+    ],
+    "unequivalent": [],
+    "unsafe": [],
+    "timeout": [],
+    "wrong": []
+  }
 }

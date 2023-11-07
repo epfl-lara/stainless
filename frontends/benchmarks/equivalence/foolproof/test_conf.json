@@ -7,5 +7,19 @@
   ],
   "unequivalent": [],
   "unsafe": [],
-  "tests": []
+  "tests": [],
+  "outcome": {
+    "equivalent": [
+      {
+        "model": "Model.funnyZip",
+        "functions": [
+          "Candidate.funnyZip"
+        ]
+      }
+    ],
+    "unequivalent": [],
+    "unsafe": [],
+    "timeout": [],
+    "wrong": []
+  }
 }

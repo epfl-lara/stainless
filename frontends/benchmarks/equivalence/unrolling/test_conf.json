@@ -4,5 +4,19 @@
   ],
   "comparefuns": [
     "Unrolling.fact13_2"
-  ]
+  ],
+  "outcome": {
+    "equivalent": [
+      {
+        "model": "Unrolling.fact13_1",
+        "functions": [
+          "Unrolling.fact13_2"
+        ]
+      }
+    ],
+    "unequivalent": [],
+    "unsafe": [],
+    "timeout": [],
+    "wrong": []
+  }
 }

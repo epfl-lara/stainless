@@ -6,5 +6,19 @@
     "Candidate.sculpteurDeNuage"
   ],
   "tests": [],
-  "max-perm": 144
+  "max-perm": 144,
+  "outcome": {
+    "equivalent": [
+      {
+        "model": "Model.sculpteurDeNuage",
+        "functions": [
+          "Candidate.sculpteurDeNuage"
+        ]
+      }
+    ],
+    "unequivalent": [],
+    "unsafe": [],
+    "timeout": [],
+    "wrong": []
+  }
 }

@@ -6,5 +6,12 @@
     "Candidate.max"
   ],
   "tests": [],
-  "norm": "Model.norm"
+  "norm": "Model.norm",
+  "outcome": {
+    "equivalent": [],
+    "unequivalent": [],
+    "unsafe": [],
+    "timeout": ["Candidate.max"],
+    "wrong": []
+  }
 }
