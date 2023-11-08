@@ -54,6 +54,7 @@ trait ASTExtractors {
     "stainless.annotation.keepFor",
     "stainless.annotation.cCode.drop"
   )
+  private val ghostAnnot: String = "stainless.annotation.ghost"
 
   def isIgnored(tp: Type): Boolean = ignoredClasses.exists(_ frozen_=:= tp)
 
@@ -66,8 +67,15 @@ trait ASTExtractors {
     val owners =
       if (ignoreOwner) List.empty[Annotation]
       else sym.ownersIterator.drop(1) // drop(1) to skip `sym` itself
-        .flatMap(_.annotations.filter(annot => propagatedAnnotations(annot.symbol.fullName.toString)))
-        .toList
+        .zipWithIndex
+        .flatMap { case (owner, ix) =>
+          owner.annotations.filter { annot =>
+            val annotNme = annot.symbol.fullName.toString
+            // Keep this annotation if is either an annotation to propagate (`propagatedAnnotations`)
+            // or if it's a @ghost that applies to a method whose direct owner is a class (ix == 0 and owner.isClass).
+            propagatedAnnotations(annotNme) || (annotNme == ghostAnnot && ix == 0 && (sym is Method) && owner.isClass)
+          }
+        }.toList
     val companions = List(sym.denot.companionModule).filter(_ ne NoSymbol).flatMap(_.annotations)
     erased ++ (for {
       a <- selfs ++ owners ++ companions

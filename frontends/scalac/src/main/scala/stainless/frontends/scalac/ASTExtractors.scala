@@ -34,6 +34,7 @@ trait ASTExtractors {
     "stainless.annotation.keepFor",
     "stainless.annotation.cCode.drop"
   )
+  private val ghostAnnot: String = "stainless.annotation.ghost"
 
   /**
    * Extract the annotations for [[sym]], combined with its owner (unless
@@ -53,8 +54,15 @@ trait ASTExtractors {
     val owners =
       if (ignoreOwner) Set.empty
       else actualSymbol.ownersIterator.drop(1) // drop(1) to skip `actualSymbol` itself
-        .flatMap(_.annotations.filter(annon => propagatedAnnotations(annon.symbol.fullName)))
-        .toSet
+        .zipWithIndex
+        .flatMap { case (owner, ix) =>
+          owner.annotations.filter { annot =>
+            val annotNme = annot.symbol.fullName
+            // Keep this annotation if is either an annotation to propagate (`propagatedAnnotations`)
+            // or if it's a @ghost that applies to a method whose direct owner is a class (ix == 0 and owner.isClass).
+            propagatedAnnotations(annotNme) || (annotNme == ghostAnnot && ix == 0 && actualSymbol.isMethod && owner.isClass)
+          }
+        }.toSet
     val companions = if (actualSymbol.isSynthetic) actualSymbol.companionSymbol.annotations else Set.empty
     (for {
       a <- (selfs ++ owners ++ companions)
