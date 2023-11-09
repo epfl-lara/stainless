@@ -1,0 +1,6 @@
+[ Error  ] i1474.scala:23:13: Invariants cannot have side-effects
+[ Error  ] Hint: the invariant calls the following impure functions:
+[ Error  ]   -getLast (an @extern function)
+[ Error  ] Hint: @extern functions taking mutable types are considered as impure, unless annotated with @pure
+               require(last == getLast(first))
+                       ^^^^^^^^^^^^^^^^^^^^^^
