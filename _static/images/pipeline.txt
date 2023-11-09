@@ -1,0 +1,73 @@
+# http://sequencediagram.org/
+
+title Stainless Pipeline
+
+actor User
+entity Frontend
+entity Compiler
+control CallBack
+database Registry
+actor Component
+
+parallel
+
+  note over Registry: Use ICG:\n Incremental\n Computational\n Graph
+
+  note over Component: Verification and/or\nTermination;\nRun in threads
+
+  note over CallBack: Verification and/or\nTermination
+
+  note over Compiler: dotc, scalac, ...
+
+parallel off
+
+activate User
+
+User -> Frontend: Update Code;\nRun Frontend
+activate Frontend
+
+Frontend -> Compiler: Run Compiler
+activate Compiler
+
+Compiler --> Compiler: Typecheck
+
+loop for each compilation unit
+
+Compiler -> CallBack: Compilation Unit\n(xlang.Trees)
+activate CallBack
+
+CallBack ->> Registry: Register new\nFunDef & ClassDef
+activate Registry
+Registry ->> Registry: Use ICG to identify\nwhat is ready or\nneed to be recomputed.
+Registry --> CallBack: Option[self-contained\nprogram]
+deactivate Registry
+
+opt solve
+  CallBack -> Component: transform trees, generate VCs, ...
+end opt
+
+deactivate CallBack
+
+end
+
+deactivate Compiler
+
+note over Frontend,Component: The "loop" is executed once more to trigger the verification of\nnon-sealed classes now that all the overridden functions are known.
+
+Frontend -> CallBack: wait for Component's Reports
+Component -> CallBack: Reports...
+Component -> CallBack: Reports...
+Component -> CallBack: Reports...
+CallBack -> Frontend: All Reports
+
+Frontend -> User: Display reports
+deactivate Frontend
+
+parallel
+
+  note over User: under \--watch mode\nthe process restart.
+
+  note over Registry: The Registry's ICG is the center piece that\nenables stainless to verify modified functions\nwhen the code is updated.
+
+parallel off
+
