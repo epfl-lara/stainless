@@ -4,5 +4,19 @@
   ],
   "comparefuns": [
     "Candidate.eval"
-  ]
+  ],
+  "outcome": {
+    "equivalent": [
+      {
+        "model": "Model.eval",
+        "functions": [
+          "Candidate.eval"
+        ]
+      }
+    ],
+    "unequivalent": [],
+    "unsafe": [],
+    "timeout": [],
+    "wrong": []
+  }
 }

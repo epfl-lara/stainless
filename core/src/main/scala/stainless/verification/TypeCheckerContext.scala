@@ -101,6 +101,8 @@ object TypeCheckerContext {
       )
     }
 
+    def withLastPos(e: Expr): TypingContext = setPos(lastPos(e))
+
     def withTypeVariables(vars: Set[TypeParameter])(using opts: PrinterOptions, ctx: inox.Context): TypingContext = {
       checkFreshTypeVariables(vars)
       copy(typeVariables = typeVariables ++ vars).setPos(this)

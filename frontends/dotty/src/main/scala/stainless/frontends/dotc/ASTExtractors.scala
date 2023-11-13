@@ -40,20 +40,42 @@ trait ASTExtractors {
     defn.AnyValType,
   )
 
+  // Annotations that are propagated to symbols owned by an owner containing these.
+  // Note: we do not necessarily want @opaque/@inlineOnce function to have their inner functions
+  // automatically annotated with @opaque/@inlineOnce, we therefore leave them out
+  private val propagatedAnnotations: Set[String] = Set(
+    "stainless.annotation.ignore",
+    "stainless.annotation.library",
+    "stainless.annotation.extern",
+    "stainless.annotation.dropVCs",
+    "stainless.annotation.pure",
+    "stainless.annotation.wrapping",
+    "stainless.annotation.keep",
+    "stainless.annotation.keepFor",
+    "stainless.annotation.cCode.drop"
+  )
+  private val ghostAnnot: String = "stainless.annotation.ghost"
+
   def isIgnored(tp: Type): Boolean = ignoredClasses.exists(_ frozen_=:= tp)
 
   def getAnnotations(sym: Symbol, ignoreOwner: Boolean = false): Seq[(String, Seq[tpd.Tree])] = {
     if (sym eq NoSymbol)
       return Seq.empty
 
-    val erased = if (sym.isEffectivelyErased) Seq(("ghost", Seq.empty[tpd.Tree])) else Seq()
+    val erased = if (sym.isEffectivelyErased && !(sym is Inline)) Seq(("ghost", Seq.empty[tpd.Tree])) else Seq()
     val selfs = sym.annotations
     val owners =
       if (ignoreOwner) List.empty[Annotation]
-      else sym.owner.annotations.filter(annot =>
-        annot.toString != "stainless.annotation.export" &&
-          !annot.toString.startsWith("stainless.annotation.cCode.global")
-      )
+      else sym.ownersIterator.drop(1) // drop(1) to skip `sym` itself
+        .zipWithIndex
+        .flatMap { case (owner, ix) =>
+          owner.annotations.filter { annot =>
+            val annotNme = annot.symbol.fullName.toString
+            // Keep this annotation if is either an annotation to propagate (`propagatedAnnotations`)
+            // or if it's a @ghost that applies to a method whose direct owner is a class (ix == 0 and owner.isClass).
+            propagatedAnnotations(annotNme) || (annotNme == ghostAnnot && ix == 0 && (sym is Method) && owner.isClass)
+          }
+        }.toList
     val companions = List(sym.denot.companionModule).filter(_ ne NoSymbol).flatMap(_.annotations)
     erased ++ (for {
       a <- selfs ++ owners ++ companions

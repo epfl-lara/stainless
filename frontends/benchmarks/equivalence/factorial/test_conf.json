@@ -4,5 +4,19 @@
   ],
   "comparefuns": [
     "Factorial.fact14_2"
-  ]
+  ],
+  "outcome": {
+    "equivalent": [
+      {
+        "model": "Factorial.fact14_1",
+        "functions": [
+          "Factorial.fact14_2"
+        ]
+      }
+    ],
+    "unequivalent": [],
+    "unsafe": [],
+    "timeout": [],
+    "wrong": []
+  }
 }

@@ -1,5 +1,32 @@
 # Release Notes
 
+## Version 0.9.8.2 (2023-11-10)
+
+### Stainless frontend, library and internals
+
+- Add `stainless.lang.Cell` and `stainless.lang.swap`, allowing to swap the content of two `Cells` (#1461)
+- Add support for cvc5 (#1444)
+- Upgrade the Scala 3 frontend to Scala 3.3 (#1442)
+- Upgrade the Scala 2 frontend to Scala 2.13.12 (#1469)
+- Support for `new Array(len)` constructor for primitive types (#1453)
+- Remove ensuring clause in ghost elimination (#1454)
+- Fix while loops being mistakenly considered as ghost (#1467)
+- Fix occasionally incorrect positions (#1447, #1455, #1473, #1477)
+- Enforce purity for class invariants (#1475)
+- Do not treat inline methods or functions as ghost (#1481)
+- Applying some type widening in `ReturnElimination` to avoid triggering `AdtSpecialization` (#1466)
+- Relax freshness condition and improve aliasing error messages (#1468)
+
+### Build
+
+- Upgrade the shipped Z3 version (`smt-z3`) to 4.12.2 (#1469)
+- Add cvc5 1.0.8 to the archive (#1469)
+- Add arm64 build for macOS (#1469)
+- Add the compiled and source code of the Stainless library to the archive, under `lib` (#1469)
+- Add a `stainless-cli` script to invoke scala-cli with the library (#1469)
+- Rename `stainless.sh` to `stainless` (#1469)
+
+
 ## Version 0.9.8.1 (2023-09-21)
 
 ### Stainless frontend, library and internals

@@ -1,0 +1,7 @@
+[ Error  ] Purity4.scala:7:7: Function `test` has effect on the following @pure parameters:
+[ Error  ]   -b2
+[ Error  ] Hint: b2 is modified by the calls to the following functions:
+[ Error  ]   -externFn (an @extern function)
+[ Error  ] Hint: @extern functions taking mutable types are considered as impure, unless annotated with @pure
+             def test(b1: Box, @pure b2: Box): Unit = {
+                 ^^^^

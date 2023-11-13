@@ -222,4 +222,14 @@ object TypeCheckerUtils {
   }
 
   def pred(e: Expr) = Minus(e, IntegerLiteral(1))
+
+  def lastPos(e: Expr): inox.utils.Position = e match {
+    case Assert(_, _, body) => lastPos(body)
+    case Assume(_, body) => lastPos(body)
+    case Require(_, body) => lastPos(body)
+    case Decreases(_, body) => lastPos(body)
+    case Ensuring(body, _) => lastPos(body)
+    case Let(_, _, body) => lastPos(body)
+    case _ => e.getPos
+  }
 }

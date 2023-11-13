@@ -4,5 +4,19 @@
   ],
   "comparefuns": [
     "WhacAFun.flip2"
-  ]
+  ],
+  "outcome": {
+    "equivalent": [
+      {
+        "model": "WhacAFun.flip1",
+        "functions": [
+          "WhacAFun.flip2"
+        ]
+      }
+    ],
+    "unequivalent": [],
+    "unsafe": [],
+    "timeout": [],
+    "wrong": []
+  }
 }

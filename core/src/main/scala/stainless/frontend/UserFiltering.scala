@@ -25,7 +25,15 @@ class UserFiltering private(override val s: xt.type,
     val userIds =
       symbols.classes.values.filterNot(cd => cd.flags.exists(notUserFlag)).map(_.id) ++
       symbols.functions.values.filterNot(fd => fd.flags.exists(notUserFlag)).filter(isInOptions).map(_.id) ++
-      symbols.typeDefs.values.filterNot(td => td.flags.exists(notUserFlag)).map(_.id)
+      symbols.typeDefs.values.filterNot(td => td.flags.exists(notUserFlag)).map(_.id) ++
+      // Also consider (outer) functions for which there is an inner function
+      // that should be kept according to `isInOptions`
+      symbols.functions.values.filter { fd =>
+        xt.exprOps.exists {
+          case LetRec(inners, _) => inners.exists(i => isInOptions(i.id) && i.flags.forall(f => !notUserFlag(f)))
+          case _ => false
+        }(fd.fullBody)
+      }.map(_.id)
 
     val userDependencies = (userIds.flatMap(symbols.dependencies) ++ userIds).toSeq
     val keepGroups = context.options.findOptionOrDefault(optKeep)

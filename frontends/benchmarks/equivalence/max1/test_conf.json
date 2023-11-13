@@ -5,5 +5,25 @@
   "comparefuns": [
     "Max.maxC",
     "Max.maxT"
-  ]
+  ],
+  "outcome": {
+    "equivalent": [
+      {
+        "model": "Max.maxR",
+        "functions": [
+          "Max.maxC"
+        ]
+      },
+      {
+        "model": "Max.maxC",
+        "functions": [
+          "Max.maxT"
+        ]
+      }
+    ],
+    "unequivalent": [],
+    "unsafe": [],
+    "timeout": [],
+    "wrong": []
+  }
 }

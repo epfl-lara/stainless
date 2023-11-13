@@ -4,5 +4,19 @@
   ],
   "comparefuns": [
     "FullAlternation.m2"
-  ]
+  ],
+  "outcome": {
+    "equivalent": [
+      {
+        "model": "FullAlternation.m1",
+        "functions": [
+          "FullAlternation.m2"
+        ]
+      }
+    ],
+    "unequivalent": [],
+    "unsafe": [],
+    "timeout": [],
+    "wrong": []
+  }
 }

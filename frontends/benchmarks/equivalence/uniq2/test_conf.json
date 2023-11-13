@@ -8,5 +8,25 @@
   "comparefuns": [
     "Candidate1.uniq",
     "Candidate2.uniq"
-  ]
+  ],
+  "outcome": {
+    "equivalent": [
+      {
+        "model": "Model.solution_2",
+        "functions": [
+          "Candidate2.uniq"
+        ]
+      },
+      {
+        "model": "Model.solution_3",
+        "functions": [
+          "Candidate1.uniq"
+        ]
+      }
+    ],
+    "unequivalent": [],
+    "unsafe": [],
+    "timeout": [],
+    "wrong": []
+  }
 }

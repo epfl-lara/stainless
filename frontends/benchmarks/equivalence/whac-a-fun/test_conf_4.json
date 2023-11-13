@@ -4,5 +4,19 @@
   ],
   "comparefuns": [
     "WhacAFun.curry2"
-  ]
+  ],
+  "outcome": {
+    "equivalent": [
+      {
+        "model": "WhacAFun.curry1",
+        "functions": [
+          "WhacAFun.curry2"
+        ]
+      }
+    ],
+    "unequivalent": [],
+    "unsafe": [],
+    "timeout": [],
+    "wrong": []
+  }
 }

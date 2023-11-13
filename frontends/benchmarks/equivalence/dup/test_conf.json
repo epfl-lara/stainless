@@ -10,5 +10,25 @@
     "Candidate5.dup"
   ],
   "tests": [],
-  "norm": "Model.norm"
+  "norm": "Model.norm",
+  "outcome": {
+    "equivalent": [
+      {
+        "model": "Model.dup",
+        "functions": [
+          "Candidate1.dup",
+          "Candidate5.dup"
+        ]
+      }
+    ],
+    "unequivalent": [
+      "Candidate2.dup",
+      "Candidate4.dup"
+    ],
+    "unsafe": [],
+    "timeout": [],
+    "wrong": [
+      "Candidate3.dup"
+    ]
+  }
 }

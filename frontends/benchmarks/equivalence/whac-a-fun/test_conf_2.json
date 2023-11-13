@@ -4,5 +4,19 @@
   ],
   "comparefuns": [
     "WhacAFun.compose2"
-  ]
+  ],
+  "outcome": {
+    "equivalent": [
+      {
+        "model": "WhacAFun.compose1",
+        "functions": [
+          "WhacAFun.compose2"
+        ]
+      }
+    ],
+    "unequivalent": [],
+    "unsafe": [],
+    "timeout": [],
+    "wrong": []
+  }
 }
