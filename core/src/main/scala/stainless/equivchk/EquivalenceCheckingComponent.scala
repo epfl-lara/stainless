@@ -242,24 +242,22 @@ class EquivalenceCheckingRun private(override val component: EquivalenceChecking
   }
 
   private def debugPruned(ec: EquivalenceChecker)(pruned: Map[Identifier, ec.PruningReason]): Unit = {
-    def pretty(fn: Identifier, reason: ec.PruningReason): String = {
+    def pretty(fn: Identifier, reason: ec.PruningReason): Seq[String] = {
       val rsonStr = reason match {
-        case ec.PruningReason.SignatureMismatch => "signature mismatch"
+        case ec.PruningReason.SignatureMismatch => Seq("signature mismatch")
         case ec.PruningReason.ByTest(testId, sampleIx, ctex) =>
-          s"""test falsification by ${testId.fullName} sample n°${sampleIx + 1} with ${prettyCtex(ec)(ctex.mapping)}
-             |    Expected: ${ctex.expected} but got: ${ctex.got}""".stripMargin
+          Seq(s"test falsification by ${testId.fullName} sample n°${sampleIx + 1}:") ++ prettyCtex(ec)(ctex).map("  " ++ _) // add 2 indentation
         case ec.PruningReason.ByPreviousCtex(ctex) =>
-          s"""counter-example falsification with ${prettyCtex(ec)(ctex.mapping)}
-             |    Expected: ${ctex.expected} but got: ${ctex.got}""".stripMargin
+          Seq(s"counter-example falsification:") ++ prettyCtex(ec)(ctex).map("  " ++ _)
       }
-      s"${fn.fullName}: $rsonStr"
+      Seq(s"${fn.fullName}:") ++ rsonStr.map("  " ++ _)
     }
 
     if (pruned.nonEmpty) {
       context.reporter.whenDebug(DebugSectionEquivChk) { debug =>
         debug("The following functions were pruned:")
-        val strs = pruned.toSeq.sortBy(_._1).map(pretty.tupled)
-        strs.foreach(s => debug(s"  $s"))
+        val lines = pruned.toSeq.sortBy(_._1).flatMap(pretty.tupled)
+        lines.foreach(s => debug(s"  $s"))
       }
     }
   }
@@ -281,7 +279,7 @@ class EquivalenceCheckingRun private(override val component: EquivalenceChecking
       val msg = classification match {
         case ec.Classification.Valid(model) => s"valid whose direct model is ${model.fullName}"
         case ec.Classification.Invalid(ctexs) =>
-          val ctexStr = ctexs.map(prettyCtex(ec)(_)).map(s => s"  $s").mkString("\n  ")
+          val ctexStr = ctexs.flatMap(prettyCtex(ec)(_)).map(s => s"  $s").mkString("\n  ")
           s"invalid with the following counter-examples:\n  $ctexStr"
         case ec.Classification.Unknown => "unknown"
       }
@@ -320,7 +318,7 @@ class EquivalenceCheckingRun private(override val component: EquivalenceChecking
       info(s"Path for the function ${cand.fullName}: $pathStr")
     }
     res.unequivalent.foreach { case (cand, data) =>
-        val ctexsStr = data.ctexs.map(ctex => ctex.map { case (vd, arg) => s"${vd.id.name} -> $arg" }.mkString(", "))
+        val ctexsStr = data.ctexs.flatMap(prettyCtex(ec)(_))
         info(s"Unequivalence counterexample for the function ${cand.fullName}:")
         ctexsStr.foreach(s => info(s"  $s"))
     }
@@ -343,16 +341,29 @@ class EquivalenceCheckingRun private(override val component: EquivalenceChecking
     }
   }
 
-  private def prettyCtex(ec: EquivalenceChecker)(ctex: Seq[(ec.trees.ValDef, ec.trees.Expr)]): String =
-    ctex.map { case (vd, e) => s"${vd.id.name} -> $e" }.mkString(", ")
+  // This returns a Seq due to being multiline and to allow easier indentation
+  private def prettyCtex(ec: EquivalenceChecker)(ctex: ec.Ctex): Seq[String] = {
+    val args = ctex.mapping.map { case (vd, e) => s"${vd.id.name} -> $e" }.mkString(", ")
+    val eval = ctex.eval.map(ev => Seq(s"Expected ${ev.expected} but got ${ev.got}")).getOrElse(Seq.empty)
+    Seq(args) ++ eval
+  }
 
   private def dumpResultsJson(out: File, ec: EquivalenceChecker)(res: ec.Results): Unit = {
-    def ctexJson(ctex: Seq[(ec.trees.ValDef, ec.trees.Expr)]): Json =
-      Json.fromFields(ctex.map { case (vd, expr) => vd.id.name -> Json.fromString(expr.toString) })
+    def ctexJson(ctex: ec.Ctex): Json = {
+      val args = Json.fromFields(ctex.mapping.map { case (vd, expr) => vd.id.name -> Json.fromString(expr.toString) })
+      Json.fromFields(
+        Seq("args" -> args) ++
+        ctex.eval.map(ev => Seq(
+          "expected" -> Json.fromString(ev.expected.toString),
+          "got" -> Json.fromString(ev.got.toString)
+        )).getOrElse(Seq.empty)
+      )
+    }
+
     def unsafeCtexJson(data: ec.UnsafeCtex): Json = Json.fromFields(Seq(
       "kind" -> Json.fromString(data.kind.name),
       "position" -> Json.fromString(s"${data.pos.line}:${data.pos.col}"),
-      "ctex" -> data.ctex.map(ctexJson).getOrElse(Json.Null)
+      "ctex" -> data.ctex.map(mapping => ctexJson(ec.Ctex(mapping, None))).getOrElse(Json.Null)
     ))
 
     val equivs = res.equiv.map { case (m, l) => m.fullName -> l.map(_.fullName).toSeq.sorted }
