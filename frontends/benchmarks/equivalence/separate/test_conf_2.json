@@ -18,7 +18,8 @@
     ],
     "unequivalent": [],
     "unsafe": [],
-    "timeout": ["Candidate2.separate"],
+    "unknownSafety": [],
+    "unknownEquivalence": ["Candidate2.separate"],
     "wrong": []
   }
 }

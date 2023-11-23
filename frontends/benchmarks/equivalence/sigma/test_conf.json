@@ -10,7 +10,8 @@
     "equivalent": [],
     "unequivalent": [],
     "unsafe": [],
-    "timeout": ["Candidate.sigma"],
+    "unknownSafety": [],
+    "unknownEquivalence": ["Candidate.sigma"],
     "wrong": []
   }
 }

@@ -33,7 +33,8 @@
     "unsafe": [
       "Candidate3.adjacencyBonus"
     ],
-    "timeout": [],
+    "unknownSafety": [],
+    "unknownEquivalence": [],
     "wrong": []
   }
 }

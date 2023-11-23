@@ -24,7 +24,8 @@
       "Candidate4.unfoldingSorted"
     ],
     "unsafe": [],
-    "timeout": [],
+    "unknownSafety": [],
+    "unknownEquivalence": [],
     "wrong": [
       "Candidate2.unfoldingSorted"
     ]

@@ -27,7 +27,8 @@
       "Candidate5.max"
     ],
     "unsafe": [],
-    "timeout": [],
+    "unknownSafety": [],
+    "unknownEquivalence": [],
     "wrong": []
   }
 }

@@ -111,7 +111,8 @@ class EquivalenceChecker(override val trees: Trees,
                      unequivalent: Map[Identifier, UnequivalentData],
                      unsafe: Map[Identifier, UnsafeData],
                      // Candidates that will need to be manually inspected...
-                     unknowns: Map[Identifier, UnknownData],
+                     unknownsEquivalence: Map[Identifier, UnknownEquivalenceData],
+                     unknownsSafety: Map[Identifier, UnknownSafetyData],
                      // Incorrect signature
                      wrongs: Set[Identifier],
                      weights: Map[Identifier, Int])
@@ -121,10 +122,15 @@ class EquivalenceChecker(override val trees: Trees,
   // The list of counter-examples can be empty; the candidate is still invalid but a ctex could not be extracted
   // If the solvingInfo is None, the candidate has been pruned.
   case class UnequivalentData(ctexs: Seq[Ctex], solvingInfo: Option[SolvingInfo])
+
   case class UnsafeData(self: Seq[UnsafeCtex], auxiliaries: Map[Identifier, Seq[UnsafeCtex]])
   case class UnsafeCtex(kind: VCKind, pos: Position, ctex: Option[Seq[(ValDef, Expr)]], solvingInfo: SolvingInfo)
 
-  case class UnknownData(solvingInfo: SolvingInfo)
+  case class UnknownEquivalenceData(solvingInfo: SolvingInfo)
+
+  case class UnknownSafetyData(self: Seq[UnknownSafetyVC], auxiliaries: Map[Identifier, Seq[UnknownSafetyVC]])
+  case class UnknownSafetyVC(kind: VCKind, pos: Position, solvingInfo: SolvingInfo)
+
   // Note: fromCache and trivial are only relevant for valid candidates
   case class SolvingInfo(time: Long, solverName: Option[String], fromCache: Boolean, trivial: Boolean) {
     def withAddedTime(extra: Long): SolvingInfo = copy(time = time + extra)
@@ -132,7 +138,7 @@ class EquivalenceChecker(override val trees: Trees,
 
   def getCurrentResults(): Results = {
     val equiv = clusters.map { case (model, clst) => model -> clst.toSet }.toMap
-    Results(equiv, valid.toMap, unequivalent.toMap, unsafe.toMap, unknowns.toMap, signatureMismatch.toSet, models.toMap)
+    Results(equiv, valid.toMap, unequivalent.toMap, unsafe.toMap, unknownsEquivalence.toMap, unknownsSafety.toMap, signatureMismatch.toSet, models.toMap)
   }
   //endregion
 
@@ -236,7 +242,8 @@ class EquivalenceChecker(override val trees: Trees,
   private val valid = mutable.Map.empty[Identifier, ValidData]
   private val unequivalent = mutable.Map.empty[Identifier, UnequivalentData]
   private val unsafe = mutable.Map.empty[Identifier, UnsafeData]
-  private val unknowns = mutable.LinkedHashMap.empty[Identifier, UnknownData]
+  private val unknownsEquivalence = mutable.LinkedHashMap.empty[Identifier, UnknownEquivalenceData]
+  private val unknownsSafety = mutable.LinkedHashMap.empty[Identifier, UnknownSafetyData]
   private val signatureMismatch = mutable.ArrayBuffer.empty[Identifier]
   private val clusters = mutable.Map.empty[Identifier, mutable.ArrayBuffer[Identifier]]
 
@@ -260,32 +267,36 @@ class EquivalenceChecker(override val trees: Trees,
     val ordCtexs = ctexOrderedArguments(fun, pr)(counterex.vars)
     val fd = symbols.functions(fun)
     val ctexVars = ordCtexs.map(ctex => fd.params.zip(ctex))
-    if (allCandidates.contains(fun)) {
-      remainingCandidates -= fun
-      ordCtexs.foreach(addCtex)
-      val currUnsafeData = unsafe.getOrElse(fun, UnsafeData(Seq.empty, Map.empty))
-      val newUnsafeData = currUnsafeData.copy(self = currUnsafeData.self :+ UnsafeCtex(vc.kind, vc.getPos, ctexVars, extractSolvingInfo(analysis, fun, Seq.empty)))
-      unsafe += fun -> newUnsafeData
-      Some(Set(fun))
-    } else candidatesCallee.get(fun) match {
-      case Some(cands) =>
-        // This means this erroneous `fun` is called by all candidates in `cands`.
-        // Note: we do not add the ctexs with `addCtex`, because counterex corresponds to the signature of `fun` not necessarily `cand`
+    reportHelper(pr)(analysis, vc) {
+      fun =>
+        ordCtexs.foreach(addCtex)
+        val currUnsafeData = unsafe.getOrElse(fun, UnsafeData(Seq.empty, Map.empty))
+        val newUnsafeData = currUnsafeData.copy(self = currUnsafeData.self :+ UnsafeCtex(vc.kind, vc.getPos, ctexVars, extractSolvingInfo(analysis, fun, Seq.empty)))
+        unsafe += fun -> newUnsafeData
+    } { cand =>
+      // Note: we do not add the ctexs with `addCtex`, because counterex corresponds to the signature of `fun` not necessarily `cand`
+      val currUnsafeData = unsafe.getOrElse(cand, UnsafeData(Seq.empty, Map.empty))
+      val currUnsafeCtexs = currUnsafeData.auxiliaries.getOrElse(fun, Seq.empty)
+      val newUnsafeCtexs = currUnsafeCtexs :+ UnsafeCtex(vc.kind, vc.getPos, ctexVars, extractSolvingInfo(analysis, fun, Seq.empty))
+      val newUnsafeData = currUnsafeData.copy(auxiliaries = currUnsafeData.auxiliaries + (fun -> newUnsafeCtexs))
+      unsafe += cand -> newUnsafeData
+    }
+  }
 
-        // `cands` should be of size 1 because a function called by multiple candidates must be either a library fn or
-        // a provided function which are all assumed to be correct.
-        cands.foreach { cand =>
-          remainingCandidates -= cand
-          val currUnsafeData = unsafe.getOrElse(cand, UnsafeData(Seq.empty, Map.empty))
-          val currUnsafeCtexs = currUnsafeData.auxiliaries.getOrElse(fun, Seq.empty)
-          val newUnsafeCtexs = currUnsafeCtexs :+ UnsafeCtex(vc.kind, vc.getPos, ctexVars, extractSolvingInfo(analysis, fun, Seq.empty))
-          val newUnsafeData = currUnsafeData.copy(auxiliaries = currUnsafeData.auxiliaries + (fun -> newUnsafeCtexs))
-          unsafe += cand -> newUnsafeData
-        }
-        Some(cands)
-      case None =>
-        // Nobody knows about this function
-        None
+  def reportUnknown(pr: StainlessProgram)(analysis: VerificationAnalysis, vc: VC[pr.trees.type]): Option[Set[Identifier]] = {
+    val fun = vc.fid
+    reportHelper(pr)(analysis, vc) {
+      fun =>
+        remainingCandidates -= fun
+        val currUnknownData = unknownsSafety.getOrElse(fun, UnknownSafetyData(Seq.empty, Map.empty))
+        val newUnsafeData = currUnknownData.copy(self = currUnknownData.self :+ UnknownSafetyVC(vc.kind, vc.getPos, extractSolvingInfo(analysis, fun, Seq.empty)))
+        unknownsSafety += fun -> newUnsafeData
+    } { cand =>
+      val currUnknownData = unknownsSafety.getOrElse(cand, UnknownSafetyData(Seq.empty, Map.empty))
+      val currUnknownVCs = currUnknownData.auxiliaries.getOrElse(fun, Seq.empty)
+      val newUnknownVCs = currUnknownVCs :+ UnknownSafetyVC(vc.kind, vc.getPos, extractSolvingInfo(analysis, fun, Seq.empty))
+      val newUnknownData = currUnknownData.copy(auxiliaries = currUnknownData.auxiliaries + (fun -> newUnknownVCs))
+      unknownsSafety += cand -> newUnknownData
     }
   }
 
@@ -329,17 +340,17 @@ class EquivalenceChecker(override val trees: Trees,
           NextExamination.NewCandidate(candId, topN.head, strat, pruned.toMap)
         } else {
           // This candidate has been tested with all models, so put it pack into unknowns
-          unknowns += candId -> UnknownData(SolvingInfo(0L, None, false, false))
+          unknownsEquivalence += candId -> UnknownEquivalenceData(SolvingInfo(0L, None, false, false))
           pickNextExamination() match {
             case d@NextExamination.Done(_, _) => d.copy(pruned = pruned.toMap ++ d.pruned)
             case nc@NextExamination.NewCandidate(_, _, _, _) => nc.copy(pruned = pruned.toMap ++ nc.pruned)
           }
         }
       case None =>
-        if (unknowns.nonEmpty && unknowns.size < nbExaminedCandidates) {
-          nbExaminedCandidates = unknowns.size
-          remainingCandidates ++= unknowns.keys
-          unknowns.clear()
+        if (unknownsEquivalence.nonEmpty && unknownsEquivalence.size < nbExaminedCandidates) {
+          nbExaminedCandidates = unknownsEquivalence.size
+          remainingCandidates ++= unknownsEquivalence.keys
+          unknownsEquivalence.clear()
           pickNextExamination() match {
             case d@NextExamination.Done(_, _) => d.copy(pruned = pruned.toMap ++ d.pruned)
             case nc@NextExamination.NewCandidate(_, _, _, _) => nc.copy(pruned = pruned.toMap ++ nc.pruned)
@@ -447,7 +458,7 @@ class EquivalenceChecker(override val trees: Trees,
         } else {
           // oh no, manual inspection incoming
           examinationState = ExaminationState.PickNext
-          unknowns += cand -> UnknownData(solvingInfo.withAddedTime(currCumulativeSolvingTime))
+          unknownsEquivalence += cand -> UnknownEquivalenceData(solvingInfo.withAddedTime(currCumulativeSolvingTime))
           RoundConclusion.CandidateClassified(cand, Classification.Unknown, invalidPairs)
         }
       }
@@ -911,6 +922,35 @@ class EquivalenceChecker(override val trees: Trees,
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   //region Miscellaneous
+
+  private def reportHelper(pr: StainlessProgram)
+                          (analysis: VerificationAnalysis, vc: VC[pr.trees.type])
+                          // Operations to perform if the function in question is the function checked
+                          // for equivalence (i.e. one that is passed to --comparefuns)
+                          (onMainFault: Identifier => Unit)
+                          // Operations to perform if the function in question is a function
+                          // called by the function checked for equivalence
+                          (onAuxiliaryFault: Identifier => Unit): Option[Set[Identifier]] = {
+    val fun = vc.fid
+    if (allCandidates.contains(fun)) {
+      remainingCandidates -= fun
+      onMainFault(fun)
+      Some(Set(fun))
+    } else candidatesCallee.get(fun) match {
+      case Some(cands) =>
+        // This means this erroneous or safety-unknown `fun` is called by all candidates in `cands`.
+        // `cands` should be of size 1 because a function called by multiple candidates must be either a library fn or
+        // a provided function which are all assumed to be correct.
+        cands.foreach { cand =>
+          remainingCandidates -= cand
+          onAuxiliaryFault(cand)
+        }
+        Some(cands)
+      case None =>
+        // Nobody knows about this function
+        None
+    }
+  }
 
   // Note: expects the ctex to have type parameter substituted with integer literals (as it is done in ctexOrderedArguments).
   private def addCtex(ctex: Seq[Expr]): Unit = {

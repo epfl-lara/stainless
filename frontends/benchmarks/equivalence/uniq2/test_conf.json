@@ -26,7 +26,8 @@
     ],
     "unequivalent": [],
     "unsafe": [],
-    "timeout": [],
+    "unknownSafety": [],
+    "unknownEquivalence": [],
     "wrong": []
   }
 }

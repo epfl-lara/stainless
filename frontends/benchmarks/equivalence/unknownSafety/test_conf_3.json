@@ -1,18 +1,19 @@
 {
   "models": [
-    "Model.max"
+    "Model.isSorted"
   ],
   "comparefuns": [
-    "Candidate.max"
+    "Candidate.isSorted"
   ],
   "tests": [],
-  "norm": "Model.norm",
   "outcome": {
     "equivalent": [],
     "unequivalent": [],
     "unsafe": [],
-    "unknownSafety": [],
-    "unknownEquivalence": ["Candidate.max"],
+    "unknownSafety": [
+      "Candidate.isSorted"
+    ],
+    "unknownEquivalence": [],
     "wrong": []
   }
 }
