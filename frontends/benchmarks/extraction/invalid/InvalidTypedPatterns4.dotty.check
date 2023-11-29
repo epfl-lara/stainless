@@ -1,0 +1,3 @@
+[ Error  ] InvalidTypedPatterns4.scala:5:31: Unsupported pattern: _:String
+               case MyClass(a1: Int, a2: String, b: String) => a1 // a2: String is invalid
+                                         ^^^^^^
