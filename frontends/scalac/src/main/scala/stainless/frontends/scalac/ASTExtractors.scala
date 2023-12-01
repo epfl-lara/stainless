@@ -113,6 +113,7 @@ trait ASTExtractors {
 
   protected lazy val arraySym           = classFromName("scala.Array")
   protected lazy val someClassSym       = classFromName("scala.Some")
+  protected lazy val optionClassSym     = classFromName("scala.Option")
   protected lazy val byNameSym          = classFromName("scala.<byname>")
   protected lazy val bigIntSym          = classFromName("scala.math.BigInt")
   protected lazy val stringSym          = classFromName("java.lang.String")

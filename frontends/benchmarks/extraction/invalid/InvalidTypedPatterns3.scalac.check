@@ -1,0 +1,3 @@
+[ Error  ] InvalidTypedPatterns3.scala:5:27: Unsupported pattern: (_: B)
+               case MyClass(a1: A, a2: B, b: B) => a1 // a2: B is invalid
+                                     ^^^

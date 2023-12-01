@@ -1,0 +1,3 @@
+[ Error  ] InvalidTypedPatterns2.scala:3:20: Unsupported pattern: (_: A)
+               val (aa1: A, bb: A) = (a, b) // bb: A is invalid
+                              ^^^
