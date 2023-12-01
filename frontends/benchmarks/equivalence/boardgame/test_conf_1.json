@@ -26,7 +26,8 @@
       "Candidate4.validCitySettlement"
     ],
     "unsafe": [],
-    "timeout": [],
+    "unknownSafety": [],
+    "unknownEquivalence": [],
     "wrong": []
   }
 }

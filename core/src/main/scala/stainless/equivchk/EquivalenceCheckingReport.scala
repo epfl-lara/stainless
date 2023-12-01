@@ -44,7 +44,7 @@ object EquivalenceCheckingReport {
 
     def isInconclusive: Boolean = this match {
       case Verification(status) => status.isInconclusive
-      case Equivalence(EquivalenceStatus.Unknown) => true
+      case Equivalence(EquivalenceStatus.UnknownSafety | EquivalenceStatus.UnknownEquivalence) => true
       case _ => false
     }
   }
@@ -54,7 +54,8 @@ object EquivalenceCheckingReport {
     case Unequivalent
     case Unsafe
     case Wrong
-    case Unknown
+    case UnknownSafety
+    case UnknownEquivalence
   }
 
   case class Record(id: Identifier, pos: inox.utils.Position, time: Long,
@@ -90,7 +91,8 @@ class EquivalenceCheckingReport(override val results: Seq[EquivalenceCheckingRep
         case Status.Equivalence(EquivalenceStatus.Wrong) => "signature mismatch"
         case Status.Equivalence(EquivalenceStatus.Unequivalent) => "not equivalent"
         case Status.Equivalence(EquivalenceStatus.Unsafe) => "unsafe"
-        case Status.Equivalence(EquivalenceStatus.Unknown) => "unknown"
+        case Status.Equivalence(EquivalenceStatus.UnknownSafety) => "unknown safety"
+        case Status.Equivalence(EquivalenceStatus.UnknownEquivalence) => "unknown equivalence"
       }
       val level = levelOf(status)
       val solver = solverName getOrElse ""

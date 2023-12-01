@@ -130,7 +130,9 @@ class EquivalenceCheckingRun private(override val component: EquivalenceChecking
       invalidVCsCands = counterExamples(gen).flatMap {
         case (vc, ctex) => ec.reportUnsafe(gen.program)(gen, vc, ctex).getOrElse(Set.empty)
       }.toSeq.distinct
+      unknownsSafetyCands = unknowns(gen).flatMap(ec.reportUnknown(gen.program)(gen, _).getOrElse(Set.empty)).toSeq.distinct
       _ = debugInvalidVCsCandidates(invalidVCsCands)
+      _ = debugUnknownsSafetyCandidates(unknownsSafetyCands)
       trRes <- equivCheck(ec)
     } yield buildAnalysis(ec)(ids, gen, trRes)
   }
@@ -156,10 +158,17 @@ class EquivalenceCheckingRun private(override val component: EquivalenceChecking
           solvingInfo.flatMap(_.solverName), "equivalence", fd.source))
     }
     val unsafe = trRes.unsafe.toSeq.sortBy(_._1).flatMap {
-      case (errn, ec.UnsafeData(_, _)) =>
+      case (errn, _) =>
         val fd = ec.symbols.getFunction(errn)
         Some(Record(errn, fd.getPos, 0L,
           Status.Equivalence(EquivalenceStatus.Unsafe),
+          None, "safety", fd.source))
+    }
+    val unknwsSafety = trRes.unknownsSafety.toSeq.sortBy(_._1).flatMap {
+      case (fnId, _) =>
+        val fd = ec.symbols.getFunction(fnId)
+        Some(Record(fnId, fd.getPos, 0L,
+          Status.Equivalence(EquivalenceStatus.UnknownSafety),
           None, "safety", fd.source))
     }
     val wrgs = trRes.wrongs.toSeq.sorted.map { wrong =>
@@ -167,13 +176,13 @@ class EquivalenceCheckingRun private(override val component: EquivalenceChecking
       // No solver or time specified because it's a signature mismatch
       Record(wrong, fd.getPos, 0L, Status.Equivalence(EquivalenceStatus.Wrong), None, "equivalence", fd.source)
     }
-    val unknws = trRes.unknowns.toSeq.sortBy(_._1).map {
+    val unknwsEquiv = trRes.unknownsEquivalence.toSeq.sortBy(_._1).map {
       case (unknown, data) =>
         val fd = ec.symbols.getFunction(unknown)
-        Record(unknown, fd.getPos, data.solvingInfo.time, Status.Equivalence(EquivalenceStatus.Unknown), data.solvingInfo.solverName, "equivalence", fd.source)
+        Record(unknown, fd.getPos, data.solvingInfo.time, Status.Equivalence(EquivalenceStatus.UnknownEquivalence), data.solvingInfo.solverName, "equivalence", fd.source)
     }
 
-    val allRecords = genRecors ++ valid ++ unsafe ++ unequiv ++ wrgs ++ unknws
+    val allRecords = genRecors ++ valid ++ unsafe ++ unequiv ++ wrgs ++ unknwsSafety ++ unknwsEquiv
     new EquivalenceCheckingAnalysis(ids.toSet, allRecords, general.extractionSummary)
   }
 
@@ -231,10 +240,26 @@ class EquivalenceCheckingRun private(override val component: EquivalenceChecking
     }.toMap
   }
 
+  private def unknowns(analysis: VerificationAnalysis) = {
+    analysis.vrs.collect {
+      case (vc, vcRes) if vcRes.isInconclusive => vc
+    }
+  }
+
   private def debugInvalidVCsCandidates(cands: Seq[Identifier]): Unit = {
     if (cands.nonEmpty) {
       context.reporter.whenDebug(DebugSectionEquivChk) { debug =>
         debug(s"The following candidates were pruned for having invalid VCs:")
+        val candsStr = cands.sorted.map(_.fullName).mkString("  ", "\n  ", "")
+        debug(candsStr)
+      }
+    }
+  }
+
+  private def debugUnknownsSafetyCandidates(cands: Seq[Identifier]): Unit = {
+    if (cands.nonEmpty) {
+      context.reporter.whenDebug(DebugSectionEquivChk) { debug =>
+        debug(s"The following candidates were pruned for having unknowns VCs:")
         val candsStr = cands.sorted.map(_.fullName).mkString("  ", "\n  ", "")
         debug(candsStr)
       }
@@ -307,10 +332,12 @@ class EquivalenceCheckingRun private(override val component: EquivalenceChecking
       info(s"List of functions that are equivalent to model ${m.fullName}: ${lStr.mkString(", ")}")
     }
     val errns = res.unequivalent.keys.toSeq.map(_.fullName).sorted.mkString(", ")
-    val unknowns = res.unknowns.keys.toSeq.map(_.fullName).sorted.mkString(", ")
+    val unknownsSafety = res.unknownsSafety.keys.toSeq.map(_.fullName).sorted.mkString(", ")
+    val unknownsEquiv = res.unknownsEquivalence.keys.toSeq.map(_.fullName).sorted.mkString(", ")
     val wrongs = res.wrongs.toSeq.map(_.fullName).sorted.mkString(", ")
     info(s"List of erroneous functions: $errns")
-    info(s"List of timed-out functions: $unknowns")
+    info(s"List of timed-out functions (safety): $unknownsSafety")
+    info(s"List of timed-out functions (equivalence): $unknownsEquiv")
     info(s"List of wrong functions: $wrongs")
     info(s"Printing the final state:")
     res.valid.foreach { case (cand, data) =>
@@ -365,10 +392,14 @@ class EquivalenceCheckingRun private(override val component: EquivalenceChecking
       "position" -> Json.fromString(s"${data.pos.line}:${data.pos.col}"),
       "ctex" -> data.ctex.map(mapping => ctexJson(ec.Ctex(mapping, None))).getOrElse(Json.Null)
     ))
+    def unknownVCJson(data: ec.UnknownSafetyVC): Json = Json.fromFields(Seq(
+      "kind" -> Json.fromString(data.kind.name),
+      "position" -> Json.fromString(s"${data.pos.line}:${data.pos.col}"),
+    ))
 
     val equivs = res.equiv.map { case (m, l) => m.fullName -> l.map(_.fullName).toSeq.sorted }
       .toSeq.sortBy(_._1)
-    val unknowns = res.unknowns.keys.toSeq.map(_.fullName).sorted
+    val unknownsEquiv = res.unknownsEquivalence.keys.toSeq.map(_.fullName).sorted
     val wrongs = res.wrongs.toSeq.map(_.fullName).sorted
     val weights = res.weights.map { case (mod, w) => mod.fullName -> w }.toSeq
       .sortBy { case (mod, w) => (-w, mod) }
@@ -397,7 +428,18 @@ class EquivalenceCheckingRun private(override val component: EquivalenceChecking
           )
         ))
       }),
-      "timeout" -> Json.fromValues(unknowns.sorted.map(Json.fromString)),
+      "unknownSafety" -> Json.fromValues(res.unknownsSafety.toSeq.sortBy(_._1).map { case (cand, data) =>
+        Json.fromFields(Seq(
+          "function" -> Json.fromString(cand.fullName),
+          "self" -> Json.fromValues(data.self.map(unknownVCJson)),
+          "auxiliaries" -> Json.fromFields(
+            data.auxiliaries.toSeq.map { case (aux, ctexs) =>
+              aux.fullName -> Json.fromValues(ctexs.map(unknownVCJson))
+            }.sortBy(_._1)
+          )
+        ))
+      }),
+      "unknownEquivalence" -> Json.fromValues(unknownsEquiv.sorted.map(Json.fromString)),
       "wrong" -> Json.fromValues(wrongs.sorted.map(Json.fromString)),
       "weights" -> Json.fromFields(weights.map { case (mod, w) => mod -> Json.fromInt(w) })
     ))

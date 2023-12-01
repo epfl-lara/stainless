@@ -74,7 +74,8 @@ class EquivChkSuite extends ComponentTestSuite {
               acc.copy(equiv = acc.equiv + (mod.fullName -> (currCluster + fn)))
             case Status.Equivalence(EquivalenceStatus.Unequivalent) => acc.copy(unequivalent = acc.unequivalent + fn)
             case Status.Equivalence(EquivalenceStatus.Unsafe) => acc.copy(unsafe = acc.unsafe + fn)
-            case Status.Equivalence(EquivalenceStatus.Unknown) => acc.copy(timeout = acc.timeout + fn)
+            case Status.Equivalence(EquivalenceStatus.UnknownSafety) => acc.copy(unknownSafety = acc.unknownSafety + fn)
+            case Status.Equivalence(EquivalenceStatus.UnknownEquivalence) => acc.copy(unknownEquivalence = acc.unknownEquivalence + fn)
             case Status.Equivalence(EquivalenceStatus.Wrong) => acc.copy(wrong = acc.wrong + fn)
             case Status.Verification(_) => acc
           }
@@ -88,12 +89,13 @@ object EquivChkSuite extends ConfigurableTests {
   case class Results(equiv: Map[String, Set[String]],
                      unequivalent: Set[String],
                      unsafe: Set[String],
-                     timeout: Set[String],
+                     unknownSafety: Set[String],
+                     unknownEquivalence: Set[String],
                      wrong: Set[String])
 
   object Results {
     def empty: Results =
-      Results(Map.empty, Set.empty, Set.empty, Set.empty, Set.empty)
+      Results(Map.empty, Set.empty, Set.empty, Set.empty, Set.empty, Set.empty)
   }
 
   case class TestConf(models: Set[String],
@@ -135,8 +137,9 @@ object EquivChkSuite extends ConfigurableTests {
     }.toMap
     val unequivalent = jsonObj.getStringArrayOrCry("unequivalent").toSet
     val unsafe = jsonObj.getStringArrayOrCry("unsafe").toSet
-    val timeout = jsonObj.getStringArrayOrCry("timeout").toSet
+    val unknownSafety = jsonObj.getStringArrayOrCry("unknownSafety").toSet
+    val unknownEquiv = jsonObj.getStringArrayOrCry("unknownEquivalence").toSet
     val wrong = jsonObj.getStringArrayOrCry("wrong").toSet
-    Results(equiv, unequivalent, unsafe, timeout, wrong)
+    Results(equiv, unequivalent, unsafe, unknownSafety, unknownEquiv, wrong)
   }
 }

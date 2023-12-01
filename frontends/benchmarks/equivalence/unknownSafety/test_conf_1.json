@@ -1,18 +1,19 @@
 {
   "models": [
-    "Model.max"
+    "Model.add"
   ],
   "comparefuns": [
-    "Candidate.max"
+    "Candidate.add"
   ],
   "tests": [],
-  "norm": "Model.norm",
   "outcome": {
     "equivalent": [],
     "unequivalent": [],
     "unsafe": [],
-    "unknownSafety": [],
-    "unknownEquivalence": ["Candidate.max"],
+    "unknownSafety": [
+      "Candidate.add"
+    ],
+    "unknownEquivalence": [],
     "wrong": []
   }
 }

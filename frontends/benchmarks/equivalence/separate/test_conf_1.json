@@ -22,7 +22,8 @@
       "Candidate2.separate"
     ],
     "unsafe": [],
-    "timeout": [],
+    "unknownSafety": [],
+    "unknownEquivalence": [],
     "wrong": []
   }
 }

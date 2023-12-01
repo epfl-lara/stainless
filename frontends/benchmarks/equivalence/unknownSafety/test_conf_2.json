@@ -1,18 +1,19 @@
 {
   "models": [
-    "Model.max"
+    "Model.isEvenTopLvl"
   ],
   "comparefuns": [
-    "Candidate.max"
+    "Candidate.isEvenTopLvl"
   ],
   "tests": [],
-  "norm": "Model.norm",
   "outcome": {
     "equivalent": [],
     "unequivalent": [],
     "unsafe": [],
-    "unknownSafety": [],
-    "unknownEquivalence": ["Candidate.max"],
+    "unknownSafety": [
+      "Candidate.isEvenTopLvl"
+    ],
+    "unknownEquivalence": [],
     "wrong": []
   }
 }
