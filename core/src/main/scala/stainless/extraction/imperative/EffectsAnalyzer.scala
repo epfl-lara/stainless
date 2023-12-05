@@ -871,8 +871,8 @@ trait EffectsAnalyzer extends oo.CachingPhase {
           case FunctionInvocation(id, _, _) => Outer(getFunction(id))
           case ApplyLetRec(id, _, _, _, _) => result.locals(id)
         }
-
-        if (fun.flags.contains(IsPure)) Set()
+        val argsEff = args.flatMap(rec(_, env)).toSet
+        if (fun.flags.contains(IsPure)) argsEff
         else {
           val currentEffects: Set[Effect] = result.effects(fun)
           val paramSubst = (fun.params.map(_.toVariable) zip args).toMap
@@ -883,7 +883,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
 
           val effectsOnLocalFreeVars = currentEffects.filterNot(e => paramSubst contains e.receiver)
 
-          invocEffects ++ effectsOnLocalFreeVars ++ args.flatMap(rec(_, env))
+          invocEffects ++ effectsOnLocalFreeVars ++ argsEff
         }
 
       case Operator(es, _) => es.flatMap(rec(_, env)).toSet
