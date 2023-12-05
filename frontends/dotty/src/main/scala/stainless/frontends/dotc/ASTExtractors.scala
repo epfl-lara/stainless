@@ -801,9 +801,33 @@ trait ASTExtractors {
           canExtractSynthetic(dd.symbol) &&
           !(getAnnotations(tpt.symbol) exists (_._1 == "ignore"))
         )) =>
-          Some((dd.symbol, dd.leadingTypeParams, dd.termParamss.flatten, tpt.tpe, dd.rhs))
+          Some((dd.symbol, allTypeParams(dd), dd.termParamss.flatten, tpt.tpe, dd.rhs))
 
         case _ => None
+      }
+
+      // Get all type parameters of a DefDef. Note that dd.leadingTypeParams will only retrieve the leading ones
+      // which is insufficient for parametric extension methods since these have type parameters in the "middle" of `paramss`.
+      // For instance, for the following extension method:
+      //   extension[T](m: Option[T])
+      //     def map[U](f: U => T): Option[U] = ...
+      // `paramss` will be as follows:
+      //   List(
+      //     List(TypeDef(T)),
+      //     List(ValDef(m)),
+      //     List(TypeDef(U)),
+      //     List(ValDef(f)),
+      //   )
+      // and `d.leadingTypeParams` will only get `T` and miss `U`.
+      private def allTypeParams(dd: tpd.DefDef): Seq[tpd.TypeDef] = {
+        def go(paramss: List[tpd.ParamClause], acc: List[tpd.TypeDef]): List[tpd.TypeDef] = {
+          paramss match {
+            case Nil => acc
+            case (tparams@(tparam: tpd.TypeDef) :: _) :: rest => go(rest, acc ++ tparams.asInstanceOf[List[tpd.TypeDef]])
+            case _ :: rest => go(rest, acc)
+          }
+        }
+        go(dd.paramss, Nil)
       }
     }
 
