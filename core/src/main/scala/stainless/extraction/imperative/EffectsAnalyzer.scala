@@ -392,7 +392,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
         case (tt: TupleType, TupleFieldAccessor(idx) +: xs) =>
           0 < idx && idx <= tt.dimension && rec(tt.bases(idx - 1), xs)
 
-        case (ArrayType(base), ArrayAccessor(idx) +: xs) =>
+        case (ArrayType(base), (ArrayAccessor(_) | UnknownArrayAccessor) +: xs) =>
           rec(base, xs)
 
         case (_, Nil) =>
