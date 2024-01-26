@@ -608,7 +608,7 @@ trait CodeExtraction extends ASTExtractors {
     var flags = annotationsOf(sym).filterNot(annot => annot == xt.IsMutable || annot.name == "inlineInvariant") ++
       (if (sym.isImplicit && sym.isSynthetic) Seq(xt.Inline, xt.Synthetic) else Seq()) ++
       (if (sym.isPrivate) Seq(xt.Private) else Seq()) ++
-      (if (sym.isFinal) Seq(xt.Final) else Seq()) ++
+      (if (sym.isEffectivelyFinal) Seq(xt.Final) else Seq()) ++
       (if (sym.isVal || sym.isLazy) Seq(xt.IsField(sym.isLazy)) else Seq()) ++
       (if (isDefaultGetter(sym) || isCopyMethod(sym)) Seq(xt.Synthetic, xt.Inline) else Seq()) ++
       (if (!sym.isLazy && sym.isAccessor)
