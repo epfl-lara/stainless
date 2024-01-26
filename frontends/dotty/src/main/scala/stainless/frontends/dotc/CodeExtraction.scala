@@ -724,7 +724,7 @@ class CodeExtraction(inoxCtx: inox.Context, symbolMapping: SymbolMapping)(using 
       (if ((sym is Implicit) && (sym is Synthetic)) Seq(xt.Inline, xt.Synthetic) else Seq()) ++
       (if (sym is Inline) Seq(xt.Inline) else Seq()) ++
       (if (sym is Private) Seq(xt.Private) else Seq()) ++
-      (if (sym is Final) Seq(xt.Final) else Seq()) ++
+      (if (sym.isEffectivelyFinal) Seq(xt.Final) else Seq()) ++
       (if (isDefaultGetter(sym) || isCopyMethod(sym)) Seq(xt.Synthetic, xt.Inline) else Seq())
 
     if (sym.name == nme.unapply) {
