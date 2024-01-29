@@ -6,12 +6,12 @@ object TargetMutation5 {
   case class Box(var value1: Int, var value2: Int, var value3: Int)
 
   def mutate(b: Box, v: Int): Unit = {
-    b.value1 = v;
+    b.value1 = v
   }
 
   def mmutate(b: Box, v1: Int, v2: Int): Unit = {
-    b.value1 = v1;
-    b.value2 = v2;
+    b.value1 = v1
+    b.value2 = v2
   }
 
   def t1(arr: Array[Box], i: Int): Unit = {

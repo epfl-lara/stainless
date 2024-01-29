@@ -1,5 +1,5 @@
-[ Error  ] i1099b.scala:9:5: Unsupported `val` definition in AntiAliasing
+[ Error  ] i1099d.scala:9:5: Unsupported `val` definition in AntiAliasing
 [ Error  ] The following variables of mutable types are shared between the binding and the body:
-[ Error  ]   a1: A
+[ Error  ]   a0: A, a1: A
                val c = C(a2)
                ^^^^^^^^^^^^^
