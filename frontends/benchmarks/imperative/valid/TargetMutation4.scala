@@ -7,7 +7,7 @@ object TargetMutation4 {
   case class Box(var value: Int)
 
   def mutate(b: Box, v: Int): Unit = {
-    b.value = v;
+    b.value = v
   }
 
   def h1(x: Box, cond: Boolean): Unit = {

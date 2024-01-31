@@ -6,7 +6,7 @@ object TargetMutation3 {
   case class Box(var value: Int)
 
   def mutate(b: Box, v: Int): Unit = {
-    b.value = v;
+    b.value = v
   }
 
   def badManners(arr: Array[Box], otherArr: Array[Box], b1: Box, b2: Box, b3: Box, cond1: Boolean, cond2: Boolean, i: Int): Unit = {
