@@ -429,11 +429,8 @@ class CodeExtraction(inoxCtx: inox.Context, symbolMapping: SymbolMapping)(using 
         (Seq.empty, extractType(tpt), false)
     }
 
-    // Opaque types are referenced from their opaque right-hand side for some reason.
-    val realId = if (td.rhs.symbol is Opaque) getIdentifier(td.rhs.symbol) else id
-
     new xt.TypeDef(
-      realId,
+      id,
       tparams.map(xt.TypeParameterDef(_)),
       body,
       flags ++ (if (isAbstract) Seq(xt.IsAbstract) else Seq.empty)
