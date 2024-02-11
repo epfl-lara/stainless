@@ -22,8 +22,11 @@ val osArch = System.getProperty("sun.arch.data.model")
 
 val circeVersion = "0.14.1"
 
-lazy val nTestParallelism = {
-  val p = System.getProperty("test-parallelism")
+// The number of test suites (e.g. VerificationSuite, UncheckedSuite) run in parallel
+// Note that this does not dictate the parallelism per test case (e.g. verification/valid/AbstractPost.scala,
+// verification/valid/AbstractRefinementMap$.scala) which is instead set with -Dtestcase-parallelism=<...>
+lazy val nTestSuiteParallelism = {
+  val p = System.getProperty("testsuite-parallelism")
   if (p ne null) {
     try {
       p.toInt
@@ -36,11 +39,11 @@ lazy val nTestParallelism = {
 }
 
 // The Scala version with which Stainless is compiled.
-val stainlessScalaVersion = "3.2.0"
-// Stainless supports Scala 2.13 and Scala 3.2 programs.
-val frontendScalacVersion = "2.13.10"
+val stainlessScalaVersion = "3.3.0"
+// Stainless supports Scala 2.13 and Scala 3.3 programs.
+val frontendScalacVersion = "2.13.12"
 val frontendDottyVersion = stainlessScalaVersion
-// The Stainless libraries use Scala 2.13, but they are compatible with Scala 3.2 as well.
+// The Stainless libraries use Scala 2.13, but they are compatible with Scala 3.3 as well.
 val stainlessLibScalaVersion = frontendScalacVersion
 
 scalaVersion := stainlessScalaVersion
@@ -256,12 +259,12 @@ def commonFrontendSettings(compilerVersion: String): Seq[Setting[_]] = Defaults.
     Seq(main)
   }) ++
   inConfig(IntegrationTest)(Defaults.testTasks ++ Seq(
-    logBuffered := (nTestParallelism > 1),
-    parallelExecution := (nTestParallelism > 1),
+    logBuffered := (nTestSuiteParallelism > 1),
+    parallelExecution := (nTestSuiteParallelism > 1),
   ))
 
 Global / concurrentRestrictions := Seq(
-  Tags.limit(Tags.Test, nTestParallelism)
+  Tags.limit(Tags.Test, nTestSuiteParallelism)
 )
 
 val scriptSettings: Seq[Setting[_]] = Seq(
@@ -275,7 +278,7 @@ val scriptSettings: Seq[Setting[_]] = Seq(
 def ghProject(repo: String, version: String) = RootProject(uri(s"${repo}#${version}"))
 
 // lazy val inox = RootProject(file("../inox"))
-lazy val inox = ghProject("https://github.com/epfl-lara/inox.git", "ec6112f8b3e5910b78518a367f1f6b55ee0e3d81")
+lazy val inox = ghProject("https://github.com/epfl-lara/inox.git", "ae3eb97aaf50696bf416104ceae5b5d85be334db")
 lazy val cafebabe = ghProject("https://github.com/epfl-lara/cafebabe.git", "616e639b34379e12b8ac202849de3ebbbd0848bc")
 
 // Allow integration test to use facilities from regular tests

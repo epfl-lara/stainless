@@ -5,18 +5,18 @@ package verification
 
 import org.scalatest._
 
-trait DottyVerificationSuite extends VerificationComponentTestSuite {
+class DottyVerificationSuite extends VerificationComponentTestSuite {
 
-  override def configurations = super.configurations.map {
-    seq => optFailInvalid(true) +: seq
-  }
+  override protected def optionsString(options: inox.Options): String = ""
 
-  override protected def optionsString(options: inox.Options): String = {
-    super.optionsString(options) +
-    (if (options.findOptionOrDefault(evaluators.optCodeGen)) " codegen" else "")
-  }
+  import DottyVerificationSuite._
 
-  def keepOnly(f: String): Boolean = {
+  testPosAll("dotty-specific/valid", valid._1, valid._2)
+
+  testNegAll("dotty-specific/invalid", invalid._1, invalid._2)
+}
+object DottyVerificationSuite {
+  private def keepOnly(f: String): Boolean = {
     val noLongerCompiles = Set(
       "ConstructorRefinement.scala",
       "IdentityRefinement.scala",
@@ -28,17 +28,6 @@ trait DottyVerificationSuite extends VerificationComponentTestSuite {
     )
     noLongerCompiles.forall(s => !f.endsWith(s))
   }
-
-  testPosAll("dotty-specific/valid", keepOnly = keepOnly)
-
-  testNegAll("dotty-specific/invalid")
-}
-
-class SMTZ3DottyVerificationSuite extends DottyVerificationSuite {
-  override def configurations = super.configurations.map {
-    seq => Seq(
-      inox.optSelectedSolvers(Set("smt-z3:z3-4.8.12")),
-      inox.solvers.optCheckModels(true)
-    ) ++ seq
-  }
+  private lazy val valid = ComponentTestSuite.loadPrograms("dotty-specific/valid", keepOnly = keepOnly)
+  private lazy val invalid = ComponentTestSuite.loadPrograms("dotty-specific/invalid")
 }

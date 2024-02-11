@@ -1,0 +1,3 @@
+[ Error  ] InnerClassesInvariants2.scala:13:20: Local classes cannot close over mutable variables
+                   assert(0 < y.value && y.value < 10)  // Local classes cannot close over mutable variables
+                              ^

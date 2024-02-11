@@ -172,7 +172,7 @@ trait SymbolOps extends inox.ast.SymbolOps with TypeOps { self =>
             case Some(g) => patCond withCond replaceFromSymbols(map, g)
             case None => patCond
           }
-          val newRhs = replaceFromSymbols(map, cse.rhs).copiedFrom(cse.rhs)
+          val newRhs = replaceFromSymbols(map, cse.rhs)
           (realCond.toClause.copiedFrom(cse), newRhs, cse)
         }
 

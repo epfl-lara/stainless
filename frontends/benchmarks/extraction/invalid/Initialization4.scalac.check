@@ -1,4 +1,5 @@
 [ Error  ] Initialization4.scala:3:5: Not well formed definition @private
+[ Error  ] @final
 [ Error  ] @field
 [ Error  ] @fieldDefPosition(1)
 [ Error  ] @method(NoThis)

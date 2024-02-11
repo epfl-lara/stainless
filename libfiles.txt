@@ -1,6 +1,7 @@
 stainless/util/Random.scala
 stainless/util/Timepoint.scala
 stainless/lang/Option.scala
+stainless/lang/Cell.scala
 stainless/lang/PartialFunction.scala
 stainless/lang/StaticChecks.scala
 stainless/lang/Real.scala
@@ -12,10 +13,17 @@ stainless/lang/package.scala
 stainless/lang/Bag.scala
 stainless/lang/StrOps.scala
 stainless/lang/Map.scala
-stainless/collection/ListMap.scala
-stainless/collection/List.scala
 stainless/collection/CMap.scala
+stainless/collection/CovariantConversion.scala
+stainless/collection/List.scala
+stainless/collection/ListMap.scala
+stainless/collection/ListMapLemmas.scala
+stainless/collection/ListOps.scala
+stainless/collection/ListSpecs.scala
+stainless/covcollection/InvariantConversion.scala
 stainless/covcollection/List.scala
+stainless/covcollection/ListOps.scala
+stainless/covcollection/ListSpecs.scala
 stainless/covcollection/Option.scala
 stainless/equations/package.scala
 stainless/math/BitVectors.scala

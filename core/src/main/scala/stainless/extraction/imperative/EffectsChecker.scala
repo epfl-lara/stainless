@@ -104,16 +104,24 @@ trait EffectsChecker { self: EffectsAnalyzer =>
 
         override def traverse(e: Expr): Unit = e match {
           case l @ Let(vd, e, b) =>
-            if (
-              (variablesOf(e) & variablesOf(b)).exists(v => isMutableType(v.tpe)) &&
-              !isExpressionFresh(e) &&
-              isMutableType(vd.tpe)
-            ) try {
-              // Check if precise targets can be computed
-              getAllTargets(e)
-            } catch {
-              case _: MalformedStainlessCode =>
-                throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
+            lazy val commonVars = (variablesOf(e) & variablesOf(b)).filter(v => isMutableType(v.tpe))
+            if (isMutableType(vd.tpe) && commonVars.nonEmpty && !isExpressionFresh(e)) {
+              try {
+                // Check if precise targets can be computed
+                getAllTargets(e)
+              } catch {
+                case _: MalformedStainlessCode =>
+                  val msg =
+                    s"""Illegal aliasing: $e
+                       |Hint: this error occurs due to:
+                       |  -the type of ${vd.id} (${vd.tpe}) being mutable
+                       |  -the definition of ${vd.id} not being fresh
+                       |  -the definition of ${vd.id} containing variables of mutable types
+                       |  that also appear after the declaration of ${vd.id}:
+                       |    ${commonVars.toSeq.sortBy(_.id).map(v => s"-${v.id} (of type ${v.tpe})").mkString("", "\n    ", "")}
+                       |""".stripMargin
+                  throw ImperativeEliminationException(e, msg)
+              }
             }
 
             super.traverse(l)
@@ -126,25 +134,26 @@ trait EffectsChecker { self: EffectsAnalyzer =>
 
           case au @ ArrayUpdate(a, i, e) =>
             if (isMutableType(e.getType) && !isExpressionFresh(e))
-              throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
+              throw ImperativeEliminationException(e, s"Cannot update an array whose element type (${e.getType}) is mutable with a non-fresh expression")
 
             super.traverse(au)
 
           case au @ ArrayUpdated(a, i, e) =>
             if (isMutableType(e.getType) && !isExpressionFresh(e))
-              throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
+              throw ImperativeEliminationException(e, s"Cannot update an array whose element type (${e.getType}) is mutable with a non-fresh expression")
 
             super.traverse(au)
 
           case mu @ MapUpdated(m, k, e) =>
             if (isMutableType(e.getType) && !isExpressionFresh(e))
-              throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
+              throw ImperativeEliminationException(e, s"Cannot update a map whose value type (${e.getType}) is mutable with a non-fresh expression")
 
             super.traverse(mu)
 
           case fa @ FieldAssignment(o, sel, e) =>
-            if (isMutableType(fa.getField.get.getType) && !isExpressionFresh(e))
-              throw ImperativeEliminationException(e, "Illegal aliasing: " + e.asString)
+            val fdTpe = fa.getField.get.getType
+            if (isMutableType(fdTpe) && !isExpressionFresh(e))
+              throw ImperativeEliminationException(e, s"Cannot update a field whose type ($fdTpe) is mutable with a non-fresh expression")
 
             super.traverse(fa)
 
@@ -154,7 +163,7 @@ trait EffectsChecker { self: EffectsAnalyzer =>
 
           case l @ Lambda(args, body) =>
             if (isMutableType(body.getType) && !isExpressionFresh(body))
-              throw ImperativeEliminationException(l, "Illegal aliasing in lambda body")
+              throw ImperativeEliminationException(l, s"Cannot create a lambda whose return type (${body.getType}) is mutable and whose body is non-fresh")
             if (effects(body).exists(e => !args.contains(e.receiver.toVal)))
               throw ImperativeEliminationException(l, "Illegal effects in lambda body")
             super.traverse(l)
@@ -328,14 +337,78 @@ trait EffectsChecker { self: EffectsAnalyzer =>
 
     def checkPurity(fd: FunAbstraction): Unit = {
       val effs = effects(fd.fullBody)
+      val callsToImpure = computeCallsToImpure(fd)
+      checkEnforcedPurity(fd, effs, callsToImpure)
+      checkPureParameters(fd, effs, callsToImpure)
+    }
 
-      if ((fd.flags contains IsPure) && !effs.isEmpty)
-        throw ImperativeEliminationException(fd, s"Functions marked @pure cannot have side-effects")
-
-      effs filter (_.receiver.flags.contains(IsPure)) foreach { eff =>
-        throw ImperativeEliminationException(fd,
-          s"Function `${fd.id.asString}` has effect on @pure parameter `${eff.receiver.asString}`")
+    def checkEnforcedPurity(fd: FunAbstraction, effs: Set[Effect], callsToImpure: Seq[(Identifier, Set[Variable])]): Unit = {
+      val isPure = fd.flags contains IsPure
+      val isInv = fd.flags contains IsInvariant
+      if ((isPure || isInv) && effs.nonEmpty) {
+        val isInv = fd.flags contains IsInvariant
+        val fnName = if (isInv) "the invariant" else fd.id.asString
+        val head = Seq(if (isInv) "Invariants cannot have side-effects" else "Functions marked @pure cannot have side-effects")
+        val externs = callsToImpure.filter { case (id, _) => symbols.getFunction(id).flags contains Extern }.map(_._1).toSet
+        val hint1 = {
+          if (callsToImpure.isEmpty) Seq.empty[String]
+          else Seq(s"Hint: $fnName calls the following impure functions:") ++
+            callsToImpure.map { case (id, _) =>
+              val extra = if (externs(id)) " (an @extern function)" else ""
+              s"  -${id.asString}$extra"
+            }
+        }
+        val hint2 = {
+          if (externs.isEmpty) Seq.empty
+          else Seq("Hint: @extern functions taking mutable types are considered as impure, unless annotated with @pure")
+        }
+        throw ImperativeEliminationException(fd, (head ++ hint1 ++ hint2).mkString("\n"))
       }
+    }
+
+    def checkPureParameters(fd: FunAbstraction, effs: Set[Effect], callsToImpure: Seq[(Identifier, Set[Variable])]): Unit = {
+      val mutatedPure = effs.filter(_.receiver.flags.contains(IsPure))
+        .map(_.receiver).toSeq.sortBy(v => fd.params.indexWhere(_.id == v))
+      if (mutatedPure.nonEmpty) {
+        val head = Seq(s"Function `${fd.id.asString}` has effect on the following @pure parameters:",
+          mutatedPure.map(_.id.asString).mkString("  -", ", ", ""))
+        val externs = callsToImpure.filter { case (id, _) => symbols.getFunction(id).flags contains Extern }.map(_._1).toSet
+        val hint1 = mutatedPure.flatMap { v =>
+          val fns = callsToImpure.filter(_._2(v)).map(_._1)
+          if (fns.isEmpty) Seq.empty
+          else Seq(s"Hint: ${v.id.asString} is modified by the calls to the following functions:") ++
+            fns.map { id =>
+              val extra = if (externs(id)) " (an @extern function)" else ""
+              s"  -${id.asString}$extra"
+            }
+        }
+        val hint2 = {
+          if (externs.isEmpty) Seq.empty
+          else Seq("Hint: @extern functions taking mutable types are considered as impure, unless annotated with @pure")
+        }
+        throw ImperativeEliminationException(fd, (head ++ hint1 ++ hint2).mkString("\n"))
+      }
+    }
+
+    // Collect all impure functions called within `fd`, alongside the
+    // set of parameters of `fd` that are mutated by these calls.
+    // Note that if an impure function is called multiple times,
+    // we merge the set of mutated parameters.
+    def computeCallsToImpure(fd: FunAbstraction): Seq[(Identifier, Set[Variable])] = {
+      exprOps.collect {
+        case FunctionInvocation(id, _, args) =>
+          val invokedFd = symbols.getFunction(id)
+          val effs = effects(invokedFd)
+          if (effs.isEmpty) Set.empty[(Identifier, Set[Variable])]
+          else {
+            // `effs` not only contains parameter variable but also locals, so we filter these out.
+            val ixs = effs.map(eff => invokedFd.params.indexWhere(_.id == eff.receiver.id)).filter(_ >= 0)
+            val affectedParams = ixs.flatMap(ix => exprOps.variablesOf(args(ix)) & fd.params.map(_.toVariable).toSet)
+            Set((id, affectedParams))
+          }
+        case _ => Set.empty[(Identifier, Set[Variable])]
+      }(fd.fullBody).groupMapReduce(_._1)(_._2)(_ ++ _)
+        .toSeq.sortBy(_._1)
     }
 
     try {

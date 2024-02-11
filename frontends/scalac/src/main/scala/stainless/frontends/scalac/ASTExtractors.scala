@@ -7,7 +7,8 @@ import scala.tools.nsc._
 import scala.collection.mutable.{Map => MutableMap}
 
 /** Contains extractors to pull-out interesting parts of the Scala ASTs. */
-trait ASTExtractors(val global: Global) {
+trait ASTExtractors {
+  val global: Global
   import global._
   import global.definitions._
 
@@ -18,6 +19,22 @@ trait ASTExtractors(val global: Global) {
   def moduleFromName(str: String) = {
     rootMirror.getModuleByName(str)
   }
+
+  // Annotations that are propagated to symbols owned by an owner containing these.
+  // Note: we do not necessarily want @opaque/@inlineOnce function to have their inner functions
+  // automatically annotated with @opaque/@inlineOnce, we therefore leave them out
+  private val propagatedAnnotations: Set[String] = Set(
+    "stainless.annotation.ignore",
+    "stainless.annotation.library",
+    "stainless.annotation.extern",
+    "stainless.annotation.dropVCs",
+    "stainless.annotation.pure",
+    "stainless.annotation.wrapping",
+    "stainless.annotation.keep",
+    "stainless.annotation.keepFor",
+    "stainless.annotation.cCode.drop"
+  )
+  private val ghostAnnot: String = "stainless.annotation.ghost"
 
   /**
    * Extract the annotations for [[sym]], combined with its owner (unless
@@ -36,10 +53,16 @@ trait ASTExtractors(val global: Global) {
     val selfs = actualSymbol.annotations
     val owners =
       if (ignoreOwner) Set.empty
-      else actualSymbol.owner.annotations.filter(annot =>
-        annot.toString != "stainless.annotation.export" &&
-        !annot.toString.startsWith("stainless.annotation.cCode.global")
-      )
+      else actualSymbol.ownersIterator.drop(1) // drop(1) to skip `actualSymbol` itself
+        .zipWithIndex
+        .flatMap { case (owner, ix) =>
+          owner.annotations.filter { annot =>
+            val annotNme = annot.symbol.fullName
+            // Keep this annotation if is either an annotation to propagate (`propagatedAnnotations`)
+            // or if it's a @ghost that applies to a method whose direct owner is a class (ix == 0 and owner.isClass).
+            propagatedAnnotations(annotNme) || (annotNme == ghostAnnot && ix == 0 && actualSymbol.isMethod && owner.isClass)
+          }
+        }.toSet
     val companions = if (actualSymbol.isSynthetic) actualSymbol.companionSymbol.annotations else Set.empty
     (for {
       a <- (selfs ++ owners ++ companions)
@@ -72,6 +95,7 @@ trait ASTExtractors(val global: Global) {
   protected lazy val mutableMapSym = classFromName("stainless.lang.MutableMap")
   protected lazy val bagSym        = classFromName("stainless.lang.Bag")
   protected lazy val realSym       = classFromName("stainless.lang.Real")
+  protected lazy val cellSym       = classFromName("stainless.lang.Cell")
 
   protected lazy val bvSym         = classFromName("stainless.math.BitVectors.BV")
 
@@ -89,6 +113,7 @@ trait ASTExtractors(val global: Global) {
 
   protected lazy val arraySym           = classFromName("scala.Array")
   protected lazy val someClassSym       = classFromName("scala.Some")
+  protected lazy val optionClassSym     = classFromName("scala.Option")
   protected lazy val byNameSym          = classFromName("scala.<byname>")
   protected lazy val bigIntSym          = classFromName("scala.math.BigInt")
   protected lazy val stringSym          = classFromName("java.lang.String")
@@ -129,6 +154,10 @@ trait ASTExtractors(val global: Global) {
 
   def isRealSym(sym: Symbol) : Boolean = {
     getResolvedTypeSym(sym) == realSym
+  }
+
+  def isCellClassSym(sym: Symbol): Boolean = {
+    sym == cellSym
   }
 
   def isMapSym(sym: Symbol) : Boolean = {
@@ -424,17 +453,6 @@ trait ASTExtractors(val global: Global) {
           Some(args)
         case _ => None
       }
-    }
-
-    /** Matches the `A computes B` expression at the end of any expression A, and returns (A, B). */
-    object ExComputesExpression {
-      def unapply(tree: Apply) : Option[(Tree, Tree)] = tree match {
-        case Apply(Select(
-          Apply(TypeApply(ExSelected("stainless", "lang", "`package`", "SpecsDecorations"), List(_)), realExpr :: Nil),
-          ExNamed("computes")), expected::Nil)
-         => Some((realExpr, expected))
-        case _ => None
-       }
     }
 
     /** Extracts the `(input, output) passes { case In => Out ...}`
@@ -919,6 +937,17 @@ trait ASTExtractors(val global: Global) {
               TypeApply(ExSymbol("stainless", "lang", "swap"), _),
               array1 :: index1 :: array2 :: index2 :: Nil) =>
             Some((array1, index1, array2, index2))
+        case _ => None
+      }
+    }
+
+    object ExCellSwapExpression {
+      def unapply(tree: Apply): Option[(Tree, Tree)] = tree match {
+        case Apply(
+              TypeApply(ExSymbol("stainless", "lang", "swap"), _),
+              cell1 :: cell2 :: Nil
+            ) =>
+          Some((cell1, cell2))
         case _ => None
       }
     }

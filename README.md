@@ -6,9 +6,9 @@ Verification framework for a subset of the [Scala](http://scala-lang.org) progra
 
 We test mostly on [Ubuntu](https://ubuntu.com/download); on [Windows](https://www.microsoft.com/eb-gb/software-download/windows10), you can get sufficient text-based Ubuntu environment by installing [Windows Subsystem for Linux](https://learn.microsoft.com/en-us/windows/wsl/install) (e.g. `wsl --install`, then `wsl --install -d ubuntu`). Ensure you have a [Java](https://openjdk.org/projects/jdk/17/) version ready (it can be headless); on Ubuntu `sudo apt install openjdk-17-jdk-headless` suffices.
 
-Once ready, [Download the latest `stainless-dotty-standalone` release](https://github.com/epfl-lara/stainless/releases) for your platform. Unzip the archive, and run Stainless through the `stainless.sh` script. Stainless expects a list of space-separated Scala files to verify but also has other [Command-line Options](https://epfl-lara.github.io/stainless/options.html).
+Once ready, [Download the latest `stainless-dotty-standalone` release](https://github.com/epfl-lara/stainless/releases) for your platform. Unzip the archive, and run Stainless through the `stainless` script. Stainless expects a list of space-separated Scala files to verify but also has other [Command-line Options](https://epfl-lara.github.io/stainless/options.html).
 
-To check if everything works, you may create a file named `HelloStainless.scala` next to the `stainless.sh` script with the following content:
+To check if everything works, you may create a file named `HelloStainless.scala` next to the `stainless` script with the following content:
 ```scala
 import stainless.collection._
 object HelloStainless {
@@ -21,7 +21,7 @@ object HelloStainless {
   }
 }
 ```
-and run `stainless.sh HelloStainless.scala`.
+and run `stainless HelloStainless.scala`.
 If all goes well, Stainless should report something along the lines:
 ```
 [  Info  ]   ┌───────────────────┐
@@ -36,11 +36,11 @@ If all goes well, Stainless should report something along the lines:
 If you see funny symbols instead of the beautiful ASCII art, run Stainless with `--no-colors` option for clean ASCII output with standardized error message format. 
 
 The release archive of Stainless only requires JDK17. In particular, it needs neither a Scala compiler nor SBT.
-It is shipped with Z3 4.8.14 and Princess. If z3 API is not found, use option `--solvers=smt-z3` to rely on the executable.
+It is shipped with Z3 4.12.2, cvc5 1.0.8 and Princess. If Z3 API is not found, use option `--solvers=smt-z3` to rely on the executable.
 
 ## SBT Stainless plugin
 
-Alternatively, one may integrate Stainless with SBT. The supported Scala versions are `3.2.0` and `2.13.6`
+Alternatively, one may integrate Stainless with SBT. The supported Scala versions are `3.3.0` and `2.13.12`
 To do so, download [sbt-stainless](https://github.com/epfl-lara/stainless/releases), and move it to the directory of the project.
 Assuming the project's structure is:
 ```
@@ -73,7 +73,7 @@ For instance:
 ```scala
 ThisBuild / version := "0.1.0"
 
-ThisBuild / scalaVersion := "3.2.0"
+ThisBuild / scalaVersion := "3.3.0"
 
 lazy val myTestProject = (project in file("."))
   .enablePlugins(StainlessPlugin) // <--------
@@ -84,7 +84,7 @@ lazy val myTestProject = (project in file("."))
 
 Verification occurs with the usual `compile` command.
 
-Note that this method only ships the Princess SMT solver. Z3 and CVC4 can still be used if their executable can be found in the `$PATH`.
+Note that this method only ships the Princess SMT solver. Z3 and cvc5 can still be used if their executable can be found in the `$PATH`.
 
 ## Build and Use
 
@@ -125,7 +125,7 @@ Stainless is released under the Apache 2.0 license. See the [LICENSE]() file for
 
 Stainless relies on Inox to solve the various queries stemming from program verification.
 Inox supports model-complete queries in a feature-rich fragment that lets Stainless focus
-on program transformations and soundness of both contract and termination checking and uses its own reasoning steps, as well as invocations to solvers (theorem provers) [z3](https://github.com/Z3Prover/z3), [CVC4](https://cvc4.github.io/), and [Princess](http://www.philipp.ruemmer.org/princess.shtml).
+on program transformations and soundness of both contract and termination checking and uses its own reasoning steps, as well as invocations to solvers (theorem provers) [z3](https://github.com/Z3Prover/z3), [cvc5](https://cvc5.github.io/), and [Princess](http://www.philipp.ruemmer.org/princess.shtml).
 
 [latest-release]: https://github.com/epfl-lara/stainless/releases/latest
 [license-img]: https://img.shields.io/badge/license-Apache_2.0-blue.svg?color=134EA2

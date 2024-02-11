@@ -6,7 +6,7 @@ object TargetMutation6 {
   case class RefRef(var lhs: Ref, var rhs: Ref)
 
   def replaceLhs(rr: RefRef, v: Int): Unit = {
-    rr.lhs = Ref(v);
+    rr.lhs = Ref(v)
   }
 
   def t1(arr1: Array[Ref], arr2: Array[Ref], i: Int, j: Int, k: Int, cond: Boolean, gra: Ref): Unit = {

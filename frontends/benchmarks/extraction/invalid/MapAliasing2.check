@@ -1,3 +1,5 @@
-[ Error  ] MapAliasing2.scala:15:5: Unsupported `val` definition in AntiAliasing (couldn't compute targets and there are mutable variables shared between the binding and the body)
+[ Error  ] MapAliasing2.scala:15:5: Unsupported `val` definition in AntiAliasing
+[ Error  ] The following variables of mutable types are shared between the binding and the body:
+[ Error  ]   m: MutableMap[BigInt,A]
                val a = f(m, 123)
                ^^^^^^^^^^^^^^^^^

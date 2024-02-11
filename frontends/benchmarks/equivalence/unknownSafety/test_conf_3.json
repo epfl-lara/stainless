@@ -1,0 +1,19 @@
+{
+  "models": [
+    "Model.isSorted"
+  ],
+  "comparefuns": [
+    "Candidate.isSorted"
+  ],
+  "tests": [],
+  "outcome": {
+    "equivalent": [],
+    "unequivalent": [],
+    "unsafe": [],
+    "unknownSafety": [
+      "Candidate.isSorted"
+    ],
+    "unknownEquivalence": [],
+    "wrong": []
+  }
+}

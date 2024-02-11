@@ -648,8 +648,8 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
       case m: MatchExpr => inferType(tc, matchToIfThenElse(e, false))
 
       case IfExpr(b, e1, e2) =>
-        val (tpe1, tr1) = inferType(tc.withTruth(b).setPos(e1), e1)
-        val (tpe2, tr2) = inferType(tc.withTruth(Not(b)).setPos(e2), e2)
+        val (tpe1, tr1) = inferType(tc.withTruth(b).withLastPos(e1), e1)
+        val (tpe2, tr2) = inferType(tc.withTruth(Not(b)).withLastPos(e2), e2)
         (ite(b, tpe1, tpe2), checkType(tc.setPos(b).withVCKind(VCKind.CheckType), b, BooleanType()) ++ tr1 ++ tr2)
 
       case Error(tpe, descr) =>
@@ -717,7 +717,7 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
         val trValue = checkType(tc.setPos(value).withVCKind(VCKind.CheckType), value, vd.tpe)
         val (tc2, id2) = tc.freshBindWithValue(vd, value)
         val freshBody: Expr = Substituter(immutable.Map(vd.id -> id2)).transform(body)
-        val (tpe, trBody) = inferType(tc2.setPos(body), freshBody)
+        val (tpe, trBody) = inferType(tc2.withLastPos(body), freshBody)
         (insertFreshLets(Seq(vd), Seq(value), tpe), trValue ++ trBody)
 
       case Assume(cond, body) =>
@@ -1082,7 +1082,7 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
         val (tc2, id2) = tc.freshBindWithValue(vd, value)
         val freshBody: Expr = Substituter(immutable.Map(vd.id -> id2)).transform(body)
         checkType(tc.setPos(value).withVCKind(VCKind.CheckType), value, vd.tpe) ++
-        checkType(tc2.setPos(body), freshBody, tpe)
+        checkType(tc2.withLastPos(body), freshBody, tpe)
 
       case (Assert(cond, optErr, body), _) =>
         val kind = VCKind.fromErr(optErr)
@@ -1094,8 +1094,8 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
 
       case (IfExpr(b, e1, e2), _) =>
         checkType(tc.setPos(b).withVCKind(VCKind.CheckType), b, BooleanType()) ++
-        checkType(tc.withTruth(b).setPos(e1), e1, tpe) ++
-        checkType(tc.withTruth(Not(b)).setPos(e2), e2, tpe)
+        checkType(tc.withTruth(b).withLastPos(e1), e1, tpe) ++
+        checkType(tc.withTruth(Not(b)).withLastPos(e2), e2, tpe)
 
       case (e, TrueBoolean()) =>
         checkType(tc.withVCKind(VCKind.CheckType), e, BooleanType()) ++ buildVC(tc, e)

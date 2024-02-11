@@ -4,5 +4,20 @@
   ],
   "comparefuns": [
     "Pascal.p2"
-  ]
+  ],
+  "outcome": {
+    "equivalent": [
+      {
+        "model": "Pascal.p1",
+        "functions": [
+          "Pascal.p2"
+        ]
+      }
+    ],
+    "unequivalent": [],
+    "unsafe": [],
+    "unknownSafety": [],
+    "unknownEquivalence": [],
+    "wrong": []
+  }
 }

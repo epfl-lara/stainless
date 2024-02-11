@@ -4,5 +4,20 @@
   ],
   "comparefuns": [
     "i1264.slowReplace"
-  ]
+  ],
+  "outcome": {
+    "equivalent": [
+      {
+        "model": "i1264.replace",
+        "functions": [
+          "i1264.slowReplace"
+        ]
+      }
+    ],
+    "unequivalent": [],
+    "unsafe": [],
+    "unknownSafety": [],
+    "unknownEquivalence": [],
+    "wrong": []
+  }
 }

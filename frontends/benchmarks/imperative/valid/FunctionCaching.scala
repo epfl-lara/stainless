@@ -7,7 +7,7 @@ object FunctionCaching {
 
   def fun(x: BigInt)(implicit funCache: FunCache): BigInt = {
     funCache.cached.get(x) match {
-      case None() => 
+      case None() =>
         val res = 2*x + 42
         funCache.cached = funCache.cached.updated(x, res)
         res
@@ -29,9 +29,10 @@ object FunctionCaching {
 
   def multipleCalls(args: List[BigInt], x: BigInt)(implicit funCache: FunCache): Unit = {
     require(funCache.cached.get(x).forall(_ == 2*x + 42))
+    decreases(args)
     args match {
       case Nil() => ()
-      case y::ys => 
+      case y::ys =>
         fun(y)
         multipleCalls(ys, x)
     }

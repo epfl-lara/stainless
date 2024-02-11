@@ -26,73 +26,12 @@ class EquivChkSuite extends ComponentTestSuite {
     ) ++ seq
   }
 
-  private val testConfPattern = "test_conf(_(\\d+))?.json".r
-  private val expectedOutcomePattern = "expected_outcome(_(\\d+))?.json".r
-
   override protected def optionsString(options: inox.Options): String = ""
 
-  ///////////////////////////////////////////////
+  import EquivChkSuite._
 
-  for (benchmark <- getFolders("equivalence")) {
-    testEquiv(s"equivalence/$benchmark")
-  }
-
-  ///////////////////////////////////////////////
-
-  private def getFolders(dir: String): Seq[String] = {
-    Option(getClass.getResource(s"/$dir")).toSeq.flatMap { dirUrl =>
-      val dirFile = new File(dirUrl.getPath)
-      Option(dirFile.listFiles().toSeq).getOrElse(Seq.empty).filter(_.isDirectory)
-        .map(_.getName)
-    }.sorted
-  }
-
-  private def testEquiv(benchmarkDir: String): Unit = {
-    val files = resourceFiles(benchmarkDir, f => f.endsWith(".scala") || f.endsWith(".conf") || f.endsWith(".json")).sorted
-    if (files.isEmpty) return // Empty folder -- skip
-
-    val scalaFiles = files.filter(_.getName.endsWith(".scala"))
-
-    val confs = files.flatMap(f => f.getName match {
-      case testConfPattern(_, num) => Some(Option(num).map(_.toInt) -> f)
-      case _ => None
-    }).toMap
-    assert(confs.nonEmpty, s"No test_conf.json found in $benchmarkDir")
-
-    val expectedOutcomes = files.flatMap(f => f.getName match {
-      case expectedOutcomePattern(_, num) => Some(Option(num).map(_.toInt) -> f)
-      case _ => None
-    }).toMap
-    assert(expectedOutcomes.nonEmpty, s"No expected_outcome.json found in $benchmarkDir")
-    assert(confs.keySet == expectedOutcomes.keySet, "Test configuration and expected outcome files do not match")
-
-    val runs = confs.keySet.toSeq.sorted.map { num =>
-      (num, confs(num), expectedOutcomes(num))
-    }
-
-    /////////////////////////////////////
-
-    val dummyCtx: inox.Context = inox.TestContext.empty
-    import dummyCtx.given
-    val (_, program) = loadFiles(scalaFiles.map(_.getPath))
-    assert(dummyCtx.reporter.errorCount == 0, "There should be no error while loading the files")
-
-    val userFiltering = new DebugSymbols {
-      val name = "UserFiltering"
-      val context = dummyCtx
-      val s: xt.type = xt
-      val t: xt.type = xt
-    }
-
-    val programSymbols = userFiltering.debugWithoutSummary(frontend.UserFiltering().transform)(program.symbols)._1
-    programSymbols.ensureWellFormed
-
-    /////////////////////////////////////
-
-    for ((num, confFile, expectedOutomeFile) <- runs) {
-      val conf = parseTestConf(confFile)
-      val expected = parseExpectedOutcome(expectedOutomeFile)
-
+  for (Benchmark(benchmarkDir, runs, programSymbols) <- benchmarkData) {
+    for (Run(num, conf) <- runs) {
       val testName = s"$benchmarkDir${num.map(n => s" (variant $n)").getOrElse("")}"
       test(testName, ctx => filter(ctx, benchmarkDir)) { ctx0 ?=>
         val opts = Seq(
@@ -118,32 +57,14 @@ class EquivChkSuite extends ComponentTestSuite {
         given inox.Context = ctx
         val report = Await.result(component.run(extraction.pipeline).apply(ids, programSymbols2), Duration.Inf)
         val got = extractResults(conf.candidates, report)
-        got shouldEqual expected
+        got shouldEqual conf.results
       }
     }
   }
 
-  private case class EquivResults(equiv: Map[String, Set[String]],
-                                  erroneous: Set[String],
-                                  timeout: Set[String],
-                                  wrong: Set[String])
-  private object EquivResults {
-    def empty: EquivResults =
-      EquivResults(Map.empty[String, Set[String]], Set.empty[String], Set.empty[String], Set.empty[String])
-  }
-
-  private case class TestConf(models: Set[String],
-                              candidates: Set[String],
-                              tests: Set[String],
-                              norm: Option[String],
-                              n: Option[Int],
-                              initScore: Option[Int],
-                              maxPerm: Option[Int],
-                              timeout: Option[Duration])
-
-  private def extractResults(candidates: Set[String], analysis: component.Analysis): EquivResults = {
+  private def extractResults(candidates: Set[String], analysis: component.Analysis): Results = {
     import EquivalenceCheckingReport._
-    analysis.records.foldLeft(EquivResults.empty) {
+    analysis.records.foldLeft(Results.empty) {
       case (acc, record) =>
         val fn = record.id.fullName
         if (candidates(fn)) {
@@ -151,35 +72,43 @@ class EquivChkSuite extends ComponentTestSuite {
             case Status.Equivalence(EquivalenceStatus.Valid(mod, _, _)) =>
               val currCluster = acc.equiv.getOrElse(mod.fullName, Set.empty)
               acc.copy(equiv = acc.equiv + (mod.fullName -> (currCluster + fn)))
-            case Status.Equivalence(EquivalenceStatus.Erroneous) => acc.copy(erroneous = acc.erroneous + fn)
-            case Status.Equivalence(EquivalenceStatus.Unknown) => acc.copy(timeout = acc.timeout + fn)
+            case Status.Equivalence(EquivalenceStatus.Unequivalent) => acc.copy(unequivalent = acc.unequivalent + fn)
+            case Status.Equivalence(EquivalenceStatus.Unsafe) => acc.copy(unsafe = acc.unsafe + fn)
+            case Status.Equivalence(EquivalenceStatus.UnknownSafety) => acc.copy(unknownSafety = acc.unknownSafety + fn)
+            case Status.Equivalence(EquivalenceStatus.UnknownEquivalence) => acc.copy(unknownEquivalence = acc.unknownEquivalence + fn)
             case Status.Equivalence(EquivalenceStatus.Wrong) => acc.copy(wrong = acc.wrong + fn)
             case Status.Verification(_) => acc
           }
         } else acc
     }
   }
+}
+object EquivChkSuite extends ConfigurableTests {
+  override val baseFolder: String = "equivalence"
 
-  private def parseExpectedOutcome(f: File): EquivResults = {
-    val json = JsonUtils.parseFile(f)
-    val jsonObj = json.asObject.getOrCry("Expected top-level json to be an object")
+  case class Results(equiv: Map[String, Set[String]],
+                     unequivalent: Set[String],
+                     unsafe: Set[String],
+                     unknownSafety: Set[String],
+                     unknownEquivalence: Set[String],
+                     wrong: Set[String])
 
-    val equivObj = jsonObj("equivalent").getOrCry("Expected 'equivalent' field")
-      .asArray.getOrCry("Expected 'equivalent' to be an array")
-    val equiv = equivObj.map { elem =>
-      val elemObj = elem.asObject.getOrCry("Expected elements in 'equivalent' to be objects")
-      val model = elemObj("model").getOrCry("Expected a 'model' field in 'equivalent'")
-        .asString.getOrCry("Expected 'model' to be a string")
-      val fns = elemObj.getStringArrayOrCry("functions").toSet
-      model -> fns
-    }.toMap
-    val erroneous = jsonObj.getStringArrayOrCry("erroneous").toSet
-    val timeout = jsonObj.getStringArrayOrCry("timeout").toSet
-    val wrong = jsonObj.getStringArrayOrCry("wrong").toSet
-    EquivResults(equiv, erroneous, timeout, wrong)
+  object Results {
+    def empty: Results =
+      Results(Map.empty, Set.empty, Set.empty, Set.empty, Set.empty, Set.empty)
   }
 
-  private def parseTestConf(f: File): TestConf = {
+  case class TestConf(models: Set[String],
+                      candidates: Set[String],
+                      tests: Set[String],
+                      norm: Option[String],
+                      n: Option[Int],
+                      initScore: Option[Int],
+                      maxPerm: Option[Int],
+                      timeout: Option[Duration],
+                      results: Results)
+
+  override def parseTestConf(f: File): TestConf = {
     val json = JsonUtils.parseFile(f)
     val jsonObj = json.asObject.getOrCry("Expected top-level json to be an object")
     val models = jsonObj.getStringArrayOrCry("models")
@@ -192,19 +121,25 @@ class EquivChkSuite extends ComponentTestSuite {
     val timeout = jsonObj("timeout").map(_.asNumber.getOrCry("Expected 'timeout' to be an double").toDouble)
     assert(models.nonEmpty, "At least one model must be specified")
     assert(candidates.nonEmpty, "At least one candidate must be specified")
-    TestConf(models.toSet, candidates.toSet, tests.toSet, norm, n, initScore, maxPerm, timeout.map(_.seconds))
+    val res = parseExpectedOutcome(jsonObj.getObjectOrCry("outcome"))
+    TestConf(models.toSet, candidates.toSet, tests.toSet, norm, n, initScore, maxPerm, timeout.map(_.seconds), res)
   }
 
-  extension[T] (o: Option[T]) {
-    private def getOrCry(msg: String): T = o.getOrElse(throw AssertionError(msg))
-  }
-  extension (id: Identifier) {
-    private def fullName: String = CheckFilter.fixedFullName(id)
-  }
-  extension (jsonObj: JsonObject) {
-    private def getStringArrayOrCry(field: String): Seq[String] =
-      jsonObj(field).getOrCry(s"Expected a '$field' field")
-      .asArray.getOrCry(s"Expected '$field' to be an array of strings")
-      .map(_.asString.getOrCry(s"Expected '$field' array elements to be strings"))
+  private def parseExpectedOutcome(jsonObj: JsonObject): Results = {
+    val equivObj = jsonObj("equivalent").getOrCry("Expected 'equivalent' field")
+      .asArray.getOrCry("Expected 'equivalent' to be an array")
+    val equiv = equivObj.map { elem =>
+      val elemObj = elem.asObject.getOrCry("Expected elements in 'equivalent' to be objects")
+      val model = elemObj("model").getOrCry("Expected a 'model' field in 'equivalent'")
+        .asString.getOrCry("Expected 'model' to be a string")
+      val fns = elemObj.getStringArrayOrCry("functions").toSet
+      model -> fns
+    }.toMap
+    val unequivalent = jsonObj.getStringArrayOrCry("unequivalent").toSet
+    val unsafe = jsonObj.getStringArrayOrCry("unsafe").toSet
+    val unknownSafety = jsonObj.getStringArrayOrCry("unknownSafety").toSet
+    val unknownEquiv = jsonObj.getStringArrayOrCry("unknownEquivalence").toSet
+    val wrong = jsonObj.getStringArrayOrCry("wrong").toSet
+    Results(equiv, unequivalent, unsafe, unknownSafety, unknownEquiv, wrong)
   }
 }

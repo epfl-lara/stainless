@@ -8,6 +8,7 @@ object MultiArray7 {
 
     var i = 0
     (while(i < 10) {
+      decreases(10 - i)
       val iCpy = i // To not anger EffectsChecker which will complain if we do not bind `i` to an immutable value
       a(i) = Array.fill(10)(iCpy)
       i += 1

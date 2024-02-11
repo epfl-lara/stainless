@@ -4,5 +4,20 @@
   ],
   "comparefuns": [
     "WhacAFun.repeat2"
-  ]
+  ],
+  "outcome": {
+    "equivalent": [
+      {
+        "model": "WhacAFun.repeat1",
+        "functions": [
+          "WhacAFun.repeat2"
+        ]
+      }
+    ],
+    "unequivalent": [],
+    "unsafe": [],
+    "unknownSafety": [],
+    "unknownEquivalence": [],
+    "wrong": []
+  }
 }

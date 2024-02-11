@@ -21,6 +21,15 @@ trait Definitions extends extraction.Trees { self: Trees =>
       params.foldRight(typeOps.variablesOf(returnType) ++ exprOps.variablesOf(fullBody)) {
         case (vd, vars) => vars - vd.toVariable ++ typeOps.variablesOf(vd.tpe)
       }
+
+    def copy(
+      id: Identifier = id,
+      tparams: Seq[TypeParameterDef] = tparams,
+      params: Seq[ValDef] = params,
+      returnType: Type = returnType,
+      fullBody: Expr = fullBody,
+      flags: Seq[Flag] = flags
+    ): LocalFunDef = LocalFunDef(id, tparams, params, returnType, fullBody, flags).copiedFrom(this)
   }
 
 
@@ -92,7 +101,7 @@ trait Definitions extends extraction.Trees { self: Trees =>
     def unapply(i: Outer): Some[FunDef] = Some(i.fd)
   }
 
-  // We do not define Inner as a case class because the inherited `copy` method conflics with the compiler-generated one.
+  // We do not define Inner as a case class because the inherited `copy` method conflicts with the compiler-generated one.
   class Inner(val fd: LocalFunDef) extends FunAbstraction(
     fd.id, fd.tparams, fd.params, fd.returnType, fd.fullBody, fd.flags) {
     setPos(fd)

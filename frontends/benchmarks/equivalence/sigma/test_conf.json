@@ -5,5 +5,13 @@
   "comparefuns": [
     "Candidate.sigma"
   ],
-  "tests": []
+  "tests": [],
+  "outcome": {
+    "equivalent": [],
+    "unequivalent": [],
+    "unsafe": [],
+    "unknownSafety": [],
+    "unknownEquivalence": ["Candidate.sigma"],
+    "wrong": []
+  }
 }

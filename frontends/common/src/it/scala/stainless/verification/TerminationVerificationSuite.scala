@@ -17,5 +17,10 @@ class TerminationVerificationSuite extends VerificationComponentTestSuite {
 
   override protected def optionsString(options: inox.Options): String = ""
 
-  testPosAll("termination/valid")
+  import TerminationVerificationSuite._
+
+  testPosAll("termination/valid", valid._1, valid._2)
+}
+object TerminationVerificationSuite {
+  private lazy val valid = ComponentTestSuite.loadPrograms("termination/valid")
 }

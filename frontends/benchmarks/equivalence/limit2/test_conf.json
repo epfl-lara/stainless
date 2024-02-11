@@ -4,5 +4,20 @@
   ],
   "comparefuns": [
     "Limit2.limit2_2"
-  ]
+  ],
+  "outcome": {
+    "equivalent": [
+      {
+        "model": "Limit2.limit2_1",
+        "functions": [
+          "Limit2.limit2_2"
+        ]
+      }
+    ],
+    "unequivalent": [],
+    "unsafe": [],
+    "unknownSafety": [],
+    "unknownEquivalence": [],
+    "wrong": []
+  }
 }

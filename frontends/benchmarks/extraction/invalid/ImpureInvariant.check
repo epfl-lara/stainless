@@ -1,0 +1,5 @@
+[ Error  ] ImpureInvariant.scala:9:13: Invariants cannot have side-effects
+[ Error  ] Hint: the invariant calls the following impure functions:
+[ Error  ]   -take
+               require(mt.take(mic) == 0)
+                       ^^^^^^^^^^^^^^^^^

@@ -4,5 +4,20 @@
   ],
   "comparefuns": [
     "Inlining.inlining_2"
-  ]
+  ],
+  "outcome": {
+    "equivalent": [
+      {
+        "model": "Inlining.inlining_1",
+        "functions": [
+          "Inlining.inlining_2"
+        ]
+      }
+    ],
+    "unequivalent": [],
+    "unsafe": [],
+    "unknownSafety": [],
+    "unknownEquivalence": [],
+    "wrong": []
+  }
 }

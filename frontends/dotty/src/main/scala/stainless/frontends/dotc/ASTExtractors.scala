@@ -3,7 +3,6 @@ package frontends.dotc
 
 import scala.language.implicitConversions
 import dotty.tools.dotc._
-import typer.Inliner
 import ast.tpd
 import ast.Trees._
 import core.Contexts.{NoContext, Context => DottyContext}
@@ -22,7 +21,7 @@ import scala.collection.mutable.{Map => MutableMap}
 
 trait ASTExtractors {
   val dottyCtx: DottyContext
-  import dottyCtx.given
+  given DottyContext = dottyCtx
 
   def classFromName(nameStr: String): ClassSymbol = requiredClass(typeName(nameStr))
   def moduleFromName(nameStr: String): TermSymbol = requiredModule(typeName(nameStr))
@@ -41,20 +40,42 @@ trait ASTExtractors {
     defn.AnyValType,
   )
 
+  // Annotations that are propagated to symbols owned by an owner containing these.
+  // Note: we do not necessarily want @opaque/@inlineOnce function to have their inner functions
+  // automatically annotated with @opaque/@inlineOnce, we therefore leave them out
+  private val propagatedAnnotations: Set[String] = Set(
+    "stainless.annotation.ignore",
+    "stainless.annotation.library",
+    "stainless.annotation.extern",
+    "stainless.annotation.dropVCs",
+    "stainless.annotation.pure",
+    "stainless.annotation.wrapping",
+    "stainless.annotation.keep",
+    "stainless.annotation.keepFor",
+    "stainless.annotation.cCode.drop"
+  )
+  private val ghostAnnot: String = "stainless.annotation.ghost"
+
   def isIgnored(tp: Type): Boolean = ignoredClasses.exists(_ frozen_=:= tp)
 
   def getAnnotations(sym: Symbol, ignoreOwner: Boolean = false): Seq[(String, Seq[tpd.Tree])] = {
     if (sym eq NoSymbol)
       return Seq.empty
 
-    val erased = if (sym.isEffectivelyErased) Seq(("ghost", Seq.empty[tpd.Tree])) else Seq()
+    val erased = if (sym.isEffectivelyErased && !(sym is Inline)) Seq(("ghost", Seq.empty[tpd.Tree])) else Seq()
     val selfs = sym.annotations
     val owners =
       if (ignoreOwner) List.empty[Annotation]
-      else sym.owner.annotations.filter(annot =>
-        annot.toString != "stainless.annotation.export" &&
-          !annot.toString.startsWith("stainless.annotation.cCode.global")
-      )
+      else sym.ownersIterator.drop(1) // drop(1) to skip `sym` itself
+        .zipWithIndex
+        .flatMap { case (owner, ix) =>
+          owner.annotations.filter { annot =>
+            val annotNme = annot.symbol.fullName.toString
+            // Keep this annotation if is either an annotation to propagate (`propagatedAnnotations`)
+            // or if it's a @ghost that applies to a method whose direct owner is a class (ix == 0 and owner.isClass).
+            propagatedAnnotations(annotNme) || (annotNme == ghostAnnot && ix == 0 && (sym is Method) && owner.isClass)
+          }
+        }.toList
     val companions = List(sym.denot.companionModule).filter(_ ne NoSymbol).flatMap(_.annotations)
     erased ++ (for {
       a <- selfs ++ owners ++ companions
@@ -103,6 +124,7 @@ trait ASTExtractors {
   protected lazy val mutableMapSym  = classFromName("stainless.lang.MutableMap")
   protected lazy val bagSym         = classFromName("stainless.lang.Bag")
   protected lazy val realSym        = classFromName("stainless.lang.Real")
+   protected lazy val cellSym       = classFromName("stainless.lang.Cell")
 
   protected lazy val bvSym          = classFromName("stainless.math.BitVectors.BV")
 
@@ -197,6 +219,10 @@ trait ASTExtractors {
 
   def isRealSym(sym: Symbol) : Boolean = {
     getResolvedTypeSym(sym) == realSym
+  }
+
+  def isCellSym(sym: Symbol): Boolean = {
+    getResolvedTypeSym(sym) == cellSym
   }
 
   def isScalaSetSym(sym: Symbol) : Boolean = {
@@ -775,9 +801,33 @@ trait ASTExtractors {
           canExtractSynthetic(dd.symbol) &&
           !(getAnnotations(tpt.symbol) exists (_._1 == "ignore"))
         )) =>
-          Some((dd.symbol, dd.leadingTypeParams, dd.termParamss.flatten, tpt.tpe, dd.rhs))
+          Some((dd.symbol, allTypeParams(dd), dd.termParamss.flatten, tpt.tpe, dd.rhs))
 
         case _ => None
+      }
+
+      // Get all type parameters of a DefDef. Note that dd.leadingTypeParams will only retrieve the leading ones
+      // which is insufficient for parametric extension methods since these have type parameters in the "middle" of `paramss`.
+      // For instance, for the following extension method:
+      //   extension[T](m: Option[T])
+      //     def map[U](f: U => T): Option[U] = ...
+      // `paramss` will be as follows:
+      //   List(
+      //     List(TypeDef(T)),
+      //     List(ValDef(m)),
+      //     List(TypeDef(U)),
+      //     List(ValDef(f)),
+      //   )
+      // and `d.leadingTypeParams` will only get `T` and miss `U`.
+      private def allTypeParams(dd: tpd.DefDef): Seq[tpd.TypeDef] = {
+        def go(paramss: List[tpd.ParamClause], acc: List[tpd.TypeDef]): List[tpd.TypeDef] = {
+          paramss match {
+            case Nil => acc
+            case (tparams@(tparam: tpd.TypeDef) :: _) :: rest => go(rest, acc ++ tparams.asInstanceOf[List[tpd.TypeDef]])
+            case _ :: rest => go(rest, acc)
+          }
+        }
+        go(dd.paramss, Nil)
       }
     }
 
@@ -1178,15 +1228,6 @@ trait ASTExtractors {
       }
     }
 
-    object ExComputesExpression {
-      def unapply(tree: tpd.Tree): Option[(tpd.Tree, tpd.Tree)] = tree match {
-        case ExCall(Some(rec),
-          ExSymbol("stainless", "lang", "package$", "SpecsDecorations", "computes"),
-          _, Seq(expected)) => Some((rec, expected))
-        case _ => None
-      }
-    }
-
     /** Extracts the `(input, output) passes { case In => Out ...}` and returns (input, output, list of case classes) */
     object ExPasses {
       import ExpressionExtractors._
@@ -1409,6 +1450,23 @@ trait ASTExtractors {
           Some((array1, index1, array2, index2))
         case _ => None
       }
+    }
+
+    object ExCellSwapExpression {
+      def unapply(
+          tree: tpd.Apply
+      ): Option[(tpd.Tree, tpd.Tree)] =
+        tree match {
+          case Apply(
+                TypeApply(
+                  ExSymbol("stainless", "lang", "package$", "swap"),
+                  _
+                ),
+                cell1 :: cell2 :: Nil
+              ) =>
+            Some((cell1, cell2))
+          case _ => None
+        }
     }
 
     object ExForallExpression {

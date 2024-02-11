@@ -608,7 +608,7 @@ trait CodeExtraction extends ASTExtractors {
     var flags = annotationsOf(sym).filterNot(annot => annot == xt.IsMutable || annot.name == "inlineInvariant") ++
       (if (sym.isImplicit && sym.isSynthetic) Seq(xt.Inline, xt.Synthetic) else Seq()) ++
       (if (sym.isPrivate) Seq(xt.Private) else Seq()) ++
-      (if (sym.isFinal) Seq(xt.Final) else Seq()) ++
+      (if (sym.isEffectivelyFinal) Seq(xt.Final) else Seq()) ++
       (if (sym.isVal || sym.isLazy) Seq(xt.IsField(sym.isLazy)) else Seq()) ++
       (if (isDefaultGetter(sym) || isCopyMethod(sym)) Seq(xt.Synthetic, xt.Inline) else Seq()) ++
       (if (!sym.isLazy && sym.isAccessor)
@@ -745,24 +745,32 @@ trait CodeExtraction extends ASTExtractors {
     }._2
   }
 
-  private def extractPattern(p: Tree, binder: Option[xt.ValDef] = None)(using dctx: DefContext): (xt.Pattern, DefContext) = p match {
+  // Note: `expectedTpe` is used to check for redundant type checks that can appear in some patterns.
+  // For instance, the following expression (assuming a: A and b: B) is a valid pattern:
+  //     val (aa: A, bb: B) = (a, b)
+  // When we recursively traverse the pattern aa: A and bb: B, we set `expectedTpe` to be `A` and `B` respectively
+  // since these type tests are redundant. If we do not do so, we would be falling into an "Unsupported pattern" error.
+  // Note that this pattern will be correctly rejected as "Unsupported pattern" (in fact, it cannot be even tested at runtime):
+  //     val (aa: B, bb: B) = (a, b)
+  private def extractPattern(p: Tree, expectedTpe: Option[xt.Type], binder: Option[xt.ValDef] = None)(using dctx: DefContext): (xt.Pattern, DefContext) = p match {
     case b @ Bind(name, t @ Typed(pat, tpt)) =>
       val vd = xt.ValDef(FreshIdentifier(name.toString), extractType(tpt), annotationsOf(b.symbol, ignoreOwner = true)).setPos(b.pos)
       val pctx = dctx.withNewVar(b.symbol, () => vd.toVariable)
-      extractPattern(t, Some(vd))(using pctx)
+      extractPattern(t, expectedTpe, Some(vd))(using pctx)
 
     case b @ Bind(name, pat) =>
       val vd = xt.ValDef(FreshIdentifier(name.toString), extractType(b), annotationsOf(b.symbol, ignoreOwner = true)).setPos(b.pos)
       val pctx = dctx.withNewVar(b.symbol, () => vd.toVariable)
-      extractPattern(pat, Some(vd))(using pctx)
+      extractPattern(pat, expectedTpe, Some(vd))(using pctx)
 
     case t @ Typed(Ident(nme.WILDCARD), tpt) =>
       extractType(tpt) match {
         case ct: xt.ClassType =>
           (xt.InstanceOfPattern(binder, ct).setPos(p.pos), dctx)
-
+        case lt if expectedTpe.contains(lt) =>
+          (xt.WildcardPattern(binder), dctx)
         case lt =>
-          outOfSubsetError(tpt, "Invalid type "+tpt.tpe+" for .isInstanceOf")
+          outOfSubsetError(p, s"Unsupported pattern: $p")
       }
 
     case Ident(nme.WILDCARD) =>
@@ -773,7 +781,7 @@ trait CodeExtraction extends ASTExtractors {
         case ct: xt.ClassType =>
           (xt.ClassPattern(binder, ct, Seq()).setPos(p.pos), dctx)
         case _ =>
-          outOfSubsetError(s, "Invalid instance pattern: " + s)
+          outOfSubsetError(p, s"Unsupported pattern: $p")
       }
 
     case id @ Ident(_) if id.tpe.typeSymbol.isCase =>
@@ -781,23 +789,31 @@ trait CodeExtraction extends ASTExtractors {
         case ct: xt.ClassType =>
           (xt.ClassPattern(binder, ct, Seq()).setPos(p.pos), dctx)
         case _ =>
-          outOfSubsetError(id, "Invalid instance pattern: " + id)
+          outOfSubsetError(p, s"Unsupported pattern: $p")
       }
 
     case a @ Apply(fn, args) =>
       extractType(a) match {
         case ct: xt.ClassType =>
-          val (subPatterns, subDctx) = args.map(extractPattern(_)).unzip
+          val TypeRef(_, sym, targs) = a.tpe: @unchecked
+          val fields = sym.constrParamAccessors
+          val subPatTps = fields.map { fld =>
+            val substedTpe = fld.info.subst(sym.typeParams, targs)
+            extractType(substedTpe)(using dctx, a.pos)
+          }
+          Predef.assert(subPatTps.size == args.size)
+          val (subPatterns, subDctx) = args.zip(subPatTps).map { case (arg, tpe) => extractPattern(arg, Some(tpe)) }.unzip
           val nctx = subDctx.foldLeft(dctx)(_ union _)
           (xt.ClassPattern(binder, ct, subPatterns).setPos(p.pos), nctx)
 
         case xt.TupleType(argsTpes) =>
-          val (subPatterns, subDctx) = args.map(extractPattern(_)).unzip
+          Predef.assert(args.size == argsTpes.size)
+          val (subPatterns, subDctx) = args.zip(argsTpes).map { case (arg, tpe) => extractPattern(arg, Some(tpe)) }.unzip
           val nctx = subDctx.foldLeft(dctx)(_ union _)
           (xt.TuplePattern(binder, subPatterns).setPos(p.pos), nctx)
 
         case _ =>
-          outOfSubsetError(a, "Invalid type "+a.tpe+" for .isInstanceOf")
+          outOfSubsetError(p, s"Unsupported pattern: $p")
       }
 
     case ExBigIntPattern(n: Literal) =>
@@ -812,11 +828,13 @@ trait CodeExtraction extends ASTExtractors {
     case ExUnitLiteral()     => (xt.LiteralPattern(binder, xt.UnitLiteral()),     dctx)
     case ExStringLiteral(s)  => (xt.LiteralPattern(binder, xt.StringLiteral(s)),  dctx)
 
-    case up @ ExUnapplyPattern(t, args) =>
-      val (sub, ctx) = args.map (extractPattern(_)).unzip
+    case up @ ExUnapplyPattern(fun, args) =>
+      val subPatTps = resolveUnapplySubPatternsTps(up, fun)
+      Predef.assert(subPatTps.size == args.size)
+      val (sub, ctx) = args.zip(subPatTps).map { case (pat, tp) => extractPattern(pat, Some(tp)) }.unzip
       val nctx = ctx.foldLeft(dctx)(_ union _)
-      val id = getIdentifier(t.symbol)
-      val tps = t match {
+      val id = getIdentifier(fun.symbol)
+      val tps = fun match {
         case TypeApply(_, tps) => tps.map(extractType)
         case _ => Seq.empty
       }
@@ -824,11 +842,27 @@ trait CodeExtraction extends ASTExtractors {
       (xt.UnapplyPattern(binder, Seq(), id, tps, sub).setPos(up.pos), ctx.foldLeft(dctx)(_ union _))
 
     case _ =>
-      outOfSubsetError(p, "Unsupported pattern: " + p)
+      outOfSubsetError(p, s"Unsupported pattern: $p")
+  }
+
+  private def resolveUnapplySubPatternsTps(un: Tree, fun: Tree)(using dctx: DefContext): Seq[xt.Type] = {
+    val subPatTps = fun.tpe match {
+      case mt: MethodType =>
+        mt.resultType match {
+          case TypeRef(_, sym, List(underlying)) if sym == optionSymbol || sym == optionClassSym =>
+            underlying match {
+              case TypeRef(_, sym, tps) if isTuple(sym, tps.size) => tps
+              case _ => Seq(underlying)
+            }
+          case _ => outOfSubsetError(un, s"Unsupported pattern: $un")
+        }
+      case _ => outOfSubsetError(un, s"Unsupported pattern: $un")
+    }
+    subPatTps.map(extractType(_)(using dctx, un.pos))
   }
 
   private def extractMatchCase(cd: CaseDef)(using DefContext): xt.MatchCase = {
-    val (recPattern, ndctx) = extractPattern(cd.pat)
+    val (recPattern, ndctx) = extractPattern(cd.pat, None)
     val recBody             = extractTree(cd.body)(using ndctx)
 
     if(cd.guard == EmptyTree) {
@@ -1102,13 +1136,6 @@ trait CodeExtraction extends ASTExtractors {
       val b = extractTreeOrNoTree(body)
       xt.Ensuring(b, post).setPos(post)
 
-    case t @ ExComputesExpression(body, expected) =>
-      val b = extractTreeOrNoTree(body).setPos(body.pos)
-      val expectedExpr = extractTree(expected).setPos(expected.pos)
-      val vd = xt.ValDef.fresh("res", extractType(body)).setPos(tr.pos)
-      val post = xt.Lambda(Seq(vd), xt.Equals(vd.toVariable, expectedExpr)).setPos(tr.pos)
-      xt.Ensuring(b, post).setPos(post)
-
     case ExPasses(in, out, cases) =>
       val ine = extractTree(in)
       val oute = extractTree(out)
@@ -1287,6 +1314,9 @@ trait CodeExtraction extends ASTExtractors {
     case swap @ ExSwapExpression(array1, index1, array2, index2) =>
       xt.Swap(extractTree(array1), extractTree(index1), extractTree(array2), extractTree(index2))
 
+    case cellSwap @ ExCellSwapExpression(cell1, cell2) =>
+      xt.CellSwap(extractTree(cell1), extractTree(cell2))
+
     case l @ ExLambdaExpression(args, body) =>
       val vds = args map(vd => xt.ValDef(
         FreshIdentifier(vd.symbol.name.toString),
@@ -1359,6 +1389,14 @@ trait CodeExtraction extends ASTExtractors {
           xt.LocalClassConstructor(lct, args.map(extractTree))
         case ct: xt.ClassType =>
           xt.ClassConstructor(ct, args.map(extractTree))
+        case at: xt.ArrayType if args.size == 1 && extractType(args.head.tpe)(using dctx, tr.pos) == xt.Int32Type() =>
+          mkZeroForPrimitive(at.base) match {
+            case Some(zero) =>
+              val recArg = extractTree(args.head)
+              xt.LargeArray(Map.empty, zero, recArg, at.base)
+            case None =>
+              outOfSubsetError(tr, s"Cannot use array constructor for non-primitive type ${at.base}\nHint: you may use `Array.fill` instead")
+          }
         case _ =>
           outOfSubsetError(tr, "Construction of a non-class type.")
       }
@@ -2078,6 +2116,13 @@ trait CodeExtraction extends ASTExtractors {
         outOfSubsetError(NoPosition, "Tree with null-pointer as type found")
       }
   }).setPos(pos)
+
+  private def mkZeroForPrimitive(tp: xt.Type): Option[xt.Expr] = tp match {
+    case xt.BooleanType() => Some(xt.BooleanLiteral(false))
+    case xt.BVType(signed, size) => Some(xt.BVLiteral(signed, 0, size))
+    case xt.CharType() => Some(xt.CharLiteral(0.toChar))
+    case _ => None
+  }
 
   // @extern function may contain constructs that are not supported by Stainless.
   // However, we must be sure that we have captured all contracts.

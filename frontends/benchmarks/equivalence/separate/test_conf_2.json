@@ -1,0 +1,25 @@
+{
+  "models": [
+    "Model.separate"
+  ],
+  "comparefuns": [
+    "Candidate1.separate",
+    "Candidate2.separate"
+  ],
+  "tests": [],
+  "outcome": {
+    "equivalent": [
+      {
+        "model": "Model.separate",
+        "functions": [
+          "Candidate1.separate"
+        ]
+      }
+    ],
+    "unequivalent": [],
+    "unsafe": [],
+    "unknownSafety": [],
+    "unknownEquivalence": ["Candidate2.separate"],
+    "wrong": []
+  }
+}
