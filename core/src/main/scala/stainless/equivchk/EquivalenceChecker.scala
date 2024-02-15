@@ -566,6 +566,7 @@ class EquivalenceChecker(override val trees: Trees,
     val newParamTps = eqLemma0.tparams.map { tparam => tparam.tp }
     val newParamVars = eqLemma0.params.map { param => param.toVariable }
 
+    val specsModel = if conf.topLevel then symbols.functions(allModels.head) else conf.model
     val subst = {
       val nweParamVarsPermuted = conf.strat.order match {
         case EquivCheckOrder.ModelFirst =>
@@ -575,12 +576,12 @@ class EquivalenceChecker(override val trees: Trees,
           // f1 = candidate, f2 = model: we need to "undo" the ordering
           perm.m2c.map(newParamVars)
       }
-      (conf.model.params.map(_.id) zip nweParamVarsPermuted).toMap
+      (specsModel.params.map(_.id) zip nweParamVarsPermuted).toMap
     }
-    val tsubst = (conf.model.tparams zip newParamTps).map { case (tparam, targ) => tparam.tp.id -> targ }.toMap
+    val tsubst = (specsModel.tparams zip newParamTps).map { case (tparam, targ) => tparam.tp.id -> targ }.toMap
     val specializer = new Specializer(eqLemma0, eqLemma0.id, tsubst, subst, Map())
 
-    val specs = BodyWithSpecs(conf.model.fullBody).specs.filter(s => s.kind == LetKind || s.kind == PreconditionKind)
+    val specs = BodyWithSpecs(specsModel.fullBody).specs.filter(s => s.kind == LetKind || s.kind == PreconditionKind)
     val pre = specs.map {
       case Precondition(cond) => Precondition(specializer.transform(cond))
       case LetInSpec(vd, expr) => LetInSpec(vd, specializer.transform(expr))
