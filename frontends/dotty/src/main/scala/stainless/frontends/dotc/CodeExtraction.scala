@@ -17,15 +17,20 @@ import core.Types._
 import core.Flags._
 import core.Constants._
 import core.NameKinds
+import core.NameOps._
 import util.{NoSourcePosition, SourcePosition}
 import stainless.ast.SymbolIdentifier
 import extraction.xlang.{trees => xt}
+import Utils._
 
 import scala.collection.mutable.{Map => MutableMap}
 import scala.collection.immutable.ListMap
 import scala.language.implicitConversions
 
-class CodeExtraction(inoxCtx: inox.Context, symbolMapping: SymbolMapping)(using override val dottyCtx: DottyContext)
+class CodeExtraction(inoxCtx: inox.Context,
+                     symbolMapping: SymbolMapping,
+                     exportedSymsMapping: ExportedSymbolsMapping)
+                    (using override val dottyCtx: DottyContext)
   extends ASTExtractors {
 
   import AuxiliaryExtractors._
@@ -374,6 +379,9 @@ class CodeExtraction(inoxCtx: inox.Context, symbolMapping: SymbolMapping)(using 
       case t if (t.symbol is Synthetic) && !canExtractSynthetic(t.symbol) =>
         // ignore
 
+      case ExFunctionDef(fsym, _, _, _, _) if fsym is Exported =>
+         // ignore
+
       // Normal function
       case dd @ ExFunctionDef(fsym, tparams, vparams, tpt, rhs) =>
         val fd0 = extractFunction(fsym, dd, tparams, vparams, rhs)
@@ -394,6 +402,9 @@ class CodeExtraction(inoxCtx: inox.Context, symbolMapping: SymbolMapping)(using 
 
       case t @ ExNonCtorMutableFieldDef(_, _, _) =>
         outOfSubsetError(t, "Mutable fields in static containers such as objects are not supported")
+
+      case Export(_, _) =>
+        // ignore
 
       case other =>
         reporter.warning(other.sourcePos, s"Stainless does not support the following tree in static containers:\n$other")
@@ -553,6 +564,9 @@ class CodeExtraction(inoxCtx: inox.Context, symbolMapping: SymbolMapping)(using 
         if hasExternFields && (isCopyMethod(fsym) || isDefaultGetter(fsym)) =>
           () // ignore
 
+      case ExFunctionDef(fsym, _, _, _, _) if fsym is Exported =>
+        // ignore
+
       // Normal methods
       case dd @ ExFunctionDef(fsym, tparams, vparams, _, rhs) =>
         methods :+= extractFunction(fsym, dd, tparams, vparams, rhs)(using tpCtx)
@@ -569,6 +583,9 @@ class CodeExtraction(inoxCtx: inox.Context, symbolMapping: SymbolMapping)(using 
         typeMembers :+= extractTypeDef(td)(using tpCtx)
 
       case d if d.symbol is Synthetic =>
+        // ignore
+
+      case Export(_, _) =>
         // ignore
 
       case other =>
@@ -789,7 +806,6 @@ class CodeExtraction(inoxCtx: inox.Context, symbolMapping: SymbolMapping)(using 
       .copy(isExtern = dctx.isExtern || (flags contains xt.Extern))
 
     lazy val retType = extractType(tree.tpt)(using nctx)
-
     val (finalBody, returnType) = if (isAbstract) {
       (xt.NoTree(retType).setPos(sym.sourcePos), retType)
     } else {
@@ -1245,6 +1261,61 @@ class CodeExtraction(inoxCtx: inox.Context, symbolMapping: SymbolMapping)(using 
 
   private def extractTree(tr: tpd.Tree)(using dctx: DefContext): xt.Expr = (tr match {
     case SingletonTypeTree(tree) => extractTree(tree)
+
+    case ExExportedSymbol(path, recv0, tps, args) =>
+      def ownerType(sym: Symbol): xt.ClassType | xt.LocalClassType = {
+        stripAnnotationsExceptStrictBV(extractType(sym.owner.typeRef)(using dctx.setResolveTypes(true), tr.sourcePos)) match {
+          case ct: (xt.ClassType | xt.LocalClassType) => ct
+          case _ => outOfSubsetError(tr, s"Stainless does not support use of exported symbol in this context:\n${tr.show}")
+        }
+      }
+      def mkSelection(recv: xt.Expr, sym: Symbol): xt.Expr = {
+        // Selection across exported symbol that works whether the class
+        // is abstract (method invocation) or concrete (field selection).
+        // Inspired by `extractCall`
+        val ct = ownerType(sym)
+        val isCtorField = (sym is CaseAccessor) || (sym is ParamAccessor)
+        val isNonCtorField = sym.isField && !isCtorField
+        assert(isCtorField || isNonCtorField)
+        if (isCtorField) {
+          // Class is concrete, so this is a simple field selection
+          classSelector(ct, recv, getIdentifier(sym)).setPos(tr.sourcePos)
+        } else {
+          // Class is abstract, so we must issue a method call *using* `getFieldAccessorIdentifier`
+          methodInvocation(ct, recv, getFieldAccessorIdentifier(sym), Seq.empty, Seq.empty).setPos(tr.sourcePos)
+        }
+      }
+
+      val last = path.last
+      val isCtorField = (last is CaseAccessor) || (last is ParamAccessor)
+      val isNonCtorField = last.isField && !isCtorField
+      val recRecv0 = extractTree(recv0)
+      if (isCtorField) {
+        // Class is concrete, however assignment of fields is done through the setter (e.g. `myField_=`),
+        // therefore, we must use the underlying symbol in such case.
+        assert(tps.isEmpty && args.size <= 1)
+        val isSetter = last.name.isSetterName
+        val newPath = {
+          if (isSetter) path.init
+          else path.init :+ last.underlyingSymbol
+        }
+        val recv = newPath.foldLeft(recRecv0)(mkSelection)
+        if (isSetter) xt.FieldAssignment(recv, getIdentifier(last.underlyingSymbol), extractTree(args.head)).setPos(tr.sourcePos)
+        else recv
+      } else {
+        // Either a normal method, an abstract class field selection or an abstract class field assignment.
+        // The latter two are distinguished by `isNonCtorField` being true.
+        // If so, we use `getFieldAccessorIdentifier` to get the right Stainless symbol.
+        val ct = ownerType(last)
+        val recv = path.init.foldLeft(recRecv0)(mkSelection)
+        val iden = {
+          if (isNonCtorField) getFieldAccessorIdentifier(last)
+          else getIdentifier(last)
+        }
+        val recArgs = extractArgs(last, args)
+        val recTps = tps.map(extractType)
+        methodInvocation(ct, recv, iden, recTps, recArgs).setPos(tr.sourcePos)
+      }
 
     case ExLambda(vparams, rhs) =>
       val vds = vparams map (vd => xt.ValDef(
@@ -2529,5 +2600,19 @@ class CodeExtraction(inoxCtx: inox.Context, symbolMapping: SymbolMapping)(using 
       }
     }
     traverser.traverse(tree)
+  }
+
+  object ExExportedSymbol {
+    def unapply(tr: tpd.Tree): Option[(Seq[Symbol], tpd.Tree, Seq[tpd.Tree], Seq[tpd.Tree])] = {
+      val sym = tr.symbol
+      exportedSymsMapping.get(sym) match {
+        case Some(path) =>
+          tr match {
+            case ExCall(Some(recv), _, tps, args) => Some((path, recv, tps, args))
+            case _ => outOfSubsetError(tr, s"Stainless does not support use of exported symbol in this context:\n${tr.show}")
+          }
+        case None => None
+      }
+    }
   }
 }

@@ -14,17 +14,18 @@ import typer._
 
 import extraction.xlang.{trees => xt}
 import frontend.{CallBack, Frontend, FrontendFactory, ThreadedFrontend, UnsupportedCodeException}
+import Utils._
 
 case class ExtractedUnit(file: String, unit: xt.UnitDef, classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef], typeDefs: Seq[xt.TypeDef])
 
 class StainlessExtraction(val inoxCtx: inox.Context) {
   private val symbolMapping = new SymbolMapping
 
-  def extractUnit(using ctx: DottyContext): Option[ExtractedUnit] = {
+  def extractUnit(exportedSymsMapping: ExportedSymbolsMapping)(using ctx: DottyContext): Option[ExtractedUnit] = {
     // Remark: the method `extractUnit` is called for each compilation unit (which corresponds more or less to a Scala file)
     // Therefore, the symbolMapping instances needs to be shared accross compilation unit.
     // Since `extractUnit` is called within the same thread, we do not need to synchronize accesses to symbolMapping.
-    val extraction = new CodeExtraction(inoxCtx, symbolMapping)
+    val extraction = new CodeExtraction(inoxCtx, symbolMapping, exportedSymsMapping)
     import extraction._
 
     val unit = ctx.compilationUnit
