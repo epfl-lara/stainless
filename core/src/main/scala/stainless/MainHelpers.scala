@@ -50,8 +50,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
     verification.optVCCache -> Description(Verification, "Enable caching of verification conditions"),
     verification.optCoq -> Description(Verification, "Transform the program into a Coq program, and let Coq generate subgoals automatically"),
     verification.optAdmitAll -> Description(Verification, "Admit all obligations when translated into a coq program"),
-    verification.optStrictArithmetic -> Description(Verification,
-      s"Check arithmetic operations for unintended behavior and overflows (default: true)"),
+    verification.optStrictArithmetic -> Description(Verification, "Check arithmetic operations for unintended behavior and overflows"),
     verification.optAdmitVCs -> Description(Verification, "Admit all verification conditions"),
     verification.optSimplifier -> Description(Verification, "Select which simplifier to use for VC simplification\n" +
       "Available:\n" +
@@ -277,4 +276,3 @@ trait MainHelpers extends inox.MainHelpers { self =>
     JsonUtils.writeFile(new File(file), json)
   }
 }
-
