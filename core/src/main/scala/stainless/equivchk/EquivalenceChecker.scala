@@ -847,6 +847,13 @@ class EquivalenceChecker(override val trees: Trees,
       mod.returnType == typeOps.instantiateType(cand.returnType, substMap)
     }
 
+    def prefixOf(id: Identifier): Option[Seq[String]] = {
+      id match {
+        case si: SymbolIdentifier if si.symbol.path.size > 1 => Some(si.symbol.path.init)
+        case _ => None
+      }
+    }
+
     // Ensure that we do *not* match `choose` functions created from `choose` expressions.
     // If we were to match them, we would unveil `choose` expressions which we don't want to do
     // because these must remain hidden behind their `choose` expression counterpart.
@@ -855,8 +862,23 @@ class EquivalenceChecker(override val trees: Trees,
       case _ => false
     })
 
-    val modSubs = getTransitiveCalls(model)
-    val candSubs = getTransitiveCalls(cand)
+    val modSubs0 = getTransitiveCalls(model)
+    val candSubs0 = getTransitiveCalls(cand)
+    // Functions that are common to both candidate and model must come from the same source,
+    // so these are not meaningful to pairwise check.
+    val modSubs1 = modSubs0.filter(fd => !candSubs0.exists(_.id == fd.id))
+    val candSubs1 = candSubs0.filter(fd => !modSubs0.exists(_.id == fd.id))
+    // Furthermore, if the model and candidate functions reside in different objects/namespaces
+    // (determined by looking at their prefix), then we can exclude functions that come outside
+    // of their object/namespace since these are extern and do not benefit from pairwise matching.
+    val (modSubs, candSubs) = (prefixOf(model), prefixOf(cand)) match {
+      case (Some(modPrefix), Some(candPrefix)) if modPrefix != candPrefix =>
+        val modSubs = modSubs1.filter(fd => prefixOf(fd.id).contains(modPrefix))
+        val candSubs = candSubs1.filter(fd => prefixOf(fd.id).contains(candPrefix))
+        (modSubs, candSubs)
+      case _ => (modSubs1, candSubs1)
+    }
+
     // All pairs model-candidate subfns that with compatible signature modulo arg permutation
     val allValidPairs = for {
       ms <- modSubs
