@@ -936,11 +936,12 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
           throw MalformedStainlessCode(condition, s"Effects are not allowed in condition of effects: ${condition.asString}")
 
         case Target(receiver, Some(condition), path) =>
+          val recRecv = rec(receiver, path.toSeq)
           Annotated(
             AsInstanceOf(
               IfExpr(
                 condition.setPos(newValue),
-                rec(receiver, path.toSeq),
+                Annotated(recRecv, Seq(DropVCs)).copiedFrom(recRecv),
                 receiver
               ).copiedFrom(newValue),
               receiver.getType
