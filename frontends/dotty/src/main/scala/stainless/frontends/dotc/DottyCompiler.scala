@@ -14,6 +14,7 @@ import core.Phases._
 import transform._
 import typer._
 import frontend.{CallBack, Frontend, FrontendFactory, ThreadedFrontend}
+import Utils._
 
 import java.io.File
 import java.net.URL
@@ -40,11 +41,17 @@ class DottyCompiler(ctx: inox.Context, callback: CallBack) extends Compiler {
     // Note: this must not be instantiated within `run`, because we need the underlying `symbolMapping` in `StainlessExtraction`
     // to be shared across multiple compilation unit.
     private val extraction = new StainlessExtraction(ctx)
+    private var exportedSymsMapping: ExportedSymbolsMapping = ExportedSymbolsMapping.empty
 
     // This method id called for every compilation unit, and in the same thread.
     override def run(using dottyCtx: DottyContext): Unit =
-      extraction.extractUnit.foreach(extracted =>
+      extraction.extractUnit(exportedSymsMapping).foreach(extracted =>
         callback(extracted.file, extracted.unit, extracted.classes, extracted.functions, extracted.typeDefs))
+
+    override def runOn(units: List[CompilationUnit])(using dottyCtx: DottyContext): List[CompilationUnit] = {
+      exportedSymsMapping = exportedSymbolsMapping(ctx, this.start, units)
+      super.runOn(units)
+    }
   }
 
   // Pick all phases until `including` (with its group included)

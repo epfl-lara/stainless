@@ -9,11 +9,13 @@ import dotc.util._
 import Contexts.{Context => DottyContext}
 import plugins._
 import Phases._
+import Symbols._
 import transform._
 import reporting._
 import inox.{Context, DebugSection, utils => InoxPosition}
 import stainless.frontend
 import stainless.frontend.{CallBack, Frontend}
+import Utils._
 
 object StainlessPlugin {
   val PluginName                       = "stainless"
@@ -76,11 +78,12 @@ class StainlessPlugin extends StandardPlugin {
 
     private var extraction: Option[StainlessExtraction] = None
     private var callback: Option[CallBack] = None
+    private var exportedSymsMapping: ExportedSymbolsMapping = ExportedSymbolsMapping.empty
 
     // This method id called for every compilation unit, and in the same thread.
     // It is called within super.runOn.
     override def run(using DottyContext): Unit =
-      extraction.get.extractUnit.foreach(extracted =>
+      extraction.get.extractUnit(exportedSymsMapping).foreach(extracted =>
         callback.get(extracted.file, extracted.unit, extracted.classes, extracted.functions, extracted.typeDefs))
 
     override def runOn(units: List[CompilationUnit])(using dottyCtx: DottyContext): List[CompilationUnit] = {
@@ -105,6 +108,7 @@ class StainlessPlugin extends StandardPlugin {
       // Not pretty at all... Oh well...
       callback = Some(cb)
       extraction = Some(new StainlessExtraction(inoxCtx))
+      exportedSymsMapping = Utils.exportedSymbolsMapping(inoxCtx, this.start, units)
 
       cb.beginExtractions()
       val unitRes = super.runOn(units)
