@@ -54,21 +54,25 @@ class ImperativeCleanup(override val s: Trees, override val t: oo.Trees)
     object ReconstructTuple {
       def unapply(e: s.Expr): Option[s.Expr] = e match {
         case s.Let(vd, tuple, Lets(lets, s.Tuple(es))) =>
-          val letsMap = lets.map { case (vd, e) => (vd.id, e) }.toMap
-          if (
-            vd.getType.isInstanceOf[s.TupleType] &&
-            es.length == vd.getType.asInstanceOf[s.TupleType].bases.length &&
-            es.zipWithIndex.forall {
-              case (e0 : s.Variable, i) =>
-                letsMap.contains(e0.id) &&
-                letsMap(e0.id) == s.TupleSelect(vd.toVariable, i + 1)
-              case (e0, i) =>
-                e0 == s.TupleSelect(vd.toVariable, i + 1)
-            }
-          )
-            Some(tuple)
-          else
-            None
+          vd.getType match {
+            case s.TupleType(bases) =>
+              val letsMap = lets.map { case (vd, e) => (vd.id, e) }.toMap
+              // All let-bindings are used in the "returned" value `es`
+              lazy val returnedLets = letsMap.keySet.filter(id => es.exists { case v: s.Variable => v.id == id; case _ => false })
+              // All values in `es` are reconstruction of selections of `vd`
+              lazy val esIsTupleSel = es.zipWithIndex.forall {
+                case (e0: s.Variable, i) =>
+                  letsMap.contains(e0.id) &&
+                  letsMap(e0.id) == s.TupleSelect(vd.toVariable, i + 1)
+                case (e0, i) =>
+                  e0 == s.TupleSelect(vd.toVariable, i + 1)
+              }
+              if (es.length == bases.length && returnedLets.size == letsMap.size && esIsTupleSel)
+                Some(tuple)
+              else None
+            case _ =>
+              None
+          }
 
         case s.Let(vd, e, Lets(Seq(), v)) if v == vd.toVariable =>
           Some(e)
