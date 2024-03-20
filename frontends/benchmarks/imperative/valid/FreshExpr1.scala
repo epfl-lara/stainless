@@ -1,6 +1,6 @@
 import stainless.lang._
 
-object FreshExpr {
+object FreshExpr1 {
   case class C1(var c2: C2)
   case class C2(var c3: C3)
   case class C3(var bi: BigInt)
