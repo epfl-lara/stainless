@@ -701,7 +701,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
         val specced = BodyWithSpecs(symbols.simplifyLets(fi.inlined))
         specced.bodyOpt
           .map(specced.wrapLets)
-          .forall(isExpressionFresh)
+          .forall(rec(_, bindings))
 
       // other function invocations always return a fresh expression, by hypothesis (global assumption)
       case (_: FunctionInvocation | _: ApplyLetRec | _: Application) => true
