@@ -9,6 +9,10 @@ object TargetMutation6 {
     rr.lhs = Ref(v)
   }
 
+  def modifyLhs(rr: RefRef, v: Int): Unit = {
+    rr.lhs.x = v
+  }
+
   def t1(arr1: Array[Ref], arr2: Array[Ref], i: Int, j: Int, k: Int, cond: Boolean, gra: Ref): Unit = {
     require(arr1.length >= 10)
     require(arr2.length >= arr1.length)
@@ -27,6 +31,7 @@ object TargetMutation6 {
     val oldLhs = lhs.x
     refref.lhs = Ref(123)
     assert(lhs.x == oldLhs)
+    assert(refref.lhs.x == 123)
   }
 
   def t3(refref: RefRef): Unit = {
@@ -34,5 +39,17 @@ object TargetMutation6 {
     val oldLhs = lhs.x
     replaceLhs(refref, 123)
     assert(lhs.x == oldLhs)
+    assert(refref.lhs.x == 123)
+  }
+
+  def t4(refref: RefRef): Unit = {
+    val lhs = refref.lhs
+    val oldLhs = lhs.x
+    modifyLhs(refref, 123)
+    assert(lhs.x == 123)
+    assert(refref.lhs.x == 123)
+    refref.lhs.x = 456
+    assert(lhs.x == 456)
+    assert(refref.lhs.x == 456)
   }
 }

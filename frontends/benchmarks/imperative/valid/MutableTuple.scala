@@ -24,8 +24,8 @@ object MutableTuple {
   }
 
   def t3(): (Foo, Bar) = {
-    val bar = Bar(1)
-    val foo = Foo(2)
+    val bar = Bar(10)
+    val foo = Foo(20)
     (foo, bar)
   }
 
