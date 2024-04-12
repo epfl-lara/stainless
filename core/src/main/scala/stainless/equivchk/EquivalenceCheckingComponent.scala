@@ -235,7 +235,7 @@ class EquivalenceCheckingRun private(override val component: EquivalenceChecking
 
   private def counterExamples(analysis: VerificationAnalysis) = {
     analysis.vrs.collect {
-      case (vc, VCResult(VCStatus.Invalid(VCStatus.CounterExample(model)), _, _)) =>
+      case (vc, VCResult(VCStatus.Invalid(VCStatus.CounterExample(model)), _, _, _)) =>
         vc -> model
     }.toMap
   }

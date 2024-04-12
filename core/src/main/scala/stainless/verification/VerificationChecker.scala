@@ -117,7 +117,7 @@ trait VerificationChecker { self =>
     }
   }
 
-  private lazy val unknownResult: VCResult = VCResult(VCStatus.Unknown, None, None)
+  private lazy val unknownResult: VCResult = VCResult(VCStatus.Unknown, None, None, None)
 
   def checkVCs(vcs: Seq[VC], stopWhen: VCResult => Boolean = defaultStop): Future[Map[VC, VCResult]] = {
     if (!VerificationChecker.startedVerification.getAndSet(true)) reporter.info("Starting verification...")
@@ -280,7 +280,7 @@ trait VerificationChecker { self =>
     import SolverResponses._
     val cond = vc.condition
     if (cond == BooleanLiteral(true)) {
-      return VCResult(VCStatus.Trivial, None, None)
+      return VCResult(VCStatus.Trivial, None, None, None)
     }
 
     val s = sf.getNewSolver()
@@ -300,10 +300,10 @@ trait VerificationChecker { self =>
           s.check(Model)
         }
       }
-
+      
       val vcres = tryRes match {
         case _ if interruptManager.isInterrupted =>
-          VCResult(VCStatus.Cancelled, Some(s.name), Some(time))
+          VCResult(VCStatus.Cancelled, Some(s.name), Some(time), s.getSmtLibFileId)
 
         case Success(res) => res match {
           case Unknown =>
@@ -313,35 +313,35 @@ trait VerificationChecker { self =>
                 case _ => VCStatus.Unknown
               }
               case _ => VCStatus.Unknown
-            }, Some(s.name), Some(time))
+            }, Some(s.name), Some(time), s.getSmtLibFileId)
 
           case Unsat if !vc.satisfiability =>
-            VCResult(VCStatus.Valid, s.getResultSolver.map(_.name), Some(time))
+            VCResult(VCStatus.Valid, s.getResultSolver.map(_.name), Some(time), s.getSmtLibFileId)
 
           case SatWithModel(model) if checkModels && vc.kind.isInstanceOf[VCKind.AdtInvariant] =>
             val VCKind.AdtInvariant(invId) = vc.kind: @unchecked
             val status = checkAdtInvariantModel(vc, invId, model)
-            VCResult(status, s.getResultSolver.map(_.name), Some(time))
+            VCResult(status, s.getResultSolver.map(_.name), Some(time), s.getSmtLibFileId)
 
           case SatWithModel(model) if !vc.satisfiability =>
-            VCResult(VCStatus.Invalid(VCStatus.CounterExample(model)), s.getResultSolver.map(_.name), Some(time))
+            VCResult(VCStatus.Invalid(VCStatus.CounterExample(model)), s.getResultSolver.map(_.name), Some(time), s.getSmtLibFileId)
 
           case Sat if vc.satisfiability =>
-            VCResult(VCStatus.Valid, s.getResultSolver.map(_.name), Some(time))
+            VCResult(VCStatus.Valid, s.getResultSolver.map(_.name), Some(time), s.getSmtLibFileId)
 
           case Unsat if vc.satisfiability =>
-            VCResult(VCStatus.Invalid(VCStatus.Unsatisfiable), s.getResultSolver.map(_.name), Some(time))
+            VCResult(VCStatus.Invalid(VCStatus.Unsatisfiable), s.getResultSolver.map(_.name), Some(time), s.getSmtLibFileId)
 
           case _ => sys.error(s"Unreachable: $res")
         }
 
         case Failure(u: inox.Unsupported) =>
           reporter.warning(u.getMessage)
-          VCResult(VCStatus.Unsupported, Some(s.name), Some(time))
+          VCResult(VCStatus.Unsupported, Some(s.name), Some(time), s.getSmtLibFileId)
 
         case Failure(e @ NotWellFormedException(d, info)) =>
           reporter.error(d.getPos, e.getMessage)
-          VCResult(VCStatus.Crashed, Some(s.name), Some(time))
+          VCResult(VCStatus.Crashed, Some(s.name), Some(time), s.getSmtLibFileId)
 
         case Failure(e) => reporter.internalError(e)
       }

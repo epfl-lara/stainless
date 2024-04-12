@@ -38,7 +38,7 @@ trait CoqVerificationChecker { self =>
     val pCoq = CoqEncoder.transformProgram(program, context)
     CoqIO.makeOutputDirectory()
     val files = CoqIO.writeToCoqFile(pCoq.map { case (id, name, com) => (name, com) } )
-    val unknownResult: VCResult = VCResult(VCStatus.Unknown, None, None)
+    val unknownResult: VCResult = VCResult(VCStatus.Unknown, None, None, None)
     val vcs: Seq[VC] = pCoq map { case(fun, _, _) =>
       VC(getFunction(fun).fullBody, fun, VCKind.CoqMethod, true).setPos(symbols.getFunction(fun))
     }
@@ -76,7 +76,7 @@ trait CoqVerificationChecker { self =>
         case Failure(e) => reporter.internalError(e)
       }
 
-      vc -> VCResult(vcres, None, Some(time))
+      vc -> VCResult(vcres, None, Some(time), None)
     }}.toMap
     initMap ++ res
   }

@@ -61,7 +61,7 @@ trait VerificationCache extends VerificationChecker { self =>
           debugVC(vc, origVC)
           reporter.debug("--------------")
         }
-        VCResult(VCStatus.ValidFromCache, None, None)
+        VCResult(VCStatus.ValidFromCache, None, None, None)
       } else {
         reporter.synchronized {
           reporter.debug(s"Cache miss: '${vc.kind}' VC for ${vc.fid.asString} @${vc.getPos}...")
@@ -94,7 +94,7 @@ trait VerificationCache extends VerificationChecker { self =>
     // Update the result with the correct processing time
     tryResult match {
       case Failure(e) => reporter.internalError(e)
-      case Success(VCResult(status, solver, _)) => VCResult(status, solver, Some(time))
+      case Success(VCResult(status, solver, _, smtLibFileId)) => VCResult(status, solver, Some(time), smtLibFileId)
     }
   }
 }

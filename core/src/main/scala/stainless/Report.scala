@@ -33,7 +33,8 @@ case class RecordRow(
   pos: Position,
   level: Level.Type,
   extra: Seq[String],
-  time: Long
+  time: Long,
+  smtLibId: Option[Int]
 )
 
 /**
@@ -78,10 +79,14 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
   private def processRows(full: Boolean)(using ctx: inox.Context): Seq[Row] = {
     val printUniqueName = ctx.options.findOptionOrDefault(inox.ast.optPrintUniqueIds)
     for {
-      RecordRow(id, pos, level, extra, time) <- annotatedRows.sortBy(r => r.id -> r.pos)
+      RecordRow(id, pos, level, extra, time, smtLibId) <- annotatedRows.sortBy(r => r.id -> r.pos)
       if full || level != Level.Normal
       name = if (printUniqueName) id.uniqueName else id.name
-      contents = Position.smartPos(pos) +: (name +: (extra :+ f"${time / 1000d}%3.1f"))
+      t = smtLibId match {
+        case Some(v) => (extra :+ f"${time / 1000d}%3.1f" ) :+  f"smt-lib-$v"
+        case None => extra :+ f"${time / 1000d}%3.1f"
+      }
+      contents = Position.smartPos(pos) +: (name +: t)
     } yield Row(contents map { str => Cell(withColor(str, level)) })
   }
 
@@ -105,7 +110,7 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
   def hasError(identifier: Option[Identifier])(using inox.Context): Boolean = identifier match {
     case None => false
     case Some(i) => annotatedRows.exists(elem => elem match {
-      case RecordRow(id, pos, level, extra, time) => {
+      case RecordRow(id, pos, level, extra, time, smtLibId) => {
         (level == Level.Error && id == i)
       }
     })
@@ -114,7 +119,7 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
   def hasUnknown(identifier: Option[Identifier])(using inox.Context): Boolean = identifier match {
     case None => false
     case Some(i) => annotatedRows.exists(elem => elem match {
-      case RecordRow(id, pos, level, extra, time) => level == Level.Warning && id == i
+      case RecordRow(id, pos, level, extra, time, smtLibId) => level == Level.Warning && id == i
     })
   }
 
