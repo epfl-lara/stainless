@@ -77,4 +77,23 @@ object TargetMutation4 {
     assert(y.value == 111)
     assert(z.value == 111)
   }
+
+  def h4(x: Box, z: Box, cond: Boolean): Unit = {
+    val oldX = x.value
+    val y = if (cond) x else z
+    y.value = 456
+    assert(y.value == 456)
+    assert(cond ==> (x.value == 456))
+    assert(!cond ==> (x.value == oldX))
+  }
+
+  def h4Mutate(x: Box, z: Box, cond: Boolean): Unit = {
+    val oldX = x.value
+    val y = if (cond) x else z
+    mutate(y, 456)
+    assert(y.value == 456)
+    assert(cond ==> (x.value == 456))
+    assert(!cond ==> (x.value == oldX))
+  }
+
 }
