@@ -97,7 +97,7 @@ class EquivalenceCheckingReport(override val results: Seq[EquivalenceCheckingRep
       val level = levelOf(status)
       val solver = solverName getOrElse ""
       val extra = Seq(kind, statusName, solver)
-      RecordRow(id, pos, level, extra, time)
+      RecordRow(id, pos, level, extra, time, None)
   }
   lazy val totalConditions: Int = results.size
   lazy val totalTime: Long = results.map(_.time).sum

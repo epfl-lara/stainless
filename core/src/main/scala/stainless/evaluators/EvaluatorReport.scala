@@ -57,7 +57,7 @@ class EvaluatorReport(val results: Seq[EvaluatorReport.Record], val sources: Set
 
   override lazy val annotatedRows = results map {
     case Record(id, pos, status, time) =>
-      RecordRow(id, pos, levelOf(status), Seq(descriptionOf(status)), time)
+      RecordRow(id, pos, levelOf(status), Seq(descriptionOf(status)), time, None)
   }
 
   private lazy val totalTime = (results map { _.time }).sum

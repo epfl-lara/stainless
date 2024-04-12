@@ -112,7 +112,8 @@ object VCStatus {
 case class VCResult[+Model](
   status: VCStatus[Model],
   solverName: Option[String],
-  time: Option[Long]
+  time: Option[Long],
+  smtLibFileId: Option[Int]
 ) {
   def isValid           = status == VCStatus.Valid || isValidFromCache || isTrivial
   def isValidFromCache  = status == VCStatus.ValidFromCache

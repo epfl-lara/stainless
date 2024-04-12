@@ -68,7 +68,7 @@ class TerminationReport(val results: Seq[TerminationReport.Record], val sources:
       val symbol = if (status.isTerminating) "\u2713" else "\u2717"
       val extra  = Seq(s"$symbol")
 
-      RecordRow(id, pos, level, extra, 0L)
+      RecordRow(id, pos, level, extra, 0L, None)
   }
 
   private def levelOf(status: Status) = status match {

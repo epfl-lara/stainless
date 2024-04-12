@@ -467,7 +467,7 @@ class EquivalenceChecker(override val trees: Trees,
 
       val report = analysis.toReport
       val allCtexs = analysis.vrs.collect {
-        case (vc, VCResult(VCStatus.Invalid(VCStatus.CounterExample(model)), _, _)) =>
+        case (vc, VCResult(VCStatus.Invalid(VCStatus.CounterExample(model)), _, _, _)) =>
           ctexOrderedArguments(vc.fid, model.program)(model.vars).map(vc.fid -> _)
       }.flatten.groupMap(_._1)(_._2)
 
