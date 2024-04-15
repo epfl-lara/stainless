@@ -78,16 +78,24 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
   /** Filter, sort & process rows. */
   private def processRows(full: Boolean)(using ctx: inox.Context): Seq[Row] = {
     val printUniqueName = ctx.options.findOptionOrDefault(inox.ast.optPrintUniqueIds)
-    for {
+    val rows = for {
       RecordRow(id, pos, level, extra, time, smtLibId) <- annotatedRows.sortBy(r => r.id -> r.pos)
       if full || level != Level.Normal
       name = if (printUniqueName) id.uniqueName else id.name
       t = smtLibId match {
-        case Some(v) => (extra :+ f"${time / 1000d}%3.1f" ) :+  f"smt-lib-$v"
-        case None => extra :+ f"${time / 1000d}%3.1f"
+        case Some(v) =>  f"smt-lib-$v"
+        case None => ""
       }
-      contents = Position.smartPos(pos) +: (name +: t)
+      contents = Position.smartPos(pos) +: (name +: ((extra :+ f"${time / 1000d}%3.1f" ) :+  t))
     } yield Row(contents map { str => Cell(withColor(str, level)) })
+
+    // Delete the last cell if all are empty (i.e., the debug smt flag is false, and so smt-lib-id is empty)
+    val colorRegex = "\u001B\\[[;\\d]*m".r
+    if rows.forall(r => colorRegex.replaceAllIn(r.cells.last.vString, "").isBlank()) then {
+      rows.map(r => Row(r.cells.dropRight(1)))
+    } else {
+      rows
+    }
   }
 
   private def withColor(str: String, level: Level)(using inox.Context): String =
