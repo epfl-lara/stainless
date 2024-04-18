@@ -37,7 +37,7 @@ Z3_WIN_NAME="z3-$Z3_VERSION-x64-win.zip"
 
 CVC5_GITHUB_URL="https://github.com/cvc5/cvc5/releases/download/cvc5-$CVC5_VERSION"
 CVC5_LICENSES_URL="https://raw.githubusercontent.com/cvc5/cvc5/main/licenses/"
-CVC5_LICENSES=("antlr3-LICENSE" "gpl-3.0.txt" "lgpl-3.0.txt")
+CVC5_LICENSES=("minisat-LICENSE" "gpl-3.0.txt" "lgpl-3.0.txt")
 CVC5_LINUX_NAME="cvc5-Linux"
 CVC5_MAC_ARM64_NAME="cvc5-macOS-arm64"
 CVC5_MAC_X64_NAME="cvc5-macOS"
