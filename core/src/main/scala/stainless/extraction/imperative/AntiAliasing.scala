@@ -256,6 +256,17 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
         }
 
         // NOTE: `args` must refer to the arguments of the function invocation before transformation (the original args)
+        // IMPORTANT NOTICE:
+        // In the `Let` case transformation of `transform`, we need to compute the targets of the transformed binding.
+        // If this binding happens to contain a function call, the returned targets may be invalid because
+        // `getTargets` works on functions prior to the AntiAliasing function purification, not after (as it's done it this `Let` case).
+        //
+        // It turns out that if we bind the result of the function call to a `var` (for mutable type) the target computation
+        // will fail which will result in rejection (with the message "Unsupported `val` definition in AntiAliasing").
+        // Not doing so will very likely result in a crash later on in unrelated part of the code (due to invalid targets being applied).
+        //
+        // To properly fix this, we would need to distinguish pre/post transformation `getTargets` computation,
+        // which would require significant changes to EffectsAnalyzer.
         def mapApplication(formalArgs: Seq[ValDef], args: Seq[Expr], nfi: Expr, nfiType: Type, fiEffects: Set[Effect], isOpaqueOrExtern: Boolean, env: Env): Expr = {
 
           def affectedBindings(updTarget: Target, isReplacement: Boolean): Map[ValDef, Set[Target]] = {
@@ -436,7 +447,15 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
             }
 
             val extractResults = Block(assgns, TupleSelect(freshRes.toVariable, 1))
-            Let(freshRes, nfi, extractResults)
+            // FIXME: This should be `Let` and not `LetVar`, however doing so will cause a crash in e.g. `MapAliasing1`
+            //  because `getAllTargetsDealiased` in the `Let` case will result in an invalid target due to
+            //  this function not supporting targets computation on function application *post-transformation*
+            // (see important notice on above).
+            if (isMutableType(nfiType)) {
+              LetVar(freshRes, nfi, extractResults)
+            } else {
+              Let(freshRes, nfi, extractResults)
+            }
           } else {
             nfi
           }
