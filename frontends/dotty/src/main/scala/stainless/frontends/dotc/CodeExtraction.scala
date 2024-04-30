@@ -96,7 +96,7 @@ class CodeExtraction(inoxCtx: inox.Context,
 
     def isVariable(s: Symbol) = (vars contains s) || (mutableVars contains s)
 
-    def withNewTypeParams(ntparams: Traversable[(Symbol, xt.TypeParameter)]) = {
+    def withNewTypeParams(ntparams: Iterable[(Symbol, xt.TypeParameter)]) = {
       copy(tparams = tparams ++ ntparams)
     }
 
@@ -104,7 +104,7 @@ class CodeExtraction(inoxCtx: inox.Context,
       copy(tparams = tparams + tparam)
     }
 
-    def withNewVars(nvars: Traversable[(Symbol, () => xt.Expr)]) = {
+    def withNewVars(nvars: Iterable[(Symbol, () => xt.Expr)]) = {
       copy(vars = vars ++ nvars)
     }
 
@@ -116,7 +116,7 @@ class CodeExtraction(inoxCtx: inox.Context,
       copy(mutableVars = mutableVars + nvar)
     }
 
-    def withNewMutableVars(nvars: Traversable[(Symbol, () => xt.Variable)]) = {
+    def withNewMutableVars(nvars: Iterable[(Symbol, () => xt.Variable)]) = {
       copy(mutableVars = mutableVars ++ nvars)
     }
 
@@ -128,7 +128,7 @@ class CodeExtraction(inoxCtx: inox.Context,
       copy(localClasses = this.localClasses + (lcd.id -> lcd))
     }
 
-    def withDepParams(dps: Traversable[(TermName, xt.ValDef)]) = {
+    def withDepParams(dps: Iterable[(TermName, xt.ValDef)]) = {
       copy(depParams = depParams ++ dps)
     }
 
@@ -2391,7 +2391,7 @@ class CodeExtraction(inoxCtx: inox.Context,
       case AppliedType(tr: TypeRef, Seq(tp)) if isArrayClassSym(tr.symbol) =>
         xt.ArrayType(extractType(tp))
 
-      case fo @ defn.FunctionOf(from, to, _, _) =>
+      case fo @ defn.FunctionOf(from, to, _) =>
         xt.FunctionType(from map extractType, extractType(to))
 
       case tr @ TypeRef(_, _) if dctx.tparams contains tr.symbol =>
