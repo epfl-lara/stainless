@@ -39,7 +39,7 @@ lazy val nTestSuiteParallelism = {
 }
 
 // The Scala version with which Stainless is compiled.
-val stainlessScalaVersion = "3.3.0"
+val stainlessScalaVersion = "3.3.3"
 // Stainless supports Scala 2.13 and Scala 3.3 programs.
 val frontendScalacVersion = "2.13.12"
 val frontendDottyVersion = stainlessScalaVersion
