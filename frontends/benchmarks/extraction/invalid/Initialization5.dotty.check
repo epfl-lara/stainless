@@ -1,12 +1,7 @@
-[ Error  ] Initialization5.scala:6:17: Cannot prove the method argument is hot. Only hot values are safe to leak.
-[ Error  ] Found = ThisRef[class NoThis].
-[ Error  ] Non initialized field(s): value nothis1, value nothis2. Calling trace:
-[ Error  ] -> case class NoThis() {	[ Initialization5.scala:2 ]
-[ Error  ]    ^
-[ Error  ] -> val nothis1 = f()	[ Initialization5.scala:3 ]
-[ Error  ]                  ^^^
-[ Error  ] -> def f() = g(this)	[ Initialization5.scala:6 ]
-[ Error  ]                ^^^^
-[ Error  ]
-               def f() = g(this)
-                           ^
+[ Error  ] Initialization5.scala:3:9: Not well formed definition @field
+[ Error  ] @fieldDefPosition(8)
+[ Error  ] @method(NoThis)
+[ Error  ] def nothis1: Int = this.f
+[ Error  ] 	because field `nothis1` can only refer to previous fields, not to `nothis2`
+               val nothis1 = f()
+                   ^
