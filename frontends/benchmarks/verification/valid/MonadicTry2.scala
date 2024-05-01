@@ -36,6 +36,5 @@ object MonadicTry2 {
     case Failure(_) => i % 2 != 0 && i <= 0
   })
 
-  def 
 
 }
