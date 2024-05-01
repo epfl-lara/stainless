@@ -41,6 +41,25 @@ package object lang {
   @library
   abstract class Exception extends Throwable
 
+  @library
+  @extern
+  def Exception(msg: String): Exception = new Exception{}
+
+  @library
+  sealed abstract class Try[T]{
+    def map[U](f: T => U): Try[U] = this match {
+      case Success(t) => Success(f(t))
+      case Failure(exc: Exception) => Failure(exc)
+    }
+
+    def flatMap[U](f: T => Try[U]): Try[U] = this match {
+      case Success(t) => f(t)
+      case Failure(exc: Exception) => Failure(exc)
+    }
+  }
+  @library case class Success[T](t: T) extends Try[T]
+  @library case class Failure[T](exc: Exception) extends Try[T]
+
   @ignore
   implicit class Throwing[T](underlying: => T) {
     def throwing(pred: Exception => Boolean): T = try {
