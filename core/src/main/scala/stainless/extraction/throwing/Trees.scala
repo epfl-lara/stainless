@@ -33,7 +33,8 @@ trait Trees extends imperative.Trees { self =>
     */
   sealed case class Throw(ex: Expr) extends Expr with CachingTyped {
     override protected def computeType(using Symbols): Type = getExceptionType match {
-      case Some(tpe) => checkParamType(ex.getType, tpe, NothingType())
+      case Some(tpe) =>
+        checkParamType(ex.getType, tpe, NothingType())
       case _ => Untyped
     }
   }

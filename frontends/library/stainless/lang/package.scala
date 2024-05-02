@@ -52,7 +52,7 @@ package object lang {
       case Failure(exc: Exception) => Failure(exc)
     }
 
-    def flatMap[U](f: T => Try[U]): Try[U] = this match {
+    @inline def flatMap[U](f: T => Try[U]): Try[U] = this match {
       case Success(t) => f(t)
       case Failure(exc: Exception) => Failure(exc)
     }
