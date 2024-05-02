@@ -316,7 +316,7 @@ Instead, please use ``sbt stainless-scalac-standalone/assembly`` as follows:
   $ sbt stainless-scalac-standalone/assembly
   // takes about 1 minutes
 
-Running Stainless can then be done with the command: ``java -jar frontends\stainless-dotty-standalone\target\scala-3.3.0\stainless-dotty-standalone-{VERSION}.jar``, where ``VERSION`` denotes Stainless version.
+Running Stainless can then be done with the command: ``java -jar frontends\stainless-dotty-standalone\target\scala-3.3.3\stainless-dotty-standalone-{VERSION}.jar``, where ``VERSION`` denotes Stainless version.
 
 Running Tests
 -------------
