@@ -40,7 +40,7 @@ It is shipped with Z3 4.12.2, cvc5 1.0.8 and Princess. If Z3 API is not found, u
 
 ## SBT Stainless plugin
 
-Alternatively, one may integrate Stainless with SBT. The supported Scala versions are `3.3.0` and `2.13.12`
+Alternatively, one may integrate Stainless with SBT. The supported Scala versions are `3.3.3` and `2.13.12`
 To do so, download [sbt-stainless](https://github.com/epfl-lara/stainless/releases), and move it to the directory of the project.
 Assuming the project's structure is:
 ```
@@ -73,7 +73,7 @@ For instance:
 ```scala
 ThisBuild / version := "0.1.0"
 
-ThisBuild / scalaVersion := "3.3.0"
+ThisBuild / scalaVersion := "3.3.3"
 
 lazy val myTestProject = (project in file("."))
   .enablePlugins(StainlessPlugin) // <--------

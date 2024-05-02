@@ -6,7 +6,7 @@ if [[ $(git diff --stat) != '' ]]; then
   STAINLESS_VERSION="$STAINLESS_VERSION-SNAPSHOT"
 fi
 
-SCALA_VERSION="3.3.0"
+SCALA_VERSION="3.3.3"
 SCALA_LIB_VERSION="2.13"
 PUBLISHED_SBT_PLUGIN_DIR="$HOME/.ivy2/local/ch.epfl.lara/sbt-stainless/scala_2.12/sbt_1.0/$STAINLESS_VERSION"
 PUBLISHED_LIB_DIR="$HOME/.ivy2/local/ch.epfl.lara/stainless-library_$SCALA_LIB_VERSION/$STAINLESS_VERSION"
