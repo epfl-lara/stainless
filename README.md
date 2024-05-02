@@ -40,7 +40,7 @@ It is shipped with Z3 4.12.2, cvc5 1.0.8 and Princess. If Z3 API is not found, u
 
 ## SBT Stainless plugin
 
-Alternatively, one may integrate Stainless with SBT. The supported Scala versions are `3.3.3` and `2.13.12`
+Alternatively, one may integrate Stainless with SBT. The supported Scala versions are `3.3.3`.
 To do so, download [sbt-stainless](https://github.com/epfl-lara/stainless/releases), and move it to the directory of the project.
 Assuming the project's structure is:
 ```
@@ -70,6 +70,7 @@ these should be moved according to the above structure.
 
 Finally, the plugin must be explicitly enabled for projects in `build.sbt` desiring Stainless with `.enablePlugins(StainlessPlugin)`.
 For instance:
+
 ```scala
 ThisBuild / version := "0.1.0"
 
@@ -88,8 +89,7 @@ Note that this method only ships the Princess SMT solver. Z3 and cvc5 can still 
 
 ## Build and Use
 
-To start quickly, install a JVM and use a [recent release](https://github.com/epfl-lara/stainless/releases). To build the project, run `sbt universal:stage`. If all goes well, scripts are generated for Scala 3 and Scala 2 versions of the front end:
-  * `frontends/scalac/target/universal/stage/bin/stainless-scalac`
+To start quickly, install a JVM and use a [recent release](https://github.com/epfl-lara/stainless/releases). To build the project, run `sbt universal:stage`. If all goes well, scripts are generated for the front end:
   * `frontends/dotty/target/universal/stage/bin/stainless-dotty`
 
 Use one of these scripts as you would use `scalac` to compile Scala files.
