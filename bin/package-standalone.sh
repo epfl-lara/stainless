@@ -16,14 +16,15 @@ fi
 
 SCALA_VERSION="3.3.3"
 LIB_SCALA_VERSION="3.3.3"
+LIB_SCALA_VERSION_JAR_NAME_PART=$(echo $LIB_SCALA_VERSION | cut -d '.' -f 1)
 Z3_VERSION="4.12.2"
 CVC5_VERSION="1.0.8"
 
 SBT_PACKAGE_DOTTY="sbt stainless-dotty-standalone/assembly"
 SBT_PACKAGE_LIB="sbt stainless-library/package stainless-library/packageSrc"
 STAINLESS_DOTTY_JAR_PATH="./frontends/stainless-dotty-standalone/target/scala-$SCALA_VERSION/stainless-dotty-standalone-$STAINLESS_VERSION.jar"
-STAINLESS_LIB_BIN_JAR_PATH="./frontends/library/target/scala-$LIB_SCALA_VERSION/stainless-library_$LIB_SCALA_VERSION-$STAINLESS_VERSION.jar"
-STAINLESS_LIB_SRC_JAR_PATH="./frontends/library/target/scala-$LIB_SCALA_VERSION/stainless-library_$LIB_SCALA_VERSION-$STAINLESS_VERSION-sources.jar"
+STAINLESS_LIB_BIN_JAR_PATH="./frontends/library/target/scala-$LIB_SCALA_VERSION/stainless-library_$LIB_SCALA_VERSION_JAR_NAME_PART-$STAINLESS_VERSION.jar"
+STAINLESS_LIB_SRC_JAR_PATH="./frontends/library/target/scala-$LIB_SCALA_VERSION/stainless-library_$LIB_SCALA_VERSION_JAR_NAME_PART-$STAINLESS_VERSION-sources.jar"
 SCALAZ3_JAR_LINUX_PATH="./unmanaged/scalaz3-unix-64-3.jar"
 SCALAZ3_JAR_MAC_X64_PATH="./unmanaged/scalaz3-mac-64-3.jar"
 

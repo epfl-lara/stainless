@@ -75,7 +75,6 @@ lazy val baseSettings: Seq[Setting[_]] = Seq(
 
 lazy val artifactSettings: Seq[Setting[_]] = baseSettings ++ Seq(
   scalaVersion := stainlessScalaVersion,
-
   buildInfoPackage := "stainless",
   buildInfoKeys := stainlessBuildInfoKeys,
   buildInfoOptions := Seq(BuildInfoOption.BuildTime),
