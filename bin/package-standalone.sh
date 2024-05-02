@@ -15,14 +15,12 @@ if [[ $(git diff --stat) != '' ]]; then
 fi
 
 SCALA_VERSION="3.3.3"
-LIB_SCALA_VERSION="2.13"
+LIB_SCALA_VERSION="3.3.3"
 Z3_VERSION="4.12.2"
 CVC5_VERSION="1.0.8"
 
-SBT_PACKAGE_SCALAC="sbt stainless-scalac-standalone/assembly"
 SBT_PACKAGE_DOTTY="sbt stainless-dotty-standalone/assembly"
 SBT_PACKAGE_LIB="sbt stainless-library/package stainless-library/packageSrc"
-STAINLESS_SCALAC_JAR_PATH="./frontends/stainless-scalac-standalone/target/scala-$SCALA_VERSION/stainless-scalac-standalone-$STAINLESS_VERSION.jar"
 STAINLESS_DOTTY_JAR_PATH="./frontends/stainless-dotty-standalone/target/scala-$SCALA_VERSION/stainless-dotty-standalone-$STAINLESS_VERSION.jar"
 STAINLESS_LIB_BIN_JAR_PATH="./frontends/library/target/scala-$LIB_SCALA_VERSION/stainless-library_$LIB_SCALA_VERSION-$STAINLESS_VERSION.jar"
 STAINLESS_LIB_SRC_JAR_PATH="./frontends/library/target/scala-$LIB_SCALA_VERSION/stainless-library_$LIB_SCALA_VERSION-$STAINLESS_VERSION-sources.jar"
@@ -66,7 +64,6 @@ SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 TMP_DIR="$SCRIPT_DIR/../.stainless-package-standalone"
 mkdir -p "$TMP_DIR"
 
-STAINLESS_SCALAC_JAR_BASENAME=$(basename "$STAINLESS_SCALAC_JAR_PATH")
 STAINLESS_DOTTY_JAR_BASENAME=$(basename "$STAINLESS_DOTTY_JAR_PATH")
 
 function check_tools {
@@ -254,10 +251,9 @@ info "$(tput bold)[] Checking required tools..."
 check_tools
 
 info "$(tput bold)[] Assembling fat jar..."
-if [[ -f "$STAINLESS_SCALAC_JAR_PATH" && -f "$STAINLESS_DOTTY_JAR_PATH" && -f "$STAINLESS_LIB_BIN_JAR_PATH" && -f "$STAINLESS_LIB_SRC_JAR_PATH" ]]; then
+if [[ -f "$STAINLESS_DOTTY_JAR_PATH" && -f "$STAINLESS_LIB_BIN_JAR_PATH" && -f "$STAINLESS_LIB_SRC_JAR_PATH" ]]; then
   info "  (JAR already exists, skipping sbt assembly step.)" && okay
 else
-  $SBT_PACKAGE_SCALAC >> $LOG || fail
   $SBT_PACKAGE_DOTTY >> $LOG || fail
   $SBT_PACKAGE_LIB >> $LOG && okay || fail
 fi
@@ -277,13 +273,9 @@ fetch_cvc5 "mac-x64" $CVC5_MAC_X64_NAME
 fetch_cvc5 "win" $CVC5_WIN_NAME
 
 info "$(tput bold)[] Packaging..."
-package "linux" $STAINLESS_SCALAC_JAR_PATH $SCALAZ3_JAR_LINUX_PATH "scalac"
 package "linux" $STAINLESS_DOTTY_JAR_PATH $SCALAZ3_JAR_LINUX_PATH "dotty"
-package "mac-arm64" $STAINLESS_SCALAC_JAR_PATH "" "scalac"
 package "mac-arm64" $STAINLESS_DOTTY_JAR_PATH "" "dotty"
-package "mac-x64" $STAINLESS_SCALAC_JAR_PATH $SCALAZ3_JAR_MAC_X64_PATH "scalac"
 package "mac-x64" $STAINLESS_DOTTY_JAR_PATH $SCALAZ3_JAR_MAC_X64_PATH "dotty"
-package "win" $STAINLESS_SCALAC_JAR_PATH "" "scalac"
 package "win" $STAINLESS_DOTTY_JAR_PATH "" "dotty"
 
 info "$(tput bold)[] Cleaning up..."

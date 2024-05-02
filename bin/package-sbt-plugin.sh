@@ -11,7 +11,6 @@ SCALA_LIB_VERSION="2.13"
 PUBLISHED_SBT_PLUGIN_DIR="$HOME/.ivy2/local/ch.epfl.lara/sbt-stainless/scala_2.12/sbt_1.0/$STAINLESS_VERSION"
 PUBLISHED_LIB_DIR="$HOME/.ivy2/local/ch.epfl.lara/stainless-library_$SCALA_LIB_VERSION/$STAINLESS_VERSION"
 PUBLISHED_DOTTY_DIR="$HOME/.ivy2/local/ch.epfl.lara/stainless-dotty-plugin_$SCALA_VERSION/$STAINLESS_VERSION"
-PUBLISHED_SCALAC_DIR="$HOME/.ivy2/local/ch.epfl.lara/stainless-scalac-plugin_$SCALA_VERSION/$STAINLESS_VERSION"
 
 OUTPUT="./.stainless-package-sbt-plugin"
 rm -rf "$OUTPUT" || true
@@ -55,12 +54,6 @@ OUT_DOTTY_DIR="$OUTPUT/stainless/ch/epfl/lara/stainless-dotty-plugin_$SCALA_VERS
 mkdir -p "$OUT_DOTTY_DIR"
 cp "$PUBLISHED_DOTTY_DIR/jars/stainless-dotty-plugin_$SCALA_VERSION.jar" "$OUT_DOTTY_DIR/stainless-dotty-plugin_$SCALA_VERSION-$STAINLESS_VERSION.jar"
 cp "$PUBLISHED_DOTTY_DIR/poms/stainless-dotty-plugin_$SCALA_VERSION.pom" "$OUT_DOTTY_DIR/stainless-dotty-plugin_$SCALA_VERSION-$STAINLESS_VERSION.pom"
-
-info "$(tput bold)[] Preparing Scalac plugin jar..."
-OUT_SCALAC_DIR="$OUTPUT/stainless/ch/epfl/lara/stainless-scalac-plugin_$SCALA_VERSION/$STAINLESS_VERSION"
-mkdir -p "$OUT_SCALAC_DIR"
-cp "$PUBLISHED_SCALAC_DIR/jars/stainless-scalac-plugin_$SCALA_VERSION.jar" "$OUT_SCALAC_DIR/stainless-scalac-plugin_$SCALA_VERSION-$STAINLESS_VERSION.jar"
-cp "$PUBLISHED_SCALAC_DIR/poms/stainless-scalac-plugin_$SCALA_VERSION.pom" "$OUT_SCALAC_DIR/stainless-scalac-plugin_$SCALA_VERSION-$STAINLESS_VERSION.pom"
 
 info "$(tput bold)[] Creating archive..."
 ARCHIVE="sbt-stainless"

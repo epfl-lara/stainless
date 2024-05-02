@@ -93,7 +93,7 @@ To start quickly, install a JVM and use a [recent release](https://github.com/ep
   * `frontends/dotty/target/universal/stage/bin/stainless-dotty`
 
 Use one of these scripts as you would use `scalac` to compile Scala files.
-The default behavior of Stainless is to formally verify files, instead of generating JVM class files. 
+The default behavior of Stainless is to formally verify files, instead of generating JVM class files.
 See [frontends/benchmarks/verification/valid/](frontends/benchmarks/verification/valid/) and related directories for some benchmarks and
 [bolts repository](https://github.com/epfl-lara/bolts/) for a larger collection.
 More information is available in the documentation links.
