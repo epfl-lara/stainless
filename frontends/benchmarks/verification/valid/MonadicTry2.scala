@@ -2,7 +2,6 @@
 
 import stainless.lang._
 import stainless.proof._
-import scala.collection.immutable.Range.BigInt
 
 object MonadicTry2 {
 
