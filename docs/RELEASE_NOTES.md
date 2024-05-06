@@ -1,5 +1,34 @@
 # Release Notes
 
+## Version 0.9.8.7 (2024-05-06)
+
+### Stainless frontend, library and internals
+
+- Add `stainless.lang.Try` allowing for a monadic try construct (#1515)
+- Upgrade the Scala 3 frontend to Scala 3.3.3 (#1514 and #1516)
+- Avoid rebuilding mutated objects when possible in AntiAliasing (#1507 and #1509)
+- Show the ID of the corresponding generated SMT-lib file for each VC in the summary when `debug=smt` option is enabled (#1508)
+- Have `isExpressionFresh` consider arguments when computing freshness of a function call (#1505)
+- Avoid pairwise matching of "external" methods in Equivalence checking mode (#1503)
+- Fix in documentation (#1502)
+- Add support for exported methods (#1501)
+- Fix ImperativeCleanup phase to not clean some unused bindings that should not be removed (#1500)
+- Fix a bug in Equivalence checking mode that was considering the wrong preconditions in some cases (#1499)
+- Fix type alias of opaque triggering missing dependencies (#1498)
+- Add missing dropVCs annotation in AntiAliasing (#1496)
+- Relax fallback condition of AntiAliasing handling of Let (#1495)
+- Add missing case for Array typeBounds, make private final, fix minor bug in RefinementLifting (#1494)
+- Fix MatchError in EffectsAnalyzer leading to a crash in some cases (#1492)
+- Fix parametric extension methods (#1490)
+- Allow for redundant type checks for pattern matching (#1489)
+- Add 'unknown safety' category for Equivalence checkign (#1488)
+- Allows for let-binding in tests and output 'expected but got' results in Equivalence checking (#1485)
+- Add a tail recursive implementation of `map` for mutable tail lists as a benchmark (#1484)
+
+### Build
+
+- Fix the `stainless-cli` script (#1486)
+
 ## Version 0.9.8.2 (2023-11-10)
 
 ### Stainless frontend, library and internals
