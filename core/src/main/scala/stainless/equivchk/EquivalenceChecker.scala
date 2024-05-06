@@ -148,15 +148,12 @@ class EquivalenceChecker(override val trees: Trees,
 
   enum EquivCheckOrder {
     case ModelFirst
-    case CandidateFirst
   }
 
   case class EquivCheckStrategy(order: EquivCheckOrder, subFnsMatchingStrat: Option[SubFnsMatchingStrat]) {
     def pretty: String = (order, subFnsMatchingStrat) match {
       case (EquivCheckOrder.ModelFirst, None) => "model first without sublemmas"
-      case (EquivCheckOrder.CandidateFirst, None) => "candidate first without sublemmas"
       case (EquivCheckOrder.ModelFirst, Some(matchingStrat)) => s"model first with sublemmas: ${matchingStrat.curr.pretty}"
-      case (EquivCheckOrder.CandidateFirst, Some(matchingStrat)) => s"candidate first with sublemmas: ${matchingStrat.curr.pretty}"
     }
   }
 
@@ -214,7 +211,6 @@ class EquivalenceChecker(override val trees: Trees,
   private case class EquivCheckConf(model: FunDef, candidate: FunDef, strat: EquivCheckStrategy, topLevel: Boolean) {
     val (fd1, fd2) = strat.order match {
       case EquivCheckOrder.ModelFirst => (model, candidate)
-      case EquivCheckOrder.CandidateFirst => (candidate, model)
     }
   }
 
@@ -383,12 +379,6 @@ class EquivalenceChecker(override val trees: Trees,
         models(model) = models(model) - 1
         (strat.order, strat.subFnsMatchingStrat) match {
           case (EquivCheckOrder.ModelFirst, None) =>
-            val nextStrat = EquivCheckStrategy(EquivCheckOrder.CandidateFirst, None)
-            val nextRS = RoundState(model, remainingModels, nextStrat, EquivLemmas.ToGenerate, currCumulativeSolvingTime + solvingInfo.time)
-            examinationState = ExaminationState.Examining(cand, nextRS)
-            RoundConclusion.NextRound(cand, model, nextStrat, Set.empty)
-
-          case (EquivCheckOrder.CandidateFirst, None) =>
             val subFnsMatching = allSubFnsMatches(model, cand)
             val pruned = pruneSubFnsMatching(subFnsMatching)
             pruned.next match {
@@ -414,37 +404,7 @@ class EquivalenceChecker(override val trees: Trees,
               examinationState = ExaminationState.Examining(cand, nextRS)
               RoundConclusion.NextRound(cand, model, nextStrat, pruned.invalidPairs)
             } else {
-              // Move to "candidate first with subfns matching", if possible.
-              // Reuse the computed matching instead of computing it again.
-              val prunedAll = pruneSubFnsMatching(matchingStrat.all)
-              prunedAll.next match {
-                case Some((nextMatching, rest)) =>
-                  val nextStrat = EquivCheckStrategy(EquivCheckOrder.CandidateFirst,
-                    Some(matchingStrat.copy(curr = nextMatching, rest = rest,
-                      // Since we move to "candidate first", we reset the number of picked matching to 1.
-                      nbPickedMatching = 1)))
-                  val nextRS = RoundState(model, remainingModels, nextStrat, EquivLemmas.ToGenerate, currCumulativeSolvingTime + solvingInfo.time)
-                  examinationState = ExaminationState.Examining(cand, nextRS)
-                  RoundConclusion.NextRound(cand, model, nextStrat, pruned.invalidPairs ++ prunedAll.invalidPairs)
-                case None =>
-                  // No matching for subfunctions available.
-                  // We pick the next model if available
-                  nextModelOrUnknown(pruned.invalidPairs ++ prunedAll.invalidPairs)
-              }
-            }
-
-          case (EquivCheckOrder.CandidateFirst, Some(matchingStrat)) =>
-            val pruned = pruneSubFnsMatching(matchingStrat.rest)
-            pruned.next match {
-              case Some((nextMatching, rest)) =>
-                // Try with the next matching
-                val nextStrat = EquivCheckStrategy(EquivCheckOrder.CandidateFirst,
-                  Some(matchingStrat.copy(curr = nextMatching, rest = rest, nbPickedMatching = matchingStrat.nbPickedMatching + 1)))
-                val nextRS = RoundState(model, remainingModels, nextStrat, EquivLemmas.ToGenerate, currCumulativeSolvingTime + solvingInfo.time)
-                examinationState = ExaminationState.Examining(cand, nextRS)
-                RoundConclusion.NextRound(cand, model, nextStrat, pruned.invalidPairs)
-              case None =>
-                nextModelOrUnknown(pruned.invalidPairs)
+              nextModelOrUnknown(pruned.invalidPairs)
             }
         }
       }
@@ -553,9 +513,6 @@ class EquivalenceChecker(override val trees: Trees,
             case EquivCheckOrder.ModelFirst =>
               // f1 = model and f2 = candidate, and we want to replace all calls to candidate subfunctions by their models counterpart
               subcand -> (submod, perm.m2c)
-            case EquivCheckOrder.CandidateFirst =>
-              // Note: perm gives the permutation model ix -> cand ix, so we need to reverse it here
-              submod -> (subcand, perm.reverse.m2c)
           }
       }
       inductPattern(symbols, fd2, fd2, "replacement", replMap)
@@ -572,9 +529,6 @@ class EquivalenceChecker(override val trees: Trees,
         case EquivCheckOrder.ModelFirst =>
           // f1 = model, f2 = candidate, so no re-ordering
           newParamVars
-        case EquivCheckOrder.CandidateFirst =>
-          // f1 = candidate, f2 = model: we need to "undo" the ordering
-          perm.m2c.map(newParamVars)
       }
       (specsModel.params.map(_.id) zip nweParamVarsPermuted).toMap
     }
@@ -591,8 +545,6 @@ class EquivalenceChecker(override val trees: Trees,
         case EquivCheckOrder.ModelFirst =>
           // f1 = model, f2 = candidate
           (newParamVars, perm.reverse.m2c.map(newParamVars))
-        case EquivCheckOrder.CandidateFirst =>
-          (newParamVars, perm.m2c.map(newParamVars))
       }
     }
     val fun1 = FunctionInvocation(fd1.id, newParamTps, paramsFun1)
