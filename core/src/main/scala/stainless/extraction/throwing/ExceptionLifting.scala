@@ -14,6 +14,40 @@ class ExceptionLifting(override val s: Trees, override val t: imperative.Trees)
      with oo.IdentityClasses { self =>
   override protected type TransformerContext = s.Symbols
   override protected def getContext(symbols: s.Symbols) = symbols
+
+  import s._
+
+  private[this] class ThrowingIdentityImpl(override val s: self.s.type, override val t: self.t.type)
+    extends transformers.ConcreteTreeTransformer(s, t)
+
+  private[this] val identity = new ThrowingIdentityImpl(self.s, self.t)
+
+  override def extractFunction(context: s.Symbols, fd: s.FunDef): (t.FunDef, Unit) = {
+    import context.{given, _}
+
+    class ThrowTransformer(override val s: self.s.type, override val t: self.t.type)
+      extends transformers.ConcreteTreeTransformer(s, t) {
+      transSelf =>
+
+      override def transform(e: s.Expr): t.Expr = e match {
+        case s.Throw(exc) =>
+          println("SAM IN TRANSFORM THROW CASE")
+          t.Assert(t.BooleanLiteral(false), Some(f"throw $exc"), t.UnitLiteral())
+        case _ =>
+          println("SAM IN TRANSFORM DEFAULT CASE")
+          super.transform(e)
+      }
+    }
+
+
+    val throwTransformer = new ThrowTransformer(self.s, self.t)
+    (throwTransformer.transform(fd.copy(
+      fullBody = fd.fullBody,
+      flags = fd.flags
+    )), ())
+
+  }
+
 }
 
 object ExceptionLifting {
