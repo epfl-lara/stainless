@@ -36,7 +36,7 @@ object StainlessPlugin extends sbt.AutoPlugin {
     */
   private val StainlessLibSources = config("stainless-lib").hide
 
-  override def globalSettings: Seq[Def.Setting[? >: (State => State) & Seq[MavenRepository] <: State & Int => java.io.Serializable]] = Seq(
+  override def globalSettings: Seq[Def.Setting[?]] = Seq(
     onLoad := onLoad.value andThen checkProjectsScalaVersion,
     stainlessExtraResolvers  ++= Resolver.sonatypeOssRepos("snapshots")
   )
