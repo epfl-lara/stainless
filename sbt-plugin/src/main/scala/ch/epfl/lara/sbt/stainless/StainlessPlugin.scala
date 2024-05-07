@@ -6,8 +6,10 @@ import java.nio.file.StandardCopyOption
 import java.util.stream.Collectors
 import java.util.zip.ZipFile
 import java.util.zip.ZipEntry
-import sbt._
-import sbt.Keys._
+import sbt.{Def, *}
+import sbt.Keys.*
+
+import java.io
 
 object StainlessPlugin extends sbt.AutoPlugin {
   private val IssueTracker = "https://github.com/epfl-lara/stainless/issues"
@@ -26,7 +28,7 @@ object StainlessPlugin extends sbt.AutoPlugin {
     val stainlessExtraResolvers = settingKey[Seq[sbt.librarymanagement.MavenRepository]]("Extra resolvers to pass along to Stainless")
   }
 
-  import autoImport._
+  import autoImport.*
 
   /**
     * An (Ivy) configuration allowing us to manage dependencies outside of the project's classpath.
@@ -34,9 +36,9 @@ object StainlessPlugin extends sbt.AutoPlugin {
     */
   private val StainlessLibSources = config("stainless-lib").hide
 
-  override def globalSettings = Seq(
+  override def globalSettings: Seq[Def.Setting[? >: (State => State) & Seq[MavenRepository] <: State & Int => java.io.Serializable]] = Seq(
     onLoad := onLoad.value andThen checkProjectsScalaVersion,
-    stainlessExtraResolvers := Seq(Resolver.sonatypeRepo("releases"))
+    stainlessExtraResolvers  ++= Resolver.sonatypeOssRepos("snapshots")
   )
 
   /**
@@ -59,9 +61,9 @@ object StainlessPlugin extends sbt.AutoPlugin {
     state
   }
 
-  override lazy val projectSettings: Seq[Def.Setting[_]] = stainlessSettings
+  override lazy val projectSettings: Seq[Def.Setting[?]] = stainlessSettings
 
-  lazy val stainlessSettings: Seq[sbt.Def.Setting[_]] = Seq(
+  lazy val stainlessSettings: Seq[sbt.Def.Setting[?]] = Seq(
     stainlessVersion        := BuildInfo.stainlessVersion,
     stainlessEnabled        := true,
     stainlessExtraDeps      := Seq.empty,
@@ -98,7 +100,7 @@ object StainlessPlugin extends sbt.AutoPlugin {
     compilerPlugin(pluginRef) +: sourceDeps
   }
 
-  lazy val stainlessConfigSettings: Seq[Def.Setting[_]] =
+  lazy val stainlessConfigSettings: Seq[Def.Setting[?]] =
     Seq(
       managedSources ++= fetchAndUnzipSourceDeps.value,
       managedSourceDirectories += stainlessSourcesLocation.value
@@ -178,11 +180,11 @@ object StainlessPlugin extends sbt.AutoPlugin {
     var archive: ZipFile = null
     try {
       archive = new ZipFile(jar)
-      import scala.collection.JavaConverters._
+      import scala.collection.JavaConverters.*
       val entries: List[ZipEntry] = archive.stream().collect(Collectors.toList()).asScala.toList
       entries foreach { entry =>
-        val entryDest = destPath.resolve(entry.getName())
-        if (!entry.isDirectory()) {
+        val entryDest = destPath.resolve(entry.getName)
+        if (!entry.isDirectory) {
           Files.createDirectories(entryDest.getParent)
           Files.copy(archive.getInputStream(entry), entryDest, StandardCopyOption.REPLACE_EXISTING)
         }
