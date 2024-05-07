@@ -140,4 +140,3 @@ on program transformations and soundness of both contract and termination checki
 [nightly-larabot-ref]: http://laraquad4.epfl.ch:9000/epfl-lara/stainless/builds
 [release-img]: https://img.shields.io/github/release-pre/epfl-lara/stainless.svg
 [tag-date-img]: https://img.shields.io/github/release-date-pre/epfl-lara/stainless.svg?style=popout
-
