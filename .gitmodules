@@ -1,0 +1,3 @@
+[submodule "inox"]
+	path = inox
+	url = https://github.com/epfl-lara/inox.git
