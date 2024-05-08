@@ -31,10 +31,8 @@ class ExceptionLifting(override val s: Trees, override val t: imperative.Trees)
 
       override def transform(e: s.Expr): t.Expr = e match {
         case s.Throw(exc) =>
-          println("SAM IN TRANSFORM THROW CASE")
-          t.Assert(t.BooleanLiteral(false), Some(f"throw $exc"), t.UnitLiteral())
+          t.Assert(t.BooleanLiteral(false).setPos(e), Some(f"throw $exc unreachable"), t.NoTree(transform(fd.returnType)).setPos(e)).setPos(e)
         case _ =>
-          println("SAM IN TRANSFORM DEFAULT CASE")
           super.transform(e)
       }
     }

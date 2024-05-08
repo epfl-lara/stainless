@@ -43,12 +43,9 @@ info "$(tput bold)[] Locally publishing artifacts..."
 sbt publishLocal >> $LOG 2>&1 && okay || fail
 
 info "$(tput bold)[] Preparing SBT plugin jar..."
-<<<<<<< HEAD
 OUT_SBT_JAR_DIR="$OUTPUT/project/lib"
 mkdir -p "$OUT_SBT_JAR_DIR"
 cp "$PUBLISHED_SBT_PLUGIN_DIR/jars/sbt-stainless.jar" "$OUT_SBT_JAR_DIR/sbt-stainless.jar"
-=======
->>>>>>> 1f8fccb5 (update scripts)
 OUT_DOTTY_DIR="$OUTPUT/stainless/ch/epfl/lara/stainless-dotty-plugin_$SCALA_VERSION/$STAINLESS_VERSION"
 mkdir -p "$OUT_DOTTY_DIR"
 cp "$PUBLISHED_DOTTY_DIR/jars/stainless-dotty-plugin_$SCALA_VERSION.jar" "$OUT_DOTTY_DIR/stainless-dotty-plugin_$SCALA_VERSION-$STAINLESS_VERSION.jar"
