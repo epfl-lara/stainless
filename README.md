@@ -4,6 +4,8 @@ Hosted at https://github.com/epfl-lara/stainless ; mirrored at https://gitlab.ep
 
 Verification framework for a subset of the [Scala](http://scala-lang.org) programming language. See the [tutorial](https://epfl-lara.github.io/asplos2022tutorial/).
 
+Please note that Stainless does not support Scala 2 frontend anymore but only Scala 3.3. The latest release that does support Scala 2.13 frontend is the [v0.9.8.7](https://github.com/epfl-lara/stainless/releases/tag/v0.9.8.7).
+
 ## Quick start
 
 We test mostly on [Ubuntu](https://ubuntu.com/download); on [Windows](https://www.microsoft.com/eb-gb/software-download/windows10), you can get sufficient text-based Ubuntu environment by installing [Windows Subsystem for Linux](https://learn.microsoft.com/en-us/windows/wsl/install) (e.g. `wsl --install`, then `wsl --install -d ubuntu`). Ensure you have a [Java](https://openjdk.org/projects/jdk/17/) version ready (it can be headless); on Ubuntu `sudo apt install openjdk-17-jdk-headless` suffices.
@@ -42,7 +44,7 @@ It is shipped with Z3 4.12.2, cvc5 1.0.8 and Princess. If Z3 API is not found, u
 
 ## SBT Stainless plugin
 
-Alternatively, one may integrate Stainless with SBT. The supported Scala versions are `3.3.3` and `2.13.12`
+Alternatively, one may integrate Stainless with SBT. The supported Scala versions is `3.3.3`.
 To do so, download [sbt-stainless](https://github.com/epfl-lara/stainless/releases), and move it to the directory of the project.
 Assuming the project's structure is:
 ```
@@ -72,6 +74,7 @@ these should be moved according to the above structure.
 
 Finally, the plugin must be explicitly enabled for projects in `build.sbt` desiring Stainless with `.enablePlugins(StainlessPlugin)`.
 For instance:
+
 ```scala
 ThisBuild / version := "0.1.0"
 
@@ -90,12 +93,11 @@ Note that this method only ships the Princess SMT solver. Z3 and cvc5 can still 
 
 ## Build and Use
 
-To start quickly, install a JVM and use a [recent release](https://github.com/epfl-lara/stainless/releases). To build the project, run `sbt universal:stage`. If all goes well, scripts are generated for Scala 3 and Scala 2 versions of the front end:
-  * `frontends/scalac/target/universal/stage/bin/stainless-scalac`
+To start quickly, install a JVM and use a [recent release](https://github.com/epfl-lara/stainless/releases). To build the project, run `sbt universal:stage`. If all goes well, scripts are generated for the front end:
   * `frontends/dotty/target/universal/stage/bin/stainless-dotty`
 
 Use one of these scripts as you would use `scalac` to compile Scala files.
-The default behavior of Stainless is to formally verify files, instead of generating JVM class files. 
+The default behavior of Stainless is to formally verify files, instead of generating JVM class files.
 See [frontends/benchmarks/verification/valid/](frontends/benchmarks/verification/valid/) and related directories for some benchmarks and
 [bolts repository](https://github.com/epfl-lara/bolts/) for a larger collection.
 More information is available in the documentation links.
