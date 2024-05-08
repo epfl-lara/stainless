@@ -1,5 +1,7 @@
 # Stainless [![Release][release-img]][latest-release] [![Nightly Build Status][nightly-larabot-img]][nightly-larabot-ref] [![Build Status][larabot-img]][larabot-ref] [![Gitter chat][gitter-img]][gitter-ref] [![Apache 2.0 License][license-img]][license-ref]
 
+Hosted at https://github.com/epfl-lara/stainless ; mirrored at https://gitlab.epfl.ch/lara/stainless
+
 Verification framework for a subset of the [Scala](http://scala-lang.org) programming language. See the [tutorial](https://epfl-lara.github.io/asplos2022tutorial/).
 
 Please note that Stainless does not support Scala 2 frontend anymore but only Scala 3.3. The latest release that does support Scala 2.13 frontend is the [v0.9.8.7](https://github.com/epfl-lara/stainless/releases/tag/v0.9.8.7).
