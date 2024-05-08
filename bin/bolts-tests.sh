@@ -3,7 +3,6 @@
 set -e
 
 TEST_DIR=$1
-FRONTEND=$2
 echo "Moving to $TEST_DIR"
 mkdir -p "$TEST_DIR"
 cd "$TEST_DIR" || exit 1
@@ -16,6 +15,6 @@ else
   cd bolts || exit 1
 fi
 
-bash ./run-tests.sh "$FRONTEND"
+bash ./run-tests.sh stainless-dotty
 
 cd ../.. || true
