@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FAQ: (Frequently) Asked Questions &mdash; Stainless 0.9.1 documentation</title>
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="References" href="references.html" />
+    <link rel="prev" title="Translation from Stainless to Coq" href="coq.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> Stainless
+          </a>
+              <div class="version">
+                0.9
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div>
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Main">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installing Stainless</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gettingstarted.html">Verifying and Compiling Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorial.html">Tutorial: Sorting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="options.html">Specifying Options</a></li>
+<li class="toctree-l1"><a class="reference internal" href="verification.html">Verification conditions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="laws.html">Specifying Algebraic Properties</a></li>
+<li class="toctree-l1"><a class="reference internal" href="imperative.html">Imperative</a></li>
+<li class="toctree-l1"><a class="reference internal" href="equivalence.html">Equivalence Checking</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ghost.html">Ghost Context</a></li>
+<li class="toctree-l1"><a class="reference internal" href="wrap.html">Working With Existing Code</a></li>
+<li class="toctree-l1"><a class="reference internal" href="purescala.html">Pure Scala</a></li>
+<li class="toctree-l1"><a class="reference internal" href="library.html">Stainless Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="genc.html">Generating C Code</a></li>
+<li class="toctree-l1"><a class="reference internal" href="neon.html">Proving Theorems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="limitations.html">Limitations of Verification</a></li>
+<li class="toctree-l1"><a class="reference internal" href="casestudies.html">Case Studies</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coq.html">Translation from Stainless to Coq</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">FAQ: (Frequently) Asked Questions</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#how-does-stainless-compare-to-other-verification-tools">How does Stainless compare to other verification tools?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#how-does-stainless-compare-to-fuzzing-tools">How does Stainless compare to fuzzing tools?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#does-stainless-use-smt-solvers">Does Stainless use SMT solvers?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#what-are-the-conditions-required-for-stainless-to-be-applied-to-industry-software">What are the conditions required for Stainless to be applied to industry software?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#can-i-use-stainless-with-java">Can I use Stainless with Java?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#can-i-use-stainless-with-rust">Can I use Stainless with Rust?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#proving-properties-of-size">Proving properties of size</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#compiling-stainless-programs-to-bytecode">Compiling Stainless programs to bytecode</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="references.html">References</a></li>
+<li class="toctree-l1"><a class="reference internal" href="internals.html">Stainless’ Internals</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" aria-label="Top" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Stainless</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+<div role="navigation" aria-label="Breadcrumbs">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>FAQ: (Frequently) Asked Questions</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/faq.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="faq-frequently-asked-questions">
+<span id="faq"></span><h1>FAQ: (Frequently) Asked Questions<a class="headerlink" href="#faq-frequently-asked-questions" title="Permalink to this headline">¶</a></h1>
+<p>If you have a question, you may also post it at <a class="reference external" href="http://stackoverflow.com">http://stackoverflow.com</a>
+(try <a class="reference external" href="http://stackoverflow.com/questions/tagged/leon?sort=newest">searching for the leon tag</a>
+or <a class="reference external" href="http://stackoverflow.com/questions/tagged/stainless?sort=newest">the stainless tag</a>)
+or contact one of the authors of this documentation.</p>
+<p>Below we collect answers to some questions that came up.</p>
+<section id="how-does-stainless-compare-to-other-verification-tools">
+<h2>How does Stainless compare to other verification tools?<a class="headerlink" href="#how-does-stainless-compare-to-other-verification-tools" title="Permalink to this headline">¶</a></h2>
+<p>One can compare Stainless to proof assistants such as
+<a class="reference external" href="https://isabelle.in.tum.de/">Isabelle/HOL</a>,
+<a class="reference external" href="https://coq.inria.fr/">Coq</a>,
+<a class="reference external" href="https://leanprover.github.io/">Lean</a>,
+<a class="reference external" href="https://hol-theorem-prover.org/">HOL4</a>, or
+<a class="reference external" href="https://en.wikipedia.org/wiki/ACL2">ACL2</a> in terms of the complexity of some of the program properties it can prove, though it was originally conceived more as a program verifier, such as
+<a class="reference external" href="https://github.com/epfl-lara/dafny">Dafny</a> or
+<a class="reference external" href="https://www.pm.inf.ethz.ch/research/viper.html">Viper</a>.
+Stainless can be more automated when finding proofs of programs compared to proof assistants, and can also report counter-examples for invalid properties in many non-trivial cases, see counter-examples for bugs in benchmarks such as
+<a class="reference external" href="static/invalid/BadConcRope.html">ConcRope.scala</a>,
+<a class="reference external" href="static/invalid/ListOperations.html">ListOperations.scala</a>,
+<a class="reference external" href="static/invalid/Mean.html">Mean.scala</a>,
+<a class="reference external" href="static/invalid/PropositionalLogic.html">PropositionalLogic.scala</a>,
+<a class="reference external" href="static/invalid/AssociativityProperties.html">AssociativityProperties.scala</a>,
+<a class="reference external" href="static/invalid/InsertionSort.html">InsertionSort.scala</a>,
+<a class="reference external" href="static/programs.html">more example reports</a>, or check some of our
+<a class="reference external" href="https://github.com/epfl-lara/stainless/tree/master/frontends/benchmarks/verification">regression tests</a>.
+On the other hand, proof assistants are much better at formalizing mathematics than Stainless, especially when it comes to libraries of formalized mathematics knowledge.</p>
+</section>
+<section id="how-does-stainless-compare-to-fuzzing-tools">
+<h2>How does Stainless compare to fuzzing tools?<a class="headerlink" href="#how-does-stainless-compare-to-fuzzing-tools" title="Permalink to this headline">¶</a></h2>
+<p>Formal software verification finds proofs that programs work under all scenarios of interest. Formal verification tools help developers construct such proofs, automatically searching for proofs using theorem proving and constraint solving (using, e.g. SMT solvers), and static analysis to discover program invariants. When it succeeds, formal verification is guaranteed to identify all software errors, including, for example, security vulnerabilities or cases when the computation produces a wrong numerical or symbolic result. Because it involves building proofs, this approach may require knowledge of proofs by induction and substitution of equals for equals, typically covered in computer science undergraduate university education. The best approach to obtain formally verified software is to perform formal verification while software is developed. If we try to apply formal verification after software is already written, we should be prepared to invest at least the amount of effort needed to rewrite it.</p>
+<p>Testing can establish the presence of errors, but not their absence. Basic forms of testing can be easy to deploy, because running a program on a given input is a minimum requirement for software, but such testing is extremely limited. Suppose that we wish to test whether a program running on a smartphone performs multiplication of two machine numbers correctly. If we could check one test per <em>nanosecond</em>, we would still need many billions of years to enumerate all cases! This also illustrates how minuscule of a region of space around a given test a fuzzer can ever explore, despite an amazing speed at which some these fuzzing tools work. Formal software verification can cover all these cases with a single proof because it uses algebraic properties that are independent of the size of the data that software manipulates.</p>
+<p>To avoid enumeration, advanced testing methods such as symbolic execution embrace constraint solvers originally developed for formal verification. These techniques reduce to formal verification when programs have no loops or recursion; otherwise they end up sampling a small fraction of program executions, so they do not result in a proof. To cover more than just absence of crashes and vulnerabilities, testing also requires insights into the purpose of software, the environment in which the software needs to execute and the expected outputs for given inputs.</p>
+</section>
+<section id="does-stainless-use-smt-solvers">
+<h2>Does Stainless use SMT solvers?<a class="headerlink" href="#does-stainless-use-smt-solvers" title="Permalink to this headline">¶</a></h2>
+<p>Stainless uses SMT solvers such as z3, CVC and Princess. The component that encodes formulas with executable higher-order functions into these solvers is Inox. Inox is designed to emit quantifier-free queries for these solvers, which increases its ability to generate counter-examples. The use of SMT solvers allows Stainless to achieve notable automation in reasoning about, for example, equality, case analysis, bitvectors, and algebraic data types.</p>
+</section>
+<section id="what-are-the-conditions-required-for-stainless-to-be-applied-to-industry-software">
+<h2>What are the conditions required for Stainless to be applied to industry software?<a class="headerlink" href="#what-are-the-conditions-required-for-stainless-to-be-applied-to-industry-software" title="Permalink to this headline">¶</a></h2>
+<p>It is best to deploy formal verification when starting to develop software. In this way, software and its specifications are developed hand in hand, much like one can define a class hierarchy and other types during the process of writing an object-oriented program. It is also possible to focus on one part of an existing software system and rewrite it in Stainless; such efforts have been shown to work in industry for software components in Scala, Java, and C.  Software that has well-defined modular structure with clear responsibility of different modules is a good candidate for verification because one can expect that specifications at module boundaries will be non-controversial. In terms of developer skills, good knowledge of discrete mathematics, such as proofs by induction and algebra will make developers more effective at verification.</p>
+</section>
+<section id="can-i-use-stainless-with-java">
+<h2>Can I use Stainless with Java?<a class="headerlink" href="#can-i-use-stainless-with-java" title="Permalink to this headline">¶</a></h2>
+<p>Scala has excellent interoperability with Java, so external libraries can be used to build application where some parts are verified using Stainless. Stainless uses Scala syntax trees and does not support verification of Java itself. Whereas functional Scala works as a both specification and implementation language, Java does not appear to be a good language for specifications, so much that Java verification tools in the past introduced their own logical notation that developers then must learn in addition to Java.</p>
+</section>
+<section id="can-i-use-stainless-with-rust">
+<h2>Can I use Stainless with Rust?<a class="headerlink" href="#can-i-use-stainless-with-rust" title="Permalink to this headline">¶</a></h2>
+<p>Even though we had somewhat successful experiments translating Rust code into Stainless, we believe that, in the long term, it is more productive to use Scala as the starting point and generate low-level code. We are working on making this more practical in the future.</p>
+</section>
+<section id="proving-properties-of-size">
+<h2>Proving properties of size<a class="headerlink" href="#proving-properties-of-size" title="Permalink to this headline">¶</a></h2>
+<p>I have defined a size function on my algebraic data type.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">sealed</span> <span class="k">abstract</span> <span class="k">class</span> <span class="nc">List</span>
+<span class="k">case</span> <span class="k">class</span> <span class="nc">Cons</span><span class="p">(</span><span class="n">head</span><span class="p">:</span> <span class="nc">Int</span><span class="p">,</span> <span class="n">tail</span><span class="p">:</span> <span class="nc">List</span><span class="p">)</span> <span class="k">extends</span> <span class="nc">List</span>
+<span class="k">case</span> <span class="k">object</span> <span class="nc">Nil</span> <span class="k">extends</span> <span class="nc">List</span>
+<span class="k">def</span> <span class="nf">size</span><span class="p">(</span><span class="n">l</span><span class="p">:</span> <span class="nc">List</span><span class="p">)</span> <span class="p">:</span> <span class="nc">Int</span> <span class="o">=</span> <span class="p">(</span><span class="n">l</span> <span class="k">match</span> <span class="p">{</span>
+  <span class="k">case</span> <span class="nc">Nil</span> <span class="o">=&gt;</span> <span class="mi">0</span>
+  <span class="k">case</span> <span class="nc">Cons</span><span class="p">(</span><span class="n">_</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">size</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+<span class="p">})</span> <span class="n">ensuring</span><span class="p">(</span><span class="n">_</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Stainless neither proves nor gives a counterexample. Why?</p>
+<p><strong>Answer:</strong> You should consider using <cite>BigInt</cite>, which
+denotes unbounded mathematical integers, instead of <cite>Int</cite>,
+which denotes 32-bit integers. If you replace <cite>Int</cite> with
+<cite>BigInt</cite> in the result type of <cite>size</cite>, the function should
+verify. Note that algebraic data types can be arbitrarily
+large, so, if the input list had the size <cite>Int.MaxValue + 1</cite>
+(which is 2^32) then the addition <cite>1 + size(t)</cite> would wrap
+around and produce <cite>Int.MinValue</cite> (that is, -2^31), so the
+<cite>ensuring</cite> clause would not hold.</p>
+</section>
+<section id="compiling-stainless-programs-to-bytecode">
+<h2>Compiling Stainless programs to bytecode<a class="headerlink" href="#compiling-stainless-programs-to-bytecode" title="Permalink to this headline">¶</a></h2>
+<p>If you don’t use special constructs such as <code class="docutils literal notranslate"><span class="pre">choose</span></code> or unbounded <code class="docutils literal notranslate"><span class="pre">forall</span></code>, you
+should be able to compile Stainless programs to <cite>.class</cite> using <cite>scalac</cite> and
+execute them directly on the JVM, or integrate them as part as other
+Scala-based projects. See Section “<a class="reference internal" href="installation.html#running-code"><span class="std std-ref">Running Code with Stainless dependencies</span></a>”.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="coq.html" class="btn btn-neutral float-left" title="Translation from Stainless to Coq" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="references.html" class="btn btn-neutral float-right" title="References" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2009-2021 EPFL, Lausanne.
+      <span class="lastupdated">Last updated on May 09, 2024.
+      </span></p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

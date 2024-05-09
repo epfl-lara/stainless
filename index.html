@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stainless documentation &mdash; Stainless 0.9.1 documentation</title>
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Introduction" href="intro.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="#" class="icon icon-home"> Stainless
+          </a>
+              <div class="version">
+                0.9
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div>
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Main">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installing Stainless</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gettingstarted.html">Verifying and Compiling Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorial.html">Tutorial: Sorting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="options.html">Specifying Options</a></li>
+<li class="toctree-l1"><a class="reference internal" href="verification.html">Verification conditions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="laws.html">Specifying Algebraic Properties</a></li>
+<li class="toctree-l1"><a class="reference internal" href="imperative.html">Imperative</a></li>
+<li class="toctree-l1"><a class="reference internal" href="equivalence.html">Equivalence Checking</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ghost.html">Ghost Context</a></li>
+<li class="toctree-l1"><a class="reference internal" href="wrap.html">Working With Existing Code</a></li>
+<li class="toctree-l1"><a class="reference internal" href="purescala.html">Pure Scala</a></li>
+<li class="toctree-l1"><a class="reference internal" href="library.html">Stainless Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="genc.html">Generating C Code</a></li>
+<li class="toctree-l1"><a class="reference internal" href="neon.html">Proving Theorems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="limitations.html">Limitations of Verification</a></li>
+<li class="toctree-l1"><a class="reference internal" href="casestudies.html">Case Studies</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coq.html">Translation from Stainless to Coq</a></li>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">FAQ: (Frequently) Asked Questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="references.html">References</a></li>
+<li class="toctree-l1"><a class="reference internal" href="internals.html">Stainless’ Internals</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" aria-label="Top" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="#">Stainless</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+<div role="navigation" aria-label="Breadcrumbs">
+  <ul class="wy-breadcrumbs">
+      <li><a href="#" class="icon icon-home"></a> &raquo;</li>
+      <li>Stainless documentation</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="stainless-documentation">
+<h1>Stainless documentation<a class="headerlink" href="#stainless-documentation" title="Permalink to this headline">¶</a></h1>
+<p>Contents:</p>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="intro.html#stainless-and-scala">Stainless and Scala</a></li>
+<li class="toctree-l2"><a class="reference internal" href="intro.html#software-verification">Software Verification</a></li>
+<li class="toctree-l2"><a class="reference internal" href="intro.html#program-termination">Program Termination</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installing Stainless</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#general-requirement">General Requirement</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#use-standalone-release-recommended">Use Standalone Release (recommended)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#running-code-with-stainless-dependencies">Running Code with Stainless dependencies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#external-solver-binaries">External Solver Binaries</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#build-from-source-on-linux-macos">Build from Source on Linux &amp; macOS</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#build-from-source-on-windows-10">Build from Source on Windows 10</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#running-tests">Running Tests</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#building-stainless-documentation">Building Stainless Documentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#using-ides-with-no-colors-option-emacs-illustration">Using IDEs with –no-colors option. Emacs illustration</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="gettingstarted.html">Verifying and Compiling Examples</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="gettingstarted.html#verifying-examples">Verifying Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gettingstarted.html#compiling-and-executing-examples">Compiling and Executing Examples</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="tutorial.html">Tutorial: Sorting</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="tutorial.html#warm-up-max">Warm-up: Max</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorial.html#defining-lists-and-their-properties">Defining Lists and Their Properties</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorial.html#insertion-into-sorted-list">Insertion into Sorted List</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorial.html#being-sorted-is-not-enough">Being Sorted is Not Enough</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorial.html#using-size-in-specification">Using Size in Specification</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorial.html#using-content-in-specification">Using Content in Specification</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="options.html">Specifying Options</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="options.html#choosing-which-stainless-feature-to-use">Choosing which Stainless feature to use</a></li>
+<li class="toctree-l2"><a class="reference internal" href="options.html#additional-top-level-options">Additional top-level options</a></li>
+<li class="toctree-l2"><a class="reference internal" href="options.html#additional-options-by-component">Additional Options (by component)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="options.html#configuration-file">Configuration File</a></li>
+<li class="toctree-l2"><a class="reference internal" href="options.html#library-files">Library Files</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="verification.html">Verification conditions</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="verification.html#postconditions">Postconditions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="verification.html#preconditions">Preconditions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="verification.html#sharing-bindings-between-specifications-and-function-body">Sharing bindings between specifications and function body</a></li>
+<li class="toctree-l2"><a class="reference internal" href="verification.html#loop-invariants">Loop invariants</a></li>
+<li class="toctree-l2"><a class="reference internal" href="verification.html#decrease-annotation-in-loops">Decrease annotation in loops</a></li>
+<li class="toctree-l2"><a class="reference internal" href="verification.html#array-access-safety">Array access safety</a></li>
+<li class="toctree-l2"><a class="reference internal" href="verification.html#adt-invariants">ADT invariants</a></li>
+<li class="toctree-l2"><a class="reference internal" href="verification.html#pattern-matching-exhaustiveness">Pattern matching exhaustiveness</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="laws.html">Specifying Algebraic Properties</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="laws.html#introduction">Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="laws.html#typeclasses">Typeclasses</a></li>
+<li class="toctree-l2"><a class="reference internal" href="laws.html#typeclass-inheritance">Typeclass inheritance</a></li>
+<li class="toctree-l2"><a class="reference internal" href="laws.html#associated-methods">Associated methods</a></li>
+<li class="toctree-l2"><a class="reference internal" href="laws.html#coherence">Coherence</a></li>
+<li class="toctree-l2"><a class="reference internal" href="laws.html#under-the-hood">Under the hood</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="imperative.html">Imperative</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="imperative.html#imperative-code">Imperative Code</a></li>
+<li class="toctree-l2"><a class="reference internal" href="imperative.html#while-loops">While loops</a></li>
+<li class="toctree-l2"><a class="reference internal" href="imperative.html#arrays">Arrays</a></li>
+<li class="toctree-l2"><a class="reference internal" href="imperative.html#mutable-objects">Mutable Objects</a></li>
+<li class="toctree-l2"><a class="reference internal" href="imperative.html#aliasing">Aliasing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="imperative.html#annotations-for-imperative-programming">Annotations for Imperative Programming</a></li>
+<li class="toctree-l2"><a class="reference internal" href="imperative.html#extern-functions-and-abstract-methods">Extern functions and abstract methods</a></li>
+<li class="toctree-l2"><a class="reference internal" href="imperative.html#trait-variables">Trait Variables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="imperative.html#return-keyword">Return keyword</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="equivalence.html">Equivalence Checking</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="equivalence.html#example-run">Example run</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="ghost.html">Ghost Context</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="ghost.html#introduction">Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ghost.html#ghost-annotation">Ghost annotation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ghost.html#correctness-check">Correctness check</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ghost.html#ghost-expression-elimination">Ghost expression elimination</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ghost.html#case-study">Case study</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="wrap.html">Working With Existing Code</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="wrap.html#a-wrapper-for-triemap">A wrapper for TrieMap</a></li>
+<li class="toctree-l2"><a class="reference internal" href="wrap.html#extern-methods">Extern methods</a></li>
+<li class="toctree-l2"><a class="reference internal" href="wrap.html#contracts">Contracts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="wrap.html#purity-annotations">Purity annotations</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="purescala.html">Pure Scala</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="purescala.html#booleans">Booleans</a></li>
+<li class="toctree-l2"><a class="reference internal" href="purescala.html#algebraic-data-types">Algebraic Data Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="purescala.html#generics">Generics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="purescala.html#methods">Methods</a></li>
+<li class="toctree-l2"><a class="reference internal" href="purescala.html#type-definitions">Type Definitions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="purescala.html#specifications">Specifications</a></li>
+<li class="toctree-l2"><a class="reference internal" href="purescala.html#expressions">Expressions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="purescala.html#predefined-types">Predefined Types</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="library.html">Stainless Library</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="library.html#annotations">Annotations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="library.html#list-t">List[T]</a></li>
+<li class="toctree-l2"><a class="reference internal" href="library.html#set-t-map-t">Set[T], Map[T]</a></li>
+<li class="toctree-l2"><a class="reference internal" href="library.html#partialfunction-a-b">PartialFunction[A, B]</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="genc.html">Generating C Code</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="genc.html#requirements">Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="genc.html#export">Export</a></li>
+<li class="toctree-l2"><a class="reference internal" href="genc.html#supported-features">Supported Features</a></li>
+<li class="toctree-l2"><a class="reference internal" href="genc.html#global-state">Global State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="genc.html#custom-conversion">Custom Conversion</a></li>
+<li class="toctree-l2"><a class="reference internal" href="genc.html#api-for-safe-low-level-programs">API For Safe Low Level Programs</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="neon.html">Proving Theorems</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="neon.html#a-practical-introduction-to-proofs">A practical introduction to proofs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neon.html#techniques-for-proving-non-trivial-propositions">Techniques for proving non-trivial propositions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neon.html#techniques-for-proving-non-trivial-postconditions">Techniques for proving non-trivial postconditions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neon.html#a-complex-example-additivity-of-measures">A complex example: additivity of measures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="neon.html#quick-recap">Quick Recap</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="limitations.html">Limitations of Verification</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="limitations.html#out-of-memory-errors">Out of Memory Errors</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="casestudies.html">Case Studies</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="casestudies.html#case-study-1-proving-invariants-of-actor-systems">Case Study #1: Proving invariants of actor systems</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="coq.html">Translation from Stainless to Coq</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="coq.html#requirements">Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coq.html#usage-of-the-coq-option">Usage of the Coq option</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">FAQ: (Frequently) Asked Questions</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="faq.html#how-does-stainless-compare-to-other-verification-tools">How does Stainless compare to other verification tools?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="faq.html#how-does-stainless-compare-to-fuzzing-tools">How does Stainless compare to fuzzing tools?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="faq.html#does-stainless-use-smt-solvers">Does Stainless use SMT solvers?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="faq.html#what-are-the-conditions-required-for-stainless-to-be-applied-to-industry-software">What are the conditions required for Stainless to be applied to industry software?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="faq.html#can-i-use-stainless-with-java">Can I use Stainless with Java?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="faq.html#can-i-use-stainless-with-rust">Can I use Stainless with Rust?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="faq.html#proving-properties-of-size">Proving properties of size</a></li>
+<li class="toctree-l2"><a class="reference internal" href="faq.html#compiling-stainless-programs-to-bytecode">Compiling Stainless programs to bytecode</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="references.html">References</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="references.html#videos">Videos</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references.html#papers">Papers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="references.html#books">Books</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="internals.html">Stainless’ Internals</a></li>
+</ul>
+</div>
+<ul class="simple">
+<li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
+</ul>
+</section>
+
+
+           </div>
+          </div>
+          <footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="intro.html" class="btn btn-neutral float-right" title="Introduction" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2009-2021 EPFL, Lausanne.
+      <span class="lastupdated">Last updated on May 09, 2024.
+      </span></p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

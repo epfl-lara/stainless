@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ghost Context &mdash; Stainless 0.9.1 documentation</title>
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Working With Existing Code" href="wrap.html" />
+    <link rel="prev" title="Equivalence Checking" href="equivalence.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> Stainless
+          </a>
+              <div class="version">
+                0.9
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div>
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Main">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installing Stainless</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gettingstarted.html">Verifying and Compiling Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorial.html">Tutorial: Sorting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="options.html">Specifying Options</a></li>
+<li class="toctree-l1"><a class="reference internal" href="verification.html">Verification conditions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="laws.html">Specifying Algebraic Properties</a></li>
+<li class="toctree-l1"><a class="reference internal" href="imperative.html">Imperative</a></li>
+<li class="toctree-l1"><a class="reference internal" href="equivalence.html">Equivalence Checking</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Ghost Context</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#introduction">Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#ghost-annotation">Ghost annotation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#correctness-check">Correctness check</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#ghost-expression-elimination">Ghost expression elimination</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#case-study">Case study</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="wrap.html">Working With Existing Code</a></li>
+<li class="toctree-l1"><a class="reference internal" href="purescala.html">Pure Scala</a></li>
+<li class="toctree-l1"><a class="reference internal" href="library.html">Stainless Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="genc.html">Generating C Code</a></li>
+<li class="toctree-l1"><a class="reference internal" href="neon.html">Proving Theorems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="limitations.html">Limitations of Verification</a></li>
+<li class="toctree-l1"><a class="reference internal" href="casestudies.html">Case Studies</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coq.html">Translation from Stainless to Coq</a></li>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">FAQ: (Frequently) Asked Questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="references.html">References</a></li>
+<li class="toctree-l1"><a class="reference internal" href="internals.html">Stainless’ Internals</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" aria-label="Top" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Stainless</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+<div role="navigation" aria-label="Breadcrumbs">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>Ghost Context</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/ghost.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="ghost-context">
+<span id="ghost"></span><h1>Ghost Context<a class="headerlink" href="#ghost-context" title="Permalink to this headline">¶</a></h1>
+<section id="introduction">
+<h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
+<p>When verifying code, one often needs to introduce lemmas, auxiliary functions,
+additional fields and parameters, and contracts, whose only function is to specify
+and prove that some properties are satisfied by the program.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">import</span> <span class="nn">stainless</span><span class="p">.</span><span class="nn">lang</span><span class="p">.</span><span class="n">_</span>
+<span class="k">import</span> <span class="nn">stainless</span><span class="p">.</span><span class="nn">lang</span><span class="p">.</span><span class="nn">collection</span><span class="p">.</span><span class="n">_</span>
+<span class="k">import</span> <span class="nn">stainless</span><span class="p">.</span><span class="nn">lang</span><span class="p">.</span><span class="nn">annotation</span><span class="p">.</span><span class="n">_</span>
+
+<span class="k">def</span> <span class="nf">isSorted</span><span class="p">(</span><span class="n">list</span><span class="p">:</span> <span class="nc">List</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">]):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="n">list</span> <span class="k">match</span> <span class="p">{</span>
+  <span class="k">case</span> <span class="nc">Nil</span><span class="p">()</span>                            <span class="o">=&gt;</span> <span class="kc">true</span>
+  <span class="k">case</span> <span class="nc">Cons</span><span class="p">(</span><span class="n">_</span><span class="p">,</span> <span class="nc">Nil</span><span class="p">())</span>                   <span class="o">=&gt;</span> <span class="kc">true</span>
+  <span class="k">case</span> <span class="nc">Cons</span><span class="p">(</span><span class="n">x1</span><span class="p">,</span> <span class="nc">Cons</span><span class="p">(</span><span class="n">x2</span><span class="p">,</span> <span class="n">_</span><span class="p">))</span> <span class="k">if</span> <span class="n">x1</span> <span class="o">&gt;</span> <span class="n">x2</span> <span class="o">=&gt;</span> <span class="kc">false</span>
+  <span class="k">case</span> <span class="nc">Cons</span><span class="p">(</span><span class="n">_</span><span class="p">,</span> <span class="n">xs</span><span class="p">)</span>                      <span class="o">=&gt;</span> <span class="n">isSorted</span><span class="p">(</span><span class="n">xs</span><span class="p">)</span>
+<span class="p">}</span>
+
+<span class="k">def</span> <span class="nf">sort</span><span class="p">(</span><span class="n">list</span><span class="p">:</span> <span class="nc">List</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">]):</span> <span class="nc">List</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="cm">/* ... */</span>
+<span class="p">}</span> <span class="n">ensuring</span> <span class="p">{</span> <span class="n">res</span> <span class="o">=&gt;</span>
+  <span class="n">res</span><span class="p">.</span><span class="n">contents</span> <span class="o">==</span> <span class="n">list</span><span class="p">.</span><span class="n">contents</span> <span class="o">&amp;&amp;</span>
+  <span class="n">isSorted</span><span class="p">(</span><span class="n">res</span><span class="p">)</span> <span class="o">&amp;&amp;</span>
+  <span class="n">res</span><span class="p">.</span><span class="n">size</span> <span class="o">==</span> <span class="n">l</span><span class="p">.</span><span class="n">size</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>One can alleviate this issue by adding the following import:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">import</span> <span class="nn">stainless</span><span class="p">.</span><span class="nn">lang</span><span class="p">.</span><span class="nc">StaticChecks</span><span class="p">.</span><span class="n">_</span>
+</pre></div>
+</div>
+</section>
+<section id="ghost-annotation">
+<h2>Ghost annotation<a class="headerlink" href="#ghost-annotation" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="correctness-check">
+<h2>Correctness check<a class="headerlink" href="#correctness-check" title="Permalink to this headline">¶</a></h2>
+<p>As part of the verification pipeline, Stainless will check that it never
+encounters a <em>ghost expression</em> outside of a <em>ghost context</em>. Should
+the check fail, verification will fail and compilation will be aborted.</p>
+<p>A <em>ghost expression</em> is any of:</p>
+<ul class="simple">
+<li><p>Call to a ghost method</p></li>
+<li><p>Selection of a ghost field</p></li>
+<li><p>Instantiation of a ghost class</p></li>
+<li><p>Reference to a ghost variable</p></li>
+</ul>
+<p>A <em>ghost context</em> as any of:</p>
+<ul class="simple">
+<li><p>Body of a ghost method</p></li>
+<li><p>Argument to a ghost parameter (method or class constructor)</p></li>
+<li><p>Assignment to a ghost variable</p></li>
+<li><p>Anywhere where a value of type <code class="docutils literal notranslate"><span class="pre">Unit</span></code> is expected</p></li>
+</ul>
+</section>
+<section id="ghost-expression-elimination">
+<h2>Ghost expression elimination<a class="headerlink" href="#ghost-expression-elimination" title="Permalink to this headline">¶</a></h2>
+<p>If the correctness check described in the previous section succeeds, the sbt plugin
+will then proceed to eliminate ghost methods and expressions from the programs.</p>
+</section>
+<section id="case-study">
+<h2>Case study<a class="headerlink" href="#case-study" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">import</span> <span class="nn">stainless</span><span class="p">.</span><span class="nn">lang</span><span class="p">.</span><span class="n">_</span>
+<span class="k">import</span> <span class="nn">stainless</span><span class="p">.</span><span class="nn">lang</span><span class="p">.</span><span class="nc">StaticChecks</span><span class="p">.</span><span class="n">_</span>
+<span class="k">import</span> <span class="nn">stainless</span><span class="p">.</span><span class="nn">collection</span><span class="p">.</span><span class="n">_</span>
+<span class="k">import</span> <span class="nn">stainless</span><span class="p">.</span><span class="nn">annotation</span><span class="p">.</span><span class="n">_</span>
+
+<span class="k">import</span> <span class="nn">java</span><span class="p">.</span><span class="nn">util</span><span class="p">.</span><span class="nc">ArrayDeque</span>
+
+<span class="k">object</span> <span class="nc">MessageQueue</span> <span class="p">{</span>
+
+  <span class="k">case</span> <span class="k">class</span> <span class="nc">MsgQueue</span><span class="p">[</span><span class="nc">A</span><span class="p">](</span>
+    <span class="nd">@extern</span> <span class="nd">@pure</span>
+    <span class="n">queue</span><span class="p">:</span> <span class="nc">ArrayDeque</span><span class="p">[</span><span class="nc">A</span><span class="p">],</span>
+    <span class="nd">@ghost</span>
+    <span class="kd">var</span> <span class="n">msgs</span><span class="p">:</span> <span class="nc">List</span><span class="p">[</span><span class="nc">A</span><span class="p">]</span>
+  <span class="p">)</span> <span class="p">{</span>
+    <span class="k">def</span> <span class="nf">put</span><span class="p">(</span><span class="n">msg</span><span class="p">:</span> <span class="nc">A</span><span class="p">):</span> <span class="nc">Unit</span> <span class="o">=</span> <span class="p">{</span>
+
+      <span class="n">msgs</span> <span class="o">=</span> <span class="n">msg</span> <span class="o">::</span> <span class="n">msgs</span>
+      <span class="n">_put</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+    <span class="p">}</span>
+
+    <span class="nd">@extern</span> <span class="nd">@pure</span>
+    <span class="k">private</span> <span class="k">def</span> <span class="nf">_put</span><span class="p">(</span><span class="n">msg</span><span class="p">:</span> <span class="nc">A</span><span class="p">):</span> <span class="nc">Unit</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="n">queue</span><span class="p">.</span><span class="n">addFirst</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+    <span class="p">}</span>
+
+    <span class="k">def</span> <span class="nf">take</span><span class="p">():</span> <span class="nc">Option</span><span class="p">[</span><span class="nc">A</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="kd">val</span> <span class="n">result</span> <span class="o">=</span> <span class="n">_take</span><span class="p">()</span>
+      <span class="n">msgs</span> <span class="o">=</span> <span class="n">msgs</span><span class="p">.</span><span class="n">tailOption</span><span class="p">.</span><span class="n">getOrElse</span><span class="p">(</span><span class="nc">Nil</span><span class="p">())</span>
+      <span class="n">result</span>
+    <span class="p">}</span> <span class="n">ensuring</span> <span class="p">{</span> <span class="n">res</span> <span class="o">=&gt;</span>
+      <span class="n">res</span> <span class="o">==</span> <span class="n">old</span><span class="p">(</span><span class="bp">this</span><span class="p">).</span><span class="n">msgs</span><span class="p">.</span><span class="n">headOption</span>
+    <span class="p">}</span>
+
+    <span class="nd">@extern</span> <span class="nd">@pure</span>
+    <span class="k">private</span> <span class="k">def</span> <span class="nf">_take</span><span class="p">():</span> <span class="nc">Option</span><span class="p">[</span><span class="nc">A</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="nc">Option</span><span class="p">(</span><span class="n">queue</span><span class="p">.</span><span class="n">pollFirst</span><span class="p">())</span>
+    <span class="p">}</span> <span class="n">ensuring</span> <span class="p">{</span> <span class="n">res</span> <span class="o">=&gt;</span>
+      <span class="n">res</span> <span class="o">==</span> <span class="n">msgs</span><span class="p">.</span><span class="n">headOption</span>
+    <span class="p">}</span>
+
+    <span class="nd">@extern</span> <span class="nd">@pure</span>
+    <span class="k">def</span> <span class="nf">isEmpty</span><span class="p">:</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="n">queue</span><span class="p">.</span><span class="n">size</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span>
+    <span class="p">}</span> <span class="n">ensuring</span> <span class="p">{</span> <span class="n">res</span> <span class="o">=&gt;</span>
+      <span class="n">res</span> <span class="o">==</span> <span class="n">msgs</span><span class="p">.</span><span class="n">isEmpty</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+
+  <span class="k">object</span> <span class="nc">MsgQueue</span> <span class="p">{</span>
+    <span class="nd">@extern</span> <span class="nd">@pure</span>
+    <span class="k">def</span> <span class="nf">empty</span><span class="p">[</span><span class="nc">A</span><span class="p">]:</span> <span class="nc">MsgQueue</span><span class="p">[</span><span class="nc">A</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="nc">MsgQueue</span><span class="p">(</span><span class="k">new</span> <span class="nc">ArrayDeque</span><span class="p">(),</span> <span class="nc">Nil</span><span class="p">())</span>
+    <span class="p">}</span> <span class="n">ensuring</span> <span class="p">{</span> <span class="n">res</span> <span class="o">=&gt;</span>
+      <span class="n">res</span><span class="p">.</span><span class="n">isEmpty</span> <span class="o">&amp;&amp;</span> <span class="n">res</span><span class="p">.</span><span class="n">msgs</span><span class="p">.</span><span class="n">isEmpty</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+
+  <span class="k">def</span> <span class="nf">test</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="kd">val</span> <span class="n">queue</span> <span class="o">=</span> <span class="nc">MsgQueue</span><span class="p">.</span><span class="n">empty</span><span class="p">[</span><span class="nc">String</span><span class="p">]</span>
+
+    <span class="n">queue</span><span class="p">.</span><span class="n">put</span><span class="p">(</span><span class="s">&quot;World&quot;</span><span class="p">)</span>
+    <span class="n">queue</span><span class="p">.</span><span class="n">put</span><span class="p">(</span><span class="s">&quot;Hello&quot;</span><span class="p">)</span>
+
+    <span class="n">assert</span><span class="p">(</span><span class="o">!</span><span class="n">queue</span><span class="p">.</span><span class="n">isEmpty</span><span class="p">)</span>
+
+    <span class="kd">val</span> <span class="n">a</span> <span class="o">=</span> <span class="n">queue</span><span class="p">.</span><span class="n">take</span><span class="p">()</span>
+    <span class="n">assert</span><span class="p">(</span><span class="n">a</span> <span class="o">==</span> <span class="nc">Some</span><span class="p">(</span><span class="s">&quot;Hello&quot;</span><span class="p">))</span>
+
+    <span class="kd">val</span> <span class="n">b</span> <span class="o">=</span> <span class="n">queue</span><span class="p">.</span><span class="n">take</span><span class="p">()</span>
+    <span class="n">assert</span><span class="p">(</span><span class="n">b</span> <span class="o">==</span> <span class="nc">Some</span><span class="p">(</span><span class="s">&quot;World&quot;</span><span class="p">))</span>
+    <span class="n">assert</span><span class="p">(</span><span class="n">queue</span><span class="p">.</span><span class="n">isEmpty</span><span class="p">)</span>
+
+    <span class="kd">val</span> <span class="n">c</span> <span class="o">=</span> <span class="n">queue</span><span class="p">.</span><span class="n">take</span><span class="p">()</span>
+    <span class="n">assert</span><span class="p">(</span><span class="o">!</span><span class="n">c</span><span class="p">.</span><span class="n">isDefined</span><span class="p">)</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="equivalence.html" class="btn btn-neutral float-left" title="Equivalence Checking" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="wrap.html" class="btn btn-neutral float-right" title="Working With Existing Code" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2009-2021 EPFL, Lausanne.
+      <span class="lastupdated">Last updated on Dec 17, 2023.
+      </span></p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Generating C Code &mdash; Stainless 0.9.1 documentation</title>
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Proving Theorems" href="neon.html" />
+    <link rel="prev" title="Stainless Library" href="library.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> Stainless
+          </a>
+              <div class="version">
+                0.9
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div>
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Main">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installing Stainless</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gettingstarted.html">Verifying and Compiling Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorial.html">Tutorial: Sorting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="options.html">Specifying Options</a></li>
+<li class="toctree-l1"><a class="reference internal" href="verification.html">Verification conditions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="laws.html">Specifying Algebraic Properties</a></li>
+<li class="toctree-l1"><a class="reference internal" href="imperative.html">Imperative</a></li>
+<li class="toctree-l1"><a class="reference internal" href="equivalence.html">Equivalence Checking</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ghost.html">Ghost Context</a></li>
+<li class="toctree-l1"><a class="reference internal" href="wrap.html">Working With Existing Code</a></li>
+<li class="toctree-l1"><a class="reference internal" href="purescala.html">Pure Scala</a></li>
+<li class="toctree-l1"><a class="reference internal" href="library.html">Stainless Library</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Generating C Code</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#requirements">Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#export">Export</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#supported-features">Supported Features</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#types">Types</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#tuples">Tuples</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#arrays">Arrays</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#classes">Classes</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#functions">Functions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#constructs">Constructs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#operators">Operators</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#global-state">Global State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#custom-conversion">Custom Conversion</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#custom-function-implementation">Custom Function Implementation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#custom-type-translation">Custom Type Translation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#ignore-function-or-type">Ignore Function or Type</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#api-for-safe-low-level-programs">API For Safe Low Level Programs</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#i-os">I/Os</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="neon.html">Proving Theorems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="limitations.html">Limitations of Verification</a></li>
+<li class="toctree-l1"><a class="reference internal" href="casestudies.html">Case Studies</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coq.html">Translation from Stainless to Coq</a></li>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">FAQ: (Frequently) Asked Questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="references.html">References</a></li>
+<li class="toctree-l1"><a class="reference internal" href="internals.html">Stainless’ Internals</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" aria-label="Top" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Stainless</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+<div role="navigation" aria-label="Breadcrumbs">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>Generating C Code</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/genc.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="generating-c-code">
+<span id="genc"></span><h1>Generating C Code<a class="headerlink" href="#generating-c-code" title="Permalink to this headline">¶</a></h1>
+<p>Stainless can generate from Scala code an equivalent and safe C99 code. Using the verification, repair and
+synthesis features of Stainless this conversion can be made safely. Additionally, the produced code can be
+compiled with any standard-compliant C99 compiler to target the desired hardware architecture
+without extra dependencies. The initial description of GenC, which has evolved since then, can be found in <a class="reference external" href="https://infoscience.epfl.ch/record/227942/files/Extending%20Safe%20C%20Support%20In%20Leon.pdf">Extending Safe C Support In Leon</a>.
+Furthermore, this Master Thesis Report explains how to achieve compliance under the <a class="reference external" href="https://en.wikipedia.org/wiki/MISRA_C">MISRA C</a> guidelines.</p>
+<p>To convert a Scala program, please use the <code class="docutils literal notranslate"><span class="pre">--genc</span></code> option of Stainless.</p>
+<p>The option <code class="docutils literal notranslate"><span class="pre">--genc-output=file</span></code> specifies the file name for GenC output (default: <code class="docutils literal notranslate"><span class="pre">stainless.c</span></code>).</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Currently the memory model is limited to stack allocation and global state. Hence, no dynamic allocation
+is done using <code class="docutils literal notranslate"><span class="pre">malloc</span></code> function family.</p>
+</div>
+<section id="requirements">
+<h2>Requirements<a class="headerlink" href="#requirements" title="Permalink to this headline">¶</a></h2>
+<p>The following is required from the Scala program fed to GenC:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Functions compiled to C, and the types they use,
+should be exclusively in the set of features described below, with the
+exceptions of the (ghost) code used for verification conditions;</p></li>
+<li><p>The program should be successfully verified with the <code class="docutils literal notranslate"><span class="pre">--strict-arithmetic</span></code> (enabled by default)
+flag to ensure that arithmetic operations, array accesses, function
+preconditions and so on, are safely converted into C code.</p></li>
+</ul>
+</div></blockquote>
+<p>The generated C code should be compiled with a C99-compliant compiler that
+satisfies these extra conditions:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">CHAR_BITS</span></code> is defined to be 8;</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">int8_t</span></code>, <code class="docutils literal notranslate"><span class="pre">int16_t</span></code>, <code class="docutils literal notranslate"><span class="pre">int32_t</span></code>, <code class="docutils literal notranslate"><span class="pre">int64_t</span></code> and <code class="docutils literal notranslate"><span class="pre">uint8_t</span></code>, <code class="docutils literal notranslate"><span class="pre">uint16_t</span></code>, <code class="docutils literal notranslate"><span class="pre">uint32_t</span></code>, <code class="docutils literal notranslate"><span class="pre">uint64_t</span></code> types are available (see <a class="reference internal" href="purescala.html"><span class="doc">Pure Scala</span></a> for description);</p></li>
+<li><p>Casting from unsigned to signed integer, and vice-versa, is not well supported at the moment.</p></li>
+</ul>
+</div></blockquote>
+</section>
+<section id="export">
+<h2>Export<a class="headerlink" href="#export" title="Permalink to this headline">¶</a></h2>
+<p>Functions and classes can be marked with <code class="docutils literal notranslate"><span class="pre">&#64;cCode.export</span></code> (<code class="docutils literal notranslate"><span class="pre">import</span> <span class="pre">stainless.annotation._</span></code>),
+which affects GenC compilation in several ways.
+First, the names of these functions and classes will not get mangled when generating the C code.
+Second, the signatures of the functions, and the type definitions corresponding to exported classes,
+will go into the header file (by default <code class="docutils literal notranslate"><span class="pre">stainless.h</span></code>).
+Finally, preconditions of exported functions (which are meant to be called from external C code),
+are transformed into runtime assertions.</p>
+</section>
+<section id="supported-features">
+<h2>Supported Features<a class="headerlink" href="#supported-features" title="Permalink to this headline">¶</a></h2>
+<p>The supported subset of Scala includes part of the core languages features, as well as some
+imperative features, while ensuring the same expression execution order in both
+languages.</p>
+<section id="types">
+<h3>Types<a class="headerlink" href="#types" title="Permalink to this headline">¶</a></h3>
+<p>The following raw types and their corresponding literals are supported:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Scala</p></th>
+<th class="head"><p>C99</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Unit</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">void</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">Boolean</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">bool</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Byte</span></code> and <code class="docutils literal notranslate"><span class="pre">Int8</span></code> (8-bit integer)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">int8_t</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">Short</span></code> and <code class="docutils literal notranslate"><span class="pre">Int16</span></code> (16-bit integer)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">int16_t</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Int</span></code> and <code class="docutils literal notranslate"><span class="pre">Int32</span></code> (32-bit integer)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">int32_t</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">Long</span></code> and <code class="docutils literal notranslate"><span class="pre">Int64</span></code> (64-bit integer)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">int64_t</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">UInt8</span></code> (8-bit unsigned integer)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">uint8_t</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">UInt16</span></code> (16-bit integer)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">uint16_t</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">UInt32</span></code> (32-bit integer)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">uint32_t</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">UInt64</span></code> (64-bit integer)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">uint64_t</span></code></p></td>
+</tr>
+</tbody>
+</table>
+<p>Additionally, GenC has partial support for character and string literals made
+of ASCII characters only but it has no API to manipulate strings at the moment:
+<code class="docutils literal notranslate"><span class="pre">Char</span></code> is mapped to <code class="docutils literal notranslate"><span class="pre">char</span></code> and <code class="docutils literal notranslate"><span class="pre">String</span></code> is mapped to <code class="docutils literal notranslate"><span class="pre">char*</span></code>.</p>
+<section id="tuples">
+<h4>Tuples<a class="headerlink" href="#tuples" title="Permalink to this headline">¶</a></h4>
+<p>Using <code class="docutils literal notranslate"><span class="pre">TupleN[T1,</span> <span class="pre">...,</span> <span class="pre">TN]</span></code> results in the creation of a C structure with the
+same fields and matching types for every combination of any supported type
+<code class="docutils literal notranslate"><span class="pre">T1,</span> <span class="pre">...,</span> <span class="pre">TN</span></code>. The name of the generated structure will be unique and reflect
+the sequence of types.</p>
+</section>
+<section id="arrays">
+<h4>Arrays<a class="headerlink" href="#arrays" title="Permalink to this headline">¶</a></h4>
+<p>Arrays are compiled by GenC into C structs that also store the length of the array.
+For <code class="docutils literal notranslate"><span class="pre">Array[Int]</span></code> we get:</p>
+<div class="highlight-C notranslate"><div class="highlight"><pre><span></span><span class="k">typedef</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="kt">int32_t</span><span class="o">*</span><span class="w"> </span><span class="n">data</span><span class="p">;</span><span class="w"></span>
+<span class="w">  </span><span class="kt">int32_t</span><span class="w"> </span><span class="n">length</span><span class="p">;</span><span class="w"></span>
+<span class="p">}</span><span class="w"> </span><span class="n">array_int32</span><span class="p">;</span><span class="w"></span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Arrays live on the stack and therefore cannot be returned by functions. This limitation is
+extended to other types having an array as field. In some cases, it is acceptable to use the
+<code class="docutils literal notranslate"><span class="pre">&#64;cCode.inline</span></code> annotation from Stainless’s library to workaround this limitation.</p>
+</div>
+<p>For case classes containing arrays whose length is known at compile time, we avoid
+using a <code class="docutils literal notranslate"><span class="pre">struct</span></code> wrapper for the array, and instead directly inline the array
+in the <code class="docutils literal notranslate"><span class="pre">struct</span></code> of the case class. We trigger this optimized transformation
+when the array length is specified in the case class invariant (with <code class="docutils literal notranslate"><span class="pre">require</span></code>)
+as a conjunct. The left-hand-side needs to be <code class="docutils literal notranslate"><span class="pre">a.length</span></code> where <code class="docutils literal notranslate"><span class="pre">a</span></code> is the
+array, and the right-hand-side needs to be a constant (or evaluate to a constant
+at compile time).</p>
+<p>See below for a case class with a fixed length array and its transformation in C:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="kd">val</span> <span class="nc">CONSTANT1</span><span class="p">:</span> <span class="nc">UInt16</span> <span class="o">=</span> <span class="mi">5</span>
+<span class="kd">val</span> <span class="nc">CONSTANT2</span><span class="p">:</span> <span class="nc">UInt16</span> <span class="o">=</span> <span class="mi">12</span>
+<span class="kd">val</span> <span class="nc">CONSTANT3</span><span class="p">:</span> <span class="nc">UInt16</span> <span class="o">=</span> <span class="nc">CONSTANT1</span> <span class="o">+</span> <span class="nc">CONSTANT2</span>
+
+<span class="nd">@cCode</span><span class="p">.</span><span class="k">export</span>
+<span class="k">case</span> <span class="k">class</span> <span class="nc">W</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">Int</span><span class="p">,</span> <span class="n">a</span><span class="p">:</span> <span class="nc">Array</span><span class="p">[</span><span class="nc">Int</span><span class="p">],</span> <span class="n">y</span><span class="p">:</span> <span class="nc">Int</span><span class="p">)</span> <span class="p">{</span>
+  <span class="n">require</span><span class="p">(</span>
+    <span class="n">a</span><span class="p">.</span><span class="n">length</span> <span class="o">==</span> <span class="nc">CONSTANT3</span><span class="p">.</span><span class="n">toInt</span> <span class="o">&amp;&amp;</span>
+    <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">x</span> <span class="o">&amp;&amp;</span> <span class="n">x</span> <span class="o">&lt;=</span> <span class="mi">1000</span> <span class="o">&amp;&amp;</span>
+    <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">y</span> <span class="o">&amp;&amp;</span> <span class="n">y</span> <span class="o">&lt;=</span> <span class="mi">1000</span>
+  <span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<div class="highlight-C notranslate"><div class="highlight"><pre><span></span><span class="k">typedef</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="kt">int32_t</span><span class="w"> </span><span class="n">x</span><span class="p">;</span><span class="w"></span>
+<span class="w">  </span><span class="kt">int32_t</span><span class="w"> </span><span class="n">a</span><span class="p">[</span><span class="mi">17</span><span class="p">];</span><span class="w"></span>
+<span class="w">  </span><span class="kt">int32_t</span><span class="w"> </span><span class="n">y</span><span class="p">;</span><span class="w"></span>
+<span class="p">}</span><span class="w"> </span><span class="n">W</span><span class="p">;</span><span class="w"></span>
+</pre></div>
+</div>
+</section>
+<section id="classes">
+<h4>Classes<a class="headerlink" href="#classes" title="Permalink to this headline">¶</a></h4>
+<p>The support for classes is restricted to non-recursive ones so that instances
+of such data-types live on the stack. The following language features are available:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">case</span> <span class="pre">class</span></code> with mutable <code class="docutils literal notranslate"><span class="pre">var</span></code> fields;</p></li>
+<li><p>generics:</p>
+<ul>
+<li><p>similarly to <code class="docutils literal notranslate"><span class="pre">Array[T]</span></code> or tuples, each combination of type parameters
+is mapped to a specific C structure;</p></li>
+</ul>
+</li>
+<li><p>inheritance:</p>
+<ul>
+<li><p>when all leaf classes have no fields, the class hierarchy is mapped to a
+C enumeration,</p></li>
+<li><p>otherwise, a tagged-union is used to represent the class hierarchy in C;</p></li>
+</ul>
+</li>
+<li><p>external types:</p>
+<ul>
+<li><p>see <code class="docutils literal notranslate"><span class="pre">&#64;cCode.typedef</span></code> below.</p></li>
+</ul>
+</li>
+</ul>
+</div></blockquote>
+</section>
+</section>
+<section id="functions">
+<h3>Functions<a class="headerlink" href="#functions" title="Permalink to this headline">¶</a></h3>
+<p>Functions with access to the variables in their respective scopes.  The
+following language features are available:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>top level, nested or member functions:</p>
+<ul>
+<li><p>both <code class="docutils literal notranslate"><span class="pre">val</span></code> and <code class="docutils literal notranslate"><span class="pre">var</span></code> are supported for local variable with the limitations imposed by
+the imperative phases of Stainless</p></li>
+</ul>
+</li>
+<li><p>generics:</p>
+<ul>
+<li><p>each combination of type parameters generates a different, specialised C function;</p></li>
+</ul>
+</li>
+<li><p>overloading:</p>
+<ul>
+<li><p>the Scala compiler is responsible for identifying the correct function at each call site;</p></li>
+</ul>
+</li>
+<li><p>higher-order functions:</p>
+<ul>
+<li><p>named functions that do not capture their environment can be used as value;</p></li>
+</ul>
+</li>
+<li><p>external functions:</p>
+<ul>
+<li><p>see <code class="docutils literal notranslate"><span class="pre">&#64;cCode.function</span></code> below;</p></li>
+</ul>
+</li>
+</ul>
+</div></blockquote>
+<p>Since strings of characters are currently not (fully) available, in order to generate an executable
+program, one has to define a main function without any argument, whose return type can be <code class="docutils literal notranslate"><span class="pre">Int</span></code>
+or <code class="docutils literal notranslate"><span class="pre">Unit</span></code>:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="nd">@cCode</span><span class="p">.</span><span class="k">export</span>
+<span class="k">def</span> <span class="nf">main</span><span class="p">():</span> <span class="nc">Unit</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="c1">// main code goes here</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="constructs">
+<h3>Constructs<a class="headerlink" href="#constructs" title="Permalink to this headline">¶</a></h3>
+<p>The idiomatic <code class="docutils literal notranslate"><span class="pre">if</span></code> statements such as <code class="docutils literal notranslate"><span class="pre">val</span> <span class="pre">b</span> <span class="pre">=</span> <span class="pre">if</span> <span class="pre">(x</span> <span class="pre">&gt;=</span> <span class="pre">0)</span> <span class="pre">true</span> <span class="pre">else</span> <span class="pre">false</span></code> are converted into
+a sequence of equivalent statements.</p>
+<p>Imperative <code class="docutils literal notranslate"><span class="pre">while</span></code> loops are also supported.</p>
+<p><em>Pattern matching</em> is supported, with the exception of the <em>Unapply
+Patterns</em>, as long as it is exempt of side effect.</p>
+<p>Assertions, invariant, pre- and post-conditions are not translated into C99 and are simply ignored.</p>
+</section>
+<section id="operators">
+<h3>Operators<a class="headerlink" href="#operators" title="Permalink to this headline">¶</a></h3>
+<p>The following operators are supported:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Category</p></th>
+<th class="head"><p>Operators</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Boolean operators</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&amp;&amp;</span></code>, <code class="docutils literal notranslate"><span class="pre">||</span></code>, <code class="docutils literal notranslate"><span class="pre">!</span></code>, <code class="docutils literal notranslate"><span class="pre">!=</span></code>, <code class="docutils literal notranslate"><span class="pre">==</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Comparision operators over integers</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&lt;</span></code>, <code class="docutils literal notranslate"><span class="pre">&lt;=</span></code>, <code class="docutils literal notranslate"><span class="pre">==</span></code>, <code class="docutils literal notranslate"><span class="pre">!=</span></code>, <code class="docutils literal notranslate"><span class="pre">&gt;=</span></code>, <code class="docutils literal notranslate"><span class="pre">&gt;</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Comparision operators over instances of classes</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">==</span></code>, <code class="docutils literal notranslate"><span class="pre">!=</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Arithmetic operators over integers</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">+</span></code>, <code class="docutils literal notranslate"><span class="pre">-</span></code> (unary &amp; binary), <code class="docutils literal notranslate"><span class="pre">*</span></code>, <code class="docutils literal notranslate"><span class="pre">/</span></code>, <code class="docutils literal notranslate"><span class="pre">%</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Bitwise operators over integers</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&amp;</span></code>, <code class="docutils literal notranslate"><span class="pre">|</span></code>, <code class="docutils literal notranslate"><span class="pre">^</span></code>, <code class="docutils literal notranslate"><span class="pre">~</span></code>, <code class="docutils literal notranslate"><span class="pre">&lt;&lt;</span></code>, <code class="docutils literal notranslate"><span class="pre">&gt;&gt;&gt;</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="global-state">
+<h2>Global State<a class="headerlink" href="#global-state" title="Permalink to this headline">¶</a></h2>
+<p>At the moment, Stainless does not support global mutable variables declared in objects.
+It is however possible to simulate global state by using classes marked with <code class="docutils literal notranslate"><span class="pre">&#64;cCode.global</span></code>,
+as shown in the <a class="reference external" href="https://github.com/epfl-lara/stainless/blob/master/frontends/benchmarks/genc/Global.scala">Global.scala</a>
+example:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="nd">@cCode</span><span class="p">.</span><span class="n">global</span>
+<span class="k">case</span> <span class="k">class</span> <span class="nc">GlobalState</span><span class="p">(</span>
+  <span class="kd">val</span> <span class="n">data</span><span class="p">:</span> <span class="nc">Array</span><span class="p">[</span><span class="nc">Int</span><span class="p">]</span> <span class="o">=</span> <span class="nc">Array</span><span class="p">.</span><span class="n">fill</span><span class="p">(</span><span class="mi">100</span><span class="p">)(</span><span class="mi">0</span><span class="p">),</span>
+  <span class="kd">var</span> <span class="n">stable</span><span class="p">:</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="kc">true</span><span class="p">,</span>
+  <span class="kd">var</span> <span class="n">x</span><span class="p">:</span> <span class="nc">Int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
+  <span class="kd">var</span> <span class="n">y</span><span class="p">:</span> <span class="nc">Int</span> <span class="o">=</span> <span class="mi">7</span><span class="p">,</span>
+<span class="p">)</span> <span class="p">{</span>
+  <span class="n">require</span><span class="p">(</span>
+    <span class="n">data</span><span class="p">.</span><span class="n">length</span> <span class="o">==</span> <span class="mi">100</span> <span class="o">&amp;&amp;</span> <span class="p">(</span>
+      <span class="o">!</span><span class="n">stable</span> <span class="o">||</span> <span class="p">(</span>
+        <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">x</span> <span class="o">&amp;&amp;</span> <span class="n">x</span> <span class="o">&lt;=</span> <span class="mi">100</span> <span class="o">&amp;&amp;</span>
+        <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">y</span> <span class="o">&amp;&amp;</span> <span class="n">y</span> <span class="o">&lt;=</span> <span class="mi">100</span> <span class="o">&amp;&amp;</span>
+        <span class="n">x</span> <span class="o">+</span> <span class="n">y</span> <span class="o">==</span> <span class="mi">12</span>
+      <span class="p">)</span>
+    <span class="p">)</span>
+  <span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>In classes annotated with <code class="docutils literal notranslate"><span class="pre">&#64;cCode.global</span></code>, only arrays with a fixed length are
+allowed. Please check the paragraph about arrays to learn how to specify the array length.</p>
+</div>
+<p>This annotation triggers some checks to make sure that indeed the <code class="docutils literal notranslate"><span class="pre">GlobalState</span></code> class
+(the name of the class can be changed, and there can be multiple such classes) is used as a global
+state:</p>
+<ul class="simple">
+<li><p>Functions can take as argument at most one instance per each global class such as <code class="docutils literal notranslate"><span class="pre">GlobalState</span></code>.</p></li>
+<li><p>There can be at most one instance created for each global class such as <code class="docutils literal notranslate"><span class="pre">GlobalState</span></code>
+(in a function that doesn’t already take an instance of that class as argument).</p></li>
+<li><p>A <code class="docutils literal notranslate"><span class="pre">GlobalState</span></code> instance can only be used for reads and assignments (e.g. it cannot be let bound, except for the declaration mentioned above).</p></li>
+<li><p>The only global state that can be passed to other functions is the one we create or the one we received as a function argument.</p></li>
+</ul>
+<p>These checks ensure that the fields of <code class="docutils literal notranslate"><span class="pre">GlobalState</span></code> can be compiled as global variables in <code class="docutils literal notranslate"><span class="pre">C</span></code>.
+Consider the <code class="docutils literal notranslate"><span class="pre">move</span></code> function from the <a class="reference external" href="https://github.com/epfl-lara/stainless/blob/master/frontends/benchmarks/genc/Global.scala">Global.scala</a>
+example:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">move</span><span class="p">()(</span><span class="k">implicit</span> <span class="n">state</span><span class="p">:</span> <span class="nc">GlobalState</span><span class="p">):</span> <span class="nc">Unit</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="n">require</span><span class="p">(</span><span class="n">state</span><span class="p">.</span><span class="n">stable</span> <span class="o">&amp;&amp;</span> <span class="n">state</span><span class="p">.</span><span class="n">y</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+  <span class="n">state</span><span class="p">.</span><span class="n">stable</span> <span class="o">=</span> <span class="kc">false</span>
+  <span class="n">state</span><span class="p">.</span><span class="n">x</span> <span class="o">+=</span> <span class="mi">1</span>
+  <span class="n">state</span><span class="p">.</span><span class="n">y</span> <span class="o">-=</span> <span class="mi">1</span>
+  <span class="n">state</span><span class="p">.</span><span class="n">data</span><span class="p">(</span><span class="n">state</span><span class="p">.</span><span class="n">y</span><span class="p">)</span> <span class="o">=</span> <span class="mi">1</span>
+  <span class="n">state</span><span class="p">.</span><span class="n">stable</span> <span class="o">=</span> <span class="kc">true</span>
+  <span class="k">if</span> <span class="p">(</span><span class="n">state</span><span class="p">.</span><span class="n">y</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="n">move</span><span class="p">()</span>
+<span class="p">}.</span><span class="n">ensuring</span><span class="p">(</span><span class="n">_</span> <span class="o">=&gt;</span> <span class="n">state</span><span class="p">.</span><span class="n">stable</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>After compilation to C, we get the following function, with global declarations
+<code class="docutils literal notranslate"><span class="pre">stable</span></code>, <code class="docutils literal notranslate"><span class="pre">x</span></code>, <code class="docutils literal notranslate"><span class="pre">y</span></code>, and <code class="docutils literal notranslate"><span class="pre">data</span></code>.</p>
+<div class="highlight-C notranslate"><div class="highlight"><pre><span></span><span class="kt">int32_t</span><span class="w"> </span><span class="n">data</span><span class="p">[</span><span class="mi">100</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">};</span><span class="w"></span>
+<span class="kt">bool</span><span class="w"> </span><span class="n">stable</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span><span class="w"></span>
+<span class="kt">int32_t</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span><span class="p">;</span><span class="w"></span>
+<span class="kt">int32_t</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">7</span><span class="p">;</span><span class="w"></span>
+
+<span class="kt">void</span><span class="w"> </span><span class="nf">move</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="n">stable</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span><span class="w"></span>
+<span class="w">    </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w"></span>
+<span class="w">    </span><span class="n">y</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w"></span>
+<span class="w">    </span><span class="n">data</span><span class="p">[</span><span class="n">y</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w"></span>
+<span class="w">    </span><span class="n">stable</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span><span class="w"></span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">y</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">        </span><span class="n">move</span><span class="p">();</span><span class="w"></span>
+<span class="w">    </span><span class="p">}</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</pre></div>
+</div>
+<p>Note that the initial values for the global variables correspond to the default values given
+in the Stainless class declaration (default values are mandatory when using the <code class="docutils literal notranslate"><span class="pre">&#64;cCode.global</span></code>
+annotation). When creating a global state instance (the only one), we do not pass arguments, to
+make sure that the instance is created using the default values:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="nd">@cCode</span><span class="p">.</span><span class="k">export</span>
+<span class="k">def</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
+  <span class="k">implicit</span> <span class="kd">val</span> <span class="n">gs</span> <span class="o">=</span> <span class="nc">GlobalState</span><span class="p">()</span>
+  <span class="nc">StdOut</span><span class="p">.</span><span class="n">print</span><span class="p">(</span><span class="n">gs</span><span class="p">.</span><span class="n">x</span><span class="p">)</span>
+  <span class="nc">StdOut</span><span class="p">.</span><span class="n">print</span><span class="p">(</span><span class="n">gs</span><span class="p">.</span><span class="n">y</span><span class="p">)</span>
+  <span class="n">move</span><span class="p">()</span>
+  <span class="nc">StdOut</span><span class="p">.</span><span class="n">print</span><span class="p">(</span><span class="n">gs</span><span class="p">.</span><span class="n">data</span><span class="p">(</span><span class="mi">6</span><span class="p">))</span>
+  <span class="nc">StdOut</span><span class="p">.</span><span class="n">print</span><span class="p">(</span><span class="n">gs</span><span class="p">.</span><span class="n">data</span><span class="p">(</span><span class="mi">7</span><span class="p">))</span>
+  <span class="nc">StdOut</span><span class="p">.</span><span class="n">print</span><span class="p">(</span><span class="n">gs</span><span class="p">.</span><span class="n">x</span><span class="p">)</span>
+  <span class="nc">StdOut</span><span class="p">.</span><span class="n">println</span><span class="p">(</span><span class="n">gs</span><span class="p">.</span><span class="n">y</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Stainless supports two variants of the <code class="docutils literal notranslate"><span class="pre">&#64;cCode.global</span></code> annotation, namely <code class="docutils literal notranslate"><span class="pre">&#64;cCode.globalUninitialized</span></code>
+and <code class="docutils literal notranslate"><span class="pre">&#64;cCode.globalExternal</span></code>. The first one generates global declarations without initial
+values. These global variables are thus initialized according to C semantics, and there can be
+a mismatch between the global state instance created by the user, and the initial values in C.
+The second one hides the global declarations, which can be useful when interacting with C code
+that declares global variables outside of the Stainless program.</p>
+</section>
+<section id="custom-conversion">
+<h2>Custom Conversion<a class="headerlink" href="#custom-conversion" title="Permalink to this headline">¶</a></h2>
+<p>When it comes to function using system calls, such as I/Os, no automated conversion is possible. In
+those situations the user can define his own implementation for functions, add manual conversion
+from Scala types to C types or even drop some functions and types from the translation, with
+<code class="docutils literal notranslate"><span class="pre">&#64;cCode.function</span></code>, <code class="docutils literal notranslate"><span class="pre">&#64;cCode.typedef</span></code> and <code class="docutils literal notranslate"><span class="pre">&#64;cCode.drop</span></code> annotations from the package
+<code class="docutils literal notranslate"><span class="pre">stainless.annotation</span></code>. Their usage is described below.</p>
+<section id="custom-function-implementation">
+<h3>Custom Function Implementation<a class="headerlink" href="#custom-function-implementation" title="Permalink to this headline">¶</a></h3>
+<p>In order to circumvent some current limitations of GenC, one can use <code class="docutils literal notranslate"><span class="pre">&#64;cCode.function(code,</span>
+<span class="pre">includes)</span></code> to define the corresponding implementation of any top-level function or method, usually
+accompanied by <code class="docutils literal notranslate"><span class="pre">&#64;extern</span></code>. Its usage is as follows:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>For convenience, the C implementation generated by <code class="docutils literal notranslate"><span class="pre">code</span></code> is represented using a String and
+not an Abstract Syntax Tree. The user is responsible for the correctness of the provided C99
+code.  Because GenC might rename the function, e.g. to deal with overloading, the special
+<code class="docutils literal notranslate"><span class="pre">__FUNCTION__</span></code> token should be used instead of the original name. Furthermore, the parameters
+and return type should match the signature automatically generated by GenC.</p></li>
+<li><p>The optional parameter <code class="docutils literal notranslate"><span class="pre">includes</span></code> can hold a colon separated list of required C99 include
+header files.</p></li>
+</ul>
+</div></blockquote>
+<p>Here is a typical example:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="c1">// Print a 32-bit integer using the *correct*</span>
+<span class="c1">// format for printf in C99</span>
+<span class="nd">@cCode</span><span class="p">.</span><span class="n">function</span><span class="p">(</span>
+  <span class="n">code</span> <span class="o">=</span> <span class="s">&quot;&quot;&quot;</span>
+<span class="s">    | void __FUNCTION__(int32_t x) {</span>
+<span class="s">    |  printf(&quot;%&quot;PRIi32, x);</span>
+<span class="s">    | }</span>
+<span class="s">    &quot;&quot;&quot;</span><span class="p">,</span>
+  <span class="n">includes</span> <span class="o">=</span> <span class="s">&quot;inttypes.h:stdio.h&quot;</span>
+<span class="p">)</span>
+<span class="k">def</span> <span class="nf">myprint</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">Int</span><span class="p">):</span> <span class="nc">Unit</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="n">print</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="custom-type-translation">
+<h3>Custom Type Translation<a class="headerlink" href="#custom-type-translation" title="Permalink to this headline">¶</a></h3>
+<p>When a whole type need to be represented using a special C type, the <code class="docutils literal notranslate"><span class="pre">&#64;cCode.typedef(alias,</span>
+<span class="pre">include)</span></code> annotation can be used. Here the <code class="docutils literal notranslate"><span class="pre">include</span></code> parameter is also optional, however it can
+only refer to one header, as it is not expected to have a type defined in several headers. The
+<code class="docutils literal notranslate"><span class="pre">alias</span></code> string must represent an existing and valid type.</p>
+<p>Using an aliasing from <code class="docutils literal notranslate"><span class="pre">S</span></code> to <code class="docutils literal notranslate"><span class="pre">C</span></code> implies that every function that accept a <code class="docutils literal notranslate"><span class="pre">S</span></code> in the input
+program must accept a <code class="docutils literal notranslate"><span class="pre">C</span></code> in the generated C code. Usually, using this annotation implicates
+manually defining the implementation of functions using this type with <code class="docutils literal notranslate"><span class="pre">&#64;cCode.function</span></code>.</p>
+<p>Here is an example:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="nd">@cCode</span><span class="p">.</span><span class="n">typedef</span><span class="p">(</span><span class="n">alias</span> <span class="o">=</span> <span class="s">&quot;FILE*&quot;</span><span class="p">,</span> <span class="n">include</span> <span class="o">=</span> <span class="s">&quot;stdio.h&quot;</span><span class="p">)</span>
+<span class="k">case</span> <span class="k">class</span> <span class="nc">MyFile</span><span class="p">(</span> <span class="p">...</span>
+</pre></div>
+</div>
+</section>
+<section id="ignore-function-or-type">
+<h3>Ignore Function or Type<a class="headerlink" href="#ignore-function-or-type" title="Permalink to this headline">¶</a></h3>
+<p>It is also possible to skip the translation of some functions or types that are only used as
+implementation details in proofs, for example, using the <code class="docutils literal notranslate"><span class="pre">&#64;cCode.drop()</span></code> annotation.</p>
+</section>
+</section>
+<section id="api-for-safe-low-level-programs">
+<h2>API For Safe Low Level Programs<a class="headerlink" href="#api-for-safe-low-level-programs" title="Permalink to this headline">¶</a></h2>
+<p>In this section we describe the APIs that can be used to make the bridge between some Scala
+programming facilities and their low level, equivalent, C features.</p>
+<section id="i-os">
+<h3>I/Os<a class="headerlink" href="#i-os" title="Permalink to this headline">¶</a></h3>
+<p>Similarly to Scala’s <code class="docutils literal notranslate"><span class="pre">scala.io.StdIn</span></code> and <code class="docutils literal notranslate"><span class="pre">scala.io.StdOut</span></code>, Stainless provides <code class="docutils literal notranslate"><span class="pre">stainless.io.StdIn</span></code> and
+<code class="docutils literal notranslate"><span class="pre">stainless.io.StdOut</span></code>. These two APIs are provided with equivalent C code for easy translation with
+GenC, but are also shaped to allow users to write proofs in a non-deterministic environment.</p>
+<p>Furthermore, Stainless provides <code class="docutils literal notranslate"><span class="pre">stainless.io.FileInputStream</span></code> to read data and
+<code class="docutils literal notranslate"><span class="pre">stainless.io.FileOutputStream</span></code> to write data to a file with a C99 compatible API.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>It is important that you close the stream after it was created or your C
+application might leak resources.</p>
+</div>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="library.html" class="btn btn-neutral float-left" title="Stainless Library" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="neon.html" class="btn btn-neutral float-right" title="Proving Theorems" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2009-2021 EPFL, Lausanne.
+      <span class="lastupdated">Last updated on Dec 17, 2023.
+      </span></p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

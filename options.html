@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Specifying Options &mdash; Stainless 0.9.1 documentation</title>
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Verification conditions" href="verification.html" />
+    <link rel="prev" title="Tutorial: Sorting" href="tutorial.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> Stainless
+          </a>
+              <div class="version">
+                0.9
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div>
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Main">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installing Stainless</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gettingstarted.html">Verifying and Compiling Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorial.html">Tutorial: Sorting</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Specifying Options</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#choosing-which-stainless-feature-to-use">Choosing which Stainless feature to use</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#additional-top-level-options">Additional top-level options</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#additional-options-by-component">Additional Options (by component)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#verification">Verification</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#termination">Termination</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#unrolling-solver">Unrolling Solver</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#cvc5-solver">cvc5 Solver</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#evaluators">Evaluators</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#tests-generation">Tests generation</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#configuration-file">Configuration File</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#library-files">Library Files</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#purpose-of-library-files">Purpose of library files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#changing-the-list-of-library-files">Changing the list of library files</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="verification.html">Verification conditions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="laws.html">Specifying Algebraic Properties</a></li>
+<li class="toctree-l1"><a class="reference internal" href="imperative.html">Imperative</a></li>
+<li class="toctree-l1"><a class="reference internal" href="equivalence.html">Equivalence Checking</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ghost.html">Ghost Context</a></li>
+<li class="toctree-l1"><a class="reference internal" href="wrap.html">Working With Existing Code</a></li>
+<li class="toctree-l1"><a class="reference internal" href="purescala.html">Pure Scala</a></li>
+<li class="toctree-l1"><a class="reference internal" href="library.html">Stainless Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="genc.html">Generating C Code</a></li>
+<li class="toctree-l1"><a class="reference internal" href="neon.html">Proving Theorems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="limitations.html">Limitations of Verification</a></li>
+<li class="toctree-l1"><a class="reference internal" href="casestudies.html">Case Studies</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coq.html">Translation from Stainless to Coq</a></li>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">FAQ: (Frequently) Asked Questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="references.html">References</a></li>
+<li class="toctree-l1"><a class="reference internal" href="internals.html">Stainless’ Internals</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" aria-label="Top" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Stainless</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+<div role="navigation" aria-label="Breadcrumbs">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>Specifying Options</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/options.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="specifying-options">
+<span id="cmdlineoptions"></span><h1>Specifying Options<a class="headerlink" href="#specifying-options" title="Permalink to this headline">¶</a></h1>
+<p>Stainless’s command line options have the form <code class="docutils literal notranslate"><span class="pre">--option</span></code> or <code class="docutils literal notranslate"><span class="pre">--option=value</span></code>.
+To enable a flag option, use <code class="docutils literal notranslate"><span class="pre">--option=true</span></code> or <code class="docutils literal notranslate"><span class="pre">on</span></code> or <code class="docutils literal notranslate"><span class="pre">yes</span></code>,
+or just <code class="docutils literal notranslate"><span class="pre">--option</span></code>. To disable a flag option, use <code class="docutils literal notranslate"><span class="pre">--option=false</span></code>.</p>
+<p>Additionally, if you need to pass options to the <code class="docutils literal notranslate"><span class="pre">scalac</span></code> frontend of Stainless,
+you can do it by using a single dash <code class="docutils literal notranslate"><span class="pre">-</span></code>. For example, try <code class="docutils literal notranslate"><span class="pre">-Ybrowse:typer</span></code>.</p>
+<p>The rest of this section presents some of the command-line options that Stainless recognizes.
+For a short (but always up-to-date) summary, you can also invoke <code class="docutils literal notranslate"><span class="pre">stainless</span> <span class="pre">--help</span></code>.</p>
+<section id="choosing-which-stainless-feature-to-use">
+<h2>Choosing which Stainless feature to use<a class="headerlink" href="#choosing-which-stainless-feature-to-use" title="Permalink to this headline">¶</a></h2>
+<p>The first group of options determines which feature of Stainless will be used.
+By default, <code class="docutils literal notranslate"><span class="pre">--verification</span></code> is chosen.</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">--verification</span></code></p>
+<p>Proves or disproves function contracts, as explained in the <a class="reference internal" href="verification.html"><span class="doc">Verification conditions</span></a> section.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--eval</span></code></p>
+<p>Evaluate parameterless functions and report their body’s value and whether
+or not their postcondition holds.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--genc</span></code></p>
+<p>Convert stainless code to C (implies –batched, default: false).
+See documentation section for generating C code.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--coq</span></code></p>
+<p>Transform the program into a Coq program, and let Coq generate subgoals automatically</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--type-checker</span></code></p>
+<p>Use type checker inspired by System FR to generate verification conditions.
+Default is <code class="docutils literal notranslate"><span class="pre">true</span></code> and is strongly recommended; using <code class="docutils literal notranslate"><span class="pre">false</span></code> reverts to
+an old verification-condition generator.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--infer-measures=[yes|no|only]</span> <span class="pre">(default:</span> <span class="pre">yes)</span></code></p>
+<p>Infers measures for recursive functions which do not already have one.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--check-measures=[true|false]</span> <span class="pre">(default:</span> <span class="pre">true)</span></code></p>
+<p>Check termination of functions with measures, ie. whether measures decrease between recursive calls.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--testgen</span></code></p>
+<p>Proves or disproves function contracts (like <code class="docutils literal notranslate"><span class="pre">--verification</span></code>) and attempts to create Scala test cases from reported counter-examples.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--genc-testgen</span></code></p>
+<p>Like <code class="docutils literal notranslate"><span class="pre">--testgen</span></code>, but generates C test cases using GenC.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--help</span></code></p>
+<p>Prints a helpful message, then exits.</p>
+</li>
+</ul>
+</section>
+<section id="additional-top-level-options">
+<h2>Additional top-level options<a class="headerlink" href="#additional-top-level-options" title="Permalink to this headline">¶</a></h2>
+<p>These options are available to all Stainless components:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">--watch</span></code></p>
+<p>Re-run the selected analysis components upon file changes, making the program analysis
+interactive and significantly more efficient than restarting stainless manually.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--no-colors</span></code></p>
+<p>Disable colored output and non-ascii characters (consider this option for better support in IDEs)</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--compact</span></code></p>
+<p>Reduces the components’ summaries to only the invalid elements (e.g. invalid VC).</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--debug=d1,d2,...</span></code></p>
+<p>Enables printing detailed messages for the components d1,d2,… .
+Available components include:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">solver</span></code> (SMT solvers and their wrappers)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">termination</span></code> (Termination analysis)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">timers</span></code> (Timers, timer pools)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">trees</span></code> (Manipulation of trees)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">verification</span></code> (Verification)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">full-vc</span></code> (Display VCs before and after simplification)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">type-checker</span></code> (Type checking of the final program for VC generation)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">type-checker-vcs</span></code> (Generation of VCs by the type-checker)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">derivation</span></code> (Dump typing derivations)</p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--functions=f1,f2,...</span></code></p>
+<p>Only consider functions f1, f2, … . This applies to all functionalities
+where Stainless manipulates the input in a per-function basis.</p>
+<p>Stainless will match against suffixes of qualified names. For instance:
+<code class="docutils literal notranslate"><span class="pre">--functions=List.size</span></code> will match the method <code class="docutils literal notranslate"><span class="pre">stainless.collection.List.size</span></code>,
+while  <code class="docutils literal notranslate"><span class="pre">--functions=size</span></code> will match all methods and functions named <code class="docutils literal notranslate"><span class="pre">size</span></code>.
+This option supports <code class="docutils literal notranslate"><span class="pre">_</span></code> as wildcard: <code class="docutils literal notranslate"><span class="pre">--functions=List._</span></code> will
+match all <code class="docutils literal notranslate"><span class="pre">List</span></code> methods.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--solvers=s1,s2,...</span></code></p>
+<p>Use solvers s1, s2,… . If more than one solver is chosen, all chosen
+solvers will be used in parallel, and the best result will be presented.
+By default, the <code class="docutils literal notranslate"><span class="pre">nativez3</span></code> solver is picked.</p>
+<p>Some solvers are specialized in proving verification conditions
+and will have a hard time finding a counterexample in the case of an invalid
+verification condition, whereas some are specialized in finding
+counterexamples, and some provide a compromise between the two.
+Also, some solvers do not as of now support higher-order functions.</p>
+<p>Available solvers include:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">nativez3</span></code></p>
+<p>Native Z3 with z3-templates for unfolding recursive functions (default).</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">smt-cvc5</span></code></p>
+<p>cvc5 through SMT-LIB. An algorithm within Stainless takes up the unfolding
+of recursive functions, handling of lambdas etc. To use this or any
+of the following cvc5-based solvers, you need to have the <code class="docutils literal notranslate"><span class="pre">cvc5</span></code>
+executable in your system path (the latest unstable version is recommended).</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">smt-z3</span></code></p>
+<p>Z3 through SMT-LIB. To use this or the next solver, you need to
+have the <code class="docutils literal notranslate"><span class="pre">z3</span></code> executable in your program path (the latest stable version
+is recommended). Inductive reasoning happens on the Stainless side
+(similarly to <code class="docutils literal notranslate"><span class="pre">smt-cvc5</span></code>).</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">unrollz3</span></code></p>
+<p>Native Z3, but inductive reasoning happens within Stainless (similarly to <code class="docutils literal notranslate"><span class="pre">smt-z3</span></code>).</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">princess</span></code></p>
+<p>Princess solver through its native interface (uses princess-templates) during
+unfolding. This is a full-stack JVM solver and enables Stainless to run without
+external solver dependencies.</p>
+</li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--timeout=t</span></code></p>
+<p>Set a timeout for each attempt to prove one verification condition/
+repair one function (in sec.) When using the <code class="docutils literal notranslate"><span class="pre">--eval</span></code> component, one
+should use <code class="docutils literal notranslate"><span class="pre">--max-calls</span></code> instead.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--cache</span></code></p>
+<p>Use persistent cache on disk to save the state of the verification and/or
+termination analyses.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--cache-dir=&lt;directory&gt;</span></code></p>
+<p>Specify in which directory the cache files generated by <code class="docutils literal notranslate"><span class="pre">--cache</span></code> and other
+options should be stored. Defaults to <code class="docutils literal notranslate"><span class="pre">.stainless-cache/</span></code>.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--json=&lt;file&gt;</span></code></p>
+<p>Export the verification and/or termination analyses to the given file.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--extra-deps=org:name_scalaVersion:version,...</span></code></p>
+<p>Fetch the specified dependencies, and add their sources to the set of files
+processed by Stainless. Each dependency must be available as a source JAR
+from MavenCentral, the EPFL-LARA bintray organization, your local Ivy database,
+or through another resolver specified via <code class="docutils literal notranslate"><span class="pre">--extra-resolvers</span></code>.</p>
+<p>Note: Stainless will not pull transitive dependencies, so one has to specify
+all transitive dependencies explicitely via this option.</p>
+<p>Example: <code class="docutils literal notranslate"><span class="pre">--extra-deps=ch.epfl.lara:stainless-algebra_2.12:0.1.2</span></code></p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--extra-resolvers=URL,...</span></code></p>
+<p>Specify additional resolvers to be used to fetch the dependencies specified via
+the <code class="docutils literal notranslate"><span class="pre">--extra-deps</span></code> option.</p>
+<p>Note: The full URL of the resolver must be used.</p>
+<p>Example: <code class="docutils literal notranslate"><span class="pre">--extra-resolvers=https://oss.sonatype.org/content/repositories/snapshots/</span></code></p>
+<p>See the <a class="reference external" href="https://github.com/coursier/coursier/blob/8d011f7eeb2a9dde5ed2518fb2407e7aaecfc54f/modules/coursier/shared/src/main/scala/coursier/Repositories.scala">Coursier source code</a> for the list of most common repositories URLs.</p>
+</li>
+</ul>
+</section>
+<section id="additional-options-by-component">
+<h2>Additional Options (by component)<a class="headerlink" href="#additional-options-by-component" title="Permalink to this headline">¶</a></h2>
+<p>The following options relate to specific components in Stainless.</p>
+<section id="verification">
+<h3>Verification<a class="headerlink" href="#verification" title="Permalink to this headline">¶</a></h3>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">--strict-aritmetic</span></code></p>
+<p>Check arithmetic operations for unintended behaviour and
+overflows.  Note that reasoning about bitvectors is sound
+even if this option is false, but in that case no warnings
+are generated for overflows and underflows because these
+have well-defined semantics in Scala.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--vc-cache</span></code></p>
+<p>Use a persistent cache mechanism to speed up verification; on by default.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--fail-early</span></code></p>
+<p>Aborts verification as soon as a VC cannot be proven to be correct.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--fail-invalid</span></code></p>
+<p>Aborts verification as soon as an invalid VC is found.</p>
+</li>
+</ul>
+</section>
+<section id="termination">
+<h3>Termination<a class="headerlink" href="#termination" title="Permalink to this headline">¶</a></h3>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">--ignore-posts</span></code></p>
+<p>Ignore postconditions during termination verification.</p>
+</li>
+</ul>
+</section>
+<section id="unrolling-solver">
+<h3>Unrolling Solver<a class="headerlink" href="#unrolling-solver" title="Permalink to this headline">¶</a></h3>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">--check-models</span></code></p>
+<p>Double-check counterexamples with the evaluator.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--feeling-lucky</span></code></p>
+<p>Use evaluator to find counterexamples early.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--unroll-assumptions</span></code></p>
+<p>Use unsat-assumptions to drive unrolling while remaining fair.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--silent-errors</span></code></p>
+<p>Don’t crash on errors, simply return <code class="docutils literal notranslate"><span class="pre">Unknown</span></code>.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--unroll-factor=n</span></code></p>
+<p>Speeds up unrolling by a factor <code class="docutils literal notranslate"><span class="pre">n</span></code>.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--model-finding=n</span></code></p>
+<p>Boosts model-finding capabilities by a factor <code class="docutils literal notranslate"><span class="pre">n</span></code>. This may come at
+the cost of proof construction.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--no-simplifications</span></code></p>
+<p>Disables program simplification heuristics.</p>
+</li>
+</ul>
+</section>
+<section id="cvc5-solver">
+<h3>cvc5 Solver<a class="headerlink" href="#cvc5-solver" title="Permalink to this headline">¶</a></h3>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">--solver:cvc5=&lt;cvc5-opt&gt;</span></code></p>
+<p>Pass extra command-line arguments to cvc5.</p>
+</li>
+</ul>
+</section>
+<section id="evaluators">
+<h3>Evaluators<a class="headerlink" href="#evaluators" title="Permalink to this headline">¶</a></h3>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">--codegen</span></code></p>
+<p>Use compiled evaluator instead of an interpreter.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--small-arrays</span></code></p>
+<p>Assume all arrays can fit into memory during compiled evaluation.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--instrument</span></code></p>
+<p>Instrument ADT field access during code generation.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--max-calls=n</span></code></p>
+<p>Bounds the total number of function call evaluations (before crashing).</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">--ignore-contracts</span></code></p>
+<p>Ignores function contracts during evaluation.</p>
+</li>
+</ul>
+</section>
+<section id="tests-generation">
+<h3>Tests generation<a class="headerlink" href="#tests-generation" title="Permalink to this headline">¶</a></h3>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">testgen-file=&lt;file&gt;</span></code></p>
+<p>Specifies the output file for the generated tests.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">genc-testgen-includes=header1.h,header2,...</span></code></p>
+<p>Only applies for <code class="docutils literal notranslate"><span class="pre">--genc-testgen</span></code>. Indicates the headers to <code class="docutils literal notranslate"><span class="pre">#include</span></code> in the generated test file.</p>
+</li>
+</ul>
+</section>
+</section>
+<section id="configuration-file">
+<h2>Configuration File<a class="headerlink" href="#configuration-file" title="Permalink to this headline">¶</a></h2>
+<p>Stainless supports setting default values for command line options configuration files.
+To specify configuration file you can use the option <code class="docutils literal notranslate"><span class="pre">`--config-file=FILE</span></code>. The default is
+<code class="docutils literal notranslate"><span class="pre">stainless.conf</span></code> or <code class="docutils literal notranslate"><span class="pre">.stainless.conf</span></code>. The file should be a valid HOCON file.</p>
+<p>For example, consider the config file containin the following lines:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>vc-cache = false
+debug = [verification, trees]
+timeout = 5
+check-models = true
+print-ids = true
+</pre></div>
+</div>
+<p>The file will translate to the following command line options:</p>
+<p><code class="docutils literal notranslate"><span class="pre">--vc-cache=false</span> <span class="pre">--debug=verification,trees</span> <span class="pre">--timeout=5</span> <span class="pre">--print-ids</span></code></p>
+<p>Stainless searches for a configuration file recursively
+starting from the current directory and walking up the
+directory hierarchy.  For example, if one runs stainless
+from <code class="docutils literal notranslate"><span class="pre">/a/b/c</span></code> and there is a config file in any of <cite>c</cite>,
+<cite>b</cite> or <cite>a</cite>, the first of those is going to be loaded.</p>
+</section>
+<section id="library-files">
+<h2>Library Files<a class="headerlink" href="#library-files" title="Permalink to this headline">¶</a></h2>
+<section id="purpose-of-library-files">
+<h3>Purpose of library files<a class="headerlink" href="#purpose-of-library-files" title="Permalink to this headline">¶</a></h3>
+<p>Stainless contains library source Scala files that define types and functions that are meant to be always available
+via import statements such as <code class="docutils literal notranslate"><span class="pre">import</span> <span class="pre">stainless.lang._</span></code>, <code class="docutils literal notranslate"><span class="pre">import</span> <span class="pre">stainless.annotation._</span></code>,
+<code class="docutils literal notranslate"><span class="pre">import</span> <span class="pre">stainless.collection._</span></code>, and so on. Many of these types have special treatment inside the extraction
+pipeline and will map directly to mathematical data types of the underlying SMT solvers.
+At build time, the <code class="docutils literal notranslate"><span class="pre">build.sbt</span></code> script computes the list of these files by traversing the <code class="docutils literal notranslate"><span class="pre">frontends/library/</span></code> directory.</p>
+</section>
+<section id="changing-the-list-of-library-files">
+<h3>Changing the list of library files<a class="headerlink" href="#changing-the-list-of-library-files" title="Permalink to this headline">¶</a></h3>
+<p>To support further customization, if at run time stainless finds
+a file <code class="docutils literal notranslate"><span class="pre">libfiles.txt</span></code> in the current directory, it replaces the list of library files files with the list contained
+in this file, one file per line, with paths relative to the directory <code class="docutils literal notranslate"><span class="pre">frontends/library/</span></code>. For example, <code class="docutils literal notranslate"><span class="pre">libfiles.txt</span></code>
+may contain:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>stainless/util/Random.scala
+stainless/lang/Option.scala
+stainless/lang/StaticChecks.scala
+stainless/lang/Real.scala
+stainless/lang/Either.scala
+stainless/lang/Set.scala
+stainless/lang/MutableMap.scala
+stainless/lang/package.scala
+stainless/lang/Bag.scala
+stainless/lang/Map.scala
+stainless/collection/List.scala
+stainless/math/BitVectors.scala
+stainless/math/Nat.scala
+stainless/math/package.scala
+stainless/io/StdIn.scala
+stainless/io/package.scala
+stainless/annotation/annotations.scala
+stainless/annotation/isabelle.scala
+stainless/annotation/cCode.scala
+stainless/proof/Internal.scala
+stainless/proof/package.scala
+</pre></div>
+</div>
+<p>Shortening this list may reduce the startup time, but also cause Stainless to not work propertly, so
+using the <code class="docutils literal notranslate"><span class="pre">--watch</span></code> and <code class="docutils literal notranslate"><span class="pre">--functions</span></code> options is the first option to try.</p>
+<p>For further customization by advanced users, please examine the <code class="docutils literal notranslate"><span class="pre">build.sbt</span></code> file.</p>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="tutorial.html" class="btn btn-neutral float-left" title="Tutorial: Sorting" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="verification.html" class="btn btn-neutral float-right" title="Verification conditions" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2009-2021 EPFL, Lausanne.
+      <span class="lastupdated">Last updated on May 09, 2024.
+      </span></p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

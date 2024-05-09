@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Imperative &mdash; Stainless 0.9.1 documentation</title>
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Equivalence Checking" href="equivalence.html" />
+    <link rel="prev" title="Specifying Algebraic Properties" href="laws.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> Stainless
+          </a>
+              <div class="version">
+                0.9
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div>
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Main">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installing Stainless</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gettingstarted.html">Verifying and Compiling Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorial.html">Tutorial: Sorting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="options.html">Specifying Options</a></li>
+<li class="toctree-l1"><a class="reference internal" href="verification.html">Verification conditions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="laws.html">Specifying Algebraic Properties</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Imperative</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#imperative-code">Imperative Code</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#while-loops">While loops</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#arrays">Arrays</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#mutable-objects">Mutable Objects</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#aliasing">Aliasing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#annotations-for-imperative-programming">Annotations for Imperative Programming</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#extern-functions-and-abstract-methods">Extern functions and abstract methods</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#trait-variables">Trait Variables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#return-keyword">Return keyword</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="equivalence.html">Equivalence Checking</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ghost.html">Ghost Context</a></li>
+<li class="toctree-l1"><a class="reference internal" href="wrap.html">Working With Existing Code</a></li>
+<li class="toctree-l1"><a class="reference internal" href="purescala.html">Pure Scala</a></li>
+<li class="toctree-l1"><a class="reference internal" href="library.html">Stainless Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="genc.html">Generating C Code</a></li>
+<li class="toctree-l1"><a class="reference internal" href="neon.html">Proving Theorems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="limitations.html">Limitations of Verification</a></li>
+<li class="toctree-l1"><a class="reference internal" href="casestudies.html">Case Studies</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coq.html">Translation from Stainless to Coq</a></li>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">FAQ: (Frequently) Asked Questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="references.html">References</a></li>
+<li class="toctree-l1"><a class="reference internal" href="internals.html">Stainless’ Internals</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" aria-label="Top" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Stainless</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+<div role="navigation" aria-label="Breadcrumbs">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>Imperative</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/imperative.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="imperative">
+<span id="id1"></span><h1>Imperative<a class="headerlink" href="#imperative" title="Permalink to this headline">¶</a></h1>
+<p>To complement the core <a class="reference internal" href="purescala.html"><span class="doc">Pure Scala</span></a> language, Stainless
+proposes a few extensions to that core language.</p>
+<p>On the technical side, these extensions do not have specific treatment in the
+back-end of Stainless. Instead, they are desugared into <a class="reference internal" href="purescala.html"><span class="doc">Pure Scala</span></a>
+constructs during a preprocessing phase in the Stainless front-end.</p>
+<p>These transformations are partly documented in the <a class="reference external" href="https://doi.org/10.5075/epfl-thesis-7636">EPFL PhD thesis of Régis Blanc</a>.</p>
+<section id="imperative-code">
+<h2>Imperative Code<a class="headerlink" href="#imperative-code" title="Permalink to this headline">¶</a></h2>
+<p>Stainless lets you introduce local variables in functions, and use Scala assignments
+syntax.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">foo</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">Int</span><span class="p">):</span> <span class="nc">Int</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="kd">var</span> <span class="n">a</span> <span class="o">=</span> <span class="n">x</span>
+  <span class="kd">var</span> <span class="n">b</span> <span class="o">=</span> <span class="mi">42</span>
+  <span class="n">a</span> <span class="o">=</span> <span class="n">a</span> <span class="o">+</span> <span class="n">b</span>
+  <span class="n">b</span> <span class="o">=</span> <span class="n">a</span>
+  <span class="n">b</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>The above example illustrates three new features introduced by imperative support:</p>
+<ol class="arabic simple">
+<li><p>Declaring a variable in a local scope</p></li>
+<li><p>Blocks of expressions</p></li>
+<li><p>Assignments</p></li>
+</ol>
+<p>You can use Scala variables with a few restrictions. The variables can only be
+declared and used locally, no variable declaration outside of a function body.
+There is also support for variables in case classes constructors. Imperative support
+introduces the possibility to use sequences of expressions (blocks) – a
+feature not available in <a class="reference internal" href="purescala.html"><span class="doc">Pure Scala</span></a>, where your only
+option is a sequence of <code class="docutils literal notranslate"><span class="pre">val</span></code> which essentially introduce nested <code class="docutils literal notranslate"><span class="pre">let</span></code>
+declarations.</p>
+</section>
+<section id="while-loops">
+<h2>While loops<a class="headerlink" href="#while-loops" title="Permalink to this headline">¶</a></h2>
+<p>You can use the <code class="docutils literal notranslate"><span class="pre">while</span></code> keyword. While loops usually combine the ability to
+declare variables and make a sequence of assignments in order to compute
+something useful:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">foo</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">Int</span><span class="p">):</span> <span class="nc">Int</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="kd">var</span> <span class="n">res</span> <span class="o">=</span> <span class="mi">0</span>
+  <span class="kd">var</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+  <span class="k">while</span><span class="p">(</span><span class="n">i</span> <span class="o">&lt;</span> <span class="mi">10</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">res</span> <span class="o">=</span> <span class="n">res</span> <span class="o">+</span> <span class="n">i</span>
+    <span class="n">i</span> <span class="o">=</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span>
+  <span class="p">}</span>
+  <span class="n">res</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Stainless will automatically generate a postcondition to the <code class="docutils literal notranslate"><span class="pre">while</span></code> loop, using
+the negation of the loop condition. It will automatically prove that
+verification condition and you should see an <code class="docutils literal notranslate"><span class="pre">invariant</span> <span class="pre">postcondition</span></code> marked
+as <code class="docutils literal notranslate"><span class="pre">valid</span></code>.</p>
+<p>Stainless internally handles loops as a function with a postcondition. For the end-user, it
+means that Stainless is only going to rely on the postcondition of the loop to prove properties
+of code relying on loops. Usually that invariant is too weak to prove anything remotely
+useful and you will need to annotate the loop with a stronger invariant.</p>
+<p>You can annotate a loop with an invariant as follows:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="kd">var</span> <span class="n">res</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="kd">var</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="p">(</span><span class="k">while</span><span class="p">(</span><span class="n">i</span> <span class="o">&lt;</span> <span class="mi">10</span><span class="p">)</span> <span class="p">{</span>
+  <span class="n">res</span> <span class="o">=</span> <span class="n">res</span> <span class="o">+</span> <span class="n">i</span>
+  <span class="n">i</span> <span class="o">=</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span>
+<span class="p">})</span> <span class="n">invariant</span><span class="p">(</span><span class="n">i</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="n">res</span> <span class="o">&gt;=</span> <span class="n">i</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The strange syntax comes from some Scala magic in order to make the keyword
+<code class="docutils literal notranslate"><span class="pre">invariant</span></code> a valid keyword. Stainless is defining an implicit conversion from
+<code class="docutils literal notranslate"><span class="pre">Unit</span></code> to an <code class="docutils literal notranslate"><span class="pre">InvariantFunction</span></code> object that provides an <code class="docutils literal notranslate"><span class="pre">invariant</span></code>
+method. The <code class="docutils literal notranslate"><span class="pre">invariant</span></code> method takes a boolean expression as a parameter and
+its semantics is to hold at the following points during the execution of the loop:</p>
+<ol class="arabic simple">
+<li><p>When first entering the loop: initialization.</p></li>
+<li><p>After each complete execution of the body.</p></li>
+<li><p>On exiting the loop.</p></li>
+</ol>
+<p>Stainless will generate verification conditions <code class="docutils literal notranslate"><span class="pre">invariant</span> <span class="pre">inductive</span></code> and
+<code class="docutils literal notranslate"><span class="pre">invariant</span> <span class="pre">postcondition</span></code> to verify points (2) and (3) above. It will also
+generate a <code class="docutils literal notranslate"><span class="pre">precondition</span></code> corresponding to the line of the while loop. This
+verification condition is used to prove the invariant on initialization of the
+loop.</p>
+</section>
+<section id="arrays">
+<h2>Arrays<a class="headerlink" href="#arrays" title="Permalink to this headline">¶</a></h2>
+<p>PureScala supports functional arrays, that is, the operations <code class="docutils literal notranslate"><span class="pre">apply</span></code> and
+<code class="docutils literal notranslate"><span class="pre">updated</span></code> which do not modify an array but only returns some result. In
+particular, <code class="docutils literal notranslate"><span class="pre">updated</span></code> returns a new copy of the array.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">f</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="nc">Array</span><span class="p">[</span><span class="nc">Int</span><span class="p">]):</span> <span class="nc">Array</span><span class="p">[</span><span class="nc">Int</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="n">a</span><span class="p">.</span><span class="n">updated</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">a</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>However, using functional arrays is not the most natural way to work with
+arrays, and arrays are often used in imperative implementations of algorithms.
+We add the usual <code class="docutils literal notranslate"><span class="pre">update</span></code> operation on arrays:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="kd">val</span> <span class="n">a</span> <span class="o">=</span> <span class="nc">Array</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">4</span><span class="p">)</span>
+<span class="n">a</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="c1">//2</span>
+<span class="n">a</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="o">=</span> <span class="mi">10</span>
+<span class="n">a</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="c1">//10</span>
+</pre></div>
+</div>
+<p>Stainless simply rewrite arrays using <code class="docutils literal notranslate"><span class="pre">update</span></code> operation as the assignment of function arrays
+using <code class="docutils literal notranslate"><span class="pre">updated</span></code>.  This leverages the built-in algorithm for functional arrays
+and relies on the elimination procedure for assignments. Concretely, it would
+transform the above on the following equivalent implementation:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="kd">var</span> <span class="n">a</span> <span class="o">=</span> <span class="nc">Array</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">4</span><span class="p">)</span>
+<span class="n">a</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="c1">//2</span>
+<span class="n">a</span> <span class="o">=</span> <span class="n">a</span><span class="p">.</span><span class="n">updated</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+<span class="n">a</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="c1">//10</span>
+</pre></div>
+</div>
+<p>Stainless also has a <code class="docutils literal notranslate"><span class="pre">swap</span></code> operation in <code class="docutils literal notranslate"><span class="pre">stainless.lang</span></code>, which is equivalent to two updates.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">swap</span><span class="p">[</span><span class="nd">@mutable</span> <span class="nc">T</span><span class="p">](</span><span class="n">a1</span><span class="p">:</span> <span class="nc">Array</span><span class="p">[</span><span class="nc">T</span><span class="p">],</span> <span class="n">i1</span><span class="p">:</span> <span class="nc">Int</span><span class="p">,</span> <span class="n">a2</span><span class="p">:</span> <span class="nc">Array</span><span class="p">[</span><span class="nc">T</span><span class="p">],</span> <span class="n">i2</span><span class="p">:</span> <span class="nc">Int</span><span class="p">):</span> <span class="nc">Unit</span>
+</pre></div>
+</div>
+</section>
+<section id="mutable-objects">
+<h2>Mutable Objects<a class="headerlink" href="#mutable-objects" title="Permalink to this headline">¶</a></h2>
+<p>A restricted form of mutable classes is supported via case classes with <code class="docutils literal notranslate"><span class="pre">var</span></code>
+arguments:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">case</span> <span class="k">class</span> <span class="nc">A</span><span class="p">(</span><span class="kd">var</span> <span class="n">x</span><span class="p">:</span> <span class="nc">Int</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">f</span><span class="p">():</span> <span class="nc">Int</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="kd">val</span> <span class="n">a</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">A</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+  <span class="n">a</span><span class="p">.</span><span class="n">x</span> <span class="o">=</span> <span class="mi">13</span>
+  <span class="n">a</span><span class="p">.</span><span class="n">x</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Mutable case classes are behaving similarly to <code class="docutils literal notranslate"><span class="pre">Array</span></code>, and are handled with a
+rewriting, where each field updates becomes essentially a copy of the object with
+the modified parameter changed.</p>
+</section>
+<section id="aliasing">
+<h2>Aliasing<a class="headerlink" href="#aliasing" title="Permalink to this headline">¶</a></h2>
+<p>With mutable data structures comes the problem of aliasing. In Stainless, we
+maintain the invariant that in any scope, there is at most one pointer to some
+mutable structure. Stainless will issue an error if you try to create an alias to
+some mutable structure in the same scope:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="kd">val</span> <span class="n">a</span> <span class="o">=</span> <span class="nc">Array</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">4</span><span class="p">)</span>
+<span class="kd">val</span> <span class="n">b</span> <span class="o">=</span> <span class="n">a</span> <span class="c1">//error: illegal aliasing</span>
+<span class="n">b</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">=</span> <span class="mi">10</span>
+<span class="n">assert</span><span class="p">(</span><span class="n">a</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">==</span> <span class="mi">10</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>However, Stainless correctly supports aliasing mutable structures when passing it
+as a parameter to a function (assuming its scope is not shared with the call
+site, i.e. not a nested function). Essentially you can do:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">case</span> <span class="k">class</span> <span class="nc">A</span><span class="p">(</span><span class="kd">var</span> <span class="n">x</span><span class="p">:</span> <span class="nc">Int</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">updateA</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="nc">A</span><span class="p">):</span> <span class="nc">Unit</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="n">a</span><span class="p">.</span><span class="n">x</span> <span class="o">=</span> <span class="mi">14</span>
+<span class="p">}</span>
+<span class="k">def</span> <span class="nf">f</span><span class="p">():</span> <span class="nc">Unit</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="kd">val</span> <span class="n">a</span> <span class="o">=</span> <span class="nc">A</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+  <span class="n">updateA</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+  <span class="n">assert</span><span class="p">(</span><span class="n">a</span><span class="p">.</span><span class="n">x</span> <span class="o">==</span> <span class="mi">14</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>The function <code class="docutils literal notranslate"><span class="pre">updateA</span></code> will have the side effect of updating its argument
+<code class="docutils literal notranslate"><span class="pre">a</span></code> and this will be visible at the call site.</p>
+</section>
+<section id="annotations-for-imperative-programming">
+<h2>Annotations for Imperative Programming<a class="headerlink" href="#annotations-for-imperative-programming" title="Permalink to this headline">¶</a></h2>
+<p>We introduce the special function <code class="docutils literal notranslate"><span class="pre">old</span></code> that can be used in postconditions to
+talk about the value of a variable before the execution of the block. When you refer to a variable
+or mutable structure in a post-condition, Stainless will always consider the current value of
+the object, so that in the case of a post-condition this would refer to the final value of the
+object. Using <code class="docutils literal notranslate"><span class="pre">old</span></code>, you can refer to the original value of the variable and check some
+properties:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">case</span> <span class="k">class</span> <span class="nc">A</span><span class="p">(</span><span class="kd">var</span> <span class="n">x</span><span class="p">:</span> <span class="nc">Int</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">inc</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="nc">A</span><span class="p">):</span> <span class="nc">Unit</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="n">a</span><span class="p">.</span><span class="n">x</span> <span class="o">=</span> <span class="n">a</span><span class="p">.</span><span class="n">x</span> <span class="o">+</span> <span class="mi">1</span>
+<span class="p">}</span> <span class="n">ensuring</span><span class="p">(</span><span class="n">_</span> <span class="o">=&gt;</span> <span class="n">a</span><span class="p">.</span><span class="n">x</span> <span class="o">==</span> <span class="n">old</span><span class="p">(</span><span class="n">a</span><span class="p">).</span><span class="n">x</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">old</span></code> can be wrapped around any identifier that is affected by the body. You can also use
+<code class="docutils literal notranslate"><span class="pre">old</span></code> for variables in scope, in the case of nested functions:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">f</span><span class="p">():</span> <span class="nc">Int</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="kd">var</span> <span class="n">x</span> <span class="o">=</span> <span class="mi">0</span>
+  <span class="k">def</span> <span class="nf">inc</span><span class="p">():</span> <span class="nc">Unit</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="mi">1</span>
+  <span class="p">}</span> <span class="n">ensuring</span><span class="p">(</span><span class="n">_</span> <span class="o">=&gt;</span> <span class="n">x</span> <span class="o">==</span> <span class="n">old</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+
+  <span class="n">inc</span><span class="p">();</span> <span class="n">inc</span><span class="p">();</span>
+  <span class="n">assert</span><span class="p">(</span><span class="n">x</span> <span class="o">==</span> <span class="mi">2</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Another useful and similar construct is <code class="docutils literal notranslate"><span class="pre">snapshot</span></code> that semantically makes a deep copy of a mutable object.
+Contrarily to <code class="docutils literal notranslate"><span class="pre">old</span></code>, <code class="docutils literal notranslate"><span class="pre">snapshot</span></code> allows to refer to the state of an object prior to its mutation within
+the body of the function, as long as it is used in a <a class="reference internal" href="ghost.html"><span class="doc">ghost context</span></a>.</p>
+<p>For instance:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">updateArray</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="nc">Array</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">],</span> <span class="n">i</span><span class="p">:</span> <span class="nc">Int</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">):</span> <span class="nc">Unit</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="n">require</span><span class="p">(</span><span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">i</span> <span class="o">&amp;&amp;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">a</span><span class="p">.</span><span class="n">length</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+  <span class="n">require</span><span class="p">(</span><span class="n">a</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="n">a</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
+  <span class="nd">@ghost</span> <span class="kd">val</span> <span class="n">a0</span> <span class="o">=</span> <span class="n">snapshot</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+  <span class="n">a</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="o">=</span> <span class="n">x</span>
+  <span class="c1">// a0 is unaffected by the update of a</span>
+  <span class="c1">// Note: using StaticChecks assert, which introduces a ghost context</span>
+  <span class="n">assert</span><span class="p">(</span><span class="n">a0</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="n">a</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="o">==</span> <span class="n">x</span><span class="p">)</span>
+  <span class="nd">@ghost</span> <span class="kd">val</span> <span class="n">a1</span> <span class="o">=</span> <span class="n">snapshot</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+  <span class="n">a</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">x</span>
+  <span class="n">assert</span><span class="p">(</span><span class="n">a1</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="n">a</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">x</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="extern-functions-and-abstract-methods">
+<h2>Extern functions and abstract methods<a class="headerlink" href="#extern-functions-and-abstract-methods" title="Permalink to this headline">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">&#64;extern</span></code> functions and abstract methods of non-sealed trait taking mutable objects as parameters are treated as-if
+they were applying arbitrary modifications to them.
+For instance, the assertions in the following snippet are invalid:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="nd">@extern</span>
+<span class="k">def</span> <span class="nf">triple</span><span class="p">(</span><span class="n">mc</span><span class="p">:</span> <span class="nc">MutableClass</span><span class="p">):</span> <span class="nc">BigInt</span> <span class="o">=</span> <span class="o">???</span>
+
+<span class="k">trait</span> <span class="nc">UnsealedTrait</span> <span class="p">{</span>
+  <span class="k">def</span> <span class="nf">quadruple</span><span class="p">(</span><span class="n">mc</span><span class="p">:</span> <span class="nc">MutableClass</span><span class="p">):</span> <span class="nc">BigInt</span>
+<span class="p">}</span>
+
+<span class="k">def</span> <span class="nf">test1</span><span class="p">(</span><span class="n">mc</span><span class="p">:</span> <span class="nc">MutableClass</span><span class="p">):</span> <span class="nc">Unit</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="kd">val</span> <span class="n">i</span> <span class="o">=</span> <span class="n">mc</span><span class="p">.</span><span class="n">i</span>
+  <span class="n">triple</span><span class="p">(</span><span class="n">mc</span><span class="p">)</span>
+  <span class="n">assert</span><span class="p">(</span><span class="n">i</span> <span class="o">==</span> <span class="n">mc</span><span class="p">.</span><span class="n">i</span><span class="p">)</span> <span class="c1">// Invalid, mc.i could be anything</span>
+<span class="p">}</span>
+
+<span class="k">def</span> <span class="nf">test2</span><span class="p">(</span><span class="n">ut</span><span class="p">:</span> <span class="nc">UnsealedTrait</span><span class="p">,</span> <span class="n">mc</span><span class="p">:</span> <span class="nc">MutableClass</span><span class="p">):</span> <span class="nc">Unit</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="kd">val</span> <span class="n">i</span> <span class="o">=</span> <span class="n">mc</span><span class="p">.</span><span class="n">i</span>
+  <span class="n">ut</span><span class="p">.</span><span class="n">quadruple</span><span class="p">(</span><span class="n">mc</span><span class="p">)</span>
+  <span class="n">assert</span><span class="p">(</span><span class="n">i</span> <span class="o">==</span> <span class="n">mc</span><span class="p">.</span><span class="n">i</span><span class="p">)</span> <span class="c1">// Invalid as well</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Annotating such methods or functions with <code class="docutils literal notranslate"><span class="pre">&#64;pure</span></code> tells Stainless to assume the parameters are not mutated:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">case</span> <span class="k">class</span> <span class="nc">MutableClass</span><span class="p">(</span><span class="kd">var</span> <span class="n">i</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">)</span>
+
+<span class="nd">@pure</span> <span class="nd">@extern</span>
+<span class="k">def</span> <span class="nf">triple</span><span class="p">(</span><span class="n">mc</span><span class="p">:</span> <span class="nc">MutableClass</span><span class="p">):</span> <span class="nc">BigInt</span> <span class="o">=</span> <span class="o">???</span>
+
+<span class="k">trait</span> <span class="nc">UnsealedTrait</span> <span class="p">{</span>
+  <span class="nd">@pure</span>
+  <span class="k">def</span> <span class="nf">quadruple</span><span class="p">(</span><span class="n">mc</span><span class="p">:</span> <span class="nc">MutableClass</span><span class="p">):</span> <span class="nc">BigInt</span>
+<span class="p">}</span>
+
+<span class="k">def</span> <span class="nf">test1</span><span class="p">(</span><span class="n">mc</span><span class="p">:</span> <span class="nc">MutableClass</span><span class="p">):</span> <span class="nc">Unit</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="kd">val</span> <span class="n">i</span> <span class="o">=</span> <span class="n">mc</span><span class="p">.</span><span class="n">i</span>
+  <span class="n">triple</span><span class="p">(</span><span class="n">mc</span><span class="p">)</span>
+  <span class="n">assert</span><span class="p">(</span><span class="n">i</span> <span class="o">==</span> <span class="n">mc</span><span class="p">.</span><span class="n">i</span><span class="p">)</span> <span class="c1">// Ok</span>
+<span class="p">}</span>
+
+<span class="k">def</span> <span class="nf">test2</span><span class="p">(</span><span class="n">ut</span><span class="p">:</span> <span class="nc">UnsealedTrait</span><span class="p">,</span> <span class="n">mc</span><span class="p">:</span> <span class="nc">MutableClass</span><span class="p">):</span> <span class="nc">Unit</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="kd">val</span> <span class="n">i</span> <span class="o">=</span> <span class="n">mc</span><span class="p">.</span><span class="n">i</span>
+  <span class="n">ut</span><span class="p">.</span><span class="n">quadruple</span><span class="p">(</span><span class="n">mc</span><span class="p">)</span>
+  <span class="n">assert</span><span class="p">(</span><span class="n">i</span> <span class="o">==</span> <span class="n">mc</span><span class="p">.</span><span class="n">i</span><span class="p">)</span> <span class="c1">// Ok</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Note that Stainless will enforce purity for visible implementations of <code class="docutils literal notranslate"><span class="pre">quadruple</span></code>.</p>
+<p>Sometimes, a method or <code class="docutils literal notranslate"><span class="pre">&#64;extern</span></code> function may mutate some parameters but not all of them.
+In such cases, the untouched parameters can be annotated with <code class="docutils literal notranslate"><span class="pre">&#64;pure</span></code>:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">case</span> <span class="k">class</span> <span class="nc">MutableClass</span><span class="p">(</span><span class="kd">var</span> <span class="n">i</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">)</span>
+
+<span class="nd">@extern</span>
+<span class="k">def</span> <span class="nf">sum</span><span class="p">(</span><span class="nd">@pure</span> <span class="n">mc1</span><span class="p">:</span> <span class="nc">MutableClass</span><span class="p">,</span> <span class="n">mc2</span><span class="p">:</span> <span class="nc">MutableClass</span><span class="p">):</span> <span class="nc">BigInt</span> <span class="o">=</span> <span class="o">???</span>
+
+<span class="k">trait</span> <span class="nc">UnsealedTrait</span> <span class="p">{</span>
+  <span class="k">def</span> <span class="nf">doubleSum</span><span class="p">(</span><span class="nd">@pure</span> <span class="n">mc1</span><span class="p">:</span> <span class="nc">MutableClass</span><span class="p">,</span> <span class="n">mc2</span><span class="p">:</span> <span class="nc">MutableClass</span><span class="p">):</span> <span class="nc">BigInt</span>
+<span class="p">}</span>
+
+<span class="k">def</span> <span class="nf">test1</span><span class="p">(</span><span class="n">mc1</span><span class="p">:</span> <span class="nc">MutableClass</span><span class="p">,</span> <span class="n">mc2</span><span class="p">:</span> <span class="nc">MutableClass</span><span class="p">):</span> <span class="nc">Unit</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="kd">val</span> <span class="n">i1</span> <span class="o">=</span> <span class="n">mc1</span><span class="p">.</span><span class="n">i</span>
+  <span class="kd">val</span> <span class="n">i2</span> <span class="o">=</span> <span class="n">mc2</span><span class="p">.</span><span class="n">i</span>
+  <span class="n">sum</span><span class="p">(</span><span class="n">mc1</span><span class="p">,</span> <span class="n">mc2</span><span class="p">)</span>
+  <span class="n">assert</span><span class="p">(</span><span class="n">i1</span> <span class="o">==</span> <span class="n">mc1</span><span class="p">.</span><span class="n">i</span><span class="p">)</span> <span class="c1">// Ok</span>
+  <span class="n">assert</span><span class="p">(</span><span class="n">i2</span> <span class="o">==</span> <span class="n">mc2</span><span class="p">.</span><span class="n">i</span><span class="p">)</span> <span class="c1">// Invalid, mc2.i may have any value</span>
+<span class="p">}</span>
+
+<span class="k">def</span> <span class="nf">test2</span><span class="p">(</span><span class="n">ut</span><span class="p">:</span> <span class="nc">UnsealedTrait</span><span class="p">,</span> <span class="n">mc1</span><span class="p">:</span> <span class="nc">MutableClass</span><span class="p">,</span> <span class="n">mc2</span><span class="p">:</span> <span class="nc">MutableClass</span><span class="p">):</span> <span class="nc">Unit</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="kd">val</span> <span class="n">i1</span> <span class="o">=</span> <span class="n">mc1</span><span class="p">.</span><span class="n">i</span>
+  <span class="kd">val</span> <span class="n">i2</span> <span class="o">=</span> <span class="n">mc2</span><span class="p">.</span><span class="n">i</span>
+  <span class="n">ut</span><span class="p">.</span><span class="n">doubleSum</span><span class="p">(</span><span class="n">mc1</span><span class="p">,</span> <span class="n">mc2</span><span class="p">)</span>
+  <span class="n">assert</span><span class="p">(</span><span class="n">i1</span> <span class="o">==</span> <span class="n">mc1</span><span class="p">.</span><span class="n">i</span><span class="p">)</span> <span class="c1">// Ok</span>
+  <span class="n">assert</span><span class="p">(</span><span class="n">i2</span> <span class="o">==</span> <span class="n">mc2</span><span class="p">.</span><span class="n">i</span><span class="p">)</span> <span class="c1">// Invalid</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="trait-variables">
+<h2>Trait Variables<a class="headerlink" href="#trait-variables" title="Permalink to this headline">¶</a></h2>
+<p>Traits are allowed to declare variables, with the restriction that these cannot be
+assigned a default value.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">trait</span> <span class="nc">MutableBox</span><span class="p">[</span><span class="nc">A</span><span class="p">]</span> <span class="p">{</span>
+  <span class="kd">var</span> <span class="n">value</span><span class="p">:</span> <span class="nc">A</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Such abstract variables must be overridden at some point by either:</p>
+<ol class="loweralpha simple">
+<li><p>a mutable field of a case class</p></li>
+</ol>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">case</span> <span class="k">class</span> <span class="nc">Box</span><span class="p">[</span><span class="nc">A</span><span class="p">](</span><span class="kd">var</span> <span class="n">value</span><span class="p">:</span> <span class="nc">A</span><span class="p">)</span> <span class="k">extends</span> <span class="nc">MutableBox</span><span class="p">[</span><span class="nc">A</span><span class="p">]</span>
+</pre></div>
+</div>
+<ol class="loweralpha simple" start="2">
+<li><p>a pair of getter/setter</p></li>
+</ol>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">case</span> <span class="k">class</span> <span class="nc">WriteOnceBox</span><span class="p">[</span><span class="nc">A</span><span class="p">](</span>
+  <span class="kd">var</span> <span class="n">underlying</span><span class="p">:</span> <span class="nc">A</span><span class="p">,</span>
+  <span class="kd">var</span> <span class="n">written</span><span class="p">:</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="kc">false</span>
+<span class="p">)</span> <span class="k">extends</span> <span class="nc">MutableBox</span><span class="p">[</span><span class="nc">A</span><span class="p">]</span> <span class="p">{</span>
+
+  <span class="k">def</span> <span class="nf">value</span><span class="p">:</span> <span class="nc">A</span> <span class="o">=</span> <span class="n">underlying</span>
+
+  <span class="k">def</span> <span class="nf">value_=</span><span class="p">(</span><span class="n">newValue</span><span class="p">:</span> <span class="nc">A</span><span class="p">):</span> <span class="nc">Unit</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">written</span><span class="p">)</span> <span class="p">{</span>
+      <span class="n">underlying</span> <span class="o">=</span> <span class="n">newValue</span>
+      <span class="n">written</span> <span class="o">=</span> <span class="kc">true</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Note: a setter is not required to actually perform any mutation, and the following
+is a perfectly valid sub-class of <cite>MutableBox</cite>:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">case</span> <span class="k">class</span> <span class="nc">ImmutableBox</span><span class="p">[</span><span class="nc">A</span><span class="p">](</span><span class="n">underlying</span><span class="p">:</span> <span class="nc">A</span><span class="p">)</span> <span class="k">extends</span> <span class="nc">MutableBox</span><span class="p">[</span><span class="nc">A</span><span class="p">]</span> <span class="p">{</span>
+  <span class="k">def</span> <span class="nf">value</span><span class="p">:</span> <span class="nc">A</span> <span class="o">=</span> <span class="n">underlying</span>
+  <span class="k">def</span> <span class="nf">value_=</span><span class="p">(</span><span class="n">newValue</span><span class="p">:</span> <span class="nc">A</span><span class="p">):</span> <span class="nc">Unit</span> <span class="o">=</span> <span class="p">()</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="return-keyword">
+<h2>Return keyword<a class="headerlink" href="#return-keyword" title="Permalink to this headline">¶</a></h2>
+<p>Stainless partially supports the <cite>return</cite> keyword. For verification, an internal
+phase of Stainless (called <cite>ReturnElimination</cite>) injects a data-structure named
+<cite>ControlFlow</cite> to simulate the control flow of programs with returns.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">sealed</span> <span class="k">abstract</span> <span class="k">class</span> <span class="nc">ControlFlow</span><span class="p">[</span><span class="nc">Ret</span><span class="p">,</span> <span class="nc">Cur</span><span class="p">]</span>
+<span class="k">case</span> <span class="k">class</span> <span class="nc">Return</span><span class="p">[</span><span class="nc">Ret</span><span class="p">,</span> <span class="nc">Cur</span><span class="p">](</span><span class="n">value</span><span class="p">:</span> <span class="nc">Ret</span><span class="p">)</span>  <span class="k">extends</span> <span class="nc">ControlFlow</span><span class="p">[</span><span class="nc">Ret</span><span class="p">,</span> <span class="nc">Cur</span><span class="p">]</span>
+<span class="k">case</span> <span class="k">class</span> <span class="nc">Proceed</span><span class="p">[</span><span class="nc">Ret</span><span class="p">,</span> <span class="nc">Cur</span><span class="p">](</span><span class="n">value</span><span class="p">:</span> <span class="nc">Cur</span><span class="p">)</span> <span class="k">extends</span> <span class="nc">ControlFlow</span><span class="p">[</span><span class="nc">Ret</span><span class="p">,</span> <span class="nc">Cur</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>Here is a function taken from <a class="reference external" href="https://github.com/epfl-lara/stainless/blob/master/frontends/benchmarks/imperative/valid/ControlFlow2.scala">ControlFlow2.scala</a>:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">foo</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">Option</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">],</span> <span class="n">a</span><span class="p">:</span> <span class="nc">Boolean</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="nc">Boolean</span><span class="p">):</span> <span class="nc">BigInt</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="k">if</span> <span class="p">(</span><span class="n">a</span> <span class="o">&amp;&amp;</span> <span class="n">b</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="mi">1</span>
+  <span class="p">}</span>
+
+  <span class="kd">val</span> <span class="n">y</span> <span class="o">=</span> <span class="n">x</span> <span class="k">match</span> <span class="p">{</span>
+    <span class="k">case</span> <span class="nc">None</span><span class="p">()</span>       <span class="o">=&gt;</span> <span class="k">return</span> <span class="mi">0</span>
+    <span class="k">case</span> <span class="nc">Some</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">if</span> <span class="n">a</span> <span class="o">=&gt;</span> <span class="k">return</span> <span class="n">x</span> <span class="o">+</span> <span class="mi">1</span>
+    <span class="k">case</span> <span class="nc">Some</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">if</span> <span class="n">b</span> <span class="o">=&gt;</span> <span class="k">return</span> <span class="n">x</span> <span class="o">+</span> <span class="mi">2</span>
+    <span class="k">case</span> <span class="nc">Some</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>      <span class="o">=&gt;</span> <span class="n">x</span>
+  <span class="p">};</span>
+
+  <span class="o">-</span><span class="n">y</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>The program transformation can be inspected by running:</p>
+<blockquote>
+<div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>stainless ControlFlow2.scala --batched --debug<span class="o">=</span>trees --debug-objects<span class="o">=</span>foo --debug-phases<span class="o">=</span>ReturnElimination
+</pre></div>
+</div>
+</div></blockquote>
+<p>We get the following output (with <code class="docutils literal notranslate"><span class="pre">cf</span></code> identifiers renamed for clarity; you can
+use the <code class="docutils literal notranslate"><span class="pre">--print-ids</span></code> option so that Stainless expressions get displayed with
+unique identifiers, at the cost of readability):</p>
+<blockquote>
+<div><div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">foo</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">Option</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">],</span> <span class="n">a</span><span class="p">:</span> <span class="nc">Boolean</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="nc">Boolean</span><span class="p">):</span> <span class="nc">BigInt</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="kd">val</span> <span class="n">cf0</span><span class="p">:</span> <span class="nc">ControlFlow</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">,</span> <span class="nc">Unit</span><span class="p">]</span> <span class="o">=</span> <span class="k">if</span> <span class="p">(</span><span class="n">a</span> <span class="o">&amp;&amp;</span> <span class="n">b</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nc">Return</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">,</span> <span class="nc">Unit</span><span class="p">](</span><span class="mi">1</span><span class="p">)</span>
+  <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+    <span class="nc">Proceed</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">,</span> <span class="nc">Unit</span><span class="p">](())</span>
+  <span class="p">}</span>
+  <span class="n">cf0</span> <span class="k">match</span> <span class="p">{</span>
+    <span class="k">case</span> <span class="nc">Return</span><span class="p">(</span><span class="n">retValue</span><span class="p">)</span> <span class="o">=&gt;</span>
+      <span class="n">retValue</span>
+    <span class="k">case</span> <span class="nc">Proceed</span><span class="p">(</span><span class="n">proceedValue</span><span class="p">)</span> <span class="o">=&gt;</span>
+      <span class="kd">val</span> <span class="n">cf1</span><span class="p">:</span> <span class="nc">ControlFlow</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">,</span> <span class="nc">BigInt</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span> <span class="k">match</span> <span class="p">{</span>
+        <span class="k">case</span> <span class="nc">None</span><span class="p">()</span>       <span class="o">=&gt;</span> <span class="nc">Return</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">,</span> <span class="nc">BigInt</span><span class="p">](</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">case</span> <span class="nc">Some</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">if</span> <span class="n">a</span> <span class="o">=&gt;</span> <span class="nc">Return</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">,</span> <span class="nc">BigInt</span><span class="p">](</span><span class="n">x</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">case</span> <span class="nc">Some</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">if</span> <span class="n">b</span> <span class="o">=&gt;</span> <span class="nc">Return</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">,</span> <span class="nc">BigInt</span><span class="p">](</span><span class="n">x</span> <span class="o">+</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="k">case</span> <span class="nc">Some</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>      <span class="o">=&gt;</span> <span class="nc">Proceed</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">,</span> <span class="nc">BigInt</span><span class="p">](</span><span class="n">x</span><span class="p">)</span>
+      <span class="p">}</span>
+      <span class="n">cf1</span> <span class="k">match</span> <span class="p">{</span>
+        <span class="k">case</span> <span class="nc">Return</span><span class="p">(</span><span class="n">retValue</span><span class="p">)</span> <span class="o">=&gt;</span>
+          <span class="n">retValue</span>
+        <span class="k">case</span> <span class="nc">Proceed</span><span class="p">(</span><span class="n">proceedValue</span><span class="p">)</span> <span class="o">=&gt;</span>
+          <span class="o">-</span><span class="n">proceedValue</span>
+      <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div></blockquote>
+<p>Stainless also supports <code class="docutils literal notranslate"><span class="pre">return</span></code> in while loops, and transforms them to local functions, also in
+the <code class="docutils literal notranslate"><span class="pre">ReturnElimination</span></code> phase. Here is a function taken from <a class="reference external" href="https://github.com/epfl-lara/stainless/blob/master/frontends/benchmarks/imperative/valid/ReturnInWhile.scala">ReturnInWhile.scala</a>.</p>
+<blockquote>
+<div><div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">returnN</span><span class="p">(</span><span class="n">n</span><span class="p">:</span> <span class="nc">Int</span><span class="p">):</span> <span class="nc">Int</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="n">require</span><span class="p">(</span><span class="n">n</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span>
+  <span class="kd">var</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+  <span class="p">(</span><span class="k">while</span> <span class="p">(</span><span class="kc">true</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">decreases</span><span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="n">i</span><span class="p">)</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">i</span> <span class="o">==</span> <span class="n">n</span><span class="p">)</span> <span class="k">return</span> <span class="n">i</span>
+    <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+  <span class="p">}).</span><span class="n">invariant</span><span class="p">(</span><span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">i</span> <span class="o">&amp;&amp;</span> <span class="n">i</span> <span class="o">&lt;=</span> <span class="n">n</span><span class="p">)</span>
+
+  <span class="n">assert</span><span class="p">(</span><span class="kc">false</span><span class="p">,</span> <span class="s">&quot;unreachable code&quot;</span><span class="p">)</span>
+  <span class="mi">0</span>
+<span class="p">}.</span><span class="n">ensuring</span><span class="p">((</span><span class="n">res</span><span class="p">:</span> <span class="nc">Int</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="n">res</span> <span class="o">==</span> <span class="n">n</span><span class="p">)</span>
+</pre></div>
+</div>
+</div></blockquote>
+<p>After transformation, we get a recursive (local) function named <code class="docutils literal notranslate"><span class="pre">returnWhile</span></code>
+that returns a control flow element to indicate whether the loop terminated
+normally or returned. We check that the invariant clause of the while loop is
+indeed an invariant by adding it to the pre and postconditions of the generated
+<code class="docutils literal notranslate"><span class="pre">returnWhile</span></code> function. When the while loop returns, we check in addition that
+the postcondition of the top-level holds (see comment).</p>
+<blockquote>
+<div><div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">returnN</span><span class="p">(</span><span class="n">n</span><span class="p">:</span> <span class="nc">Int</span><span class="p">):</span> <span class="nc">Int</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="n">require</span><span class="p">(</span><span class="n">n</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span>
+
+  <span class="kd">var</span> <span class="n">i</span><span class="p">:</span> <span class="nc">Int</span> <span class="o">=</span> <span class="mi">0</span>
+  <span class="kd">val</span> <span class="n">cf0</span><span class="p">:</span> <span class="nc">ControlFlow</span><span class="p">[</span><span class="nc">Int</span><span class="p">,</span> <span class="nc">Unit</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="k">def</span> <span class="nf">returnNWhile</span><span class="p">:</span> <span class="nc">ControlFlow</span><span class="p">[</span><span class="nc">Int</span><span class="p">,</span> <span class="nc">Unit</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="n">require</span><span class="p">(</span><span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">i</span> <span class="o">&amp;&amp;</span> <span class="n">i</span> <span class="o">&lt;=</span> <span class="n">n</span><span class="p">)</span>
+      <span class="n">decreases</span><span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="n">i</span><span class="p">)</span>
+      <span class="p">{</span>
+        <span class="kd">val</span> <span class="n">cf1</span><span class="p">:</span> <span class="nc">ControlFlow</span><span class="p">[</span><span class="nc">Int</span><span class="p">,</span> <span class="nc">Unit</span><span class="p">]</span> <span class="o">=</span> <span class="k">if</span> <span class="p">(</span><span class="n">i</span> <span class="o">==</span> <span class="n">n</span><span class="p">)</span> <span class="p">{</span>
+          <span class="nc">Return</span><span class="p">[</span><span class="nc">Int</span><span class="p">,</span> <span class="nc">Unit</span><span class="p">](</span><span class="n">i</span><span class="p">)</span>
+        <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+          <span class="nc">Proceed</span><span class="p">[</span><span class="nc">Int</span><span class="p">,</span> <span class="nc">Unit</span><span class="p">](())</span>
+        <span class="p">}</span>
+        <span class="n">cf1</span> <span class="k">match</span> <span class="p">{</span>
+          <span class="k">case</span> <span class="nc">Return</span><span class="p">(</span><span class="n">retValue</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="nc">Return</span><span class="p">[</span><span class="nc">Int</span><span class="p">,</span> <span class="nc">Unit</span><span class="p">](</span><span class="n">retValue</span><span class="p">)</span>
+          <span class="k">case</span> <span class="nc">Proceed</span><span class="p">(</span><span class="n">proceedValue</span><span class="p">)</span> <span class="o">=&gt;</span>
+            <span class="nc">Proceed</span><span class="p">[</span><span class="nc">Int</span><span class="p">,</span> <span class="nc">Unit</span><span class="p">]({</span>
+              <span class="n">i</span> <span class="o">=</span> <span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+              <span class="p">()</span>
+            <span class="p">})</span>
+        <span class="p">}</span>
+      <span class="p">}</span> <span class="k">match</span> <span class="p">{</span>
+        <span class="k">case</span> <span class="nc">Return</span><span class="p">(</span><span class="n">retValue</span><span class="p">)</span> <span class="o">=&gt;</span>
+          <span class="nc">Return</span><span class="p">[</span><span class="nc">Int</span><span class="p">,</span> <span class="nc">Unit</span><span class="p">](</span><span class="n">retValue</span><span class="p">)</span>
+        <span class="k">case</span> <span class="nc">Proceed</span><span class="p">(</span><span class="n">proceedValue</span><span class="p">)</span> <span class="o">=&gt;</span>
+          <span class="k">if</span> <span class="p">(</span><span class="kc">true</span><span class="p">)</span> <span class="p">{</span>
+            <span class="n">returnNWhile</span>
+          <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+            <span class="nc">Proceed</span><span class="p">[</span><span class="nc">Int</span><span class="p">,</span> <span class="nc">Unit</span><span class="p">](())</span>
+          <span class="p">}</span>
+      <span class="p">}</span>
+    <span class="p">}</span> <span class="n">ensuring</span> <span class="p">{</span>
+      <span class="p">(</span><span class="n">cfWhile</span><span class="p">:</span> <span class="nc">ControlFlow</span><span class="p">[</span><span class="nc">Int</span><span class="p">,</span> <span class="nc">Unit</span><span class="p">])</span> <span class="o">=&gt;</span> <span class="n">cfWhile</span> <span class="k">match</span> <span class="p">{</span>
+        <span class="k">case</span> <span class="nc">Return</span><span class="p">(</span><span class="n">retValue</span><span class="p">)</span> <span class="o">=&gt;</span>
+          <span class="c1">// we check the postcondition `retValue == n` of the top-level function</span>
+          <span class="n">retValue</span> <span class="o">==</span> <span class="n">n</span> <span class="o">&amp;&amp;</span>
+          <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">i</span> <span class="o">&amp;&amp;</span> <span class="n">i</span> <span class="o">&lt;=</span> <span class="n">n</span>
+        <span class="k">case</span> <span class="nc">Proceed</span><span class="p">(</span><span class="n">proceedValue</span><span class="p">)</span> <span class="o">=&gt;</span>
+          <span class="n">¬</span><span class="kc">true</span> <span class="o">&amp;&amp;</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">i</span> <span class="o">&amp;&amp;</span> <span class="n">i</span> <span class="o">&lt;=</span> <span class="n">n</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="p">(</span><span class="kc">true</span><span class="p">)</span> <span class="p">{</span>
+      <span class="n">returnNWhile</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+      <span class="nc">Proceed</span><span class="p">[</span><span class="nc">Int</span><span class="p">,</span> <span class="nc">Unit</span><span class="p">](())</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+  <span class="n">cf0</span> <span class="k">match</span> <span class="p">{</span>
+    <span class="k">case</span> <span class="nc">Return</span><span class="p">(</span><span class="n">retValue</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="n">retValue</span>
+    <span class="k">case</span> <span class="nc">Proceed</span><span class="p">(</span><span class="n">proceedValue</span><span class="p">)</span> <span class="o">=&gt;</span>
+      <span class="n">assert</span><span class="p">(</span><span class="kc">false</span><span class="p">,</span> <span class="s">&quot;unreachable code&quot;</span><span class="p">)</span>
+      <span class="mi">0</span>
+  <span class="p">}</span>
+<span class="p">}</span> <span class="n">ensuring</span> <span class="p">{</span>
+  <span class="p">(</span><span class="n">res</span><span class="p">:</span> <span class="nc">Int</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="n">res</span> <span class="o">==</span> <span class="n">n</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div></blockquote>
+<p>Finally, <code class="docutils literal notranslate"><span class="pre">return</span></code> is also supported for local function definitions, with the same transformation.
+It is however not supported for anonymous functions.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="laws.html" class="btn btn-neutral float-left" title="Specifying Algebraic Properties" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="equivalence.html" class="btn btn-neutral float-right" title="Equivalence Checking" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2009-2021 EPFL, Lausanne.
+      <span class="lastupdated">Last updated on May 09, 2024.
+      </span></p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

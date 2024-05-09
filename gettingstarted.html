@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Verifying and Compiling Examples &mdash; Stainless 0.9.1 documentation</title>
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Tutorial: Sorting" href="tutorial.html" />
+    <link rel="prev" title="Installing Stainless" href="installation.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> Stainless
+          </a>
+              <div class="version">
+                0.9
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div>
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Main">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installing Stainless</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Verifying and Compiling Examples</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#verifying-examples">Verifying Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#compiling-and-executing-examples">Compiling and Executing Examples</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="tutorial.html">Tutorial: Sorting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="options.html">Specifying Options</a></li>
+<li class="toctree-l1"><a class="reference internal" href="verification.html">Verification conditions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="laws.html">Specifying Algebraic Properties</a></li>
+<li class="toctree-l1"><a class="reference internal" href="imperative.html">Imperative</a></li>
+<li class="toctree-l1"><a class="reference internal" href="equivalence.html">Equivalence Checking</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ghost.html">Ghost Context</a></li>
+<li class="toctree-l1"><a class="reference internal" href="wrap.html">Working With Existing Code</a></li>
+<li class="toctree-l1"><a class="reference internal" href="purescala.html">Pure Scala</a></li>
+<li class="toctree-l1"><a class="reference internal" href="library.html">Stainless Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="genc.html">Generating C Code</a></li>
+<li class="toctree-l1"><a class="reference internal" href="neon.html">Proving Theorems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="limitations.html">Limitations of Verification</a></li>
+<li class="toctree-l1"><a class="reference internal" href="casestudies.html">Case Studies</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coq.html">Translation from Stainless to Coq</a></li>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">FAQ: (Frequently) Asked Questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="references.html">References</a></li>
+<li class="toctree-l1"><a class="reference internal" href="internals.html">Stainless’ Internals</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" aria-label="Top" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Stainless</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+<div role="navigation" aria-label="Breadcrumbs">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>Verifying and Compiling Examples</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/gettingstarted.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="verifying-and-compiling-examples">
+<span id="gettingstarted"></span><h1>Verifying and Compiling Examples<a class="headerlink" href="#verifying-and-compiling-examples" title="Permalink to this headline">¶</a></h1>
+<section id="verifying-examples">
+<h2>Verifying Examples<a class="headerlink" href="#verifying-examples" title="Permalink to this headline">¶</a></h2>
+<p>Stainless is currently available as either:</p>
+<ul class="simple">
+<li><p>a command line tool, which exposes most of the functionality, available as a ZIP file (recommended) or via Docker.</p></li>
+<li><p>via an SBT plugin.</p></li>
+</ul>
+<p>See the <a class="reference internal" href="installation.html"><span class="doc">installation documentation</span></a> for more information.</p>
+<p>It is henceforth assumed that there exists a <code class="docutils literal notranslate"><span class="pre">stainless</span></code> script in in your <code class="docutils literal notranslate"><span class="pre">PATH</span></code>.</p>
+<p>To see the main options, use</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ stainless --help
+</pre></div>
+</div>
+<p>in your command line shell.
+You may also wish to consult the <a class="reference internal" href="options.html"><span class="doc">available command-line options</span></a>.</p>
+<p>You can try some of the examples from <code class="docutils literal notranslate"><span class="pre">frontends/benchmarks</span></code>
+distributed with Stainless:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ stainless --solvers<span class="o">=</span>smt-cvc5 frontends/benchmarks/verification/invalid/InsertionSort.scala
+</pre></div>
+</div>
+<p>and get something like this (some output cropped)</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>[  Info  ] Starting verification...
+[  Info  ] Verified: 3 / 19
+[Warning ]  - Result for &#39;postcondition&#39; VC for buggySortedIns @37:38:
+[Warning ] l.isInstanceOf[Nil] || !(l.head &lt;= e) || {
+[Warning ]   val res: List = Cons(l.head, buggySortedIns(e, l.tail))
+[Warning ]   assume({
+[Warning ]     val e: List = Cons(l.head, buggySortedIns(e, l.tail))
+[Warning ]     true
+[Warning ]   })
+[Warning ]   contents(res) == contents(l) ++ Set(e) &amp;&amp; isSorted(res) &amp;&amp; size(res) == size(l) + BigInt(&quot;1&quot;)
+[Warning ] }
+[Warning ] frontends/benchmarks/verification/invalid/InsertionSort.scala:37:38:  =&gt; INVALID
+                 case Cons(x,xs) =&gt; if (x &lt;= e) Cons(x,buggySortedIns(e, xs)) else Cons(e, l)
+                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[Warning ] Found counter-example:
+[Warning ]   l: List -&gt; Cons(-770374653, Cons(-771685886, Nil()))
+[Warning ]   e: Int  -&gt; 1376322050
+[  Info  ] Verified: 3 / 19
+[Warning ]  - Result for &#39;postcondition&#39; VC for buggySortedIns @37:73:
+[Warning ] l.isInstanceOf[Nil] || l.head &lt;= e || {
+[Warning ]   val res: List = Cons(e, l)
+[Warning ]   contents(res) == contents(l) ++ Set(e) &amp;&amp; isSorted(res) &amp;&amp; size(res) == size(l) + BigInt(&quot;1&quot;)
+[Warning ] }
+[Warning ] frontends/benchmarks/verification/invalid/InsertionSort.scala:37:73:  =&gt; INVALID
+                 case Cons(x,xs) =&gt; if (x &lt;= e) Cons(x,buggySortedIns(e, xs)) else Cons(e, l)
+                                                                                   ^^^^^^^^^^
+[Warning ] Found counter-example:
+[Warning ]   l: List -&gt; Cons(691483681, Cons(512, Nil()))
+[Warning ]   e: Int  -&gt; -1263292350
+[  Info  ] Verified: 17 / 19
+[  Info  ]   ┌───────────────────┐
+[  Info  ] ╔═╡ stainless summary ╞══════════════════════════════════════════════════════════════════════════════════════════════╗
+[  Info  ] ║ └───────────────────┘                                                                                              ║
+[  Info  ] ║ InsertionSort.scala:33:7:    buggySortedIns  non-negative measure                  valid             U:smt-z3  0,1 ║
+[  Info  ] ║ InsertionSort.scala:35:5:    buggySortedIns  body assertion: match exhaustiveness  trivial                     0,0 ║
+[  Info  ] ║ InsertionSort.scala:35:5:    buggySortedIns  postcondition                         trivial                     0,0 ║
+[  Info  ] ║ InsertionSort.scala:36:21:   buggySortedIns  postcondition                         valid             U:smt-z3  0,1 ║
+[  Info  ] ║ InsertionSort.scala:37:38:   buggySortedIns  postcondition                         invalid           U:smt-z3  0,3 ║
+[  Info  ] ║ InsertionSort.scala:37:45:   buggySortedIns  measure decreases                     valid             U:smt-z3  0,1 ║
+[  Info  ] ║ InsertionSort.scala:37:73:   buggySortedIns  postcondition                         invalid           U:smt-z3  0,1 ║
+[  Info  ] ║ InsertionSort.scala:20:7:    contents        non-negative measure                  valid from cache            0,0 ║
+[  Info  ] ║ InsertionSort.scala:20:37:   contents        body assertion: match exhaustiveness  trivial                     0,0 ║
+[  Info  ] ║ InsertionSort.scala:22:24:   contents        measure decreases                     valid             U:smt-z3  0,0 ║
+[  Info  ] ║ InsertionSort.scala:25:7:    isSorted        non-negative measure                  valid             U:smt-z3  0,0 ║
+[  Info  ] ║ InsertionSort.scala:25:36:   isSorted        body assertion: match exhaustiveness  trivial                     0,0 ║
+[  Info  ] ║ InsertionSort.scala:28:44:   isSorted        measure decreases                     valid             U:smt-z3  0,1 ║
+[  Info  ] ║ InsertionSort.scala:15:7:    size            non-negative measure                  valid from cache            0,0 ║
+[  Info  ] ║ InsertionSort.scala:15:34:   size            body assertion: match exhaustiveness  trivial                     0,0 ║
+[  Info  ] ║ InsertionSort.scala:15:34:   size            postcondition                         trivial                     0,0 ║
+[  Info  ] ║ InsertionSort.scala:16:19:   size            postcondition                         valid             U:smt-z3  0,0 ║
+[  Info  ] ║ InsertionSort.scala:17:25:   size            postcondition                         valid             U:smt-z3  0,0 ║
+[  Info  ] ║ InsertionSort.scala:17:29:   size            measure decreases                     valid from cache            0,0 ║
+[  Info  ] ╟┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╢
+[  Info  ] ║ total: 19   valid: 17   (3 from cache, 6 trivial) invalid: 2    unknown: 0    time:    0,81                        ║
+[  Info  ] ╚════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+[  Info  ] Verification pipeline summary:
+[  Info  ]   cache, anti-aliasing, smt-z3
+[  Info  ] Shutting down executor service.
+</pre></div>
+</div>
+</section>
+<section id="compiling-and-executing-examples">
+<h2>Compiling and Executing Examples<a class="headerlink" href="#compiling-and-executing-examples" title="Permalink to this headline">¶</a></h2>
+<p>Scala code written with Stainless library dependencies can be compiled and run using the
+library sources available on the <a class="reference external" href="https://github.com/epfl-lara/stainless">Stainless github repository</a>,
+along with the scala compiler and runner script.</p>
+<p>See the <a class="reference internal" href="installation.html#running-code"><span class="std std-ref">installation documentation</span></a> for more information.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="installation.html" class="btn btn-neutral float-left" title="Installing Stainless" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="tutorial.html" class="btn btn-neutral float-right" title="Tutorial: Sorting" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2009-2021 EPFL, Lausanne.
+      <span class="lastupdated">Last updated on May 09, 2024.
+      </span></p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

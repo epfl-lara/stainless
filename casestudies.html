@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Case Studies &mdash; Stainless 0.9.1 documentation</title>
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script async="async" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Translation from Stainless to Coq" href="coq.html" />
+    <link rel="prev" title="Limitations of Verification" href="limitations.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> Stainless
+          </a>
+              <div class="version">
+                0.9
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div>
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Main">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installing Stainless</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gettingstarted.html">Verifying and Compiling Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorial.html">Tutorial: Sorting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="options.html">Specifying Options</a></li>
+<li class="toctree-l1"><a class="reference internal" href="verification.html">Verification conditions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="laws.html">Specifying Algebraic Properties</a></li>
+<li class="toctree-l1"><a class="reference internal" href="imperative.html">Imperative</a></li>
+<li class="toctree-l1"><a class="reference internal" href="equivalence.html">Equivalence Checking</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ghost.html">Ghost Context</a></li>
+<li class="toctree-l1"><a class="reference internal" href="wrap.html">Working With Existing Code</a></li>
+<li class="toctree-l1"><a class="reference internal" href="purescala.html">Pure Scala</a></li>
+<li class="toctree-l1"><a class="reference internal" href="library.html">Stainless Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="genc.html">Generating C Code</a></li>
+<li class="toctree-l1"><a class="reference internal" href="neon.html">Proving Theorems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="limitations.html">Limitations of Verification</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Case Studies</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#case-study-1-proving-invariants-of-actor-systems">Case Study #1: Proving invariants of actor systems</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#actor-system-model">Actor system model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#actor-system-implementation">Actor system implementation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#imports">Imports</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#message">Message</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#actor-reference">Actor reference</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#actor-context">Actor Context</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#behavior">Behavior</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#actor-system">Actor System</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#building-a-replicated-counter">Building a replicated counter</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#proving-preservation-of-an-invariant">Proving preservation of an invariant</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#running-the-system-with-akka">Running the system with Akka</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="coq.html">Translation from Stainless to Coq</a></li>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">FAQ: (Frequently) Asked Questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="references.html">References</a></li>
+<li class="toctree-l1"><a class="reference internal" href="internals.html">Stainless’ Internals</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" aria-label="Top" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Stainless</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+<div role="navigation" aria-label="Breadcrumbs">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>Case Studies</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/casestudies.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="case-studies">
+<span id="casestudies"></span><h1>Case Studies<a class="headerlink" href="#case-studies" title="Permalink to this headline">¶</a></h1>
+<section id="case-study-1-proving-invariants-of-actor-systems">
+<h2>Case Study #1: Proving invariants of actor systems<a class="headerlink" href="#case-study-1-proving-invariants-of-actor-systems" title="Permalink to this headline">¶</a></h2>
+<section id="actor-system-model">
+<h3>Actor system model<a class="headerlink" href="#actor-system-model" title="Permalink to this headline">¶</a></h3>
+<p>Our model is loosely based on the modern definition of object-based actor systems,
+and attempts to provide an idiomatic Scala API in the style of the Akka actor library.</p>
+<p>In this framework, each actor is addressed by a reference, through which other actors
+can asynchronously send messages. Each actor has an associated behavior, which holds
+the state of the actor, if any, and determines</p>
+<ol class="loweralpha simple">
+<li><p>the operations which will be performed upon receiving a message</p></li>
+<li><p>what is the next behavior to associate with its reference</p></li>
+</ol>
+<p>A behavior can thus be seen as a data type holding some immutable values representing
+the state, and a method which takes in a message, performs some computation which might
+involve sending messages to other actors, and finally returns a new behavior.</p>
+<p>State at the actor level is thus effectively handled in a functional way, by returning
+a new behavior which holds the updated state. An actor system maintains a collection
+of one-way channels (inboxes) between any two actors in the system.</p>
+<p>An inbox is an ordered list of messages awaiting delivery, the head of the list being
+the next message to deliver.</p>
+<p>The system drives the execution by non-deterministically
+picking a non-empty inbox, taking the first message of the list, and invoking the message
+handler of the behavior associated with the destination reference.</p>
+<p>It then collects the messages to send, and appends them to the appropriate inboxes,
+and update the destination actor’s behavior with the behavior returned by the message handler.</p>
+</section>
+<section id="actor-system-implementation">
+<h3>Actor system implementation<a class="headerlink" href="#actor-system-implementation" title="Permalink to this headline">¶</a></h3>
+<section id="imports">
+<h4>Imports<a class="headerlink" href="#imports" title="Permalink to this headline">¶</a></h4>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">import</span> <span class="nn">stainless</span><span class="p">.</span><span class="nn">lang</span><span class="p">.</span><span class="n">_</span>
+<span class="k">import</span> <span class="nn">stainless</span><span class="p">.</span><span class="nn">collection</span><span class="p">.</span><span class="n">_</span>
+<span class="k">import</span> <span class="nn">stainless</span><span class="p">.</span><span class="nn">annotation</span><span class="p">.</span><span class="n">_</span>
+</pre></div>
+</div>
+</section>
+<section id="message">
+<h4>Message<a class="headerlink" href="#message" title="Permalink to this headline">¶</a></h4>
+<p>In our framework, messages are modeled as constructors of the abstract class <code class="docutils literal notranslate"><span class="pre">Msg</span></code>.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">abstract</span> <span class="k">class</span> <span class="nc">Msg</span>
+</pre></div>
+</div>
+</section>
+<section id="actor-reference">
+<h4>Actor reference<a class="headerlink" href="#actor-reference" title="Permalink to this headline">¶</a></h4>
+<p>Each actor is associated with a persistent reference, modeled as instances of the case class <code class="docutils literal notranslate"><span class="pre">ActorRef</span></code>.
+Each reference has a name, and an underlying Akka <code class="docutils literal notranslate"><span class="pre">akka.actor.ActorRef</span></code>, marked as extern and pure (see Section <a class="reference internal" href="wrap.html"><span class="doc">Working With Existing Code</span></a> for more information about extern fields).</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">case</span> <span class="k">class</span> <span class="nc">ActorRef</span><span class="p">(</span>
+  <span class="n">name</span><span class="p">:</span> <span class="nc">String</span><span class="p">,</span>
+  <span class="nd">@extern</span> <span class="nd">@pure</span>
+  <span class="n">underlying</span><span class="p">:</span> <span class="n">akka</span><span class="p">.</span><span class="n">actor</span><span class="p">.</span><span class="nc">ActorRef</span>
+<span class="p">)</span> <span class="p">{</span>
+
+  <span class="nd">@inline</span>
+  <span class="k">def</span> <span class="nf">!</span><span class="p">(</span><span class="n">msg</span><span class="p">:</span> <span class="nc">Msg</span><span class="p">)(</span><span class="k">implicit</span> <span class="n">ctx</span><span class="p">:</span> <span class="nc">ActorContext</span><span class="p">):</span> <span class="nc">Unit</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="n">ctx</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="bp">this</span><span class="p">,</span> <span class="n">msg</span><span class="p">)</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="actor-context">
+<h4>Actor Context<a class="headerlink" href="#actor-context" title="Permalink to this headline">¶</a></h4>
+<p>When a message is delivered to an actor, the latter is provided with a context, which holds a reference to itself, and a mutable list of messages to send. We mark this list as ghost to avoid having to persist in memory the list of all messages sent through the context.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">case</span> <span class="k">class</span> <span class="nc">ActorContext</span><span class="p">(</span>
+  <span class="n">self</span><span class="p">:</span> <span class="nc">ActorRef</span><span class="p">,</span>
+  <span class="nd">@ghost</span>
+  <span class="kd">var</span> <span class="n">toSend</span><span class="p">:</span> <span class="nc">List</span><span class="p">[(</span><span class="nc">ActorRef</span><span class="p">,</span> <span class="nc">Msg</span><span class="p">)]</span> <span class="o">=</span> <span class="nc">Nil</span><span class="p">()</span>
+<span class="p">)</span> <span class="p">{</span>
+
+  <span class="k">def</span> <span class="nf">send</span><span class="p">(</span><span class="n">to</span><span class="p">:</span> <span class="nc">ActorRef</span><span class="p">,</span> <span class="n">msg</span><span class="p">:</span> <span class="nc">Msg</span><span class="p">):</span> <span class="nc">Unit</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="n">toSend</span> <span class="o">=</span> <span class="p">(</span><span class="n">to</span><span class="p">,</span> <span class="n">msg</span><span class="p">)</span> <span class="o">::</span> <span class="n">toSend</span>
+
+    <span class="n">sendUnderlying</span><span class="p">(</span><span class="n">to</span><span class="p">,</span> <span class="n">msg</span><span class="p">)</span>
+  <span class="p">}</span>
+
+  <span class="nd">@extern</span> <span class="nd">@pure</span>
+  <span class="k">private</span> <span class="k">def</span> <span class="nf">sendUnderlying</span><span class="p">(</span><span class="n">to</span><span class="p">:</span> <span class="nc">ActorRef</span><span class="p">,</span> <span class="n">msg</span><span class="p">:</span> <span class="nc">Msg</span><span class="p">):</span> <span class="nc">Unit</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="n">to</span><span class="p">.</span><span class="n">underlying</span> <span class="o">!</span> <span class="n">msg</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="behavior">
+<h4>Behavior<a class="headerlink" href="#behavior" title="Permalink to this headline">¶</a></h4>
+<p>A behavior specifies both the current state of an actor, and how this one should process the next incoming message. In our framework, these are modeled as a subclass of the abstract class <code class="docutils literal notranslate"><span class="pre">Behavior</span></code>, which defines a single abstract method <code class="docutils literal notranslate"><span class="pre">processMsg</span></code>, to be overridden for each defined behavior.</p>
+<p>Using the provided <code class="docutils literal notranslate"><span class="pre">ActorContext</span></code>, the implementation of the <code class="docutils literal notranslate"><span class="pre">processMsg</span></code> method can both access its own reference, and send messages. It is also required to return a new <code class="docutils literal notranslate"><span class="pre">Behavior</span></code> for handling subsequent messages.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">sealed</span> <span class="k">abstract</span> <span class="k">class</span> <span class="nc">Behavior</span> <span class="p">{</span>
+  <span class="k">def</span> <span class="nf">processMsg</span><span class="p">(</span><span class="n">msg</span><span class="p">:</span> <span class="nc">Msg</span><span class="p">)(</span><span class="k">implicit</span> <span class="n">ctx</span><span class="p">:</span> <span class="nc">ActorContext</span><span class="p">):</span> <span class="nc">Behavior</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="actor-system">
+<h4>Actor System<a class="headerlink" href="#actor-system" title="Permalink to this headline">¶</a></h4>
+<p>The state of the actor system at a given point in time is modeled as a case class, holding the behavior associated with each actor reference, and the list of in-flight messages between any two actors.</p>
+<p>It provides a <code class="docutils literal notranslate"><span class="pre">step</span></code> method which, whengiven two <code class="docutils literal notranslate"><span class="pre">ActorRef</span></code>, will deliver the next message (if any) in the corresponding channel.</p>
+<p>Because the <code class="docutils literal notranslate"><span class="pre">ActorSystem</span></code> class is only used to model and prove properties about the underlying actor system, we mark the whole class as ghost in order to drop it from the resulting program.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="nd">@ghost</span>
+<span class="k">case</span> <span class="k">class</span> <span class="nc">ActorSystem</span><span class="p">(</span>
+  <span class="n">behaviors</span><span class="p">:</span> <span class="nc">CMap</span><span class="p">[</span><span class="nc">ActorRef</span><span class="p">,</span> <span class="nc">Behavior</span><span class="p">],</span>
+  <span class="n">inboxes</span><span class="p">:</span> <span class="nc">CMap</span><span class="p">[(</span><span class="nc">ActorRef</span><span class="p">,</span> <span class="nc">ActorRef</span><span class="p">),</span> <span class="nc">List</span><span class="p">[</span><span class="nc">Msg</span><span class="p">]]</span>
+<span class="p">)</span> <span class="p">{</span>
+
+  <span class="k">def</span> <span class="nf">step</span><span class="p">(</span><span class="n">from</span><span class="p">:</span> <span class="nc">ActorRef</span><span class="p">,</span> <span class="n">to</span><span class="p">:</span> <span class="nc">ActorRef</span><span class="p">):</span> <span class="nc">ActorSystem</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="n">inboxes</span><span class="p">(</span><span class="n">from</span> <span class="o">-&gt;</span> <span class="n">to</span><span class="p">)</span> <span class="k">match</span> <span class="p">{</span>
+      <span class="k">case</span> <span class="nc">Nil</span><span class="p">()</span> <span class="o">=&gt;</span>
+        <span class="bp">this</span>
+
+      <span class="k">case</span> <span class="nc">Cons</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">msgs</span><span class="p">)</span> <span class="o">=&gt;</span>
+        <span class="kd">val</span> <span class="p">(</span><span class="n">newBehavior</span><span class="p">,</span> <span class="n">toSend</span><span class="p">)</span> <span class="o">=</span> <span class="n">deliverMessage</span><span class="p">(</span><span class="n">to</span><span class="p">,</span> <span class="n">msg</span><span class="p">)</span>
+
+        <span class="kd">val</span> <span class="n">newBehaviors</span> <span class="o">=</span> <span class="n">behaviors</span><span class="p">.</span><span class="n">updated</span><span class="p">(</span><span class="n">to</span><span class="p">,</span> <span class="n">newBehavior</span><span class="p">)</span>
+        <span class="kd">val</span> <span class="n">newInboxes</span> <span class="o">=</span> <span class="n">toSend</span><span class="p">.</span><span class="n">foldLeft</span><span class="p">(</span><span class="n">inboxes</span><span class="p">.</span><span class="n">updated</span><span class="p">(</span><span class="n">from</span> <span class="o">-&gt;</span> <span class="n">to</span><span class="p">,</span> <span class="n">msgs</span><span class="p">))</span> <span class="p">{</span>
+          <span class="k">case</span> <span class="p">(</span><span class="n">acc</span><span class="p">,</span> <span class="p">(</span><span class="n">dest</span><span class="p">,</span> <span class="n">m</span><span class="p">))</span> <span class="o">=&gt;</span> <span class="n">acc</span><span class="p">.</span><span class="n">updated</span><span class="p">(</span><span class="n">to</span> <span class="o">-&gt;</span> <span class="n">dest</span><span class="p">,</span> <span class="n">m</span> <span class="o">::</span> <span class="n">acc</span><span class="p">(</span><span class="n">to</span> <span class="o">-&gt;</span> <span class="n">dest</span><span class="p">))</span>
+        <span class="p">}</span>
+
+        <span class="nc">ActorSystem</span><span class="p">(</span><span class="n">newBehaviors</span><span class="p">,</span> <span class="n">newInboxes</span><span class="p">)</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+
+  <span class="k">private</span> <span class="k">def</span> <span class="nf">deliverMessage</span><span class="p">(</span><span class="n">actor</span><span class="p">:</span> <span class="nc">ActorRef</span><span class="p">,</span> <span class="n">msg</span><span class="p">:</span> <span class="nc">Msg</span><span class="p">):</span> <span class="p">(</span><span class="nc">Behavior</span><span class="p">,</span> <span class="nc">List</span><span class="p">[(</span><span class="nc">ActorRef</span><span class="p">,</span> <span class="nc">Msg</span><span class="p">)])</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="kd">val</span> <span class="n">behavior</span> <span class="o">=</span> <span class="n">behaviors</span><span class="p">(</span><span class="n">actor</span><span class="p">)</span>
+
+    <span class="kd">val</span> <span class="n">ctx</span> <span class="o">=</span> <span class="nc">ActorContext</span><span class="p">(</span><span class="n">actor</span><span class="p">,</span> <span class="nc">Nil</span><span class="p">())</span>
+    <span class="kd">val</span> <span class="n">nextBehavior</span> <span class="o">=</span> <span class="n">behavior</span><span class="p">.</span><span class="n">processMsg</span><span class="p">(</span><span class="n">msg</span><span class="p">)(</span><span class="n">ctx</span><span class="p">)</span>
+
+    <span class="p">(</span><span class="n">nextBehavior</span><span class="p">,</span> <span class="n">ctx</span><span class="p">.</span><span class="n">toSend</span><span class="p">)</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="building-a-replicated-counter">
+<h3>Building a replicated counter<a class="headerlink" href="#building-a-replicated-counter" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="nd">@extern</span>
+<span class="k">def</span> <span class="nf">noSender</span> <span class="o">=</span> <span class="n">akka</span><span class="p">.</span><span class="n">actor</span><span class="p">.</span><span class="nc">ActorRef</span><span class="p">.</span><span class="n">noSender</span>
+
+<span class="kd">val</span> <span class="nc">Primary</span> <span class="o">=</span> <span class="nc">ActorRef</span><span class="p">(</span><span class="s">&quot;primary&quot;</span><span class="p">,</span> <span class="n">noSender</span><span class="p">)</span>
+<span class="kd">val</span> <span class="nc">Backup</span>  <span class="o">=</span> <span class="nc">ActorRef</span><span class="p">(</span><span class="s">&quot;backup&quot;</span><span class="p">,</span> <span class="n">noSender</span><span class="p">)</span>
+
+<span class="k">case</span> <span class="k">object</span> <span class="nc">Inc</span> <span class="k">extends</span> <span class="nc">Msg</span>
+
+<span class="k">case</span> <span class="k">class</span> <span class="nc">Counter</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">)</span> <span class="p">{</span>
+  <span class="n">require</span><span class="p">(</span><span class="n">value</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span>
+
+  <span class="k">def</span> <span class="nf">increment</span><span class="p">:</span> <span class="nc">Counter</span> <span class="o">=</span> <span class="nc">Counter</span><span class="p">(</span><span class="n">value</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+
+  <span class="k">def</span> <span class="nf">&lt;=</span><span class="p">(</span><span class="n">that</span><span class="p">:</span> <span class="nc">Counter</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="bp">this</span><span class="p">.</span><span class="n">value</span> <span class="o">&lt;=</span> <span class="n">that</span><span class="p">.</span><span class="n">value</span>
+<span class="p">}</span>
+
+<span class="k">case</span> <span class="k">class</span> <span class="nc">PrimBehav</span><span class="p">(</span><span class="n">backup</span><span class="p">:</span> <span class="nc">ActorRef</span><span class="p">,</span> <span class="n">counter</span><span class="p">:</span> <span class="nc">Counter</span><span class="p">)</span> <span class="k">extends</span> <span class="nc">Behavior</span> <span class="p">{</span>
+  <span class="n">require</span><span class="p">(</span><span class="n">backup</span><span class="p">.</span><span class="n">name</span> <span class="o">==</span> <span class="s">&quot;backup&quot;</span><span class="p">)</span>
+
+  <span class="k">override</span>
+  <span class="k">def</span> <span class="nf">processMsg</span><span class="p">(</span><span class="n">msg</span><span class="p">:</span> <span class="nc">Msg</span><span class="p">)(</span><span class="k">implicit</span> <span class="n">ctx</span><span class="p">:</span> <span class="nc">ActorContext</span><span class="p">):</span> <span class="nc">Behavior</span> <span class="o">=</span> <span class="n">msg</span> <span class="k">match</span> <span class="p">{</span>
+    <span class="k">case</span> <span class="nc">Inc</span> <span class="o">=&gt;</span>
+      <span class="n">backup</span> <span class="o">!</span> <span class="nc">Inc</span>
+      <span class="nc">PrimBehav</span><span class="p">(</span><span class="n">backup</span><span class="p">,</span> <span class="n">counter</span><span class="p">.</span><span class="n">increment</span><span class="p">)</span>
+
+    <span class="k">case</span> <span class="n">_</span> <span class="o">=&gt;</span> <span class="bp">this</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="k">case</span> <span class="k">class</span> <span class="nc">BackBehav</span><span class="p">(</span><span class="n">counter</span><span class="p">:</span> <span class="nc">Counter</span><span class="p">)</span> <span class="k">extends</span> <span class="nc">Behavior</span> <span class="p">{</span>
+
+  <span class="k">override</span>
+  <span class="k">def</span> <span class="nf">processMsg</span><span class="p">(</span><span class="n">msg</span><span class="p">:</span> <span class="nc">Msg</span><span class="p">)(</span><span class="k">implicit</span> <span class="n">ctx</span><span class="p">:</span> <span class="nc">ActorContext</span><span class="p">):</span> <span class="nc">Behavior</span> <span class="o">=</span> <span class="n">msg</span> <span class="k">match</span> <span class="p">{</span>
+    <span class="k">case</span> <span class="nc">Inc</span> <span class="o">=&gt;</span>
+      <span class="nc">BackBehav</span><span class="p">(</span><span class="n">counter</span><span class="p">.</span><span class="n">increment</span><span class="p">)</span>
+
+    <span class="k">case</span> <span class="n">_</span> <span class="o">=&gt;</span> <span class="bp">this</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<section id="proving-preservation-of-an-invariant">
+<h4>Proving preservation of an invariant<a class="headerlink" href="#proving-preservation-of-an-invariant" title="Permalink to this headline">¶</a></h4>
+<p>After having defined an actor system with our framework, one might want to verify that this system preserves some invariant between each step of its execution. That is to say, given an invariant <code class="docutils literal notranslate"><span class="pre">inv:</span> <span class="pre">ActorSystem</span> <span class="pre">→</span> <span class="pre">Boolean</span></code>, for any <code class="docutils literal notranslate"><span class="pre">ActorSystem</span></code> <cite>s</cite> and any two <code class="docutils literal notranslate"><span class="pre">ActorRef</span></code> <cite>n</cite> and <cite>m</cite>, if <code class="docutils literal notranslate"><span class="pre">inv(s)</span></code> holds, then <code class="docutils literal notranslate"><span class="pre">inv(s.step(n,</span> <span class="pre">m))</span></code> should hold as well. In other words:</p>
+<p><span class="math notranslate nohighlight">\(\forall s: \texttt{ActorSystem}, n, m: \texttt{ActorRef}. \texttt{inv}(s) \implies \texttt{inv}(s.\texttt{step}(n, m))\)</span></p>
+<p>We note that, because we are essentially doing a proof by induction over execution steps here, one needs also to ensure the invariant holds for some initial system. We show these two properties below:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="nd">@ghost</span>
+<span class="k">def</span> <span class="nf">invariant</span><span class="p">(</span><span class="n">s</span><span class="p">:</span> <span class="nc">ActorSystem</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="n">s</span><span class="p">.</span><span class="n">inboxes</span><span class="p">(</span><span class="nc">Primary</span> <span class="o">-&gt;</span> <span class="nc">Primary</span><span class="p">).</span><span class="n">isEmpty</span> <span class="o">&amp;&amp;</span>
+  <span class="n">s</span><span class="p">.</span><span class="n">inboxes</span><span class="p">(</span><span class="nc">Backup</span> <span class="o">-&gt;</span> <span class="nc">Primary</span><span class="p">).</span><span class="n">isEmpty</span> <span class="o">&amp;&amp;</span>
+  <span class="n">s</span><span class="p">.</span><span class="n">inboxes</span><span class="p">(</span><span class="nc">Backup</span> <span class="o">-&gt;</span> <span class="nc">Backup</span><span class="p">).</span><span class="n">isEmpty</span> <span class="o">&amp;&amp;</span>
+  <span class="n">s</span><span class="p">.</span><span class="n">inboxes</span><span class="p">(</span><span class="nc">Primary</span> <span class="o">-&gt;</span> <span class="nc">Backup</span><span class="p">).</span><span class="n">forall</span><span class="p">(</span><span class="n">_</span> <span class="o">==</span> <span class="nc">Inc</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="p">{</span>
+    <span class="p">(</span><span class="n">s</span><span class="p">.</span><span class="n">behaviors</span><span class="p">(</span><span class="nc">Primary</span><span class="p">),</span> <span class="n">s</span><span class="p">.</span><span class="n">behaviors</span><span class="p">(</span><span class="nc">Backup</span><span class="p">))</span> <span class="k">match</span> <span class="p">{</span>
+      <span class="k">case</span> <span class="p">(</span><span class="nc">PrimBehav</span><span class="p">(</span><span class="n">_</span><span class="p">,</span> <span class="n">p</span><span class="p">),</span> <span class="nc">BackBehav</span><span class="p">(</span><span class="n">b</span><span class="p">))</span> <span class="o">=&gt;</span>
+        <span class="n">p</span><span class="p">.</span><span class="n">value</span> <span class="o">==</span> <span class="n">b</span><span class="p">.</span><span class="n">value</span> <span class="o">+</span> <span class="n">s</span><span class="p">.</span><span class="n">inboxes</span><span class="p">(</span><span class="nc">Primary</span> <span class="o">-&gt;</span> <span class="nc">Backup</span><span class="p">).</span><span class="n">length</span>
+
+      <span class="k">case</span> <span class="n">_</span> <span class="o">=&gt;</span> <span class="kc">false</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="nd">@ghost</span>
+<span class="k">def</span> <span class="nf">initialSystem</span> <span class="o">=</span> <span class="nc">ActorSystem</span><span class="p">(</span>
+  <span class="n">behaviors</span> <span class="o">=</span> <span class="nc">CMap</span><span class="p">({</span>
+    <span class="k">case</span> <span class="n">`Primary`</span> <span class="o">=&gt;</span> <span class="nc">PrimBehav</span><span class="p">(</span><span class="nc">Counter</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+    <span class="k">case</span> <span class="n">`Backup`</span>  <span class="o">=&gt;</span> <span class="nc">BackBehav</span><span class="p">(</span><span class="nc">Counter</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+  <span class="p">}),</span>
+  <span class="n">inboxes</span> <span class="o">=</span> <span class="nc">CMap</span><span class="p">(</span><span class="n">_</span> <span class="o">=&gt;</span> <span class="nc">List</span><span class="p">())</span>
+<span class="p">)</span>
+
+<span class="nd">@ghost</span>
+<span class="k">def</span> <span class="nf">initialInv</span> <span class="o">=</span> <span class="n">invariant</span><span class="p">(</span><span class="n">initialSystem</span><span class="p">).</span><span class="n">holds</span>
+
+<span class="nd">@ghost</span>
+<span class="k">def</span> <span class="nf">validRef</span><span class="p">(</span><span class="n">ref</span><span class="p">:</span> <span class="nc">ActorRef</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="n">ref</span> <span class="o">==</span> <span class="nc">Primary</span> <span class="o">||</span> <span class="n">ref</span> <span class="o">==</span> <span class="nc">Backup</span>
+
+<span class="nd">@ghost</span>
+<span class="k">def</span> <span class="nf">theorem</span><span class="p">(</span><span class="n">s</span><span class="p">:</span> <span class="nc">ActorSystem</span><span class="p">,</span> <span class="n">from</span><span class="p">:</span> <span class="nc">ActorRef</span><span class="p">,</span> <span class="n">to</span><span class="p">:</span> <span class="nc">ActorRef</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="n">require</span><span class="p">(</span><span class="n">invariant</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="n">validRef</span><span class="p">(</span><span class="n">from</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="n">validRef</span><span class="p">(</span><span class="n">to</span><span class="p">))</span>
+  <span class="kd">val</span> <span class="n">newSystem</span> <span class="o">=</span> <span class="n">s</span><span class="p">.</span><span class="n">step</span><span class="p">(</span><span class="n">from</span><span class="p">,</span> <span class="n">to</span><span class="p">)</span>
+  <span class="n">invariant</span><span class="p">(</span><span class="n">newSystem</span><span class="p">)</span>
+<span class="p">}.</span><span class="n">holds</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="running-the-system-with-akka">
+<h3>Running the system with Akka<a class="headerlink" href="#running-the-system-with-akka" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="nd">@ignore</span>
+<span class="k">class</span> <span class="nc">ActorWrapper</span><span class="p">(</span><span class="n">initialBehavior</span><span class="p">:</span> <span class="nc">Behavior</span><span class="p">)</span> <span class="k">extends</span> <span class="n">akka</span><span class="p">.</span><span class="n">actor</span><span class="p">.</span><span class="nc">Actor</span> <span class="k">with</span> <span class="n">akka</span><span class="p">.</span><span class="n">actor</span><span class="p">.</span><span class="nc">ActorLogging</span> <span class="p">{</span>
+
+  <span class="k">private</span> <span class="k">def</span> <span class="nf">handler</span><span class="p">(</span><span class="n">behavior</span><span class="p">:</span> <span class="nc">Behavior</span><span class="p">):</span> <span class="nc">PartialFunction</span><span class="p">[</span><span class="nc">Any</span><span class="p">,</span> <span class="nc">Unit</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="k">case</span> <span class="n">msg</span><span class="p">:</span> <span class="nc">Msg</span> <span class="o">=&gt;</span>
+      <span class="kd">val</span> <span class="n">me</span> <span class="o">=</span> <span class="nc">ActorRef</span><span class="p">(</span><span class="n">context</span><span class="p">.</span><span class="n">self</span><span class="p">.</span><span class="n">path</span><span class="p">.</span><span class="n">name</span><span class="p">,</span> <span class="n">context</span><span class="p">.</span><span class="n">self</span><span class="p">)</span>
+      <span class="kd">val</span> <span class="n">ctx</span> <span class="o">=</span> <span class="nc">ActorContext</span><span class="p">(</span><span class="n">me</span><span class="p">,</span> <span class="nc">Nil</span><span class="p">())</span>
+      <span class="kd">val</span> <span class="n">newBehavior</span> <span class="o">=</span> <span class="n">behavior</span><span class="p">.</span><span class="n">processMsg</span><span class="p">(</span><span class="n">msg</span><span class="p">)(</span><span class="n">ctx</span><span class="p">)</span>
+
+      <span class="n">log</span><span class="p">.</span><span class="n">info</span><span class="p">(</span><span class="s">s&quot;Received: </span><span class="si">$</span><span class="n">msg</span><span class="s">, becoming </span><span class="si">$</span><span class="n">newBehavior</span><span class="s">&quot;</span><span class="p">)</span>
+      <span class="n">context</span><span class="p">.</span><span class="n">become</span><span class="p">(</span><span class="n">handler</span><span class="p">(</span><span class="n">newBehavior</span><span class="p">),</span> <span class="n">discardOld</span> <span class="o">=</span> <span class="kc">true</span><span class="p">)</span>
+  <span class="p">}</span>
+
+  <span class="k">def</span> <span class="nf">receive</span> <span class="o">=</span> <span class="n">handler</span><span class="p">(</span><span class="n">initialBehavior</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="nd">@ignore</span>
+<span class="k">def</span> <span class="nf">main</span><span class="p">(</span><span class="n">args</span><span class="p">:</span> <span class="nc">Array</span><span class="p">[</span><span class="nc">String</span><span class="p">]):</span> <span class="nc">Unit</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="kd">val</span> <span class="n">initCounter</span> <span class="o">=</span> <span class="nc">Counter</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+  <span class="kd">val</span> <span class="n">system</span> <span class="o">=</span> <span class="n">akka</span><span class="p">.</span><span class="n">actor</span><span class="p">.</span><span class="nc">ActorSystem</span><span class="p">(</span><span class="s">&quot;Counter&quot;</span><span class="p">)</span>
+
+  <span class="kd">val</span> <span class="n">backupRef</span> <span class="o">=</span> <span class="nc">ActorRef</span><span class="p">(</span>
+    <span class="s">&quot;backup&quot;</span><span class="p">,</span>
+    <span class="n">system</span><span class="p">.</span><span class="n">actorOf</span><span class="p">(</span>
+      <span class="n">akka</span><span class="p">.</span><span class="n">actor</span><span class="p">.</span><span class="nc">Props</span><span class="p">(</span><span class="k">new</span> <span class="nc">ActorWrapper</span><span class="p">(</span><span class="nc">BackBehav</span><span class="p">(</span><span class="n">initCounter</span><span class="p">))),</span>
+      <span class="n">name</span> <span class="o">=</span> <span class="s">&quot;backup&quot;</span>
+    <span class="p">)</span>
+  <span class="p">)</span>
+
+  <span class="kd">val</span> <span class="n">primaryRef</span> <span class="o">=</span> <span class="nc">ActorRef</span><span class="p">(</span>
+    <span class="s">&quot;primary&quot;</span><span class="p">,</span>
+    <span class="n">system</span><span class="p">.</span><span class="n">actorOf</span><span class="p">(</span>
+      <span class="n">akka</span><span class="p">.</span><span class="n">actor</span><span class="p">.</span><span class="nc">Props</span><span class="p">(</span><span class="k">new</span> <span class="nc">ActorWrapper</span><span class="p">(</span><span class="nc">PrimBehav</span><span class="p">(</span><span class="n">backupRef</span><span class="p">,</span> <span class="n">initCounter</span><span class="p">))),</span>
+      <span class="n">name</span> <span class="o">=</span> <span class="s">&quot;primary&quot;</span>
+    <span class="p">)</span>
+  <span class="p">)</span>
+
+  <span class="k">implicit</span> <span class="kd">val</span> <span class="n">ctx</span> <span class="o">=</span> <span class="nc">ActorContext</span><span class="p">(</span><span class="n">primaryRef</span><span class="p">,</span> <span class="nc">Nil</span><span class="p">())</span>
+
+  <span class="k">import</span> <span class="nn">system</span><span class="p">.</span><span class="n">dispatcher</span>
+  <span class="k">import</span> <span class="nn">scala</span><span class="p">.</span><span class="nn">concurrent</span><span class="p">.</span><span class="nn">duration</span><span class="p">.</span><span class="n">_</span>
+  <span class="n">system</span><span class="p">.</span><span class="n">scheduler</span><span class="p">.</span><span class="n">schedule</span><span class="p">(</span><span class="mi">500</span><span class="p">.</span><span class="n">millis</span><span class="p">,</span> <span class="mi">1000</span><span class="p">.</span><span class="n">millis</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">primaryRef</span> <span class="o">!</span> <span class="nc">Inc</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="limitations.html" class="btn btn-neutral float-left" title="Limitations of Verification" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="coq.html" class="btn btn-neutral float-right" title="Translation from Stainless to Coq" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2009-2021 EPFL, Lausanne.
+      <span class="lastupdated">Last updated on Dec 17, 2023.
+      </span></p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

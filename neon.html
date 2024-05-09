@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Proving Theorems &mdash; Stainless 0.9.1 documentation</title>
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script async="async" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Limitations of Verification" href="limitations.html" />
+    <link rel="prev" title="Generating C Code" href="genc.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> Stainless
+          </a>
+              <div class="version">
+                0.9
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div>
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Main">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installing Stainless</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gettingstarted.html">Verifying and Compiling Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorial.html">Tutorial: Sorting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="options.html">Specifying Options</a></li>
+<li class="toctree-l1"><a class="reference internal" href="verification.html">Verification conditions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="laws.html">Specifying Algebraic Properties</a></li>
+<li class="toctree-l1"><a class="reference internal" href="imperative.html">Imperative</a></li>
+<li class="toctree-l1"><a class="reference internal" href="equivalence.html">Equivalence Checking</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ghost.html">Ghost Context</a></li>
+<li class="toctree-l1"><a class="reference internal" href="wrap.html">Working With Existing Code</a></li>
+<li class="toctree-l1"><a class="reference internal" href="purescala.html">Pure Scala</a></li>
+<li class="toctree-l1"><a class="reference internal" href="library.html">Stainless Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="genc.html">Generating C Code</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Proving Theorems</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#a-practical-introduction-to-proofs">A practical introduction to proofs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#techniques-for-proving-non-trivial-propositions">Techniques for proving non-trivial propositions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#divide-and-conquer">Divide and Conquer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#proof-control-using-assert-and-check">Proof control using <code class="docutils literal notranslate"><span class="pre">assert</span></code> and <code class="docutils literal notranslate"><span class="pre">check</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#induction">Induction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#relational-reasoning">Relational reasoning</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#limits-of-the-approach-hofs-quantifiers-and-termination">Limits of the approach: HOFs, quantifiers and termination</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#techniques-for-proving-non-trivial-postconditions">Techniques for proving non-trivial postconditions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#rationals-a-simple-example">Rationals: a simple example</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#measures-a-slightly-more-complex-example">Measures: a slightly more complex example</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#a-complex-example-additivity-of-measures">A complex example: additivity of measures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#quick-recap">Quick Recap</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="limitations.html">Limitations of Verification</a></li>
+<li class="toctree-l1"><a class="reference internal" href="casestudies.html">Case Studies</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coq.html">Translation from Stainless to Coq</a></li>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">FAQ: (Frequently) Asked Questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="references.html">References</a></li>
+<li class="toctree-l1"><a class="reference internal" href="internals.html">Stainless’ Internals</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" aria-label="Top" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Stainless</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+<div role="navigation" aria-label="Breadcrumbs">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>Proving Theorems</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/neon.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="proving-theorems">
+<span id="neon"></span><h1>Proving Theorems<a class="headerlink" href="#proving-theorems" title="Permalink to this headline">¶</a></h1>
+<p>Verifying the contract of a function is really proving a mathematical
+theorem. Stainless can be seen as a (mostly) automated theorem prover. It is
+automated in the sense that once the property stated, Stainless will proceed with searching
+for a proof without any user interaction. In practice, however, many theorems will be fairly
+difficult to prove, and it is possible for the user to provide hints to Stainless.</p>
+<p>Hints typically take the form of simpler properties that combine in order to prove
+more complicated ones. In the remaining subsections, we provide code patterns and introduce
+simple domain-specific language operators that can help in constructing complex Stainless proofs.</p>
+<section id="a-practical-introduction-to-proofs">
+<h2>A practical introduction to proofs<a class="headerlink" href="#a-practical-introduction-to-proofs" title="Permalink to this headline">¶</a></h2>
+<p>When writing logical propositions such as preconditions or
+postconditions in Stainless, one is basically writing Boolean
+predicates. They can be as simple as testing whether a list is empty
+or not, to more complex combinations of properties.  Lemmas or
+theorems are simply logical tautologies, that is, propositions that
+always hold.  They can be expressed using Boolean-valued methods that
+return <code class="docutils literal notranslate"><span class="pre">true</span></code> for all their inputs.</p>
+<p>To make this more concrete, let’s take a simple lemma as an
+example <a class="footnote-reference brackets" href="#example-dir" id="id1">1</a>. Here we want to prove that the append operation (<code class="docutils literal notranslate"><span class="pre">++</span></code>) on
+lists preserves the content of the two lists being concatenated. This
+proposition is relatively straightforward and Stainless is able to verify
+that it always holds.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">import</span> <span class="nn">stainless</span><span class="p">.</span><span class="nn">collection</span><span class="p">.</span><span class="n">_</span> <span class="c1">// for List</span>
+<span class="k">import</span> <span class="nn">stainless</span><span class="p">.</span><span class="nn">lang</span><span class="p">.</span><span class="n">_</span>       <span class="c1">// for holds</span>
+
+<span class="k">object</span> <span class="nc">Example</span> <span class="p">{</span>
+  <span class="k">def</span> <span class="nf">appendContent</span><span class="p">[</span><span class="nc">A</span><span class="p">](</span><span class="n">l1</span><span class="p">:</span> <span class="nc">List</span><span class="p">[</span><span class="nc">A</span><span class="p">],</span> <span class="n">l2</span><span class="p">:</span> <span class="nc">List</span><span class="p">[</span><span class="nc">A</span><span class="p">]):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="n">l1</span><span class="p">.</span><span class="n">content</span> <span class="o">++</span> <span class="n">l2</span><span class="p">.</span><span class="n">content</span> <span class="o">==</span> <span class="p">(</span><span class="n">l1</span> <span class="o">++</span> <span class="n">l2</span><span class="p">).</span><span class="n">content</span>
+  <span class="p">}.</span><span class="n">holds</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Here we wrote <code class="docutils literal notranslate"><span class="pre">.holds</span></code> which is a method implicitly available on <code class="docutils literal notranslate"><span class="pre">Boolean</span></code>
+that ensure the returned value is <code class="docutils literal notranslate"><span class="pre">true</span></code>. It is equivalent to writing
+<code class="docutils literal notranslate"><span class="pre">ensuring</span> <span class="pre">{</span> <span class="pre">res</span> <span class="pre">=&gt;</span> <span class="pre">res</span> <span class="pre">}</span></code>.</p>
+<p>Now let’s look at another example that looks trivial but for which Stainless
+needs some help with the proof: we want to prove that adding <code class="docutils literal notranslate"><span class="pre">Nil</span></code>
+at the end of a list has no effect.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">import</span> <span class="nn">stainless</span><span class="p">.</span><span class="nn">collection</span><span class="p">.</span><span class="n">_</span> <span class="c1">// for List</span>
+<span class="k">import</span> <span class="nn">stainless</span><span class="p">.</span><span class="nn">lang</span><span class="p">.</span><span class="n">_</span>       <span class="c1">// for holds</span>
+
+<span class="k">object</span> <span class="nc">Example</span> <span class="p">{</span>
+  <span class="k">def</span> <span class="nf">rightUnitAppend</span><span class="p">[</span><span class="nc">T</span><span class="p">](</span><span class="n">l1</span><span class="p">:</span> <span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="n">l1</span> <span class="o">++</span> <span class="nc">Nil</span><span class="p">()</span> <span class="o">==</span> <span class="n">l1</span>
+  <span class="p">}.</span><span class="n">holds</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>If you try to verify this last example you’ll face a delicate
+situation: Stainless runs indeterminately until it is either killed or
+times out. But why does this happen?  The proposition doesn’t seem
+more complicated than <code class="docutils literal notranslate"><span class="pre">appendContent</span></code>. Perhaps even more
+surprisingly, Stainless <em>is</em> able to verify the following:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">leftUnitAppend</span><span class="p">[</span><span class="nc">T</span><span class="p">](</span><span class="n">l1</span><span class="p">:</span> <span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="nc">Nil</span><span class="p">()</span> <span class="o">++</span> <span class="n">l1</span> <span class="o">==</span> <span class="n">l1</span>
+<span class="p">}.</span><span class="n">holds</span>
+</pre></div>
+</div>
+<p>How is this possible?  The two propositions are completely symmetric!
+The problem is that Stainless doesn’t know anything about lists, a priori.
+It can only reason about lists thanks to their definition in terms of
+the case classes <code class="docutils literal notranslate"><span class="pre">Cons</span></code> and <code class="docutils literal notranslate"><span class="pre">Nil</span></code> and associated methods such as
+<code class="docutils literal notranslate"><span class="pre">++</span></code>.  In particular, Stainless doesn’t know that <code class="docutils literal notranslate"><span class="pre">Nil</span></code> represents the
+empty list, and hence that appending it to some other list is a no-op.
+What then, is the difference between the two examples above?  To
+answer this question, we need to have a look at the definition of the
+<code class="docutils literal notranslate"><span class="pre">++</span></code> method:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">++</span><span class="p">(</span><span class="n">that</span><span class="p">:</span> <span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]):</span> <span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="bp">this</span> <span class="k">match</span> <span class="p">{</span>
+  <span class="k">case</span> <span class="nc">Nil</span><span class="p">()</span>       <span class="o">=&gt;</span> <span class="n">that</span>
+  <span class="k">case</span> <span class="nc">Cons</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">xs</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="nc">Cons</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">xs</span> <span class="o">++</span> <span class="n">that</span><span class="p">)</span>
+<span class="p">})</span> <span class="n">ensuring</span> <span class="p">{</span> <span class="n">res</span> <span class="o">=&gt;</span> <span class="cm">/* ... */</span> <span class="p">}</span>
+</pre></div>
+</div>
+<p>Note that the implementation of <code class="docutils literal notranslate"><span class="pre">++</span></code> is recursive in its first
+argument <code class="docutils literal notranslate"><span class="pre">this</span></code> but <em>not</em> in its second argument <code class="docutils literal notranslate"><span class="pre">that</span></code>.  This is
+why Stainless was able to verify <code class="docutils literal notranslate"><span class="pre">leftUnitAppend</span></code> easily: it is true <em>by
+definition</em>, i.e. <code class="docutils literal notranslate"><span class="pre">Nil()</span> <span class="pre">++</span> <span class="pre">l1</span></code> is actually defined to be <code class="docutils literal notranslate"><span class="pre">l1</span></code>.
+What about the symmetric case?  How is <code class="docutils literal notranslate"><span class="pre">l1</span> <span class="pre">++</span> <span class="pre">Nil()</span></code> defined?  Well,
+it depends on whether <code class="docutils literal notranslate"><span class="pre">l1</span></code> is the empty list or not.  So in order to
+prove <code class="docutils literal notranslate"><span class="pre">rightUnitAppend</span></code>, we need to proceed with a case analysis.  The
+resulting proof has a recursive (i.e. inductive) structure reminiscent
+of the definition of <code class="docutils literal notranslate"><span class="pre">++</span></code>:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">import</span> <span class="nn">stainless</span><span class="p">.</span><span class="nn">collection</span><span class="p">.</span><span class="n">_</span> <span class="c1">// for List</span>
+<span class="k">import</span> <span class="nn">stainless</span><span class="p">.</span><span class="nn">lang</span><span class="p">.</span><span class="n">_</span>       <span class="c1">// for holds</span>
+<span class="k">import</span> <span class="nn">stainless</span><span class="p">.</span><span class="nn">proof</span><span class="p">.</span><span class="n">_</span>      <span class="c1">// for because</span>
+
+<span class="k">object</span> <span class="nc">Example</span> <span class="p">{</span>
+  <span class="k">def</span> <span class="nf">rightUnitAppend</span><span class="p">[</span><span class="nc">T</span><span class="p">](</span><span class="n">l1</span><span class="p">:</span> <span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="p">(</span><span class="n">l1</span> <span class="o">++</span> <span class="nc">Nil</span><span class="p">()</span> <span class="o">==</span> <span class="n">l1</span><span class="p">)</span> <span class="n">because</span> <span class="p">{</span>
+      <span class="n">l1</span> <span class="k">match</span> <span class="p">{</span>
+        <span class="k">case</span> <span class="nc">Nil</span><span class="p">()</span>       <span class="o">=&gt;</span> <span class="kc">true</span>
+        <span class="k">case</span> <span class="nc">Cons</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">xs</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="n">rightUnitAppend</span><span class="p">(</span><span class="n">xs</span><span class="p">)</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+  <span class="p">}.</span><span class="n">holds</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>With this new implementation of the <code class="docutils literal notranslate"><span class="pre">rightUnitAppend</span></code> lemma, Stainless is capable
+of verifying that it holds. If you look closely at it, you can distinguish three
+parts:</p>
+<ol class="arabic simple">
+<li><p>the claim we want to prove <code class="docutils literal notranslate"><span class="pre">l1</span> <span class="pre">++</span> <span class="pre">Nil()</span> <span class="pre">==</span> <span class="pre">l1</span></code>;</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">because</span></code>, which is just some syntactic sugar for conjunction – remember,
+every proposition is a Boolean formula;</p></li>
+<li><p>and a recursion on <code class="docutils literal notranslate"><span class="pre">l1</span></code> that serves as a hint for Stainless to perform
+induction.</p></li>
+</ol>
+<p>The recursion is based here on pattern matching, which Stainless will also check for
+exhaustiveness.  It has essentially the same structure as
+the implementation of <code class="docutils literal notranslate"><span class="pre">++</span></code>: the base case is when <code class="docutils literal notranslate"><span class="pre">l1</span></code> is the empty list
+and the inductive case is performed on <code class="docutils literal notranslate"><span class="pre">Cons</span></code> objects.</p>
+</section>
+<section id="techniques-for-proving-non-trivial-propositions">
+<h2>Techniques for proving non-trivial propositions<a class="headerlink" href="#techniques-for-proving-non-trivial-propositions" title="Permalink to this headline">¶</a></h2>
+<p>In the previous section, we saw that “proof hints” can improve the odds
+of Stainless successfully verifying a given proposition.  In this section,
+we will have a closer look at what constitutes such a proof and
+discuss a few techniques for writing them.</p>
+<p>As mentioned earlier, propositions are represented by Boolean
+expressions in Stainless.  But how are proofs represented?  They are just
+Boolean expressions as well <a class="footnote-reference brackets" href="#props-not-types" id="id2">2</a>. The difference
+between propositions and proofs is not their representation, but how
+they are used by Stainless.  Intuitively, a proof <code class="docutils literal notranslate"><span class="pre">p:</span> <span class="pre">Boolean</span></code> for a
+proposition <code class="docutils literal notranslate"><span class="pre">x:</span> <span class="pre">Boolean</span></code> is an expression such that</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li><p>Stainless is able to verify <code class="docutils literal notranslate"><span class="pre">p</span></code>, and</p></li>
+<li><p>Stainless is able to verify that <code class="docutils literal notranslate"><span class="pre">p</span></code> implies <code class="docutils literal notranslate"><span class="pre">x</span></code>.</p></li>
+</ol>
+</div></blockquote>
+<p>This is what we mean when we say that proofs are “hints”.  Typically,
+a proof <code class="docutils literal notranslate"><span class="pre">p</span></code> of a proposition <code class="docutils literal notranslate"><span class="pre">x</span></code> is a more complex-looking but
+equivalent version of <code class="docutils literal notranslate"><span class="pre">x</span></code>, i.e. an expression such that <code class="docutils literal notranslate"><span class="pre">p</span> <span class="pre">==</span> <span class="pre">x</span></code>.
+This might seem a bit counter-intuitive: why should it be easier for
+Stainless to verify an equivalent but more complex expression?  The answer
+is that the more complex version may consist of sub-expressions that
+more closely resemble the definitions of functions used in <code class="docutils literal notranslate"><span class="pre">x</span></code>.  We
+have already seen an example of this principle in the previous
+section: let’s have another look at the proof of <code class="docutils literal notranslate"><span class="pre">rightUnitAppend</span></code>:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">rightUnitAppend</span><span class="p">[</span><span class="nc">T</span><span class="p">](</span><span class="n">l1</span><span class="p">:</span> <span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="kd">val</span> <span class="n">x</span> <span class="o">=</span> <span class="n">l1</span> <span class="o">++</span> <span class="nc">Nil</span><span class="p">()</span> <span class="o">==</span> <span class="n">l1</span>
+  <span class="kd">val</span> <span class="n">p</span> <span class="o">=</span> <span class="n">l1</span> <span class="k">match</span> <span class="p">{</span>
+    <span class="k">case</span> <span class="nc">Nil</span><span class="p">()</span>       <span class="o">=&gt;</span> <span class="kc">true</span>
+    <span class="k">case</span> <span class="nc">Cons</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">xs</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="n">rightUnitAppend</span><span class="p">(</span><span class="n">xs</span><span class="p">)</span>
+  <span class="p">}</span>
+  <span class="n">x</span> <span class="n">because</span> <span class="n">p</span>
+<span class="p">}.</span><span class="n">holds</span>
+</pre></div>
+</div>
+<p>Here, we have rewritten the example to make the distinction between
+the proposition <code class="docutils literal notranslate"><span class="pre">x</span></code> and its proof <code class="docutils literal notranslate"><span class="pre">p</span></code> more explicit.  It’s easy to
+check that indeed <code class="docutils literal notranslate"><span class="pre">x</span> <span class="pre">==</span> <span class="pre">p</span></code>, and hence the overall result of
+<code class="docutils literal notranslate"><span class="pre">rightUnitAppend</span></code> is equivalent to <code class="docutils literal notranslate"><span class="pre">x</span></code> (recall that <code class="docutils literal notranslate"><span class="pre">because</span></code> is
+just an alias of <code class="docutils literal notranslate"><span class="pre">&amp;&amp;</span></code>, so <code class="docutils literal notranslate"><span class="pre">(x</span> <span class="pre">because</span> <span class="pre">p)</span> <span class="pre">==</span> <span class="pre">(x</span> <span class="pre">&amp;&amp;</span> <span class="pre">x)</span> <span class="pre">==</span> <span class="pre">x</span></code>).
+However, the proof term <code class="docutils literal notranslate"><span class="pre">p</span></code> closely resembles the definition of
+<code class="docutils literal notranslate"><span class="pre">++</span></code> and its sub-expressions are easier to verify for Stainless than
+<code class="docutils literal notranslate"><span class="pre">x</span></code> itself.  The only non-trivial expression is the recursive call
+to <code class="docutils literal notranslate"><span class="pre">rightUnitAppend(xs)</span></code>, which serves as the inductive hypothesis.
+We will discuss induction in more detail in Section
+“<a class="reference internal" href="#induction"><span class="std std-ref">Induction</span></a>”.</p>
+<section id="divide-and-conquer">
+<h3>Divide and Conquer<a class="headerlink" href="#divide-and-conquer" title="Permalink to this headline">¶</a></h3>
+<p>Before we delve into the details of particular proof techniques, it is
+worth revisiting a guiding principle for writing proofs – whether it
+be in Stainless, by hand, or using some other form of mechanized proof
+checker – namely to <em>modularize</em> proofs, i.e. to split the proofs of
+complex propositions into manageable <em>sub-goals</em>.  This can be
+achieved in various ways.</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Use <em>helper lemmas</em> – these are propositions that are lemmas on
+their own, i.e. they state and prove simple but self-contained
+propositions that can be reused elsewhere.  As such, they play a
+role akin to helper methods in normal programming, and indeed, are
+implemented in the same way, except that they carry a <code class="docutils literal notranslate"><span class="pre">.holds</span></code>
+suffix.</p></li>
+<li><p>Use <em>case analysis</em> to split complex propositions into simpler
+sub-cases.  This is especially helpful in the presence of
+recursion, where it leads to inductive proofs (see Section
+“<a class="reference internal" href="#induction"><span class="std std-ref">Induction</span></a>”).</p></li>
+<li><p>Use <em>relational reasoning</em> to split complex relationships into
+conjunctions of elementary ones.  This often requires one to make
+use of relational properties such as transitivity (e.g. to break a
+single equation <code class="docutils literal notranslate"><span class="pre">a</span> <span class="pre">==</span> <span class="pre">b</span></code> into a chain of equations <code class="docutils literal notranslate"><span class="pre">a</span> <span class="pre">==</span> <span class="pre">x1</span> <span class="pre">&amp;&amp;</span>
+<span class="pre">x1</span> <span class="pre">==</span> <span class="pre">x2</span> <span class="pre">&amp;&amp;</span> <span class="pre">...</span> <span class="pre">&amp;&amp;</span> <span class="pre">xN</span> <span class="pre">==</span> <span class="pre">b</span></code>), symmetry (e.g. to use a previously
+proven inequality <code class="docutils literal notranslate"><span class="pre">a</span> <span class="pre">&lt;=</span> <span class="pre">b</span></code> where <code class="docutils literal notranslate"><span class="pre">b</span> <span class="pre">&gt;=</span> <span class="pre">a</span></code> is expected),
+anti-symmetry (to unify variables), and so on (see Section
+“<a class="reference internal" href="#rel-reasoning"><span class="std std-ref">Relational reasoning</span></a>”).</p></li>
+<li><p>Separate specification form implementation.  It is sometimes easier
+to prove the fact that a given function fulfills its specification
+as a separate lemma (although the proof techniques are roughly the
+same, see Section “<a class="reference internal" href="#post-cond"><span class="std std-ref">Techniques for proving non-trivial postconditions</span></a>”).</p></li>
+<li><p>Generalize (or specialize) propositions.  Sometimes, propositions
+are more easily proved in a stronger (or weaker) form and
+subsequently instantiated (or combined with other propositions) to
+yield a proof of the original proposition.</p></li>
+</ul>
+</div></blockquote>
+<p>While it is good practice to factor common propositions into helper
+lemmas, one sometimes wants to verify simple, specific sub-goals in a
+proof without going through the trouble of introducing an additional
+method.  This is especially true while one is exploring the branches
+of a case analysis or wants to quickly check whether Stainless is able to
+prove a seemingly trivial statement automatically (we will see
+examples of such situations in the coming sections).  For such cases,
+one can use the <code class="docutils literal notranslate"><span class="pre">check</span></code> function from <code class="docutils literal notranslate"><span class="pre">stainless.proof</span></code>.  The <code class="docutils literal notranslate"><span class="pre">check</span></code>
+function behaves as the identity function on Booleans but additionally
+assumes its argument in its precondition.  As a result, Stainless will
+check that <code class="docutils literal notranslate"><span class="pre">x</span></code> holds while verifying the call to <code class="docutils literal notranslate"><span class="pre">check(x)</span></code>.
+For example, when verifying the following function:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">import</span> <span class="nn">stainless</span><span class="p">.</span><span class="nn">proof</span><span class="p">.</span><span class="n">check</span>
+
+<span class="k">def</span> <span class="nf">foo</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="n">check</span><span class="p">(</span><span class="n">x</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="o">||</span> <span class="n">x</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="n">check</span><span class="p">(</span><span class="n">x</span> <span class="o">+</span> <span class="mi">0</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Stainless will check (separately) that <code class="docutils literal notranslate"><span class="pre">x</span> <span class="pre">&gt;=</span> <span class="pre">0</span> <span class="pre">||</span> <span class="pre">x</span> <span class="pre">&lt;</span> <span class="pre">0</span></code> and <code class="docutils literal notranslate"><span class="pre">x</span> <span class="pre">+</span> <span class="pre">0</span> <span class="pre">==</span>
+<span class="pre">0</span></code> hold for all <code class="docutils literal notranslate"><span class="pre">x</span></code>, even though the function <code class="docutils literal notranslate"><span class="pre">foo</span></code> does not
+specify any pre or postconditions, and report a counter example for
+the second case:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span>  <span class="n">Info</span>  <span class="p">]</span>  <span class="o">-</span> <span class="n">Now</span> <span class="n">considering</span> <span class="s1">&#39;precond. (call check(x &gt;= 0 || x &lt; 0))&#39;</span> <span class="n">VC</span> <span class="k">for</span> <span class="n">foo</span> <span class="o">@</span><span class="mi">40</span><span class="p">:</span><span class="mf">5.</span><span class="o">..</span>
+<span class="p">[</span>  <span class="n">Info</span>  <span class="p">]</span>  <span class="o">=&gt;</span> <span class="n">VALID</span>
+<span class="p">[</span>  <span class="n">Info</span>  <span class="p">]</span>  <span class="o">-</span> <span class="n">Now</span> <span class="n">considering</span> <span class="s1">&#39;precond. (call check(x + 0 == 0))&#39;</span> <span class="n">VC</span> <span class="k">for</span> <span class="n">foo</span> <span class="o">@</span><span class="mi">40</span><span class="p">:</span><span class="mf">31.</span><span class="o">..</span>
+<span class="p">[</span> <span class="n">Error</span>  <span class="p">]</span>  <span class="o">=&gt;</span> <span class="n">INVALID</span>
+<span class="p">[</span> <span class="n">Error</span>  <span class="p">]</span> <span class="n">Found</span> <span class="n">counter</span><span class="o">-</span><span class="n">example</span><span class="p">:</span>
+<span class="p">[</span> <span class="n">Error</span>  <span class="p">]</span>   <span class="n">x</span> <span class="o">-&gt;</span> <span class="mi">1</span>
+</pre></div>
+</div>
+<p>This is especially helpful when “debugging” proofs.</p>
+</section>
+<section id="proof-control-using-assert-and-check">
+<span id="proofcontrol"></span><h3>Proof control using <code class="docutils literal notranslate"><span class="pre">assert</span></code> and <code class="docutils literal notranslate"><span class="pre">check</span></code><a class="headerlink" href="#proof-control-using-assert-and-check" title="Permalink to this headline">¶</a></h3>
+<p>Both the <code class="docutils literal notranslate"><span class="pre">assert</span></code> and <code class="docutils literal notranslate"><span class="pre">check</span></code> keywords generate a verification condition for
+the corresponding formula in the current context. The difference in these
+keywords is in how they affect the context of other verification conditions. As
+a rule of thumb, assertions do not affect the context of verification conditions
+outside the block of the assertion, while <code class="docutils literal notranslate"><span class="pre">check</span></code> does. Thus you can use
+assertions to prove local properties, and use <code class="docutils literal notranslate"><span class="pre">check</span></code> to have the property
+(checked and) visible outside the block.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">foo</span><span class="p">():</span> <span class="nc">Unit</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="kd">val</span> <span class="n">x</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="n">assert</span><span class="p">(</span><span class="n">b1</span><span class="p">)</span> <span class="c1">// verification condition: b1</span>
+    <span class="n">check</span><span class="p">(</span><span class="n">b2</span><span class="p">)</span>  <span class="c1">// verification condition: b1 ==&gt; b2</span>
+  <span class="p">}</span>
+  <span class="n">assert</span><span class="p">(</span><span class="n">b3</span><span class="p">)</span>   <span class="c1">// verification condition: b2 ==&gt; b3 (b1 not visible to the solver)</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Similarly, <code class="docutils literal notranslate"><span class="pre">assert</span></code>’s are not guaranteed to be visible when generating
+verification conditions for postconditions, while <code class="docutils literal notranslate"><span class="pre">check</span></code>’s are.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">foo</span><span class="p">():</span> <span class="nc">Unit</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="n">assert</span><span class="p">(</span><span class="n">b1</span><span class="p">)</span> <span class="c1">// verification condition: b1</span>
+  <span class="n">check</span><span class="p">(</span><span class="n">b2</span><span class="p">)</span>  <span class="c1">// verification condition: b1 ==&gt; b2</span>
+<span class="p">}.</span><span class="n">ensuring</span><span class="p">(</span><span class="n">_</span> <span class="o">=&gt;</span> <span class="n">b3</span><span class="p">)</span> <span class="c1">// verification condition b2 ==&gt; b3 (b1 might not be visible to the solver)</span>
+</pre></div>
+</div>
+</section>
+<section id="induction">
+<span id="id3"></span><h3>Induction<a class="headerlink" href="#induction" title="Permalink to this headline">¶</a></h3>
+<p>The vast majority of functional programs are written as functions over
+<a class="reference internal" href="purescala.html#purescala"><span class="std std-ref">ADTs</span></a>, and consequently, Stainless comes with some special
+support for verifying properties of ADTs.  Among other things, Stainless
+provides an annotation <code class="docutils literal notranslate"><span class="pre">&#64;induct</span></code>, which can be used to automatically
+prove postconditions of recursive functions defined on ADTs by way of
+<em>structural induction</em>.  We have already seen an example of such an
+inductive property, namely <code class="docutils literal notranslate"><span class="pre">rightUnitAppend</span></code>.  In fact, using
+<code class="docutils literal notranslate"><span class="pre">&#64;induct</span></code>, Stainless is able to prove <code class="docutils literal notranslate"><span class="pre">rightUnitAppend</span></code> directly:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">import</span> <span class="nn">stainless</span><span class="p">.</span><span class="nn">annotation</span><span class="p">.</span><span class="n">_</span>  <span class="c1">// for @induct</span>
+
+<span class="nd">@induct</span>
+<span class="k">def</span> <span class="nf">rightUnitAppend</span><span class="p">[</span><span class="nc">T</span><span class="p">](</span><span class="n">l1</span><span class="p">:</span> <span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="n">l1</span> <span class="o">++</span> <span class="nc">Nil</span><span class="p">()</span> <span class="o">==</span> <span class="n">l1</span>
+<span class="p">}.</span><span class="n">holds</span>
+</pre></div>
+</div>
+<p>This is possible because the inductive step follows (more or less)
+directly from the inductive hypothesis and Stainless can verify the base
+case automatically.  However, Stainless may fail to verify more complex
+functions with non-trivial base cases or inductive steps.  In such
+cases, one may still try to provide proof hints by performing <em>manual
+case analysis</em>.  Consider the following lemma about list reversal:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">import</span> <span class="nn">stainless</span><span class="p">.</span><span class="nn">collection</span><span class="p">.</span><span class="n">_</span> <span class="c1">// for List</span>
+<span class="k">import</span> <span class="nn">stainless</span><span class="p">.</span><span class="nn">lang</span><span class="p">.</span><span class="n">_</span>       <span class="c1">// for holds</span>
+
+<span class="k">object</span> <span class="nc">Example</span> <span class="p">{</span>
+  <span class="k">def</span> <span class="nf">reverseReverse</span><span class="p">[</span><span class="nc">T</span><span class="p">](</span><span class="n">l</span><span class="p">:</span> <span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="n">l</span><span class="p">.</span><span class="n">reverse</span><span class="p">.</span><span class="n">reverse</span> <span class="o">==</span> <span class="n">l</span>
+  <span class="p">}.</span><span class="n">holds</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Stainless is unable to verify <code class="docutils literal notranslate"><span class="pre">reverseReverse</span></code> even using <code class="docutils literal notranslate"><span class="pre">&#64;induct</span></code>.
+So let’s try and prove the lemma using manual case analysis.  We start
+by adding an “unrolled” version of the proposition and inserting calls
+to <code class="docutils literal notranslate"><span class="pre">check</span></code> in each branch of the resulting pattern match:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">reverseReverse</span><span class="p">[</span><span class="nc">T</span><span class="p">](</span><span class="n">l</span><span class="p">:</span> <span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="n">l</span><span class="p">.</span><span class="n">reverse</span><span class="p">.</span><span class="n">reverse</span> <span class="o">==</span> <span class="n">l</span> <span class="n">because</span> <span class="p">{</span>
+    <span class="n">l</span> <span class="k">match</span> <span class="p">{</span>
+      <span class="k">case</span> <span class="nc">Nil</span><span class="p">()</span>       <span class="o">=&gt;</span> <span class="n">check</span> <span class="p">{</span>  <span class="nc">Nil</span><span class="p">[</span><span class="nc">T</span><span class="p">]().</span><span class="n">reverse</span><span class="p">.</span><span class="n">reverse</span> <span class="o">==</span> <span class="nc">Nil</span><span class="p">[</span><span class="nc">T</span><span class="p">]()</span>  <span class="p">}</span>
+      <span class="k">case</span> <span class="nc">Cons</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">xs</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="n">check</span> <span class="p">{</span> <span class="p">(</span><span class="n">x</span> <span class="o">::</span> <span class="n">xs</span><span class="p">).</span><span class="n">reverse</span><span class="p">.</span><span class="n">reverse</span> <span class="o">==</span> <span class="p">(</span><span class="n">x</span> <span class="o">::</span> <span class="n">xs</span><span class="p">)</span> <span class="p">}</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}.</span><span class="n">holds</span>
+</pre></div>
+</div>
+<p>Clearly, the two versions of the lemma are equivalent: all we did was
+expand the proposition using a pattern match and add some calls to
+<code class="docutils literal notranslate"><span class="pre">check</span></code> (remember <code class="docutils literal notranslate"><span class="pre">check</span></code> acts as the identity function on its
+argument).  Let’s see what output Stainless produces for the expanded
+version:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span>  <span class="n">Info</span>  <span class="p">]</span>  <span class="o">-</span> <span class="n">Now</span> <span class="n">considering</span> <span class="s1">&#39;postcondition&#39;</span> <span class="n">VC</span> <span class="k">for</span> <span class="n">reverseReverse</span> <span class="o">@</span><span class="mi">615</span><span class="p">:</span><span class="mf">5.</span><span class="o">..</span>
+<span class="p">[</span><span class="ne">Warning</span> <span class="p">]</span>  <span class="o">=&gt;</span> <span class="n">UNKNOWN</span>
+<span class="p">[</span>  <span class="n">Info</span>  <span class="p">]</span>  <span class="o">-</span> <span class="n">Now</span> <span class="n">considering</span> <span class="s1">&#39;precond. (call check(List[T]().reverse().reverse() ...)&#39;</span> <span class="n">VC</span> <span class="k">for</span> <span class="n">reverseReverse</span> <span class="o">@</span><span class="mi">617</span><span class="p">:</span><span class="mf">28.</span><span class="o">..</span>
+<span class="p">[</span>  <span class="n">Info</span>  <span class="p">]</span>  <span class="o">=&gt;</span> <span class="n">VALID</span>
+<span class="p">[</span>  <span class="n">Info</span>  <span class="p">]</span>  <span class="o">-</span> <span class="n">Now</span> <span class="n">considering</span> <span class="s1">&#39;precond. (call check({val x$27 = l.h; ...)&#39;</span> <span class="n">VC</span> <span class="k">for</span> <span class="n">reverseReverse</span> <span class="o">@</span><span class="mi">618</span><span class="p">:</span><span class="mf">28.</span><span class="o">..</span>
+<span class="p">[</span><span class="ne">Warning</span> <span class="p">]</span>  <span class="o">=&gt;</span> <span class="n">UNKNOWN</span>
+<span class="p">[</span>  <span class="n">Info</span>  <span class="p">]</span>  <span class="o">-</span> <span class="n">Now</span> <span class="n">considering</span> <span class="s1">&#39;match exhaustiveness&#39;</span> <span class="n">VC</span> <span class="k">for</span> <span class="n">reverseReverse</span> <span class="o">@</span><span class="mi">616</span><span class="p">:</span><span class="mf">7.</span><span class="o">..</span>
+<span class="p">[</span>  <span class="n">Info</span>  <span class="p">]</span>  <span class="o">=&gt;</span> <span class="n">VALID</span>
+</pre></div>
+</div>
+<p>As expected, Stainless failed to verify the expanded version.  However, we
+get some additional information due to the extra pattern match and the
+calls to <code class="docutils literal notranslate"><span class="pre">check</span></code>.  In particular, Stainless tells us that the match is
+exhaustive, which means we covered all the cases in our case analysis
+– that’s certainly a good start.  Stainless was also able to automatically
+verify the base case, so we can either leave the call to <code class="docutils literal notranslate"><span class="pre">check</span></code> as
+is, or replace it by <code class="docutils literal notranslate"><span class="pre">trivial</span></code>.  Unfortunately, Stainless wasn’t able to
+verify the inductive step, something is missing.  Let’s try to
+manually reduce the inductive case and see where we get.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">reverseReverse</span><span class="p">[</span><span class="nc">T</span><span class="p">](</span><span class="n">l</span><span class="p">:</span> <span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="n">l</span><span class="p">.</span><span class="n">reverse</span><span class="p">.</span><span class="n">reverse</span> <span class="o">==</span> <span class="n">l</span> <span class="n">because</span> <span class="p">{</span>
+    <span class="n">l</span> <span class="k">match</span> <span class="p">{</span>
+      <span class="k">case</span> <span class="nc">Nil</span><span class="p">()</span>       <span class="o">=&gt;</span> <span class="n">trivial</span>
+      <span class="k">case</span> <span class="nc">Cons</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">xs</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="n">check</span> <span class="p">{</span> <span class="p">(</span><span class="n">xs</span><span class="p">.</span><span class="n">reverse</span> <span class="o">:+</span> <span class="n">x</span><span class="p">).</span><span class="n">reverse</span> <span class="o">==</span> <span class="p">(</span><span class="n">x</span> <span class="o">::</span> <span class="n">xs</span><span class="p">)</span> <span class="p">}</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}.</span><span class="n">holds</span>
+</pre></div>
+</div>
+<p>And now we’re stuck.  We can’t apply the inductive hypothesis here,
+nor can we reduce the inductive case further, unless we perform
+case analysis on <code class="docutils literal notranslate"><span class="pre">xs</span></code>, which would grow the term further without
+changing its shape.  To make any headway, we need to use an additional
+property of <code class="docutils literal notranslate"><span class="pre">reverse</span></code>, given by the following lemma (which Stainless <em>is</em>
+able to prove using <code class="docutils literal notranslate"><span class="pre">&#64;induct</span></code>):</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="nd">@induct</span>
+<span class="k">def</span> <span class="nf">snocReverse</span><span class="p">[</span><span class="nc">T</span><span class="p">](</span><span class="n">l</span><span class="p">:</span> <span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">],</span> <span class="n">t</span><span class="p">:</span> <span class="nc">T</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="p">(</span><span class="n">l</span> <span class="o">:+</span> <span class="n">t</span><span class="p">).</span><span class="n">reverse</span> <span class="o">==</span> <span class="n">t</span> <span class="o">::</span> <span class="n">l</span><span class="p">.</span><span class="n">reverse</span>
+<span class="p">}.</span><span class="n">holds</span>
+</pre></div>
+</div>
+<p>The lemma states that appending an element <code class="docutils literal notranslate"><span class="pre">t</span></code> to a list <code class="docutils literal notranslate"><span class="pre">l</span></code> and
+reversing it is equivalent to first reversing <code class="docutils literal notranslate"><span class="pre">l</span></code> and then
+prepending <code class="docutils literal notranslate"><span class="pre">t</span></code>.  Using this lemma, we can write the proof of
+<code class="docutils literal notranslate"><span class="pre">reverseReverse</span></code> as</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">reverseReverse</span><span class="p">[</span><span class="nc">T</span><span class="p">](</span><span class="n">l</span><span class="p">:</span> <span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="n">l</span><span class="p">.</span><span class="n">reverse</span><span class="p">.</span><span class="n">reverse</span> <span class="o">==</span> <span class="n">l</span> <span class="n">because</span> <span class="p">{</span>
+    <span class="n">l</span> <span class="k">match</span> <span class="p">{</span>
+      <span class="k">case</span> <span class="nc">Nil</span><span class="p">()</span>       <span class="o">=&gt;</span> <span class="n">trivial</span>
+      <span class="k">case</span> <span class="nc">Cons</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">xs</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="n">check</span> <span class="p">{</span>
+        <span class="p">(</span><span class="n">xs</span><span class="p">.</span><span class="n">reverse</span> <span class="o">:+</span> <span class="n">x</span><span class="p">).</span><span class="n">reverse</span> <span class="o">==</span> <span class="n">x</span> <span class="o">::</span> <span class="n">xs</span><span class="p">.</span><span class="n">reverse</span><span class="p">.</span><span class="n">reverse</span> <span class="o">&amp;&amp;</span>
+        <span class="n">x</span> <span class="o">::</span> <span class="n">xs</span><span class="p">.</span><span class="n">reverse</span><span class="p">.</span><span class="n">reverse</span>   <span class="o">==</span> <span class="p">(</span><span class="n">x</span> <span class="o">::</span> <span class="n">xs</span><span class="p">)</span>               <span class="n">because</span>
+          <span class="n">snocReverse</span><span class="p">(</span><span class="n">xs</span><span class="p">.</span><span class="n">reverse</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="n">reverseReverse</span><span class="p">(</span><span class="n">xs</span><span class="p">)</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}.</span><span class="n">holds</span>
+</pre></div>
+</div>
+<p>Stainless is able to verify this version of the lemma.  Note that Stainless
+doesn’t actually require us to include the two equations as they are
+equivalent to the applications <code class="docutils literal notranslate"><span class="pre">snocReverse(xs.reverse,</span> <span class="pre">x)</span></code> and
+<code class="docutils literal notranslate"><span class="pre">reverseReverse(xs)</span></code>.  Similarly, the call to <code class="docutils literal notranslate"><span class="pre">check</span></code> is somewhat
+redundant now that Stainless is able to verify the entire proof.  We could
+thus “simplify” the above to</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">reverseReverse</span><span class="p">[</span><span class="nc">T</span><span class="p">](</span><span class="n">l</span><span class="p">:</span> <span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="n">l</span><span class="p">.</span><span class="n">reverse</span><span class="p">.</span><span class="n">reverse</span> <span class="o">==</span> <span class="n">l</span> <span class="n">because</span> <span class="p">{</span>
+    <span class="n">l</span> <span class="k">match</span> <span class="p">{</span>
+      <span class="k">case</span> <span class="nc">Nil</span><span class="p">()</span>       <span class="o">=&gt;</span> <span class="n">trivial</span>
+      <span class="k">case</span> <span class="nc">Cons</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">xs</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="n">snocReverse</span><span class="p">(</span><span class="n">xs</span><span class="p">.</span><span class="n">reverse</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="n">reverseReverse</span><span class="p">(</span><span class="n">xs</span><span class="p">)</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}.</span><span class="n">holds</span>
+</pre></div>
+</div>
+<p>However, the previous version is arguably more readable for a human
+being, and therefore preferable.  In Section “<a class="reference internal" href="#rel-reasoning"><span class="std std-ref">Relational reasoning</span></a>” we
+will see how readability can be improved even further through the use
+of a DSL for equational reasoning.</p>
+<p>So far, we have only considered structurally inductive proofs.
+However, Stainless is also able to verify proofs using <em>natural induction</em>
+– the form of induction that is perhaps more familiar to most
+readers.  Consider the following definition of the exponential
+function <span class="math notranslate nohighlight">\(exp(x, y) = x^y\)</span> over integers:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">exp</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">):</span> <span class="nc">BigInt</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="n">require</span><span class="p">(</span><span class="n">y</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span>
+  <span class="k">if</span>      <span class="p">(</span><span class="n">x</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="mi">0</span>
+  <span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">y</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="mi">1</span>
+  <span class="k">else</span>             <span class="n">x</span> <span class="o">*</span> <span class="n">exp</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>The function <code class="docutils literal notranslate"><span class="pre">exp</span></code> is again defined recursively, but this time using
+<code class="docutils literal notranslate"><span class="pre">if</span></code> statements rather than pattern matching.  Let’s try and prove
+some properties of this function using natural induction.  One such
+property is that for any pair of positive numbers <span class="math notranslate nohighlight">\(x, y \geq 0\)</span>,
+the exponential <span class="math notranslate nohighlight">\(x^y\)</span> is again a positive number.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">positive</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="n">require</span><span class="p">(</span><span class="n">y</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="n">x</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span>
+  <span class="n">exp</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">0</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Since Stainless doesn’t know anything about exponentials, it isn’t able to
+verify the lemma without hints.  As with the previous example, we
+start writing our inductive proof by expanding the top-level <code class="docutils literal notranslate"><span class="pre">if</span></code>
+statement in the definition of <code class="docutils literal notranslate"><span class="pre">exp</span></code>.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">positive</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="n">require</span><span class="p">(</span><span class="n">y</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="n">x</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span>
+  <span class="n">exp</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="n">because</span> <span class="p">{</span>
+    <span class="k">if</span>      <span class="p">(</span><span class="n">x</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="n">check</span> <span class="p">{</span> <span class="n">exp</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="p">}</span>  <span class="c1">// &lt;-- valid</span>
+    <span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">y</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="n">check</span> <span class="p">{</span> <span class="n">exp</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="p">}</span>  <span class="c1">// &lt;-- valid</span>
+    <span class="k">else</span>             <span class="n">check</span> <span class="p">{</span> <span class="n">exp</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="p">}</span>  <span class="c1">// &lt;-- unknown</span>
+  <span class="p">}</span>
+<span class="p">}.</span><span class="n">holds</span>
+</pre></div>
+</div>
+<p>Stainless was able to verify the first two (base) cases, but not the
+inductive step, so let’s continue unfolding <code class="docutils literal notranslate"><span class="pre">exp</span></code> for that case.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">positive</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="n">require</span><span class="p">(</span><span class="n">y</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="n">x</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span>
+  <span class="n">exp</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="n">because</span> <span class="p">{</span>
+    <span class="k">if</span>      <span class="p">(</span><span class="n">x</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="n">trivial</span>
+    <span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">y</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="n">trivial</span>
+    <span class="k">else</span>             <span class="n">check</span> <span class="p">{</span> <span class="n">x</span> <span class="o">*</span> <span class="n">exp</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}.</span><span class="n">holds</span>
+</pre></div>
+</div>
+<p>Although Stainless still isn’t able to verify the lemma, we now see a way
+to prove the inductive step: <code class="docutils literal notranslate"><span class="pre">x</span></code> is positive (by the second
+precondition) and so is <code class="docutils literal notranslate"><span class="pre">exp(x,</span> <span class="pre">y</span> <span class="pre">-</span> <span class="pre">1)</span></code> (by the inductive
+hypothesis).  Hence the product <code class="docutils literal notranslate"><span class="pre">x</span> <span class="pre">*</span> <span class="pre">exp(x,</span> <span class="pre">y</span> <span class="pre">-</span> <span class="pre">1)</span></code> is again
+positive.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">positive</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="n">require</span><span class="p">(</span><span class="n">y</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="n">x</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span>
+  <span class="n">exp</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="n">because</span> <span class="p">{</span>
+    <span class="k">if</span>      <span class="p">(</span><span class="n">x</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="n">trivial</span>
+    <span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">y</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="n">trivial</span>
+    <span class="k">else</span>             <span class="n">check</span> <span class="p">{</span>
+      <span class="n">x</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="n">exp</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="n">because</span> <span class="n">positive</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}.</span><span class="n">holds</span>
+</pre></div>
+</div>
+<p>With these hints, Stainless is able to verify the proof.  Again, we could
+shorten the proof by omitting inequalities that Stainless can infer
+directly, albeit at the expense of readability.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">positiveShort</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="n">require</span><span class="p">(</span><span class="n">y</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="n">x</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+  <span class="n">exp</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="n">because</span> <span class="p">{</span>
+    <span class="k">if</span>      <span class="p">(</span><span class="n">x</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="n">trivial</span>
+    <span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">y</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="n">trivial</span>
+    <span class="k">else</span>             <span class="n">positiveShort</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+  <span class="p">}</span>
+<span class="p">}.</span><span class="n">holds</span>
+</pre></div>
+</div>
+<p>We conclude the section with the inductive proof of another, somewhat
+more interesting property of the exponential function, namely that
+<span class="math notranslate nohighlight">\((x y)^z = x^z y^z\)</span>.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">expMultCommute</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">,</span> <span class="n">z</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="n">require</span><span class="p">(</span><span class="n">z</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span>
+  <span class="n">exp</span><span class="p">(</span><span class="n">x</span> <span class="o">*</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">)</span> <span class="o">==</span> <span class="n">exp</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">z</span><span class="p">)</span> <span class="o">*</span> <span class="n">exp</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">)</span> <span class="n">because</span> <span class="p">{</span>
+    <span class="k">if</span>      <span class="p">(</span><span class="n">x</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="n">trivial</span>
+    <span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">y</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="n">trivial</span>
+    <span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">z</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="n">trivial</span>
+    <span class="k">else</span>             <span class="n">check</span> <span class="p">{</span>
+      <span class="n">x</span> <span class="o">*</span> <span class="n">y</span> <span class="o">*</span> <span class="n">exp</span><span class="p">(</span><span class="n">x</span> <span class="o">*</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">==</span>
+        <span class="n">x</span> <span class="o">*</span> <span class="n">exp</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">z</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">y</span> <span class="o">*</span> <span class="n">exp</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">z</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="n">because</span>
+        <span class="n">expMultCommute</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}.</span><span class="n">holds</span>
+</pre></div>
+</div>
+</section>
+<section id="relational-reasoning">
+<span id="rel-reasoning"></span><h3>Relational reasoning<a class="headerlink" href="#relational-reasoning" title="Permalink to this headline">¶</a></h3>
+<p>The majority of the example propositions we have seen so far related
+some expression (e.g. <code class="docutils literal notranslate"><span class="pre">l.reverse</span> <span class="pre">++</span> <span class="pre">Nil()</span></code> or <code class="docutils literal notranslate"><span class="pre">exp(x,</span> <span class="pre">y)</span></code>) to some
+other expression (e.g. <code class="docutils literal notranslate"><span class="pre">...</span> <span class="pre">==</span> <span class="pre">l1</span></code> or <code class="docutils literal notranslate"><span class="pre">...</span> <span class="pre">&gt;=</span> <span class="pre">0</span></code>).  This is
+certainly a common case among the sorts of propositions about
+functions and data structures one might wish to prove.  The proofs of
+such propositions typically involve some form of <em>relational
+reasoning</em>, i.e. reasoning involving properties (such as transitivity,
+reflexivity or symmetry) of the relations in question.  Stainless knows
+about these properties for built-in relations such as <code class="docutils literal notranslate"><span class="pre">==</span></code> or orders
+on numbers.  For user-defined relations, they first need to be
+established as lemmas.  In this section, we discuss how to make
+effective use of built-in relations, but the general principles extend
+to their user-defined counterparts.</p>
+<p>When working with simple structural equality, we can rely on the default <code class="docutils literal notranslate"><span class="pre">==</span></code>
+operator and Stainless will happily understand when the reflexivity, symmetry and
+transitivity properties apply and use them to conclude bigger proofs. Similarly,
+when working on <code class="docutils literal notranslate"><span class="pre">BigInt</span></code>, Stainless knows about reflexivity, antisymmetry and
+transitivity over <code class="docutils literal notranslate"><span class="pre">&gt;=</span></code> or <code class="docutils literal notranslate"><span class="pre">&lt;=</span></code>, and also antireflexivity, antisymmetry
+and transitivity of <code class="docutils literal notranslate"><span class="pre">&gt;</span></code> and <code class="docutils literal notranslate"><span class="pre">&lt;</span></code>.</p>
+<p>However, even for relatively simple proofs about ADTs, Stainless needs
+hints when combining, say equality, with user-defined operations, such
+as <code class="docutils literal notranslate"><span class="pre">++</span></code> or <code class="docutils literal notranslate"><span class="pre">reverse</span></code> on lists.  For example, Stainless is not able to
+verify that the following holds for arbitrary pairs of lists <code class="docutils literal notranslate"><span class="pre">l1</span></code>
+and <code class="docutils literal notranslate"><span class="pre">l2</span></code>:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="p">(</span><span class="n">l1</span> <span class="o">++</span> <span class="n">l2</span><span class="p">).</span><span class="n">reverse</span> <span class="o">==</span> <span class="n">l2</span><span class="p">.</span><span class="n">reverse</span> <span class="o">++</span> <span class="n">l1</span><span class="p">.</span><span class="n">reverse</span>
+</pre></div>
+</div>
+<p>The hard part of giving hints to Stainless is often to find them in the
+first place.  Here we can apply a general principle on top of
+structural induction (as discussed in the previous section): we start
+from the left-hand side of an equation and build a chain of
+intermediate equations to the right-hand side.  Using <code class="docutils literal notranslate"><span class="pre">check</span></code>
+statements we can identify where Stainless times out and hence potentially
+needs hints.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">reverseAppend</span><span class="p">[</span><span class="nc">T</span><span class="p">](</span><span class="n">l1</span><span class="p">:</span> <span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">],</span> <span class="n">l2</span><span class="p">:</span> <span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="p">(</span> <span class="p">(</span><span class="n">l1</span> <span class="o">++</span> <span class="n">l2</span><span class="p">).</span><span class="n">reverse</span> <span class="o">==</span> <span class="n">l2</span><span class="p">.</span><span class="n">reverse</span> <span class="o">++</span> <span class="n">l1</span><span class="p">.</span><span class="n">reverse</span> <span class="p">)</span> <span class="n">because</span> <span class="p">{</span>
+    <span class="n">l1</span> <span class="k">match</span> <span class="p">{</span>
+      <span class="k">case</span> <span class="nc">Nil</span><span class="p">()</span> <span class="o">=&gt;</span>
+        <span class="cm">/* 1 */</span> <span class="n">check</span> <span class="p">{</span> <span class="p">(</span><span class="nc">Nil</span><span class="p">()</span> <span class="o">++</span> <span class="n">l2</span><span class="p">).</span><span class="n">reverse</span> <span class="o">==</span> <span class="n">l2</span><span class="p">.</span><span class="n">reverse</span>                  <span class="p">}</span> <span class="o">&amp;&amp;</span>
+        <span class="cm">/* 2 */</span> <span class="n">check</span> <span class="p">{</span> <span class="n">l2</span><span class="p">.</span><span class="n">reverse</span>            <span class="o">==</span> <span class="n">l2</span><span class="p">.</span><span class="n">reverse</span> <span class="o">++</span> <span class="nc">Nil</span><span class="p">()</span>         <span class="p">}</span> <span class="o">&amp;&amp;</span>
+        <span class="cm">/* 3 */</span> <span class="n">check</span> <span class="p">{</span> <span class="n">l2</span><span class="p">.</span><span class="n">reverse</span> <span class="o">++</span> <span class="nc">Nil</span><span class="p">()</span>   <span class="o">==</span> <span class="n">l2</span><span class="p">.</span><span class="n">reverse</span> <span class="o">++</span> <span class="nc">Nil</span><span class="p">().</span><span class="n">reverse</span> <span class="p">}</span>
+      <span class="k">case</span> <span class="nc">Cons</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">xs</span><span class="p">)</span> <span class="o">=&gt;</span>
+        <span class="cm">/* 4 */</span> <span class="n">check</span> <span class="p">{</span> <span class="p">((</span><span class="n">x</span> <span class="o">::</span> <span class="n">xs</span><span class="p">)</span> <span class="o">++</span> <span class="n">l2</span><span class="p">).</span><span class="n">reverse</span>       <span class="o">==</span> <span class="p">(</span><span class="n">x</span> <span class="o">::</span> <span class="p">(</span><span class="n">xs</span> <span class="o">++</span> <span class="n">l2</span><span class="p">)).</span><span class="n">reverse</span>       <span class="p">}</span> <span class="o">&amp;&amp;</span>
+        <span class="cm">/* 5 */</span> <span class="n">check</span> <span class="p">{</span> <span class="p">(</span><span class="n">x</span> <span class="o">::</span> <span class="p">(</span><span class="n">xs</span> <span class="o">++</span> <span class="n">l2</span><span class="p">)).</span><span class="n">reverse</span>       <span class="o">==</span> <span class="p">(</span><span class="n">xs</span> <span class="o">++</span> <span class="n">l2</span><span class="p">).</span><span class="n">reverse</span> <span class="o">:+</span> <span class="n">x</span>         <span class="p">}</span> <span class="o">&amp;&amp;</span>
+        <span class="cm">/* 6 */</span> <span class="n">check</span> <span class="p">{</span> <span class="p">(</span><span class="n">xs</span> <span class="o">++</span> <span class="n">l2</span><span class="p">).</span><span class="n">reverse</span> <span class="o">:+</span> <span class="n">x</span>         <span class="o">==</span> <span class="p">(</span><span class="n">l2</span><span class="p">.</span><span class="n">reverse</span> <span class="o">++</span> <span class="n">xs</span><span class="p">.</span><span class="n">reverse</span><span class="p">)</span> <span class="o">:+</span> <span class="n">x</span> <span class="p">}</span> <span class="o">&amp;&amp;</span>
+        <span class="cm">/* 7 */</span> <span class="n">check</span> <span class="p">{</span> <span class="p">(</span><span class="n">l2</span><span class="p">.</span><span class="n">reverse</span> <span class="o">++</span> <span class="n">xs</span><span class="p">.</span><span class="n">reverse</span><span class="p">)</span> <span class="o">:+</span> <span class="n">x</span> <span class="o">==</span> <span class="n">l2</span><span class="p">.</span><span class="n">reverse</span> <span class="o">++</span> <span class="p">(</span><span class="n">xs</span><span class="p">.</span><span class="n">reverse</span> <span class="o">:+</span> <span class="n">x</span><span class="p">)</span> <span class="p">}</span> <span class="o">&amp;&amp;</span>
+        <span class="cm">/* 8 */</span> <span class="n">check</span> <span class="p">{</span> <span class="n">l2</span><span class="p">.</span><span class="n">reverse</span> <span class="o">++</span> <span class="p">(</span><span class="n">xs</span><span class="p">.</span><span class="n">reverse</span> <span class="o">:+</span> <span class="n">x</span><span class="p">)</span> <span class="o">==</span> <span class="n">l2</span><span class="p">.</span><span class="n">reverse</span> <span class="o">++</span> <span class="p">(</span><span class="n">x</span> <span class="o">::</span> <span class="n">xs</span><span class="p">).</span><span class="n">reverse</span> <span class="p">}</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}.</span><span class="n">holds</span>
+</pre></div>
+</div>
+<p>If we run the above code with a decent timeout, Stainless reports four
+<em>UNKNOWN</em> cases: the postcondition of the <code class="docutils literal notranslate"><span class="pre">reverseAppend</span></code> function itself and
+checks number 2, 6 and 7.</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Check #2 fails because, as we saw earlier, Stainless is not capable of
+guessing the <code class="docutils literal notranslate"><span class="pre">rightUnitAppend</span></code> lemma by itself.  We fix this case
+by simply instantiating the lemma, i.e. by appending <code class="docutils literal notranslate"><span class="pre">&amp;&amp;</span>
+<span class="pre">rightUnitAppend(l2.reverse)</span></code> to the base case.</p></li>
+<li><p>Check #6 fails because, at this point, we need to inject the
+induction hypothesis on <code class="docutils literal notranslate"><span class="pre">xs</span></code> and <code class="docutils literal notranslate"><span class="pre">l2</span></code> by adding <code class="docutils literal notranslate"><span class="pre">&amp;&amp;</span>
+<span class="pre">reverseAppend(xs,</span> <span class="pre">l2)</span></code>.</p></li>
+<li><p>Finally, check #7 fails for a similar reason as check #2: we need
+an additional “associativity” lemma to prove that <code class="docutils literal notranslate"><span class="pre">(l1</span> <span class="pre">++</span> <span class="pre">l2)</span> <span class="pre">:+</span> <span class="pre">t</span>
+<span class="pre">==</span> <span class="pre">l1</span> <span class="pre">++</span> <span class="pre">(l2</span> <span class="pre">:+</span> <span class="pre">t)</span></code> holds for any <code class="docutils literal notranslate"><span class="pre">l1</span></code>, <code class="docutils literal notranslate"><span class="pre">l2</span></code> and <code class="docutils literal notranslate"><span class="pre">t</span></code>.  We
+call this lemma <code class="docutils literal notranslate"><span class="pre">snocAfterAppend</span></code> and leave it as an exercise for
+the reader.</p></li>
+</ul>
+</div></blockquote>
+<p>Once we have a valid proof, we can try to optimize it for readability.
+As it stands, the resulting code is rather verbose because both sides
+of most equations are duplicated.  One option is to completely remove
+the equations (they are implied by the instantiations of the lemmas)
+and simply write</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">reverseAppend</span><span class="p">[</span><span class="nc">T</span><span class="p">](</span><span class="n">l1</span><span class="p">:</span> <span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">],</span> <span class="n">l2</span><span class="p">:</span> <span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="p">(</span> <span class="p">(</span><span class="n">l1</span> <span class="o">++</span> <span class="n">l2</span><span class="p">).</span><span class="n">reverse</span> <span class="o">==</span> <span class="n">l2</span><span class="p">.</span><span class="n">reverse</span> <span class="o">++</span> <span class="n">l1</span><span class="p">.</span><span class="n">reverse</span> <span class="p">)</span> <span class="n">because</span> <span class="p">{</span>
+    <span class="n">l1</span> <span class="k">match</span> <span class="p">{</span>
+      <span class="k">case</span> <span class="nc">Nil</span><span class="p">()</span> <span class="o">=&gt;</span>
+        <span class="n">rightUnitAppend</span><span class="p">(</span><span class="n">l2</span><span class="p">.</span><span class="n">reverse</span><span class="p">)</span>
+      <span class="k">case</span> <span class="nc">Cons</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">xs</span><span class="p">)</span> <span class="o">=&gt;</span>
+        <span class="n">reverseAppend</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">l2</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="n">snocAfterAppend</span><span class="p">(</span><span class="n">l2</span><span class="p">.</span><span class="n">reverse</span><span class="p">,</span> <span class="n">xs</span><span class="p">.</span><span class="n">reverse</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}.</span><span class="n">holds</span>
+</pre></div>
+</div>
+<p>Or we can employ the equational reasoning DSL provided by the
+<code class="docutils literal notranslate"><span class="pre">stainless.proofs</span></code> package to remove the duplicate expressions and
+interleave the equations with their associated proofs.  This has the
+advantage of not losing information that is still useful for a human
+being reading the proof later on:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">reverseAppend</span><span class="p">[</span><span class="nc">T</span><span class="p">](</span><span class="n">l1</span><span class="p">:</span> <span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">],</span> <span class="n">l2</span><span class="p">:</span> <span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="p">(</span> <span class="p">(</span><span class="n">l1</span> <span class="o">++</span> <span class="n">l2</span><span class="p">).</span><span class="n">reverse</span> <span class="o">==</span> <span class="n">l2</span><span class="p">.</span><span class="n">reverse</span> <span class="o">++</span> <span class="n">l1</span><span class="p">.</span><span class="n">reverse</span> <span class="p">)</span> <span class="n">because</span> <span class="p">{</span>
+    <span class="n">l1</span> <span class="k">match</span> <span class="p">{</span>
+      <span class="k">case</span> <span class="nc">Nil</span><span class="p">()</span> <span class="o">=&gt;</span> <span class="p">{</span>
+        <span class="p">(</span><span class="nc">Nil</span><span class="p">()</span> <span class="o">++</span> <span class="n">l2</span><span class="p">).</span><span class="n">reverse</span>         <span class="o">==|</span> <span class="n">trivial</span>                     <span class="o">|</span>
+        <span class="n">l2</span><span class="p">.</span><span class="n">reverse</span>                    <span class="o">==|</span> <span class="n">rightUnitAppend</span><span class="p">(</span><span class="n">l2</span><span class="p">.</span><span class="n">reverse</span><span class="p">)</span> <span class="o">|</span>
+        <span class="n">l2</span><span class="p">.</span><span class="n">reverse</span> <span class="o">++</span> <span class="nc">Nil</span><span class="p">()</span>           <span class="o">==|</span> <span class="n">trivial</span>                     <span class="o">|</span>
+        <span class="n">l2</span><span class="p">.</span><span class="n">reverse</span> <span class="o">++</span> <span class="nc">Nil</span><span class="p">().</span><span class="n">reverse</span>
+      <span class="p">}.</span><span class="n">qed</span>
+      <span class="k">case</span> <span class="nc">Cons</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">xs</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">{</span>
+        <span class="p">((</span><span class="n">x</span> <span class="o">::</span> <span class="n">xs</span><span class="p">)</span> <span class="o">++</span> <span class="n">l2</span><span class="p">).</span><span class="n">reverse</span>         <span class="o">==|</span> <span class="n">trivial</span>               <span class="o">|</span>
+        <span class="p">(</span><span class="n">x</span> <span class="o">::</span> <span class="p">(</span><span class="n">xs</span> <span class="o">++</span> <span class="n">l2</span><span class="p">)).</span><span class="n">reverse</span>         <span class="o">==|</span> <span class="n">trivial</span>               <span class="o">|</span>
+        <span class="p">(</span><span class="n">xs</span> <span class="o">++</span> <span class="n">l2</span><span class="p">).</span><span class="n">reverse</span> <span class="o">:+</span> <span class="n">x</span>           <span class="o">==|</span> <span class="n">reverseAppend</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">l2</span><span class="p">)</span> <span class="o">|</span>
+        <span class="p">(</span><span class="n">l2</span><span class="p">.</span><span class="n">reverse</span> <span class="o">++</span> <span class="n">xs</span><span class="p">.</span><span class="n">reverse</span><span class="p">)</span> <span class="o">:+</span> <span class="n">x</span>   <span class="o">==|</span>
+          <span class="n">snocAfterAppend</span><span class="p">(</span><span class="n">l2</span><span class="p">.</span><span class="n">reverse</span><span class="p">,</span> <span class="n">xs</span><span class="p">.</span><span class="n">reverse</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>                <span class="o">|</span>
+        <span class="n">l2</span><span class="p">.</span><span class="n">reverse</span> <span class="o">++</span> <span class="p">(</span><span class="n">xs</span><span class="p">.</span><span class="n">reverse</span> <span class="o">:+</span> <span class="n">x</span><span class="p">)</span>   <span class="o">==|</span> <span class="n">trivial</span>               <span class="o">|</span>
+        <span class="n">l2</span><span class="p">.</span><span class="n">reverse</span> <span class="o">++</span> <span class="p">(</span><span class="n">x</span> <span class="o">::</span> <span class="n">xs</span><span class="p">).</span><span class="n">reverse</span>
+      <span class="p">}.</span><span class="n">qed</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}.</span><span class="n">holds</span>
+</pre></div>
+</div>
+<p>The idea is to group statements in a block
+(<code class="docutils literal notranslate"><span class="pre">{</span> <span class="pre">}</span></code>) and call <code class="docutils literal notranslate"><span class="pre">qed</span></code> on it. Then, instead of writing <code class="docutils literal notranslate"><span class="pre">a</span> <span class="pre">==</span> <span class="pre">b</span> <span class="pre">&amp;&amp;</span> <span class="pre">b</span> <span class="pre">==</span> <span class="pre">c</span>
+<span class="pre">&amp;&amp;</span> <span class="pre">hint1</span> <span class="pre">&amp;&amp;</span> <span class="pre">hint2</span></code> we write <code class="docutils literal notranslate"><span class="pre">a</span> <span class="pre">==|</span> <span class="pre">hint1</span> <span class="pre">|</span> <span class="pre">b</span> <span class="pre">==|</span> <span class="pre">hint2</span> <span class="pre">|</span> <span class="pre">c</span></code>. And when no
+additional hint is required, we can use <code class="docutils literal notranslate"><span class="pre">trivial</span></code> which simply stands for
+<code class="docutils literal notranslate"><span class="pre">true</span></code>.</p>
+<p>Additionally, by using this DSL, we get the same feedback granularity from Stainless
+as if we had used <code class="docutils literal notranslate"><span class="pre">check</span></code> statements. This way we can construct proofs based
+on equality more easily and directly identify where hints are vital.</p>
+<p>One shortcoming of the relational reasoning DSL is that it relies on
+Stainless’ knowledge of the relational properties of the built-in
+relations, and in particular those of equality.  Consequently it works
+badly (if at all) with user-defined relations.  However, since the DSL
+is defined as a library (in <code class="docutils literal notranslate"><span class="pre">library/proof/package.scala</span></code>), it can
+in principle be extended and modified to include specific user-defined
+relations on a case-by-case basis.</p>
+</section>
+<section id="limits-of-the-approach-hofs-quantifiers-and-termination">
+<h3>Limits of the approach: HOFs, quantifiers and termination<a class="headerlink" href="#limits-of-the-approach-hofs-quantifiers-and-termination" title="Permalink to this headline">¶</a></h3>
+<p>While the techniques discussed in this section are useful in general,
+their applicability has, of course, its limitations in practice.  These
+limitations are mostly due to Stainless’ limited support for certain
+language constructs, such as higher-order functions (HOFs) or
+quantifiers (which in turn is due, mostly, to the limited support of
+the corresponding theories in the underlying SMT solvers).</p>
+<p>Still, even using these “experimental” features, one manages to prove
+some interesting propositions.  Here is another list example, which
+relates the <code class="docutils literal notranslate"><span class="pre">foldLeft</span></code>, <code class="docutils literal notranslate"><span class="pre">foldRight</span></code> and <code class="docutils literal notranslate"><span class="pre">reverse</span></code> operations
+defined on lists and makes crucial use of HOFs:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">import</span> <span class="nn">stainless</span><span class="p">.</span><span class="nn">collection</span><span class="p">.</span><span class="n">_</span>
+<span class="k">import</span> <span class="nn">stainless</span><span class="p">.</span><span class="nn">lang</span><span class="p">.</span><span class="n">_</span>
+<span class="k">import</span> <span class="nn">stainless</span><span class="p">.</span><span class="nn">proof</span><span class="p">.</span><span class="n">_</span>
+
+<span class="k">def</span> <span class="nf">folds</span><span class="p">[</span><span class="nc">A</span><span class="p">,</span> <span class="nc">B</span><span class="p">](</span><span class="n">xs</span><span class="p">:</span> <span class="nc">List</span><span class="p">[</span><span class="nc">A</span><span class="p">],</span> <span class="n">z</span><span class="p">:</span> <span class="nc">B</span><span class="p">,</span> <span class="n">f</span><span class="p">:</span> <span class="p">(</span><span class="nc">B</span><span class="p">,</span> <span class="nc">A</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="nc">B</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="kd">val</span> <span class="n">f2</span> <span class="o">=</span> <span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">A</span><span class="p">,</span> <span class="n">z</span><span class="p">:</span> <span class="nc">B</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="n">f</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+  <span class="n">xs</span><span class="p">.</span><span class="n">foldLeft</span><span class="p">(</span><span class="n">z</span><span class="p">)(</span><span class="n">f</span><span class="p">)</span> <span class="o">==</span> <span class="n">xs</span><span class="p">.</span><span class="n">reverse</span><span class="p">.</span><span class="n">foldRight</span><span class="p">(</span><span class="n">z</span><span class="p">)(</span><span class="n">f2</span><span class="p">)</span> <span class="n">because</span> <span class="p">{</span>
+    <span class="n">xs</span> <span class="k">match</span> <span class="p">{</span>
+      <span class="k">case</span> <span class="nc">Nil</span><span class="p">()</span> <span class="o">=&gt;</span> <span class="kc">true</span>
+      <span class="k">case</span> <span class="nc">Cons</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">xs</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">{</span>
+        <span class="p">(</span><span class="n">x</span> <span class="o">::</span> <span class="n">xs</span><span class="p">).</span><span class="n">foldLeft</span><span class="p">(</span><span class="n">z</span><span class="p">)(</span><span class="n">f</span><span class="p">)</span>              <span class="o">==|</span> <span class="n">trivial</span>               <span class="o">|</span>
+        <span class="n">xs</span><span class="p">.</span><span class="n">foldLeft</span><span class="p">(</span><span class="n">f</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">x</span><span class="p">))(</span><span class="n">f</span><span class="p">)</span>               <span class="o">==|</span> <span class="n">folds</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">f</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">x</span><span class="p">),</span> <span class="n">f</span><span class="p">)</span> <span class="o">|</span>
+        <span class="n">xs</span><span class="p">.</span><span class="n">reverse</span><span class="p">.</span><span class="n">foldRight</span><span class="p">(</span><span class="n">f</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">x</span><span class="p">))(</span><span class="n">f2</span><span class="p">)</span>     <span class="o">==|</span> <span class="n">trivial</span>               <span class="o">|</span>
+        <span class="n">xs</span><span class="p">.</span><span class="n">reverse</span><span class="p">.</span><span class="n">foldRight</span><span class="p">(</span><span class="n">f2</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">z</span><span class="p">))(</span><span class="n">f2</span><span class="p">)</span>    <span class="o">==|</span>
+          <span class="n">snocFoldRight</span><span class="p">(</span><span class="n">xs</span><span class="p">.</span><span class="n">reverse</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">f2</span><span class="p">)</span>                           <span class="o">|</span>
+        <span class="p">(</span><span class="n">xs</span><span class="p">.</span><span class="n">reverse</span> <span class="o">:+</span> <span class="n">x</span><span class="p">).</span><span class="n">foldRight</span><span class="p">(</span><span class="n">z</span><span class="p">)(</span><span class="n">f2</span><span class="p">)</span>    <span class="o">==|</span> <span class="n">trivial</span>               <span class="o">|</span>
+        <span class="p">(</span><span class="n">x</span> <span class="o">::</span> <span class="n">xs</span><span class="p">).</span><span class="n">reverse</span><span class="p">.</span><span class="n">foldRight</span><span class="p">(</span><span class="n">z</span><span class="p">)(</span><span class="n">f2</span><span class="p">)</span>
+      <span class="p">}.</span><span class="n">qed</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}.</span><span class="n">holds</span>
+</pre></div>
+</div>
+<p>A rather different, more general issue that arises when proving
+propositions using Stainless is related to <em>termination checking</em>.  When
+verifying inductive proofs (and more generally the postconditions of
+recursive methods), Stainless assumes that the corresponding proofs are
+<em>well-founded</em>, or equivalently, that the corresponding recursive
+methods terminate on all inputs.  It is thus possible – and indeed rather
+easy – to write bogus proofs (intentionally or accidentally) which
+Stainless recognizes as valid, but which are not well-founded.  Consider
+the following lemma, which apparently establishes that all lists are
+empty:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">import</span> <span class="nn">stainless</span><span class="p">.</span><span class="nn">collection</span><span class="p">.</span><span class="n">_</span>
+<span class="k">import</span> <span class="nn">stainless</span><span class="p">.</span><span class="nn">lang</span><span class="p">.</span><span class="n">_</span>
+<span class="k">import</span> <span class="nn">stainless</span><span class="p">.</span><span class="nn">proof</span><span class="p">.</span><span class="n">_</span>
+
+<span class="k">object</span> <span class="nc">NotWellFounded</span> <span class="p">{</span>
+
+  <span class="c1">// This proof is not well-founded.  Since Stainless doesn&#39;t run the</span>
+  <span class="c1">// termination checker by default, it will accept the proof as</span>
+  <span class="c1">// valid.</span>
+  <span class="k">def</span> <span class="nf">allListsAreEmpty</span><span class="p">[</span><span class="nc">T</span><span class="p">](</span><span class="n">xs</span><span class="p">:</span> <span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="n">xs</span><span class="p">.</span><span class="n">isEmpty</span> <span class="n">because</span> <span class="p">{</span>
+      <span class="n">xs</span> <span class="k">match</span> <span class="p">{</span>
+        <span class="k">case</span> <span class="nc">Nil</span><span class="p">()</span>       <span class="o">=&gt;</span> <span class="n">trivial</span>
+        <span class="k">case</span> <span class="nc">Cons</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">xs</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="n">allListsAreEmpty</span><span class="p">(</span><span class="n">x</span> <span class="o">::</span> <span class="n">xs</span><span class="p">)</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+  <span class="p">}.</span><span class="n">holds</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Stainless hences performs termination checking by default to minimize
+the risk of accidentally writing bogus proofs such as the one above.
+It will thus emit a warning if it cannot prove that a function terminates, or
+if it can show that its measure (inferred or user-defined) does not decreases between
+recursive calls.</p>
+</section>
+</section>
+<section id="techniques-for-proving-non-trivial-postconditions">
+<span id="post-cond"></span><h2>Techniques for proving non-trivial postconditions<a class="headerlink" href="#techniques-for-proving-non-trivial-postconditions" title="Permalink to this headline">¶</a></h2>
+<p>When proving a mathematical lemma, the return type of the
+corresponding function is most of
+the time, if not always, <code class="docutils literal notranslate"><span class="pre">Boolean</span></code>. For those proofs it is rather easy to
+write a postcondition: using <code class="docutils literal notranslate"><span class="pre">holds</span></code> is generally enough.</p>
+<p>But when it comes to writing postconditions for more general functions, such as
+the addition of rational numbers, we are no longer dealing with <code class="docutils literal notranslate"><span class="pre">Boolean</span></code> so
+we need a strategy to properly write <code class="docutils literal notranslate"><span class="pre">ensuring</span></code> statements.</p>
+<section id="rationals-a-simple-example">
+<h3>Rationals: a simple example<a class="headerlink" href="#rationals-a-simple-example" title="Permalink to this headline">¶</a></h3>
+<p>Let’s take rational numbers as an example: we define them as a case class with
+two attributes, <cite>n</cite> for the numerator and <cite>d</cite> for the denominator. We also
+define three simple properties on them: <code class="docutils literal notranslate"><span class="pre">isRational</span></code>, <code class="docutils literal notranslate"><span class="pre">isNonZero</span></code> and
+<code class="docutils literal notranslate"><span class="pre">isPositive</span></code>.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">case</span> <span class="k">class</span> <span class="nc">Rational</span><span class="p">(</span><span class="n">n</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">def</span> <span class="nf">isRational</span> <span class="o">=</span> <span class="n">d</span> <span class="o">!=</span> <span class="mi">0</span>
+  <span class="k">def</span> <span class="nf">isPositive</span> <span class="o">=</span> <span class="n">isRational</span> <span class="o">&amp;&amp;</span> <span class="p">(</span><span class="n">n</span> <span class="o">*</span> <span class="n">d</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span>
+  <span class="k">def</span> <span class="nf">isNonZero</span>  <span class="o">=</span> <span class="n">isRational</span> <span class="o">&amp;&amp;</span> <span class="p">(</span><span class="n">n</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span>
+
+  <span class="c1">// ...</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>And on top of that, we want to support addition on <code class="docutils literal notranslate"><span class="pre">Rational</span></code> in a way that
+the rationality and positiveness properties are correctly preserved:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">+</span><span class="p">(</span><span class="n">that</span><span class="p">:</span> <span class="nc">Rational</span><span class="p">):</span> <span class="nc">Rational</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="n">require</span><span class="p">(</span><span class="n">isRational</span> <span class="o">&amp;&amp;</span> <span class="n">that</span><span class="p">.</span><span class="n">isRational</span><span class="p">)</span>
+  <span class="nc">Rational</span><span class="p">(</span><span class="n">n</span> <span class="o">*</span> <span class="n">that</span><span class="p">.</span><span class="n">d</span> <span class="o">+</span> <span class="n">that</span><span class="p">.</span><span class="n">n</span> <span class="o">*</span> <span class="n">d</span><span class="p">,</span> <span class="n">d</span> <span class="o">*</span> <span class="n">that</span><span class="p">.</span><span class="n">d</span><span class="p">)</span>
+<span class="p">}</span> <span class="n">ensuring</span> <span class="p">{</span> <span class="n">res</span> <span class="o">=&gt;</span>
+  <span class="n">res</span><span class="p">.</span><span class="n">isRational</span> <span class="o">&amp;&amp;</span>
+  <span class="p">(</span><span class="bp">this</span><span class="p">.</span><span class="n">isPositive</span> <span class="o">==</span> <span class="n">that</span><span class="p">.</span><span class="n">isPositive</span> <span class="o">==&gt;</span> <span class="n">res</span><span class="p">.</span><span class="n">isPositive</span> <span class="o">==</span> <span class="bp">this</span><span class="p">.</span><span class="n">isPositive</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>In this simple case, things work nicely and we can write the
+multiplication in a similar fashion:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">*</span><span class="p">(</span><span class="n">that</span><span class="p">:</span> <span class="nc">Rational</span><span class="p">):</span> <span class="nc">Rational</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="n">require</span><span class="p">(</span><span class="n">isRational</span> <span class="o">&amp;&amp;</span> <span class="n">that</span><span class="p">.</span><span class="n">isRational</span><span class="p">)</span>
+  <span class="nc">Rational</span><span class="p">(</span><span class="n">n</span> <span class="o">*</span> <span class="n">that</span><span class="p">.</span><span class="n">n</span><span class="p">,</span> <span class="n">d</span> <span class="o">*</span> <span class="n">that</span><span class="p">.</span><span class="n">d</span><span class="p">)</span>
+<span class="p">}</span> <span class="n">ensuring</span> <span class="p">{</span> <span class="n">res</span> <span class="o">=&gt;</span>
+  <span class="n">res</span><span class="p">.</span><span class="n">isRational</span> <span class="o">&amp;&amp;</span>
+  <span class="p">(</span><span class="n">res</span><span class="p">.</span><span class="n">isNonZero</span>  <span class="o">==</span> <span class="p">(</span><span class="bp">this</span><span class="p">.</span><span class="n">isNonZero</span> <span class="o">&amp;&amp;</span> <span class="n">that</span><span class="p">.</span><span class="n">isNonZero</span><span class="p">))</span> <span class="o">&amp;&amp;</span>
+  <span class="p">(</span><span class="n">res</span><span class="p">.</span><span class="n">isPositive</span> <span class="o">==</span> <span class="p">(</span><span class="o">!</span><span class="n">res</span><span class="p">.</span><span class="n">isNonZero</span> <span class="o">||</span> <span class="bp">this</span><span class="p">.</span><span class="n">isPositive</span> <span class="o">==</span> <span class="n">that</span><span class="p">.</span><span class="n">isPositive</span><span class="p">))</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="measures-a-slightly-more-complex-example">
+<h3>Measures: a slightly more complex example<a class="headerlink" href="#measures-a-slightly-more-complex-example" title="Permalink to this headline">¶</a></h3>
+<p>Now let’s look at a slightly more complex example: measures on
+discrete probability spaces.  We represent such measures using a
+<code class="docutils literal notranslate"><span class="pre">List</span></code>-like recursive data structure: a generic abstract class
+<code class="docutils literal notranslate"><span class="pre">Meas[A]</span></code> that has two subclasses, <code class="docutils literal notranslate"><span class="pre">Empty[A]</span></code> and <code class="docutils literal notranslate"><span class="pre">Cons[A]</span></code>.
+The constructor of the class <code class="docutils literal notranslate"><span class="pre">Empty[A]</span></code> takes no arguments; it
+represents an “empty” measure that evaluates to 0 when applied to any
+set of values of type <code class="docutils literal notranslate"><span class="pre">A</span></code>.  The constructor of <code class="docutils literal notranslate"><span class="pre">Cons[A]</span></code>, on the
+other hand, takes three parameters: a value <code class="docutils literal notranslate"><span class="pre">x</span></code>, its associated
+weight <code class="docutils literal notranslate"><span class="pre">w</span></code> expressed as a <code class="docutils literal notranslate"><span class="pre">Rational</span></code> (since Stainless doesn’t quite yet
+support real numbers out of the box), and another measure <code class="docutils literal notranslate"><span class="pre">m</span></code> on
+<code class="docutils literal notranslate"><span class="pre">A</span></code>.  The value <code class="docutils literal notranslate"><span class="pre">Cons(x,</span> <span class="pre">w,</span> <span class="pre">m)</span></code> represents the measure obtained by
+adding to <code class="docutils literal notranslate"><span class="pre">m</span></code> the “single-point” measure that evaluates to <code class="docutils literal notranslate"><span class="pre">w</span></code> at
+<code class="docutils literal notranslate"><span class="pre">x</span></code> and to 0 everywhere else.  We also define an <code class="docutils literal notranslate"><span class="pre">isMeasure</span></code>
+property – similar to the <code class="docutils literal notranslate"><span class="pre">isRational</span></code> property presented above –
+which recursively checks that all the weights in a measure are
+positive rationals (note that all our measures have finite support).</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="cm">/** Measures on discrete probability spaces. */</span>
+<span class="k">sealed</span> <span class="k">abstract</span> <span class="k">class</span> <span class="nc">Meas</span><span class="p">[</span><span class="nc">A</span><span class="p">]</span> <span class="p">{</span>
+
+  <span class="cm">/** All weights must be positive. */</span>
+  <span class="k">def</span> <span class="nf">isMeasure</span><span class="p">:</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="bp">this</span> <span class="k">match</span> <span class="p">{</span>
+    <span class="k">case</span> <span class="nc">Empty</span><span class="p">()</span>       <span class="o">=&gt;</span> <span class="kc">true</span>
+    <span class="k">case</span> <span class="nc">Cons</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">m</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="n">w</span><span class="p">.</span><span class="n">isPositive</span> <span class="o">&amp;&amp;</span> <span class="n">m</span><span class="p">.</span><span class="n">isMeasure</span>
+  <span class="p">}</span>
+
+  <span class="c1">// ...</span>
+<span class="p">}</span>
+
+<span class="cm">/** The empty measure maps every subset of the space A to 0. */</span>
+<span class="k">case</span> <span class="k">class</span> <span class="nc">Empty</span><span class="p">[</span><span class="nc">A</span><span class="p">]()</span> <span class="k">extends</span> <span class="nc">Meas</span><span class="p">[</span><span class="nc">A</span><span class="p">]</span>
+
+<span class="cm">/**</span>
+<span class="cm"> * The &#39;Cons&#39; measure adjoins an additional element &#39;x&#39; of type &#39;A&#39;</span>
+<span class="cm"> * to an existing measure &#39;m&#39; over &#39;A&#39;.  Note that &#39;x&#39; might already</span>
+<span class="cm"> * be present in &#39;m&#39;.</span>
+<span class="cm"> */</span>
+<span class="k">case</span> <span class="k">class</span> <span class="nc">Cons</span><span class="p">[</span><span class="nc">A</span><span class="p">](</span><span class="n">x</span><span class="p">:</span> <span class="nc">A</span><span class="p">,</span> <span class="n">w</span><span class="p">:</span> <span class="nc">Rational</span><span class="p">,</span> <span class="n">m</span><span class="p">:</span> <span class="nc">Meas</span><span class="p">[</span><span class="nc">A</span><span class="p">])</span> <span class="k">extends</span> <span class="nc">Meas</span><span class="p">[</span><span class="nc">A</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>The defining operation on a measure <code class="docutils literal notranslate"><span class="pre">m</span></code> is its evaluation <code class="docutils literal notranslate"><span class="pre">m(xs)</span></code>
+(or equivalently <code class="docutils literal notranslate"><span class="pre">m.apply(xs)</span></code>) on some set <code class="docutils literal notranslate"><span class="pre">xs:</span> <span class="pre">Set[A]</span></code>, i.e. on a
+subset of the “space” <code class="docutils literal notranslate"><span class="pre">A</span></code>.  The value of <code class="docutils literal notranslate"><span class="pre">m</span></code> should be a positive
+rational for any such set <code class="docutils literal notranslate"><span class="pre">xs</span></code>, provided <code class="docutils literal notranslate"><span class="pre">m.isMeasure</span></code> holds.
+This suggests <code class="docutils literal notranslate"><span class="pre">_.isPositive</span></code> as the postcondition for <code class="docutils literal notranslate"><span class="pre">apply</span></code>,
+but simply claiming that the result is positive is not enough for Stainless
+to verify this postcondition.</p>
+<p>We can provide the necessary hint to Stainless by performing structural
+induction on <code class="docutils literal notranslate"><span class="pre">this</span></code> inside the postcondition as follows:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="cm">/** Compute the value of this measure on a subset of the space &#39;A&#39;. */</span>
+<span class="k">def</span> <span class="nf">apply</span><span class="p">(</span><span class="n">xs</span><span class="p">:</span> <span class="nc">Set</span><span class="p">[</span><span class="nc">A</span><span class="p">]):</span> <span class="nc">Rational</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="n">require</span> <span class="p">(</span><span class="n">isMeasure</span><span class="p">)</span>
+  <span class="bp">this</span> <span class="k">match</span> <span class="p">{</span>
+    <span class="k">case</span> <span class="nc">Empty</span><span class="p">()</span>       <span class="o">=&gt;</span> <span class="nc">Rational</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="k">case</span> <span class="nc">Cons</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">m</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="k">if</span> <span class="p">(</span><span class="n">xs</span> <span class="n">contains</span> <span class="n">x</span><span class="p">)</span> <span class="n">w</span> <span class="o">+</span> <span class="n">m</span><span class="p">(</span><span class="n">xs</span><span class="p">)</span> <span class="k">else</span> <span class="n">m</span><span class="p">(</span><span class="n">xs</span><span class="p">)</span>
+  <span class="p">}</span>
+<span class="p">}</span> <span class="n">ensuring</span> <span class="p">{</span> <span class="n">res</span> <span class="o">=&gt;</span>
+  <span class="n">res</span><span class="p">.</span><span class="n">isPositive</span> <span class="n">because</span> <span class="p">{</span>
+    <span class="bp">this</span> <span class="k">match</span> <span class="p">{</span>
+      <span class="k">case</span> <span class="nc">Empty</span><span class="p">()</span>       <span class="o">=&gt;</span> <span class="n">trivial</span>
+      <span class="k">case</span> <span class="nc">Cons</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">m</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="n">m</span><span class="p">(</span><span class="n">xs</span><span class="p">).</span><span class="n">isPositive</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Notice the similarity between the pattern match in the body of the
+<code class="docutils literal notranslate"><span class="pre">apply</span></code> function and that in the postcondition.  With this hint,
+Stainless is able to verify the postcondition.</p>
+</section>
+</section>
+<section id="a-complex-example-additivity-of-measures">
+<h2>A complex example: additivity of measures<a class="headerlink" href="#a-complex-example-additivity-of-measures" title="Permalink to this headline">¶</a></h2>
+<p>Using the principles and techniques discussed so far, one can prove
+quite advanced propositions using Stainless.  Returning to the
+measure-theoretic example from the previous section, we would like to
+prove that our implementation of measures is properly <em>additive</em>.
+Formally, a measure <span class="math notranslate nohighlight">\(\mu \colon A \to \mathbb{R}\)</span> on a countable
+set <span class="math notranslate nohighlight">\(A\)</span> must fulfill the following additivity property
+<a class="footnote-reference brackets" href="#dicrete-meas" id="id4">3</a>:</p>
+<div class="math notranslate nohighlight">
+\[\forall A_1, A_2 \subseteq A . A_1 \cap A_2 = \emptyset \Rightarrow
+\mu(A_1 \cup A_2) = \mu(A_1) + \mu(A_2)\]</div>
+<p>which we can express in Stainless as</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">additivity</span><span class="p">[</span><span class="nc">A</span><span class="p">](</span><span class="n">m</span><span class="p">:</span> <span class="nc">Meas</span><span class="p">[</span><span class="nc">A</span><span class="p">],</span> <span class="n">xs</span><span class="p">:</span> <span class="nc">Set</span><span class="p">[</span><span class="nc">A</span><span class="p">],</span> <span class="n">ys</span><span class="p">:</span> <span class="nc">Set</span><span class="p">[</span><span class="nc">A</span><span class="p">]):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="n">require</span><span class="p">(</span><span class="n">m</span><span class="p">.</span><span class="n">isMeasure</span> <span class="o">&amp;&amp;</span> <span class="p">(</span><span class="n">xs</span> <span class="n">&amp;</span> <span class="n">ys</span><span class="p">).</span><span class="n">isEmpty</span><span class="p">)</span>
+  <span class="n">m</span><span class="p">(</span><span class="n">xs</span> <span class="o">++</span> <span class="n">ys</span><span class="p">)</span> <span class="o">==</span> <span class="n">m</span><span class="p">(</span><span class="n">xs</span><span class="p">)</span> <span class="o">+</span> <span class="n">m</span><span class="p">(</span><span class="n">ys</span><span class="p">)</span>
+<span class="p">}.</span><span class="n">holds</span>
+</pre></div>
+</div>
+<p>We can prove this property using structural induction on the parameter
+<code class="docutils literal notranslate"><span class="pre">m</span></code>, case analysis on the parameters <code class="docutils literal notranslate"><span class="pre">xs</span></code> and <code class="docutils literal notranslate"><span class="pre">ys</span></code>, equational
+reasoning, and properties of rational numbers (in the form of
+user-defined lemmas) as well as sets (using Stainless’s built-in support).</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">additivity</span><span class="p">[</span><span class="nc">A</span><span class="p">](</span><span class="n">m</span><span class="p">:</span> <span class="nc">Meas</span><span class="p">[</span><span class="nc">A</span><span class="p">],</span> <span class="n">xs</span><span class="p">:</span> <span class="nc">Set</span><span class="p">[</span><span class="nc">A</span><span class="p">],</span> <span class="n">ys</span><span class="p">:</span> <span class="nc">Set</span><span class="p">[</span><span class="nc">A</span><span class="p">]):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="n">require</span><span class="p">(</span><span class="n">m</span><span class="p">.</span><span class="n">isMeasure</span> <span class="o">&amp;&amp;</span> <span class="p">(</span><span class="n">xs</span> <span class="n">&amp;</span> <span class="n">ys</span><span class="p">).</span><span class="n">isEmpty</span><span class="p">)</span>
+  <span class="n">m</span><span class="p">(</span><span class="n">xs</span> <span class="o">++</span> <span class="n">ys</span><span class="p">)</span> <span class="o">==</span> <span class="n">m</span><span class="p">(</span><span class="n">xs</span><span class="p">)</span> <span class="o">+</span> <span class="n">m</span><span class="p">(</span><span class="n">ys</span><span class="p">)</span> <span class="n">because</span> <span class="p">{</span>
+    <span class="n">m</span> <span class="k">match</span> <span class="p">{</span>
+      <span class="k">case</span> <span class="nc">Empty</span><span class="p">()</span>       <span class="o">=&gt;</span> <span class="n">trivial</span>
+      <span class="k">case</span> <span class="nc">Cons</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="k">if</span> <span class="p">(</span><span class="n">xs</span> <span class="n">contains</span> <span class="n">x</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">w</span> <span class="o">+</span> <span class="n">n</span><span class="p">(</span><span class="n">xs</span> <span class="o">++</span> <span class="n">ys</span><span class="p">)</span>     <span class="o">==|</span> <span class="n">additivity</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">xs</span><span class="p">,</span> <span class="n">ys</span><span class="p">)</span>        <span class="o">|</span>
+        <span class="n">w</span> <span class="o">+</span> <span class="p">(</span><span class="n">n</span><span class="p">(</span><span class="n">xs</span><span class="p">)</span> <span class="o">+</span> <span class="n">n</span><span class="p">(</span><span class="n">ys</span><span class="p">))</span> <span class="o">==|</span> <span class="n">plusAssoc</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">n</span><span class="p">(</span><span class="n">xs</span><span class="p">),</span> <span class="n">n</span><span class="p">(</span><span class="n">ys</span><span class="p">))</span>   <span class="o">|</span>
+        <span class="p">(</span><span class="n">w</span> <span class="o">+</span> <span class="n">n</span><span class="p">(</span><span class="n">xs</span><span class="p">))</span> <span class="o">+</span> <span class="n">n</span><span class="p">(</span><span class="n">ys</span><span class="p">)</span> <span class="o">==|</span> <span class="o">!</span><span class="p">(</span><span class="n">ys</span> <span class="n">contains</span> <span class="n">x</span><span class="p">)</span>             <span class="o">|</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">xs</span><span class="p">)</span>       <span class="o">+</span> <span class="n">m</span><span class="p">(</span><span class="n">ys</span><span class="p">)</span>
+      <span class="p">}.</span><span class="n">qed</span> <span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">ys</span> <span class="n">contains</span> <span class="n">x</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">w</span> <span class="o">+</span> <span class="n">n</span><span class="p">(</span><span class="n">xs</span> <span class="o">++</span> <span class="n">ys</span><span class="p">)</span>     <span class="o">==|</span> <span class="n">additivity</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">xs</span><span class="p">,</span> <span class="n">ys</span><span class="p">)</span>        <span class="o">|</span>
+        <span class="n">w</span> <span class="o">+</span> <span class="p">(</span><span class="n">n</span><span class="p">(</span><span class="n">xs</span><span class="p">)</span> <span class="o">+</span> <span class="n">n</span><span class="p">(</span><span class="n">ys</span><span class="p">))</span> <span class="o">==|</span> <span class="n">plusComm</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="p">(</span><span class="n">n</span><span class="p">(</span><span class="n">xs</span><span class="p">)</span> <span class="o">+</span> <span class="n">n</span><span class="p">(</span><span class="n">ys</span><span class="p">)))</span> <span class="o">|</span>
+        <span class="p">(</span><span class="n">n</span><span class="p">(</span><span class="n">xs</span><span class="p">)</span> <span class="o">+</span> <span class="n">n</span><span class="p">(</span><span class="n">ys</span><span class="p">))</span> <span class="o">+</span> <span class="n">w</span> <span class="o">==|</span> <span class="n">plusAssoc</span><span class="p">(</span><span class="n">n</span><span class="p">(</span><span class="n">xs</span><span class="p">),</span> <span class="n">n</span><span class="p">(</span><span class="n">ys</span><span class="p">),</span> <span class="n">w</span><span class="p">)</span>   <span class="o">|</span>
+        <span class="n">n</span><span class="p">(</span><span class="n">xs</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="n">n</span><span class="p">(</span><span class="n">ys</span><span class="p">)</span> <span class="o">+</span> <span class="n">w</span><span class="p">)</span> <span class="o">==|</span> <span class="n">plusComm</span><span class="p">(</span><span class="n">n</span><span class="p">(</span><span class="n">ys</span><span class="p">),</span> <span class="n">w</span><span class="p">)</span>           <span class="o">|</span>
+        <span class="n">n</span><span class="p">(</span><span class="n">xs</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="n">w</span> <span class="o">+</span> <span class="n">n</span><span class="p">(</span><span class="n">ys</span><span class="p">))</span> <span class="o">==|</span> <span class="o">!</span><span class="p">(</span><span class="n">xs</span> <span class="n">contains</span> <span class="n">x</span><span class="p">)</span>             <span class="o">|</span>
+        <span class="n">m</span><span class="p">(</span><span class="n">xs</span><span class="p">)</span> <span class="o">+</span> <span class="n">m</span><span class="p">(</span><span class="n">ys</span><span class="p">)</span>
+      <span class="p">}.</span><span class="n">qed</span> <span class="k">else</span> <span class="p">{</span>
+        <span class="n">n</span><span class="p">(</span><span class="n">xs</span> <span class="o">++</span> <span class="n">ys</span><span class="p">)</span>         <span class="o">==|</span> <span class="n">additivity</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">xs</span><span class="p">,</span> <span class="n">ys</span><span class="p">)</span>        <span class="o">|</span>
+        <span class="n">n</span><span class="p">(</span><span class="n">xs</span><span class="p">)</span> <span class="o">+</span> <span class="n">n</span><span class="p">(</span><span class="n">ys</span><span class="p">)</span>
+      <span class="p">}.</span><span class="n">qed</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}.</span><span class="n">holds</span>
+</pre></div>
+</div>
+<p>The full proof (including the proofs of all helper lemmas) as well as
+its generalization to <em>sub-additivity</em> can be found in the
+<code class="docutils literal notranslate"><span class="pre">testcases/verification/proof/measure/</span></code> directory of the Stainless
+distribution <a class="footnote-reference brackets" href="#example-dir" id="id5">1</a>.</p>
+</section>
+<section id="quick-recap">
+<h2>Quick Recap<a class="headerlink" href="#quick-recap" title="Permalink to this headline">¶</a></h2>
+<p>Let’s summarize what we’ve learned here. To write proofs efficiently,
+it’s good to keep the following in mind:</p>
+<ol class="arabic">
+<li><p>Always use a proper timeout and ask Stainless for more information about
+what he tries to verify, e.g. <code class="docutils literal notranslate"><span class="pre">--timeout=5</span> <span class="pre">--debug=verification</span></code>.</p></li>
+<li><p>Use <code class="docutils literal notranslate"><span class="pre">&#64;induct</span></code> when working on structurally inductive proofs to
+get a more precise feedback from Stainless: this will decompose the
+proof into a base case and an inductive case for the first argument
+of the function under consideration.</p>
+<p>If Stainless isn’t able to verify the proof using <code class="docutils literal notranslate"><span class="pre">&#64;induct</span></code>, try
+performing manual case analysis.</p>
+</li>
+<li><p>Modularize your proofs and verify <em>sub-goals</em>!</p>
+<ul class="simple">
+<li><p>use plenty of helper lemmas;</p></li>
+<li><p>use <code class="docutils literal notranslate"><span class="pre">check</span></code> abundantly;</p></li>
+<li><p>if possible use the relational reasoning DSL presented above.</p></li>
+</ul>
+<p>This is especially handy when you can connect the two sides of a relational
+claim with sub-statements.</p>
+</li>
+</ol>
+<p class="rubric">Footnotes</p>
+<dl class="footnote brackets">
+<dt class="label" id="example-dir"><span class="brackets">1</span><span class="fn-backref">(<a href="#id1">1</a>,<a href="#id5">2</a>)</span></dt>
+<dd><p>The source code of this example and all others in
+this chapter is included in the Stainless distribution.  Examples about
+lists can be found in <code class="docutils literal notranslate"><span class="pre">library/collection/List.scala</span></code>, other
+examples are located in the <code class="docutils literal notranslate"><span class="pre">testcases/verification/proof/</span></code>
+directory.</p>
+</dd>
+<dt class="label" id="props-not-types"><span class="brackets"><a class="fn-backref" href="#id2">2</a></span></dt>
+<dd><p>Propositions and proofs
+live in the same universe in Stainless.  This is contrary to
+e.g. type-theoretic proof assistants where propositions are
+represented by types and proofs are terms inhabiting such types.</p>
+</dd>
+<dt class="label" id="dicrete-meas"><span class="brackets"><a class="fn-backref" href="#id4">3</a></span></dt>
+<dd><p>To be precise, we are assuming here the underlying
+measurable space <span class="math notranslate nohighlight">\((A, \mathcal{P}(A))\)</span>, where <span class="math notranslate nohighlight">\(A\)</span> is
+countable and <span class="math notranslate nohighlight">\(\mathcal{P}(A)\)</span> denotes its discrete σ-algebra
+(i.e. the power set of <span class="math notranslate nohighlight">\(A\)</span>).</p>
+</dd>
+</dl>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="genc.html" class="btn btn-neutral float-left" title="Generating C Code" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="limitations.html" class="btn btn-neutral float-right" title="Limitations of Verification" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2009-2021 EPFL, Lausanne.
+      <span class="lastupdated">Last updated on Dec 17, 2023.
+      </span></p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
