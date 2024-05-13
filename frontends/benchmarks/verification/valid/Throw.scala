@@ -2,12 +2,11 @@ import stainless.lang._
 
 class IllegalArgumentException(msg: String) extends Exception
 
-object Throw {
+object Throw:
   def f_throw_unreachable(x: BigInt): BigInt = {
     require(x >= 0)
     if (x < 0) then
       throw new IllegalArgumentException("x should not be negative")
-
     x + 1
   } ensuring(res => res >= 1)
 
@@ -24,9 +23,5 @@ object Throw {
         throw new IllegalArgumentException("i and acc should not be negative")
 
     ) invariant(i >= 0 && acc >= 0)
-
     acc
-
   } ensuring(res => res >= 0)
-
-}

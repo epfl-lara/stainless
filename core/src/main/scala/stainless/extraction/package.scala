@@ -36,6 +36,7 @@ package object extraction {
     "MethodLifting"             -> "Lift methods into dispatching functions",
     "MergeInvariants"           -> "Merge all class invariants into a single method",
     "ValueClasses"              -> "Erase value classes",
+    "ExceptionLifting"          -> "Removes all throw statements, and replaces them with an assertion with false condition",
     "FieldAccessors"            -> "Inline field accessors of concrete classes",
     "EffectElaboration"         -> "Transform all side-effectful operations into mutable map updates",
     "AntiAliasing"              -> "Rewrite field and array mutations",

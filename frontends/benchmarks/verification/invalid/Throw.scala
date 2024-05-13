@@ -2,7 +2,7 @@ import stainless.lang._
 
 class IllegalArgumentException(msg: String) extends Exception
 
-object Throw
+object Throw:
   def f_throw_reachable(x: BigInt): BigInt = 
     if (x < 0) then
       throw new IllegalArgumentException("x should not be negative")
