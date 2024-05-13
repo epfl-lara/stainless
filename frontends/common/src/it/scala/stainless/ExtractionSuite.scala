@@ -102,12 +102,7 @@ abstract class ExtractionSuite extends AnyFunSpec with inox.ResourceUtils with I
     val checkFiles = files.map { f =>
       f -> Try(scala.io.Source.fromFile(f.replace(".scala", ".check")))
         .toOption
-        .orElse {
-          val checkFile =
-            if (isScala2) f.replace(".scala", ".scalac.check")
-            else f.replace(".scala", ".dotty.check")
-          Try(scala.io.Source.fromFile(checkFile)).toOption
-        }.getOrElse(fail(s"Could not find check file for negative test $f"))
+        .getOrElse(fail(s"Could not find check file for negative test $f"))
         .getLines().map(_.stripTrailing()).toSeq
     }.toMap
 

@@ -1,6 +1,0 @@
-[ Error  ] Purity3.scala:15:7: Function `mutation` has effect on the following @pure parameters:
-[ Error  ]   -box
-[ Error  ] Hint: box is modified by the calls to the following functions:
-[ Error  ]   -doStuff
-             def mutation(@pure box: Box): Boolean = {
-                 ^^^^^^^^

@@ -1,3 +1,0 @@
-[ Error  ] AnonymousClassRefine.scala:11:5: Stainless does not support type AnonymousClassesRefine.Foo{val baz: Boolean}
-               val foo = new Foo {
-               ^^^^^^^^^^^^^^^^^^^...
