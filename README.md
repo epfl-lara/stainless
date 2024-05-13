@@ -102,6 +102,17 @@ See [frontends/benchmarks/verification/valid/](frontends/benchmarks/verification
 [bolts repository](https://github.com/epfl-lara/bolts/) for a larger collection.
 More information is available in the documentation links.
 
+### SSH and VSCode
+
+Visual Studio Code offers a feature allowing to connect to a host over SSH and edit code located on this host. This is useful to edit code on a remote machine using the local Visual Studio Code editor and running Stainless on this remote machine. See [this official documentation](https://code.visualstudio.com/docs/remote/ssh) to learn more about this feature.
+
+If you have access to a remote machine over SSH, this is the recommended way to use Stainless. Please note you have to install Stainless on the remote machine following the instructions above.
+
+### Github Codespaces
+
+Github Codespaces
+To allow running Stainless with only a browser, we have provided a sample repository to use Stainless with Github Codespaces. Github Codespaces are cloud machines that can be access via Visual Studio Code locally or in the browser. In our experience (as of October 2023), this flow works well, given the provided Ubuntu Linux virtual machines with 16GB of RAM and substantial processing power. Please see [this repository](https://github.com/samuelchassot/Stainless-codespaces) for further details.
+
 ## Further Documentation and Learning Materials
 
 To get started, see videos:
