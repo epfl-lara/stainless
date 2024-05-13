@@ -296,7 +296,6 @@ trait Printer extends oo.Printer {
     case CellSwap(cell1, cell2) => 
       p"swap($cell1, $cell2)"
 
-
     case LetVar(vd, value, expr) =>
       p"""|var $vd = $value
           |$expr"""
