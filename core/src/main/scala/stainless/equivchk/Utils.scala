@@ -44,6 +44,31 @@ trait Utils {
     }
   }
 
+  def copyMeasure(symbols: Symbols, model: FunDef, candidate: FunDef, replacement: Map[Identifier, (Identifier, Seq[Int])]) = {
+    import exprOps._
+    import symbols.{_, given}
+
+    val newParamTps = candidate.tparams.map { tparam => tparam.tp }
+    val newParamVars = candidate.params.map { param => param.toVariable }
+    val fi = FunctionInvocation(model.id, newParamTps, newParamVars)
+
+    val specsSubst = (model.params.map(_.id) zip newParamVars).toMap ++ (model.params.map(_.id) zip newParamVars).toMap
+    val specsTsubst = ((model.tparams zip fi.tps) ++ (model.tparams zip fi.tps)).map { case (tparam, targ) => tparam.tp.id -> targ }.toMap
+    val specsSpecializer = new Specializer(candidate, candidate.id, specsTsubst, specsSubst, replacement)
+
+    val measures = BodyWithSpecs(model.fullBody).specs.flatMap(spec => spec match {
+      case Measure(measure) =>
+        Some(Measure(specsSpecializer.transform(measure)).setPos(spec))
+      case _ => None
+    })
+
+    val withPre = exprOps.reconstructSpecs(measures, Some(candidate.fullBody), candidate.returnType)
+
+    candidate.copy(
+      fullBody = BodyWithSpecs(withPre).reconstructed,
+    ).copiedFrom(candidate)
+  }
+
   // make a copy of the 'model'
   // combine the specs of the 'lemma'
   // 'suffix': only used for naming
@@ -76,6 +101,7 @@ trait Utils {
       case Measure(measure) => Measure(specsSpecializer.transform(measure)).setPos(spec)
       case s => context.reporter.fatalError(s"Unsupported specs: $s")
     })
+
 
     val withPre = exprOps.reconstructSpecs(pre, Some(fullBodySpecialized), indPattern.returnType)
 

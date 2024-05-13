@@ -368,7 +368,7 @@ class EquivalenceChecker(override val trees: Trees,
     val generated = equivalenceCheck(conf)
     val equivLemmas = EquivLemmas.Generated(generated.eqLemma.id, generated.proof.map(_.id), generated.sublemmasAndReplFns.map(_.id))
     examinationState = ExaminationState.Examining(cand, roundState.copy(equivLemmas = equivLemmas))
-    generated.eqLemma +: (generated.proof.toSeq ++ generated.sublemmasAndReplFns)
+    generated.eqLemma +: (generated.proof.toSeq ++ generated.sublemmasAndReplFns ++ generated.withDecreases)
   }
 
   def concludeRound(analysis: VerificationAnalysis): RoundConclusion = examinationState match {
@@ -473,7 +473,7 @@ class EquivalenceChecker(override val trees: Trees,
 
   //region Generation of functions encoding equivalence
 
-  private case class GeneratedEqLemmas(eqLemma: FunDef, proof: Option[FunDef], sublemmasAndReplFns: Seq[FunDef])
+  private case class GeneratedEqLemmas(eqLemma: FunDef, proof: Option[FunDef], sublemmasAndReplFns: Seq[FunDef], withDecreases: Seq[FunDef])
 
   // Generate eqLemma and sublemmas for the given top-level model and candidate functions
   private def equivalenceCheck(conf: EquivCheckConf): GeneratedEqLemmas = {
@@ -489,11 +489,24 @@ class EquivalenceChecker(override val trees: Trees,
         case ((submod, subcand), perm) =>
           val newConf = conf.copy(model = symbols.functions(submod), candidate = symbols.functions(subcand), topLevel = false)
           val (subres, subRepl) = generateEqLemma(newConf, perm)
-          Seq(subres.updatedFd) ++ subres.helper.toSeq ++ subRepl.toSeq
+
+          val replMap = matchingStrat.curr.pairs.map {
+            case ((submod, subcand), perm) =>
+              conf.strat.order match {
+                case EquivCheckOrder.ModelFirst =>
+                  submod -> (subcand, perm.m2c)
+              }
+          }
+
+          val decreased = List(copyMeasure(symbols, symbols.functions(submod), symbols.functions(subcand), replMap))
+          Seq(subres.updatedFd) ++ subres.helper.toSeq ++ subRepl.toSeq ++ decreased
       }
     }
 
-    GeneratedEqLemmas(eqLemmaResTopLvl.updatedFd, eqLemmaResTopLvl.helper, topLvlRepl.toSeq ++ eqLemmasResSubs)
+    // functions with additional decreases ported from models
+    val decreased = List(copyMeasure(symbols, fd1, fd2, Map()))
+
+    GeneratedEqLemmas(eqLemmaResTopLvl.updatedFd, eqLemmaResTopLvl.helper, topLvlRepl.toSeq ++ eqLemmasResSubs, decreased)
   }
 
   // Generate an eqLemma for the given fd1 and fd2 functions and the given permutation for the candidate function
