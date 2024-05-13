@@ -48,15 +48,6 @@ trait Trees extends oo.Trees with Definitions { self =>
       }
   }
 
-//  sealed case class Throw(exc: Expr) extends Expr with CachingTyped {
-//    protected def computeType(using s: Symbols): Type =
-//      val langExceptionClassDef = s.lookup.get[ClassDef]("stainless.lang.Exception")
-//      exc.getType match {
-//        case ClassType(id, tps) if langExceptionClassDef.isDefined && id == langExceptionClassDef.get.id => NothingType()
-//        case _ => Untyped
-//      }
-//  }
-
   /** $encodingof `{ expr1; expr2; ...; exprn; last }` */
   case class Block(exprs: Seq[Expr], last: Expr) extends Expr with CachingTyped {
     protected def computeType(using Symbols): Type = if (exprs.forall(_.isTyped)) last.getType else Untyped
@@ -305,7 +296,6 @@ trait Printer extends oo.Printer {
     case CellSwap(cell1, cell2) => 
       p"swap($cell1, $cell2)"
 
-//    case Throw(exc) => p"throw new $exc"
 
     case LetVar(vd, value, expr) =>
       p"""|var $vd = $value
@@ -460,8 +450,6 @@ trait TreeDeconstructor extends oo.TreeDeconstructor {
 
     case s.CellSwap(cell1, cell2) =>
       (Seq(), Seq(), Seq(cell1, cell2), Seq(), Seq(), (_, _, es, _, _) => t.CellSwap(es(0), es(1)))
-
-//    case s.Throw(exc) =>  (Seq(), Seq(), Seq(exc), Seq(), Seq(), (_, _, es, _, _) => t.Throw(es(0)))
 
     case s.MutableMapWithDefault(from, to, default) =>
       (Seq(), Seq(), Seq(default), Seq(from, to), Seq(), (_, _, es, tps, _) => t.MutableMapWithDefault(tps(0), tps(1), es(0)))
