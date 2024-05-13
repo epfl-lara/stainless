@@ -1,5 +1,0 @@
-[ Error  ] ReturnInLambda.scala:2:25: type mismatch;
-[ Error  ]  found   : Int => Nothing
-[ Error  ]  required: Int
-             def f: Int = (x: Int) => return 5
-                                   ^

@@ -1,6 +1,0 @@
-[ Error  ] List5.scala:4:3: Scala API `List` is not directly supported, please use `stainless.collection.List` instead.
-             type MyList[T] = List[T]
-             ^^^^^^^^^^^^^^^^^^^^^^^^
-[ Error  ] List5.scala:5:3: Scala API `List` is not directly supported, please use `stainless.collection.List` instead.
-             def foobar[T](l: MyList[T]) = {
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^...

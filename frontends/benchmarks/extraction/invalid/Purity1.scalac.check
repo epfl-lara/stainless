@@ -1,3 +1,0 @@
-[ Error  ] Purity1.scala:11:9: Functions marked @pure cannot have side-effects
-               def bad(x: Int): Int = {
-                   ^^^
