@@ -4,6 +4,11 @@ Hosted at https://github.com/epfl-lara/stainless ; mirrored at https://gitlab.ep
 
 Verification framework for a subset of the [Scala](http://scala-lang.org) programming language. See the [tutorial](https://epfl-lara.github.io/asplos2022tutorial/).
 
+Please note that this repository uses `git submodules`, so you need to either:
+
+- clone it with the `--recursive` option, or
+- run `$ git submodule update --init --recursive` after cloning.
+
 Please note that Stainless does not support Scala 2 frontend anymore but only Scala 3.3. The latest release that does support Scala 2.13 frontend is the [v0.9.8.7](https://github.com/epfl-lara/stainless/releases/tag/v0.9.8.7).
 
 ## Quick start
