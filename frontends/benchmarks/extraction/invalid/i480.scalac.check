@@ -1,3 +1,0 @@
-[ Error  ] i480.scala:3:13: forward reference to value x defined on line 4 extends over definition of value y
-               val y = x
-                       ^

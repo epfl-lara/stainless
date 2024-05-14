@@ -555,9 +555,9 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
             reportError(tree.sourcePos, "Cannot issue a super call to an abstract method.")
           traverseChildren(tree)
 
-        case Apply(ex, Seq(arg)) if ex.symbol == defn.throwMethod =>
-          reportError(tree.sourcePos, "throw expressions are unsupported in Stainless")
-          traverseChildren(tree)
+//        case Apply(ex, Seq(arg)) if ex.symbol == defn.throwMethod =>
+//          reportError(tree.sourcePos, "throw expressions are unsupported in Stainless")
+//          traverseChildren(tree)
 
         case Apply(fun, args) =>
           if (stainlessReplacement.contains(sym))

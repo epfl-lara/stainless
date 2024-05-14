@@ -1,3 +1,0 @@
-[ Error  ] ImpurePure1.scala:7:13: Functions marked @pure cannot have side-effects
-             @pure def f(b: Box): Unit = { // A lying "pure" function!
-                       ^

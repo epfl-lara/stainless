@@ -1,3 +1,0 @@
-[ Error  ] FieldInheritance2.scala:11:14: Abstract values `y` must be overridden with fields in concrete subclass
-             case class Bar[X](override val thisIsIt: BigInt) extends Foo[X] {
-                        ^^^

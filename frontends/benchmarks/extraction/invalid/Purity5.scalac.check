@@ -1,6 +1,0 @@
-[ Error  ] Purity5.scala:9:7: Function `test` has effect on the following @pure parameters:
-[ Error  ]   -b2
-[ Error  ] Hint: b2 is modified by the calls to the following functions:
-[ Error  ]   -sum
-             def test(st: SomeTrait, b1: Box, @pure b2: Box): BigInt = st.sum(b1, b2)
-                 ^^^^
