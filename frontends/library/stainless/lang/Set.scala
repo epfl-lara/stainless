@@ -93,8 +93,14 @@ object Set {
   }
 }
 
+/* 
+ Sets are built-in in Stainless trees. Semantics is that they are required to be finite.
+ Equality is extensional.
+ Maps to finite sets in cvc5, and overraproximated with generalized arrays in z3 (which can also be co-finite).
+ Runtime behavior uses default immutable Scala set.
+ */
 @ignore
-case class Set[T](theSet: scala.collection.immutable.Set[T]) {
+sealed case class Set[T](theSet: scala.collection.immutable.Set[T]) {
 
   def +(a: T): Set[T] = new Set[T](theSet + a)
   def ++(a: Set[T]): Set[T] = new Set[T](theSet ++ a.theSet)

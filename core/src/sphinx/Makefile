@@ -188,4 +188,4 @@ gh-pages:
 	git init && \
 	git add . && \
 	git commit -am "Update documentation" && \
-	git push -f git@github.com:epfl-lara/stainless.git master:gh-pages
+	git push -f git@github.com:epfl-lara/stainless.git main:gh-pages
