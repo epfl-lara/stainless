@@ -38,7 +38,7 @@ object StainlessPlugin extends sbt.AutoPlugin {
 
   override def globalSettings: Seq[Def.Setting[?]] = Seq(
     onLoad := onLoad.value andThen checkProjectsScalaVersion,
-    stainlessExtraResolvers  ++= Resolver.sonatypeOssRepos("snapshots")
+    stainlessExtraResolvers := Resolver.sonatypeOssRepos("releases")
   )
 
   /**
