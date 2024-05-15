@@ -53,12 +53,15 @@ trait Utils {
     val fi = FunctionInvocation(model.id, newParamTps, newParamVars)
 
     val specsSubst = (model.params.map(_.id) zip newParamVars).toMap ++ (model.params.map(_.id) zip newParamVars).toMap
+
     val specsTsubst = ((model.tparams zip fi.tps) ++ (model.tparams zip fi.tps)).map { case (tparam, targ) => tparam.tp.id -> targ }.toMap
     val specsSpecializer = new Specializer(candidate, candidate.id, specsTsubst, specsSubst, replacement)
 
     val measures = BodyWithSpecs(model.fullBody).specs.flatMap(spec => spec match {
       case Measure(measure) =>
         Some(Measure(specsSpecializer.transform(measure)).setPos(spec))
+      case LetInSpec(vd, expr) =>
+        Some(LetInSpec(vd, specsSpecializer.transform(expr)).setPos(spec))
       case _ => None
     })
 

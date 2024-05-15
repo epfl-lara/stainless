@@ -436,21 +436,25 @@ class EquivalenceChecker(override val trees: Trees,
         allCtexs.foreach { case (_, ctexs) =>
           ctexs.foreach(addCtex)
         }
-        if (strat.subFnsMatchingStrat.isDefined) {
-          nextRoundOrUnknown()
-        } else {
-          // schade
-          val candFd = symbols.functions(cand)
-          // Take all ctex for `cand`, `eqLemma` and `proof`
-          val ctexOrderedArgs = (Seq(cand, eqLemma) ++ proof.toSeq).flatMap(id => allCtexs.getOrElse(id, Seq.empty))
-          val ctexsMap = ctexOrderedArgs.map { ctex =>
-            val eval = evalOn(symbols.functions(model), candFd, ctex)
-            Ctex(candFd.params.zip(ctex), eval)
-          }
-          unequivalent += cand -> UnequivalentData(ctexsMap, Some(solvingInfo.withAddedTime(currCumulativeSolvingTime)))
-          examinationState = ExaminationState.PickNext
-          RoundConclusion.CandidateClassified(cand, Classification.Invalid(ctexsMap), Set.empty)
-        }
+        // something is invalid,
+        // but it could be termination because the inferred decreases does not fit
+        // so we cannot claim non-equivalence
+        nextRoundOrUnknown()
+        // if (strat.subFnsMatchingStrat.isDefined) {
+        //   nextRoundOrUnknown()
+        // } else {
+        //   // schade
+        //   val candFd = symbols.functions(cand)
+        //   // Take all ctex for `cand`, `eqLemma` and `proof`
+        //   val ctexOrderedArgs = (Seq(cand, eqLemma) ++ proof.toSeq).flatMap(id => allCtexs.getOrElse(id, Seq.empty))
+        //   val ctexsMap = ctexOrderedArgs.map { ctex =>
+        //     val eval = evalOn(symbols.functions(model), candFd, ctex)
+        //     Ctex(candFd.params.zip(ctex), eval)
+        //   }
+        //   unequivalent += cand -> UnequivalentData(ctexsMap, Some(solvingInfo.withAddedTime(currCumulativeSolvingTime)))
+        //   examinationState = ExaminationState.PickNext
+        //   RoundConclusion.CandidateClassified(cand, Classification.Invalid(ctexsMap), Set.empty)
+        // }
       } else if (report.totalUnknown != 0) {
         nextRoundOrUnknown()
       } else {
@@ -487,24 +491,54 @@ class EquivalenceChecker(override val trees: Trees,
     val eqLemmasResSubs = conf.strat.subFnsMatchingStrat.toSeq.flatMap { matchingStrat =>
       matchingStrat.curr.pairs.flatMap {
         case ((submod, subcand), perm) =>
-          val newConf = conf.copy(model = symbols.functions(submod), candidate = symbols.functions(subcand), topLevel = false)
-          val (subres, subRepl) = generateEqLemma(newConf, perm)
-
           val replMap = matchingStrat.curr.pairs.map {
             case ((submod, subcand), perm) =>
               conf.strat.order match {
                 case EquivCheckOrder.ModelFirst =>
-                  submod -> (subcand, perm.m2c)
+                  submod -> (subcand, perm.reverse.m2c)
               }
           }
 
-          val decreased = List(copyMeasure(symbols, symbols.functions(submod), symbols.functions(subcand), replMap))
-          Seq(subres.updatedFd) ++ subres.helper.toSeq ++ subRepl.toSeq ++ decreased
+          val newParamTps = symbols.functions(subcand).tparams.map { tparam => tparam.tp }
+          val newParamVars = symbols.functions(subcand).params.map { param => param.toVariable }
+
+          // val decreased = //copyMeasure(symbols, symbols.functions(submod), symbols.functions(subcand), replMap)
+          val subst = {
+            val nweParamVarsPermuted = perm.m2c.map(newParamVars)
+            (symbols.functions(submod).params.map(_.id) zip nweParamVarsPermuted).toMap
+          }
+          val tsubst = (symbols.functions(submod).tparams zip newParamTps).map { case (tparam, targ) => tparam.tp.id -> targ }.toMap
+          val specsSpecializer = new Specializer(symbols.functions(subcand), subcand, tsubst, subst, Map())
+
+          val measures = BodyWithSpecs(symbols.functions(submod).fullBody).specs.flatMap(spec => spec match {
+            case LetInSpec(vd, expr) =>
+              Some(LetInSpec(vd, specsSpecializer.transform(expr)).setPos(spec))
+            case Measure(measure) =>
+              Some(Measure(specsSpecializer.transform(measure)).setPos(spec))
+            case _ => None
+          })
+
+          val withPre = exprOps.reconstructSpecs(measures, Some(symbols.functions(subcand).fullBody), symbols.functions(subcand).returnType)
+
+          val decreased = symbols.functions(subcand).copy(
+            fullBody = BodyWithSpecs(withPre).reconstructed,
+          ).copiedFrom(symbols.functions(subcand))
+
+          val newConf = conf.copy(model = symbols.functions(submod), candidate = decreased, topLevel = false)
+
+          val (subres, subRepl) = generateEqLemma(newConf, perm)
+          Seq(subres.updatedFd) ++ subres.helper.toSeq ++ subRepl.toSeq ++ List(decreased)
       }
     }
 
+    // subfunctions to be checked for termination
+    val subFuns = symbols.transitiveCallees(fd2.id).filter(_ != fd2.id)
+                  .map(symbols.functions(_)).filter(!_.flags.exists(_.name == "library"))
+                  .filterNot(f => eqLemmasResSubs.map(_.id).contains(f.id))
+
+
     // functions with additional decreases ported from models
-    val decreased = List(copyMeasure(symbols, fd1, fd2, Map()))
+    val decreased = List(copyMeasure(symbols, fd1, fd2, Map())) ++ subFuns
 
     GeneratedEqLemmas(eqLemmaResTopLvl.updatedFd, eqLemmaResTopLvl.helper, topLvlRepl.toSeq ++ eqLemmasResSubs, decreased)
   }
