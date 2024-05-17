@@ -251,23 +251,23 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
 
   /** $encodingof `array(index)` */
   sealed case class ArraySelect(array: Expr, index: Expr) extends Expr with CachingTyped {
-    override protected def computeType(using s: Symbols): Type = (array.getType, index.getType) match {
-      case (ArrayType(base), Int32Type()) => base
+    override protected def computeType(using s: Symbols): Type = getArrayType(array) match {
+      case ArrayType(base) => checkParamType(index, Int32Type(), base)
       case _ => Untyped
     }
   }
 
   /** $encodingof `array.updated(index, value)` */
   sealed case class ArrayUpdated(array: Expr, index: Expr, value: Expr) extends Expr with CachingTyped {
-    override protected def computeType(using s: Symbols): Type = (array.getType, index.getType) match {
-      case (ArrayType(base), Int32Type()) => unveilUntyped(ArrayType(s.leastUpperBound(base, value.getType)))
+    override protected def computeType(using s: Symbols): Type = getArrayType(array) match {
+      case at @ ArrayType(base) => checkParamTypes(Seq(index, value), Seq(Int32Type(), base), getArrayType(at, ArrayType(s.leastUpperBound(base, value.getType))))
       case _ => Untyped
     }
   }
 
   /** $encodingof `array.length` */
   sealed case class ArrayLength(array: Expr) extends Expr with CachingTyped {
-    override protected def computeType(using s: Symbols): Type = array.getType match {
+    override protected def computeType(using s: Symbols): Type = getArrayType(array) match {
       case ArrayType(_) => Int32Type()
       case _ => Untyped
     }
