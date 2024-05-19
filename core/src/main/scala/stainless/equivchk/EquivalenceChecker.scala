@@ -432,7 +432,8 @@ class EquivalenceChecker(override val trees: Trees,
       }.flatten.groupMap(_._1)(_._2)
 
       if (report.totalInvalid != 0) {
-        assert(allCtexs.nonEmpty, "Conspiration!")
+        // no longer Conspiration because we now check some funs for termination as well
+        // assert(allCtexs.nonEmpty, "Conspiration!")
         allCtexs.foreach { case (_, ctexs) =>
           ctexs.foreach(addCtex)
         }
@@ -484,9 +485,11 @@ class EquivalenceChecker(override val trees: Trees,
     import conf.{fd1, fd2}
     import exprOps._
 
+    val candidateDecreased = copyMeasure(symbols, fd1, fd2, Map())
+
     // For the top-level model and candidate function
     val permutation = ArgPermutation(conf.model.params.indices) // No permutation for top-level model and candidate
-    val (eqLemmaResTopLvl, topLvlRepl) = generateEqLemma(conf, permutation)
+    val (eqLemmaResTopLvl, topLvlRepl) = generateEqLemma(conf.copy(candidate = candidateDecreased), permutation)
     // For the sub-functions
     val eqLemmasResSubs = conf.strat.subFnsMatchingStrat.toSeq.flatMap { matchingStrat =>
       matchingStrat.curr.pairs.flatMap {
@@ -510,7 +513,12 @@ class EquivalenceChecker(override val trees: Trees,
           val tsubst = (symbols.functions(submod).tparams zip newParamTps).map { case (tparam, targ) => tparam.tp.id -> targ }.toMap
           val specsSpecializer = new Specializer(symbols.functions(subcand), subcand, tsubst, subst, Map())
 
-          val measures = BodyWithSpecs(symbols.functions(submod).fullBody).specs.flatMap(spec => spec match {
+          // remove the original decreases and insert model's decreases
+          val measures = BodyWithSpecs(symbols.functions(subcand).fullBody).specs.filter(s =>
+            s match
+              case Measure(measure) => false
+              case _ => true
+          ) ++ BodyWithSpecs(symbols.functions(submod).fullBody).specs.flatMap(spec => spec match {
             case LetInSpec(vd, expr) =>
               Some(LetInSpec(vd, specsSpecializer.transform(expr)).setPos(spec))
             case Measure(measure) =>
@@ -518,7 +526,7 @@ class EquivalenceChecker(override val trees: Trees,
             case _ => None
           })
 
-          val withPre = exprOps.reconstructSpecs(measures, Some(symbols.functions(subcand).fullBody), symbols.functions(subcand).returnType)
+          val withPre = exprOps.reconstructSpecs(measures, exprOps.withoutSpecs(symbols.functions(subcand).fullBody), symbols.functions(subcand).returnType)
 
           val decreased = symbols.functions(subcand).copy(
             fullBody = BodyWithSpecs(withPre).reconstructed,
@@ -538,7 +546,7 @@ class EquivalenceChecker(override val trees: Trees,
 
 
     // functions with additional decreases ported from models
-    val decreased = List(copyMeasure(symbols, fd1, fd2, Map())) ++ subFuns
+    val decreased = List(candidateDecreased) ++ subFuns
 
     GeneratedEqLemmas(eqLemmaResTopLvl.updatedFd, eqLemmaResTopLvl.helper, topLvlRepl.toSeq ++ eqLemmasResSubs, decreased)
   }

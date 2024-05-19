@@ -57,7 +57,11 @@ trait Utils {
     val specsTsubst = ((model.tparams zip fi.tps) ++ (model.tparams zip fi.tps)).map { case (tparam, targ) => tparam.tp.id -> targ }.toMap
     val specsSpecializer = new Specializer(candidate, candidate.id, specsTsubst, specsSubst, replacement)
 
-    val measures = BodyWithSpecs(model.fullBody).specs.flatMap(spec => spec match {
+    val measures = BodyWithSpecs(candidate.fullBody).specs.filter(s =>
+            s match
+              case Measure(measure) => false
+              case _ => true
+          ) ++ BodyWithSpecs(model.fullBody).specs.flatMap(spec => spec match {
       case Measure(measure) =>
         Some(Measure(specsSpecializer.transform(measure)).setPos(spec))
       case LetInSpec(vd, expr) =>
@@ -65,7 +69,7 @@ trait Utils {
       case _ => None
     })
 
-    val withPre = exprOps.reconstructSpecs(measures, Some(candidate.fullBody), candidate.returnType)
+    val withPre = exprOps.reconstructSpecs(measures, exprOps.withoutSpecs(candidate.fullBody), candidate.returnType)
 
     candidate.copy(
       fullBody = BodyWithSpecs(withPre).reconstructed,
