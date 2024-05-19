@@ -4,7 +4,7 @@ package stainless
 package extraction
 package oo
 
-import scala.collection.mutable.{Map => MutableMap}
+import scala.collection.mutable.Map as MutableMap
 
 trait Trees extends innerfuns.Trees with Definitions { self =>
 
@@ -191,6 +191,10 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
       case mt: MapType => mt
       case _ => Untyped
     }
+
+  override protected def getArrayType(tpe: Typed, tpes: Typed*)(using Symbols): Type =
+    super.getArrayType(widenTypeParameter(tpe), tpes: _*)
+
 
   /* ========================================
    *              EXTRACTORS
