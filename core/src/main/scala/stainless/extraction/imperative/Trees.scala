@@ -41,7 +41,7 @@ trait Trees extends oo.Trees with Definitions { self =>
       val cellClassDef = s.lookup.get[ClassDef]("stainless.lang.Cell")
       (cell1.getType, cell2.getType) match {
         case (ClassType(id1, tps1), ClassType(id2, tps2)) if cellClassDef.isDefined && id1 == cellClassDef.get.id && id1 == id2 && tps1 == tps2 => {
-          UnitType() 
+          UnitType()
         }
         case _ =>
           Untyped
@@ -96,8 +96,8 @@ trait Trees extends oo.Trees with Definitions { self =>
 
   /** $encodingof `array(index) = value` */
   case class ArrayUpdate(array: Expr, index: Expr, value: Expr) extends Expr with CachingTyped {
-    protected def computeType(using Symbols): Type = array.getType match {
-      case ArrayType(base) => checkParamTypes(Seq(index, value), Seq(Int32Type(), base), UnitType())
+    protected def computeType(using Symbols): Type = getArrayType(array) match {
+      case at @ ArrayType(base) => checkParamTypes(Seq(index, value), Seq(Int32Type(), base), UnitType())
       case _ => Untyped
     }
   }
@@ -110,13 +110,13 @@ trait Trees extends oo.Trees with Definitions { self =>
   /** $encodingof `MutableMap.withDefaultValue[From,To](default)` */
   sealed case class MutableMapWithDefault(from: Type, to: Type, default: Expr) extends Expr with CachingTyped {
     override protected def computeType(using Symbols): Type = {
-      checkParamType(default, FunctionType(Seq(), to), unveilUntyped(MutableMapType(from, to)))
+      checkParamType(default, FunctionType(Seq(), to), getMutableMapType(MutableMapType(from, to)))
     }
   }
 
   /** $encodingof `map.apply(key)` (or `map(key)`) */
   sealed case class MutableMapApply(map: Expr, key: Expr) extends Expr with CachingTyped {
-    override protected def computeType(using Symbols): Type = map.getType match {
+    override protected def computeType(using Symbols): Type = getMutableMapType(map) match {
       case MutableMapType(from, to) => checkParamType(key, from, to)
       case _ => Untyped
     }
@@ -124,20 +124,20 @@ trait Trees extends oo.Trees with Definitions { self =>
 
   /** $encodingof `map.updated(key, value)` (or `map + (key -> value)`) */
   sealed case class MutableMapUpdated(map: Expr, key: Expr, value: Expr) extends Expr with CachingTyped {
-    override protected def computeType(using Symbols): Type = map.getType match {
-      case mmt @ MutableMapType(from, to) => checkParamTypes(Seq(key, value), Seq(from, to), MutableMapType(from, to))
+    override protected def computeType(using Symbols): Type = getMutableMapType(map) match {
+      case mmt @ MutableMapType(from, to) => checkParamType(key, from, getMutableMapType(mmt, MutableMapType(from, value.getType)))
       case _ => Untyped
     }
   }
 
   /** $encodingof `map.duplicate()` */
   sealed case class MutableMapDuplicate(map: Expr) extends Expr with CachingTyped {
-    override protected def computeType(using Symbols): Type = map.getType
+    override protected def computeType(using Symbols): Type = getMutableMapType(map)
   }
 
   /** $encodingof `map.update(key, value)` (or `map(key) = value`) */
   sealed case class MutableMapUpdate(map: Expr, key: Expr, value: Expr) extends Expr with CachingTyped {
-    override protected def computeType(using Symbols): Type = map.getType match {
+    override protected def computeType(using Symbols): Type = getMutableMapType(map) match {
       case mmt @ MutableMapType(from, to) => checkParamTypes(Seq(key, value), Seq(from, to), UnitType())
       case _ => Untyped
     }
@@ -240,6 +240,11 @@ trait Trees extends oo.Trees with Definitions { self =>
     new ExprOpsImpl(self)
   }
 
+  protected def getMutableMapType(tpe: Typed, tpes: Typed*)(using s: Symbols): Type =
+    widenTypeParameter(s.leastUpperBound(tpe +: tpes map (_.getType))) match {
+      case mt: MutableMapType => mt
+      case _ => Untyped
+    }
 
   /* ========================================
    *               EXTRACTORS
@@ -293,7 +298,7 @@ trait Printer extends oo.Printer {
     case Swap(array1, index1, array2, index2) =>
       p"swap($array1, $index1, $array2, $index2)"
 
-    case CellSwap(cell1, cell2) => 
+    case CellSwap(cell1, cell2) =>
       p"swap($cell1, $cell2)"
 
     case LetVar(vd, value, expr) =>
