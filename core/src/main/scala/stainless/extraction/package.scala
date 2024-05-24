@@ -49,7 +49,7 @@ package object extraction {
     "TypeEncoding"              -> "Encode non-ADT types",
     "FunctionClosure"           -> "Lift inner functions",
     "FunctionSpecialization"    -> "Specialize functions",
-    "UnfoldOpaque  "            -> "Injects equality assumption with inlined call for calls wrapped in unfold keyword",
+    "UnfoldOpaque"              -> "Injects equality assumption with inlined call for calls wrapped in unfold keyword",
     "CallSiteInline"            -> "Call-side inline for calls wrapped in inline keyword",
     "ChooseInjector"            -> "Insert chooses where necessary",
     "ChooseEncoder"             -> "Encodes chooses as functions",
