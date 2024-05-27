@@ -256,6 +256,24 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
         }
 
         // NOTE: `args` must refer to the arguments of the function invocation before transformation (the original args)
+        // * When set to true, `isOpaqueOrExtern` assumes that all targets of mutated parameters are affected
+        // (see the `imperative/valid|invalid/OpaqueMutationX` for examples).
+        // * `selectResult` selects the first element of the tuple returned by the transformed function
+        // (the others elements are the "updated" version of the mutated parameters).
+        // By default, it should be set to `true`.
+        // However, in the particular case of `unfold(fn(...))`, we would like *not* to have this selection be performed
+        // due to the following. `AntiAliasing` will transform this call to:
+        //   unfold {
+        //      val res = fn(...)
+        //      // update all targets using `res`
+        //      res._1 // the result of `fn`
+        //   }
+        // and later, `ImperativeCodeElimination` will hoist the call to `fn` (alongside the updates) out of
+        // `unfold`, only leaving `res._1`. To have the `UnfoldOpaque` phase catch this unfolding, we instead need to
+        // "return" `res` and drop the tuple projection. Since `unfold` discards the result, "returning" res
+        // is fine; the only adaptation needed is the type application of `unfold` to match the type of `res`.
+        // See `imperative/valid/UnfoldOpaqueMutate` for an example.
+        //
         // IMPORTANT NOTICE:
         // In the `Let` case transformation of `transform`, we need to compute the targets of the transformed binding.
         // If this binding happens to contain a function call, the returned targets may be invalid because
@@ -267,7 +285,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
         //
         // To properly fix this, we would need to distinguish pre/post transformation `getTargets` computation,
         // which would require significant changes to EffectsAnalyzer.
-        def mapApplication(formalArgs: Seq[ValDef], args: Seq[Expr], nfi: Expr, nfiType: Type, fiEffects: Set[Effect], isOpaqueOrExtern: Boolean, env: Env): Expr = {
+        def mapApplication(formalArgs: Seq[ValDef], args: Seq[Expr], nfi: Expr, nfiType: Type, fiEffects: Set[Effect], isOpaqueOrExtern: Boolean, selectResult: Boolean, env: Env): Expr = {
 
           def affectedBindings(updTarget: Target, isReplacement: Boolean): Map[ValDef, Set[Target]] = {
             def isAffected(t: Target): Boolean = {
@@ -445,8 +463,10 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
                     }
                 }
             }
-
-            val extractResults = Block(assgns, TupleSelect(freshRes.toVariable, 1))
+            val exprRes =
+              if (selectResult) TupleSelect(freshRes.toVariable, 1)
+              else freshRes.toVariable
+            val extractResults = Block(assgns, exprRes)
             // FIXME: This should be `Let` and not `LetVar`, however doing so will cause a crash in e.g. `MapAliasing1`
             //  because `getAllTargetsDealiased` in the `Let` case will result in an invalid target due to
             //  this function not supporting targets computation on function application *post-transformation*
@@ -882,17 +902,27 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
               Lambda(params, transform(wrappedBody, env)).copiedFrom(l)
             }
 
-          case fi @ FunctionInvocation(id, tps, args) =>
-            val fd = Outer(fi.tfd.fd)
+          case fi @ (_: FunctionInvocation | UnfoldOpaque(_)) =>
+            def mapFnInvoc(fi: FunctionInvocation, selectResult: Boolean): (Type, Expr) = {
+              val fd = Outer(fi.tfd.fd)
 
-            if (!fi.tfd.flags.exists(_.name == "accessor"))
-              checkAliasing(fi, args, env)
+              if (!fi.tfd.flags.exists(_.name == "accessor"))
+                checkAliasing(fi, fi.args, env)
 
-            val nfi = FunctionInvocation(
-              id, tps, args.map(transform(_, env))
-            ).copiedFrom(fi)
-            val isExternOrOpaque = symbols.getFunction(id).flags.exists(f => f == Extern || f == Opaque)
-            mapApplication(fd.params, args, nfi, fi.tfd.instantiate(analysis.getReturnType(fd)), effects(fd), isExternOrOpaque, env)
+              val nfi = FunctionInvocation(
+                fi.id, fi.tps, fi.args.map(transform(_, env))
+              ).copiedFrom(fi)
+              val nfiType = fi.tfd.instantiate(analysis.getReturnType(fd))
+              val isOpaqueOrExtern = symbols.getFunction(fi.id).flags.exists(f => f == Extern || f == Opaque)
+              val res = mapApplication(fd.params, fi.args, nfi, nfiType, effects(fd), isOpaqueOrExtern, selectResult, env)
+              (nfiType, res)
+            }
+            fi match {
+              case UnfoldOpaque(unfoldId, theFi) =>
+                val (resTpe, transformedInvoc) = mapFnInvoc(theFi, selectResult = false)
+                FunctionInvocation(unfoldId, Seq(resTpe), Seq(transformedInvoc)).setPos(fi)
+              case fi: FunctionInvocation => mapFnInvoc(fi, selectResult = true)._2
+            }
 
           case alr @ ApplyLetRec(id, tparams, tpe, tps, args) =>
             val fd = Inner(env.locals(id))
@@ -920,7 +950,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
 
             val resultType = typeOps.instantiateType(analysis.getReturnType(fd), (tparams zip tps).toMap)
             val isExternOrOpaque = env.locals(id).flags.exists(f => f == Extern || f == Opaque)
-            mapApplication(fd.params, args, nfi, resultType, effects(fd), isExternOrOpaque, env)
+            mapApplication(fd.params, args, nfi, resultType, effects(fd), isExternOrOpaque, selectResult = true, env)
 
           case app @ Application(callee, args) =>
             checkAliasing(app, args, env)
@@ -938,7 +968,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
                 case (vd, i) if ftEffects(i) => ModifyingEffect(vd.toVariable, Path.empty)
               }
               val to = makeFunctionTypeExplicit(ft).asInstanceOf[FunctionType].to
-              mapApplication(params, args, nfi, to, appEffects.toSet, false, env)
+              mapApplication(params, args, nfi, to, appEffects.toSet, isOpaqueOrExtern = false, selectResult = true, env)
             } else {
               Application(transform(callee, env), args.map(transform(_, env))).copiedFrom(app)
             }
@@ -1021,6 +1051,14 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
 
         def assertReferentiallyTransparent(expr: Expr): Unit = {
           assert(isReferentiallyTransparent(expr), s"${expr.asString} is not referentially transparent")
+        }
+
+        object UnfoldOpaque {
+          def unapply(e: Expr): Option[(Identifier, FunctionInvocation)] = e match {
+            case FunctionInvocation(id @ ast.SymbolIdentifier("stainless.lang.unfold"), Seq(_), Seq(fi: s.FunctionInvocation)) =>
+              Some((id, fi))
+            case _ => None
+          }
         }
       }
 
