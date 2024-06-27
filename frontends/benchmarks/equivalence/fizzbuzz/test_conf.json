@@ -1,0 +1,23 @@
+{
+  "models": [
+    "FizzBuzz.fizzBuzz2"
+  ],
+  "comparefuns": [
+    "FizzBuzz.fizzBuzz1"
+  ],
+  "outcome": {
+    "equivalent": [
+      {
+        "model": "FizzBuzz.fizzBuzz2",
+        "functions": [
+          "FizzBuzz.fizzBuzz1"
+        ]
+      }
+    ],
+    "unequivalent": [],
+    "unsafe": [],
+    "unknownSafety": [],
+    "unknownEquivalence": [],
+    "wrong": []
+  }
+}
