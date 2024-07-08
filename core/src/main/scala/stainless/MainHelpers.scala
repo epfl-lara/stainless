@@ -55,7 +55,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
     verification.optSimplifier -> Description(Verification, "Select which simplifier to use for VC simplification\n" +
       "Available:\n" +
       "  vanilla:             : Standard simplifier\n" +
-      "  ol (experimental)    : Leverages ortholattice boolean algebra for simplifying boolean expressions\n" +
+      "  ol (experimental)    : Leverages ortholattice algebra for simplifying boolean expressions\n" +
       "  ocbsl (experimental) : Leverages orthocomplemented bisemilattices boolean algebra for simplifying boolean expressions.\n" +
       "                         Though the name sounds cooler than OL, it is less complete.\n" +
       "  bland (experimental) : Common simplification logic to OL and OCBSL, but without any boolean algebra flavor"),
