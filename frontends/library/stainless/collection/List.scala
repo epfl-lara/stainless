@@ -67,6 +67,7 @@ sealed abstract class List[T] {
   @isabelle.fullBody
   def apply(index: BigInt): T = {
     require(0 <= index && index < size)
+    decreases(index)
     if (index == BigInt(0)) {
       head
     } else {
@@ -76,6 +77,7 @@ sealed abstract class List[T] {
 
   def iapply(index: Int): T = {
     require(0 <= index && index < isize)
+    decreases(index)
     if (index == 0) {
       head
     } else {
@@ -92,7 +94,7 @@ sealed abstract class List[T] {
       case Nil() => Cons(t, this)
       case Cons(x, xs) => Cons(x, xs :+ (t))
     }
-  } ensuring(res => (res.size == size + 1) && (res.content == content ++ Set(t)) && res == this ++ Cons(t, Nil[T]()))
+  } ensuring(res => (res.size == size + 1) && (if (isize < Int.MaxValue) res.isize == isize + 1 else res.isize == isize) && (res.content == content ++ Set(t)) && res == this ++ Cons(t, Nil[T]()))
 
   @isabelle.function(term = "List.rev")
   def reverse: List[T] = {
@@ -100,7 +102,7 @@ sealed abstract class List[T] {
       case Nil() => this
       case Cons(x,xs) => xs.reverse :+ x
     }
-  } ensuring (res => (res.size == size) && (res.content == content))
+  } ensuring (res => (res.size == size) && (res.isize == isize) && (res.content == content))
 
   def take(i: BigInt): List[T] = { (this, i) match {
     case (Nil(), _) => Nil[T]()
@@ -412,7 +414,7 @@ sealed abstract class List[T] {
       case Cons(x, tail) =>
         Cons[T](x, tail.iupdated(i - 1, y))
     }
-  }
+  }.ensuring(res => res.isize == this.isize && res.iapply(i) == y)
 
   private def insertAtImpl(pos: BigInt, l: List[T]): List[T] = {
     require(0 <= pos && pos <= size)
@@ -672,10 +674,19 @@ object List {
 
   @library
   def fill[T](n: BigInt)(x: T) : List[T] = {
+    decreases(if (n <= BigInt(0)) BigInt(0) else n)
     if (n <= 0) Nil[T]()
     else Cons[T](x, fill[T](n-1)(x))
   } ensuring(res => (res.content == (if (n <= BigInt(0)) Set.empty[T] else Set(x))) &&
                     res.size == (if (n <= BigInt(0)) BigInt(0) else n))
+
+  @library
+  def ifill[T](n: Int)(x: T) : List[T] = {
+    decreases(if (n <= 0) 0 else n)
+    if (n <= 0) Nil[T]()
+    else Cons[T](x, ifill[T](n - 1)(x))
+  } ensuring(res => (res.content == (if (n <= 0) Set.empty[T] else Set(x))) &&
+                    res.isize == (if (n <= 0) 0 else n))
 
   /* Range from start (inclusive) to until (exclusive) */
   @library
