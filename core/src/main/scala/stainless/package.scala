@@ -17,6 +17,9 @@ package object stainless {
     val usageRhs = "file"
   }
 
+  object optSatPrecond extends inox.FlagOptionDef("sat-precond", false)
+  def isoptSatPrecondOn(using ctx: inox.Context): Boolean = ctx.options.findOptionOrDefault(optSatPrecond)
+
   object optWatch extends inox.FlagOptionDef("watch", false)
   def isWatchModeOn(using ctx: inox.Context): Boolean = ctx.options.findOptionOrDefault(optWatch)
 

@@ -61,6 +61,7 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
   given givenDebugSection: DebugSectionTypeChecker.type = DebugSectionTypeChecker
 
   val checkMeasures = options.findOptionOrDefault(optCheckMeasures)
+  val checkSatPrecond = options.findOptionOrDefault(optSatPrecond)
 
   /* ====================================
    *     Polarity in ADT definitions
@@ -1318,23 +1319,26 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
 
     // We check that the specification is SAT to avoid false => P(body(x)) type of proof
     // We construct an `And` expr with all preconditions, and type check this expr with `checkSAT(true)`
-    val (tcPreForSat, preCondExprSeq): (TypingContext, Seq[Expr]) = specced.specs.filter(spec => spec.kind == LetKind || spec.kind == PreconditionKind).foldLeft(tc0, Seq.empty[Expr]) {
-      case ((tcAcc, seqAcc), LetInSpec(vd, e)) =>
-        val e2 = freshener.transform(e)
-        val freshVd = freshener.transform(vd)
-        (tcAcc.bindWithValue(freshVd, e2), seqAcc)
-      case ((tcAcc, seqAcc), Precondition(cond)) =>
-        val cond2: Expr = freshener.transform(cond)
-        (tcAcc, seqAcc ++ Seq(cond2))
-      case _ => sys.error("shouldn't be possible because of the filtering above")
-    }
-    val preCondExpr: Option[Expr] = preCondExprSeq.toList match
-      case ee1 :: ee2 :: tl => Some(And(preCondExprSeq))
-      case ee1 :: Nil => Some(ee1)
-      case Nil => None
-
-    val trPreSat: Option[TyperResult] = preCondExpr.map(expr => buildVC(tcPreForSat.withCheckSAT(true).withVCKind(VCKind.SATPrecondCheck), expr))
-
+    val trPreSat: Option[TyperResult] =
+      if (checkSatPrecond) {
+        val (tcPreForSat, preCondExprSeq): (TypingContext, Seq[Expr]) = specced.specs.filter(spec => spec.kind == LetKind || spec.kind == PreconditionKind).foldLeft(tc0, Seq.empty[Expr]) {
+          case ((tcAcc, seqAcc), LetInSpec(vd, e)) =>
+            val e2 = freshener.transform(e)
+            val freshVd = freshener.transform(vd)
+            (tcAcc.bindWithValue(freshVd, e2), seqAcc)
+          case ((tcAcc, seqAcc), Precondition(cond)) =>
+            val cond2: Expr = freshener.transform(cond)
+            (tcAcc, seqAcc ++ Seq(cond2))
+          case _ => sys.error("shouldn't be possible because of the filtering above")
+        }
+        val preCondExpr: Option[Expr] = preCondExprSeq.toList match
+          case ee1 :: ee2 :: tl => Some(And(preCondExprSeq))
+          case ee1 :: Nil => Some(ee1)
+          case Nil => None
+        preCondExpr.map(expr => buildVC(tcPreForSat.withCheckSAT(true).withVCKind(VCKind.SATPrecondCheck), expr))
+      } else {
+        None
+      }
 
     val measureOpt = specced.getSpec(MeasureKind).map(measure => freshener.transform(measure.expr))
 
