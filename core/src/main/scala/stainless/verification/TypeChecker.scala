@@ -1320,7 +1320,7 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
     // We check that the specification is SAT to avoid false => P(body(x)) type of proofs
     // To do so, we create a VC phi(x) => false, where phi(x) is the precondition. This will be checked as phi(x) => not false
     // Then we check in VerificationChecker that this VC should be SAT
-    val trPreSat: Option[TyperResult] = if optSatPrecond then Some(buildVC(tcWithPre.withCheckSAT(false).withVCKind(VCKind.SATPrecondCheck), BooleanLiteral(false))) else None
+    val trPreSat: Option[TyperResult] = if checkSatPrecond then Some(buildVC(tcWithPre.withCheckSAT(false).withVCKind(VCKind.SATPrecondCheck), BooleanLiteral(false))) else None
 
     val measureOpt = specced.getSpec(MeasureKind).map(measure => freshener.transform(measure.expr))
 
