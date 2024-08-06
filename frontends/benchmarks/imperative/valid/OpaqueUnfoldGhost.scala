@@ -15,12 +15,12 @@ object OpaqueMutation2 {
         unfold(valid)
         valid
       })
-      unfold(valid) // Shouldn't be consider to be ghost, even with a ghost argument
+      unfold(
+        valid
+      ) // Shouldn't be consider to be ghost, even with a ghost argument
       assert(cnt > 0)
       cnt += 1
       assert(cnt > 0)
-    }.ensuring(_ => 
-      unfold(valid)
-      valid)
+    }.ensuring(_ => unfold(valid) valid)
   }
 }
