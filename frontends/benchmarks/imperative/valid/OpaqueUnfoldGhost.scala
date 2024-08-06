@@ -3,7 +3,7 @@ import stainless.proof._
 import stainless.annotation._
 import StaticChecks._
 
-object OpaqueMutation2 {
+object OpaqueUnfoldGhost {
   case class Box(var cnt: BigInt) {
     @opaque
     @ghost
