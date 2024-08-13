@@ -1,0 +1,23 @@
+{
+  "models": [
+    "ArrayContent.arrayContentM"
+  ],
+  "comparefuns": [
+    "ArrayContent.arrayContent"
+  ],
+  "outcome": {
+    "equivalent": [
+      {
+        "model": "ArrayContent.arrayContentM",
+        "functions": [
+          "ArrayContent.arrayContent"
+        ]
+      }
+    ],
+    "unequivalent": [],
+    "unsafe": [],
+    "unknownSafety": [],
+    "unknownEquivalence": [],
+    "wrong": []
+  }
+}
