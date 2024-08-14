@@ -74,7 +74,7 @@ object Set {
     @extern @pure
     def toList: List[A] = {
       List.fromScala(set.theSet.toList)
-    } ensuring (ListOps.noDuplicate(_))
+    } ensuring (res => ListOps.noDuplicate(res) && res.content == set)
 
     @extern @pure
     def toListPost(a:A): Unit = {
