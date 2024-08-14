@@ -14,8 +14,8 @@ object OpaqueMutation1 {
       @ghost val oldBox = snapshot(this)
       cnt += 1
       ghostExpr {
-        unfold(secretSauce(other))
-        unfold(oldBox.secretSauce(other))
+        unfolding(secretSauce(other))
+        unfolding(oldBox.secretSauce(other))
         check(oldBox.secretSauce(other) + 1 == this.secretSauce(other))
       }
     }.ensuring(_ => old(this).secretSauce(other) + 1 == this.secretSauce(other))

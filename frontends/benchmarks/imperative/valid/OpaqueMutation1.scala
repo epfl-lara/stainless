@@ -13,8 +13,8 @@ object OpaqueMutation1 {
       @ghost val oldBox = snapshot(this)
       cnt += 1
       ghostExpr {
-        unfold(secretSauce(other))
-        unfold(oldBox.secretSauce(other))
+        unfolding(secretSauce(other))
+        unfolding(oldBox.secretSauce(other))
         check(oldBox.secretSauce(other) + 1 == this.secretSauce(other))
       }
     }.ensuring(_ => old(this).secretSauce(other) + 1 == this.secretSauce(other))
@@ -24,8 +24,8 @@ object OpaqueMutation1 {
     def incrementPure(): (Unit, Box) = {
       val newThis = Box(cnt + 1, other)
       ghostExpr {
-        unfold(newThis.secretSauce(other))
-        unfold(this.secretSauce(other))
+        unfolding(newThis.secretSauce(other))
+        unfolding(this.secretSauce(other))
         check(this.secretSauce(other) + 1 == newThis.secretSauce(other))
       }
       ((), newThis)

@@ -24,7 +24,7 @@ class UnfoldOpaque(override val s: Trees, override val t: Trees)
 
     override def transform(e: Expr, env: Env): t.Expr = {
       e match {
-        case s.FunctionInvocation(ast.SymbolIdentifier("stainless.lang.unfold"), Seq(_), Seq(maybeFi)) =>
+        case s.FunctionInvocation(ast.SymbolIdentifier("stainless.lang.unfolding"), Seq(_), Seq(maybeFi)) =>
           // Lookup the bindings recursively to unveil a call to a function which we would need to unfold
           val r = dealiasedAndStripped(maybeFi, env)
           r match {
