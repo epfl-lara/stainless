@@ -1,0 +1,23 @@
+{
+  "models": [
+    "ArrayIncreasing.validLengthIncreasingM"
+  ],
+  "comparefuns": [
+    "ArrayIncreasing.validLengthIncreasing"
+  ],
+  "outcome": {
+    "equivalent": [
+      {
+        "model": "ArrayIncreasing.validLengthIncreasingM",
+        "functions": [
+          "ArrayIncreasing.validLengthIncreasing"
+        ]
+      }
+    ],
+    "unequivalent": [],
+    "unsafe": [],
+    "unknownSafety": [],
+    "unknownEquivalence": [],
+    "wrong": []
+  }
+}
