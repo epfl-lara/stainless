@@ -1,0 +1,23 @@
+{
+  "models": [
+    "MayHeapify.maxHeapifyM"
+  ],
+  "comparefuns": [
+    "MayHeapify.maxHeapify"
+  ],
+  "outcome": {
+    "equivalent": [
+      {
+        "model": "MayHeapify.maxHeapifyM",
+        "functions": [
+          "MayHeapify.maxHeapify"
+        ]
+      }
+    ],
+    "unequivalent": [],
+    "unsafe": [],
+    "unknownSafety": [],
+    "unknownEquivalence": [],
+    "wrong": []
+  }
+}

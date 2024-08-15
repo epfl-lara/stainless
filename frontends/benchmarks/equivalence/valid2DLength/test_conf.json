@@ -1,0 +1,23 @@
+{
+  "models": [
+    "Valid2DLength.valid2DLengthM"
+  ],
+  "comparefuns": [
+    "Valid2DLength.valid2DLength"
+  ],
+  "outcome": {
+    "equivalent": [
+      {
+        "model": "Valid2DLength.valid2DLengthM",
+        "functions": [
+          "Valid2DLength.valid2DLength"
+        ]
+      }
+    ],
+    "unequivalent": [],
+    "unsafe": [],
+    "unknownSafety": [],
+    "unknownEquivalence": [],
+    "wrong": []
+  }
+}

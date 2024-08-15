@@ -1,0 +1,23 @@
+{
+  "models": [
+    "Partial.fM"
+  ],
+  "comparefuns": [
+    "Partial.f"
+  ],
+  "outcome": {
+    "equivalent": [
+      {
+        "model": "Partial.fM",
+        "functions": [
+          "Partial.f"
+        ]
+      }
+    ],
+    "unequivalent": [],
+    "unsafe": [],
+    "unknownSafety": [],
+    "unknownEquivalence": [],
+    "wrong": []
+  }
+}
