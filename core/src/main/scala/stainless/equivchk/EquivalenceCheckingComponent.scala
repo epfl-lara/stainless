@@ -64,6 +64,7 @@ object optInitWeights extends inox.OptionDef[Map[String, Int]] {
 }
 object optMaxPerm extends inox.IntOptionDef("equivchk-max-perm", EquivalenceChecker.defaultMaxMatchingPermutation, "<int>")
 object optMaxCtex extends inox.IntOptionDef("equivchk-max-ctex", EquivalenceChecker.defaultMaxCtex, "<int>")
+object optMeasureTransfer extends inox.FlagOptionDef("equivchk-transfer", false)
 
 object EquivalenceCheckingComponent extends Component {
   override val name = "equivchk"
