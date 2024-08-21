@@ -122,9 +122,10 @@ trait MainHelpers extends inox.MainHelpers { self =>
 
   override protected def displayVersion(reporter: inox.Reporter): Unit = {
     reporter.title("Stainless verification tool (https://github.com/epfl-lara/stainless)")
-    reporter.info(s"Version: ${BuildInfo.version}")
-    reporter.info(s"Built at: ${BuildInfo.builtAtString}")
-    reporter.info(s"Stainless Scala version: ${BuildInfo.scalaVersion}")
+    reporter.info(s"  Version: ${BuildInfo.version}")
+    reporter.info(s"  Built at: ${BuildInfo.builtAtString}")
+    reporter.info(s"  Stainless Scala version: ${BuildInfo.scalaVersion}")
+    super.displayVersion(reporter)
   }
 
   override protected def getName: String = "stainless"
