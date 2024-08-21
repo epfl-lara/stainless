@@ -1,0 +1,23 @@
+{
+  "models": [
+    "SortedArray.isSortedArrayM"
+  ],
+  "comparefuns": [
+    "SortedArray.isSortedArray"
+  ],
+  "outcome": {
+    "equivalent": [
+      {
+        "model": "SortedArray.isSortedArrayM",
+        "functions": [
+          "SortedArray.isSortedArray"
+        ]
+      }
+    ],
+    "unequivalent": [],
+    "unsafe": [],
+    "unknownSafety": [],
+    "unknownEquivalence": [],
+    "wrong": []
+  }
+}

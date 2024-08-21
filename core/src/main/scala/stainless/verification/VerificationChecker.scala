@@ -280,6 +280,10 @@ trait VerificationChecker { self =>
     import SolverResponses._
     val cond = vc.condition
     if (cond == BooleanLiteral(true)) {
+      if(vc.kind.isInstanceOf[VCKind.SATPrecondCheck.type]) {
+        // an UNSAT VC here means that the precondition is UNSAT so we return Invalid
+        return VCResult(VCStatus.Invalid(VCStatus.Unsatisfiable), None, None, None)
+      }
       return VCResult(VCStatus.Trivial, None, None, None)
     }
 
@@ -314,6 +318,15 @@ trait VerificationChecker { self =>
               }
               case _ => VCStatus.Unknown
             }, Some(s.name), Some(time), s.getSmtLibFileId)
+
+          case Unsat if vc.kind.isInstanceOf[VCKind.SATPrecondCheck.type] =>
+            VCResult(VCStatus.Invalid(VCStatus.Unsatisfiable), s.getResultSolver.map(_.name), Some(time), s.getSmtLibFileId)
+
+          case Sat if vc.kind.isInstanceOf[VCKind.SATPrecondCheck.type] =>
+            VCResult(VCStatus.Valid, s.getResultSolver.map(_.name), Some(time), s.getSmtLibFileId)
+
+          case SatWithModel(_) if vc.kind.isInstanceOf[VCKind.SATPrecondCheck.type] =>
+            VCResult(VCStatus.Valid, s.getResultSolver.map(_.name), Some(time), s.getSmtLibFileId)
 
           case Unsat if !vc.satisfiability =>
             VCResult(VCStatus.Valid, s.getResultSolver.map(_.name), Some(time), s.getSmtLibFileId)

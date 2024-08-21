@@ -1,6 +1,15 @@
 # Stainless [![Release][release-img]][latest-release] [![Nightly Build Status][nightly-larabot-img]][nightly-larabot-ref] [![Build Status][larabot-img]][larabot-ref] [![Gitter chat][gitter-img]][gitter-ref] [![Apache 2.0 License][license-img]][license-ref]
 
+Hosted at https://github.com/epfl-lara/stainless ; mirrored at https://gitlab.epfl.ch/lara/stainless
+
 Verification framework for a subset of the [Scala](http://scala-lang.org) programming language. See the [tutorial](https://epfl-lara.github.io/asplos2022tutorial/).
+
+Please note that this repository uses `git submodules`, so you need to either:
+
+- clone it with the `--recursive` option, or
+- run `$ git submodule update --init --recursive` after cloning.
+
+Please note that Stainless does not support Scala 2 frontend anymore but only Scala 3.3. The latest release that does support Scala 2.13 frontend is the [v0.9.8.7](https://github.com/epfl-lara/stainless/releases/tag/v0.9.8.7).
 
 ## Quick start
 
@@ -40,7 +49,7 @@ It is shipped with Z3 4.12.2, cvc5 1.0.8 and Princess. If Z3 API is not found, u
 
 ## SBT Stainless plugin
 
-Alternatively, one may integrate Stainless with SBT. The supported Scala versions are `3.3.3` and `2.13.12`
+Alternatively, one may integrate Stainless with SBT. The supported Scala versions is `3.3.3`.
 To do so, download [sbt-stainless](https://github.com/epfl-lara/stainless/releases), and move it to the directory of the project.
 Assuming the project's structure is:
 ```
@@ -70,6 +79,7 @@ these should be moved according to the above structure.
 
 Finally, the plugin must be explicitly enabled for projects in `build.sbt` desiring Stainless with `.enablePlugins(StainlessPlugin)`.
 For instance:
+
 ```scala
 ThisBuild / version := "0.1.0"
 
@@ -88,15 +98,25 @@ Note that this method only ships the Princess SMT solver. Z3 and cvc5 can still 
 
 ## Build and Use
 
-To start quickly, install a JVM and use a [recent release](https://github.com/epfl-lara/stainless/releases). To build the project, run `sbt universal:stage`. If all goes well, scripts are generated for Scala 3 and Scala 2 versions of the front end:
-  * `frontends/scalac/target/universal/stage/bin/stainless-scalac`
+To start quickly, install a JVM and use a [recent release](https://github.com/epfl-lara/stainless/releases). To build the project, run `sbt universal:stage`. If all goes well, scripts are generated for the front end:
   * `frontends/dotty/target/universal/stage/bin/stainless-dotty`
 
 Use one of these scripts as you would use `scalac` to compile Scala files.
-The default behavior of Stainless is to formally verify files, instead of generating JVM class files. 
+The default behavior of Stainless is to formally verify files, instead of generating JVM class files.
 See [frontends/benchmarks/verification/valid/](frontends/benchmarks/verification/valid/) and related directories for some benchmarks and
 [bolts repository](https://github.com/epfl-lara/bolts/) for a larger collection.
 More information is available in the documentation links.
+
+### SSH and VSCode
+
+Visual Studio Code offers a feature allowing to connect to a host over SSH and edit code located on this host. This is useful to edit code on a remote machine using the local Visual Studio Code editor and running Stainless on this remote machine. See [this official documentation](https://code.visualstudio.com/docs/remote/ssh) to learn more about this feature.
+
+If you have access to a remote machine over SSH, this is the recommended way to use Stainless. Please note you have to install Stainless on the remote machine following the instructions above.
+
+### Github Codespaces
+
+Github Codespaces
+To allow running Stainless with only a browser, we have provided a sample repository to use Stainless with Github Codespaces. Github Codespaces are cloud machines that can be access via Visual Studio Code locally or in the browser. In our experience (as of October 2023), this flow works well, given the provided Ubuntu Linux virtual machines with 16GB of RAM and substantial processing power. Please see [this repository](https://github.com/samuelchassot/Stainless-codespaces) for further details.
 
 ## Further Documentation and Learning Materials
 

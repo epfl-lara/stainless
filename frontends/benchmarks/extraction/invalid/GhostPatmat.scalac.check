@@ -1,6 +1,0 @@
-[ Error  ] GhostPatmat.scala:17:19: Cannot access a ghost symbol outside of a ghost context. [ x in value foo ]
-                   val foo = x // error: x is ghost
-                             ^
-[ Error  ] GhostPatmat.scala:18:19: Cannot access a ghost symbol outside of a ghost context. [ y in value bar ]
-                   val bar = y // error: y is ghost
-                             ^

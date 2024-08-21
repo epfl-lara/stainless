@@ -55,7 +55,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
     verification.optSimplifier -> Description(Verification, "Select which simplifier to use for VC simplification\n" +
       "Available:\n" +
       "  vanilla:             : Standard simplifier\n" +
-      "  ol (experimental)    : Leverages ortholattice boolean algebra for simplifying boolean expressions\n" +
+      "  ol (experimental)    : Leverages ortholattice algebra for simplifying boolean expressions\n" +
       "  ocbsl (experimental) : Leverages orthocomplemented bisemilattices boolean algebra for simplifying boolean expressions.\n" +
       "                         Though the name sounds cooler than OL, it is less complete.\n" +
       "  bland (experimental) : Common simplification logic to OL and OCBSL, but without any boolean algebra flavor"),
@@ -85,6 +85,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
     equivchk.optInitScore -> Description(EquivChk, "Initial score for models"),
     equivchk.optInitWeights -> Description(EquivChk, "Initial weights for models, overriding the initial score"),
     equivchk.optMaxPerm -> Description(EquivChk, "Maximum number of permutations to be tested when matching auxiliary functions"),
+    optSatPrecond -> Description(General, "Generate VCs to check that preconditions are SAT"),
   ) ++ MainHelpers.components.map { component =>
     val option = inox.FlagOptionDef(component.name, default = false)
     option -> Description(Pipelines, component.description)
@@ -121,9 +122,10 @@ trait MainHelpers extends inox.MainHelpers { self =>
 
   override protected def displayVersion(reporter: inox.Reporter): Unit = {
     reporter.title("Stainless verification tool (https://github.com/epfl-lara/stainless)")
-    reporter.info(s"Version: ${BuildInfo.version}")
-    reporter.info(s"Built at: ${BuildInfo.builtAtString}")
-    reporter.info(s"Stainless Scala version: ${BuildInfo.scalaVersion}")
+    reporter.info(s"  Version: ${BuildInfo.version}")
+    reporter.info(s"  Built at: ${BuildInfo.builtAtString}")
+    reporter.info(s"  Stainless Scala version: ${BuildInfo.scalaVersion}")
+    super.displayVersion(reporter)
   }
 
   override protected def getName: String = "stainless"

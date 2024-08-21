@@ -1,6 +1,3 @@
-[ Error  ] i800b.scala:5:7: throw expressions are unsupported in Stainless
-               { throw Foo() }
-                 ^^^^^^^^^^^
 [ Error  ] i800b.scala:10:5: try-catch expressions are not supported in Stainless
                try mystery() catch {
                ^^^^^^^^^^^^^^^^^^^^^...

@@ -71,6 +71,7 @@ object VCKind {
   case object CoqMethod                     extends VCKind("coq function", "coq fun.")
   case class  Error(err: String)            extends VCKind(err, "error")
   case class  AdtInvariant(inv: Identifier) extends VCKind("class invariant", "class inv.")
+  case object SATPrecondCheck               extends VCKind("precondition satisfiability", "sat precond.")
 
   def fromErr(optErr: Option[String]) = {
     optErr.map { err =>

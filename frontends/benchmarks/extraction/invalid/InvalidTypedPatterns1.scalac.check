@@ -1,3 +1,0 @@
-[ Error  ] InvalidTypedPatterns1.scala:13:45: Unsupported pattern: (_: B)
-               case MyOtherClass(s1: A, MyOtherClass(s2: B, moc2: MyOtherClass[A, B])) => s1 // s2: B is invalid
-                                                       ^^^

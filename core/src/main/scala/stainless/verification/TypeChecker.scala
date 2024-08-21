@@ -3,12 +3,10 @@
 package stainless
 package verification
 
-import inox.solvers._
-
-import TypeCheckerUtils._
-import TypeCheckerDerivation._
-import TypeCheckerContext._
-
+import inox.solvers.*
+import TypeCheckerUtils.*
+import TypeCheckerDerivation.*
+import TypeCheckerContext.*
 import stainless.termination.optCheckMeasures
 
 import scala.collection.{immutable, mutable}
@@ -63,6 +61,7 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
   given givenDebugSection: DebugSectionTypeChecker.type = DebugSectionTypeChecker
 
   val checkMeasures = options.findOptionOrDefault(optCheckMeasures)
+  val checkSatPrecond = options.findOptionOrDefault(optSatPrecond)
 
   /* ====================================
    *     Polarity in ADT definitions
@@ -1285,7 +1284,7 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
 
     // The type of the arguments, the specifications, and the return type
     // need to be well-formed without the mutually recursive dependencies
-    val nonMutuallyRecursiveContext =
+    val nonMutuallyRecursiveContext: TypingContext =
       TypingContext.empty.
         withIdentifiers(deps -- mutuallyRecursiveDeps).
         withTypeVariables(fd.tparams.map(tpd => freshener.transformTp(tpd.tp)).toSet).
@@ -1296,9 +1295,9 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
     // arguments of the function
     // `trArgs` are the verification conditions for ensuring that the type of
     // the arguments are well-formed
-    val (tc0, trArgs) = fd.params.foldLeft(nonMutuallyRecursiveContext, TyperResult.valid) {
+    val (tc0, trArgs): (TypingContext, TyperResult) = fd.params.foldLeft(nonMutuallyRecursiveContext, TyperResult.valid) {
       case ((tcAcc, trAcc), vd) =>
-        val freshVd = freshener.transform(vd)
+        val freshVd: ValDef = freshener.transform(vd)
         (
           tcAcc.bind(freshVd),
           trAcc ++ isType(tcAcc, freshVd.tpe)
@@ -1307,7 +1306,7 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
 
     // `tcWithPre` is `tc0` to which we add the preconditions and lets
     // and `trPre` is the `TyperResult` corresponding to type-checking those
-    val (tcWithPre, trPre) = specced.specs.filter(spec => spec.kind == LetKind || spec.kind == PreconditionKind).foldLeft (tc0, TyperResult.valid) {
+    val (tcWithPre, trPre): (TypingContext, TyperResult) = specced.specs.filter(spec => spec.kind == LetKind || spec.kind == PreconditionKind).foldLeft (tc0, TyperResult.valid) {
       case ((tcAcc, trAcc), LetInSpec(vd, e)) =>
         val e2 = freshener.transform(e)
         val freshVd = freshener.transform(vd)
@@ -1317,6 +1316,11 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
         (tcAcc.withTruth(cond2), trAcc ++ checkType(tcAcc, cond2, BooleanType()))
       case _ => sys.error("shouldn't be possible because of the filtering above")
     }
+
+    // We check that the specification is SAT to avoid false => P(body(x)) type of proofs
+    // To do so, we create a VC phi(x) => false, where phi(x) is the precondition. This will be checked as phi(x) => not false
+    // Then we check in VerificationChecker that this VC should be SAT
+    val trPreSat: Option[TyperResult] = if checkSatPrecond then Some(buildVC(tcWithPre.withCheckSAT(false).withVCKind(VCKind.SATPrecondCheck), BooleanLiteral(false))) else None
 
     val measureOpt = specced.getSpec(MeasureKind).map(measure => freshener.transform(measure.expr))
 
@@ -1336,7 +1340,7 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
 
     val postOpt = specced.getSpec(PostconditionKind).map(post => freshener.transform(post.expr))
 
-    val freshenedReturnType = freshener.transform(fd.returnType)
+    val freshenedReturnType: Type = freshener.transform(fd.returnType)
     val bodyOpt = specced.bodyOpt.map(freshener.transform)
 
     // The `TypingContext` for the body contains all dependencies, and the measure
@@ -1347,14 +1351,14 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
     val trBody = bodyOpt.fold(TyperResult.valid) { body =>
       postOpt.fold(checkType(tcBody, body, freshenedReturnType)) {
         case Lambda(Seq(retArg), postBody) =>
-          val refinedReturnType = RefinementType(retArg, postBody)
+          val refinedReturnType: RefinementType = RefinementType(retArg, postBody)
           val vcKind = if (fd.flags.contains(Law)) VCKind.Law else VCKind.Postcondition
 
           checkType(tcBody.withVCKind(vcKind), body, refinedReturnType)
         }
     }
 
-    (measureType, (trArgs ++ trPre ++ trMeasure ++ trBody).root(OKFunction(id)))
+    (measureType, (trArgs ++ trPre ++ trPreSat.getOrElse(TyperResult.valid) ++ trMeasure ++ trBody).root(OKFunction(id)))
   }
 
   def checkType(fids: Seq[Identifier]): Seq[StainlessVC] = {

@@ -1,3 +1,0 @@
-[ Error  ] Purity2.scala:10:5: Functions marked @pure cannot have side-effects
-               def world = {
-               ^^^^^^^^^^^^^...

@@ -46,7 +46,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
   final override def createContext(options: inox.Options) = stainless.TestContext(options)
 
   override protected def optionsString(options: inox.Options): String = {
-    "solvr=" + options.findOptionOrDefault(inox.optSelectedSolvers).head + " " +
+    "solver=" + options.findOptionOrDefault(inox.optSelectedSolvers).head + " " +
     "lucky=" + options.findOptionOrDefault(inox.solvers.unrolling.optFeelingLucky) + " " +
     "check=" + options.findOptionOrDefault(inox.solvers.optCheckModels)
   }

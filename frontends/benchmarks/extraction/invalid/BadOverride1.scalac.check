@@ -1,4 +1,0 @@
-[ Error  ] BadOverride1.scala:7:9: stable, immutable value required to override:
-[ Error  ] val x: Int (defined in class Abs)
-               def x: Int = 1
-                   ^

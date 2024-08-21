@@ -21,6 +21,17 @@ object ListSpecs {
     ((l :+ t).apply(i) == (if (i < l.size) l(i) else t))
   }.holds
 
+  def isnocIndex[T](l: List[T], t: T, i: Int): Boolean = {
+    require(l.isize < Int.MaxValue)
+    require(0 <= i && i < l.isize + 1)
+    decreases(l)
+    l match {
+      case Nil() => true
+      case Cons(x, xs) => if (i > 0) isnocIndex[T](xs, t, i - 1) else true
+    }
+    ((l :+ t).iapply(i) == (if (i < l.isize) l.iapply(i) else t))
+  }.holds
+
   @isabelle.lemma(about = "stainless.collection.List.apply")
   def consIndex[T](h: T, t: List[T], i: BigInt): Boolean = {
     require(0 <= i && i < t.size + 1)

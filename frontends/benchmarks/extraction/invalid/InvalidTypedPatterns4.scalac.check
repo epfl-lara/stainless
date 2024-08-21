@@ -1,5 +1,0 @@
-[ Error  ] InvalidTypedPatterns4.scala:5:31: scrutinee is incompatible with pattern type;
-[ Error  ]  found   : String
-[ Error  ]  required: Int
-               case MyClass(a1: Int, a2: String, b: String) => a1 // a2: String is invalid
-                                         ^

@@ -1,0 +1,23 @@
+{
+  "models": [
+    "AdjList.validAdjListM"
+  ],
+  "comparefuns": [
+    "AdjList.validAdjList"
+  ],
+  "outcome": {
+    "equivalent": [
+      {
+        "model": "AdjList.validAdjListM",
+        "functions": [
+          "AdjList.validAdjList"
+        ]
+      }
+    ],
+    "unequivalent": [],
+    "unsafe": [],
+    "unknownSafety": [],
+    "unknownEquivalence": [],
+    "wrong": []
+  }
+}

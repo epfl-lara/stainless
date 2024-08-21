@@ -241,20 +241,7 @@ class VerificationSuite extends VerificationComponentTestSuite {
   testPosAll("verification/false-valid", falseValid._1, falseValid._2)
 }
 object VerificationSuite {
-  // Scala 2 BitVectors tests leverages the fact that `==` can be used to compare two unrelated types.
-  // For instance, if we have x: Int42, then x == 42 is legal.
-  // In Scala 3, however, this expression is ill-formed because Int42 and Int (the widened type of 42) are unrelated.
-  // Therefore, all BitVectors tests for Scala 3 must perform a conversion for literals
-  // (e.g. the above expression is rewritten to x == (42: Int42))
-  private def bitVectorsTestDiscarding(file: String): Boolean = {
-    val scala2BitVectors = Set("MicroTests/scalac/BitVectors1.scala", "MicroTests/scalac/BitVectors2.scala", "MicroTests/scalac/BitVectors3.scala")
-    val scala3BitVectors = Set("MicroTests/dotty/BitVectors1.scala", "MicroTests/dotty/BitVectors2.scala", "MicroTests/dotty/BitVectors3.scala")
-
-    (ComponentTestSuite.isScala3 || !scala3BitVectors.exists(t => file.endsWith(t))) &&
-    (ComponentTestSuite.isScala2 || !scala2BitVectors.exists(t => file.endsWith(t)))
-  }
-
-  private lazy val valid = ComponentTestSuite.loadPrograms("verification/valid", recursive = true, keepOnly = bitVectorsTestDiscarding)
+  private lazy val valid = ComponentTestSuite.loadPrograms("verification/valid", recursive = true)
   private lazy val invalid = ComponentTestSuite.loadPrograms("verification/invalid")
   private lazy val falseValid = ComponentTestSuite.loadPrograms("verification/false-valid")
 }

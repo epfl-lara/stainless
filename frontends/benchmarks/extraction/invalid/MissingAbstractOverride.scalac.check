@@ -1,6 +1,0 @@
-[ Error  ] MissingAbstractOverride.scala:14:14: class Bar needs to be abstract.
-[ Error  ] Missing implementation for member of class Foo:
-[ Error  ]   def test(x: Int): Int = ???
-[ Error  ] 
-             case class Bar() extends Foo
-                        ^
