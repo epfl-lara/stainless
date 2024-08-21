@@ -40,18 +40,18 @@ package object methods {
   }
 
   def extractor(using inox.Context) = {
-    utils.NamedPipeline("Laws",            Laws(trees))            andThen
-    utils.NamedPipeline("SuperInvariants", SuperInvariants(trees)) andThen
-    utils.NamedPipeline("SuperCalls",      SuperCalls(trees))      andThen
-    utils.NamedPipeline("Sealing",         Sealing(trees))         andThen
-    utils.NamedPipeline("MethodLifting",   MethodLifting(trees))   andThen
-    utils.NamedPipeline("MergeInvariants", MergeInvariants(trees)) andThen
-    utils.NamedPipeline("FieldAccessors",  FieldAccessors(trees))  andThen
-    utils.NamedPipeline("ValueClasses",    ValueClasses(trees))    andThen
+    utils.NamedPipeline("Laws",            Laws(trees))            `andThen`
+    utils.NamedPipeline("SuperInvariants", SuperInvariants(trees)) `andThen`
+    utils.NamedPipeline("SuperCalls",      SuperCalls(trees))      `andThen`
+    utils.NamedPipeline("Sealing",         Sealing(trees))         `andThen`
+    utils.NamedPipeline("MethodLifting",   MethodLifting(trees))   `andThen`
+    utils.NamedPipeline("MergeInvariants", MergeInvariants(trees)) `andThen`
+    utils.NamedPipeline("FieldAccessors",  FieldAccessors(trees))  `andThen`
+    utils.NamedPipeline("ValueClasses",    ValueClasses(trees))    `andThen`
     utils.NamedPipeline("MethodsLowering", lowering)
   }
 
-  def fullExtractor(using inox.Context) = extractor andThen nextExtractor
+  def fullExtractor(using inox.Context) = extractor `andThen` nextExtractor
   def nextExtractor(using inox.Context) = throwing.fullExtractor
 
   def phaseSemantics(using inox.Context): inox.SemanticsProvider { val trees: methods.trees.type } = {

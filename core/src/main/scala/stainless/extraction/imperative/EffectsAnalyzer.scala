@@ -56,7 +56,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
   import exprOps._
   import context.given
 
-  private[this] val effectsCache = new ExtractionCache[FunDef, Result]((fd, context) =>
+  private val effectsCache = new ExtractionCache[FunDef, Result]((fd, context) =>
     getDependencyKey(fd.id)(using context.symbols)
   )
 
@@ -87,7 +87,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     val symbols: s.Symbols
     import symbols.given
 
-    private[this] def functionEffects(fd: FunAbstraction, current: Result): Set[Effect] =
+    private def functionEffects(fd: FunAbstraction, current: Result): Set[Effect] =
       BodyWithSpecs(fd.fullBody).bodyOpt match {
         case Some(body) =>
           expressionEffects(body, current)
@@ -101,12 +101,12 @@ trait EffectsAnalyzer extends oo.CachingPhase {
           Set.empty
       }
 
-    private[this] val result: Result = symbols.functions.values.foldLeft(Result.empty) {
+    private val result: Result = symbols.functions.values.foldLeft(Result.empty) {
       case (results, fd) =>
         val fds = (symbols.transitiveCallees(fd) + fd).toSeq.sortBy(_.id)
-        val lookups = fds.map(effectsCache get (_, this))
+        val lookups = fds.map(effectsCache `get` (_, this))
         val newFds = (fds zip lookups).filter(_._2.isEmpty).map(_._1)
-        val prevResult = lookups.flatten.foldLeft(Result.empty)(_ merge _)
+        val prevResult = lookups.flatten.foldLeft(Result.empty)(_ `merge` _)
 
         val newResult = if (newFds.isEmpty) {
           prevResult
@@ -124,7 +124,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
 
           val result = inox.utils.fixpoint[Result] { case res @ Result(effects, locals) =>
             Result(effects.map { case (fd, _) => fd -> functionEffects(fd, res) }, locals)
-          } (prevResult merge baseResult)
+          } (prevResult `merge` baseResult)
 
           for ((fd, inners) <- inners) {
             effectsCache(fd, this) = Result(
@@ -136,7 +136,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
           result
         }
 
-        results merge newResult
+        results `merge` newResult
     }
 
     def effects(fd: FunDef): Set[Effect] = result.effects(Outer(fd))
@@ -362,13 +362,13 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     }
 
     def maybePrefixOf(that: Target): Boolean =
-      receiver == that.receiver && (path maybePrefixOf that.path)
+      receiver == that.receiver && (path `maybePrefixOf` that.path)
 
     def maybeProperPrefixOf(that: Target): Boolean =
-      receiver == that.receiver && (path maybeProperPrefixOf that.path)
+      receiver == that.receiver && (path `maybeProperPrefixOf` that.path)
 
     def definitelyPrefixOf(that: Target): Boolean =
-      receiver == that.receiver && (path definitelyPrefixOf that.path)
+      receiver == that.receiver && (path `definitelyPrefixOf` that.path)
 
     def wrap(using Symbols): Option[Expr] = path.wrap(receiver)
 
@@ -465,10 +465,10 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     }
 
     def maybePrefixOf(that: Effect): Boolean =
-      receiver == that.receiver && (path maybePrefixOf that.path)
+      receiver == that.receiver && (path `maybePrefixOf` that.path)
 
     def definitelyPrefixOf(that: Effect): Boolean =
-      receiver == that.receiver && (path definitelyPrefixOf that.path)
+      receiver == that.receiver && (path `definitelyPrefixOf` that.path)
 
     def toTarget(cond: Option[Expr] = None): Target = Target(receiver, cond, path)
 
@@ -877,7 +877,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
           val currentEffects: Set[Effect] = result.effects(fun)
           val paramSubst = (fun.params.map(_.toVariable) zip args).toMap
           val invocEffects = currentEffects.flatMap(e => paramSubst.get(e.receiver) match {
-            case Some(arg) => (e on arg).flatMap((e, _) => inEnv(e, env))
+            case Some(arg) => (e `on` arg).flatMap((e, _) => inEnv(e, env))
             case None => Seq(e) // This effect occurs on some variable captured from scope
           })
 

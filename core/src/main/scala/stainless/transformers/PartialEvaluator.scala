@@ -90,11 +90,11 @@ trait PartialEvaluator extends SimplifierWithPC { self =>
 
   protected val maxUnfoldingSteps: Int = 50
 
-  private[this] val dynBlocked = new ThreadLocal[Set[Identifier]] { override def initialValue = Set.empty[Identifier] }
-  private[this] val dynSteps = new ThreadLocal[Map[Identifier, Int]] {
+  private val dynBlocked = new ThreadLocal[Set[Identifier]] { override def initialValue = Set.empty[Identifier] }
+  private val dynSteps = new ThreadLocal[Map[Identifier, Int]] {
     override def initialValue = Map.empty[Identifier, Int].withDefault(_ => maxUnfoldingSteps)
   }
 
-  private[this] def isUnfoldable(id: Identifier): Boolean = !dynBlocked.get()(id) && (dynSteps.get()(id) > 0)
+  private def isUnfoldable(id: Identifier): Boolean = !dynBlocked.get()(id) && (dynSteps.get()(id) > 0)
 }
 

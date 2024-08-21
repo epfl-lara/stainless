@@ -35,7 +35,7 @@ class CodeGenEvaluator(override val program: Program,
   import program.symbols.{given, _}
 
   class Monitor(model: program.Model) extends runtime.Monitor {
-    private[this] var calls = 0
+    private var calls = 0
 
     def onInvocation(): Unit = {
       if (maxSteps >= 0) {

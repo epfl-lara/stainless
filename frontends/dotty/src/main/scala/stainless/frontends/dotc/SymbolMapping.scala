@@ -8,7 +8,6 @@ import scala.language.implicitConversions
 import dotty.tools.dotc.core.Flags._
 import dotty.tools.dotc.core.Symbols._
 import dotty.tools.dotc.core.Contexts._
-import dotty.tools.dotc.transform.SymUtils._
 import stainless.ast.SymbolIdentifier
 
 import scala.collection.mutable.{ Map => MutableMap }
@@ -78,7 +77,7 @@ object SymbolMapping {
   }
 
   private def symFullName(sym: Symbol)(using Context): String =
-    if (sym is TypeParam) {
+    if (sym `is` TypeParam) {
       sym.showName
     } else {
       sym.fullName.toString.trim.split("\\.")

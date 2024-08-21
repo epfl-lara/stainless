@@ -60,14 +60,14 @@ trait TreeSanitizer { self =>
     errors
   }
 
-  private[this] abstract class Sanitizer(protected val symbols: Symbols, protected val context: inox.Context) {
+  private abstract class Sanitizer(protected val symbols: Symbols, protected val context: inox.Context) {
     protected given givenPrinterOpts: PrinterOptions = PrinterOptions.fromSymbols(symbols, context)
 
     def sanitize(): Seq[MalformedStainlessCode]
   }
 
   /** Check that setters are only overridden by other setters */
-  private[this] class SettersOverrides(syms: Symbols, ctx: inox.Context) extends Sanitizer(syms, ctx) {
+  private class SettersOverrides(syms: Symbols, ctx: inox.Context) extends Sanitizer(syms, ctx) {
     override def sanitize(): Seq[MalformedStainlessCode] = {
       for {
         cd <- symbols.classes.values.toSeq
@@ -81,7 +81,7 @@ trait TreeSanitizer { self =>
   }
 
   /** Check that methods are only overridden by methods with the same ghostiness */
-  private[this] class GhostOverrides(syms: Symbols, ctx: inox.Context) extends Sanitizer(syms, ctx) {
+  private class GhostOverrides(syms: Symbols, ctx: inox.Context) extends Sanitizer(syms, ctx) {
     override def sanitize(): Seq[MalformedStainlessCode] = {
       for {
         cd  <- symbols.classes.values.toSeq
@@ -99,9 +99,9 @@ trait TreeSanitizer { self =>
   }
 
   /** Check that sealed traits have children */
-  private[this] class SealedClassesChildren(syms: Symbols, ctx: inox.Context) extends Sanitizer(syms, ctx) {
+  private class SealedClassesChildren(syms: Symbols, ctx: inox.Context) extends Sanitizer(syms, ctx) {
     import symbols.given
-    private[this] val hasLocalSubClasses: Identifier => Boolean =
+    private val hasLocalSubClasses: Identifier => Boolean =
       symbols.localClasses.flatMap(_.globalAncestors.map(_.id)).toSet
 
     def sanitize(): Seq[MalformedStainlessCode] = {
@@ -113,12 +113,12 @@ trait TreeSanitizer { self =>
   }
 
   /* This detects both multiple `require` and `require` after `decreases`. */
-  private[this] class Preconditions(override val trees: self.trees.type, syms: Symbols, ctx: inox.Context)
+  private class Preconditions(override val trees: self.trees.type, syms: Symbols, ctx: inox.Context)
     extends Sanitizer(syms, ctx) with OOSelfTreeTraverser {
 
     def this(syms: Symbols, ctx: inox.Context) = this(self.trees, syms, ctx)
 
-    private[this] var errors: ListBuffer[MalformedStainlessCode] = ListBuffer.empty
+    private var errors: ListBuffer[MalformedStainlessCode] = ListBuffer.empty
 
     def sanitize(): Seq[MalformedStainlessCode] = {
       errors = ListBuffer.empty
@@ -194,13 +194,13 @@ trait TreeSanitizer { self =>
   }
 
   /** Detects accesses to @ignored fields */
-  private[this] class IgnoredFields(override val trees: self.trees.type, syms: Symbols, ctx: inox.Context)
+  private class IgnoredFields(override val trees: self.trees.type, syms: Symbols, ctx: inox.Context)
     extends Sanitizer(syms, ctx) with OOSelfTreeTraverser {
     import symbols.given
 
     def this(syms: Symbols, ctx: inox.Context) = this(self.trees, syms, ctx)
 
-    private[this] var errors: ListBuffer[MalformedStainlessCode] = ListBuffer.empty
+    private var errors: ListBuffer[MalformedStainlessCode] = ListBuffer.empty
 
     override def sanitize(): Seq[MalformedStainlessCode] = {
       errors = ListBuffer.empty
@@ -259,7 +259,7 @@ trait TreeSanitizer { self =>
   }
 
   /** Disallow equality tests between lambdas and non-sealed abstract classes in non-ghost code */
-  private[this] class SoundEquality(syms: Symbols, ctx: inox.Context) extends Sanitizer(syms, ctx) { sanitizer =>
+  private class SoundEquality(syms: Symbols, ctx: inox.Context) extends Sanitizer(syms, ctx) { sanitizer =>
     import symbols.given
     val PEDANTIC = false
 
@@ -322,7 +322,7 @@ trait TreeSanitizer { self =>
   }
 
   /** Check that invariants only refer to the fields of their enclosing class, and not methods */
-  private[this] class SoundInvariants(syms: Symbols, ctx: inox.Context) extends Sanitizer(syms, ctx) {
+  private class SoundInvariants(syms: Symbols, ctx: inox.Context) extends Sanitizer(syms, ctx) {
     import symbols.given
     var errors: ListBuffer[MalformedStainlessCode] = ListBuffer.empty
 
@@ -332,7 +332,7 @@ trait TreeSanitizer { self =>
       errors.toSeq
     }
 
-    private[this] def check(inv: FunDef): Unit = {
+    private def check(inv: FunDef): Unit = {
       if (inv.hasPrecondition) {
         errors += MalformedStainlessCode(inv, "Invariants cannot have preconditions")
       }
@@ -348,16 +348,16 @@ trait TreeSanitizer { self =>
       checkThisUsage(inv.fullBody)
     }
 
-    private[this] def isAccessor(id: Identifier): Boolean = {
+    private def isAccessor(id: Identifier): Boolean = {
       symbols.getFunction(id).isAccessor
     }
 
-    private[this] def checkThisUsage(c: MatchCase): Unit = {
+    private def checkThisUsage(c: MatchCase): Unit = {
       c.optGuard.foreach(checkThisUsage)
       checkThisUsage(c.rhs)
     }
 
-    private[this] def checkThisUsage(e: Expr): Unit = {
+    private def checkThisUsage(e: Expr): Unit = {
       e match {
         case ClassSelector(Annotated(body, _), sel) => checkThisUsage(ClassSelector(body, sel))
         case ClassSelector(This(_), _)              => ()
@@ -393,7 +393,7 @@ trait TreeSanitizer { self =>
   }
 
   /** Check that abstract vals are only overridden by constructor parameters */
-  private[this] class AbstractValsOverride(syms: Symbols, ctx: inox.Context) extends Sanitizer(syms, ctx) {
+  private class AbstractValsOverride(syms: Symbols, ctx: inox.Context) extends Sanitizer(syms, ctx) {
     import symbols.given
     var errors: ListBuffer[MalformedStainlessCode] = ListBuffer.empty
 
@@ -403,11 +403,11 @@ trait TreeSanitizer { self =>
       errors.toSeq
     }
 
-    private[this] def symbolOf(defn: Definition): Symbol =
+    private def symbolOf(defn: Definition): Symbol =
       defn.id.asInstanceOf[SymbolIdentifier].symbol
 
 
-    private[this] def check(cd: ClassDef): Unit = {
+    private def check(cd: ClassDef): Unit = {
 
       // `val` in abstract classes can only be overridden by a constructor parameter
       val abstractFields = cd.methods

@@ -59,12 +59,12 @@ final class BitVector(private val signed: Boolean, private val bits: Array[Boole
   def xor(that: BitVector): BitVector = new BitVector(signed, (bits zip that.bits) map (p => p._1 ^  p._2))
 
   def shiftLeft(that: BitVector): BitVector = {
-    val shift = (that.toUnsigned.toBigInteger min new BigInteger(size.toString)).intValueExact
+    val shift = (that.toUnsigned.toBigInteger `min` new BigInteger(size.toString)).intValueExact
     new BitVector(signed, toBigInteger.shiftLeft(shift), size)
   }
 
   def lShiftRight(that: BitVector): BitVector = {
-    val shift = (that.toUnsigned.toBigInteger min new BigInteger(size.toString)).intValueExact
+    val shift = (that.toUnsigned.toBigInteger `min` new BigInteger(size.toString)).intValueExact
     val msbBits = (0 until shift) map { _ => bits.head }
     val remainings = bits.dropRight(shift).toSeq
     val newBits = msbBits ++ remainings
@@ -74,7 +74,7 @@ final class BitVector(private val signed: Boolean, private val bits: Array[Boole
 
   // Preserve MSB (sign bit)
   def aShiftRight(that: BitVector): BitVector = {
-    val shift = (that.toUnsigned.toBigInteger min new BigInteger(size.toString)).intValueExact
+    val shift = (that.toUnsigned.toBigInteger `min` new BigInteger(size.toString)).intValueExact
     new BitVector(signed, toBigInteger.shiftRight(shift), size)
   }
 

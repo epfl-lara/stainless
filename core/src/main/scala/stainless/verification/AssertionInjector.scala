@@ -12,8 +12,8 @@ class AssertionInjector(override val s: ast.Trees, override val t: ast.Trees, va
                        (using val symbols: s.Symbols)
   extends transformers.ConcreteTreeTransformer(s, t) {
 
-  private[this] var inWrappingMode: Boolean = false
-  private[this] def checkOverflow: Boolean = strictArithmetic && !inWrappingMode
+  private var inWrappingMode: Boolean = false
+  private def checkOverflow: Boolean = strictArithmetic && !inWrappingMode
 
   def wrapping[A](enabled: Boolean)(a: => A): A = {
     val old = inWrappingMode

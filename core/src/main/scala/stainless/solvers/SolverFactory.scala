@@ -23,7 +23,7 @@ object SolverFactory {
         else ctx.withOpts(optAssumeChecked(true))
 
       inox.solvers.SolverFactory.getFromName(name)(p, newCtx)(
-        enc andThen InoxEncoder(enc.targetProgram, ctx)
+        enc `andThen` InoxEncoder(enc.targetProgram, ctx)
       )
     } else {
       ctx.reporter.fatalError(s"Unknown solver '$name'")

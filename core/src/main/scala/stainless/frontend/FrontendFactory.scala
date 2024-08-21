@@ -37,12 +37,12 @@ trait FrontendFactory {
         if (file.exists && file.isFile) file.getPath()
         else {
           // JAR URL syntax: jar:<url>!/{filepath}, Expected path syntax: file:/path/a.jar!/{filepath}
-          assert(path startsWith "file:")
-          val Array(_, filepath) = path split "!/"
+          assert(path `startsWith` "file:")
+          val Array(_, filepath) = path `split` "!/"
 
           // Path should always use '/' as a separator (because of the replacement above in `getResource`)
           val filename = filepath.replace("/", "_")
-          val splitPos = filename lastIndexOf '.'
+          val splitPos = filename `lastIndexOf` '.'
           val (prefix, suffix) = filename splitAt splitPos
           val tmpFilePath = Files.createTempFile(prefix, suffix)
           val stream = url.openStream()

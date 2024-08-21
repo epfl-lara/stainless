@@ -13,7 +13,7 @@ package frontend
 abstract class ThreadedFrontend(callback: CallBack, ctx: inox.Context) extends Frontend(callback) {
   private given givenDebugSection: DebugSectionFrontend.type = DebugSectionFrontend
 
-  private var thread: Thread = _
+  private var thread: Thread = scala.compiletime.uninitialized
   private val exceptions = new scala.collection.mutable.ListBuffer[Throwable]
 
   protected def initRun(): Unit // Called when initializing the thread (before callback initialisation).

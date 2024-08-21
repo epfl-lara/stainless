@@ -8,13 +8,13 @@ import scala.annotation.tailrec
 class RecursionProcessor(override val checker: ProcessingPipeline)
                         // Alias for checker, as we cannot use it to define ordering
                         (override val chker: checker.type)
-                        (override val ordering: OrderingRelation with Strengthener with RelationBuilder {
+                        (override val ordering: OrderingRelation & Strengthener & RelationBuilder {
                           val checker: chker.type
                         })
   extends OrderingProcessor("Recursion Processor", checker, ordering) {
 
   def this(chker: ProcessingPipeline,
-           ordering: OrderingRelation with Strengthener with RelationBuilder {
+           ordering: OrderingRelation & Strengthener & RelationBuilder {
              val checker: chker.type
            }) =
     this(chker)(chker)(ordering)

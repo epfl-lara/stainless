@@ -97,7 +97,7 @@ private[genc] sealed trait IR { ir =>
 
     // To make the list of children correct by construction, subclasses
     // get automatically registered to their parent
-    parent foreach { _ addChild this }
+    parent.foreach(c => c.addChild(this))
 
     // The list of children is kept directly here, in a mutable manner,
     // so that we can easily refine all the classes from a class hierarchy
@@ -204,7 +204,7 @@ private[genc] sealed trait IR { ir =>
           case ReferenceType(ct: ClassType) => ct
           case _ => ???
         }
-        ct.clazz getFieldType fieldId
+        ct.clazz.getFieldType(fieldId)
       case ArrayAccess(array, _) => array.getType.asInstanceOf[ArrayType].base
       case ArrayLength(_) => PrimitiveType(Int32Type)
       case Assign(_, _) => NoType

@@ -98,7 +98,7 @@ class EvaluatorRun private(override val component: EvaluatorComponent.type,
     lazy val evaluator = p.getSemantics.getEvaluator
 
     // Evaluate an expression, logging events
-    def evaluate(title: String, e: Expr): Either[String, Expr] = evaluator eval e match {
+    def evaluate(title: String, e: Expr): Either[String, Expr] = evaluator `eval` e match {
       case Successful(res) =>
         reporter.debug(s"\tGot $res from evaluation of $title.")
         Right(res)

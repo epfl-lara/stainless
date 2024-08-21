@@ -3313,7 +3313,7 @@ trait Core extends Definitions { ocbsl =>
   //region Misc
 
   object LitSig {
-    def unapply(sig: Signature): Option[Literal[_]] = sig match {
+    def unapply(sig: Signature): Option[Literal[?]] = sig match {
       case Signature(Label.Lit(l), _) => Some(l)
       case _ => None
     }
@@ -3576,7 +3576,7 @@ trait Core extends Definitions { ocbsl =>
 
   final def codeOfIntLit(lit: BigInt, tpe: Type): Code = codeOfLit(intLitOfType(lit, tpe))
 
-  final def intLitOfType(lit: BigInt, tpe: Type): Literal[_] = tpe match {
+  final def intLitOfType(lit: BigInt, tpe: Type): Literal[?] = tpe match {
     case IntegerType() => IntegerLiteral(lit)
     case RealType() => FractionLiteral(lit, 1)
     case bvt@BVType(signed, size) =>

@@ -36,7 +36,7 @@ object Caches {
    * The cache file itself is not created. Return None when the switch if off.
    */
   def getCacheFile(ctx: inox.Context, optCacheSwitch: inox.FlagOptionDef, filename: String): Option[File] = {
-    val cacheEnabled = ctx.options findOptionOrDefault optCacheSwitch
+    val cacheEnabled = ctx.options `findOptionOrDefault` optCacheSwitch
     if (cacheEnabled) Some(getCacheFile(ctx, filename)) else None
   }
 

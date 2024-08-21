@@ -101,20 +101,20 @@ class EquivalenceCheckingRun private(override val component: EquivalenceChecking
   given givenDebugSection: DebugSectionEquivChk.type = DebugSectionEquivChk
 
   private val tracePrePipeline: ExtractionPipeline { val s: xlang.trees.type; val t: trace.trees.type } =
-    xlang.extractor andThen
-    innerclasses.extractor andThen
-    methods.extractor andThen
-    throwing.extractor andThen
-    imperative.extractor andThen
-    oo.extractor andThen
-    innerfuns.extractor andThen
+    xlang.extractor `andThen`
+    innerclasses.extractor `andThen`
+    methods.extractor `andThen`
+    throwing.extractor `andThen`
+    imperative.extractor `andThen`
+    oo.extractor `andThen`
+    innerfuns.extractor `andThen`
     inlining.extractor
 
   private val tracePostPipeline: ExtractionPipeline { val s: trace.trees.type; val t: trees.type } =
-    trace.extractor andThen
-    termination.extractor andThen
-    extraction.utils.NamedPipeline("MeasureInference", MeasureInference(extraction.trees)) andThen
-    extraction.utils.NamedPipeline("PartialEvaluation", PartialEvaluation(extraction.trees)) andThen
+    trace.extractor `andThen`
+    termination.extractor `andThen`
+    extraction.utils.NamedPipeline("MeasureInference", MeasureInference(extraction.trees)) `andThen`
+    extraction.utils.NamedPipeline("PartialEvaluation", PartialEvaluation(extraction.trees)) `andThen`
     extraction.completer(trees)
 
   override def apply(ids: Seq[Identifier], symbols: xt.Symbols): Future[Analysis] = {

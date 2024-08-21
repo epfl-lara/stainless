@@ -11,7 +11,7 @@ case class VC[T <: ast.Trees](val trees: T)(val condition: trees.Expr, val fid: 
 
   // We override hashCode and equals because, for some reasons, the synthesized methods only use `trees` and ignore the rest
 
-  override def canEqual(that: Any): Boolean = that.isInstanceOf[VC[_]]
+  override def canEqual(that: Any): Boolean = that.isInstanceOf[VC[?]]
 
   override def equals(other: Any): Boolean = other match {
     case that: VC[t] =>
@@ -120,6 +120,6 @@ case class VCResult[+Model](
   def isValidFromCache  = status == VCStatus.ValidFromCache
   def isTrivial         = status == VCStatus.Trivial
   def isAdmitted        = status == VCStatus.Admitted
-  def isInvalid         = status.isInstanceOf[VCStatus.Invalid[_]]
+  def isInvalid         = status.isInstanceOf[VCStatus.Invalid[?]]
   def isInconclusive    = !isValid && !isInvalid
 }

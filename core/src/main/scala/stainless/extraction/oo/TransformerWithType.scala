@@ -51,7 +51,7 @@ trait TransformerWithType extends TreeTransformer {
       t.UnapplyPattern(ob map transform, rrecs, id, tps map transform, rsubs).copiedFrom(pat)
 
     case s.LiteralPattern(ob, lit) =>
-      t.LiteralPattern(ob map transform, transform(lit).asInstanceOf[t.Literal[_]]).copiedFrom(pat)
+      t.LiteralPattern(ob map transform, transform(lit).asInstanceOf[t.Literal[?]]).copiedFrom(pat)
   }
 
   def transform(expr: s.Expr, tpe: s.Type): t.Expr = expr match {

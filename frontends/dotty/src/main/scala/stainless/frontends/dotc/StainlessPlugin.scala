@@ -32,7 +32,7 @@ class StainlessPlugin extends StandardPlugin {
   override val name: String = PluginName
   override val description: String = PluginDescription
 
-  def init(options: List[String]): List[PluginPhase] = {
+  override def init(options: List[String]): List[PluginPhase] = {
     val pluginOpts = parseOptions(options)
     List(
       if (pluginOpts.enableVerification)

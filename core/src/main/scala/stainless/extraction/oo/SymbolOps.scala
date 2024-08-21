@@ -40,10 +40,10 @@ trait SymbolOps extends TypeOps with innerfuns.SymbolOps { self =>
       case ClassPattern(b, ct, subPatterns) =>
         def accessField(id: Identifier) = ClassSelector(asInstOf(in, ct), id)
         val subTests = (ct.tcd.fields zip subPatterns) map { case (f, p) => apply(accessField(f.id), p) }
-        pp.empty withCond isInstOf(in, ct) merge bind(b, asInstOf(in, ct)) merge subTests
+        pp.empty `withCond` isInstOf(in, ct) `merge` bind(b, asInstOf(in, ct)) `merge` subTests
 
       case InstanceOfPattern(ob, ct: ClassType) =>
-        pp.empty withCond isInstOf(in, ct) merge bind(ob, in)
+        pp.empty `withCond` isInstOf(in, ct) `merge` bind(ob, in)
 
       case _ => super.apply(in, pattern)
     }

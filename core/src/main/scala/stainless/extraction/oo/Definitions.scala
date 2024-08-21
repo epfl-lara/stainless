@@ -69,20 +69,20 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
     @inline def id: Identifier = cd.id
 
     @inline def tpSubst: Map[TypeParameter, Type] = _tpSubst.get
-    private[this] val _tpSubst = inox.utils.Lazy((cd.typeArgs zip tps).filter(p => p._1 != p._2).toMap)
+    private val _tpSubst = inox.utils.Lazy((cd.typeArgs zip tps).filter(p => p._1 != p._2).toMap)
 
     @inline def parents: Seq[TypedClassDef] = _parents.get
-    private[this] val _parents = inox.utils.Lazy(cd.parents.flatMap {
+    private val _parents = inox.utils.Lazy(cd.parents.flatMap {
       tpe => typeOps.instantiateType(tpe, tpSubst).asInstanceOf[ClassType].lookupClass
     })
 
     @inline def ancestors: Seq[TypedClassDef] = _ancestors.get
-    private[this] val _ancestors = inox.utils.Lazy(cd.ancestors.map {
+    private val _ancestors = inox.utils.Lazy(cd.ancestors.map {
       tcd => tcd.cd.typed(tcd.tps.map(typeOps.instantiateType(_, tpSubst)))
     })
 
     @inline def children: Seq[TypedClassDef] = _children.get
-    private[this] val _children = inox.utils.Lazy(cd.children.flatMap { cd =>
+    private val _children = inox.utils.Lazy(cd.children.flatMap { cd =>
       val pct = cd.parents.find(_.id == id).get
       symbols.unify(pct, ClassType(id, tps), cd.typeArgs ++ tps.flatMap(typeOps.typeParamsOf)).map { tpSubst =>
         val bound = tpSubst.map(_._1).toSet
@@ -92,16 +92,16 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
     })
 
     @inline def descendants: Seq[TypedClassDef] = _descendants.get
-    private[this] val _descendants = inox.utils.Lazy(children.flatMap(tcd => tcd +: tcd.descendants).distinct)
+    private val _descendants = inox.utils.Lazy(children.flatMap(tcd => tcd +: tcd.descendants).distinct)
 
     @inline def fields: Seq[ValDef] = _fields.get
-    private[this] val _fields = inox.utils.Lazy({
+    private val _fields = inox.utils.Lazy({
       if (tpSubst.isEmpty) cd.fields
       else cd.fields.map(vd => vd.copy(tpe = typeOps.instantiateType(vd.tpe, tpSubst)))
     })
 
     @inline def typeMembers: Seq[TypeDef] = _typeMembers.get
-    private[this] val _typeMembers = inox.utils.Lazy({
+    private val _typeMembers = inox.utils.Lazy({
       val tds = cd.typeMembers.map(symbols.typeDefs)
       if (tpSubst.isEmpty) tds
       else tds.map(td => td.copy(rhs = typeOps.instantiateType(td.rhs, tpSubst)))

@@ -27,7 +27,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
     override def toString: String = "Equivalence checking"
   }
 
-  override protected def getOptions: Map[inox.OptionDef[_], Description] = super.getOptions - inox.solvers.optAssumeChecked ++ Map(
+  override protected def getOptions: Map[inox.OptionDef[?], Description] = super.getOptions - inox.solvers.optAssumeChecked ++ Map(
     optVersion -> Description(General, "Display the version number"),
     optConfigFile -> Description(General, "Path to configuration file, set to false to disable (default: stainless.conf or .stainless.conf)"),
     optFunctions -> Description(General, "Only consider functions f1,f2,..."),
@@ -149,7 +149,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
   protected def newReporter(debugSections: Set[inox.DebugSection]): inox.Reporter =
     new stainless.DefaultReporter(debugSections)
 
-  def getConfigOptions(options: inox.Options)(using inox.Reporter): Seq[inox.OptionValue[_]] = {
+  def getConfigOptions(options: inox.Options)(using inox.Reporter): Seq[inox.OptionValue[?]] = {
     Configuration.get(options, self.options.keys.toSeq)
   }
 
@@ -163,7 +163,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
   }
 
   override
-  protected def processOptions(files: Seq[File], cmdOptions: Seq[inox.OptionValue[_]])
+  protected def processOptions(files: Seq[File], cmdOptions: Seq[inox.OptionValue[?]])
                               (using inox.Reporter): inox.Context = {
     val configOptions = getConfigOptions(inox.Options(cmdOptions))
 
@@ -273,7 +273,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
   }
 
   /** Exports the reports to the given file in JSON format. */
-  private def exportJson(report: Option[AbstractReport[_]], file: String): Unit = {
+  private def exportJson(report: Option[AbstractReport[?]], file: String): Unit = {
     val json = Json.fromFields(report map { r => (r.name -> r.emitJson) })
     JsonUtils.writeFile(new File(file), json)
   }

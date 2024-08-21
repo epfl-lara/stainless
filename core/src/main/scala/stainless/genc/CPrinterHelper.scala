@@ -80,7 +80,7 @@ object CPrinterHelpers {
   def nary(ls: Seq[Any], sep: String = ", ", opening: String = "", closing: String = ""): Printable = Printable {
     val (o, c) = if (ls.isEmpty) ("", "") else (opening, closing)
     val strs = o +: List.fill(ls.size-1)(sep) :+ c
-    new StringContext(strs: _*).c(ls: _*)
+    new StringContext(strs*).c(ls*)
   }
 
 }

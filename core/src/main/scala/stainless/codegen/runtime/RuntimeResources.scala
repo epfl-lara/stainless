@@ -26,7 +26,7 @@ object RuntimeResources {
 
   private val intCounter = new UniqueCounter[Unit]
 
-  private[this] val store = new WeakHashMap[Token, WeakReference[AnyRef]]()
+  private val store = new WeakHashMap[Token, WeakReference[AnyRef]]()
 
   def register[T <: AnyRef](data: T): Token = synchronized {
     val t = Token(intCounter.nextGlobal)

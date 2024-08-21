@@ -16,13 +16,13 @@ import scala.collection.mutable.{Map => MutableMap, ListBuffer}
 class DecreasesProcessor(override val checker: ProcessingPipeline)
                         // Alias for checker, as we cannot use it to define ordering
                         (override val chker: checker.type)
-                        (override val ordering: OrderingRelation with ChainBuilder with Strengthener with StructuralSize {
+                        (override val ordering: OrderingRelation & ChainBuilder & Strengthener & StructuralSize {
                           val checker: chker.type
                         })
   extends OrderingProcessor("Decreases Processor", checker, ordering) {
 
   def this(chker: ProcessingPipeline,
-           ordering: OrderingRelation with ChainBuilder with Strengthener with StructuralSize {
+           ordering: OrderingRelation & ChainBuilder & Strengthener & StructuralSize {
              val checker: chker.type
            }) =
     this(chker)(chker)(ordering)
@@ -126,9 +126,9 @@ class DecreasesProcessor(override val checker: ProcessingPipeline)
             MeasureRegister.get(target).map {
               case (oRel, oExpr, oIndex) =>
                 val nCall = Relation(fd, path, fi, false) // for now we don't need inLambda
-                val rel = oRel match { case Some(r) => nCall compose r; case None => nCall }
+                val rel = oRel match { case Some(r) => nCall `compose` r; case None => nCall }
                 val freshParams = rel.call.tfd.params.map(_.freshen)
-                val fullPath = rel.path withBindings (freshParams zip rel.call.args)
+                val fullPath = rel.path `withBindings` (freshParams zip rel.call.args)
                 val subst: Map[ValDef, Expr] = (rel.call.tfd.params zip freshParams.map(_.toVariable)).toMap
                 val oExprP = exprOps.replaceFromSymbols(subst, oExpr)
                 val (nRel, nExpr, nIndex) = (Some(rel), bindingsToLets(fullPath.bindings, oExprP), oIndex + 1)

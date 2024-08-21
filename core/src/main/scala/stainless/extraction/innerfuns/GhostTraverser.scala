@@ -8,9 +8,9 @@ trait GhostTraverser extends transformers.GhostTraverser {
   val trees: Trees
   import trees._
 
-  private[this] var localFuns = Map.empty[Identifier, LocalFunDef]
+  private var localFuns = Map.empty[Identifier, LocalFunDef]
 
-  private[this] def withLocalFuns[A](fds: Seq[LocalFunDef])(a: => A): A = {
+  private def withLocalFuns[A](fds: Seq[LocalFunDef])(a: => A): A = {
     val prev = localFuns
     localFuns ++= fds.map(fd => fd.id -> fd)
     val res = a

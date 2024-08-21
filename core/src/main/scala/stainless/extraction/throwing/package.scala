@@ -37,7 +37,7 @@ package object throwing {
 
   }
 
-  def fullExtractor(using inox.Context) = extractor andThen nextExtractor
+  def fullExtractor(using inox.Context) = extractor `andThen` nextExtractor
   def nextExtractor(using inox.Context) = imperative.fullExtractor
 
   def phaseSemantics(using inox.Context): inox.SemanticsProvider { val trees: throwing.trees.type } = {

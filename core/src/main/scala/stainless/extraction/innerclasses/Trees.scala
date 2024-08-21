@@ -21,7 +21,7 @@ trait Trees extends methods.Trees with Definitions with Types { self =>
     protected val symbols: this.type
 
     @inline def localClasses: Seq[LocalClassDef] = _localClasses.get
-    private[this] val _localClasses = inox.utils.Lazy({
+    private val _localClasses = inox.utils.Lazy({
       self0.functions.values.flatMap { fd =>
         exprOps.collect[LocalClassDef] {
           case LetClass(lcds, _) => lcds.toSet

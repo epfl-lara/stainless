@@ -135,7 +135,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
 
         val newBody = body.map { body =>
           val freshBody = exprOps.replaceFromSymbols(freshSubst, body)
-          val explicitBody = makeSideEffectsExplicit(freshBody, fd, env withBindings freshLocals, freshLocals.map(_.toVariable))
+          val explicitBody = makeSideEffectsExplicit(freshBody, fd, env `withBindings` freshLocals, freshLocals.map(_.toVariable))
 
           //WARNING: only works if side effects in Tuples are extracted from left to right,
           //         in the ImperativeTransformation phase.
@@ -315,7 +315,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
                 // All effects on the given parameter, applied to the given argument
                 val paramWithArgsEffect = for {
                   outerEffect0 <- effects
-                  (effect0, effectCond) <- outerEffect0 on arg
+                  (effect0, effectCond) <- outerEffect0 `on` arg
                 } yield {
                   val outerEffect = outerEffect0.removeUnknownAccessor
                   val effect = effect0.removeUnknownAccessor
@@ -784,7 +784,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
                 if (commonMutable.isEmpty) {
                   // The above condition is similar to the one in EffectsChecker#check#traverser#traverse#Let, with the
                   // difference that we also account for rewrites (which may introduce other variables, as in i1099.scala).
-                  val newBody = transform(b, env withBinding vd)
+                  val newBody = transform(b, env `withBinding` vd)
 
                   // for all effects of `b` whose receiver is `vd`
                   val copyEffects = effects(b).filter(_.receiver == vd.toVariable).flatMap { eff =>
@@ -832,7 +832,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
 
           case l @ LetVar(vd, e, b) if isMutableType(vd.tpe) =>
             val newExpr = transform(e, env)
-            val newBody = transform(b, env withBinding vd)
+            val newBody = transform(b, env `withBinding` vd)
             LetVar(vd, newExpr, newBody).copiedFrom(l)
 
           case up @ ArrayUpdate(arr, i, v) =>
@@ -866,8 +866,8 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
 
           // we need to replace local fundef by the new updated fun defs.
           case l @ LetRec(fds, body) =>
-            val nfds = fds.map(fd => updateFunction(Inner(fd), env withLocals fds).toLocal)
-            LetRec(nfds, transform(body, env withLocals fds)).copiedFrom(l)
+            val nfds = fds.map(fd => updateFunction(Inner(fd), env `withLocals` fds).toLocal)
+            LetRec(nfds, transform(body, env `withLocals` fds)).copiedFrom(l)
 
           case e @ Ensuring(body, l @ Lambda(params, post)) =>
             Ensuring(transform(body, env), Lambda(params, transform(post, env)).copiedFrom(l)).copiedFrom(e)
