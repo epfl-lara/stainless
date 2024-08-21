@@ -36,7 +36,10 @@ package object imperative {
     def apply(tree: inox.ast.Trees#Tree, msg: String) = new ImperativeEliminationException(tree, msg)
   }
 
-  def oldImperative(using inox.Context) = {
+  /**
+    * This pipeline enforces non-aliasing of mutable state
+    */
+  def defaultImperative(using inox.Context) = {
     utils.NamedPipeline("EffectElaboration", EffectElaboration(trees)) andThen  // only drops definitions
     utils.NamedPipeline("AntiAliasing", AntiAliasing(trees)) andThen
     utils.NamedPipeline("ReturnElimination", ReturnElimination(trees)) andThen
@@ -44,15 +47,21 @@ package object imperative {
     utils.NamedPipeline("ImperativeCleanup", ImperativeCleanup(trees, oo.trees))
   }
 
-  def newImperative(using inox.Context) = {
+  /**
+    * This pipeline uses dynamic frames to handle shared mutable state
+    * 
+    * "Generalized Arrays for Stainless Frames" VMCAI 2022
+    * https://link.springer.com/chapter/10.1007/978-3-030-94583-1_17
+    */
+  def fullImperative(using inox.Context) = {
     utils.NamedPipeline("EffectElaboration", EffectElaboration(trees)) andThen
     utils.NamedPipeline("ImperativeCodeElimination", ImperativeCodeElimination(trees)) andThen
     utils.NamedPipeline("ImperativeCleanup", ImperativeCleanup(trees, oo.trees))
   }
 
   def extractor(using ctx: inox.Context) =
-    if (ctx.options.findOptionOrDefault(optFullImperative)) newImperative
-    else oldImperative
+    if (ctx.options.findOptionOrDefault(optFullImperative)) fullImperative
+    else defaultImperative
 
   def fullExtractor(using inox.Context) = extractor andThen nextExtractor
   def nextExtractor(using inox.Context) = oo.fullExtractor
