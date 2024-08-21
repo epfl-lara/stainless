@@ -32,7 +32,7 @@ class StainlessPlugin extends StandardPlugin {
   override val name: String = PluginName
   override val description: String = PluginDescription
 
-  override def init(options: List[String]): List[PluginPhase] = {
+  override def initialize(options: List[String])(using DottyContext): List[PluginPhase] = {
     val pluginOpts = parseOptions(options)
     List(
       if (pluginOpts.enableVerification)
@@ -43,6 +43,18 @@ class StainlessPlugin extends StandardPlugin {
       else None
     ).flatten
   }
+
+//  def init(options: List[String]): List[PluginPhase] = {
+//    val pluginOpts = parseOptions(options)
+//    List(
+//      if (pluginOpts.enableVerification)
+//        Some(new ExtractionAndVerification)
+//      else None,
+//      if (pluginOpts.enableGhostElimination)
+//        Some(new GhostAccessRewriter(if (pluginOpts.enableVerification) "stainless" else Pickler.name))
+//      else None
+//    ).flatten
+//  }
 
   private def parseOptions(options: List[String]): PluginOptions = {
     var enableVerification = false

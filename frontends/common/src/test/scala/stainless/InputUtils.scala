@@ -102,7 +102,7 @@ trait InputUtils {
 
     if (sanitize) {
       // Check that extracted symbols are valid
-      TreeSanitizer(xt) enforce syms
+      TreeSanitizer(xt).enforce(syms)
       if (ctx.reporter.errorCount != 0) {
         throw SanitizationError(ctx.reporter.errorsOrNil)
       }

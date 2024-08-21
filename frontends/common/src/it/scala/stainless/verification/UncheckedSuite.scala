@@ -8,7 +8,7 @@ import org.scalatest._
 class UncheckedSuite extends VerificationComponentTestSuite {
   private val solvers = Seq("smt-z3", "smt-cvc4", "smt-cvc5")
 
-  override def configurations: Seq[Seq[inox.OptionValue[_]]] = {
+  override def configurations: Seq[Seq[inox.OptionValue[?]]] = {
     solvers.flatMap { solver =>
       super.configurations.map {
         seq => Seq(

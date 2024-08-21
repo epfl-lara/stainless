@@ -10,7 +10,7 @@ object Utils {
     (std.toList, exitCode)
   }
 
-  def runMainWithArgs(args: Array[String]): (inox.Context, Option[AbstractReport[_]]) = {
+  def runMainWithArgs(args: Array[String]): (inox.Context, Option[AbstractReport[?]]) = {
     val ctx = Main.setup(args).copy(reporter = new inox.TestSilentReporter())
     val compilerArgs = args.toList filterNot { _.startsWith("--") }
     val compiler = frontend.build(ctx, compilerArgs, stainless.Main.factory)

@@ -15,7 +15,7 @@ object TestContext {
    */
   def apply(options: Options): inox.Context = {
     val newOptions =
-      if ((options findOption optVCCache).isDefined) options
+      if ((options.findOption(optVCCache)).isDefined) options
       else options + OptionValue(optVCCache)(false)
     inox.TestContext(newOptions)
   }
