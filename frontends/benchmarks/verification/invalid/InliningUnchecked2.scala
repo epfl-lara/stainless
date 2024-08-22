@@ -3,5 +3,5 @@ object InliningUnchecked2 {
 
   def test: Int = {
     -10
- }.ensuring(nonNegative _)
+ }.ensuring(nonNegative)
 }
