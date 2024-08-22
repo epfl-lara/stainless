@@ -22,10 +22,10 @@ object Lists1 {
   }
 
   def exists_lemma_induct[T](list: List[T], f: T => Boolean): Boolean = {
-    exists_lemma(list, f) because (list match {
+    exists_lemma(list, f).because((list match {
       case Nil() => true
       case Cons(head, tail) => exists_lemma_induct(tail, f)
-    })
+    }))
   }.holds 
 
 }

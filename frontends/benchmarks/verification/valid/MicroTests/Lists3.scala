@@ -27,10 +27,10 @@ object Lists3 {
   }
 
   def positive_lemma_induct(list: List[Int]): Boolean = {
-    positive_lemma(list) because (list match {
+    positive_lemma(list).because((list match {
       case Nil() => true
       case Cons(head, tail) => positive_lemma_induct(tail)
-    })
+    }))
   }.holds
 }
 

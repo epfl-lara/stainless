@@ -34,7 +34,7 @@ object BitVectors2 {
 
   def test8(n: Int100) = {
     require(n < (0: Int100))
-    assert(n % 2 == -(n mod 2))
+    assert(n % 2 == -(n.mod(2)))
     assert((n % 2 == (0: Int100)) || (n % 2 == (-1: Int100)))
   }
 
