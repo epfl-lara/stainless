@@ -38,7 +38,7 @@ sealed abstract class List[+T] {
   def contains[TT >: T](v: TT): Boolean = (this match {
     case h :: t => h == v || t.contains(v)
     case Nil => false
-  }).ensuring { _ == (content contains v) }
+  }).ensuring { _ == (content.contains(v)) }
 
   def ++[TT >: T](that: List[TT]): List[TT] = {
     this match {
@@ -222,7 +222,7 @@ sealed abstract class List[+T] {
       res.bsize == this.bsize &&
       res.content[TT] == (
         (this.content -- Set(from)) ++
-          (if (this.content contains from) Set(to) else Set[TT]())
+          (if (this.content.contains(from)) Set(to) else Set[TT]())
         )
   }
 
@@ -624,7 +624,7 @@ sealed abstract class List[+T] {
     case Nil => None
     case h :: t => if (p(h)) Some(h) else t.find(p)
   }}.ensuring { res => res match {
-    case Some(r) => (content contains r) && p(r)
+    case Some(r) => (content.contains(r)) && p(r)
     case None => true
   }}
 
@@ -633,7 +633,7 @@ sealed abstract class List[+T] {
     case h :: t =>
       val key: R = f(h)
       val rest: Map[R, List[TT]] = t.groupBy(f)
-      val prev: List[TT] = if (rest isDefinedAt key) rest(key) else Nil
+      val prev: List[TT] = if (rest.isDefinedAt(key)) rest(key) else Nil
       (rest ++ Map((key, h :: prev))) : Map[R, List[TT]]
   }
 
@@ -641,10 +641,10 @@ sealed abstract class List[+T] {
     case h :: t if p(h) => h :: t.takeWhile(p)
     case _ => Nil
   }}.ensuring { res =>
-    (res forall p) &&
+    (res.forall(p)) &&
       (res.size <= this.size) &&
       (res.bsize <= this.bsize) &&
-      (res.content subsetOf this.content)
+      (res.content.subsetOf(this.content))
   }
 
   def dropWhile(p: T => Boolean): List[T] = { this match {
@@ -653,7 +653,7 @@ sealed abstract class List[+T] {
   }}.ensuring { res =>
     (res.size <= this.size) &&
       (res.bsize <= this.bsize) &&
-      (res.content subsetOf this.content) &&
+      (res.content.subsetOf(this.content)) &&
       (res.isEmpty || !p(res.head))
   }
 
@@ -688,7 +688,7 @@ sealed abstract class List[+T] {
         else -1
     }
  }.ensuring {
-    _ >= 0 == (this exists p)
+    _ >= 0 == (this.exists(p))
   }
 
   def bindexWhere(p: T => Boolean): BigInt = { this match {
@@ -699,7 +699,7 @@ sealed abstract class List[+T] {
       if (rec >= 0) rec + BigInt(1)
       else BigInt(-1)
   }}.ensuring {
-    _ >= BigInt(0) == (this exists p)
+    _ >= BigInt(0) == (this.exists(p))
   }
 
   // Translation to other collections

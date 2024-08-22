@@ -586,7 +586,7 @@ sealed abstract class List[T] {
     case Nil() => None[T]()
     case Cons(h, t) => if (p(h)) Some(h) else t.find(p)
   }}.ensuring { res => res match {
-    case Some(r) => (content contains r) && p(r)
+    case Some(r) => (content.contains(r)) && p(r)
     case None() => true
   }}
 
@@ -595,7 +595,7 @@ sealed abstract class List[T] {
     case Cons(h, t) =>
       val key: R = f(h)
       val rest: Map[R, List[T]] = t.groupBy(f)
-      val prev: List[T] = if (rest isDefinedAt key) rest(key) else Nil[T]()
+      val prev: List[T] = if (rest.isDefinedAt(key)) rest(key) else Nil[T]()
       (rest ++ Map((key, h :: prev))) : Map[R, List[T]]
   }
 
@@ -603,9 +603,9 @@ sealed abstract class List[T] {
     case Cons(h,t) if p(h) => Cons(h, t.takeWhile(p))
     case _ => Nil[T]()
   }}.ensuring { res =>
-    (res forall p) &&
+    (res.forall(p)) &&
     (res.size <= this.size) &&
-    (res.content subsetOf this.content)
+    (res.content.subsetOf(this.content))
   }
 
   def dropWhile(p: T => Boolean): List[T] = { this match {
@@ -613,7 +613,7 @@ sealed abstract class List[T] {
     case _ => this
   }}.ensuring { res =>
     (res.size <= this.size) &&
-    (res.content subsetOf this.content) &&
+    (res.content.subsetOf(this.content)) &&
     (res.isEmpty || !p(res.head))
   }
 

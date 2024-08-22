@@ -220,7 +220,7 @@ case class FileInputStream(var filename: Option[String], var consumed: BigInt) {
 
     // Match C99 isspace function: either space (0x20), form feed (0x0c), line feed (0x0a), carriage return (0x0d), horizontal tab (0x09) or vertical tab (0x0b)
     def isSpace(c: Int): Boolean =
-      Set(0x20, 0x0c, 0x0a, 0x0d, 0x09, 0x0b) contains c
+      Set(0x20, 0x0c, 0x0a, 0x0d, 0x09, 0x0b).contains(c)
 
     // Digit base 10
     def isDigit(c: Int): Boolean = c >= '0' && c <= '9'
