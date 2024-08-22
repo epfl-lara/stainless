@@ -12,7 +12,7 @@ General Requirement
   It suffices to have headless OpenJDK JRE 17 (e.g. one that one gets with ``apt install openjdk-17-jre-headless`` on Debian/Ubuntu).
   Make sure that ``java -version`` reports a version starting with 1.17, such as ``openjdk version "1.17`` or ``java version "1.17``.
 
-Stainless bundles Scala compiler front-end and runs it before it starts compilation. We recommend using the Scala 3 front end (originally named dotty), though Scala 2 is also available.
+Stainless bundles Scala 3 compiler front-end and runs it before it starts compilation.
 
 .. _standalone-release:
 
@@ -182,8 +182,8 @@ Add the generated Stainless library jar file when invoking the compiler with ``s
 .. code-block:: bash
 
     $ mkdir -p ~/.scala_objects
-    $ scalac -d ~/.scala_objects -cp /path/to/stainless/frontends/library/target/scala-2.13/stainless-library_2.13-X.Y.Z-A-BCDEFGHI.jar MyFile1.scala MyFile2.scala # and so on
-    $ scala -cp ~/.scala_objects:/path/to/stainless/frontends/library/target/scala-2.13/stainless-library_2.13-X.Y.Z-A-BCDEFGHI.jar MyMainClass
+    $ scalac -d ~/.scala_objects -cp /path/to/stainless/frontends/library/target/scala-3.3.3/stainless-library_3-X.Y.Z-A-BCDEFGHI.jar MyFile1.scala MyFile2.scala # and so on
+    $ scala -cp ~/.scala_objects:/path/to/stainless/frontends/library/target/scala-3.3.3/stainless-library_3-X.Y.Z-A-BCDEFGHI.jar MyMainClass
 
 where ``X.Y.Z`` is the Stainless version and ``A-BCDEFGHI`` is some hash (which can be autocompleted by the terminal).
 
@@ -264,8 +264,10 @@ Get the sources of Stainless by cloning the official Stainless repository:
 
 .. code-block:: bash
 
-  $ git clone https://github.com/epfl-lara/stainless.git
+  $ git clone --recursive https://github.com/epfl-lara/stainless.git
   Cloning into 'stainless'...
+  $ cd stainless
+  $ git submodule update --init --recursive
 
 **Run SBT**
 
@@ -273,12 +275,11 @@ The following instructions will invoke SBT while using a stainless sub-directory
 
 .. code-block:: bash
 
-  $ cd stainless
   $ sbt universal:stage
 
 **Where to find generated files**
 
-The compilation will automatically generate the bash script ``stainless-dotty`` (and the Scala2 one ``stainless-scalac``).
+The compilation will automatically generate the bash script ``stainless-dotty``.
 
 You may want to introduce a soft-link from to a file called ``stainless``:
 
@@ -286,9 +287,6 @@ You may want to introduce a soft-link from to a file called ``stainless``:
 
   $ ln -s frontends/dotty/target/universal/stage/bin/stainless-dotty stainless
 
-and, for the Scala2 version of the front end,
-
-  $ ln -s frontends/scalac/target/universal/stage/bin/stainless-scalac stainless-scalac-old
 
 Analogous scripts work for various platforms and allow additional control over the execution, such as passing JVM arguments or system properties:
 
@@ -296,7 +294,7 @@ Analogous scripts work for various platforms and allow additional control over t
 
   $ stainless -Dscalaz3.debug.load=true -J-Xmx6G --help
 
-Note that Stainless is organized as a structure of several projects. The main project lives in ``core`` while the two available frontends can be found in ``frontends/dotty`` (and ``frontends/scalac``).  From a user point of view, this should most of the time be transparent and the build command should take care of everything.
+Note that Stainless is organized as a structure of several projects. The main project lives in ``core`` while the Scala 3 frontend can be found in ``frontends/dotty``.  From a user point of view, this should most of the time be transparent and the build command should take care of everything.
 
 Build from Source on Windows 10
 -------------------------------
@@ -305,15 +303,16 @@ Before following the infrequently updated instructions in this section, consider
 
 Get the sources of Stainless by cloning the official Stainless repository. You will need a Git shell for windows, e.g.  `Git for Windows <https://git-for-windows.github.io/>`_.
 On Windows, please do not use ``sbt universal:stage`` as this generates a Windows batch file which is unusable, because it contains commands that are too long for Windows.
-Instead, please use ``sbt stainless-scalac-standalone/assembly`` as follows:
+Instead, please use ``sbt stainless-dotty-standalone/assembly`` as follows:
 
 .. code-block:: bash
 
-  $ git clone https://github.com/epfl-lara/stainless.git
+  $ git clone --recursive https://github.com/epfl-lara/stainless.git
   Cloning into 'stainless'...
   // ...
   $ cd stainless
-  $ sbt stainless-scalac-standalone/assembly
+  $ git submodule update --init --recursive
+  $ sbt stainless-dotty-standalone/assembly
   // takes about 1 minutes
 
 Running Stainless can then be done with the command: ``java -jar frontends\stainless-dotty-standalone\target\scala-3.3.3\stainless-dotty-standalone-{VERSION}.jar``, where ``VERSION`` denotes Stainless version.
