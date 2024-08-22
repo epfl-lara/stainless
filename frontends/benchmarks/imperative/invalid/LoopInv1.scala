@@ -34,7 +34,7 @@ object LoopInv1 {
 
           remains = remains.tail
       }
-    }) invariant (G1.contains(state)) // INVALID
+    }).invariant (G1.contains(state)) // INVALID
   }
 
 }
