@@ -15,5 +15,5 @@ object ImplicitArguments {
     def add(j: BigInt) = i + j
   }
 
-  def test(i: BigInt) = i add BigInt(2)
+  def test(i: BigInt) = i.add(BigInt(2))
 }

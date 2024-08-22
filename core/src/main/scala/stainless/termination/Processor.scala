@@ -13,12 +13,12 @@ abstract class OrderingProcessor(name: String,
                                  override val checker: ProcessingPipeline)
                                 // Alias for checker, as we cannot use it to define ordering
                                 (val chker: checker.type)
-                                (val ordering: OrderingRelation with Strengthener {
+                                (val ordering: OrderingRelation & Strengthener {
                                   val checker: chker.type
                                 }) extends Processor(name, checker) {
   def this(name: String,
            chker: ProcessingPipeline,
-           ordering: OrderingRelation with Strengthener {
+           ordering: OrderingRelation & Strengthener {
              val checker: chker.type
            }) =
     this(name, chker)(chker)(ordering)

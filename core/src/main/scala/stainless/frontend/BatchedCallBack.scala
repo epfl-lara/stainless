@@ -23,16 +23,16 @@ class BatchedCallBack(components: Seq[Component])(using val context: inox.Contex
   private var currentFunctions = Seq[xt.FunDef]()
   private var currentTypeDefs = Seq[xt.TypeDef]()
 
-  private var report: AbstractReport[Report] = _
+  private var report: AbstractReport[Report] = scala.compiletime.uninitialized
 
-  private[this] val preprocessing = new DebugSymbols {
+  private val preprocessing = new DebugSymbols {
     val name = "Preprocessing"
     val context = self.context
     val s: xt.type = xt
     val t: xt.type = xt
   }
 
-  private[this] val userFiltering = new DebugSymbols {
+  private val userFiltering = new DebugSymbols {
     val name = "UserFiltering"
     val context = self.context
     val s: xt.type = xt
@@ -40,7 +40,7 @@ class BatchedCallBack(components: Seq[Component])(using val context: inox.Contex
   }
 
   protected val pipeline: extraction.StainlessPipeline = extraction.pipeline
-  private[this] val runs = components.map(_.run(pipeline))
+  private val runs = components.map(_.run(pipeline))
 
   def beginExtractions(): Unit = {
     currentClasses = Seq()

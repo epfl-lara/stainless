@@ -19,7 +19,7 @@ object i1306b {
       i = i + 1
     }) invariant { i >= 0 && ((i * i) <= a) }
     i
-  } ensuring { root => (root * root) <= a && a < ((root + 1) * (root + 1)) }
+ }.ensuring { root => (root * root) <= a && a < ((root + 1) * (root + 1)) }
 
   // Variant that increments `i` with `modifyI`
   def root2(a: BigInt): BigInt = {
@@ -38,5 +38,5 @@ object i1306b {
       modifyI(0, 1)
     }) invariant { i >= 0 && ((i * i) <= a) }
     i
-  } ensuring { root => (root * root) <= a && a < ((root + 1) * (root + 1)) }
+ }.ensuring { root => (root * root) <= a && a < ((root + 1) * (root + 1)) }
 }

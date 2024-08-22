@@ -16,7 +16,7 @@ object SimpleStackExample {
       modifies(Set(this))
 
       data = a :: data
-    } ensuring(_ => list == a :: old(list))
+   }.ensuring(_ => list == a :: old(list))
 
     def pop: T = {
       reads(Set(this))
@@ -26,7 +26,7 @@ object SimpleStackExample {
       val n = data.head
       data = data.tail
       n
-    } ensuring (res => res == old(list).head &&
+   }.ensuring(res => res == old(list).head &&
                        list == old(list).tail)
   }
 }

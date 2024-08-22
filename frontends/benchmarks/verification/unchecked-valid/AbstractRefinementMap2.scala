@@ -10,6 +10,6 @@ object AbstractRefinementMap2 {
       case Cons(x, xs) => Cons[B](f(x), map(xs, f))
       case Nil() => Nil[B]()
     }
-  } ensuring { res => forall((x: B) => /* res.contains(x) ==> */ f.post(x)) }
+ }.ensuring { res => forall((x: B) => /* res.contains(x) ==> */ f.post(x)) }
 }
 

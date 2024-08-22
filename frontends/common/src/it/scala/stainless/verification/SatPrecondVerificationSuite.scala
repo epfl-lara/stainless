@@ -31,7 +31,7 @@ class SatPrecondVerificationSuite extends VerificationComponentTestSuite {
     "sat-precond=" + options.findOptionOrDefault(stainless.optSatPrecond) 
   }
 
-  override def configurations: Seq[Seq[inox.OptionValue[_]]] = {
+  override def configurations: Seq[Seq[inox.OptionValue[?]]] = {
     // All configurations for all possible solvers and codegen / recursive evaluators
     // Note 1: For codegen, we only use Z3
     // Note 2: We opt-in for early counter-example discovery for codegen with the "feeling lucky" option

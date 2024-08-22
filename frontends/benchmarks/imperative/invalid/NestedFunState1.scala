@@ -10,13 +10,13 @@ object NestedFunState1 {
     def incA(prevA: BigInt): Unit = {
       require(prevA == a)
       a += 1
-    } ensuring(_ => a == prevA + 1)
+   }.ensuring(_ => a == prevA + 1)
 
     incA(a)
     incA(a)
     incA(a)
     incA(a)
     a
-  } ensuring(_ == 5)
+ }.ensuring(_ == 5)
 
 }

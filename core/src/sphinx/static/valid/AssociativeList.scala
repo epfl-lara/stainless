@@ -33,14 +33,14 @@ object AssociativeList {
   def updateAll(l1: List, l2: List): List = (l2 match {
     case Nil() => l1
     case Cons(x, xs) => updateAll(updateElem(l1, x), xs)
-  }) ensuring(domain(_) == domain(l1) ++ domain(l2))
+  }).ensuring(domain(_) == domain(l1) ++ domain(l2))
 
   def updateElem(l: List, e: KeyValuePairAbs): List = (l match {
     case Nil() => Cons(e, Nil())
     case Cons(KeyValuePair(k, v), xs) => e match {
       case KeyValuePair(ek, ev) => if (ek == k) Cons(KeyValuePair(ek, ev), xs) else Cons(KeyValuePair(k, v), updateElem(xs, e))
     }
-  }) ensuring(res => e match {
+  }).ensuring(res => e match {
     case KeyValuePair(k, v) => domain(res) == domain(l) ++ Set[Int](k)
   })
 

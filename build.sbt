@@ -39,7 +39,7 @@ lazy val nTestSuiteParallelism = {
 }
 
 // The Scala version with which Stainless is compiled.
-val stainlessScalaVersion = "3.3.3"
+val stainlessScalaVersion = "3.5.0"
 // Stainless supports Scala 3.3 programs.
 val frontendDottyVersion = stainlessScalaVersion
 // The Stainless libraries use Scala 2.13 and Scala 3.3, and is compatible only with Scala 3.3.
@@ -84,7 +84,8 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
   scalacOptions ++= Seq(
     "-deprecation",
     "-unchecked",
-    "-feature"
+    "-feature",
+    "-source:3.4-migration", "-rewrite"
   ),
 
   resolvers ++= Resolver.sonatypeOssRepos("releases"),

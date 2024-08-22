@@ -11,9 +11,9 @@ trait GhostTraverser extends methods.GhostTraverser with DefinitionTraverser {
   import trees._
   import symbols.given
 
-  private[this] var localClasses = Map.empty[Identifier, LocalClassDef]
+  private var localClasses = Map.empty[Identifier, LocalClassDef]
 
-  private[this] def withLocalClasses[A](lcds: Seq[LocalClassDef])(a: => A): A = {
+  private def withLocalClasses[A](lcds: Seq[LocalClassDef])(a: => A): A = {
     val prev = localClasses
     localClasses ++= lcds.map(cd => cd.id -> cd)
     val res = a

@@ -23,10 +23,10 @@ object Lists2 {
   }
 
   def positive_lemma_induct(list: List[Int]): Boolean = {
-    positive_lemma(list) because (list match {
+    positive_lemma(list).because((list match {
       case Nil() => true
       case Cons(head, tail) => positive_lemma_induct(tail)
-    })
+    }))
   }.holds
 
   def remove[T](list: List[T], e: T) : List[T] = {
@@ -42,10 +42,10 @@ object Lists2 {
   }
 
   def remove_lemma_induct[T](list: List[T], e: T): Boolean = {
-    remove_lemma(list, e) because (list match {
+    remove_lemma(list, e).because((list match {
       case Nil() => true
       case Cons(head, tail) => remove_lemma_induct(tail, e)
-    })
+    }))
   }.holds
 }
 

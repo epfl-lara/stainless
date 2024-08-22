@@ -19,7 +19,7 @@ private[genc] object Operators {
   // NOTE The subset of operators supported here has luckily the same precedence
   //      rules in Scala/Java and C. We base the numbering here on the C one:
   //      http://en.cppreference.com/w/c/language/operator_precedence#Literals
-  sealed trait Operator { this: From with To =>
+  sealed trait Operator { this: From & To =>
     val symbol: String
     val precedence: Int
 
@@ -39,8 +39,8 @@ private[genc] object Operators {
   trait Logical extends FromLogical with ToLogical
   trait Ordered extends FromIntegral with ToLogical
 
-  abstract class UnaryOperator(val symbol: String, val precedence: Int) extends Operator { this: From with To => }
-  abstract class BinaryOperator(val symbol: String, val precedence: Int) extends Operator { this: From with To => }
+  abstract class UnaryOperator(val symbol: String, val precedence: Int) extends Operator { this: From & To => }
+  abstract class BinaryOperator(val symbol: String, val precedence: Int) extends Operator { this: From & To => }
 
   case object Plus extends BinaryOperator("+", 4) with Integral
   case object UMinus extends UnaryOperator("-", 2) with Integral

@@ -7,7 +7,7 @@ object ADTWithArray2 {
 
     def contains(y: BigInt): Boolean = {
       y >= 0
-    } ensuring(res => res == content(0).contains(y))
+   }.ensuring(res => res == content(0).contains(y))
   }
 
 }

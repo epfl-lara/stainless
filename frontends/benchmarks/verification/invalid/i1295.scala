@@ -60,7 +60,7 @@ object i1295 {
         plantThm(t2)
       }
     }
-  }.ensuring(
+ }.ensuring(
     s.plant.isFoo
   )
 }

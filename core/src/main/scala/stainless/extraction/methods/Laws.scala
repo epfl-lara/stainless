@@ -14,7 +14,7 @@ class Laws(override val s: Trees, override val t: Trees)
      with oo.IdentityTypeDefs
      with IdentitySorts { self =>
 
-  private[this] val lawID = new utils.ConcurrentCached[SymbolIdentifier, SymbolIdentifier](
+  private val lawID = new utils.ConcurrentCached[SymbolIdentifier, SymbolIdentifier](
     id => SymbolIdentifier(id.symbol.name)
   )
 

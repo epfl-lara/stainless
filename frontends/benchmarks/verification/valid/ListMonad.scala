@@ -10,7 +10,7 @@ object ListMonad {
       case Cons(head, tail) => Cons(head, append(tail, l2))
       case Nil() => l2
     }
-  } ensuring { res => (res == l1) || (l2 != Nil[T]()) }
+ }.ensuring { res => (res == l1) || (l2 != Nil[T]()) }
 
   def flatMap[T,U](list: List[T], f: T => List[U]): List[U] = {
     decreases(list)
@@ -26,8 +26,8 @@ object ListMonad {
 
   def associative_lemma_induct[T,U,V](list: List[T], flist: List[U], glist: List[V], f: T => List[U], g: U => List[V]): Boolean = {
     decreases(list, flist, glist)
-    associative_lemma(list, f, g) because {
-      append(glist, flatMap(append(flist, flatMap(list, f)), g)) == append(append(glist, flatMap(flist, g)), flatMap(list, (x: T) => flatMap(f(x), g))) because
+    associative_lemma(list, f, g).because {
+      (append(glist, flatMap(append(flist, flatMap(list, f)), g)) == append(append(glist, flatMap(flist, g)), flatMap(list, (x: T) => flatMap(f(x), g)))).because(
       (glist match {
         case Cons(ghead, gtail) =>
           associative_lemma_induct(list, flist, gtail, f, g)
@@ -39,7 +39,7 @@ object ListMonad {
             case Nil() => true
           }
         }
-      })
+      }))
     }
   }.holds
 
@@ -53,10 +53,10 @@ object ListMonad {
 
   def right_unit_induct[T](list: List[T]): Boolean = {
     decreases(list)
-    right_unit_law(list) because (list match {
+    right_unit_law(list).because((list match {
       case Cons(head, tail) => right_unit_induct(tail)
       case Nil() => true
-    })
+    }))
   }.holds
 
   def flatMap_zero_law[T,U](f: T => List[U]): Boolean = {
@@ -69,10 +69,10 @@ object ListMonad {
 
   def flatMap_to_zero_induct[T](list: List[T]): Boolean = {
     decreases(list)
-    flatMap_to_zero_law(list) because (list match {
+    flatMap_to_zero_law(list).because((list match {
       case Cons(head, tail) => flatMap_to_zero_induct(tail)
       case Nil() => true
-    })
+    }))
   }.holds
 
   def add_zero_law[T](list: List[T]): Boolean = {

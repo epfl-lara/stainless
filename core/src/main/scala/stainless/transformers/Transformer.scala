@@ -116,7 +116,7 @@ trait TreeTransformer extends DefinitionTransformer with inox.transformers.TreeT
 class ConcreteTreeTransformer(override val s: ast.Trees, override val t: ast.Trees) extends TreeTransformer
 
 trait TransformerWithPatternOp extends Transformer {
-  private[this] val op = new TransformerOp[s.Pattern, Env, t.Pattern](transform(_, _), super.transform(_, _))
+  private val op = new TransformerOp[s.Pattern, Env, t.Pattern](transform(_, _), super.transform(_, _))
 
   protected val patternOp: (s.Pattern, Env, TransformerOp[s.Pattern, Env, t.Pattern]) => t.Pattern
 

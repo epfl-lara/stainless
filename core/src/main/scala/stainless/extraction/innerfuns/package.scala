@@ -24,7 +24,7 @@ package object innerfuns {
     utils.NamedPipeline("FunctionClosure", FunctionClosure(trees, inlining.trees))
   }
 
-  def fullExtractor(using inox.Context) = extractor andThen nextExtractor
+  def fullExtractor(using inox.Context) = extractor `andThen` nextExtractor
   def nextExtractor(using inox.Context) = inlining.fullExtractor
 
   def phaseSemantics(using inox.Context): inox.SemanticsProvider { val trees: innerfuns.trees.type } = {

@@ -40,11 +40,11 @@ package object imperative {
     * This pipeline enforces non-aliasing of mutable state
     */
   def defaultImperative(using inox.Context) = {
-    utils.NamedPipeline("EffectElaboration", EffectElaboration(trees)) andThen  // only drops definitions
-    utils.NamedPipeline("AntiAliasing", AntiAliasing(trees)) andThen
-    utils.NamedPipeline("ReturnElimination", ReturnElimination(trees)) andThen
-    utils.NamedPipeline("ImperativeCodeElimination", ImperativeCodeElimination(trees)) andThen
-    utils.NamedPipeline("ImperativeCleanup", ImperativeCleanup(trees, oo.trees))
+    utils.NamedPipeline("EffectElaboration", EffectElaboration(trees)).andThen(  // only drops definitions
+    utils.NamedPipeline("AntiAliasing", AntiAliasing(trees)).andThen(
+    utils.NamedPipeline("ReturnElimination", ReturnElimination(trees)).andThen(
+    utils.NamedPipeline("ImperativeCodeElimination", ImperativeCodeElimination(trees)).andThen(
+    utils.NamedPipeline("ImperativeCleanup", ImperativeCleanup(trees, oo.trees))))))
   }
 
   /**
@@ -54,16 +54,16 @@ package object imperative {
     * https://link.springer.com/chapter/10.1007/978-3-030-94583-1_17
     */
   def fullImperative(using inox.Context) = {
-    utils.NamedPipeline("EffectElaboration", EffectElaboration(trees)) andThen
-    utils.NamedPipeline("ImperativeCodeElimination", ImperativeCodeElimination(trees)) andThen
-    utils.NamedPipeline("ImperativeCleanup", ImperativeCleanup(trees, oo.trees))
+    utils.NamedPipeline("EffectElaboration", EffectElaboration(trees)).andThen(
+    utils.NamedPipeline("ImperativeCodeElimination", ImperativeCodeElimination(trees)).andThen(
+    utils.NamedPipeline("ImperativeCleanup", ImperativeCleanup(trees, oo.trees))))
   }
 
   def extractor(using ctx: inox.Context) =
     if (ctx.options.findOptionOrDefault(optFullImperative)) fullImperative
     else defaultImperative
 
-  def fullExtractor(using inox.Context) = extractor andThen nextExtractor
+  def fullExtractor(using inox.Context) = extractor `andThen` nextExtractor
   def nextExtractor(using inox.Context) = oo.fullExtractor
 
   def phaseSemantics(using inox.Context): inox.SemanticsProvider { val trees: imperative.trees.type } = {

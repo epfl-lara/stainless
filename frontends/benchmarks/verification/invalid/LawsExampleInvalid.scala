@@ -23,6 +23,6 @@ object LawsExampleInvalid {
     def somethingelse(y: T): Unit = {
       require(f(a,a) == f(a,y))
       assert(something(a,y))
-    }.ensuring(y == a)
+   }.ensuring(y == a)
   }
 }

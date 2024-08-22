@@ -166,7 +166,7 @@ trait RefTransform
 
       import OptionSort._
       Some(mkFunDef(unapplyId(cd.id), t.DropVCs, t.Synthetic, t.IsUnapply(isEmpty, get))(
-          cd.typeArgs.map(_.id.name) : _*) { tparams =>
+          cd.typeArgs.map(_.id.name)*) { tparams =>
         val tcd = cd.typed(tparams)
         val ct = tcd.toType
         val objTpe = classTypeInHeap(ct)

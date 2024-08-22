@@ -20,7 +20,7 @@ object i1306c {
       i = i + 1
     }) invariant { i >= 0 && i <= a }
     i
-  } ensuring { _ == a }
+ }.ensuring { _ == a }
 
   // Variant that increments `i` with `modifyI`
   def laboriousIdentity2(a: BigInt): BigInt = {
@@ -39,5 +39,5 @@ object i1306c {
       modifyI(0, 1)
     }) invariant { i >= 0 && i <= a }
     i
-  } ensuring { _ == a }
+ }.ensuring { _ == a }
 }

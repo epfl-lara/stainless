@@ -10,7 +10,7 @@ import scala.concurrent.duration._
 import extraction.ExtractionSummary
 import stainless.utils.YesNoOnly
 
-abstract class AbstractLibrarySuite(opts: Seq[inox.OptionValue[_]]) extends AnyFunSpec with InputUtils {
+abstract class AbstractLibrarySuite(opts: Seq[inox.OptionValue[?]]) extends AnyFunSpec with InputUtils {
   import ast.SymbolIdentifier
 
   protected val defaultOptions = Seq(inox.optSelectedSolvers(Set("smt-z3")))

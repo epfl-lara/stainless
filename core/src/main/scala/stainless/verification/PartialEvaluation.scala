@@ -30,7 +30,7 @@ class PartialEvaluation(override val s: extraction.Trees)
   protected class TransformerContext(val symbols: s.Symbols) { self0 =>
     import symbols.{given, _}
 
-    private[this] class SimpleSimplifier(override val trees: self.s.type,
+    private class SimpleSimplifier(override val trees: self.s.type,
                                          override val symbols: self0.symbols.type,
                                          override val s: self.s.type,
                                          override val t: self.s.type)
@@ -38,10 +38,10 @@ class PartialEvaluation(override val s: extraction.Trees)
       extends transformers.PartialEvaluator with inox.transformers.SimplifierWithPath {
       override val pp = Env
     }
-    private[this] val simpleSimplifier =
+    private val simpleSimplifier =
       new SimpleSimplifier(s, self0.symbols, s, s)(using inox.solvers.PurityOptions.assumeChecked)
 
-    private[this] class SolvingSimplifier(override val trees: self.s.type,
+    private class SolvingSimplifier(override val trees: self.s.type,
                                           override val symbols: self0.symbols.type,
                                           override val s: self.s.type,
                                           override val t: self.s.type,
@@ -51,22 +51,22 @@ class PartialEvaluation(override val s: extraction.Trees)
       extends transformers.PartialEvaluator with transformers.SimplifierWithSolver {
       override val pp = Env
     }
-    private[this] val solvingSimplifier =
+    private val solvingSimplifier =
       new SolvingSimplifier(s, self0.symbols, s, s, self.context, self.semantics)(using inox.solvers.PurityOptions.assumeChecked)
 
-    private[this] val hasPartialEvalFlag: Set[Identifier] =
+    private val hasPartialEvalFlag: Set[Identifier] =
       symbols.functions.values.filter(_.flags contains s.PartialEval).map(_.id).toSet
 
-    private[this] val isSynthetic: Set[Identifier] =
+    private val isSynthetic: Set[Identifier] =
       symbols.functions.values.filter(_.flags contains s.Synthetic).map(_.id).toSet
 
-    private[this] def invocationsToEval(id: Identifier): Set[Identifier] =
+    private def invocationsToEval(id: Identifier): Set[Identifier] =
       symbols.callees(id) & hasPartialEvalFlag
 
     def shouldPartialEval(fd: FunDef): Boolean =
       invocationsToEval(fd.id).nonEmpty && !(fd.flags contains Synthetic)
 
-    private[this] def partialEval(fi: FunctionInvocation, path: Path, simple: Boolean = false): Expr = {
+    private def partialEval(fi: FunctionInvocation, path: Path, simple: Boolean = false): Expr = {
       if (simple)
         simpleSimplifier.transform(fi, simpleSimplifier.Env(path))
       else
@@ -98,7 +98,7 @@ class PartialEvaluation(override val s: extraction.Trees)
   }
 
   override protected def extractFunction(context: TransformerContext, fd: FunDef): (FunDef, Unit) = {
-    (if (context shouldPartialEval fd) context.transform(fd) else fd, ())
+    (if (context `shouldPartialEval` fd) context.transform(fd) else fd, ())
   }
 }
 

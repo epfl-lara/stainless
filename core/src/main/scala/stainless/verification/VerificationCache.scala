@@ -53,7 +53,7 @@ trait VerificationCache extends VerificationChecker { self =>
 
       val key = serializer.serialize((vc.satisfiability, canonicalSymbols, canonicalExpr))
 
-      if (vccache contains key) {
+      if (vccache `contains` key) {
         reporter.debug(s"Cache hit: '${vc.kind}' VC for ${vc.fid.asString} @${vc.getPos}...")(using DebugSectionVerification)
         given DebugSectionCacheHit.type = DebugSectionCacheHit
         reporter.synchronized {
@@ -84,7 +84,7 @@ trait VerificationCache extends VerificationChecker { self =>
 
         val result = super.checkVC(vc, origVC, sf)
         if (result.isValid && vc.condition != BooleanLiteral(true)) {
-          vccache addPersistently key
+          vccache `addPersistently` key
         }
 
         result

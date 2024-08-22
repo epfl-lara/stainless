@@ -22,6 +22,6 @@ object HigherOrderFunctionsMutableParams10 {
     app(wrap, a)
     app(wrap, a)
     a.x
-  } ensuring(_ == 2)
+ }.ensuring(_ == 2)
 
 }

@@ -137,9 +137,9 @@ class ImperativeCleanup(override val s: Trees, override val t: oo.Trees)
       case post: s.exprOps.Postcondition =>
         // The new imperative phase allows for arbitrary expressions inside `old(...)`.
         if (!ImperativeCleanup.this.context.options.findOptionOrDefault(optFullImperative)) {
-          post.traverse(checkValidOldUsage _)
+          post.traverse(checkValidOldUsage)
         }
-      case spec => spec.traverse(checkNoOld _)
+      case spec => spec.traverse(checkNoOld)
     }
 
     body foreach checkNoOld

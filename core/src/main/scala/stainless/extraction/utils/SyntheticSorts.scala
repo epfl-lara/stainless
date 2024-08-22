@@ -10,18 +10,18 @@ trait SyntheticSorts extends ExtractionCaches { self: CachingPhase =>
     import t._
     import t.dsl._
 
-    private[this] val syntheticOption: t.ADTSort = {
+    private val syntheticOption: t.ADTSort = {
       val Seq(option, some, none) =
         Seq("Option", "Some", "None").map(name => ast.SymbolIdentifier("stainless.internal." + name))
       val value = FreshIdentifier("value")
       mkSort(option)("A") { case Seq(aT) => Seq((some, Seq(t.ValDef(value, aT))), (none, Seq())) }
     }
 
-    private[this] val syntheticIsEmpty: s.Symbols => t.FunDef = {
+    private val syntheticIsEmpty: s.Symbols => t.FunDef = {
       def createFunction(option: Identifier, none: Identifier): t.FunDef = {
         val isEmpty = ast.SymbolIdentifier("stainless.internal.Option.isEmpty")
         mkFunDef(isEmpty, t.DropVCs, t.Synthetic)("A") {
-          case Seq(aT) => (Seq("x" :: T(option)(aT)), t.BooleanType(), { case Seq(v) => v is none })
+          case Seq(aT) => (Seq("x" :: T(option)(aT)), t.BooleanType(), { case Seq(v) => v `is` none })
         }
       }
 
@@ -38,12 +38,12 @@ trait SyntheticSorts extends ExtractionCaches { self: CachingPhase =>
       }
     }
 
-    private[this] val syntheticGet: s.Symbols => t.FunDef = {
+    private val syntheticGet: s.Symbols => t.FunDef = {
       def createFunction(option: Identifier, some: Identifier, value: Identifier): t.FunDef = {
         val get = ast.SymbolIdentifier("stainless.internal.Option.get")
         mkFunDef(get, t.DropVCs, t.Synthetic)("A") {
           case Seq(aT) => (Seq("x" :: T(option)(aT)), aT, {
-            case Seq(v) => t.Require(v is some, v.getField(value))
+            case Seq(v) => t.Require(v `is` some, v.getField(value))
           })
         }
       }
@@ -63,7 +63,7 @@ trait SyntheticSorts extends ExtractionCaches { self: CachingPhase =>
       }
     }
 
-    private[this] def optionSort(using symbols: s.Symbols): inox.ast.Trees#ADTSort =
+    private def optionSort(using symbols: s.Symbols): inox.ast.Trees#ADTSort =
       symbols.lookup.get[s.ADTSort]("stainless.internal.Option").getOrElse(syntheticOption)
 
     def option(using s.Symbols): Identifier = optionSort.id

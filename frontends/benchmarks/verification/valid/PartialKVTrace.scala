@@ -60,7 +60,7 @@ object kv {
   def result(map: Map[String, String], init: List[Label], fuel: BigInt) = {
     require(fuel > 10)
     interpret(program)(map, init, fuel)
-  } ensuring { res => res match {
+ }.ensuring { res => res match {
     case (res, trace) => prop(res, trace)
   }}
 

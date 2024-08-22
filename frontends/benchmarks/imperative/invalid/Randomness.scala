@@ -25,6 +25,6 @@ object Randomness {
     } else {
       x
     }
-  } ensuring(res => res >= 0)
+ }.ensuring(res => res >= 0)
 
 }

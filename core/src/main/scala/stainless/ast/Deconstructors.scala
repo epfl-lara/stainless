@@ -28,7 +28,7 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
       })
     case s.LiteralPattern(binder, lit) =>
       (Seq(), binder.map(_.toVariable).toSeq, Seq(lit), Seq(), Seq(), (_, vs, es, _, _) => {
-        t.LiteralPattern(vs.headOption.map(_.toVal), es.head.asInstanceOf[t.Literal[_]])
+        t.LiteralPattern(vs.headOption.map(_.toVal), es.head.asInstanceOf[t.Literal[?]])
       })
     case s.UnapplyPattern(binder, recs, id, tps, subs) =>
       (Seq(id), binder.map(_.toVariable).toSeq, recs, tps, subs, (ids, vs, es, tps, pats) => {

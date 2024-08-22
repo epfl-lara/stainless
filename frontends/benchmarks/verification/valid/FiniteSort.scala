@@ -7,7 +7,7 @@ object FiniteSort {
   // These finite sorting functions essentially implement insertion sort.
   def sort2(x : Int, y : Int) : (Int,Int) = {
     if(x < y) (x, y) else (y, x)
-  } ensuring (_ match {
+ }.ensuring(_ match {
     case (a, b) => a <= b && Set(a,b) == Set(x,y)
   })
 
@@ -21,7 +21,7 @@ object FiniteSort {
     } else {
       (x3, x1s, x2s)
     }
-  } ensuring (_ match {
+ }.ensuring(_ match {
     case (a, b, c) => a <= b && b <= c && Set(a,b,c) == Set(x1,x2,x3)
   })
 
@@ -37,7 +37,7 @@ object FiniteSort {
     } else {
       (x4, x1s, x2s, x3s)
     }
-  } ensuring (_ match {
+ }.ensuring(_ match {
     case (a, b, c, d) => a <= b && b <= c && c <= d && Set(a,b,c,d) == Set(x1,x2,x3,x4)
   })
 
@@ -55,7 +55,7 @@ object FiniteSort {
     } else {
       (x5, x1s, x2s, x3s, x4s)
     }
-  } ensuring (_ match {
+ }.ensuring(_ match {
     case (a, b, c, d, e) => a <= b && b <= c && c <= d && d <= e && Set(a,b,c,d,e) == Set(x1,x2,x3,x4,x5)
   })
 }

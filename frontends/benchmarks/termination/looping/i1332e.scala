@@ -24,6 +24,6 @@ object i1332e {
         val (arr3, xyz) = upd(arr2, i)
         looping_app(arr3, 1 + i - 1)
       }
-    }.ensuring { _ => i < arr.length }
+   }.ensuring { _ => i < arr.length }
   }
 }

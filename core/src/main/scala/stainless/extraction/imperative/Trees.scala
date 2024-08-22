@@ -268,13 +268,13 @@ trait Trees extends oo.Trees with Definitions { self =>
    *               HEAP ENCODING
    * ======================================== */
 
-  private[this] lazy val heapRefId: Identifier = ast.SymbolIdentifier("stainless.lang.HeapRef")
-  private[this] lazy val heapRefCons: Identifier = ast.SymbolIdentifier("stainless.lang.HeapRef")
+  private lazy val heapRefId: Identifier = ast.SymbolIdentifier("stainless.lang.HeapRef")
+  private lazy val heapRefCons: Identifier = ast.SymbolIdentifier("stainless.lang.HeapRef")
   lazy val heapRefSort: ADTSort = dsl.mkSort(heapRefId)() { _ =>
     Seq((heapRefCons, Seq(ValDef(FreshIdentifier("id"), IntegerType()))))
   }
 
-  private[this] lazy val dummyHeapId: Identifier = ast.SymbolIdentifier("stainless.lang.dummyHeap")
+  private lazy val dummyHeapId: Identifier = ast.SymbolIdentifier("stainless.lang.dummyHeap")
   lazy val dummyHeap: FunDef = dsl.mkFunDef(dummyHeapId, Synthetic, Extern)() { _ =>
     (Seq(), HeapMapType, { _ => NoTree(HeapMapType) })
   }
@@ -518,8 +518,9 @@ class ExprOps(override val trees: Trees) extends oo.ExprOps(trees) { self =>
         //          .setPos(this).asInstanceOf[tr.t.exprOps.Specification]
         //
         val otExpr: ot.Expr = tr.transform(expr, env) match {
-          // doing case e: ot.Expr triggers a compile-time error, but not if we mix it with tr.t.Expr...
-          case e: tr.t.Expr with ot.Expr => e
+          // doing case e: ot.Expr triggers a compile-time error, but not if we mix it with tr.t.Expr... 
+          // SAM 21.08.2024 remove the match with syntax to migrate to scala 3.5
+          case e: ot.Expr => e
         }
         ot.exprOps.ReadsContract(otExpr).setPos(this).asInstanceOf[tr.t.exprOps.Specification]
       case _ =>
@@ -531,7 +532,7 @@ class ExprOps(override val trees: Trees) extends oo.ExprOps(trees) { self =>
         case ot: imperative.Trees =>
           // Same story here
           val otExpr: ot.Expr = tr.transform(expr) match {
-            case e: tr.t.Expr with ot.Expr => e
+            case e: ot.Expr => e
           }
           ot.exprOps.ReadsContract(otExpr).asInstanceOf[tr.t.exprOps.Specification]
         case _ =>
@@ -557,7 +558,7 @@ class ExprOps(override val trees: Trees) extends oo.ExprOps(trees) { self =>
       case ot: imperative.Trees =>
         // See ReadsContract#transform for the reasons of this strange pattern match.
         val otExpr: ot.Expr = tr.transform(expr, env) match {
-          case e: tr.t.Expr with ot.Expr => e
+          case e: ot.Expr => e
         }
         ot.exprOps.ModifiesContract(otExpr).setPos(this).asInstanceOf[tr.t.exprOps.Specification]
       case _ =>
@@ -568,7 +569,7 @@ class ExprOps(override val trees: Trees) extends oo.ExprOps(trees) { self =>
       case ot: imperative.Trees =>
         // Ditto
         val otExpr: ot.Expr = tr.transform(expr) match {
-          case e: tr.t.Expr with ot.Expr => e
+          case e: ot.Expr => e
         }
         ot.exprOps.ModifiesContract(otExpr).setPos(this).asInstanceOf[tr.t.exprOps.Specification]
       case _ =>

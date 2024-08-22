@@ -11,5 +11,5 @@ object i800b {
       case Foo() => 42
     }
     5
-  } ensuring (_ == 5)
+ }.ensuring(_ == 5)
 }

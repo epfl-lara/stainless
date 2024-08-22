@@ -39,7 +39,7 @@ object ParBalance {
         }
       case Nil() => counter == 0
     }
-  } ensuring { res => res == balanced(list, counter) }
+ }.ensuring { res => res == balanced(list, counter) }
 
   def balanced_withFailure(list: List, counter: BigInt, failed: Boolean): Boolean = {
     require(counter >= 0 || failed)
@@ -51,7 +51,7 @@ object ParBalance {
         balanced_withFailure(tail, c, failed || c < 0)
       case Nil() => !failed && counter == 0
     }
-  } ensuring { res =>
+ }.ensuring { res =>
     if (failed) {
       res == balanced_nonEarly(list, -1)
     } else {
@@ -68,17 +68,17 @@ object ParBalance {
       case Nil() =>
         p._1 == 0 && p._2 == 0
     }
-  } ensuring { res => res == balanced_withFailure(list, p._1 - p._2, p._2 > 0) }
+ }.ensuring { res => res == balanced_withFailure(list, p._1 - p._2, p._2 > 0) }
 
   def balanced_foldLeft_equivalence(list: List, p: (BigInt, BigInt)): Boolean = {
     require(p._1 >= 0 && p._2 >= 0)
     val f = (s: (BigInt, BigInt), x: BigInt) => reduce(s, parPair(x))
-    (foldLeft(list, p, f) == (BigInt(0), BigInt(0))) == balanced_withReduce(list, p) because (list match {
+    (foldLeft(list, p, f) == (BigInt(0), BigInt(0))) == balanced_withReduce(list, p).because((list match {
       case Cons(head, tail) =>
         val p2 = f(p, head)
         balanced_foldLeft_equivalence(tail, p2)
       case Nil() => true
-    })
+    }))
   }.holds
 
   def foldRight[A](list: List, state: A, f: (BigInt, A) => A): A = list match {
@@ -150,14 +150,14 @@ object ParBalance {
   def size(list: List): BigInt = (list match {
     case Nil() => BigInt(0)
     case Cons(h, t) => BigInt(1) + size(t)
-  }) ensuring (_ >= 0)
+  }).ensuring (_ >= 0)
 
   def addLast(list: List, x: BigInt): List = {
     list match {
       case Cons(head, tail) => Cons(head, addLast(tail, x))
       case Nil() => Cons(x, Nil())
     }
-  } ensuring { res =>
+ }.ensuring { res =>
     lastOption(res) == Some(x) &&
     init(res) == list &&
     size(list) + 1 == size(res)
@@ -168,7 +168,7 @@ object ParBalance {
       case Cons(head, tail) => addLast(reverse(tail), head)
       case Nil() => Nil()
     }
-  } ensuring { res =>
+ }.ensuring { res =>
     lastOption(res) == headOption(list) &&
     lastOption(list) == headOption(res) &&
     size(res) == size(list)
@@ -179,17 +179,17 @@ object ParBalance {
   }.holds
 
   def reverse_init_equivalence(list: List): Boolean = {
-    reverse(init(list)) == tail(reverse(list)) because (list match {
+    (reverse(init(list)) == tail(reverse(list))).because((list match {
       case Cons(head, tail) => reverse_init_equivalence(tail)
       case Nil() => true
-    })
+    }))
   }.holds
 
   def reverse_equality_equivalence(l1: List, l2: List): Boolean = {
-    (l1 == l2) == (reverse(l1) == reverse(l2)) because ((l1, l2) match {
+    (l1 == l2) == (reverse(l1) == reverse(l2)).because(((l1, l2) match {
       case (Cons(h1, t1), Cons(h2, t2)) => reverse_equality_equivalence(t1, t2)
       case _ => true
-    })
+    }))
   }.holds
 
   // In order to prove that this function terminates, we cannot just say
@@ -199,11 +199,11 @@ object ParBalance {
   // always decreasing, so that the termination checker can prove termination.
   def reverse_reverse_equivalence(s: BigInt, list: List): Boolean = {
     require(size(list) == s)
-    reverse(reverse(list)) == list because ((list, reverse(list)) match {
+    (reverse(reverse(list)) == list).because(((list, reverse(list)) match {
       case (Cons(h1, t1), Cons(h2, t2)) =>
         reverse_reverse_equivalence(size(t1), t1) && reverse_reverse_equivalence(size(t2), t2)
       case _ => true
-    })
+    }))
   }.holds
 
   /*

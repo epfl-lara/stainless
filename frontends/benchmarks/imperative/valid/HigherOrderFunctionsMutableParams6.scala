@@ -27,5 +27,5 @@ object HigherOrderFunctionsMutableParams6 {
   def test(): List = {
     val l = Cons(2, Cons(4, Cons(6, Nil())))
     shift(l)
-  } ensuring(res => res == Cons(0, Cons(2, Cons(4, Nil()))))
+ }.ensuring(res => res == Cons(0, Cons(2, Cons(4, Nil()))))
 }

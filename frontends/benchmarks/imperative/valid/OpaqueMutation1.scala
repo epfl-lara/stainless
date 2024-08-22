@@ -17,7 +17,7 @@ object OpaqueMutation1 {
         unfold(oldBox.secretSauce(other))
         check(oldBox.secretSauce(other) + 1 == this.secretSauce(other))
       }
-    }.ensuring(_ => old(this).secretSauce(other) + 1 == this.secretSauce(other))
+   }.ensuring(_ => old(this).secretSauce(other) + 1 == this.secretSauce(other))
 
     // What `increment` looks like after `AntiAliasing`
     @opaque @pure
@@ -29,7 +29,7 @@ object OpaqueMutation1 {
         check(this.secretSauce(other) + 1 == newThis.secretSauce(other))
       }
       ((), newThis)
-    }.ensuring { case (_, newThis) => this.secretSauce(newThis.other) + 1 == newThis.secretSauce(newThis.other) }
+   }.ensuring { case (_, newThis) => this.secretSauce(newThis.other) + 1 == newThis.secretSauce(newThis.other) }
   }
 
   def test1(b: Box, cond: Boolean): Unit = {

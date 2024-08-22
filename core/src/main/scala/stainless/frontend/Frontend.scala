@@ -38,7 +38,7 @@ abstract class Frontend(val callback: CallBack) {
   }
 
   // See assumption/requirements in [[CallBack]]
-  final def getReport: Option[AbstractReport[_]] = {
+  final def getReport: Option[AbstractReport[?]] = {
     assert(!isRunning)
     callback.getReport
   }

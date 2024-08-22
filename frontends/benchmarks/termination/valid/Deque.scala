@@ -61,7 +61,7 @@ object RealTimeDeque {
           }
       }
     }
-  } ensuring(res => res.finite && res.size == n)
+ }.ensuring(res => res.finite && res.size == n)
 
   def revAppend[T](l1: Stream[T], l2: Stream[T]): Stream[T] = {
     require(l1.finite && l2.finite)
@@ -71,7 +71,7 @@ object RealTimeDeque {
       case c @ SCons(x, _, _) =>
         revAppend(c.stail, SCons[T](x, () => l2, l2.size + 1))
     }
-  } ensuring(res => res.finite && res.size == l1.size + l2.size)
+ }.ensuring(res => res.finite && res.size == l1.size + l2.size)
 
   def drop[T](n: BigInt, l: Stream[T]): Stream[T] = {
     require(n >= 0 && l.finite && l.size >= n)
@@ -83,7 +83,7 @@ object RealTimeDeque {
         case c @ SCons(x, _, _) => drop(n - 1, c.stail)
       }
     }
-  } ensuring(res => res.finite && res.size == l.size - n)
+ }.ensuring(res => res.finite && res.size == l.size - n)
 
   def rotateRev[T](r: Stream[T], f: Stream[T], a: Stream[T]): Stream[T] = {
     require (f.finite && r.finite && a.finite && {
@@ -103,7 +103,7 @@ object RealTimeDeque {
     // here, it doesn't matter whether 'f' has i elements or not,
     // what we want is |drop(2,f)| + |take(2,f)| == |f|
 
-  } ensuring(res => res.finite && res.size == r.size + f.size + a.size)
+ }.ensuring(res => res.finite && res.size == r.size + f.size + a.size)
 
   def rotateDrop[T](r: Stream[T], i: BigInt, f: Stream[T]): Stream[T] = {
     require(f.finite && r.finite && i >= 0 && {
@@ -124,7 +124,7 @@ object RealTimeDeque {
           SCons(x, () => rotateDrop(nr, ni, nf), r.size + f.size - i)
       }
     }
-  } ensuring (res => res.finite && res.size == r.size + f.size - i)
+ }.ensuring(res => res.finite && res.size == r.size + f.size - i)
 
   case class Queue[T](f: Stream[T], sf: Stream[T], r: Stream[T], sr: Stream[T]) {
     def isEmpty = f.size + r.size == 0
@@ -163,7 +163,7 @@ object RealTimeDeque {
       Queue(nf, nf, nr, nr)
     } else
       Queue(f, sf, r, sr)
-  } ensuring (res => res.valid)
+ }.ensuring(res => res.valid)
 
   /**
    * Forces the schedules
@@ -206,7 +206,7 @@ object RealTimeDeque {
     val nsf = force(q.sf)
     val nsr = force(q.sr)
     createQueue(SCons[T](x, () => q.f, 1 + q.f.size), nsf, q.r, nsr)
-  } ensuring (res => res.valid)
+ }.ensuring(res => res.valid)
 
   /**
    * Removing the element at the front, and returning the tail
@@ -223,7 +223,7 @@ object RealTimeDeque {
             empty[T]
         }
     }
-  } ensuring (res => res.valid)
+ }.ensuring(res => res.valid)
 
   /**
    * Reversing a list. Takes constant time.
@@ -232,7 +232,7 @@ object RealTimeDeque {
   def reverse[T](q: Queue[T]): Queue[T] = {
     require(q.valid)
     Queue(q.r, q.sr, q.f, q.sf)
-  } ensuring (_ => q.valid)
+ }.ensuring(_ => q.valid)
 
   def snoc[T](x: T, q: Queue[T]): Queue[T] = {
     require(q.valid)

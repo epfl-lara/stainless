@@ -34,7 +34,7 @@ class Recovery(symbols: xt.Symbols)(using val context: inox.Context) {
     RecoverExternTypes
   )
 
-  private val strategy = strategies.reduceLeft(_ orElse _)
+  private val strategy = strategies.reduceLeft(_ `orElse` _)
 
   def recover(missings: Map[Identifier, Set[Identifier]]): RecoveryResult = {
     val definitions = (

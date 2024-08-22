@@ -47,7 +47,7 @@ object Utils {
 
       override def traverse(tree: tpd.Tree)(using DottyContext): Unit = {
         tree match {
-          case ExFunctionDef(sym, _, _, _, ExCall(recv, fwd, _, _)) if sym is Exported =>
+          case ExFunctionDef(sym, _, _, _, ExCall(recv, fwd, _, _)) if sym `is` Exported =>
             mapping = mapping.add(sym, recv.map(_.symbol), fwd)
           case _ => traverseChildren(tree)
         }

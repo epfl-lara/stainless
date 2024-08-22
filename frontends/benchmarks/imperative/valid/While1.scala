@@ -13,6 +13,6 @@ object While1 {
       i = i + 1
     }).invariant(i >= 0)
     a
-  } ensuring(_ == 10)
+ }.ensuring(_ == 10)
 
 }

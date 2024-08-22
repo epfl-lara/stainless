@@ -13,6 +13,6 @@ object While3 {
       i = i - 1
     }).invariant(i >= 0)
     a
-  } ensuring(_ == 54)
+ }.ensuring(_ == 54)
 
 }

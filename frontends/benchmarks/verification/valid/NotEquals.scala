@@ -12,7 +12,7 @@ object NotEquals {
     require(isRational(a) && isRational(b))
 
     Q(a.n + b.n, a.d)
-  } ensuring {
+ }.ensuring {
     isRational(_)
   }
 

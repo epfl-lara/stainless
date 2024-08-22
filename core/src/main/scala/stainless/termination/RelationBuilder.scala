@@ -5,7 +5,7 @@ package termination
 
 import scala.collection.mutable.{Map => MutableMap, ListBuffer}
 
-trait RelationBuilder { self: Strengthener with OrderingRelation =>
+trait RelationBuilder { self: Strengthener & OrderingRelation =>
 
   import checker.program.trees._
   import checker.program.symbols.{given, _}
@@ -23,7 +23,7 @@ trait RelationBuilder { self: Strengthener with OrderingRelation =>
       assert(that.fd == tfd.fd, "Cannot compose relations with incompatible functions")
 
       val freshParams = tfd.params.map(_.freshen)
-      val paramPath = Path.empty withBindings (freshParams zip call.args)
+      val paramPath = Path.empty `withBindings` (freshParams zip call.args)
       val subst: Map[ValDef, Expr] = (tfd.params zip freshParams.map(_.toVariable)).toMap
 
       val freshSubst = (instPath.bound map { vd =>
@@ -35,7 +35,7 @@ trait RelationBuilder { self: Strengthener with OrderingRelation =>
       val newCall =
         exprOps.replaceFromSymbols(newSubst, tfd.instantiate(that.call)).asInstanceOf[FunctionInvocation]
 
-      Relation(fd, path merge paramPath merge newPath, newCall, inLambda || that.inLambda)
+      Relation(fd, path `merge` paramPath `merge` newPath, newCall, inLambda || that.inLambda)
     }
   }
 
@@ -75,7 +75,7 @@ trait RelationBuilder { self: Strengthener with OrderingRelation =>
                 insertedApps += ((funDef.id, fi.id, id) -> (largs => self.applicationConstraint(fi.id, id, largs, args)))
                 val old = inLambda
                 inLambda = true
-                val res = Lambda(largs, transform(body, path withBounds largs withCond cnstr))
+                val res = Lambda(largs, transform(body, path `withBounds` largs `withCond` cnstr))
                 inLambda = old
                 res
               case (_, arg) => transform(arg, path)

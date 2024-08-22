@@ -9,7 +9,7 @@ object ValEnsuring {
 
     {
       y + y
-    }.ensuring(res => res < 1000 && y <= res)
+   }.ensuring(res => res < 1000 && y <= res)
   }
 
   def g() = {

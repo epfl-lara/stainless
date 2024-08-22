@@ -23,7 +23,7 @@ sealed abstract class Option[+T] {
   def orElse[TT >: T](or: => Option[TT]): Option[TT] = { this match {
     case Some(v) => this
     case None => or
-  }} ensuring {
+  }}.ensuring {
     _.isDefined == this.isDefined || or.isDefined
   }
 
@@ -41,7 +41,7 @@ sealed abstract class Option[+T] {
   def map[R](f: T => R): Option[R] = { this match {
     case None => None
     case Some(x) => Some(f(x))
-  }} ensuring { _.isDefined == this.isDefined }
+  }}.ensuring { _.isDefined == this.isDefined }
 
   def flatMap[R](f: T => Option[R]): Option[R] = this match {
     case None => None
@@ -79,7 +79,7 @@ object Option {
   @library @extern @pure
   def apply[A](x: A): Option[A] = {
     if (x == null) None else Some[A](x)
-  } ensuring { res =>
+ }.ensuring { res =>
     res == None || res == Some[A](x)
   }
 }

@@ -9,5 +9,5 @@ object i1271d {
     require(x >= 0)
     decreases(x)
     looping_f(x + 1)
-  }.ensuring(_ => false)
+ }.ensuring(_ => false)
 }

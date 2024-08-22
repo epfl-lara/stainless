@@ -52,7 +52,7 @@ the following for any number of parameters):
    def f(x: A): B = {
      require(prec)
      body
-   } ensuring(r => post)
+  }.ensuring(r => post)
 
 where, :math:`\mbox{prec}(x)` is a Boolean expression with free variables
 contained in :math:`\{ x \}`, :math:`\mbox{body}(x)` is an expression with

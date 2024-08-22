@@ -14,6 +14,6 @@ object Nested12 {
       case B(b) => rec1(a, b, k)
     }
     rec2(b, 2)
-  } ensuring(i + 8 == _)
+ }.ensuring(i + 8 == _)
 
 }

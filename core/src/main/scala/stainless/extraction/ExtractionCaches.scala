@@ -154,8 +154,8 @@ trait ExtractionCaches { self: ExtractionContext =>
     def apply[T](value: T) = new ValueKey(value)
   }
 
-  private[this] val caches =
-    new scala.collection.mutable.ListBuffer[ExtractionCache[_, _]]
+  private val caches =
+    new scala.collection.mutable.ListBuffer[ExtractionCache[?, ?]]
 
   /** An extraction cache that gets added to the collection `caches`.
     * Can be invalidated from specific identifiers */
@@ -163,7 +163,7 @@ trait ExtractionCaches { self: ExtractionContext =>
     val cache = new utils.ConcurrentCache[CacheKey, B]
 
     def cached(key: A, c: TransformerContext)(builder: => B): B = cache.cached(gen(key, c))(builder)
-    def contains(key: A, c: TransformerContext): Boolean = cache contains gen(key, c)
+    def contains(key: A, c: TransformerContext): Boolean = cache `contains` gen(key, c)
     def update(key: A, c: TransformerContext, value: B): Unit = cache.update(gen(key, c), value)
     def get(key: A, c: TransformerContext): Option[B] = cache.get(gen(key, c))
     def apply(key: A, c: TransformerContext): B = cache(gen(key, c))
@@ -180,7 +180,7 @@ trait ExtractionCaches { self: ExtractionContext =>
   ) {
     val gen = summon[Keyable[A]]
     def cached(key: A)(builder: => B): B = cache.cached(gen(key))(builder)
-    def contains(key: A): Boolean = cache contains gen(key)
+    def contains(key: A): Boolean = cache `contains` gen(key)
     def update(key: A, value: B): Unit = cache.update(gen(key), value)
     def get(key: A): Option[B] = cache.get(gen(key))
     def apply(key: A): B = cache(gen(key))

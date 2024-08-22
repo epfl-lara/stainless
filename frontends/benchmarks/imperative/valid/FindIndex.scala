@@ -18,7 +18,7 @@ object FindIndex {
   def containsFromLemma[T](a: Array[T], t: T, j: Int): Unit = {
     require(0 <= j && j < a.length && containsFrom(a, t, j) && a(j) != t)
 
-  }.ensuring(_ =>
+ }.ensuring(_ =>
     containsFrom(a, t, j + 1)
   )
 

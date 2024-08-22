@@ -12,6 +12,6 @@ object ObjectHierarchyMutation11 {
 
   def update(a1: A, a2: A, y: Int): Unit = {
     updateB(B(a2, y), B(a1, y))
-  } ensuring(_ => a2.x == 42 && a1.x == 41)
+ }.ensuring(_ => a2.x == 42 && a1.x == 41)
 
 }

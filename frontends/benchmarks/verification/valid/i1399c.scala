@@ -22,24 +22,24 @@ object i1399c {
 
 
   def bar1EqualsItsBody(l: List[L]): Unit = {
-  }.ensuring(bar1(l) == l.map { l =>
+ }.ensuring(bar1(l) == l.map { l =>
     val m = l.a.m
     (m.b.d.a, m.b.d)
   })
 
   def bar1EqualsBar2Body(l: List[L]): Unit = {
-  }.ensuring(bar1(l) == l.map(l => (l.a.m.b.d.a, l.a.m.b.d)))
+ }.ensuring(bar1(l) == l.map(l => (l.a.m.b.d.a, l.a.m.b.d)))
 
 
   def bar2EqualsItsBody1(l: List[L]): Unit = {
-  }.ensuring(bar2(l) == l.map(l => (l.a.m.b.d.a, l.a.m.b.d)))
+ }.ensuring(bar2(l) == l.map(l => (l.a.m.b.d.a, l.a.m.b.d)))
 
   def bar2EqualsBar1Body(l: List[L]): Unit = {
-  }.ensuring(bar2(l) == l.map { l =>
+ }.ensuring(bar2(l) == l.map { l =>
     val m = l.a.m
     (m.b.d.a, m.b.d)
   })
 
   def bar1EqualsBar2(l: List[L]): Unit = {
-  }.ensuring(bar1(l) == bar2(l))
+ }.ensuring(bar1(l) == bar2(l))
 }

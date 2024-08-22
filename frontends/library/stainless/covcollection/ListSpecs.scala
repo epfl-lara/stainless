@@ -302,7 +302,7 @@ object ListSpecs {
         assert(xs.forall(p))
         listFilterValidProp(xs, p, f)
     }
-  }.ensuring(_ => l.filter(f).forall(p))
+ }.ensuring(_ => l.filter(f).forall(p))
 
   def listAppendValidProp[A](l: List[A], as: List[A], p: A => Boolean): Unit = {
     require(l.forall(p) && as.forall(p))
@@ -313,7 +313,7 @@ object ListSpecs {
         assert(xs.forall(p))
         listAppendValidProp(l, xs, p)
     }
-  }.ensuring(_ => (as ++ l).forall(p))
+ }.ensuring(_ => (as ++ l).forall(p))
 
   @opaque
   def mapPred[A,B](l: List[A], f: A => B, p: B => Boolean): Unit = {
@@ -325,7 +325,7 @@ object ListSpecs {
         assert(xs.forall(a => p(f(a))))
         mapPred(xs, f, p)
     }
-  }.ensuring(_ => l.map(f).forall(p))
+ }.ensuring(_ => l.map(f).forall(p))
 
   @opaque
   def subsetContains[T](l1: List[T], l2: List[T]): Unit = {
@@ -337,7 +337,7 @@ object ListSpecs {
         assert(xs.content.subsetOf(l2.content))
         subsetContains(xs, l2)
     }
-  }.ensuring(_ => l1.forall(l2.contains[T]))
+ }.ensuring(_ => l1.forall(l2.contains[T]))
 
   @inline
   def noDuplicate[T](l: List[T]): Boolean = ListOps.noDuplicate(l)
@@ -349,13 +349,13 @@ object ListSpecs {
     if (!l.isEmpty && l.tail.contains(x))
       forallContained(l.tail, p, x)
 
-  }.ensuring(_ => p(x))
+ }.ensuring(_ => p(x))
 
   @opaque
   def subsetContained[T](l1: List[T], l2: List[T], x: T): Unit = {
     require(l1.forall(l2.contains[T]) && l1.contains(x))
     forallContained(l1, l2.contains[T], x)
-  }.ensuring(_ =>
+ }.ensuring(_ =>
     l2.contains(x)
   )
 
@@ -384,7 +384,7 @@ object ListSpecs {
         ()
     }
 
-  }.ensuring(_ =>
+ }.ensuring(_ =>
     subseq(l1.tail, l2)
   )
 
@@ -402,7 +402,7 @@ object ListSpecs {
         ()
     }
 
-  }.ensuring(_ =>
+ }.ensuring(_ =>
     l2.contains(t)
   )
 
@@ -413,7 +413,7 @@ object ListSpecs {
     if (l1.contains(t))
       subseqContains(l1, l2, t)
 
-  }.ensuring(_ =>
+ }.ensuring(_ =>
     !l1.contains(t)
   )
 
@@ -443,7 +443,7 @@ object ListSpecs {
       case _ =>
         ()
     }
-  }.ensuring(_ =>
+ }.ensuring(_ =>
     noDuplicate(l1)
   )
 
@@ -462,12 +462,12 @@ object ListSpecs {
         ()
     }
 
-  }.ensuring(_ => subseq(l1.map(f), l2.map(f)))
+ }.ensuring(_ => subseq(l1.map(f), l2.map(f)))
 
   @opaque
   def filterSubseq[A](@induct l: List[A], p: A => Boolean): Unit = {
 
-  }.ensuring(_ => subseq(l.filter(p), l))
+ }.ensuring(_ => subseq(l.filter(p), l))
 
   @opaque
   def noDuplicateMapFilter[A, B](l: List[A], p: A => Boolean, f: A => B): Unit = {
@@ -477,14 +477,14 @@ object ListSpecs {
     mapSubseq(l.filter(p), l, f)
     noDuplicateSubseq(l.filter(p).map(f), l.map(f))
 
-  }.ensuring(_ =>
+ }.ensuring(_ =>
     noDuplicate(l.filter(p).map(f))
   )
 
   @opaque
   def filterMapNotIn[A, B](@induct l: List[(A, B)], a: A): Unit = {
 
-  }.ensuring(_ =>
+ }.ensuring(_ =>
     !l.filter(_._1 != a).map(_._1).contains(a)
   )
 
@@ -498,7 +498,7 @@ object ListSpecs {
         assert(xs.forall(l2.tail.contains[T]))
         containedTail(xs, l2)
     }
-  }.ensuring(_ =>
+ }.ensuring(_ =>
     l1.forall(l2.contains[T])
   )
 
@@ -509,7 +509,7 @@ object ListSpecs {
       subsetRefl(l.tail)
       containedTail(l.tail, l)
     }
-  }.ensuring(_ =>
+ }.ensuring(_ =>
     l.forall(l.contains[T])
   )
 
@@ -521,7 +521,7 @@ object ListSpecs {
       forallContainsSubset(l1.tail, l2) // gives us:
       assert(l1.tail.content.subsetOf(l2.content))
     }
-  }.ensuring(_ =>
+ }.ensuring(_ =>
     l1.content.subsetOf(l2.content)
   )
 

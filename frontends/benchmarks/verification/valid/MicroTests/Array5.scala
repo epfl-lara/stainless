@@ -8,6 +8,6 @@ object Array5 {
     val x = 10
     val a = Array(0,0,x,0,0)
     a(2)
-  } ensuring(_ >= 0)
+ }.ensuring(_ >= 0)
 
 }

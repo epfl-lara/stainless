@@ -21,7 +21,7 @@ object PositiveMap {
         Cons(nh, positiveMap_passing_1(f, tail))
       case Nil() => Nil()
     }
-  } ensuring { res => positive(res) }
+ }.ensuring { res => positive(res) }
 
   def positiveMap_passing_2(f: (BigInt) => BigInt, list: List): List = {
     list match {
@@ -31,7 +31,7 @@ object PositiveMap {
         Cons(nh, positiveMap_passing_2(f, tail))
       case Nil() => Nil()
     }
-  } ensuring { res => positive(res) }
+ }.ensuring { res => positive(res) }
 
 }
 

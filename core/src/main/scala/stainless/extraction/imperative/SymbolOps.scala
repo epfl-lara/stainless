@@ -54,7 +54,7 @@ trait SymbolOps extends TypeOps with oo.SymbolOps { self =>
   }
 
   @inline def mutableClasses: Set[Identifier] = _mutableClasses.get
-  private[this] val _mutableClasses = inox.utils.Lazy({
+  private val _mutableClasses = inox.utils.Lazy({
     val initialClasses = symbols.classes.values.filter { cd =>
       cd.fields.exists(_.flags contains IsVar)
     }.map(_.id).toSet
@@ -79,13 +79,13 @@ trait SymbolOps extends TypeOps with oo.SymbolOps { self =>
     } (initialClasses)
   })
 
-  private[this] def isMutableClassType(ct: ClassType, mutableClasses: Set[Identifier], visited: Set[Identifier]): Boolean = {
+  private def isMutableClassType(ct: ClassType, mutableClasses: Set[Identifier], visited: Set[Identifier]): Boolean = {
     mutableClasses.contains(ct.id) || (!visited(ct.id) && ct.tcd.fields.exists { vd =>
       vd.flags.contains(IsVar) || isMutableType(vd.getType, mutableClasses, visited + ct.id)
     })
   }
 
-  private[this] def isMutableType(tpe: Type, mutableClasses: Set[Identifier], visited: Set[Identifier]): Boolean = tpe match {
+  private def isMutableType(tpe: Type, mutableClasses: Set[Identifier], visited: Set[Identifier]): Boolean = tpe match {
     case _ if tpe == Untyped => true
     case tp: TypeParameter => tp.flags contains IsMutable
     case TypeBounds(NothingType(), AnyType(), flags) => flags contains IsMutable
@@ -100,7 +100,7 @@ trait SymbolOps extends TypeOps with oo.SymbolOps { self =>
     case NAryType(tps, _) => tps.exists(isMutableType(_, mutableClasses, visited))
   }
 
-  private[this] def isMutableADTType(adt: ADTType, mutableClasses: Set[Identifier], visited: Set[Identifier]): Boolean = {
+  private def isMutableADTType(adt: ADTType, mutableClasses: Set[Identifier], visited: Set[Identifier]): Boolean = {
     !visited(adt.id) &&
     adt.getSort.constructors.exists { cons =>
       cons.fields.exists { vd =>

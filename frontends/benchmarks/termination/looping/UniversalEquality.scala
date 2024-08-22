@@ -13,6 +13,6 @@ object test {
 
   def looping_proveEquality(a: BigInt, b: BigInt): Boolean = {
     looping_proveEquality(a, b)
-  } ensuring { res => res == (a == b) && res }
+ }.ensuring { res => res == (a == b) && res }
 
 }

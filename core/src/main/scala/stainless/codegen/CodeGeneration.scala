@@ -119,8 +119,8 @@ trait CodeGeneration { self: CompilationUnit =>
   def defConsToJVMName(cons: ADTConstructor): String = defToJVMName(cons.id)
   def defFnToJVMName(fd: FunDef): String = defToJVMName(fd.id)
 
-  private[this] val sortClassFiles : MutableMap[ADTSort, ClassFile] = MutableMap.empty
-  private[this] val classToSort    : MutableMap[String, ADTSort]    = MutableMap.empty
+  private val sortClassFiles : MutableMap[ADTSort, ClassFile] = MutableMap.empty
+  private val classToSort    : MutableMap[String, ADTSort]    = MutableMap.empty
 
   def getClassSort(sort: ADTSort): ClassFile = synchronized(sortClassFiles.getOrElse(sort, {
     val cf = new ClassFile(defSortToJVMName(sort), None)
@@ -129,8 +129,8 @@ trait CodeGeneration { self: CompilationUnit =>
     cf
   }))
 
-  private[this] val consClassFiles : MutableMap[ADTConstructor, ClassFile] = MutableMap.empty
-  private[this] val classToCons    : MutableMap[String, ADTConstructor]    = MutableMap.empty
+  private val consClassFiles : MutableMap[ADTConstructor, ClassFile] = MutableMap.empty
+  private val classToCons    : MutableMap[String, ADTConstructor]    = MutableMap.empty
 
   def getClassCons(cons: ADTConstructor): ClassFile = synchronized(consClassFiles.getOrElse(cons, {
     val cf = new ClassFile(defConsToJVMName(cons), Some(defSortToJVMName(cons.getSort)))
@@ -139,7 +139,7 @@ trait CodeGeneration { self: CompilationUnit =>
     cf
   }))
 
-  private[this] lazy val static = new ClassFile("<static>", None)
+  private lazy val static = new ClassFile("<static>", None)
 
   protected def compile(): Seq[ClassFile] = {
     for (sort <- sorts.values) {
@@ -157,8 +157,8 @@ trait CodeGeneration { self: CompilationUnit =>
   protected def jvmClassNameToSort(className: String): Option[ADTSort] = classToSort.get(className)
   protected def jvmClassNameToCons(className: String): Option[ADTConstructor] = classToCons.get(className)
 
-  private[this] val sortInfos: ConcurrentMap[ADTSort, (String, String)] = ConcurrentMap.empty
-  private[this] val consInfos: ConcurrentMap[ADTConstructor, (String, String)] = ConcurrentMap.empty
+  private val sortInfos: ConcurrentMap[ADTSort, (String, String)] = ConcurrentMap.empty
+  private val consInfos: ConcurrentMap[ADTConstructor, (String, String)] = ConcurrentMap.empty
 
   protected def getSortInfo(sort: ADTSort): (String, String) = sortInfos.getOrElse(sort, {
     val tpeParam = if (sort.tparams.isEmpty) "" else "[I"
@@ -175,7 +175,7 @@ trait CodeGeneration { self: CompilationUnit =>
     res
   })
 
-  private[this] val funDefInfos: ConcurrentMap[FunDef, (String, String, String)] = ConcurrentMap.empty
+  private val funDefInfos: ConcurrentMap[FunDef, (String, String, String)] = ConcurrentMap.empty
 
   protected def getFunDefInfo(fd: FunDef): (String, String, String) = funDefInfos.getOrElse(fd, {
     val sig = "(L"+MonitorClass+";" +
@@ -276,7 +276,7 @@ trait CodeGeneration { self: CompilationUnit =>
     val m = cf.addMethod(
       typeToJVM(funDef.getType),
       mn,
-      realParams : _*
+      realParams*
     )
 
     m.setFlags((
@@ -344,7 +344,7 @@ trait CodeGeneration { self: CompilationUnit =>
     ch.freeze
   }
 
-  private[this] val lambdaClasses = new Bijection[Lambda, String]
+  private val lambdaClasses = new Bijection[Lambda, String]
 
   protected def jvmClassNameToLambda(className: String): Option[Lambda] = lambdaClasses.getA(className)
 
@@ -1807,7 +1807,7 @@ trait CodeGeneration { self: CompilationUnit =>
         constrParams.map(_._1).zipWithIndex.toMap.view.mapValues(_ + 1).toMap
       }
 
-      val cch = cf.addConstructor(constrParams.map(_._2) : _*).codeHandler
+      val cch = cf.addConstructor(constrParams.map(_._2)*).codeHandler
 
       // Call parent constructor
       cch << ALoad(0)
@@ -1897,7 +1897,7 @@ trait CodeGeneration { self: CompilationUnit =>
         fh.setFlags(FIELD_ACC_PUBLIC)
       }
 
-      val cch = cf.addConstructor(constructorArgs.map(_._2) : _*).codeHandler
+      val cch = cf.addConstructor(constructorArgs.map(_._2)*).codeHandler
 
       if (doInstrument) {
         cch << ALoad(0)

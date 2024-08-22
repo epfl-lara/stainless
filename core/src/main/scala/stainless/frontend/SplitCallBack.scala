@@ -25,7 +25,7 @@ class SplitCallBack(components: Seq[Component])(using override val context: inox
 
   protected final override val trees = extraction.xlang.trees
 
-  private[this] val preprocessing = new DebugSymbols {
+  private val preprocessing = new DebugSymbols {
     val name = "Preprocessing"
     val context = self.context
     val s: xt.type = xt
@@ -36,7 +36,7 @@ class SplitCallBack(components: Seq[Component])(using override val context: inox
 
   import context.reporter
 
-  private[this] val runs = components.map(_.run(pipeline))
+  private val runs = components.map(_.run(pipeline))
 
   private given givenDebugSection: DebugSectionFrontend.type = DebugSectionFrontend
 
@@ -118,7 +118,7 @@ class SplitCallBack(components: Seq[Component])(using override val context: inox
   /******************* Internal State *************************************************************/
 
   private val tasks = ListBuffer[Future[Report]]()
-  private var report: Report = _
+  private var report: Report = scala.compiletime.uninitialized
 
   /** Set of classes/functions seen during the last callback cycle. */
   private val recentIdentifiers = MutableSet[Identifier]()

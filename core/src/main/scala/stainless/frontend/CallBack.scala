@@ -43,5 +43,5 @@ trait CallBack {
 
   def join(): Unit // Wait until all tasks have finished.
 
-  def getReport: Option[AbstractReport[_]]
+  def getReport: Option[AbstractReport[?]]
 }

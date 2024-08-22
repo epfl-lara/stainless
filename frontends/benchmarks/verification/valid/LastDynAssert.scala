@@ -4,7 +4,7 @@ object LastDynAssert {
   @extern
   def dynAssert(cond: Boolean): Unit = {
     (??? : Unit)
-  } ensuring(cond)
+ }.ensuring(cond)
 
   def f() = {
     dynAssert(false) 

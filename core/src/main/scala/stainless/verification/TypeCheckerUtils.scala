@@ -189,10 +189,10 @@ object TypeCheckerUtils {
         And(
           and((1 to i-1).map(j =>
             Equals(TupleSelect(e1,j), TupleSelect(e2,j))
-          ): _*),
+          )*),
           lessThan(tps(i-1),TupleSelect(e1,i),TupleSelect(e2,i))
         )
-      ): _*)
+      )*)
     case RefinementType(vd, ref) => lessThan(vd.tpe, e1, e2)
     case _ =>
       ctx.reporter.fatalError(e2.getPos, s"Type ${tpe.asString} is not supported for measures")
@@ -201,7 +201,7 @@ object TypeCheckerUtils {
   def positive(tpe: Type, e: Expr)(using ctx: inox.Context, opts: PrinterOptions): Expr = (tpe match {
     case IntegerType() => GreaterEquals(e, IntegerLiteral(0))
     case BVType(signed, size) => GreaterEquals(e, BVLiteral(signed, 0, size))
-    case TupleType(tps) => and((1 to tps.length).map(i => positive(tps(i-1), TupleSelect(e,i))): _*)
+    case TupleType(tps) => and((1 to tps.length).map(i => positive(tps(i-1), TupleSelect(e,i)))*)
     case RefinementType(vd, ref) => positive(vd.tpe, e)
     case _ =>
       ctx.reporter.fatalError(e.getPos, s"Type ${tpe.asString} is not supported for measures")

@@ -144,8 +144,8 @@ trait Strengthener { self: OrderingRelation =>
       val fdArgs = fd.params.map(_.toVariable)
 
       val allFormulas = for ((path, v, appArgs) <- applications) yield {
-        val soft = path implies self.lessEquals(appArgs, fdArgs)
-        val hard = path implies self.lessThan(appArgs, fdArgs)
+        val soft = path `implies` self.lessEquals(appArgs, fdArgs)
+        val hard = path `implies` self.lessThan(appArgs, fdArgs)
         v -> ((soft, hard))
       }
 
@@ -191,8 +191,8 @@ trait Strengthener { self: OrderingRelation =>
         else
           passings.foldLeft[SizeConstraint](constraints.getOrElse(v, StrongDecreasing)) {
             case (constraint, (key, path, args)) =>
-              lazy val strongFormula = path implies self.lessThan(args, fdArgs)
-              lazy val weakFormula = path implies self.lessEquals(args, fdArgs)
+              lazy val strongFormula = path `implies` self.lessThan(args, fdArgs)
+              lazy val weakFormula = path `implies` self.lessEquals(args, fdArgs)
 
               (constraint, appConstraint.get(key)) match {
                 case (_, Some(NoConstraint)) => scala.sys.error("Whaaaat!?!? This shouldn't happen...")

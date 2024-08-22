@@ -33,13 +33,13 @@ trait DebugSymbols extends PositionChecker { self =>
   val name: String
   val context: inox.Context
 
-  private[this] lazy val positions = new PositionTraverser
+  private lazy val positions = new PositionTraverser
 
   lazy val phases = context.options.findOption(optDebugPhases).map(_.toSet)
   lazy val objects = context.options.findOption(optDebugObjects)
 
   def filterObjects(name: String): Boolean = {
-    objects.isEmpty || objects.exists(_.exists(r => name matches r))
+    objects.isEmpty || objects.exists(_.exists(r => name `matches` r))
   }
 
   // We print debug output for this phase only if the user didn't specify

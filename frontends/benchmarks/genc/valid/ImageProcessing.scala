@@ -60,20 +60,20 @@ object ImageProcessing {
 
   def min(x: Int, y: Int): Int = {
     if (x <= y) x else y
-  } ensuring { res =>
+ }.ensuring { res =>
     res <= x && res <= y && (res == x || res == y)
   }
 
   def max(x: Int, y: Int): Int = {
     if (x <  y) y else x
-  } ensuring { res =>
+ }.ensuring { res =>
     x <= res && y <= res && (res == x || res == y)
   }
 
   def clamp(x: Int, down: Int, up: Int): Int = {
     require(down <= up)
     max(down, min(x, up))
-  } ensuring { res => inRange(res, down, up) }
+ }.ensuring { res => inRange(res, down, up) }
 
 
   /**********************************************************************
@@ -273,7 +273,7 @@ object ImageProcessing {
     }) invariant (inRange(i, 0, count) && fis.isOpen)
 
     success
-  }.ensuring(_ => fis.isOpen)
+ }.ensuring(_ => fis.isOpen)
 
   // Fill the output with copies of the given byte.
   @tailrec // <- a good indicator that the C compiler could optimise out the recursion.
@@ -287,7 +287,7 @@ object ImageProcessing {
       if (ok1) writeBytes(fos, byte, count - 1)
       else false
     }
-  }.ensuring(_ => fos.isOpen)
+ }.ensuring(_ => fos.isOpen)
 
   // Attempt to read a WORD (16-bit unsigned integer).
   // The result is represented using an Int.
@@ -300,7 +300,7 @@ object ImageProcessing {
 
     if (byte1.isDefined && byte2.isDefined) Result(constructWord(byte1.get, byte2.get))
     else Failure[Int](ReadError())
-  } ensuring { res =>
+ }.ensuring { res =>
     fis.isOpen && (res match {
       case Result(word) => inRange(word, 0, 65535)
       case _            => true
@@ -313,7 +313,7 @@ object ImageProcessing {
     val unsigned = if (signed < 0) signed + (2 * 32768) else signed
 
     unsigned
-  } ensuring { word => inRange(word, 0, 65535) }
+ }.ensuring { word => inRange(word, 0, 65535) }
 
   // Write a WORD
   def writeWord(fos: FOS, word: Int): Boolean = {
@@ -326,7 +326,7 @@ object ImageProcessing {
     if (!ok1) return false
     val ok2 = fos.write(b1)
     ok2
-  }.ensuring(_ => fos.isOpen)
+ }.ensuring(_ => fos.isOpen)
 
   private def destructWord(word: Int): (Byte, Byte) = {
     require(inRange(word, 0, 65535))
@@ -355,7 +355,7 @@ object ImageProcessing {
     def buildInt(b1: Byte, b2: Byte, b3: Byte, b4: Byte): Int = {
       require(0 <= b4)
       (b4 << 24) | ((b3 & 0xff) << 16) | ((b2 & 0xff) << 8) | (b1 & 0xff)
-    } ensuring { int =>
+   }.ensuring { int =>
       inRange(int, 0, 2147483647)
     }
 
@@ -370,7 +370,7 @@ object ImageProcessing {
         Result(dword)
       } else Failure[Int](DomainError())
     } else Failure[Int](ReadError())
-  } ensuring { res =>
+ }.ensuring { res =>
     fis.isOpen && (res match {
       case Result(dword) => inRange(dword, 0, 2147483647)
       case _ => true
@@ -395,7 +395,7 @@ object ImageProcessing {
     if (!ok3) return false
     val ok4 = fos.write(b4)
     ok4
-  }.ensuring(_ => fos.isOpen)
+ }.ensuring(_ => fos.isOpen)
 
   // Attempt to read a LONG (32-bit signed integer).
   // The result is represented using an Int.
@@ -416,7 +416,7 @@ object ImageProcessing {
       val long = buildInt(byte1.get, byte2.get, byte3.get, byte4.get)
       Result(long)
     } else Failure[Int](ReadError())
-  }.ensuring(_ => fis.isOpen)
+ }.ensuring(_ => fis.isOpen)
 
   // Write a LONG
   def writeLong(fos: FOS, long: Int): Boolean = {
@@ -436,7 +436,7 @@ object ImageProcessing {
     if (!ok3) return false
     val ok4 = fos.write(b4)
     ok4
-  }.ensuring(_ => fos.isOpen)
+ }.ensuring(_ => fos.isOpen)
 
 
   /**********************************************************************
@@ -463,7 +463,7 @@ object ImageProcessing {
         else Failure[FileHeader](InvalidFileHeaderError())
       }
     }
-  }.ensuring(_ => fis.isOpen)
+ }.ensuring(_ => fis.isOpen)
 
   // Attempt to read the bitmap header (minimal version).
   // Upon success, 18 bytes have been read.
@@ -491,7 +491,7 @@ object ImageProcessing {
           Failure[BitmapHeader](InvalidBitmapHeaderError())
         } else Result[BitmapHeader](BitmapHeader(w, h))
     }
-  }.ensuring(_ => fis.isOpen)
+ }.ensuring(_ => fis.isOpen)
 
   def loadImageData(fis: FIS, image: Image)(implicit state: stainless.io.State): Status = {
     require(fis.isOpen)
@@ -523,7 +523,7 @@ object ImageProcessing {
     )
 
     status
-  }.ensuring(_ => fis.isOpen)
+ }.ensuring(_ => fis.isOpen)
 
   def saveImage(fos: FOS, image: Image): Status = {
     require(fos.isOpen)
@@ -549,7 +549,7 @@ object ImageProcessing {
       if (!ok5) return false
       val ok6 = writeDword(fos, offset)
       ok6
-    }.ensuring(_ => fos.isOpen)
+   }.ensuring(_ => fos.isOpen)
 
     def writeBitmapHeader(): Boolean = {
       require(fos.isOpen)
@@ -574,7 +574,7 @@ object ImageProcessing {
       if (!ok6) return false
       val ok7 = writeBytes(fos, 0, 22) // the last 22 bytes are all not relevant for us and are set to 0
       ok7
-    }.ensuring(_ => fos.isOpen)
+   }.ensuring(_ => fos.isOpen)
 
     def writeImage(): Boolean = {
       require(fos.isOpen)
@@ -592,7 +592,7 @@ object ImageProcessing {
       }) invariant (inRange(count, 0, MaxSurfaceSize) && inRange(i, 0, count) && fos.isOpen)
 
       success
-    }.ensuring(_ => fos.isOpen)
+   }.ensuring(_ => fos.isOpen)
 
     val ok1 = writeFileHeader()
     if (!ok1) return WriteError()
@@ -601,7 +601,7 @@ object ImageProcessing {
     val ok3 = writeImage()
     if (ok3) Success()
     else WriteError()
-  }.ensuring(_ => fos.isOpen)
+ }.ensuring(_ => fos.isOpen)
 
 
   /**********************************************************************
@@ -664,7 +664,7 @@ object ImageProcessing {
 
         val component = channel(r * width + c) // unsigned
         if (component < 0) component + 255 else component.toInt
-      } ensuring { inRange(_, 0, 255) }
+     }.ensuring { inRange(_, 0, 255) }
 
       val mid = size / 2
 

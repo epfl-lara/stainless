@@ -153,9 +153,9 @@ trait SimplyCachedSorts extends CachingPhase {
 trait IdentitySorts extends SimpleSorts with SimplyCachedSorts { self =>
   override protected type SortSummary = Unit
 
-  private[this] class IdentitySortsImpl(override val s: self.s.type, override val t: self.t.type)
+  private class IdentitySortsImpl(override val s: self.s.type, override val t: self.t.type)
     extends ConcreteTreeTransformer(s, t)
-  private[this] val identity = new IdentitySortsImpl(self.s, self.t)
+  private val identity = new IdentitySortsImpl(self.s, self.t)
 
   override protected def extractSort(context: TransformerContext, sort: s.ADTSort): (t.ADTSort, Unit) = (identity.transform(sort), ())
 }
@@ -172,9 +172,9 @@ trait SimplyCachedFunctions extends CachingPhase {
 trait IdentityFunctions extends SimpleFunctions with SimplyCachedFunctions { self =>
   override protected type FunctionSummary = Unit
 
-  private[this] class IdentityFunctionsImpl(override val s: self.s.type, override val t: self.t.type)
+  private class IdentityFunctionsImpl(override val s: self.s.type, override val t: self.t.type)
     extends ConcreteTreeTransformer(s, t)
-  private[this] val identity = new IdentityFunctionsImpl(self.s, self.t)
+  private val identity = new IdentityFunctionsImpl(self.s, self.t)
 
   override protected def extractFunction(context: TransformerContext, fd: s.FunDef): (t.FunDef, Unit) = (identity.transform(fd), ())
 }

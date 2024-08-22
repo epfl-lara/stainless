@@ -26,14 +26,14 @@ case class While4[T](array: Array[T], lessThan: (T, T) => Boolean) {
         l = m
       }
 
-    }) invariant (-1 <= l && l < h && h <= n && array.size == n)
+    }).invariant (-1 <= l && l < h && h <= n && array.size == n)
 
     var i = n - 1
     (while (i > h) {
       decreases(i)
       array(i) = array(i-1)
       i = i - 1
-    }) invariant (0 <= h && h <= i && i <= n-1 && array.size == n)
+    }).invariant (0 <= h && h <= i && i <= n-1 && array.size == n)
 
   }
 }

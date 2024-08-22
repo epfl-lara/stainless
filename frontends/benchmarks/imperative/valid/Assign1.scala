@@ -9,6 +9,6 @@ object Assign1 {
     a = a + tmp
     a = a + 4
     a
-  } ensuring(_ == 7)
+ }.ensuring(_ == 7)
 
 }

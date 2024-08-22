@@ -116,7 +116,7 @@ case class FileInputStream(var filename: Option[String], var consumed: BigInt) {
       consumed += read
       (true, b(0))
     }
-  }.ensuring(_ => isOpen)
+ }.ensuring(_ => isOpen)
 
   /** Attempt to read the next byte of data.
     */
@@ -146,18 +146,18 @@ case class FileInputStream(var filename: Option[String], var consumed: BigInt) {
       val (check, value) = nativeReadByte(state.seed)
       valid = check
       value
-    }.ensuring(_ => isOpen)
+   }.ensuring(_ => isOpen)
 
     val res = impl()
     if (valid) Some(res) else None[Byte]()
-  }.ensuring(_ => isOpen)
+ }.ensuring(_ => isOpen)
 
   @library
   def readInt(implicit state: State): Int = {
     require(isOpen)
     state.seed += 1
     nativeReadInt(state.seed)
-  }.ensuring(_ => isOpen)
+ }.ensuring(_ => isOpen)
 
   // Implementation detail
   @library
@@ -220,7 +220,7 @@ case class FileInputStream(var filename: Option[String], var consumed: BigInt) {
 
     // Match C99 isspace function: either space (0x20), form feed (0x0c), line feed (0x0a), carriage return (0x0d), horizontal tab (0x09) or vertical tab (0x0b)
     def isSpace(c: Int): Boolean =
-      Set(0x20, 0x0c, 0x0a, 0x0d, 0x09, 0x0b) contains c
+      Set(0x20, 0x0c, 0x0a, 0x0d, 0x09, 0x0b).contains(c)
 
     // Digit base 10
     def isDigit(c: Int): Boolean = c >= '0' && c <= '9'
@@ -262,6 +262,6 @@ case class FileInputStream(var filename: Option[String], var consumed: BigInt) {
       case c if isDigit(c) => readDecInt(c - '0', true)
       case _               => fail(-3)
     }
-  }.ensuring(_ => isOpen)
+ }.ensuring(_ => isOpen)
 
 }

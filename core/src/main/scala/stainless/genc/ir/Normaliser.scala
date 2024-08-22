@@ -289,7 +289,7 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
   private def flattenAll(allowTopLevelApp: Boolean, allowArray: Boolean, args0: Expr*)(using Env): (Seq[Seq[to.Expr]], Seq[to.Expr]) = {
     val (initss1, args1) = args0.map(flatten(_, allowTopLevelApp, allowArray)).unzip
     val initssArgs = for (i <- 0 until args1.length) yield {
-      val (argDeclOpt, arg) = strictNormalisation(args1(i), initss1:_*)
+      val (argDeclOpt, arg) = strictNormalisation(args1(i), initss1*)
       val init = initss1(i) ++ argDeclOpt
       (init, arg)
     }
@@ -300,7 +300,7 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
   private def flattenAll(allowTopLevelApp: Boolean, args0: Seq[(Expr, Boolean)])(using Env): (Seq[Seq[to.Expr]], Seq[to.Expr]) = {
     val (initss1, args1) = args0.map { case (arg0, allowArray) => flatten(arg0, allowTopLevelApp, allowArray) }.unzip
     val initssArgs = for (i <- 0 until args1.length) yield {
-      val (argDeclOpt, arg) = strictNormalisation(args1(i), initss1:_*)
+      val (argDeclOpt, arg) = strictNormalisation(args1(i), initss1*)
       val init = initss1(i) ++ argDeclOpt
       (init, arg)
     }
@@ -310,7 +310,7 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
 
   // Extract all "init" together; first regular flatten then a strict normalisation.
   private def flattenArgs(allowTopLevelApp: Boolean, allowArray: Boolean, args0: Seq[Expr])(using Env): (Seq[to.Expr], Seq[to.Expr]) = {
-    val (initss, args) = flattenAll(allowTopLevelApp, allowArray, args0:_*)
+    val (initss, args) = flattenAll(allowTopLevelApp, allowArray, args0*)
     val allInit = initss.flatten
 
     (allInit, args)

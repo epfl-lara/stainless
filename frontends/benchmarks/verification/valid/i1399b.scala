@@ -9,6 +9,6 @@ object i1399b {
   def bar(l: List[(Boolean, Unit)]): List[(Boolean, Boolean)] = l.map { case (key, keyMapping) => key -> foo(key)}
 
   def barEqualsItsBody(l: List[(Boolean, Unit)]): Unit = {
-  }.ensuring(bar(l) == (l.map { case (key, keyMapping) => key -> foo(key)}))
+ }.ensuring(bar(l) == (l.map { case (key, keyMapping) => key -> foo(key)}))
 
 }

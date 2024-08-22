@@ -25,6 +25,6 @@ object i1271g {
         val (arr3, xyz) = upd(arr2, i)
         looping_app(arr3, looping_app(arr3, 1 + i - 1))
       }
-    }.ensuring { r => 0 <= r && r < arr.length - 10 }
+   }.ensuring { r => 0 <= r && r < arr.length - 10 }
   }
 }

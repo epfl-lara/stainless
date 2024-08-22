@@ -23,20 +23,20 @@ object NestedFunState4 {
         decreases(n - i)
         i += 1
         nestedIter()
-      }) invariant(i >= 0 && i <= n && b == i)
+      }).invariant(i >= 0 && i <= n && b == i)
 
       a += b
 
-    } ensuring(_ => a >= n)
+   }.ensuring(_ => a >= n)
 
     var i = BigInt(0)
     (while(i < n) {
       decreases(n - i)
       i += 1
       iter()
-    }) invariant(i >= 0 && i <= n && a >= i)
+    }).invariant(i >= 0 && i <= n && a >= i)
 
     a
-  } ensuring(_ >= n)
+ }.ensuring(_ >= n)
 
 }

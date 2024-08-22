@@ -17,10 +17,10 @@ object NestedFunState1 {
         res += i
         iter()
       }
-    } ensuring(_ => res >= n)
+   }.ensuring(_ => res >= n)
 
     iter()
     res
-  } ensuring(_ >= n)
+ }.ensuring(_ >= n)
 
 }

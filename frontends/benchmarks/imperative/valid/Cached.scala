@@ -25,6 +25,6 @@ object Cached {
           else insert(k)
         case None() => insert(k)
       }
-    }.ensuring(_ == f(k)) // for verification purposes, cached function will work like the original one
+   }.ensuring(_ == f(k)) // for verification purposes, cached function will work like the original one
   }
 }

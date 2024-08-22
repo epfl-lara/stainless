@@ -66,8 +66,8 @@ class SuperCalls(override val s: Trees, override val t: Trees)
      with oo.IdentityTypeDefs
      with oo.SimpleClasses  { self =>
 
-  private[this] val superCache = new utils.ConcurrentCache[SymbolIdentifier, SymbolIdentifier]
-  private[this] def superID(id: SymbolIdentifier)(using symbols: s.Symbols): SymbolIdentifier =
+  private val superCache = new utils.ConcurrentCache[SymbolIdentifier, SymbolIdentifier]
+  private def superID(id: SymbolIdentifier)(using symbols: s.Symbols): SymbolIdentifier =
     superCache.cached(id) {
       val cid = symbols.getFunction(id).flags.collectFirst { case s.IsMethodOf(cid) => cid }.get
       val last = s"${cid.name}$$${id.symbol.path.last}"
@@ -77,7 +77,7 @@ class SuperCalls(override val s: Trees, override val t: Trees)
 
   private class SuperCollector(using val symbols: self.s.Symbols) extends self.s.ConcreteOOSelfTreeTraverser {
 
-    private[this] var supers: Set[Identifier] = Set.empty
+    private var supers: Set[Identifier] = Set.empty
     def getSupers: Set[Identifier] = supers
 
     override def traverse(e: self.s.Expr): Unit = e match {

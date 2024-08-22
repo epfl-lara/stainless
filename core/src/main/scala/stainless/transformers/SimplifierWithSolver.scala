@@ -36,14 +36,14 @@ trait SimplifierWithSolver extends inox.transformers.SimplifierWithPC { self =>
   class Env private (val path: Path) extends PathLike[Env] with SolvingPath {
     override def implies(cond: Expr): Boolean = {
       if (cond.getType != BooleanType()) return false
-      solver.solveVALID(path implies cond).getOrElse(false)
+      solver.solveVALID(path `implies` cond).getOrElse(false)
     }
 
-    override def merge(that: Env): Env = new Env(path merge that.path)
+    override def merge(that: Env): Env = new Env(path `merge` that.path)
     override def negate: Env = new Env(path.negate)
-    override def withBinding(p: (ValDef, Expr)): Env = new Env(path withBinding p)
-    override def withBound(b: ValDef): Env = new Env(path withBound b)
-    override def withCond(e: Expr): Env = new Env(path withCond e)
+    override def withBinding(p: (ValDef, Expr)): Env = new Env(path `withBinding` p)
+    override def withBound(b: ValDef): Env = new Env(path `withBound` b)
+    override def withCond(e: Expr): Env = new Env(path `withCond` e)
 
     override def toString: String = path.toString
 

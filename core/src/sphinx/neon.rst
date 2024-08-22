@@ -87,7 +87,7 @@ answer this question, we need to have a look at the definition of the
   def ++(that: List[T]): List[T] = (this match {
     case Nil()       => that
     case Cons(x, xs) => Cons(x, xs ++ that)
-  }) ensuring { res => /* ... */ }
+  }).ensuring { res => /* ... */ }
 
 Note that the implementation of ``++`` is recursive in its first
 argument ``this`` but *not* in its second argument ``that``.  This is
@@ -292,7 +292,7 @@ verification conditions for postconditions, while ``check``'s are.
     def foo(): Unit = {
       assert(b1) // verification condition: b1
       check(b2)  // verification condition: b1 ==> b2
-    }.ensuring(_ => b3) // verification condition b2 ==> b3 (b1 might not be visible to the solver)
+   }.ensuring(_ => b3) // verification condition b2 ==> b3 (b1 might not be visible to the solver)
 
 
 .. _induction:
@@ -831,7 +831,7 @@ the rationality and positiveness properties are correctly preserved:
     def +(that: Rational): Rational = {
       require(isRational && that.isRational)
       Rational(n * that.d + that.n * d, d * that.d)
-    } ensuring { res =>
+   }.ensuring { res =>
       res.isRational &&
       (this.isPositive == that.isPositive ==> res.isPositive == this.isPositive)
     }
@@ -844,7 +844,7 @@ multiplication in a similar fashion:
     def *(that: Rational): Rational = {
       require(isRational && that.isRational)
       Rational(n * that.n, d * that.d)
-    } ensuring { res =>
+   }.ensuring { res =>
       res.isRational &&
       (res.isNonZero  == (this.isNonZero && that.isNonZero)) &&
       (res.isPositive == (!res.isNonZero || this.isPositive == that.isPositive))
@@ -916,7 +916,7 @@ induction on ``this`` inside the postcondition as follows:
         case Empty()       => Rational(0, 1)
         case Cons(x, w, m) => if (xs contains x) w + m(xs) else m(xs)
       }
-    } ensuring { res =>
+   }.ensuring { res =>
       res.isPositive because {
         this match {
           case Empty()       => trivial

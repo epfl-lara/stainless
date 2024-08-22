@@ -6,7 +6,7 @@ object Array3 {
     require(i > 0)
     val a = Array.fill(i)(0)
     a
-  } ensuring(res => res.length == i)
+ }.ensuring(res => res.length == i)
 
   def bar(i: Int): Int = {
     require(i > 0)

@@ -38,7 +38,7 @@ class CompilationUnit(val program: Program, val context: inox.Context)(using val
 
     def evalToJVM(args: Seq[AnyRef], monitor: Monitor): AnyRef = {
       val allArgs = monitor +: args
-      meth.invoke(null, allArgs.toArray : _*)
+      meth.invoke(null, allArgs.toArray*)
     }
 
     def evalFromJVM(args: Seq[AnyRef], monitor: Monitor): Expr = {
@@ -58,10 +58,10 @@ class CompilationUnit(val program: Program, val context: inox.Context)(using val
     }
   }
 
-  private[this] val runtimeCounter = new UniqueCounter[Unit]
+  private val runtimeCounter = new UniqueCounter[Unit]
 
-  private[this] var runtimeTypeToIdMap = Map[Type, Int]()
-  private[this] var runtimeIdToTypeMap = Map[Int, Type]()
+  private var runtimeTypeToIdMap = Map[Type, Int]()
+  private var runtimeIdToTypeMap = Map[Int, Type]()
   protected def getType(id: Int): Type = synchronized(runtimeIdToTypeMap(id))
   protected def registerType(tpe: Type): Int = synchronized(runtimeTypeToIdMap.get(tpe) match {
     case Some(id) => id
@@ -72,7 +72,7 @@ class CompilationUnit(val program: Program, val context: inox.Context)(using val
       id
   })
 
-  private[this] var runtimeChooseMap = Map[Int, (Seq[ValDef], Seq[TypeParameter], Choose)]()
+  private var runtimeChooseMap = Map[Int, (Seq[ValDef], Seq[TypeParameter], Choose)]()
   protected def getChoose(id: Int): (Seq[ValDef], Seq[TypeParameter], Choose) = synchronized(runtimeChooseMap(id))
   protected def registerChoose(c: Choose, params: Seq[ValDef], tps: Seq[TypeParameter]): Int = synchronized {
     val id = runtimeCounter.nextGlobal
@@ -80,7 +80,7 @@ class CompilationUnit(val program: Program, val context: inox.Context)(using val
     id
   }
 
-  private[this] var runtimeForallMap = Map[Int, (Seq[TypeParameter], Forall)]()
+  private var runtimeForallMap = Map[Int, (Seq[TypeParameter], Forall)]()
   protected def getForall(id: Int): (Seq[TypeParameter], Forall) = synchronized(runtimeForallMap(id))
   protected def registerForall(f: Forall, tps: Seq[TypeParameter]): Int = synchronized {
     val id = runtimeCounter.nextGlobal
@@ -89,9 +89,9 @@ class CompilationUnit(val program: Program, val context: inox.Context)(using val
   }
 
   // Get the Java constructor corresponding to the Case class
-  private[this] val adtConstructors: MutableMap[ADTConstructor, Constructor[_]] = MutableMap.empty
+  private val adtConstructors: MutableMap[ADTConstructor, Constructor[?]] = MutableMap.empty
 
-  private[this] def adtConstructor(cons: ADTConstructor): Constructor[_] =
+  private def adtConstructor(cons: ADTConstructor): Constructor[?] =
     adtConstructors.getOrElse(cons, {
       val cf = getClassCons(cons)
       val klass = loader.loadClass(cf.className)
@@ -103,7 +103,7 @@ class CompilationUnit(val program: Program, val context: inox.Context)(using val
       res
     })
 
-  private[this] lazy val tupleConstructor: Constructor[_] = {
+  private lazy val tupleConstructor: Constructor[?] = {
     val tc = loader.loadClass("stainless.codegen.runtime.Tuple")
     val conss = tc.getConstructors.sortBy(_.getParameterTypes.length)
     assert(conss.nonEmpty)
@@ -152,7 +152,7 @@ class CompilationUnit(val program: Program, val context: inox.Context)(using val
       try {
         val tpeParam = if (tps.isEmpty) Seq() else Seq(tps.map(registerType).toArray)
         val jvmArgs = monitor +: (tpeParam ++ args.map(valueToJVM))
-        cons.newInstance(jvmArgs.toArray : _*).asInstanceOf[AnyRef]
+        cons.newInstance(jvmArgs.toArray*).asInstanceOf[AnyRef]
       } catch {
         case e : java.lang.reflect.InvocationTargetException => throw e.getCause
       }
@@ -199,7 +199,7 @@ class CompilationUnit(val program: Program, val context: inox.Context)(using val
         val conss = lc.getConstructors.sortBy(_.getParameterTypes.length)
         assert(conss.nonEmpty)
         val lambdaConstructor = conss.last
-        lambdaConstructor.newInstance(args.toArray : _*).asInstanceOf[AnyRef]
+        lambdaConstructor.newInstance(args.toArray*).asInstanceOf[AnyRef]
       } else {
         compileExpression(lambda, Seq.empty).evalToJVM(Seq.empty, monitor)
       }
@@ -429,7 +429,7 @@ class CompilationUnit(val program: Program, val context: inox.Context)(using val
     val m = cf.addMethod(
       typeToJVM(e.getType),
       "eval",
-      realArgs : _*
+      realArgs*
     )
 
     m.setFlags((

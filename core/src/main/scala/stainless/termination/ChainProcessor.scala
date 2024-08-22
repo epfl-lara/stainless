@@ -8,13 +8,13 @@ import scala.collection.mutable.{Map => MutableMap, Set => MutableSet}
 class ChainProcessor(override val checker: ProcessingPipeline)
                     // Alias for checker, as we cannot use it to define ordering
                     (override val chker: checker.type)
-                    (override val ordering: OrderingRelation with ChainBuilder with Strengthener with StructuralSize {
+                    (override val ordering: OrderingRelation & ChainBuilder & Strengthener & StructuralSize {
                       val checker: chker.type
                     })
   extends OrderingProcessor("Chain Processor", checker, ordering) {
 
   def this(chker: ProcessingPipeline,
-           ordering: OrderingRelation with ChainBuilder with Strengthener with StructuralSize {
+           ordering: OrderingRelation & ChainBuilder & Strengthener & StructuralSize {
              val checker: chker.type
            }) =
     this(chker)(chker)(ordering)
@@ -29,7 +29,7 @@ class ChainProcessor(override val checker: ProcessingPipeline)
 
   private def lessThan(e1s: Seq[(Path, Expr)], e2: Expr): Seq[(Expr, Expr, Expr => Expr)] =
     flatTypesPowerset(e2.getType).toSeq.map(recons => (andJoin(e1s.map {
-      case (path, e1) => path implies ordering.lessThan(Seq(recons(e1)), Seq(recons(e2)))
+      case (path, e1) => path `implies` ordering.lessThan(Seq(recons(e1)), Seq(recons(e2)))
     }), recons(e2), recons))
 
   def run(problem: Problem): Option[Seq[Result]] = timers.termination.processors.chains.run {
@@ -94,7 +94,7 @@ class ChainProcessor(override val checker: ProcessingPipeline)
         }
         if (decreases.isDefined) (cs, Some(decreases.get._3))
         else {
-          val newChains = cs.flatMap(c1 => allChains.flatMap(c2 => c1 compose c2))
+          val newChains = cs.flatMap(c1 => allChains.flatMap(c2 => c1 `compose` c2))
           solveIter(i - 1, allChains, newChains, base)
         }
       }

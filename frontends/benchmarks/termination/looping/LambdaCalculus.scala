@@ -39,7 +39,7 @@ object LambdaCalculus {
       case _ => None[Term]() // stuck
     }
     case _ => Some(t) // Abs or Var, already a value
-  }) ensuring { res => res match {
+  }).ensuring { res => res match {
     case Some(t) => isValue(t)
     case None() => true
   }}

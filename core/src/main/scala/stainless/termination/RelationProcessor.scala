@@ -8,13 +8,13 @@ import inox.utils._
 class RelationProcessor(override val checker: ProcessingPipeline)
                        // Alias for checker, as we cannot use it to define ordering
                        (override val chker: checker.type)
-                       (override val ordering: OrderingRelation with Strengthener with RelationBuilder {
+                       (override val ordering: OrderingRelation & Strengthener & RelationBuilder {
                          val checker: chker.type
                        })
   extends OrderingProcessor("Relation Processor " + ordering.description, checker, ordering) {
 
   def this(chker: ProcessingPipeline,
-           ordering: OrderingRelation with Strengthener with RelationBuilder {
+           ordering: OrderingRelation & Strengthener & RelationBuilder {
              val checker: chker.type
            }) =
     this(chker)(chker)(ordering)
@@ -33,7 +33,7 @@ class RelationProcessor(override val checker: ProcessingPipeline)
       funDef -> ordering.getRelations(funDef).collect {
         case Relation(_, path, fi @ FunctionInvocation(_, _, args), _) if problem.funSet(fi.tfd.fd) =>
           val args0 = funDef.params.map(_.toVariable)
-          def constraint(expr: Expr) = path implies expr
+          def constraint(expr: Expr) = path `implies` expr
           val lessThan = ordering.lessThan(args, args0)
           val lessEquals = ordering.lessEquals(args, args0)
           (fi.tfd.fd, (constraint(lessThan), constraint(lessEquals)))

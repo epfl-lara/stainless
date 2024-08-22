@@ -27,7 +27,7 @@ object Bytes {
 
   def iun(b: Byte, c: Byte) = {
     b + c
-  } ensuring { res => -256 <= res && res <= 254 }
+ }.ensuring { res => -256 <= res && res <= 254 }
 
 }
 

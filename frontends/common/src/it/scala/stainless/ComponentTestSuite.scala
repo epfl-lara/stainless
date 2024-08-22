@@ -32,7 +32,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
 
   val component: Component
 
-  override def configurations: Seq[Seq[inox.OptionValue[_]]] = Seq(
+  override def configurations: Seq[Seq[inox.OptionValue[?]]] = Seq(
     Seq(
       inox.optSelectedSolvers(Set("smt-z3")),
       inox.optTimeout(300.seconds),

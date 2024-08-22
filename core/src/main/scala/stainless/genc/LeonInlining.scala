@@ -29,8 +29,8 @@ class LeonInlining(override val s: oo.Trees, override val t: oo.Trees)(using ove
   override protected type TransformerContext = s.Symbols
   override protected def getContext(symbols: s.Symbols) = symbols
 
-  private[this] class Identity(override val s: self.s.type, override val t: self.t.type) extends transformers.ConcreteTreeTransformer(s, t)
-  private[this] val identity = new Identity(self.s, self.t)
+  private class Identity(override val s: self.s.type, override val t: self.t.type) extends transformers.ConcreteTreeTransformer(s, t)
+  private val identity = new Identity(self.s, self.t)
 
   override protected def registerFunctions(symbols: t.Symbols, functions: Seq[Option[t.FunDef]]): t.Symbols =
     symbols.withFunctions(functions.flatten)

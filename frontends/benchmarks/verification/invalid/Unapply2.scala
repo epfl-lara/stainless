@@ -15,5 +15,5 @@ object Unapply2 {
 
   def bar: Bool = { (42, False().asInstanceOf[Bool], ()) match {
     case Unap2(_, b) if b == True() => b
-  }} ensuring { res => res == True() }
+  }}.ensuring { res => res == True() }
 }

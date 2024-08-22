@@ -8,7 +8,7 @@ object Inconsistency5 {
     } else true
 
   def theorem() = {
-    val m = Machine(negateDiagonal _)
+    val m = Machine(negateDiagonal)
     negateDiagonal(m) // reduces to !negateDiagonal(m)
   }
 }

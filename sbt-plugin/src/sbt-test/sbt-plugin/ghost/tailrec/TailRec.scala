@@ -13,7 +13,7 @@ object Main {
     decreases(count)
     if (count == 0) l1
     else loop1(count - 1, l1, l2, l3)
-  }.ensuring(_ == l1)
+ }.ensuring(_ == l1)
 
   def loop2(count: Long, l1: Long, l2: Long, l3: Long): Long = {
     require(count >= 0)
@@ -26,7 +26,7 @@ object Main {
       }
       myRes
     }
-  }.ensuring(_ == l1)
+ }.ensuring(_ == l1)
 
   def whileLoop(upto: Long): Unit = {
     var i: Long = 0

@@ -38,7 +38,7 @@ object BitVectors1 {
   }
 
   def test8(n: UInt100) = {
-    assert(n % 2 == (n mod 2))
+    assert(n % 2 == (n.mod(2)))
     assert((n % 2 == (0: UInt100)) || (n % 2 == (1: UInt100)))
   }
 

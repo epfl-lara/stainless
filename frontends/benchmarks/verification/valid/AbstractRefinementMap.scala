@@ -17,7 +17,7 @@ object AbstractRefinementMap {
       case Cons(x, xs) => Cons[B](f(x), map2(xs, f))
       case Nil() => Nil[B]()
     }
-  } ensuring { res => forall((x: B) => res.contains(x) ==> f.post(x)) }
+ }.ensuring { res => forall((x: B) => res.contains(x) ==> f.post(x)) }
 
   def unOpt[T](l: List[Option[T]]): List[T] = {
     require(l.forall(_.nonEmpty))

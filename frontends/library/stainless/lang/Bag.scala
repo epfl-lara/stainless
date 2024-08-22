@@ -10,7 +10,7 @@ object Bag {
 
   @ignore
   def apply[T](elems: (T, BigInt)*) = {
-    new Bag[T](scala.collection.immutable.Map[T, BigInt](elems : _*))
+    new Bag[T](scala.collection.immutable.Map[T, BigInt](elems*))
   }
 }
 

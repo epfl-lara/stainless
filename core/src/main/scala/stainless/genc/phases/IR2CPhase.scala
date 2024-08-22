@@ -672,8 +672,8 @@ private class IR2CImpl()(using ctx: inox.Context) {
       case head :: tail => BinOp(op, head, fold(op, default)(tail))
     }
 
-    private def foldAnd = fold(And, Lit(BoolLit(true))) _
-    private def foldOr = fold(Or, Lit(BoolLit(false))) _
+    private def foldAnd = fold(And, Lit(BoolLit(true)))
+    private def foldOr = fold(Or, Lit(BoolLit(false)))
 
     private def buildLeafClassCmpBody(cd: ClassDef, lhs: Expr, rhs: Expr): Expr = {
       assert(lhs.getType == rhs.getType && ClassType(cd) == lhs.getType && cd.getDirectChildren.isEmpty)

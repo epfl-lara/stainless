@@ -451,7 +451,7 @@ object VerificationChecker {
       val context = ctx
       val semantics = program.getSemantics
 
-      protected def createFactory(opts: Options) = solvers.SolverFactory(p, ctx.withOpts(opts.options: _*))
+      protected def createFactory(opts: Options) = solvers.SolverFactory(p, ctx.withOpts(opts.options*))
     }
 
     val checker = if (ctx.options.findOptionOrDefault(optVCCache)) {
