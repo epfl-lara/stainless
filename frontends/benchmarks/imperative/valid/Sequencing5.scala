@@ -12,6 +12,6 @@ object Sequencing5 {
       {x = x - 1; x}
     )
 
-  } ensuring(res => res._1 == 6 && res._2 == 12 && res._3 == 11)
+  }.ensuring(res => res._1 == 6 && res._2 == 12 && res._3 == 11)
 
 }

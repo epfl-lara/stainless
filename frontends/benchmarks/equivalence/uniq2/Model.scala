@@ -30,14 +30,14 @@ object Model {
   }
 
   def lemma_2(n: Int, @induct lst: List[Int]): Unit = {
-  } ensuring(drop_2(lst, n).size <= lst.size)
+  }.ensuring(drop_2(lst, n).size <= lst.size)
 
   def solution_2(lst: List[Int]): List[Int] = {
     decreases(lst.size)
 
     def lem(n: Int, @stainless.annotation.induct lst: List[Int]): Unit = {
       ()
-    } ensuring(drop_2(lst, n).size <= lst.size)
+    }.ensuring(drop_2(lst, n).size <= lst.size)
 
     lst match {
       case Nil()        => Nil()

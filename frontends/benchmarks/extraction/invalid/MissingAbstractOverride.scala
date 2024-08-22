@@ -8,7 +8,7 @@ object MissingAbstractOverride {
     def test2(x: Int): Int = {
       require(x > 0)
       (??? : Int)
-    } ensuring (_ > 0)
+    }.ensuring(_ > 0)
   }
 
   case class Bar() extends Foo

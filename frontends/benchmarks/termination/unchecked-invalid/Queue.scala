@@ -11,7 +11,7 @@ sealed abstract class Queue[T] {
          case QEmpty() => BigInt(0)
          case QCons(f, r) => f.size + r.size
       }
-   } ensuring (res => res == this.looping_2.size && res >= 0)
+   }.ensuring(res => res == this.looping_2.size && res >= 0)
 
    def looping_2: List[T] = (this match {
       case QEmpty() => Nil[T]()

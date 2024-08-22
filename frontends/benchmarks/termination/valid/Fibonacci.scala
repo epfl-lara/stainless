@@ -13,5 +13,5 @@ object Fibonacci {
   // requires that fib is universally quantified to work...
   def check() : Boolean = {
     fib(5) == BigInt(5)
-  } ensuring(_ == true)
+  }.ensuring(_ == true)
 }

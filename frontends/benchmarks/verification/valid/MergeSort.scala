@@ -26,7 +26,7 @@ object MergeSort {
   def size(list : List) : BigInt = (list match {
     case Nil() => BigInt(0)
     case Cons(_, xs) => 1 + size(xs)
-  }) ensuring(_ >= 0)
+  }).ensuring(_ >= 0)
 
   def lSize(llist: LList): BigInt = (llist match {
     case LNil() => BigInt(0)
@@ -47,7 +47,7 @@ object MergeSort {
 
   def abs(i : BigInt) : BigInt = {
     if(i < 0) -i else i
-  } ensuring(_ >= 0)
+  }.ensuring(_ >= 0)
 
   def mergeSpec(list1 : List, list2 : List, res : List) : Boolean = {
     isSorted(res) && content(res) == content(list1) ++ content(list2)
@@ -66,7 +66,7 @@ object MergeSort {
           Cons(y, mergeFast(list1, ys))
         }
     }
-  } ensuring(res => mergeSpec(list1, list2, res))
+  }.ensuring(res => mergeSpec(list1, list2, res))
 
   def splitSpec(list : List, res : (List,List)) : Boolean = {
     val s1 = size(res._1)
@@ -81,7 +81,7 @@ object MergeSort {
     case Cons(x1, Cons(x2, xs)) =>
       val (s1,s2) = split(xs)
       (Cons(x1, s1), Cons(x2, s2))
-  }) ensuring(res => splitSpec(list, res))
+  }).ensuring(res => splitSpec(list, res))
 
   def sortSpec(in : List, out : List) : Boolean = {
     content(out) == content(in) && isSorted(out)
@@ -99,12 +99,12 @@ object MergeSort {
         val (s1,s2) = split(in)
         mergeFast(weirdSort(size(s1), s1), weirdSort(size(s2), s2))
     }
-  } ensuring(res => sortSpec(in, res))
+  }.ensuring(res => sortSpec(in, res))
 
   def toLList(list : List) : LList = (list match {
     case Nil() => LNil()
     case Cons(x, xs) => LCons(Cons(x, Nil()), toLList(xs))
-  }) ensuring(res => lContent(res) == content(list) && lIsSorted(res))
+  }).ensuring(res => lContent(res) == content(list) && lIsSorted(res))
 
   def mergeMap(llist : LList) : LList = {
     require(lIsSorted(llist))
@@ -114,7 +114,7 @@ object MergeSort {
       case o @ LCons(x, LNil()) => o
       case LCons(x, LCons(y, ys)) => LCons(mergeFast(x, y), mergeMap(ys))
     }
-  } ensuring { res =>
+  }.ensuring { res =>
     lContent(res) == lContent(llist) &&
     lIsSorted(res) &&
     (lSize(llist) > 1 ==> lSize(res) < lSize(llist))
@@ -129,9 +129,9 @@ object MergeSort {
       case LCons(x, LNil()) => x
       case _ => mergeReduce(mergeMap(llist))
     }
-  } ensuring(res => content(res) == lContent(llist) && isSorted(res))
+  }.ensuring(res => content(res) == lContent(llist) && isSorted(res))
 
   def mergeSort(in : List) : List = {
     mergeReduce(toLList(in))
-  } ensuring(res => sortSpec(in, res))
+  }.ensuring(res => sortSpec(in, res))
 }

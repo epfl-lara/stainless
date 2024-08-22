@@ -15,6 +15,6 @@ object Size {
   @traceInduct("")
   def nonNegSize(l: IList): Unit = {
     ()
-  } ensuring (size(l) >= 0)
+  }.ensuring(size(l) >= 0)
 }
 

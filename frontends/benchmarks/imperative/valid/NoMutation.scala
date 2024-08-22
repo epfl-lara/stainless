@@ -8,6 +8,6 @@ object test {
   def test(x: Test) = {
     stuff(x)
     x.value
-  } ensuring { _ == old(x).value }
+  }.ensuring { _ == old(x).value }
 
 }

@@ -12,7 +12,7 @@ object Longs {
   def gun(i: Byte, j: Int): Long = {
     require(0 <= j && j < 32)
     i.toLong << j
-  } ensuring { res =>
+  }.ensuring { res =>
     pow2(j) * i == res
   }
 

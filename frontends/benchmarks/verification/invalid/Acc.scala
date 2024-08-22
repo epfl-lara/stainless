@@ -10,7 +10,7 @@ object Acc {
   def putAside(x: Int, a: Acc): Acc = {
     require (x > 0 && notRed(a) && a.checking >= x)
       Acc(a.checking - x, a.savings + x)
-  } ensuring {
+  }.ensuring {
     r => notRed(r) && sameTotal(a, r)
   }
 

@@ -18,7 +18,7 @@ object BitsTricksSlow {
   def toggleBitN(x: Int, n: Int): Int = {
     require(n >= 0 && n < 32)
     x ^ (1 << n)
-  } ensuring(res => 
+  }.ensuring(res => 
       if(isBitNSet(x, n) != 0) isBitNSet(res, n) == 0
       else isBitNSet(res, n) != 0)
 
@@ -32,7 +32,7 @@ object BitsTricksSlow {
   // proves in 10s
   def turnOffRightmostOne(x: Int): Int = {
     x & (x - 1)
-  } ensuring(_ == turnOffRightmostOneRec(x, 31))
+  }.ensuring(_ == turnOffRightmostOneRec(x, 31))
 
   // 010100 -> 010111
   def rightPropagateRightmostOne(x: Int): Int = {
@@ -42,7 +42,7 @@ object BitsTricksSlow {
   def property1(x: Int): Boolean = {
     val y = rightPropagateRightmostOne(x)
     y == rightPropagateRightmostOne(y)
-  } ensuring(b => b)
+  }.ensuring(b => b)
 
   def isRotationLeft(x: Int, y: Int, n: Int, i: Int): Boolean = {
     require(0 <= i && i < 32 && 0 <= n && n < 32)
@@ -55,7 +55,7 @@ object BitsTricksSlow {
     require(n >= 0 && n < 32)
     val front = x >>> (32 - n)
     (x << n) | front
-  } ensuring(res => isRotationLeft(x, res, n, 31))
+  }.ensuring(res => isRotationLeft(x, res, n, 31))
 
   //careful with overflows, case definition, truncated
   def safeMean(x: Int, y: Int): Int = {
@@ -70,7 +70,7 @@ object BitsTricksSlow {
   def magicMean(x: Int, y: Int): Int = {
     val t = (x&y)+((x^y) >> 1)
     t + ((t >>> 31) & (x ^ y))
-  } ensuring(res => res == safeMean(x, y))
+  }.ensuring(res => res == safeMean(x, y))
 
 
 }

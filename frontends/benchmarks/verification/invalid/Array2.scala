@@ -7,6 +7,6 @@ object Array2 {
   def foo(a: Array[Int]): Int = {
     require(a.length > 2)
     a(2)
-  } ensuring(_ == 0)
+  }.ensuring(_ == 0)
 
 }

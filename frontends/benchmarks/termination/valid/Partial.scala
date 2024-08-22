@@ -11,7 +11,7 @@ object Partial {
   def eliminate_exists[T](p: T => Boolean): T = {
     require(exists[T](p))
     choose[T]((res: T) => p(res))
-  } ensuring (p)
+  }.ensuring(p)
 
   def maxNegP(j: BigInt, p: BigInt => Boolean): Boolean = {
     !p(j) && forall((k: BigInt) => !p(k) ==> (k <= j))

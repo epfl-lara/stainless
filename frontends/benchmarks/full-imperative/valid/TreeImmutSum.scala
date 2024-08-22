@@ -84,7 +84,7 @@ object TreeImmutSumExample {
     def revealValid: Unit = {
       reads(repr)
       ()
-    } ensuring (_ => valid == valid_impl)
+    }.ensuring(_ => valid == valid_impl)
 
     @opaque
     def lemmaValidChildren: Unit = {
@@ -92,7 +92,7 @@ object TreeImmutSumExample {
       require(valid)
       revealValid
       ()
-    } ensuring { _ =>
+    }.ensuring { _ =>
       (left.isDefined ==> left.get.valid) && (right.isDefined ==> right.get.valid)
     }
 
@@ -105,7 +105,7 @@ object TreeImmutSumExample {
         validData
       )
       revealValid
-    } ensuring (_ => valid)
+    }.ensuring(_ => valid)
 
     @opaque
     def computeSum: BigInt =  {
@@ -160,7 +160,7 @@ object TreeImmutSumExample {
 
           sum
       }
-    } ensuring (res => dataCell.value == Some(res) && valid)
+    }.ensuring(res => dataCell.value == Some(res) && valid)
   }
 }
 */

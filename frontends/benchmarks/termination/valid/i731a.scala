@@ -7,7 +7,7 @@ object i731a {
     if (!l.isEmpty)
       f(l.tail)
 
-  } ensuring { _ =>
+  }.ensuring { _ =>
     l.map { case (token, _, identity) => token -> identity }.forall(_ => true)
   }
 }

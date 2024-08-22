@@ -9,7 +9,7 @@ object ValModification {
 
     def havoc(): Unit = {
       (??? : Unit)
-    } ensuring { res =>
+    }.ensuring { res =>
       this.x == old(this).x
     }
   }

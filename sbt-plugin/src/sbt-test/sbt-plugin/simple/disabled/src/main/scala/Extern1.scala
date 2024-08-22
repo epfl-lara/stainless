@@ -8,13 +8,13 @@ object Extern1 {
   def plop(a: BigInt): BigInt = {
     require(a > 0)
     a + scala.math.abs(-3)
-  } ensuring {
+  }.ensuring {
     _ > 0
   }
 
   def test(b: BigInt): BigInt = {
     plop(if (b <= 0) -b+1 else b)
-  } ensuring {
+  }.ensuring {
     _ > 0
   }
 

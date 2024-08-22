@@ -14,6 +14,6 @@ object ObjectHierarchyMutation2 {
     val b = B(A(10))
     update(b)
     b.a.y
-  } ensuring(res => res == 17)
+  }.ensuring(res => res == 17)
 
 }

@@ -8,6 +8,6 @@ object Lambda1 {
       z
     })
     cl(4)
-  } ensuring(_ == 6)
+  }.ensuring(_ == 6)
 
 }

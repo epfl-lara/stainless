@@ -7,6 +7,6 @@ object StdIn3 {
     implicit val state = stainless.io.newState
     val n = StdIn.readInt
     if(n < 0) -n else n
-  } ensuring(_ >= 0)
+  }.ensuring(_ >= 0)
 
 }

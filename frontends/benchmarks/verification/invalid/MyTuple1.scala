@@ -8,6 +8,6 @@ object MyTuple1 {
     val a2 = t._2
     val a3 = t._3
     a3
-  } ensuring( _ == 1)
+  }.ensuring( _ == 1)
 
 }

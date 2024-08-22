@@ -8,6 +8,6 @@ object Sequencing8 {
     (x = x + 1, (x = x * 2, (x = x - 1, x = x * 2)))
 
     x
-  } ensuring(res => res == 22)
+  }.ensuring(res => res == 22)
 
 }

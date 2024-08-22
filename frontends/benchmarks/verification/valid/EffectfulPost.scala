@@ -10,7 +10,7 @@ object EffectfulPost {
 
   def test = {
     true
-  } ensuring { _ =>
+  }.ensuring { _ =>
     val foo = Foo(0)
     val after = mutateFoo(foo)
     after == false

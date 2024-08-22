@@ -6,5 +6,5 @@
    def f(a: A): BigInt = {
      a.x = a.x + 1
      a.x
-   } ensuring (_ > old(a).x)
+   }.ensuring(_ > old(a).x)
  }

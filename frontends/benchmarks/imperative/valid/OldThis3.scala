@@ -6,7 +6,7 @@ object OldThis3 {
     def foo(b: Int): Unit = {
       a + b // no assignement
       ()
-    } ensuring(_ => a == old(this).a)
+    }.ensuring(_ => a == old(this).a)
   }
 
 }

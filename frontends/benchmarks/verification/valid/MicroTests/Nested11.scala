@@ -11,6 +11,6 @@ object Nested11 {
       case B(b) => i + j + b
     }
     rec1(2)
-  } ensuring(i + 5 == _)
+  }.ensuring(i + 5 == _)
 
 }

@@ -6,5 +6,5 @@ object ImpureLazy2 {
       counter
     }
     counter + x + x
-  } ensuring (_ == 2)
+  }.ensuring(_ == 2)
 }

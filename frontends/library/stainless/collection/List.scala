@@ -28,7 +28,7 @@ sealed abstract class List[T] {
       if (tSize == Int.MaxValue) tSize
       else 1 + tSize
     }
-  }) ensuring(res => 0 <= res && res <= Int.MaxValue)
+  }).ensuring(res => 0 <= res && res <= Int.MaxValue)
 
   @isabelle.function(term = "List.list.set")
   def content: Set[T] = this match {
@@ -94,7 +94,7 @@ sealed abstract class List[T] {
       case Nil() => Cons(t, this)
       case Cons(x, xs) => Cons(x, xs :+ (t))
     }
-  } ensuring(res => (res.size == size + 1) && (if (isize < Int.MaxValue) res.isize == isize + 1 else res.isize == isize) && (res.content == content ++ Set(t)) && res == this ++ Cons(t, Nil[T]()))
+  }.ensuring(res => (res.size == size + 1) && (if (isize < Int.MaxValue) res.isize == isize + 1 else res.isize == isize) && (res.content == content ++ Set(t)) && res == this ++ Cons(t, Nil[T]()))
 
   @isabelle.function(term = "List.rev")
   def reverse: List[T] = {
@@ -102,7 +102,7 @@ sealed abstract class List[T] {
       case Nil() => this
       case Cons(x,xs) => xs.reverse :+ x
     }
-  } ensuring (res => (res.size == size) && (res.isize == isize) && (res.content == content))
+  }.ensuring(res => (res.size == size) && (res.isize == isize) && (res.content == content))
 
   def take(i: BigInt): List[T] = { (this, i) match {
     case (Nil(), _) => Nil[T]()
@@ -131,7 +131,7 @@ sealed abstract class List[T] {
           Cons(h, t.itake(i-1))
         }
     }
-  } ensuring { res =>
+  }.ensuring { res =>
     res.content.subsetOf(this.content) && (res.isize == (
        if      (i == 0)         0
        else if (i >= isize)     isize
@@ -166,7 +166,7 @@ sealed abstract class List[T] {
           t.idrop(i-1)
         }
     }
-  } ensuring { res =>
+  }.ensuring { res =>
     res.content.subsetOf(this.content)
   }
 
@@ -190,7 +190,7 @@ sealed abstract class List[T] {
           }
         }
     }
-  } ensuring { res =>
+  }.ensuring { res =>
     res.content.subsetOf(content) && res.isize == to - from
   }
 
@@ -323,7 +323,7 @@ sealed abstract class List[T] {
       case Cons(h, t) =>
         Cons[T](h, t.init)
     }
-  } ensuring ( (r: List[T]) =>
+  }.ensuring( (r: List[T]) =>
     r.size == this.size - 1 &&
     r.content.subsetOf(this.content)
   )
@@ -334,7 +334,7 @@ sealed abstract class List[T] {
       case Cons(h, Nil()) => h
       case Cons(_, t) => t.last
     }
-  } ensuring { this.contains _ }
+  }.ensuring { this.contains _ }
 
   def lastOption: Option[T] = { this match {
     case Cons(h, t) =>
@@ -428,7 +428,7 @@ sealed abstract class List[T] {
           l
       }
     }
-  } ensuring { res =>
+  }.ensuring { res =>
     res.size == this.size + l.size &&
     res.content == this.content ++ l.content
   }
@@ -440,7 +440,7 @@ sealed abstract class List[T] {
     } else {
       insertAtImpl(pos, l)
     }
-  } ensuring { res =>
+  }.ensuring { res =>
     res.size == this.size + l.size &&
     res.content == this.content ++ l.content
   }
@@ -448,7 +448,7 @@ sealed abstract class List[T] {
   def insertAt(pos: BigInt, e: T): List[T] = {
     require(-pos <= size && pos <= size)
     insertAt(pos, Cons[T](e, Nil()))
-  } ensuring { res =>
+  }.ensuring { res =>
     res.size == this.size + 1 &&
     res.content == this.content ++ Set(e)
   }
@@ -465,7 +465,7 @@ sealed abstract class List[T] {
           l
       }
     }
-  } ensuring { res =>
+  }.ensuring { res =>
     res.content.subsetOf(l.content ++ this.content)
   }
 
@@ -476,7 +476,7 @@ sealed abstract class List[T] {
     } else {
       replaceAtImpl(pos, l)
     }
-  } ensuring { res =>
+  }.ensuring { res =>
     res.content.subsetOf(l.content ++ this.content)
   }
 
@@ -486,7 +486,7 @@ sealed abstract class List[T] {
     } else {
       drop(s mod size) ++ take(s mod size)
     }
-  } ensuring { res =>
+  }.ensuring { res =>
     res.size == this.size
   }
 
@@ -566,7 +566,7 @@ sealed abstract class List[T] {
   // In case we implement for-comprehensions
   def withFilter(p: T => Boolean): List[T] = {
     filter(p)
-  } ensuring { res =>
+  }.ensuring { res =>
     res.size <= this.size &&
     res.content.subsetOf(this.content) &&
     res.forall(p)
@@ -677,7 +677,7 @@ object List {
     decreases(if (n <= BigInt(0)) BigInt(0) else n)
     if (n <= 0) Nil[T]()
     else Cons[T](x, fill[T](n-1)(x))
-  } ensuring(res => (res.content == (if (n <= BigInt(0)) Set.empty[T] else Set(x))) &&
+  }.ensuring(res => (res.content == (if (n <= BigInt(0)) Set.empty[T] else Set(x))) &&
                     res.size == (if (n <= BigInt(0)) BigInt(0) else n))
 
   @library
@@ -685,7 +685,7 @@ object List {
     decreases(if (n <= 0) 0 else n)
     if (n <= 0) Nil[T]()
     else Cons[T](x, ifill[T](n - 1)(x))
-  } ensuring(res => (res.content == (if (n <= 0) Set.empty[T] else Set(x))) &&
+  }.ensuring(res => (res.content == (if (n <= 0) Set.empty[T] else Set(x))) &&
                     res.isize == (if (n <= 0) 0 else n))
 
   /* Range from start (inclusive) to until (exclusive) */
@@ -694,7 +694,7 @@ object List {
     require(start <= until)
     decreases(until - start)
     if(until <= start) Nil[BigInt]() else Cons(start, range(start + 1, until))
-  } ensuring{(res: List[BigInt]) => res.size == until - start }
+  }.ensuring{(res: List[BigInt]) => res.size == until - start }
 
   @library
   def mkString[A](l: List[A], mid: String, f: A => String) = {

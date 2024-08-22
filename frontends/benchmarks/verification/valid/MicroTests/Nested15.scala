@@ -13,7 +13,7 @@ object Nested15 {
       rec3(l.head).size + j + n.size + i.size
     }
     rec2(List(1, 2, 3), 2)
-  } ensuring(_ == 2 * i.size + 9)
+  }.ensuring(_ == 2 * i.size + 9)
 
 }
 

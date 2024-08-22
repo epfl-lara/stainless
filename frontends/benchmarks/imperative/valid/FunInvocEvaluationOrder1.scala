@@ -17,7 +17,7 @@ object FunInvocEvaluationOrder1 {
     })
 
     res
-  } ensuring(_ == 32)
+  }.ensuring(_ == 32)
 
   def justAddingStuff(x: Int, y: Int, z: Int): Int = x + y + z
 

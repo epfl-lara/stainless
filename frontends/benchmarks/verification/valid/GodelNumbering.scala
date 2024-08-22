@@ -27,7 +27,7 @@ object GodelNumbering {
         case (Succ(n1), Succ(n2)) => n1 - n2
         case _ => this
       })
-    } ensuring { res =>
+    }.ensuring { res =>
       res.repr <= repr &&
       ((this > Zero && that > Zero) ==> res.repr < repr)
     }
@@ -39,7 +39,7 @@ object GodelNumbering {
         case (Zero, Succ(_)) => true
         case _ => false
       })
-    } ensuring (_ == repr < that.repr)
+    }.ensuring(_ == repr < that.repr)
 
     def <=(that: Nat): Boolean = (this < that) || (this == that)
     def >(that: Nat): Boolean = !(this < that) && (this != that)
@@ -50,7 +50,7 @@ object GodelNumbering {
       decreases(repr)
       if (this < that) Zero else
       Succ((this - that) / that)
-    } ensuring { res =>
+    }.ensuring { res =>
       res.repr <= repr &&
       ((this > Zero && that > One) ==> res.repr < repr)
     }
@@ -68,7 +68,7 @@ object GodelNumbering {
         case Zero => BigInt(0)
         case Succ(n) => n.repr + BigInt(1)
       }
-     } ensuring (_ >= BigInt(0))
+     }.ensuring(_ >= BigInt(0))
   }
 
   case object Zero extends Nat

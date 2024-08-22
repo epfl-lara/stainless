@@ -19,7 +19,7 @@ object ExternFieldPure {
     @extern @pure
     def insert(k: K, v: V): MapWrapper[K, V] = {
       MapWrapper(theMap + (k -> v))
-    } ensuring { _.contains(k) }
+    }.ensuring { _.contains(k) }
 
     @extern @pure
     def apply(k: K): V = {
@@ -32,7 +32,7 @@ object ExternFieldPure {
     @extern
     def empty[K, V]: MapWrapper[K, V] = {
       MapWrapper(HashMap.empty[K, V])
-    } ensuring { res =>
+    }.ensuring { res =>
       forall((k: K) => !res.contains(k))
     }
   }

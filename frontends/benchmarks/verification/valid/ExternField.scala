@@ -20,7 +20,7 @@ object ExternField {
     @extern
     def insert(k: K, v: V): Unit = {
       theMap.update(k, v)
-    } ensuring {
+    }.ensuring {
       this.contains(k) &&
       this.apply(k) == v
     }
@@ -36,7 +36,7 @@ object ExternField {
     @extern @pure
     def empty[K, V]: TrieMapWrapper[K, V] = {
       TrieMapWrapper(TrieMap.empty[K, V])
-    } ensuring { res =>
+    }.ensuring { res =>
       forall((k: K) => !res.contains(k))
     }
   }

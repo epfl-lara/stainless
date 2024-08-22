@@ -29,7 +29,7 @@ object QueueExample {
     check(inv(asList, i + 1))
     tailIndex(asList, i)
     if (i < asList.size - 2) invTail(asList, i + 1) else ()
-  } ensuring(_ => inv(asList.tail, i))
+  }.ensuring(_ => inv(asList.tail, i))
 
   def invAgain(h0: Heap, oldAsList: List[Node], oldLast: Node, newNode: Node, i: BigInt): Unit = {
     reads((oldAsList.content ++ Set(newNode)).asRefs)
@@ -68,7 +68,7 @@ object QueueExample {
       assert(asList(i).nextOpt == Some(asList(i + 1)), "link still there")
       check(inv(asList, i))
     }
-  } ensuring (_ => inv(oldAsList :+ newNode, i))
+  }.ensuring(_ => inv(oldAsList :+ newNode, i))
 
   final case class Q(var first: Node,
                      var last: Node,
@@ -110,7 +110,7 @@ object QueueExample {
       check(ListOps.noDuplicate(asList))
 
       invAgain(h0, oldAsList, oldLast, n, 0)
-    } ensuring (_ => asList == old(asList) :+ n && valid)
+    }.ensuring(_ => asList == old(asList) :+ n && valid)
 
     def peek: Node = {
       require(asList.size >= 2 && valid)
@@ -118,7 +118,7 @@ object QueueExample {
       first.nextOpt match {
         case Some(nn) => nn
       }
-    } ensuring ((res:Node) => res == asList(1))
+    }.ensuring((res:Node) => res == asList(1))
 
     def dequeue: Node = {
       require(asList.size >= 2 && valid)
@@ -142,7 +142,7 @@ object QueueExample {
           nn
         }
       }
-    } ensuring ((res:Node) =>
+    }.ensuring((res:Node) =>
                 asList == old(asList).tail &&
                 res == old(asList).apply(1) &&
                 valid)
@@ -153,7 +153,7 @@ object QueueExample {
       case Nil() => ()
       case Cons(y, ys) => snocLast(ys, x)
     }
-  } ensuring(_ => (l :+ x).last == x)
+  }.ensuring(_ => (l :+ x).last == x)
 
   def snocIndex[T](l: List[T], t: T, i: BigInt): Unit = {
     require(0 <= i && i < l.size + 1)
@@ -162,7 +162,7 @@ object QueueExample {
       case Nil() => ()
       case Cons(x, xs) => if (i > 0) snocIndex[T](xs, t, i-1) else ()
     }
-  } ensuring(_ => ((l :+ t).apply(i) == (if (i < l.size) l(i) else t)))
+  }.ensuring(_ => ((l :+ t).apply(i) == (if (i < l.size) l(i) else t)))
 
   def snocNoDuplicate[T](l: List[T], t: T): Unit = {
     require(ListOps.noDuplicate(l) && !l.contains(t))
@@ -170,7 +170,7 @@ object QueueExample {
       case Nil() => ()
       case Cons(y, ys) => snocNoDuplicate(ys, t)
     }
-  } ensuring(_ => ListOps.noDuplicate(l :+ t))
+  }.ensuring(_ => ListOps.noDuplicate(l :+ t))
 
 
   def tailIndex[T](l: List[T], i: BigInt): Unit = {
@@ -179,14 +179,14 @@ object QueueExample {
     l match {
       case Cons(x, xs) => if (i > 0) tailIndex[T](xs, i-1) else ()
     }
-  } ensuring(_ => l.tail(i) == l(i + 1))
+  }.ensuring(_ => l.tail(i) == l(i + 1))
 
   def applyContent[T](list: List[T], index: BigInt): Unit = {
     require(0 <= index && index < list.size)
     list match {
       case Cons(_, xs) => if (index > 0) applyContent[T](xs, index-1) else ()
     }
-  } ensuring(_ => list.content.contains(list.apply(index)))
+  }.ensuring(_ => list.content.contains(list.apply(index)))
 
   def noDuplicateDistinct[T](list: List[T], i: BigInt, j: BigInt): Unit = {
     require(ListOps.noDuplicate(list) &&
@@ -209,5 +209,5 @@ object QueueExample {
           }
       }
     }
-  } ensuring(_ => list(i) != list(j))
+  }.ensuring(_ => list(i) != list(j))
 }

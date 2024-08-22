@@ -43,6 +43,6 @@ object Typedefs2 {
 
   // def takePos(x: PositiveInt): Int = {
   //   x
-  // } ensuring { _ >= 0 }
+  // }.ensuring { _ >= 0 }
 
 }

@@ -15,6 +15,6 @@ object HigherOrderFunctionsMutableParams16 {
     app(f, b)
     app(f, b)
     b.a.x
-  } ensuring(_ == 2)
+  }.ensuring(_ == 2)
 
 }

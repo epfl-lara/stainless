@@ -11,7 +11,7 @@ object FiniteStream:
       this match
         case SCons(_, _, sz) if (sz > 0) => sz
         case _                           => BigInt(0)
-    } ensuring(_ >= 0)
+    }.ensuring(_ >= 0)
   case class SCons(x: BigInt, tailFun: () => Stream, sz: BigInt) extends Stream
   case class SNil() extends Stream
 

@@ -9,6 +9,6 @@ object Array3 {
       42
     else
       12
-  } ensuring(_ > 0)
+  }.ensuring(_ > 0)
 
 }

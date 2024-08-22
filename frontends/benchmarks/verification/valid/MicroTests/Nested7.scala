@@ -10,12 +10,12 @@ object Nested7 {
       b + c + bar(a) + bar(b) + bar(c)
     }
     rec1(2) + bar(a)
-  } ensuring(_ > 0)
+  }.ensuring(_ > 0)
 
 
   def bar(x: BigInt): BigInt = {
     require(x >= 0)
     x
-  } ensuring(_ >= 0)
+  }.ensuring(_ >= 0)
 
 }

@@ -10,6 +10,6 @@ object Array8 {
   @inline
   def foo(): Array[Int] = {
     Array.fill(5)(0)
-  } ensuring { res => res(0) == 0 }
+  }.ensuring { res => res(0) == 0 }
 
 }

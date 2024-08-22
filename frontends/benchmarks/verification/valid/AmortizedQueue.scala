@@ -32,7 +32,7 @@ object AmortizedQueue {
       case Nil() => BigInt(0)
       case Cons(_, xs) => 1 + size(xs)
     }
-   } ensuring(_ >= 0)
+   }.ensuring(_ >= 0)
 
   def content(l: List) : Set[Int] = {
     decreases(l)
@@ -52,7 +52,7 @@ object AmortizedQueue {
       case Nil() => l2
       case Cons(x,xs) => Cons(x, concat(xs, l2))
     }
-  } ensuring (res => size(res) == size(l1) + size(l2) && content(res) == content(l1) ++ content(l2))
+  }.ensuring(res => size(res) == size(l1) + size(l2) && content(res) == content(l1) ++ content(l2))
 
   def concatNil(@induct l: List) = {
     concat(l, Nil()) == l
@@ -77,25 +77,25 @@ object AmortizedQueue {
       case Nil() => Nil()
       case Cons(x, xs) => concat(reverse(xs), Cons(x, Nil()))
     }
-  } ensuring (content(_) == content(l))
+  }.ensuring(content(_) == content(l))
 
   def amortizedQueue(front : List, rear : List) : AbsQueue = {
     if (size(rear) <= size(front))
       Queue(front, rear)
     else
       Queue(concat(front, reverse(rear)), Nil())
-  } ensuring(isAmortized(_))
+  }.ensuring(isAmortized(_))
 
   def enqueue(queue : AbsQueue, elem : Int) : AbsQueue = (queue match {
     case Queue(front, rear) => amortizedQueue(front, Cons(elem, rear))
-  }) ensuring(isAmortized(_))
+  }).ensuring(isAmortized(_))
 
   def tail(queue : AbsQueue) : AbsQueue = {
     require(isAmortized(queue) && !isEmpty(queue))
     queue match {
       case Queue(Cons(f, fs), rear) => amortizedQueue(fs, rear)
     }
-  } ensuring (isAmortized(_))
+  }.ensuring(isAmortized(_))
 
   def front(queue : AbsQueue) : Int = {
     require(isAmortized(queue) && !isEmpty(queue))

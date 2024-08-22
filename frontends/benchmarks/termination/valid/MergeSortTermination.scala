@@ -12,14 +12,14 @@ object MergeSortTermination {
       case Nil()       => BigInt(0)
       case Cons(x, xs) => 1 + size(xs)
     }
-  } ensuring (res => res >= 0)
+  }.ensuring(res => res >= 0)
 
   def length(l: List): BigInt = {
     l match {
       case Nil()       => BigInt(0)
       case Cons(x, xs) => 1 + length(xs)
     }
-  } ensuring (res => res >= 0 && res == size(l))
+  }.ensuring(res => res >= 0 && res == size(l))
 
   def split(l: List, n: BigInt): (List, List) = {
     require(n >= 0 && n <= size(l))
@@ -32,7 +32,7 @@ object MergeSortTermination {
           (Cons(x, fst), snd)
         }
       }
-  } ensuring (res => size(res._2) == size(l) - n && size(res._1) == n)
+  }.ensuring(res => size(res._2) == size(l) - n && size(res._1) == n)
 
   def merge(l1: List, l2: List): List = (l2 match {
     case Nil() => l1
@@ -56,5 +56,5 @@ object MergeSortTermination {
         val (fst, snd) = split(l, length(l) / 2)
         merge(mergeSort(fst), mergeSort(snd))
     }
-  } ensuring (res => size(res) == size(l))
+  }.ensuring(res => size(res) == size(l))
 }

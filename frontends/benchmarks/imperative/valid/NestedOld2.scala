@@ -12,7 +12,7 @@ object NestedOld2 {
       require(counterNext == counterPrev + 1)
       counterPrev = counterNext
       counterNext = counterNext+1
-    } ensuring(_ => {
+    }.ensuring(_ => {
       counterPrev == old(counterNext) && 
       counterNext == old(counterNext) + 1 &&
       counterPrev == old(counterPrev) + 1
@@ -21,6 +21,6 @@ object NestedOld2 {
     step()
     step()
     counterNext
-  } ensuring(_ == 3)
+  }.ensuring(_ == 3)
 
 }

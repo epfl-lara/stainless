@@ -36,9 +36,9 @@ object BSTSimpler {
         Node(l, v, r)
       })
     }
-  } ensuring(res => isBST(res) && content(res) == content(tree) ++ Set(value))
+  }.ensuring(res => isBST(res) && content(res) == content(tree) ++ Set(value))
 
   def createRoot(v: BigInt): Node = {
     Node(Leaf(), v, Leaf())
-  } ensuring (content(_) == Set(v))
+  }.ensuring(content(_) == Set(v))
 }

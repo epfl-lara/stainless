@@ -12,7 +12,7 @@ object PatternMatchingAliasingMutation4 {
       rec(as)
     case Nil() =>
       ()
-  }) ensuring(_ => allZero(l))
+  }).ensuring(_ => allZero(l))
 
   def allZero(l: List): Boolean = l match {
     case Cons(a, tail) => a.x == 0 && allZero(tail)
@@ -23,6 +23,6 @@ object PatternMatchingAliasingMutation4 {
     val l = Cons(A(2), Cons(A(1), Cons(A(0), Nil())))
     rec(l)
     l
-  } ensuring(l => allZero(l))
+  }.ensuring(l => allZero(l))
 
 }

@@ -12,7 +12,7 @@ object AbstractRefinementMap {
     def apply(x: A): B = {
       require(f.pre(x))
       f(x)
-    } ensuring(ens)
+    }.ensuring(ens)
   }
 
   def map[A, B](l: List[A], f: A ~> B): List[B] = {
@@ -21,6 +21,6 @@ object AbstractRefinementMap {
       case Cons(x, xs) => Cons[B](f(x), map(xs, f))
       case Nil() => Nil[B]()
     }
-  } ensuring { res => forall((x: B) => res.contains(x) ==> f.ens(x)) }
+  }.ensuring { res => forall((x: B) => res.contains(x) ==> f.ens(x)) }
 }
 

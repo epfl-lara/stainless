@@ -11,6 +11,6 @@ object Lambda2 {
   def test: Int = {
     val f: (A) => Int = ((a: A) => a.x)
     f(A(0))
-  } ensuring(res => res == 0)
+  }.ensuring(res => res == 0)
 
 }

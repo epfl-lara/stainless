@@ -54,15 +54,15 @@ object PartialCompiler {
   def left_unbound(y: Int) = partialEval {
     val ctx: Context = Map("y" -> Num(y))
     interpret(program, ctx)(42)                                // Left(Error("Unbound variable: x"))
-  } ensuring { _ == Left[Error, Int](Error("Unbound variable: x")) }
+  }.ensuring { _ == Left[Error, Int](Error("Unbound variable: x")) }
 
   def left_fuel(x: Int) = partialEval {
     val ctx: Context = Map("x" -> Num(x))
     interpret(program, ctx)(2)                                // Left(Error("No more fuel"))
-  } ensuring { _ == Left[Error, Int](Error("No more fuel")) }
+  }.ensuring { _ == Left[Error, Int](Error("No more fuel")) }
 
   def right(x: Int) = partialEval {
     interpret(program, Map("x" -> Num(x)))(42)                 // Right(10 * (ctx("x") + 42))
-  } ensuring { _.isRight }
+  }.ensuring { _.isRight }
 
 }

@@ -9,19 +9,19 @@ object ObjectHierarchyMutation4 {
   def update(c: C): Int = {
     c.b1.a2.y = 17
     c.b1.a2.y
-  } ensuring(res => res == 17)
+  }.ensuring(res => res == 17)
 
   def f(): Int = {
     val c = C(B(A(10, 10), A(12, 13)), B(A(10, 10), A(14, 15)))
     update(c)
     c.b1.a2.y
-  } ensuring(res => res == 17)
+  }.ensuring(res => res == 17)
 
   def multipleUpdate(c: C): Unit = {
     c.b1.a2.y = 13
     c.b1.a2.x = 10
     c.b1.a1.x = 15
     c.b2.a1.y = 22
-  } ensuring(_ => c.b1.a2.y == 13 && c.b1.a2.x == 10 && c.b1.a1.x == 15 && c.b2.a1.y == 22 && c.b2.a2.y == old(c).b2.a2.y)
+  }.ensuring(_ => c.b1.a2.y == 13 && c.b1.a2.x == 10 && c.b1.a1.x == 15 && c.b2.a1.y == 22 && c.b2.a2.y == old(c).b2.a2.y)
 
 }

@@ -11,7 +11,7 @@ object ChooseWithWitness {
     def size(l: List) : BigInt = (l match {
         case Nil() => BigInt(0)
         case Cons(_, t) => 1 + size(t)
-    }) ensuring(res => res >= 0)
+    }).ensuring(res => res >= 0)
 
     def content(l: List) : Set[Int] = l match {
       case Nil() => Set.empty[Int]
@@ -26,7 +26,7 @@ object ChooseWithWitness {
       } else {
         Cons(0, createListOfSize(i - 1))
       }
-    } ensuring ( size(_) == i )
+    }.ensuring( size(_) == i )
 
     def listOfSize(i: BigInt): List = {
       require(i >= 0)
@@ -37,7 +37,7 @@ object ChooseWithWitness {
         assert(size(createListOfSize(i)) == i) // provides choose quantification with a matcher
         choose[List] { (res: List) => size(res) == i }
       }
-    } ensuring ( size(_) == i )
+    }.ensuring( size(_) == i )
 
     def listOfSize2(i: BigInt): List = {
       require(i >= 0)
@@ -47,5 +47,5 @@ object ChooseWithWitness {
       } else {
         Nil()
       }
-    } ensuring ( size(_) == i )
+    }.ensuring( size(_) == i )
 }

@@ -9,12 +9,12 @@ object ObjectParamMutation7 {
     a.x += 1
     a.y += 1
     a.z += 1
-  } ensuring(_ => a.x == old(a).x + 1 && a.y == old(a).y + 1 && a.z == old(a).z + 1)
+  }.ensuring(_ => a.x == old(a).x + 1 && a.y == old(a).y + 1 && a.z == old(a).z + 1)
 
   def f(): A = {
     val a = A(0, 0, 0, 0)
     inc(a); inc(a); inc(a)
     a
-  } ensuring(res => res.x == res.y && res.y == res.z && res.z == 3)
+  }.ensuring(res => res.x == res.y && res.y == res.z && res.z == 3)
 
 }

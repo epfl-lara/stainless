@@ -7,5 +7,5 @@ object LetTest {
     require(x > 0)
     val i = x + 1
     i + x
-  } ensuring { res => res > 1 }
+  }.ensuring { res => res > 1 }
 }

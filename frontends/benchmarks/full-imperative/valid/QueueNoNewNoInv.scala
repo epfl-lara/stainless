@@ -27,7 +27,7 @@ object QueueNoNewNoInvExample {
       last.nextOpt = Some(n)
       last = n
       size = size + 1
-    } ensuring (_ => valid)
+    }.ensuring(_ => valid)
 
     def dequeue: Option[BigInt] = {
       reads(Set(this, first, first.nextOpt.get))
@@ -42,7 +42,7 @@ object QueueNoNewNoInvExample {
         }
         case _ => None[BigInt]()
       }
-    } ensuring ((res:Option[BigInt]) => valid)
+    }.ensuring((res:Option[BigInt]) => valid)
   }
 
   @extern

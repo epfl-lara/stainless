@@ -6,6 +6,6 @@ object Array1 {
     val a = Array.fill(5)(0)
     a(2) = 3
     a(2)
-  } ensuring(_ == 0)
+  }.ensuring(_ == 0)
 
 }

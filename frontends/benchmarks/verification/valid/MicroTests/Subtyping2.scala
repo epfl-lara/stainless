@@ -13,7 +13,7 @@ object Subtyping2 {
       case Cons(_, tail) => test(tail)
       case Nil() => Nil()
     }
-  } ensuring((res: Nil) => isEmpty(res))
+  }.ensuring((res: Nil) => isEmpty(res))
 
   def isEmpty(x: List): Boolean = x match {
     case Nil() => true

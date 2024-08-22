@@ -18,6 +18,6 @@ object NestedFunState2 {
 
     iter()
     res
-  } ensuring(_ < 0)
+  }.ensuring(_ < 0)
 
 }

@@ -16,7 +16,7 @@ object AllocatorMonoExample {
 
   def lemmaDecreasingExcludes(@induct is: List[BigInt], b1: BigInt, b2: BigInt): Unit = {
     require(decreasingIds(is, b1) && b1 <= b2)
-  } ensuring (_ => !is.contains(b2))
+  }.ensuring(_ => !is.contains(b2))
 
   def increasingIds(is: List[BigInt], from: BigInt): Boolean =
     is match {
@@ -26,11 +26,11 @@ object AllocatorMonoExample {
 
   def lemmaIncreasingExcludes(@induct is: List[BigInt], b1: BigInt, b2: BigInt): Unit = {
     require(increasingIds(is, b1) && b1 > b2)
-  } ensuring (_ => !is.contains(b2))
+  }.ensuring(_ => !is.contains(b2))
 
   def lemmaIdContainsInjectivity(@induct bs: List[Box], b0: Box): Unit = {
     ()
-  } ensuring (_ => bs.contains(b0) == bs.map(objectId).contains(objectId(b0)))
+  }.ensuring(_ => bs.contains(b0) == bs.map(objectId).contains(objectId(b0)))
   // << Lemmas
 
   case class BoxAllocator(
@@ -82,7 +82,7 @@ object AllocatorMonoExample {
       } else {
         None[Box]()
       }
-    } ensuring {
+    }.ensuring {
       case None() => valid && alloc == old(alloc)
       case Some(o) => valid && alloc == o :: old(alloc) &&
         old(!alloc.contains(o) && free.contains(o)) &&
@@ -115,7 +115,7 @@ object AllocatorMonoExample {
   //           }
   //       }
   //   }) : Option[List[Box]]
-  // } ensuring {
+  // }.ensuring {
   //   case None() => true
   //   case Some(res) => res.size == xs.size && (res.content & old(ator.alloc.content)).isEmpty
   // }

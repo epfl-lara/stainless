@@ -8,6 +8,6 @@ object Field2 {
   def foo(): Int = {
     val b = B(3)
     b.length
-  } ensuring(_ == 3)
+  }.ensuring(_ == 3)
 
 }

@@ -21,7 +21,7 @@ object PatternMatchingAliasingMutation6 {
     }
 
     array(0).x + c
-  } ensuring { _ == 0 }
+  }.ensuring { _ == 0 }
 
 }
 

@@ -12,7 +12,7 @@ object McCarthy91 {
       101 - n
     else
       BigInt(0)
-  } ensuring(_ >= 0)
+  }.ensuring(_ >= 0)
 
   def M(n: BigInt): BigInt = {
     decreases(rank(n))
@@ -20,5 +20,5 @@ object McCarthy91 {
       n-10
     else
       M(M(n+11))
-  } ensuring(res => res == (if (n <= 100) BigInt(91) else n - 10))
+  }.ensuring(res => res == (if (n <= 100) BigInt(91) else n - 10))
 }

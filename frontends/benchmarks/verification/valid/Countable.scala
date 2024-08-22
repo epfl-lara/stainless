@@ -9,7 +9,7 @@ object Countable {
 
     def gof(t: T) = {
       (??? : Unit)
-    } ensuring(_ => g(f(t)) == t)
+    }.ensuring(_ => g(f(t)) == t)
   }
 
   type Empty = Countable[BigInt => BigInt]

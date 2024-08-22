@@ -22,6 +22,6 @@ object NestedFunState3 {
     }) invariant(i >= 0 && counter == i && i <= n)
 
     counter
-  } ensuring(_ == n)
+  }.ensuring(_ == n)
 
 }

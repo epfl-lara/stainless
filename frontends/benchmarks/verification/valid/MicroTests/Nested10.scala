@@ -11,6 +11,6 @@ object Nested10 {
       rec1(j)
     }
     rec2(2)
-  } ensuring(i + 4 == _)
+  }.ensuring(i + 4 == _)
 
 }

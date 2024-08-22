@@ -5,6 +5,6 @@ object Blocks1 {
   def test(a: BigInt): Unit = {
     42
     ()
-  } ensuring(_ => a == (a + a - a))
+  }.ensuring(_ => a == (a + a - a))
 
 }

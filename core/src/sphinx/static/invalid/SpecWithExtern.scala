@@ -11,12 +11,12 @@ object SpecWithExtern {
   def randomBetween(l: Int, h: Int): Int = {
     require(l <= h)
     l
-  } ensuring(res => (res >= l && res <= h))
+  }.ensuring(res => (res >= l && res <= h))
 
   //postcondition is wrong, but if stainless considers 
   //actual body of randomBetween it would be correct
   def wrongProp(): Int = {
     randomBetween(0, 10)
-  } ensuring(res => res >= 0 && res < 10)
+  }.ensuring(res => res >= 0 && res < 10)
 
 }

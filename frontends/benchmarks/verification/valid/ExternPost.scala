@@ -7,7 +7,7 @@ object ExternPost {
 
   @extern
   def f(n: BigInt): Unit = {
-  } ensuring(_ => recursive(n, truth))
+  }.ensuring(_ => recursive(n, truth))
 
   def g(n: BigInt): Unit = {
     f(n)

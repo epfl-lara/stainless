@@ -13,5 +13,5 @@ object PatternMatchingAliasingMutation2 {
     val b = B(10)
     updateValue(b, 15)
     b.x
-  } ensuring(_ == 15)
+  }.ensuring(_ == 15)
 }

@@ -22,7 +22,7 @@ object BottomUpMergeSortPrecise {
         case Nil() => BigInt(0)
         case Cons(h, t) => 1 + t.length
       }
-    } ensuring (_ >= 0)
+    }.ensuring(_ >= 0)
   }
   case class Cons[T](x: T, tail: List[T]) extends List[T]
   case class Nil[T]() extends List[T]
@@ -74,7 +74,7 @@ object BottomUpMergeSortPrecise {
           (merge(lside, rside), rest)
         }
     }
-  } ensuring{ res => res._1.finite }
+  }.ensuring{ res => res._1.finite }
 
   private def merge(a: LList, b: LList): LList = {
     require(a.finite && b.finite)
@@ -91,7 +91,7 @@ object BottomUpMergeSortPrecise {
               SCons(x, () => merge(a, b.tail), asz + bsz)
         }
     }
-  } ensuring{res => res.finite }
+  }.ensuring{res => res.finite }
 
   /**
    * Takes list of integers and returns a sorted stream of integers.
@@ -102,7 +102,7 @@ object BottomUpMergeSortPrecise {
       case Nil() => SNil()
       case _ => constructMergeTree(l, 0, l.length - 1)._1
     }
-  } ensuring (res => res.finite)
+  }.ensuring(res => res.finite)
 
   private def kthMinRec(l: LList, k: BigInt): BigInt = {
     require(k >= 0)

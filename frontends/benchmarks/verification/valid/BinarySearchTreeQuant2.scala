@@ -30,6 +30,6 @@ object BSTSimpler2 {
         Node(l, v, r)
       })
     }
-  } ensuring(res => res.content == tree.content ++ Set(value))
+  }.ensuring(res => res.content == tree.content ++ Set(value))
 
 }

@@ -14,25 +14,25 @@ object NodeCycleExample {
         case Nil() => ()
         case xs0 => lastByIndex(xs0)
       }
-    } ensuring (_ => xs(xs.size - 1) == xs.last)
+    }.ensuring(_ => xs(xs.size - 1) == xs.last)
 
     def initByIndex[T](xs: List[T], i: BigInt): Unit = {
       require(xs.nonEmpty && 0 <= i && i < xs.size - 1)
       if (i > 0) initByIndex(xs.tail, i - 1)
-    } ensuring (_ => xs(i) == xs.init(i))
+    }.ensuring(_ => xs(i) == xs.init(i))
 
     def applyContent[T](xs: List[T], i: BigInt): Unit = {
       require(0 <= i && i < xs.size)
       xs match {
         case Cons(_, xs0) => if (i > 0) applyContent[T](xs0, i - 1)
       }
-    } ensuring (_ => xs.content.contains(xs.apply(i)))
+    }.ensuring(_ => xs.content.contains(xs.apply(i)))
 
     def noDuplicateLast[T](xs: List[T]): Unit = {
       require(xs.nonEmpty && noDuplicate(xs))
       if (xs.size > 1) noDuplicateLast(xs.tail)
       ()
-    } ensuring (_ => !xs.init.content.contains(xs.last))
+    }.ensuring(_ => !xs.init.content.contains(xs.last))
   }
 
   /* Node data structure and cyclicity property */
@@ -66,7 +66,7 @@ object NodeCycleExample {
       assert(h1.eval { nodes(i).next == Some(nodes(i + 1)) })
       cyclicPrependLemma(h0, h1, nodes, node, i + 1)
     }
-  } ensuring (_ => h1.eval { cyclic(node :: nodes, i + 1) })
+  }.ensuring(_ => h1.eval { cyclic(node :: nodes, i + 1) })
 
   def prepend(nodes: List[Node], node: Node): List[Node] = {
     reads(nodes.content.asRefs ++ Set(node))
@@ -81,5 +81,5 @@ object NodeCycleExample {
     ListLemmas.noDuplicateLast(nodes)  // Heap.unchanged(nodes.init.content.asRefs, h0, h1)
     cyclicPrependLemma(h0, h1, nodes, node)
     node :: nodes
-  } ensuring (newNodes => newNodes == node :: nodes && cyclic(newNodes) && noDuplicate(newNodes))
+  }.ensuring(newNodes => newNodes == node :: nodes && cyclic(newNodes) && noDuplicate(newNodes))
 }

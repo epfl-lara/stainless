@@ -14,6 +14,6 @@ object NestedFunState2 {
     inc()
     inc()
     counter
-  } ensuring(_ == 3)
+  }.ensuring(_ == 3)
 
 }

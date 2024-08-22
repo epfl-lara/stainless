@@ -15,7 +15,7 @@ object Nested17 {
     //path condition contains a function invocation to g
     def h(): Unit = {
       ()
-    } ensuring(res => true)
+    }.ensuring(res => true)
 
     h()
   }

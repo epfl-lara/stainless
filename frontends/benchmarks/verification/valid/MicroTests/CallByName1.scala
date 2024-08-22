@@ -7,5 +7,5 @@ object CallByName1 {
 
   def test(): Int = {
     add(1,2)
-  } ensuring (_ == 3)
+  }.ensuring(_ == 3)
 }

@@ -17,7 +17,7 @@ object QuickSort {
       case Nil() => l2
       case Cons(x, xs) => Cons(x, appendSorted(xs, l2))
     }
-  } ensuring { res =>
+  }.ensuring { res =>
     isSorted(res) &&
     res.content == l1.content ++ l2.content
   }
@@ -28,7 +28,7 @@ object QuickSort {
       case Nil() => Nil[BigInt]()
       case Cons(x, xs) => par(x, Nil(), Nil(), xs)
     }
-  } ensuring { res =>
+  }.ensuring { res =>
     isSorted(res) &&
     res.content == list.content
   }
@@ -44,7 +44,7 @@ object QuickSort {
       case Nil() => appendSorted(quickSort(l), Cons(x, quickSort(r)))
       case Cons(x2, xs2) => if (x2 <= x) par(x, Cons(x2, l), r, xs2) else par(x, l, Cons(x2, r), xs2)
     }
-  } ensuring { res =>
+  }.ensuring { res =>
     isSorted(res) &&
     res.content == l.content ++ r.content ++ ls.content + x
   }

@@ -21,7 +21,7 @@ object NNF {
       case Not(f) => Not(simplify(f))
       case Literal(_) => f
     }
-  } ensuring(isSimplified(_))
+  }.ensuring(isSimplified(_))
 
   def isSimplified(f: Formula): Boolean = {
     decreases(f)
@@ -45,7 +45,7 @@ object NNF {
       case Not(f) => nnfMeasure(f) + 1
       case Literal(_) => BigInt(0)
     }
-  } ensuring((res: BigInt) => res >= 0)
+  }.ensuring((res: BigInt) => res >= 0)
 
   def nnf(formula: Formula): Formula = {
     decreases(nnfMeasure(formula))
@@ -60,7 +60,7 @@ object NNF {
       case Not(Literal(_)) => formula
       case Literal(_) => formula
     }
-  } ensuring(isNNF(_))
+  }.ensuring(isNNF(_))
 
   def isNNF(f: Formula): Boolean = {
     decreases(f)

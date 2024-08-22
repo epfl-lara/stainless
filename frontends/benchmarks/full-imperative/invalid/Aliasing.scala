@@ -11,7 +11,7 @@ object Aliasing {
     b2.value += 1
     val b1new = b1.value
     (b1old, b1new)
-  } ensuring(res =>
+  }.ensuring(res =>
     res._1 == res._2
   )
 }

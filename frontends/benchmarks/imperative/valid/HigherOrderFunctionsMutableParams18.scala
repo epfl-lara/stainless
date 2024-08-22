@@ -12,6 +12,6 @@ object HigherOrderFunctionsMutableParams18 {
 
   def test(a: A): Int = {
     inc.f(a)
-  } ensuring((res: Int) => a.x == old(a).x + 1)
+  }.ensuring((res: Int) => a.x == old(a).x + 1)
 
 }

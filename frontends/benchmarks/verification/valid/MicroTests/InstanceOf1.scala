@@ -13,7 +13,7 @@ object InstanceOf1 {
       0
     else
       -1
-  } ensuring(_ == 0)
+  }.ensuring(_ == 0)
 
   def bar(): Int = foo()
 

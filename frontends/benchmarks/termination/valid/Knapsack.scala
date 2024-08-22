@@ -12,7 +12,7 @@ object Knapscak {
         case Cons(_, tail) => 1 + tail.size
         case Nil() => BigInt(0)
       }
-    } ensuring(_ >= 0)
+    }.ensuring(_ >= 0)
   }
   case class Cons(x: (BigInt, BigInt), tail: IList) extends IList { // a list of pairs of weights and values
     @extern

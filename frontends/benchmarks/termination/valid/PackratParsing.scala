@@ -67,7 +67,7 @@ object PackratParsing {
       case _ =>
         mulRes
     }
-  } ensuring (res => res.smallerIndex(i))
+  }.ensuring(res => res.smallerIndex(i))
 
   def pMul(i: BigInt): Result = {
     require(i >= 0)
@@ -87,7 +87,7 @@ object PackratParsing {
       case _ =>
         primRes
     }
-  } ensuring (res => res.smallerIndex(i))
+  }.ensuring(res => res.smallerIndex(i))
 
   def pPrim(i: BigInt): Result = {
     require(i >= 0)
@@ -107,7 +107,7 @@ object PackratParsing {
           NoParse()
       }
     } else NoParse()
-  } ensuring (res => res.smallerIndex(i))
+  }.ensuring(res => res.smallerIndex(i))
 
   def invoke(i: BigInt): Result = {
     require(i >= 0)

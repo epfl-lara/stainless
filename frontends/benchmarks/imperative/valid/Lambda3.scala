@@ -4,7 +4,7 @@ object Lambda3 {
   def app[@mutable A](mkA: A, ping: A => Unit, get: A => BigInt): BigInt = {
     val f: A => BigInt = ((a: A) => {ping(a); get(a)+1})
     f(mkA)
-  } ensuring(res => true)
+  }.ensuring(res => true)
 
   case class Cell[T](var content: T)
 

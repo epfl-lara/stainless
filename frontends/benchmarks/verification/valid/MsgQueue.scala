@@ -28,21 +28,21 @@ object MessageQueue {
       val result = _take()
       msgs = msgs.tailOption.getOrElse(Nil())
       result
-    } ensuring { res =>
+    }.ensuring { res =>
       res == old(this).msgs.headOption
     }
 
     @extern @pure
     private def _take(): Option[A] = {
       Option(queue.pollFirst())
-    } ensuring { res =>
+    }.ensuring { res =>
       res == msgs.headOption
     }
 
     @extern @pure
     def isEmpty: Boolean = {
       queue.size() == 0
-    } ensuring { res =>
+    }.ensuring { res =>
       res == msgs.isEmpty
     }
   }
@@ -51,7 +51,7 @@ object MessageQueue {
     @extern @pure
     def empty[A]: MsgQueue[A] = {
       MsgQueue(new ArrayDeque(), Nil())
-    } ensuring { res =>
+    }.ensuring { res =>
       res.isEmpty && res.msgs.isEmpty
     }
   }

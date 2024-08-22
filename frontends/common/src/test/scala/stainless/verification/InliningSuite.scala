@@ -23,13 +23,13 @@ class InliningSuite extends AnyFunSuite with InputUtils {
        |       assert(s >= BigInt(0))
        |       s
        |    }
-       |  } ensuring (_ >= BigInt(0))
+       |  }.ensuring(_ >= BigInt(0))
        |
        |  @inline
        |  def sum(x: BigInt, y: BigInt): BigInt = {
        |    require(x >= BigInt(0) && y >= BigInt(0))
        |    x + y
-       |  } ensuring (_ >= BigInt(0))
+       |  }.ensuring(_ >= BigInt(0))
        |}""".stripMargin
 
   val ctx: inox.Context = stainless.TestContext.empty

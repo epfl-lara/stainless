@@ -8,12 +8,12 @@ object ObjectHierarchyMutation3 {
   def update(b: B): Int = {
     b.a2.y = 17
     b.a2.y
-  } ensuring(res => res == 17)
+  }.ensuring(res => res == 17)
 
   def f(): Int = {
     val b = B(A(10, 11, 12), A(11, 12, 13), A(13, 14, 15))
     update(b)
     b.a2.y
-  } ensuring(res => res == 17)
+  }.ensuring(res => res == 17)
 
 }

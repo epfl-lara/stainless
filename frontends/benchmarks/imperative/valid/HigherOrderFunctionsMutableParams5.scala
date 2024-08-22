@@ -18,6 +18,6 @@ object HigherOrderFunctionsMutableParams5 {
     val a = A(0)
     repeat(fImpl, 3, a)
     a.x
-  } ensuring(_ == 3)
+  }.ensuring(_ == 3)
 
 }

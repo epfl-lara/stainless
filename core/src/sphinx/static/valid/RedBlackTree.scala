@@ -24,7 +24,7 @@ object RedBlackTree {
   def size(t: Tree) : BigInt = (t match {
     case Empty() => BigInt(0)
     case Node(_, l, v, r) => size(l) + 1 + size(r)
-  }) ensuring(_ >= 0)
+  }).ensuring(_ >= 0)
 
   /* We consider leaves to be black by definition */
   def isBlack(t: Tree) : Boolean = t match {
@@ -65,7 +65,7 @@ object RedBlackTree {
         else if (x == y) Node(c,a,y,b)
         else             balance(c,a,y,ins(x, b))
     }
-  } ensuring (res => content(res) == content(t) ++ Set(x) 
+  }.ensuring(res => content(res) == content(t) ++ Set(x) 
                    && size(t) <= size(res) && size(res) <= size(t) + 1
                    && redDescHaveBlackChildren(res)
                    && blackBalanced(res))
@@ -76,12 +76,12 @@ object RedBlackTree {
       case Node(Red(),l,v,r) => Node(Black(),l,v,r)
       case _ => n
     }
-  } ensuring(res => redNodesHaveBlackChildren(res) && blackBalanced(res))
+  }.ensuring(res => redNodesHaveBlackChildren(res) && blackBalanced(res))
 
   def add(x: BigInt, t: Tree): Tree = {
     require(redNodesHaveBlackChildren(t) && blackBalanced(t))
     makeBlack(ins(x, t))
-  } ensuring (res => content(res) == content(t) ++ Set(x) && redNodesHaveBlackChildren(res) && blackBalanced(res))
+  }.ensuring(res => content(res) == content(t) ++ Set(x) && redNodesHaveBlackChildren(res) && blackBalanced(res))
 
   def balance(c: Color, a: Tree, x: BigInt, b: Tree): Tree = {
     Node(c,a,x,b) match {
@@ -95,5 +95,5 @@ object RedBlackTree {
         Node(Red(),Node(Black(),a,xV,b),yV,Node(Black(),c,zV,d))
       case Node(c,a,xV,b) => Node(c,a,xV,b)
     }
-  } ensuring (res => content(res) == content(Node(c,a,x,b)))// && redDescHaveBlackChildren(res))
+  }.ensuring(res => content(res) == content(Node(c,a,x,b)))// && redDescHaveBlackChildren(res))
 }

@@ -18,7 +18,7 @@ object PropositionalLogic {
     case Implies(lhs, rhs) => Or(Not(simplify(lhs)), simplify(rhs))
     case Not(f) => Not(simplify(f))
     case Literal(_) => f
-  }) ensuring(isSimplified(_))
+  }).ensuring(isSimplified(_))
 
   def isSimplified(f: Formula): Boolean = f match {
     case And(lhs, rhs) => isSimplified(lhs) && isSimplified(rhs)
@@ -38,7 +38,7 @@ object PropositionalLogic {
     case Not(Not(f)) => nnf(f)
     case Not(Literal(_)) => formula
     case Literal(_) => formula
-  }) ensuring(isNNF(_))
+  }).ensuring(isNNF(_))
 
   def isNNF(f: Formula): Boolean = f match {
     case And(lhs, rhs) => isNNF(lhs) && isNNF(rhs)

@@ -12,5 +12,5 @@ object CountTowardsZero {
     } else {
       BigInt(33)
     }
-  } ensuring (_ == x*2)
+  }.ensuring(_ == x*2)
 }

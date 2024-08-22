@@ -13,12 +13,12 @@ object ValueClassesInv {
 
   def testVal1(y: TestVal) = {
     y.x
-  } ensuring { _ != 42 }
+  }.ensuring { _ != 42 }
 
   def testVal2(y: Int) = {
     require(y >= 0 && y < 100)
     TestVal(y + 93).x
-  } ensuring { _ != 42 }
+  }.ensuring { _ != 42 }
 
   case class Compound[A](xsn: (List[A], BigInt)) extends AnyVal {
     def xs = xsn._1

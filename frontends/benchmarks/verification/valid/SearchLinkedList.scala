@@ -11,7 +11,7 @@ object SearchLinkedList {
   def size(list : List) : BigInt = (list match {
     case Nil() => BigInt(0)
     case Cons(_, xs) => 1 + size(xs)
-  }) ensuring(_ >= 0)
+  }).ensuring(_ >= 0)
 
   def contains(list : List, elem : Int) : Boolean = (list match {
     case Nil() => false

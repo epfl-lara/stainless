@@ -11,6 +11,6 @@ object Sequencing7 {
 
     x
 
-  } ensuring(res => res == 11)
+  }.ensuring(res => res == 11)
 
 }

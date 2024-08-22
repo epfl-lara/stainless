@@ -16,6 +16,6 @@ object Zero {
   @traceInduct("")
   def zero_check(arg: BigInt): Unit = {
     ()
-  } ensuring (zero1(arg) == zero2(arg))
+  }.ensuring(zero1(arg) == zero2(arg))
 
 }

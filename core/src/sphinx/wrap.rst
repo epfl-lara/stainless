@@ -114,7 +114,7 @@ for any key ``k`` of type ``K``, the result of ``TrieMapWrapper.empty`` does not
     @extern
     def empty[K, V]: TrieMapWrapper[K, V] = {
       TrieMapWrapper(TrieMap.empty[K, V])
-    } ensuring { res =>
+    }.ensuring { res =>
       forall((k: K) => !res.contains(k))
     }
   }
@@ -192,7 +192,7 @@ We can now define the other methods of interest, with their appropriate contract
     @extern
     def insert(k: K, v: V): Unit = {
       theMap.update(k, v)
-    } ensuring {
+    }.ensuring {
       this.contains(k) &&
       this.apply(k) == v
     }
@@ -208,7 +208,7 @@ We can now define the other methods of interest, with their appropriate contract
     @extern @pure
     def empty[K, V]: TrieMapWrapper[K, V] = {
       TrieMapWrapper(TrieMap.empty[K, V])
-    } ensuring { res =>
+    }.ensuring { res =>
       forall((k: K) => !res.contains(k))
     }
   }

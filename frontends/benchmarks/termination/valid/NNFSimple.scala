@@ -20,7 +20,7 @@ object NNFSimple {
       case Not(f) => Not(simplify(f))
       case Literal(_) => f
     }
-  } ensuring(isSimplified(_))
+  }.ensuring(isSimplified(_))
 
   def isSimplified(f: Formula): Boolean = {
     f match {
@@ -42,7 +42,7 @@ object NNFSimple {
       case Not(f) => simpleNNFMeasure(f) + 1
       case Literal(_) => BigInt(0)
     }
-  } ensuring((res: BigInt) => res >= 0)
+  }.ensuring((res: BigInt) => res >= 0)
 
   def simpleNNF(formula: Formula): Formula = {
     // FIXME(measure): Wrong measure inferred in ChainProcessor

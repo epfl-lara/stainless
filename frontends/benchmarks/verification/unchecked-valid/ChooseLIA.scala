@@ -9,6 +9,6 @@ object ChooseLIA {
       val z = x + 2
       z == y
     })
-  } ensuring(_ == x + 2)
+  }.ensuring(_ == x + 2)
 
 }

@@ -36,7 +36,7 @@ object QueueAlmost {
       last = n
       size = size + 1
       asList = asList :+ n
-    } ensuring (_ => valid && getList == old(getList) :+ n)
+    }.ensuring(_ => valid && getList == old(getList) :+ n)
 
     def dequeue: Option[BigInt] = {
       reads(Set(this, first, first.nextOpt.get))
@@ -52,7 +52,7 @@ object QueueAlmost {
         }
         case _ => None[BigInt]()
       }
-    } ensuring ((res:Option[BigInt]) => valid &&
+    }.ensuring((res:Option[BigInt]) => valid &&
                 getList == old(getList).tail)
   }
 

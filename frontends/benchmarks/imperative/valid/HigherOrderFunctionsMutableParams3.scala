@@ -21,6 +21,6 @@ object HigherOrderFunctionsMutableParams3 {
     app(fImpl1, a)
     app(fImpl2, a)
     app(fImpl1, a)
-  } ensuring(_ == 12)
+  }.ensuring(_ == 12)
 
 }

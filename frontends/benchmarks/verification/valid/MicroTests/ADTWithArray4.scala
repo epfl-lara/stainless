@@ -11,6 +11,6 @@ object ADTWithArray4 {
   def test(): Int = {
     val b = B(Array(A(1),A(2),A(3)))
     foo(b)
-  } ensuring(_ == 1)
+  }.ensuring(_ == 1)
 
 }

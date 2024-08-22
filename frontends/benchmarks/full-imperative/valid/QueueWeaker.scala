@@ -58,7 +58,7 @@ object QueueWeakerExample {
       asList = asList :+ n
       size = size + 1
       rep = rep ++ Set[AnyHeapRef](n)
-    } ensuring (_ => asList == old(asList) :+ n)
+    }.ensuring(_ => asList == old(asList) :+ n)
 
     def dequeue: Node = {
       reads(rep ++ Set(this))
@@ -76,7 +76,7 @@ object QueueWeakerExample {
           nn
         }
       }
-    } ensuring ((res:Node) =>
+    }.ensuring((res:Node) =>
                 asList == old(asList).tail &&
                 res == old(asList).head)
   }

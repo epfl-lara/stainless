@@ -12,6 +12,6 @@ object Array6 {
       else { c = c+2; 2}
     }) = { c = c*2; -1}
     c
-  } ensuring(res => res == 4)
+  }.ensuring(res => res == 4)
 
 }

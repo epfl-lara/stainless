@@ -14,6 +14,6 @@ object FunInvocEvaluationOrder2 {
 
     nested({a += 10; a}, {a *= 2; a})
 
-  } ensuring(_ == 30)
+  }.ensuring(_ == 30)
 
 }

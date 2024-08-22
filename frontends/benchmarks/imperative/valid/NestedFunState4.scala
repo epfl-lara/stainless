@@ -27,7 +27,7 @@ object NestedFunState4 {
 
       a += b
 
-    } ensuring(_ => a >= n)
+    }.ensuring(_ => a >= n)
 
     var i = BigInt(0)
     (while(i < n) {
@@ -37,6 +37,6 @@ object NestedFunState4 {
     }) invariant(i >= 0 && i <= n && a >= i)
 
     a
-  } ensuring(_ >= n)
+  }.ensuring(_ >= n)
 
 }

@@ -16,7 +16,7 @@ object PatternMatchingAliasingMutation5 {
       case Nil() =>
         ()
     }
-  } ensuring(_ => allZeroOrOne(l))
+  }.ensuring(_ => allZeroOrOne(l))
 
   def allZeroOrOne(l: List): Boolean = l match {
     case Cons(a, tail) => (a.x == 0 || a.x == 1) && allZeroOrOne(tail)

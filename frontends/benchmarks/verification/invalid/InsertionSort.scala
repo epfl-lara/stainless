@@ -15,7 +15,7 @@ object InsertionSort {
   def size(l : List) : BigInt = (l match {
     case Nil() => BigInt(0)
     case Cons(_, xs) => 1 + size(xs)
-  }) ensuring(_ >= 0)
+  }).ensuring(_ >= 0)
 
   def contents(l: List): Set[Int] = l match {
     case Nil() => Set.empty
@@ -36,7 +36,7 @@ object InsertionSort {
       case Nil() => Cons(e,Nil())
       case Cons(x,xs) => if (x <= e) Cons(x,buggySortedIns(e, xs)) else Cons(e, l)
     } 
-  } ensuring(res => contents(res) == contents(l) ++ Set(e) 
+  }.ensuring(res => contents(res) == contents(l) ++ Set(e) 
                     && isSorted(res)
                     && size(res) == size(l) + 1
             )

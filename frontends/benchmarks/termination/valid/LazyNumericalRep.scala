@@ -113,7 +113,7 @@ object LazyNumericalRep {
             Spine(Zero(), Susp(() => incLazy(rear)), sz + 1)
         }
     }
-  } ensuring { res => res.finite && res.size <= xs.size + 1 }
+  }.ensuring { res => res.finite && res.size <= xs.size + 1 }
 
   def incNum(w: Number): (NumStream, List[NumStream]) = {
     require(w.valid)
@@ -147,7 +147,7 @@ object LazyNumericalRep {
     val nscheds = Pay(q, scheds)
     Number(q, nscheds)
 
-  } ensuring { res => res.valid }
+  }.ensuring { res => res.valid }
 
   def firstDigit(w: Number): Digit = {
     require(!w.digs.get.isTip)

@@ -27,7 +27,7 @@ object Shorts {
 
   def iun(b: Short, c: Short) = {
     b + c
-  } ensuring { res => -65536 <= res && res <= 65534 }
+  }.ensuring { res => -65536 <= res && res <= 65534 }
 
 }
 

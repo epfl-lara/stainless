@@ -21,7 +21,7 @@ object ListOps {
   def sorted(ls: List[BigInt]): List[BigInt] = { ls match {
     case h :: t => sortedIns(sorted(t), h)
     case Nil => Nil
-  }} ensuring(isSorted(_))
+  }}.ensuring(isSorted(_))
 
   private def sortedIns(ls: List[BigInt], v: BigInt): List[BigInt] = {
     require(isSorted(ls))
@@ -35,7 +35,7 @@ object ListOps {
           h :: sortedIns(t, v)
         }
     }
-  } ensuring { res => isSorted(res) }
+  }.ensuring { res => isSorted(res) }
 
   def sum(l: List[BigInt]): BigInt = l.foldLeft(BigInt(0))(_ + _)
 

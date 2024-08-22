@@ -36,7 +36,7 @@ object Heaps {
   private def reverse0(h : Heap, acc : Heap) : Heap = (h match {
     case Empty => acc
     case Nodes(n, ns) => reverse0(ns, Nodes(n, acc))
-  }) ensuring(res => heapContent(res) == heapContent(h) ++ heapContent(acc))
+  }).ensuring(res => heapContent(res) == heapContent(h) ++ heapContent(acc))
   
   private def link(t1 : Node, t2 : Node) = (t1, t2) match {
     case (Node(r, e1, ns1), Node(_, e2, ns2)) =>
@@ -55,7 +55,7 @@ object Heaps {
       } else {
         insertNode(link(t, t2), h2)
       }
-  }) ensuring(res => heapContent(res) == nodeContent(t) ++ heapContent(h))
+  }).ensuring(res => heapContent(res) == nodeContent(t) ++ heapContent(h))
   
   private def getMin(h : Heap) : (Node, Heap) = {
     require(h != Empty)
@@ -69,7 +69,7 @@ object Heaps {
           (t0, Nodes(t, ts0))
         }
     }
-  } ensuring(_ match {
+  }.ensuring(_ match {
     case (n,h2) => nodeContent(n) ++ heapContent(h2) == heapContent(h)
   })
   
@@ -78,15 +78,15 @@ object Heaps {
   /*~~~~~~~~~~~~~~~~*/
   def empty() : Heap = {
     Empty
-  } ensuring(res => heapContent(res) == Set.empty[Int])
+  }.ensuring(res => heapContent(res) == Set.empty[Int])
   
   def isEmpty(h : Heap) : Boolean = {
     (h == Empty)
-  } ensuring(res => res == (heapContent(h) == Set.empty[Int]))
+  }.ensuring(res => res == (heapContent(h) == Set.empty[Int]))
   
   def insert(e : Int, h : Heap) : Heap = {
     insertNode(Node(0, e, Empty), h)
-  } ensuring(res => heapContent(res) == heapContent(h) ++ Set(e))
+  }.ensuring(res => heapContent(res) == heapContent(h) ++ Set(e))
   
   def merge(h1 : Heap, h2 : Heap) : Heap = ((h1,h2) match {
     case (_, Empty) => h1
@@ -99,7 +99,7 @@ object Heaps {
       } else {
         insertNode(link(t1, t2), merge(ts1, ts2))
       }
-  }) ensuring(res => heapContent(res) == heapContent(h1) ++ heapContent(h2))
+  }).ensuring(res => heapContent(res) == heapContent(h1) ++ heapContent(h2))
   
   def findMin(h : Heap) : OptInt = (h match {
     case Empty => None
@@ -108,7 +108,7 @@ object Heaps {
         case None => Some(e)
         case Some(e2) => Some(if(e < e2) e else e2)
       }
-  }) ensuring(_ match {
+  }).ensuring(_ match {
     case None => isEmpty(h)
     case Some(v) => heapContent(h).contains(v)
   })
@@ -118,7 +118,7 @@ object Heaps {
     case ts : Nodes =>
       val (Node(_, e, ns1), ns2) = getMin(ts)
       merge(reverse(ns1), ns2)
-  }) ensuring(res => heapContent(res).subsetOf(heapContent(h)))
+  }).ensuring(res => heapContent(res).subsetOf(heapContent(h)))
   
   def sanity0() : Boolean = {
     val h0 : Heap = Empty

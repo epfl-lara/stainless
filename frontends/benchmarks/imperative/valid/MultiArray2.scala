@@ -7,6 +7,6 @@ object MultiArray2 {
     b(0)(0) = 10
 
     b(0)(0)
-  } ensuring(_ == 10)
+  }.ensuring(_ == 10)
 
 }

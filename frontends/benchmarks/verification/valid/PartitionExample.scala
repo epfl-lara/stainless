@@ -24,7 +24,7 @@ object PartitionExample {
         if (p(h)) (Cons(h, l1), l2)
         else      (l1, Cons(h, l2))
     }
-  } ensuring { res =>
+  }.ensuring { res =>
     res._1 == filter(l, p) &&
     res._2 == filter(l, (x: BigInt) => !p(x))
   }

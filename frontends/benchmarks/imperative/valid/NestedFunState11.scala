@@ -15,7 +15,7 @@ object NestedFunState11 {
         i += 1
         rec()
       }
-    } ensuring(_ => getI >= 0)
+    }.ensuring(_ => getI >= 0)
 
     rec()
 

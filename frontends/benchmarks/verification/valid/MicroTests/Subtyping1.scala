@@ -20,7 +20,7 @@ object Subtyping1 {
         case Node(l, v, r) => treeMax(Node(l, v, r))
       }
     }
-  } ensuring(content(tree).contains(_))
+  }.ensuring(content(tree).contains(_))
 
   def f2(tree: Node): Int = {
     require(treeMax(tree) > 0)
@@ -30,6 +30,6 @@ object Subtyping1 {
         case Node(l, v, r) => treeMax(Node(l, v, r))
       }
     }
-  } ensuring(content(tree).contains(_))
+  }.ensuring(content(tree).contains(_))
 
 }

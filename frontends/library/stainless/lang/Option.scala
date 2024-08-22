@@ -92,7 +92,7 @@ object Option {
   @library @extern @pure
   def apply[A](x: A): Option[A] = {
     if (x == null) None[A]() else Some[A](x)
-  } ensuring { res =>
+  }.ensuring { res =>
     res == None[A]() || res == Some[A](x)
   }
 }

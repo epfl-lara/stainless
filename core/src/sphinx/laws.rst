@@ -429,7 +429,7 @@ into methods with explicit postconditions.
      @abstract
      def law_associativity$0(x$109: A$85, y$25: A$85, z$11: A$85): Boolean = {
        <empty tree>[Boolean]
-     } ensuring {
+     }.ensuring {
        (res$82: Boolean) => res$82 && this.law_associativity$2(x$109, y$25, z$11)
      }
    }
@@ -448,7 +448,7 @@ into methods with explicit postconditions.
      @abstract
      def law_leftIdentity$0(x$110: A$86): Boolean = {
        <empty tree>[Boolean]
-     } ensuring {
+     }.ensuring {
        (res$77: Boolean) => res$77 && this.law_leftIdentity$1(x$110)
      }
 
@@ -461,14 +461,14 @@ into methods with explicit postconditions.
      @abstract
      def law_rightIdentity$0(x$111: A$86): Boolean = {
        <empty tree>[Boolean]
-     } ensuring {
+     }.ensuring {
        (res$80: Boolean) => res$80 && this.law_rightIdentity$2(x$111)
      }
 
      @law
      def law_associativity$1(x$112: A$86, y$26: A$86, z$12: A$86): Boolean = {
        this.law_associativity$2(x$112, y$26, z$12) && refineLaw$0[A$86](x$112, y$26, z$12)
-     } ensuring {
+     }.ensuring {
        (res$84: Boolean) => res$84 && this.law_associativity$2(x$112, y$26, z$12)
      }
    }
@@ -483,14 +483,14 @@ into methods with explicit postconditions.
      @derived(law_leftIdentity$0)
      def law_leftIdentity$2(x$119: BigInt): Boolean = {
        true
-     } ensuring {
+     }.ensuring {
        (res$84: Boolean) => this.law_leftIdentity$1(x$119)
      }
 
      @law
      def law_rightIdentity$1(x$115: BigInt): Boolean = {
        someProof$0
-     } ensuring {
+     }.ensuring {
        (res$79: Boolean) => res$79 && this.law_rightIdentity$2(x$115)
      }
 
@@ -498,7 +498,7 @@ into methods with explicit postconditions.
      @derived(law_associativity$0)
      def law_associativity$2(x$120: BigInt, y$29: BigInt, z$13: BigInt): Boolean = {
        true
-     } ensuring {
+     }.ensuring {
        (res$85: Boolean) => this.law_associativity$1(x$120, y$29, z$13)
      }
    }
@@ -539,7 +539,7 @@ There are a few things going on here:
      @abstract
      def law_associativity$0(x$109: A$85, y$25: A$85, z$11: A$85): Boolean = {
        <empty tree>[Boolean]
-     } ensuring {
+     }.ensuring {
        (res$82: Boolean) => res$82 && this.law_associativity$2(x$109, y$25, z$11)
      }
 
@@ -556,7 +556,7 @@ There are a few things going on here:
      @law
      def law_associativity$1(x$112: A$86, y$26: A$86, z$12: A$86): Boolean = {
        this.law_associativity$2(x$112, y$26, z$12) && refineLaw$0[A$86](x$112, y$26, z$12)
-     } ensuring {
+     }.ensuring {
        (res$84: Boolean) => res$84 && this.law_associativity$2(x$112, y$26, z$12)
      }
 
@@ -572,7 +572,7 @@ There are a few things going on here:
      @law
      def law_rightIdentity$1(x$115: BigInt): Boolean = {
        someProof$0
-     } ensuring {
+     }.ensuring {
        (res$79: Boolean) => res$79 && this.law_rightIdentity$2(x$115)
      }
 
@@ -590,7 +590,7 @@ There are a few things going on here:
      @derived(law_leftIdentity$0)
      def law_leftIdentity$2(x$119: BigInt): Boolean = {
        true
-     } ensuring {
+     }.ensuring {
        (res$84: Boolean) => this.law_leftIdentity$1(x$119)
      }
 

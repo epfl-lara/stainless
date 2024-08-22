@@ -7,7 +7,7 @@ object ADTWithArray6 {
 
     def update(y: Int): B = {
       B(Array(A(y)))
-    } ensuring(res => res.content(0).x == y)
+    }.ensuring(res => res.content(0).x == y)
   }
 
 }

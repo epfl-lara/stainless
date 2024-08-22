@@ -45,7 +45,7 @@ object MutListSetsOnlyExample {
           @ghost val unused = check(valid)
       }
 
-    } ensuring { _ =>
+    }.ensuring { _ =>
       repr == old(repr ++ node.repr) &&
       valid
     }

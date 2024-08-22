@@ -60,20 +60,20 @@ object ImageProcessing {
 
   def min(x: Int, y: Int): Int = {
     if (x <= y) x else y
-  } ensuring { res =>
+  }.ensuring { res =>
     res <= x && res <= y && (res == x || res == y)
   }
 
   def max(x: Int, y: Int): Int = {
     if (x <  y) y else x
-  } ensuring { res =>
+  }.ensuring { res =>
     x <= res && y <= res && (res == x || res == y)
   }
 
   def clamp(x: Int, down: Int, up: Int): Int = {
     require(down <= up)
     max(down, min(x, up))
-  } ensuring { res => inRange(res, down, up) }
+  }.ensuring { res => inRange(res, down, up) }
 
 
   /**********************************************************************
@@ -300,7 +300,7 @@ object ImageProcessing {
 
     if (byte1.isDefined && byte2.isDefined) Result(constructWord(byte1.get, byte2.get))
     else Failure[Int](ReadError())
-  } ensuring { res =>
+  }.ensuring { res =>
     fis.isOpen && (res match {
       case Result(word) => inRange(word, 0, 65535)
       case _            => true
@@ -313,7 +313,7 @@ object ImageProcessing {
     val unsigned = if (signed < 0) signed + (2 * 32768) else signed
 
     unsigned
-  } ensuring { word => inRange(word, 0, 65535) }
+  }.ensuring { word => inRange(word, 0, 65535) }
 
   // Write a WORD
   def writeWord(fos: FOS, word: Int): Boolean = {
@@ -355,7 +355,7 @@ object ImageProcessing {
     def buildInt(b1: Byte, b2: Byte, b3: Byte, b4: Byte): Int = {
       require(0 <= b4)
       (b4 << 24) | ((b3 & 0xff) << 16) | ((b2 & 0xff) << 8) | (b1 & 0xff)
-    } ensuring { int =>
+    }.ensuring { int =>
       inRange(int, 0, 2147483647)
     }
 
@@ -370,7 +370,7 @@ object ImageProcessing {
         Result(dword)
       } else Failure[Int](DomainError())
     } else Failure[Int](ReadError())
-  } ensuring { res =>
+  }.ensuring { res =>
     fis.isOpen && (res match {
       case Result(dword) => inRange(dword, 0, 2147483647)
       case _ => true
@@ -664,7 +664,7 @@ object ImageProcessing {
 
         val component = channel(r * width + c) // unsigned
         if (component < 0) component + 255 else component.toInt
-      } ensuring { inRange(_, 0, 255) }
+      }.ensuring { inRange(_, 0, 255) }
 
       val mid = size / 2
 

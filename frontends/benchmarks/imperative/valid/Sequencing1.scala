@@ -7,6 +7,6 @@ object Sequencing1 {
     x += 1
     x *= 2
     x
-  } ensuring(x => x == 2)
+  }.ensuring(x => x == 2)
 
 }

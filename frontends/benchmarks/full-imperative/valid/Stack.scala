@@ -44,7 +44,7 @@ object StackExample {
       n.nextOpt = first
       first = Some(n)
       nodes = n :: nodes
-    } ensuring { _ => valid && nodes == n :: old(nodes) }
+    }.ensuring { _ => valid && nodes == n :: old(nodes) }
 
     def pop: BigInt = {
       reads(nodes.content ++ Set(this))
@@ -55,7 +55,7 @@ object StackExample {
       first = n.nextOpt
       nodes = nodes.tail
       n.value
-    } ensuring { _ => valid && nodes == old(nodes.tail) }
+    }.ensuring { _ => valid && nodes == old(nodes.tail) }
   }
 
   @extern

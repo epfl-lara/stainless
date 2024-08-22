@@ -19,5 +19,5 @@ object Count {
   @traceInduct("")
   def count_check(p: BigInt => Boolean, l: List[BigInt]): Unit = {
     ()
-  } ensuring (res => count1(p, l) == count2(p, l))
+  }.ensuring(res => count1(p, l) == count2(p, l))
 }

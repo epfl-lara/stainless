@@ -16,6 +16,6 @@ object ArrayNested2 {
     nested()
     a(2)
 
-  } ensuring(_ == 5)
+  }.ensuring(_ == 5)
 
 }

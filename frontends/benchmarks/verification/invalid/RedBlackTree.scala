@@ -24,7 +24,7 @@ object RedBlackTree {
   def size(t: Tree) : BigInt = (t match {
     case Empty() => BigInt(0)
     case Node(_, l, v, r) => size(l) + 1 + size(r)
-  }) ensuring(_ >= 0)
+  }).ensuring(_ >= 0)
 
   def isBlack(t: Tree) : Boolean = t match {
     case Empty() => true
@@ -63,7 +63,7 @@ object RedBlackTree {
         else if (x == y) Node(c,a,y,b)
         else             balance(c,a,y,ins(x, b))
     }
-  } ensuring (res => content(res) == content(t) ++ Set(x) 
+  }.ensuring(res => content(res) == content(t) ++ Set(x) 
                    && size(t) <= size(res) && size(res) <= size(t) + 1
                    && redDescHaveBlackChildren(res)
                    && blackBalanced(res))
@@ -80,7 +80,7 @@ object RedBlackTree {
         Node(Red(),Node(Black(),a,xV,b),yV,Node(Black(),c,zV,d))
       case Node(c,a,xV,b) => Node(c,a,xV,b)
     }
-  } ensuring (res => content(res) == content(Node(c,a,x,b)))// && redDescHaveBlackChildren(res))
+  }.ensuring(res => content(res) == content(Node(c,a,x,b)))// && redDescHaveBlackChildren(res))
 
   def buggyBalance(c: Color, a: Tree, x: Int, b: Tree): Tree = {
     Node(c,a,x,b) match {
@@ -94,5 +94,5 @@ object RedBlackTree {
         Node(Red(),Node(Black(),a,xV,b),yV,Node(Black(),c,zV,d))
       // case Node(c,a,xV,b) => Node(c,a,xV,b)
     }
-  } ensuring (res => content(res) == content(Node(c,a,x,b)))
+  }.ensuring(res => content(res) == content(Node(c,a,x,b)))
 }

@@ -31,7 +31,7 @@ object LazySelectionSort {
             else Cons(y, Cons(x, ys))
         }
     }
-  } ensuring(res => res.size <= l.size)
+  }.ensuring(res => res.size <= l.size)
 
   def sort(l: List[BigInt]): LList = {
     decreases(l.size)

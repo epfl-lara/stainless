@@ -209,7 +209,7 @@ Multiple layers of inheritance are allowed, as is the ability to override concre
     def x(a: Int) = {
       require(a > 0)
       42
-    } ensuring { _ >= 0 }
+    }.ensuring { _ >= 0 }
   }
 
   case class C(c: Int) extends B {
@@ -217,7 +217,7 @@ Multiple layers of inheritance are allowed, as is the ability to override concre
       require(i >= 0)
       if (i == 0) 0
       else c + x(i-1)
-    } ensuring ( _ == c * i )
+    }.ensuring( _ == c * i )
   }
 
   case class D() extends B
@@ -461,7 +461,7 @@ Postconditions constraint the resulting value, and is expressed using `ensuring`
 
   def foo(a: Int): Int = {
     a + 1
-  } ensuring { res => res > a }
+  }.ensuring { res => res > a }
 
 Body Assertions
 ***************

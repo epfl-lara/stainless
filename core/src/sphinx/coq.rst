@@ -44,7 +44,7 @@ file:
   def test(a: BigInt, b: BigInt, c: BigInt): BigInt = {
     require(a > b && c > BigInt(0))
     c + a
-  } ensuring( _ > c + b )
+  }.ensuring( _ > c + b )
 
 Running ``stainless-scalac --coq frontends/benchmarks/coq/Arith.scala``
 generates the file ``tmp/test.v`` which contains the following Coq definition.

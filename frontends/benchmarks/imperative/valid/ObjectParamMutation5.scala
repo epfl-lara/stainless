@@ -8,12 +8,12 @@ object ObjectParamMutation5 {
     val tmp = a.x
     a.x = a.y
     a.y = tmp
-  } ensuring(_ => a.x == old(a).y && a.y == old(a).x)
+  }.ensuring(_ => a.x == old(a).y && a.y == old(a).x)
 
   def f(): A = {
     val a = A(10, 13)
     swap(a)
     a
-  } ensuring(res => res.x == 13 && res.y == 10)
+  }.ensuring(res => res.x == 13 && res.y == 10)
 
 }

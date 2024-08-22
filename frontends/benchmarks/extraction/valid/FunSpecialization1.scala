@@ -27,16 +27,16 @@ object FunSpecialization1Example {
   // We can also strengthen the pre- and postcondition
   def snocStrong[T](xs: List[T], y: T): List[T] = {
     specialize(concat(xs, List(y)))
-  } ensuring { _.size >= 1 }
+  }.ensuring { _.size >= 1 }
 
   def concatSized1[T](xs: List[T], ys: List[T]): List[T] = {
     specialize(concat(xs, ys))
-  } ensuring (res => res.size == xs.size + ys.size)
+  }.ensuring(res => res.size == xs.size + ys.size)
 
   def concatWithProp1[T](xs: List[T], ys: List[T], f: T => Boolean): List[T] = {
     require(xs.forall(f) && ys.forall(f))
     specialize(concat(xs, ys))
-  } ensuring { _.forall(f) }
+  }.ensuring { _.forall(f) }
 
 
   // We don't have to specialize the function definitions themselves to prove things about them.
@@ -50,16 +50,16 @@ object FunSpecialization1Example {
 
   def concatSized2[T](xs: List[T], ys: List[T]): Unit = {
     specialize(concatInductiveProof[T](xs, ys))
-  } ensuring { _ => concat(xs, ys).size == xs.size + ys.size }
+  }.ensuring { _ => concat(xs, ys).size == xs.size + ys.size }
 
   def concatWithProp2[T](xs: List[T], ys: List[T], f: T => Boolean): List[T] = {
     require(xs.forall(f) && ys.forall(f))
     specialize(concat(xs, ys))
-  } ensuring { _ => concat(xs, ys).forall(f) }
+  }.ensuring { _ => concat(xs, ys).forall(f) }
 
   def concatAssoc[T](xs: List[T], ys: List[T], zs: List[T]): List[T] = {
     specialize(concat(xs, ys))
-  } ensuring { _ => concat(concat(xs, ys), zs) == concat(xs, concat(ys, zs)) }
+  }.ensuring { _ => concat(concat(xs, ys), zs) == concat(xs, concat(ys, zs)) }
 
 
   // Some more examples
@@ -84,7 +84,7 @@ object FunSpecialization1Example {
       assert(f(xs.head) ==> g(xs.head)) // Will be proven for specializations
       forallImpliedL(xs.tail, f, g)
     }
-  } ensuring (_ => forallL(xs, g))
+  }.ensuring(_ => forallL(xs, g))
 
   def posIsNonNegL(xs: List[BigInt]): Unit =
     specialize(forallImpliedL[BigInt](xs, _ > 0, _ >= 0))

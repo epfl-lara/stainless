@@ -33,7 +33,7 @@ object RedBlackTree {
 
   def add(x: Int, t: Tree): Tree = {
     makeBlack(ins(x, t))
-  } ensuring (content(_) == content(t) ++ Set(x))
+  }.ensuring(content(_) == content(t) ++ Set(x))
   
   def balance(c: Color, a: Tree, x: Int, b: Tree): Tree = (Node(c,a,x,b) match {
     case Node(Black(),Node(Red(),Node(Red(),a,xV,b),yV,c),zV,d) => 

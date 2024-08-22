@@ -13,6 +13,6 @@ object MyTuple5 {
       case (_, (C(B((_, x))), _), y) => x
       case (_, _, x) => x
     }
-  } ensuring( _ == 5)
+  }.ensuring( _ == 5)
 
 }

@@ -34,7 +34,7 @@ Consider the following definition inside of an object `TestMax`.
       val d = x - y
       if (d > 0) x
       else y
-    } ensuring(res =>
+    }.ensuring(res =>
       x <= res && y <= res && (res == x || res == y))
   }
 
@@ -142,7 +142,7 @@ expected, passes all the test cases).
       val d = x - y
       if (d > 0) x
       else y
-    } ensuring(res =>
+    }.ensuring(res =>
       x <= res && y <= res && (res == x || res == y))
 
 As a possibly simpler specification, we could have also
@@ -209,7 +209,7 @@ conditions on input, we use the `require` clause.
     val d = x - y
     if (d > 0) x
     else y
-  } ensuring (res =>
+  }.ensuring(res =>
     x <= res && y <= res && (res == x || res == y))
 
 This program verifies and indeed works correctly on
@@ -334,7 +334,7 @@ One useful way to do this is to define function as follows:
           if (rSize == Int.Max) rSize
           else 1 + rSize
         }
-    }) ensuring(res => res >= 0)
+    }).ensuring(res => res >= 0)
 
 The above ``isize`` function satisfies the usual recursive definition for all but a huge
 lists, returns a non-negative integer, and ensures that if isize returns a small
@@ -373,7 +373,7 @@ building block for an insertion sort.
       case Cons(e, rest) if (x < e) => Cons(x, Cons(e,rest))
       case Cons(e, rest) if (x > e) => Cons(e, sInsert(x,rest))
     }
-  } ensuring {(res:List) => isSorted(res)}
+  }.ensuring {(res:List) => isSorted(res)}
 
 Stainless verifies that the returned list is indeed sorted. Note
 how we are again using a recursively defined function to
@@ -391,7 +391,7 @@ Note, however, that a function such as this one is also correct.
     def fsInsert(x : BigInt, l : List) : List = {
       require(isSorted(l))
       Nil
-    } ensuring {(res:List) => isSorted(res)}
+    }.ensuring {(res:List) => isSorted(res)}
 
 So, our specification may be considered weak, because it does
 not say anything about the elements.
@@ -429,7 +429,7 @@ of the list.
       case Cons(e, rest) if (x < e) => Cons(x, Cons(e,rest))
       case Cons(e, rest) if (x > e) => Cons(e, sInsert(x,rest))
     }
-  } ensuring {(res:List) =>
+  }.ensuring {(res:List) =>
      isSorted(res) && content(res) == content(l) ++ Set(x)}
 
 To compute `content`, in this example we use sets (even

@@ -14,7 +14,7 @@ object defs {
           if (tLen == Int.MaxValue) tLen
           else 1 + tLen
       }
-    } ensuring(res => 0 <= res && res <= Int.MaxValue)
+    }.ensuring(res => 0 <= res && res <= Int.MaxValue)
 
     def length: Int = size
 

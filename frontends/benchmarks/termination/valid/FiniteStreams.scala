@@ -38,5 +38,5 @@ object FiniteStream {
       case SNil() =>
         SNil()
     }
-  } ensuring (res => finite(res) && res.rank <= s.rank)
+  }.ensuring(res => finite(res) && res.rank <= s.rank)
 }

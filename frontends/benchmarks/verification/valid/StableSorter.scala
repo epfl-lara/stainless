@@ -12,7 +12,7 @@ object StableSorter {
       case Cons(hd, tl) if key(t) <= key(hd) => t :: l
       case Cons(hd, tl) => hd :: insert(t, tl, key)
     }
-  } ensuring { res => res.content == Set(t) ++ l.content && res.length == 1 + l.length }
+  }.ensuring { res => res.content == Set(t) ++ l.content && res.length == 1 + l.length }
 
   // Sorting a list preserves the content and preserves the length
   def sort[T](l: List[T], key: T => BigInt): List[T] = { l match {
@@ -32,7 +32,7 @@ object StableSorter {
         hint((hd, n) :: tlAnn, trivProp2(annotateList(tl, n + 1), n))
       }
     }
-  } ensuring { res => l2AtLeast(res, n) }
+  }.ensuring { res => l2AtLeast(res, n) }
 
   // ... where:
   def l2AtLeast[T](l: List[(T, BigInt)], n: BigInt): Boolean = l match {

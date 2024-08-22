@@ -84,7 +84,7 @@ object ConcRope {
         case Append(l, r) =>
           1 + max(l.level, r.level)
       }): BigInt
-    } ensuring (_ >= 0)
+    }.ensuring(_ >= 0)
 
     val size: BigInt = {
       (this match {
@@ -95,7 +95,7 @@ object ConcRope {
         case Append(l, r) =>
           l.size + r.size
       }): BigInt
-    } ensuring (_ >= 0)
+    }.ensuring(_ >= 0)
 
     def toList: List[T] = {
       this match {
@@ -106,7 +106,7 @@ object ConcRope {
         case Append(l, r) =>
           l.toList ++ r.toList
       }
-    } ensuring (res => res.size == this.size)
+    }.ensuring(res => res.size == this.size)
   }
 
   case class Empty[T]() extends Conc[T]
@@ -125,7 +125,7 @@ object ConcRope {
         if (i < l.size) lookup(l, i)
         else lookup(r, i - l.size)          
     }
-  } ensuring (res =>  instAppendIndexAxiom(xs, i) &&  // an auxiliary axiom instantiation that required for the proof
+  }.ensuring(res =>  instAppendIndexAxiom(xs, i) &&  // an auxiliary axiom instantiation that required for the proof
     res == xs.toList(i)) // correctness
     
 
@@ -153,7 +153,7 @@ object ConcRope {
         } else         
           Append(l, update(r, i - l.size, y))
     }
-  } ensuring (res => instAppendUpdateAxiom(xs, i, y) && // an auxiliary axiom instantiation
+  }.ensuring(res => instAppendUpdateAxiom(xs, i, y) && // an auxiliary axiom instantiation
     res.level == xs.level && // heights of the input and output trees are equal
     res.valid && // tree invariants are preserved    
     res.toList == xs.toList.updated(i, y) && // correctness
@@ -191,7 +191,7 @@ object ConcRope {
       case _ =>
         concatNonEmpty(xs, ys)
     }
-  } ensuring (res => res.valid && // tree invariants
+  }.ensuring(res => res.valid && // tree invariants
     res.level <= max(xs.level, ys.level) + 1 && // height invariants
     res.level >= max(xs.level, ys.level) &&
     (res.toList == xs.toList ++ ys.toList) && // correctness
@@ -242,7 +242,7 @@ object ConcRope {
           }
       }
     }
-  } ensuring (res =>  
+  }.ensuring(res =>  
     appendAssocInst(xs, ys) && // instantiation of an axiom
     res.level <= max(xs.level, ys.level) + 1 && // height invariants
     res.level >= max(xs.level, ys.level) &&
@@ -294,7 +294,7 @@ object ConcRope {
       case CC(l, r) =>
        concatNonEmpty(l, insert(r, i - l.size, y))      
     }
-  } ensuring (res => insertAppendAxiomInst(xs, i, y) && // instantiation of an axiom 
+  }.ensuring(res => insertAppendAxiomInst(xs, i, y) && // instantiation of an axiom 
     res.valid && res.isNormalized && // tree invariants            
     res.level - xs.level <= 1 && res.level >= xs.level && // height of the output tree is at most 1 greater than that of the input tree    
     res.toList == insertAtIndex(xs.toList, i, y) // correctness    
@@ -359,7 +359,7 @@ object ConcRope {
           (l, r)
         }
     }
-  } ensuring (res  => instSplitAxiom(xs, n) && // instantiation of an axiom     
+  }.ensuring(res  => instSplitAxiom(xs, n) && // instantiation of an axiom     
     res._1.valid && res._2.valid && // tree invariants are preserved
     res._1.isNormalized && res._2.isNormalized &&
     xs.level >= res._1.level && xs.level >= res._2.level && // height bounds of the resulting tree
@@ -385,7 +385,7 @@ object ConcRope {
       case Empty() => ys
       case Single(_) => CC(xs, ys)
     }
-  } ensuring (res => res.valid && //conctree invariants
+  }.ensuring(res => res.valid && //conctree invariants
     res.toList == xs.toList ++ Cons(x, Nil[T]()) && //correctness
     res.level <= xs.level + 1 
   )
@@ -411,7 +411,7 @@ object ConcRope {
           Append(l, zs)
       }
     }
-  } ensuring (res => appendAssocInst2(xs, ys) && 
+  }.ensuring(res => appendAssocInst2(xs, ys) && 
     res.valid && //conc tree invariants
     res.toList == xs.toList ++ ys.toList && //correctness invariants
     res.level <= xs.level + 1 )
@@ -431,7 +431,7 @@ object ConcRope {
       case Append(l, r) => numTrees(l) + 1
       case _ => BigInt(1)
     }
-  } ensuring (res => res >= 0)
+  }.ensuring(res => res >= 0)
 
   def normalize[T](t: Conc[T]): Conc[T] = {
     require(t.valid)
@@ -442,7 +442,7 @@ object ConcRope {
         concatNormalized(l, r)
       case _ => t
     }
-  } ensuring (res => res.valid &&
+  }.ensuring(res => res.valid &&
     res.isNormalized &&
     res.toList == t.toList && //correctness
     res.size == t.size && res.level <= t.level //normalize preserves level and size  
@@ -457,7 +457,7 @@ object ConcRope {
       case l =>
         concatNormalized(l, nr)        
     }
-  } ensuring (res => 
+  }.ensuring(res => 
     appendAssocInst2(xs, ys) && //some lemma instantiations   
     res.valid &&
     res.isNormalized &&

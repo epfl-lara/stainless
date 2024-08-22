@@ -12,6 +12,6 @@ object Nested14 {
       rec2(j)
     }
     rec1(3)
-  } ensuring(0 == _)
+  }.ensuring(0 == _)
 
 }

@@ -19,5 +19,5 @@ object Nested13 {
     }
 
     rec2(F(E(2), 3), 0)
-  } ensuring(a + 5 == _)
+  }.ensuring(a + 5 == _)
 }

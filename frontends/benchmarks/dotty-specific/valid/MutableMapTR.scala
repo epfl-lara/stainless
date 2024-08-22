@@ -22,7 +22,7 @@ object MTailList:
         val acc: MCons[U] = MCons[U](f(hd), MNil())
         mapTRWorker[T,U](tl, f, acc)
         acc
-  } ensuring(_.toList == l.toList.map(f))
+  }.ensuring(_.toList == l.toList.map(f))
 
   @tailrec
   def mapTRWorker[T,U](
@@ -37,4 +37,4 @@ object MTailList:
         acc.tail = MCons[U](f(h), MNil())      
         mapTRWorker(t, f, acc.tail.asInstanceOf[MCons[U]])
         assert(acc.tail.asInstanceOf[MCons[U]].toList == f(h) :: t.toList.map(f))
-  } ensuring(_ => acc.toList == old(acc).hd :: l.toList.map(f))
+  }.ensuring(_ => acc.toList == old(acc).hd :: l.toList.map(f))

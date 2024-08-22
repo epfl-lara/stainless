@@ -18,13 +18,13 @@ package object lang {
   implicit class BooleanDecorations(val underlying: Boolean) {
     def holds : Boolean = {
       underlying
-    } ensuring {
+    }.ensuring {
       (res: Boolean) => res
     }
 
     def holds(becauseOfThat: Boolean) = {
       underlying
-    } ensuring {
+    }.ensuring {
       (res: Boolean) => becauseOfThat && res
     }
 

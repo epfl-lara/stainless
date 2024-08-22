@@ -35,7 +35,7 @@ object ValueClasses {
     @extern @pure
     def filter(p: A => Boolean): Set[A] = {
       new Set(set.theSet.filter(p))
-    } ensuring { res =>
+    }.ensuring { res =>
       forall((a: A) => (set.contains(a) && p(a)) == res.contains(a))
     }
   }

@@ -11,6 +11,6 @@ object NestedFunParamsMutation1 {
     val a = Array(1,2,3,4)
     g(a)
     a(0)
-  } ensuring(_ == 10)
+  }.ensuring(_ == 10)
 
 }

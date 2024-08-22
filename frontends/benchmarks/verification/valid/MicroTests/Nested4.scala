@@ -11,11 +11,11 @@ object Nested4 {
         require(d >= 0 && d <= 50)
         val e = d + b + c + a2
         e
-      } ensuring(_ > 0)
+      }.ensuring(_ > 0)
       rec1(2)
     } else {
       BigInt(5)
     }
-  } ensuring(x => x > 0)
+  }.ensuring(x => x > 0)
 
 }

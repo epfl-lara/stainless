@@ -39,7 +39,7 @@ object ParBalance {
         }
       case Nil() => counter == 0
     }
-  } ensuring { res => res == balanced(list, counter) }
+  }.ensuring { res => res == balanced(list, counter) }
 
   def balanced_withFailure(list: List, counter: BigInt, failed: Boolean): Boolean = {
     require(counter >= 0 || failed)
@@ -51,7 +51,7 @@ object ParBalance {
         balanced_withFailure(tail, c, failed || c < 0)
       case Nil() => !failed && counter == 0
     }
-  } ensuring { res =>
+  }.ensuring { res =>
     if (failed) {
       res == balanced_nonEarly(list, -1)
     } else {
@@ -68,7 +68,7 @@ object ParBalance {
       case Nil() =>
         p._1 == 0 && p._2 == 0
     }
-  } ensuring { res => res == balanced_withFailure(list, p._1 - p._2, p._2 > 0) }
+  }.ensuring { res => res == balanced_withFailure(list, p._1 - p._2, p._2 > 0) }
 
   def balanced_foldLeft_equivalence(list: List, p: (BigInt, BigInt)): Boolean = {
     require(p._1 >= 0 && p._2 >= 0)
@@ -157,7 +157,7 @@ object ParBalance {
       case Cons(head, tail) => Cons(head, addLast(tail, x))
       case Nil() => Cons(x, Nil())
     }
-  } ensuring { res =>
+  }.ensuring { res =>
     lastOption(res) == Some(x) &&
     init(res) == list &&
     size(list) + 1 == size(res)
@@ -168,7 +168,7 @@ object ParBalance {
       case Cons(head, tail) => addLast(reverse(tail), head)
       case Nil() => Nil()
     }
-  } ensuring { res =>
+  }.ensuring { res =>
     lastOption(res) == headOption(list) &&
     lastOption(list) == headOption(res) &&
     size(res) == size(list)

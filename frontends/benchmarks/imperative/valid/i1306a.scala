@@ -12,5 +12,5 @@ object i1306a {
       i = i + 1
     }) invariant { i >= 0 && ((i * i) <= a) }
     i
-  } ensuring { root => (root * root) <= a && a < ((root + 1) * (root + 1)) }
+  }.ensuring { root => (root * root) <= a && a < ((root + 1) * (root + 1)) }
 }

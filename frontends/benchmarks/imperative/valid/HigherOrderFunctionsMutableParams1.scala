@@ -19,6 +19,6 @@ object HigherOrderFunctionsMutableParams1 {
     assert(a.x == 2)
     app(fImpl, a)
     a.x
-  } ensuring(_ == 3)
+  }.ensuring(_ == 3)
 
 }

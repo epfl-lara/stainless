@@ -69,17 +69,17 @@ object Set {
     @extern @pure
     def withFilterPost(p: A => Boolean)(a: A): Unit = {
       ()
-    } ensuring (_ => withFilter(p).contains(a) == (p(a) && set.contains(a)))
+    }.ensuring(_ => withFilter(p).contains(a) == (p(a) && set.contains(a)))
 
     @extern @pure
     def toList: List[A] = {
       List.fromScala(set.theSet.toList)
-    } ensuring (res => ListOps.noDuplicate(res) && res.content == set)
+    }.ensuring(res => ListOps.noDuplicate(res) && res.content == set)
 
     @extern @pure
     def toListPost(a:A): Unit = {
       ()
-    } ensuring(_ => toList.contains(a) == set.contains(a))
+    }.ensuring(_ => toList.contains(a) == set.contains(a))
 
     @extern @pure
     def toScala: ScalaSet[A] = set.theSet
