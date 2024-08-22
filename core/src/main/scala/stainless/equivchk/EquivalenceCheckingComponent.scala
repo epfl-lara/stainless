@@ -64,6 +64,7 @@ object optInitWeights extends inox.OptionDef[Map[String, Int]] {
 }
 object optMaxPerm extends inox.IntOptionDef("equivchk-max-perm", EquivalenceChecker.defaultMaxMatchingPermutation, "<int>")
 object optMaxCtex extends inox.IntOptionDef("equivchk-max-ctex", EquivalenceChecker.defaultMaxCtex, "<int>")
+object optMeasureTransfer extends inox.FlagOptionDef("equivchk-transfer", false)
 
 object EquivalenceCheckingComponent extends Component {
   override val name = "equivchk"
@@ -125,8 +126,9 @@ class EquivalenceCheckingRun private(override val component: EquivalenceChecking
       case success: EquivalenceChecker.Creation.Success => success.equivChker
     }
     val toProcess = createFilter.filter(ids, plainSyms, underlyingRun.component)
+    val underlyingRun1 = new VerificationRun(pipeline)(using context.withOpts(stainless.termination.optCheckMeasures(stainless.utils.YesNoOnly.No),stainless.termination.optInferMeasures(false)))
     for {
-      gen <- underlyingRun.execute(toProcess, plainSyms, ExtractionSummary.Node(traceSummary, plainSummary))
+      gen <- underlyingRun1.execute(toProcess, plainSyms, ExtractionSummary.Node(traceSummary, plainSummary))
       invalidVCsCands = counterExamples(gen).flatMap {
         case (vc, ctex) => ec.reportUnsafe(gen.program)(gen, vc, ctex).getOrElse(Set.empty)
       }.toSeq.distinct
@@ -213,6 +215,10 @@ class EquivalenceCheckingRun private(override val component: EquivalenceChecking
       val syms: trace.trees.Symbols = trace.trees.NoSymbols
         .withSorts(ec.symbols.sorts.values.map(identity.transform).toSeq)
         .withFunctions(allFns.map(identity.transform))
+      // here, termination is checked for the generated functions
+      // the result is simply stored in the equivalence entry in the summary table
+      // generated functions include candidate program with decreases
+      // println(generated)
       val plainSyms = tracePostPipeline.extract(syms)._1
       underlyingRun.execute(generated.map(_.id), plainSyms, ExtractionSummary.NoSummary)
         .flatMap { analysis =>

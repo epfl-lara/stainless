@@ -61,7 +61,8 @@ class EquivalenceChecker(override val trees: Trees,
                          private val initWeights: Map[Identifier, Int],
                          private val maxMatchingPermutation: Int,
                          private val maxCtex: Int,
-                         private val maxStepsEval: Int)
+                         private val maxStepsEval: Int,
+                         private val transferMeasure: Boolean)
                         (private val tests: Map[Identifier, (Seq[trees.Expr], Seq[trees.Type])],
                          val symbols: trees.Symbols)
                         (using val context: inox.Context)
@@ -372,7 +373,7 @@ class EquivalenceChecker(override val trees: Trees,
     val generated = equivalenceCheck(conf)
     val equivLemmas = EquivLemmas.Generated(generated.eqLemma.id, generated.proof.map(_.id), generated.sublemmasAndReplFns.map(_.id))
     examinationState = ExaminationState.Examining(cand, roundState.copy(equivLemmas = equivLemmas))
-    generated.eqLemma +: (generated.proof.toSeq ++ generated.sublemmasAndReplFns)
+    generated.eqLemma +: (generated.proof.toSeq ++ generated.sublemmasAndReplFns ++ generated.withDecreases)
   }
 
   def concludeRound(analysis: VerificationAnalysis): RoundConclusion = examinationState match {
@@ -383,10 +384,26 @@ class EquivalenceChecker(override val trees: Trees,
         models(model) = models(model) - 1
         (strat.order, strat.subFnsMatchingStrat) match {
           case (EquivCheckOrder.ModelFirst, None) =>
-            val nextStrat = EquivCheckStrategy(EquivCheckOrder.CandidateFirst, None)
-            val nextRS = RoundState(model, remainingModels, nextStrat, EquivLemmas.ToGenerate, currCumulativeSolvingTime + solvingInfo.time)
-            examinationState = ExaminationState.Examining(cand, nextRS)
-            RoundConclusion.NextRound(cand, model, nextStrat, Set.empty)
+            if (!transferMeasure) {
+              val nextStrat = EquivCheckStrategy(EquivCheckOrder.CandidateFirst, None)
+              val nextRS = RoundState(model, remainingModels, nextStrat, EquivLemmas.ToGenerate, currCumulativeSolvingTime + solvingInfo.time)
+              examinationState = ExaminationState.Examining(cand, nextRS)
+              RoundConclusion.NextRound(cand, model, nextStrat, Set.empty)
+            } else {
+              val subFnsMatching = allSubFnsMatches(model, cand)
+              val pruned = pruneSubFnsMatching(subFnsMatching)
+              pruned.next match {
+                case Some((nextMatching, rest)) =>
+                  val nextStrat = EquivCheckStrategy(EquivCheckOrder.ModelFirst,
+                    Some(SubFnsMatchingStrat(nextMatching, rest, nbPickedMatching = 1, subFnsMatching)))
+                  val nextRS = RoundState(model, remainingModels, nextStrat, EquivLemmas.ToGenerate, currCumulativeSolvingTime + solvingInfo.time)
+                  examinationState = ExaminationState.Examining(cand, nextRS)
+                  RoundConclusion.NextRound(cand, model, nextStrat, pruned.invalidPairs)
+                case None =>
+                  // No matching for subfunctions available, we pick the next model if available
+                  nextModelOrUnknown(pruned.invalidPairs)
+              }
+            }
 
           case (EquivCheckOrder.CandidateFirst, None) =>
             val subFnsMatching = allSubFnsMatches(model, cand)
@@ -414,22 +431,26 @@ class EquivalenceChecker(override val trees: Trees,
               examinationState = ExaminationState.Examining(cand, nextRS)
               RoundConclusion.NextRound(cand, model, nextStrat, pruned.invalidPairs)
             } else {
-              // Move to "candidate first with subfns matching", if possible.
-              // Reuse the computed matching instead of computing it again.
-              val prunedAll = pruneSubFnsMatching(matchingStrat.all)
-              prunedAll.next match {
-                case Some((nextMatching, rest)) =>
-                  val nextStrat = EquivCheckStrategy(EquivCheckOrder.CandidateFirst,
-                    Some(matchingStrat.copy(curr = nextMatching, rest = rest,
-                      // Since we move to "candidate first", we reset the number of picked matching to 1.
-                      nbPickedMatching = 1)))
-                  val nextRS = RoundState(model, remainingModels, nextStrat, EquivLemmas.ToGenerate, currCumulativeSolvingTime + solvingInfo.time)
-                  examinationState = ExaminationState.Examining(cand, nextRS)
-                  RoundConclusion.NextRound(cand, model, nextStrat, pruned.invalidPairs ++ prunedAll.invalidPairs)
-                case None =>
-                  // No matching for subfunctions available.
-                  // We pick the next model if available
-                  nextModelOrUnknown(pruned.invalidPairs ++ prunedAll.invalidPairs)
+              if (!transferMeasure) {
+                // Move to "candidate first with subfns matching", if possible.
+                // Reuse the computed matching instead of computing it again.
+                val prunedAll = pruneSubFnsMatching(matchingStrat.all)
+                prunedAll.next match {
+                  case Some((nextMatching, rest)) =>
+                    val nextStrat = EquivCheckStrategy(EquivCheckOrder.CandidateFirst,
+                      Some(matchingStrat.copy(curr = nextMatching, rest = rest,
+                        // Since we move to "candidate first", we reset the number of picked matching to 1.
+                        nbPickedMatching = 1)))
+                    val nextRS = RoundState(model, remainingModels, nextStrat, EquivLemmas.ToGenerate, currCumulativeSolvingTime + solvingInfo.time)
+                    examinationState = ExaminationState.Examining(cand, nextRS)
+                    RoundConclusion.NextRound(cand, model, nextStrat, pruned.invalidPairs ++ prunedAll.invalidPairs)
+                  case None =>
+                    // No matching for subfunctions available.
+                    // We pick the next model if available
+                    nextModelOrUnknown(pruned.invalidPairs ++ prunedAll.invalidPairs)
+                }
+              } else {
+                nextModelOrUnknown(pruned.invalidPairs)
               }
             }
 
@@ -472,11 +493,15 @@ class EquivalenceChecker(override val trees: Trees,
       }.flatten.groupMap(_._1)(_._2)
 
       if (report.totalInvalid != 0) {
-        assert(allCtexs.nonEmpty, "Conspiration!")
+        // no longer Conspiration because we now check some funs for termination as well
+        // assert(allCtexs.nonEmpty, "Conspiration!")
         allCtexs.foreach { case (_, ctexs) =>
           ctexs.foreach(addCtex)
         }
-        if (strat.subFnsMatchingStrat.isDefined) {
+        // something is invalid,
+        // but it could be termination because the inferred decreases does not fit
+        // so we cannot claim non-equivalence
+        if (strat.subFnsMatchingStrat.isDefined || transferMeasure) {
           nextRoundOrUnknown()
         } else {
           // schade
@@ -513,27 +538,85 @@ class EquivalenceChecker(override val trees: Trees,
 
   //region Generation of functions encoding equivalence
 
-  private case class GeneratedEqLemmas(eqLemma: FunDef, proof: Option[FunDef], sublemmasAndReplFns: Seq[FunDef])
+  private case class GeneratedEqLemmas(eqLemma: FunDef, proof: Option[FunDef], sublemmasAndReplFns: Seq[FunDef], withDecreases: Seq[FunDef])
 
   // Generate eqLemma and sublemmas for the given top-level model and candidate functions
   private def equivalenceCheck(conf: EquivCheckConf): GeneratedEqLemmas = {
     import conf.{fd1, fd2}
     import exprOps._
 
+    val candidateDecreased =
+      if (transferMeasure) copyMeasure(symbols, fd1, fd2, Map())
+      else conf.candidate
+
     // For the top-level model and candidate function
     val permutation = ArgPermutation(conf.model.params.indices) // No permutation for top-level model and candidate
-    val (eqLemmaResTopLvl, topLvlRepl) = generateEqLemma(conf, permutation)
+    val (eqLemmaResTopLvl, topLvlRepl) = generateEqLemma(conf.copy(candidate = candidateDecreased), permutation)
     // For the sub-functions
     val eqLemmasResSubs = conf.strat.subFnsMatchingStrat.toSeq.flatMap { matchingStrat =>
       matchingStrat.curr.pairs.flatMap {
         case ((submod, subcand), perm) =>
-          val newConf = conf.copy(model = symbols.functions(submod), candidate = symbols.functions(subcand), topLevel = false)
-          val (subres, subRepl) = generateEqLemma(newConf, perm)
-          Seq(subres.updatedFd) ++ subres.helper.toSeq ++ subRepl.toSeq
+          if (!transferMeasure) {
+            val newConf = conf.copy(model = symbols.functions(submod), candidate = symbols.functions(subcand), topLevel = false)
+            val (subres, subRepl) = generateEqLemma(newConf, perm)
+            Seq(subres.updatedFd) ++ subres.helper.toSeq ++ subRepl.toSeq
+          } else {
+            val replMap = matchingStrat.curr.pairs.map {
+              case ((submod, subcand), perm) =>
+                submod -> (subcand, perm.reverse.m2c)
+            }
+
+            val newParamTps = symbols.functions(subcand).tparams.map { tparam => tparam.tp }
+            val newParamVars = symbols.functions(subcand).params.map { param => param.toVariable }
+
+            // val decreased = //copyMeasure(symbols, symbols.functions(submod), symbols.functions(subcand), replMap)
+            val subst = {
+              val nweParamVarsPermuted = perm.m2c.map(newParamVars)
+              (symbols.functions(submod).params.map(_.id) zip nweParamVarsPermuted).toMap
+            }
+            val tsubst = (symbols.functions(submod).tparams zip newParamTps).map { case (tparam, targ) => tparam.tp.id -> targ }.toMap
+            val specsSpecializer = new Specializer(symbols.functions(subcand), subcand, tsubst, subst, Map())
+
+            // remove the original decreases and insert model's decreases
+            val measures = BodyWithSpecs(symbols.functions(subcand).fullBody).specs.filter(s =>
+              s match
+                case Measure(measure) => false
+                case _ => true
+            ) ++ BodyWithSpecs(symbols.functions(submod).fullBody).specs.flatMap(spec => spec match {
+              case LetInSpec(vd, expr) =>
+                Some(LetInSpec(vd, specsSpecializer.transform(expr)).setPos(spec))
+              case Measure(measure) =>
+                Some(Measure(specsSpecializer.transform(measure)).setPos(spec))
+              case _ => None
+            })
+
+            val withPre = exprOps.reconstructSpecs(measures, exprOps.withoutSpecs(symbols.functions(subcand).fullBody), symbols.functions(subcand).returnType)
+
+            val decreased = symbols.functions(subcand).copy(
+              fullBody = BodyWithSpecs(withPre).reconstructed,
+            ).copiedFrom(symbols.functions(subcand))
+
+            val newConf = conf.copy(model = symbols.functions(submod), candidate = decreased, topLevel = false)
+
+            val (subres, subRepl) = generateEqLemma(newConf, perm)
+            Seq(subres.updatedFd) ++ subres.helper.toSeq ++ subRepl.toSeq ++ List(decreased)
+          }
       }
     }
 
-    GeneratedEqLemmas(eqLemmaResTopLvl.updatedFd, eqLemmaResTopLvl.helper, topLvlRepl.toSeq ++ eqLemmasResSubs)
+    val extra = {
+      if (!transferMeasure) Seq.empty
+      else {
+        // subfunctions to be checked for termination
+        val subFuns = symbols.transitiveCallees(fd2.id).filter(_ != fd2.id)
+          .map(symbols.functions(_)).filter(!_.flags.exists(_.name == "library"))
+          .filterNot(f => eqLemmasResSubs.map(_.id).contains(f.id))
+
+        // functions with additional decreases ported from models
+        List(candidateDecreased) ++ subFuns
+      }
+    }
+    GeneratedEqLemmas(eqLemmaResTopLvl.updatedFd, eqLemmaResTopLvl.helper, topLvlRepl.toSeq ++ eqLemmasResSubs, extra)
   }
 
   // Generate an eqLemma for the given fd1 and fd2 functions and the given permutation for the candidate function
@@ -1118,6 +1201,7 @@ object EquivalenceChecker {
     if (maxCtex <= 0) {
       return failure(FailureReason.IllegalHyperparameterValue(s"${optMaxCtex.name} must be strictly positive"))
     }
+    val transfer = context.options.findOptionOrDefault(optMeasureTransfer)
 
     val models = syms.functions.values.flatMap { fd =>
       if (fd.flags.exists(_.name == "library")) None
@@ -1180,7 +1264,7 @@ object EquivalenceChecker {
         .getOrElse(mod -> initScore)
     }.toMap
     class EquivalenceCheckerImpl(override val trees: ts.type, override val symbols: syms.type)
-      extends EquivalenceChecker(ts, models, functions, norm, n, initWeights, maxPerm, maxCtex, defaultMaxStepsEval)(testsOk, symbols)
+      extends EquivalenceChecker(ts, models, functions, norm, n, initWeights, maxPerm, maxCtex, defaultMaxStepsEval, transfer)(testsOk, symbols)
     val ec = new EquivalenceCheckerImpl(ts, syms)
     class SuccessImpl(override val trees: ts.type, override val symbols: syms.type, override val equivChker: ec.type) extends Creation.Success
     new SuccessImpl(ts, syms, ec)
