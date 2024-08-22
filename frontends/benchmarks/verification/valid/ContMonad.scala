@@ -50,10 +50,10 @@ object ContMonad_Throw {
   def tryCont[R, E, A](h: E => Cont[R, A])(c: (E => Cont[R, A]) => Cont[R, A]): Cont[R, A] =
     callCC[R, A, E] { ok =>
       val ifErr = callCC[R, E, A] { notOk =>
-        c(notOk) flatMap ok
+        c(notOk).flatMap(ok)
       }
 
-      ifErr flatMap h
+      ifErr.flatMap(h)
     }
 
   @inline

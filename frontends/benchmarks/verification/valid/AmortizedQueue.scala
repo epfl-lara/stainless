@@ -15,14 +15,14 @@ object AmortizedQueue {
   def head(list: List): Int = {
     require(list != Nil())
 
-    val Cons(res, _) = list
+    val Cons(res, _) = list: @unchecked
     res
   }
 
   def tail(list: List): List = {
     require(list != Nil())
 
-    val Cons(_, res) = list
+    val Cons(_, res) = list: @unchecked
     res
   }
 

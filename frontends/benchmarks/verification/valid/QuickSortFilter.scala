@@ -10,7 +10,7 @@ object QuickSortFilter {
     ls match {
       case Nil() => Nil[BigInt]()
       case Cons(x, Nil()) => ls
-      case Cons(x, xs) => quickSort(xs filter (_ < x)) ++ Cons(x, xs filter(_ == x)) ++ quickSort(xs filter (_ > x))
+      case Cons(x, xs) => quickSort(xs.filter(_ < x)) ++ Cons(x, xs.filter(_ == x)) ++ quickSort(xs.filter(_ > x))
     }
   }
 
@@ -28,12 +28,12 @@ object QuickSortFilter {
   }.holds
 
   def filter_equal_sorted(@induct ls: List[BigInt], x: BigInt): Boolean = {
-    isSorted(ls filter (_ == x))
+    isSorted(ls.filter(_ == x))
   }.holds
 
   def cons_filter_equal_sorted(ls: List[BigInt], x: BigInt): Boolean = {
     check(filter_equal_sorted(ls, x))
-    isSorted(Cons(x, ls filter (_ == x)))
+    isSorted(Cons(x, ls.filter(_ == x)))
   }.holds
 
   def forall_last(@induct ls: List[BigInt], p: BigInt => Boolean): Boolean = {
@@ -68,9 +68,9 @@ object QuickSortFilter {
       case Nil() => true
       case Cons(x, Nil()) => true
       case Cons(x, xs) =>
-        val less = xs filter (_ < x)
-        val equal = Cons(x, xs filter (_ == x))
-        val more = xs filter (_ > x)
+        val less = xs.filter(_ < x)
+        val equal = Cons(x, xs.filter(_ == x))
+        val more = xs.filter(_ > x)
 
         assert(
           filter_preserves_forall(xs, _ < x, p) &&
@@ -95,9 +95,9 @@ object QuickSortFilter {
       case Nil() => true
       case Cons(x, Nil()) => true
       case Cons(x, xs) =>
-        val less = xs filter (_ < x)
-        val equal = Cons(x, xs filter (_ == x))
-        val more = xs filter (_ > x)
+        val less = xs.filter(_ < x)
+        val equal = Cons(x, xs.filter(_ == x))
+        val more = xs.filter(_ > x)
 
         {
           assert(sorted_lemma(less))

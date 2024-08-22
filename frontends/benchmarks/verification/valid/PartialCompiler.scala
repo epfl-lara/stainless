@@ -26,7 +26,7 @@ object PartialCompiler {
     if (fuel == 0) Left(Error("No more fuel")) else expr match {
       case Num(value) => Right(value)
 
-      case Var(name) if ctx contains name =>
+      case Var(name) if ctx.contains(name) =>
         interpret(ctx(name), ctx)(fuel - 1)
 
       case Var(name) =>
