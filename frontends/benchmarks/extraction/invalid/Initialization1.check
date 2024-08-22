@@ -1,8 +1,8 @@
 [ Error  ] Initialization1.scala:4:9: Access non-initialized value y. Calling trace:
-[ Error  ] -> case class InitA() {	[ Initialization1.scala:2 ]
-[ Error  ]    ^
-[ Error  ] -> val x = y	[ Initialization1.scala:3 ]
-[ Error  ]            ^
-[ Error  ]
+[ Error  ] ├── case class InitA() {     [ Initialization1.scala:2 ]
+[ Error  ] │   ^
+[ Error  ] └── val x = y        [ Initialization1.scala:3 ]
+[ Error  ]             ^
+[ Error  ] 
                val y = 0
                    ^
