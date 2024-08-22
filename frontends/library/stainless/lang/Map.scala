@@ -15,7 +15,7 @@ object Map {
 
   @ignore
   def apply[A,B](elems: (A,B)*) = {
-    new Map[A,B](scala.collection.immutable.Map[A,B](elems : _*))
+    new Map[A,B](scala.collection.immutable.Map[A,B](elems*))
   }
 
   @library @extern @pure

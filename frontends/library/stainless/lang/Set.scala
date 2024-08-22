@@ -15,7 +15,7 @@ object Set {
 
   @ignore
   def apply[T](elems: T*) = {
-    new Set[T](ScalaSet[T](elems : _*))
+    new Set[T](ScalaSet[T](elems*))
   }
 
   @extern @pure @library

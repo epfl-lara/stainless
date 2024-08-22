@@ -40,7 +40,7 @@ sealed abstract class List[T] {
   def contains(v: T): Boolean = (this match {
     case Cons(h, t) => h == v || t.contains(v)
     case Nil() => false
-  }).ensuring { _ == (content contains v) }
+  }).ensuring { _ == (content.contains(v)) }
 
   @isabelle.function(term = "List.append")
   def ++(that: List[T]): List[T] = (this match {
@@ -207,7 +207,7 @@ sealed abstract class List[T] {
     res.size == this.size &&
     res.content == (
       (this.content -- Set(from)) ++
-      (if (this.content contains from) Set(to) else Set[T]())
+      (if (this.content.contains(from)) Set(to) else Set[T]())
     )
   }
 
@@ -334,7 +334,7 @@ sealed abstract class List[T] {
       case Cons(h, Nil()) => h
       case Cons(_, t) => t.last
     }
- }.ensuring { this.contains _ }
+ }.ensuring { this.contains }
 
   def lastOption: Option[T] = { this match {
     case Cons(h, t) =>
@@ -633,7 +633,7 @@ sealed abstract class List[T] {
       if (rec >= 0) rec + BigInt(1)
       else BigInt(-1)
   }}.ensuring {
-    _ >= BigInt(0) == (this exists p)
+    _ >= BigInt(0) == (this.exists(p))
   }
 
   // Translation to other collections
