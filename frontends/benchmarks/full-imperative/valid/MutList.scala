@@ -68,7 +68,7 @@ object MutListExample {
 
         case Some(next) =>
           assert(next.valid)
-          assert(next.repr.content subsetOf repr.content)
+          assert(next.repr.content.subsetOf(repr.content))
 
           @ghostAnnot val oldReprNext = next.repr
           @ghostAnnot val oldReprC = next.repr.content ++ node.repr.content
@@ -80,7 +80,7 @@ object MutListExample {
 
           repr = this :: next.repr
 
-          assert(next.repr.content subsetOf repr.content)
+          assert(next.repr.content.subsetOf(repr.content))
           assert(repr == this :: (oldReprNext ++ node.repr))
           assert(repr == (this :: oldReprNext) ++ node.repr)
           ghost { check(repr == oldRepr ++ node.repr) }

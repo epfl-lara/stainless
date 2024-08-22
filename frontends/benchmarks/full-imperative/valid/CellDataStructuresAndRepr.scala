@@ -228,7 +228,7 @@ object CellDataStructuresAndRepr {
       revealObjectSet
       (slice(0, i), slice(i, size))
    }.ensuring { case (s1, s2) =>
-      s1 * s2 && (s1.objectSet subsetOf objectSet) && (s2.objectSet subsetOf objectSet)
+      s1 * s2 && (s1.objectSet.subsetOf(objectSet)) && (s2.objectSet.subsetOf(objectSet))
     }
 
     // @opaque
@@ -307,7 +307,7 @@ object CellDataStructuresAndRepr {
 
     def cellValues(cs: List[IntCell]): List[Int] = {
       reads(objectSet)
-      require(upcastCells(cs).content subsetOf objectSet)
+      require(upcastCells(cs).content.subsetOf(objectSet))
       cs match {
         case Nil() => Nil[Int]()
         case Cons(c, cs) => Cons(c.value, cellValues(cs))
