@@ -28,7 +28,7 @@ object Lists {
       decreases(lst)
       lst = tail(lst)
       res += 1
-    }) invariant(res + sizeSpec(lst) == sizeSpec(l))
+    }).invariant(res + sizeSpec(lst) == sizeSpec(l))
     res
  }.ensuring(res => res == sizeSpec(l))
 
@@ -115,7 +115,7 @@ object Banking {
       decreases(times - i)
       success = transaction.execute()
       i += 1
-    }) invariant(i >= 0 && i <= times && success == transaction.executed)
+    }).invariant(i >= 0 && i <= times && success == transaction.executed)
     success
  }.ensuring(status => status == transaction.executed)
 

@@ -23,7 +23,7 @@ object NestedFunState4 {
         decreases(n - i)
         i += 1
         nestedIter()
-      }) invariant(i >= 0 && i <= n && b == i)
+      }).invariant(i >= 0 && i <= n && b == i)
 
       a += b
 
@@ -34,7 +34,7 @@ object NestedFunState4 {
       decreases(n - i)
       i += 1
       iter()
-    }) invariant(i >= 0 && i <= n && a >= i)
+    }).invariant(i >= 0 && i <= n && a >= i)
 
     a
  }.ensuring(_ >= n)

@@ -25,7 +25,7 @@ object NestedFunState5 {
       decreases(n - i)
       i += 1
       iter(a)
-    }) invariant(i >= 0 && i <= n && a >= 2*i)
+    }).invariant(i >= 0 && i <= n && a >= 2*i)
 
     a
  }.ensuring(_ >= 2*n)

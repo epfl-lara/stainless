@@ -19,7 +19,7 @@ object NestedFunState3 {
       decreases(n - i)
       inc()
       i += 1
-    }) invariant(i >= 0 && counter == i && i <= n)
+    }).invariant(i >= 0 && counter == i && i <= n)
 
     counter
  }.ensuring(_ == n)

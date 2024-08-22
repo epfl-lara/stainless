@@ -16,7 +16,7 @@ object HigherOrderFunctionsMutableParams14 {
   }
 
   def test(): BigInt = {
-    val b = B(closure _, A(3))
+    val b = B(closure, A(3))
 
     b.execute()
     b.execute()

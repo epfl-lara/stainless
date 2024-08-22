@@ -34,7 +34,7 @@ object GuessNumber {
       } else {
         done = true
       }
-    }) invariant(guess >= bot && guess <= top && bot >= 0 && top <= 10 && bot <= top && choice >= bot && choice <= top && (done ==> (guess == choice)))
+    }).invariant(guess >= bot && guess <= top && bot >= 0 && top <= 10 && bot <= top && choice >= bot && choice <= top && (done ==> (guess == choice)))
     val answer = guess
     assert(answer == choice)
   }

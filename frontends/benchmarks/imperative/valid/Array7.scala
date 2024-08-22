@@ -12,7 +12,7 @@ object Array7 {
       decreases(a.length - i)
       a2(i) = a(i)
       i = i + 1
-    }) invariant(a.length == a2.length && 0 <= i && i <= a.length && (if(i > 0) a2(0) == a(0) else true))
+    }).invariant(a.length == a2.length && 0 <= i && i <= a.length && (if(i > 0) a2(0) == a(0) else true))
     a2
  }.ensuring(_(0) == a(0))
 
