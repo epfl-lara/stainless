@@ -91,7 +91,7 @@ object StableSorter {
     lAnn match {
       case Nil() => isStableSorted(lAnnSorted, key)
       case Cons((hd, hdIndex), tlAnn) => {
-        val Cons(_, xs) = l
+        val Cons(_, xs) = l: @unchecked
         val tlAnnSorted = sort(tlAnn, keyAnn)
         sortStablePropInt(xs, n + 1, key) &&
         n == hdIndex &&

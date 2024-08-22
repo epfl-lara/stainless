@@ -22,6 +22,6 @@ object Throw:
       if (i < 0 || acc < 0) then
         throw new IllegalArgumentException("i and acc should not be negative")
 
-    ) invariant(i >= 0 && acc >= 0)
+    ).invariant(i >= 0 && acc >= 0)
     acc
  }.ensuring(res => res >= 0)

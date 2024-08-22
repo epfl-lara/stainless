@@ -57,11 +57,11 @@ object FoldAssociative {
     val f = (x: Int, s: Int) => x + s
     val l1 = take(list, x)
     val l2 = drop(list, x)
-    lemma_split(list, x) because (list match {
+    lemma_split(list, x).because((list match {
       case Cons(head, tail) if x > 0 =>
         lemma_split_induct(tail, x - 1)
       case _ => true
-    })
+    }))
   }.holds
 
   def lemma_reassociative(list: List, x: Int): Boolean = {
@@ -78,11 +78,11 @@ object FoldAssociative {
     val f = (x: Int, s: Int) => x + s
     val l1 = take(list, x)
     val l2 = drop(list, x)
-    lemma_reassociative(list, x) because (list match {
+    lemma_reassociative(list, x).because((list match {
       case Cons(head, tail) if x > 0 =>
         lemma_reassociative_induct(tail, x - 1)
       case _ => true
-    })
+    }))
   }.holds
 
   def lemma_reassociative_presplit(l1: List, l2: List): Boolean = {
@@ -94,11 +94,11 @@ object FoldAssociative {
   def lemma_reassociative_presplit_induct(l1: List, l2: List): Boolean = {
     val f = (x: Int, s: Int) => x + s
     val list = append(l1, l2)
-    lemma_reassociative_presplit(l1, l2) because (l1 match {
+    lemma_reassociative_presplit(l1, l2).because((l1 match {
       case Cons(head, tail) =>
         lemma_reassociative_presplit_induct(tail, l2)
       case Nil() => true
-    })
+    }))
   }.holds
 
 }

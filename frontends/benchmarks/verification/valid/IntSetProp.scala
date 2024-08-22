@@ -13,8 +13,8 @@ object IntSetProp {
       this match {
         case Empty() => Node(Empty(),x,Empty())
         case Node(left, elem, right) =>
-          if (x < elem) Node(left incl x, elem, right)
-          else if (x > elem) Node(left, elem, right incl x)
+          if (x < elem) Node(left.incl(x), elem, right)
+          else if (x > elem) Node(left, elem, right.incl(x))
           else this
       }
     }
@@ -24,14 +24,14 @@ object IntSetProp {
       this match {
         case Empty() => false
         case Node(left, elem, right) =>
-          if (x < elem) left contains x
-          else if (x > elem) right contains x
+          if (x < elem) left.contains(x)
+          else if (x > elem) right.contains(x)
           else true
       }
     }
 
     def P1(x: Int): Boolean = {
-      !(Empty() contains x)
+      !(Empty().contains(x))
     }.holds
 
     def P2(s: IntSet, x: Int): Boolean = {
@@ -45,7 +45,7 @@ object IntSetProp {
           else true
       }
 
-      (s incl x) contains x
+      (s.incl(x)) `contains` x
     }.holds
 
     def P3(s: IntSet, x: Int,  y: Int): Boolean = {
@@ -60,7 +60,7 @@ object IntSetProp {
           else true
       }
 
-      ((s incl x) contains y) == (s contains y)
+      ((s.incl(x)) `contains` y) == (s.contains(y))
     }.holds
   }
 }
