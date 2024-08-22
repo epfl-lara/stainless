@@ -212,7 +212,7 @@ properties:
   case class A(var x: Int)
   def inc(a: A): Unit = {
     a.x = a.x + 1
-  } ensuring(_ => a.x == old(a).x + 1)
+ }.ensuring(_ => a.x == old(a).x + 1)
 
 ``old`` can be wrapped around any identifier that is affected by the body. You can also use
 ``old`` for variables in scope, in the case of nested functions:
@@ -223,7 +223,7 @@ properties:
     var x = 0
     def inc(): Unit = {
       x = x + 1
-    } ensuring(_ => x == old(x) + 1)
+   }.ensuring(_ => x == old(x) + 1)
 
     inc(); inc();
     assert(x == 2)
@@ -472,7 +472,7 @@ the ``ReturnElimination`` phase. Here is a function taken from `ReturnInWhile.sc
 
       assert(false, "unreachable code")
       0
-    }.ensuring((res: Int) => res == n)
+   }.ensuring((res: Int) => res == n)
 
 After transformation, we get a recursive (local) function named ``returnWhile``
 that returns a control flow element to indicate whether the loop terminated
@@ -515,7 +515,7 @@ the postcondition of the top-level holds (see comment).
                 Proceed[Int, Unit](())
               }
           }
-        } ensuring {
+       }.ensuring {
           (cfWhile: ControlFlow[Int, Unit]) => cfWhile match {
             case Return(retValue) =>
               // we check the postcondition `retValue == n` of the top-level function
@@ -537,7 +537,7 @@ the postcondition of the top-level holds (see comment).
           assert(false, "unreachable code")
           0
       }
-    } ensuring {
+   }.ensuring {
       (res: Int) => res == n
     }
 

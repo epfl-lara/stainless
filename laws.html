@@ -1,23 +1,22 @@
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="./">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Specifying Algebraic Properties &mdash; Stainless 0.9.1 documentation</title>
-  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
-  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
+
+  
   <!--[if lt IE 9]>
     <script src="_static/js/html5shiv.min.js"></script>
   <![endif]-->
-  <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
-        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
-        <script src="_static/jquery.js"></script>
-        <script src="_static/underscore.js"></script>
-        <script src="_static/doctools.js"></script>
-    <script type="text/javascript" src="_static/js/theme.js"></script>
+  
+        <script src="_static/documentation_options.js?v=9dc39874"></script>
+        <script src="_static/doctools.js?v=9a2dae69"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="Imperative" href="imperative.html" />
@@ -29,20 +28,23 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-            <a href="index.html" class="icon icon-home"> Stainless
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Stainless
           </a>
               <div class="version">
                 0.9
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
 </div>
-        </div>
-        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Main">
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installing Stainless</a></li>
@@ -79,20 +81,17 @@
       </div>
     </nav>
 
-    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
-      <nav class="wy-nav-top" aria-label="Top" >
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
           <a href="index.html">Stainless</a>
       </nav>
 
       <div class="wy-nav-content">
         <div class="rst-content">
-          
-
-<div role="navigation" aria-label="Breadcrumbs">
+          <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
-      <li>Specifying Algebraic Properties</li>
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Specifying Algebraic Properties</li>
       <li class="wy-breadcrumbs-aside">
             <a href="_sources/laws.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -103,9 +102,9 @@
            <div itemprop="articleBody">
              
   <section id="specifying-algebraic-properties">
-<span id="laws"></span><h1>Specifying Algebraic Properties<a class="headerlink" href="#specifying-algebraic-properties" title="Permalink to this headline">¶</a></h1>
+<span id="laws"></span><h1>Specifying Algebraic Properties<a class="headerlink" href="#specifying-algebraic-properties" title="Link to this heading">¶</a></h1>
 <section id="introduction">
-<h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
+<h2>Introduction<a class="headerlink" href="#introduction" title="Link to this heading">¶</a></h2>
 <p>Many datatypes that programmers deal with on a day-to-day basis often provide
 the same set of operations, for example:</p>
 <ul class="simple">
@@ -125,7 +124,7 @@ modern programming languages such as Scala or Haskell provide a better
 mechanism for expressing the properties: typeclasses.</p>
 </section>
 <section id="typeclasses">
-<h2>Typeclasses<a class="headerlink" href="#typeclasses" title="Permalink to this headline">¶</a></h2>
+<h2>Typeclasses<a class="headerlink" href="#typeclasses" title="Link to this heading">¶</a></h2>
 <p>Typeclasses were introduced by Wadler &amp; Blott <a class="reference internal" href="#wb89" id="id1"><span>[WB89]</span></a> as an extension
 to the Hindley/Milner type system to implement a certain kind of overloading,
 known as <em>ad-hoc</em> polymorphism.</p>
@@ -139,29 +138,29 @@ essentially corresponds to <em>overloading</em>.</p>
 Here is for example, the definition and implementation of a <code class="docutils literal notranslate"><span class="pre">Monoid</span></code>, ie. a typeclass
 for datatypes which can be mashed together associatively, and which have an
 identity element w.r.t. to this operation:</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">abstract</span> <span class="k">class</span> <span class="nc">Monoid</span><span class="p">[</span><span class="nc">A</span><span class="p">]</span> <span class="p">{</span>
-  <span class="k">def</span> <span class="nf">empty</span><span class="p">:</span> <span class="nc">A</span>
-  <span class="k">def</span> <span class="nf">append</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">A</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nc">A</span><span class="p">):</span> <span class="nc">A</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">abstract</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">Monoid</span><span class="p">[</span><span class="nc">A</span><span class="p">]</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">empty</span><span class="p">:</span><span class="w"> </span><span class="nc">A</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">append</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">A</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="nc">A</span><span class="p">):</span><span class="w"> </span><span class="nc">A</span>
 
-  <span class="nd">@law</span>
-  <span class="k">def</span> <span class="nf">law_leftIdentity</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">A</span><span class="p">)</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="n">append</span><span class="p">(</span><span class="n">empty</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span> <span class="o">==</span> <span class="n">x</span>
-  <span class="p">}</span>
+<span class="w">  </span><span class="nd">@law</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">law_leftIdentity</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">A</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">append</span><span class="p">(</span><span class="n">empty</span><span class="p">,</span><span class="w"> </span><span class="n">x</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">x</span>
+<span class="w">  </span><span class="p">}</span>
 
-  <span class="nd">@law</span>
-  <span class="k">def</span> <span class="nf">law_rightIdentity</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">A</span><span class="p">)</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="n">append</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">empty</span><span class="p">)</span> <span class="o">==</span> <span class="n">x</span>
-  <span class="p">}</span>
+<span class="w">  </span><span class="nd">@law</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">law_rightIdentity</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">A</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">append</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">empty</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">x</span>
+<span class="w">  </span><span class="p">}</span>
 
-  <span class="nd">@law</span>
-  <span class="k">def</span> <span class="nf">law_associativity</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">A</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nc">A</span><span class="p">,</span> <span class="n">z</span><span class="p">:</span> <span class="nc">A</span><span class="p">)</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="n">append</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">append</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">))</span> <span class="o">==</span> <span class="n">append</span><span class="p">(</span><span class="n">append</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">),</span> <span class="n">z</span><span class="p">)</span>
-  <span class="p">}</span>
+<span class="w">  </span><span class="nd">@law</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">law_associativity</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">A</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="nc">A</span><span class="p">,</span><span class="w"> </span><span class="n">z</span><span class="p">:</span><span class="w"> </span><span class="nc">A</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">append</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">append</span><span class="p">(</span><span class="n">y</span><span class="p">,</span><span class="w"> </span><span class="n">z</span><span class="p">))</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">append</span><span class="p">(</span><span class="n">append</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">),</span><span class="w"> </span><span class="n">z</span><span class="p">)</span>
+<span class="w">  </span><span class="p">}</span>
 <span class="p">}</span>
 
-<span class="k">implicit</span> <span class="kd">val</span> <span class="n">bigIntAdditiveMonoid</span><span class="p">:</span> <span class="nc">Monoid</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">]</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Monoid</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">]</span> <span class="p">{</span>
-  <span class="k">override</span> <span class="k">def</span> <span class="nf">empty</span><span class="p">:</span> <span class="nc">BigInt</span> <span class="o">=</span> <span class="mi">0</span>
-  <span class="k">override</span> <span class="k">def</span> <span class="nf">append</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">):</span> <span class="nc">BigInt</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="n">y</span>
+<span class="k">implicit</span><span class="w"> </span><span class="kd">val</span><span class="w"> </span><span class="n">bigIntAdditiveMonoid</span><span class="p">:</span><span class="w"> </span><span class="nc">Monoid</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="nc">Monoid</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">]</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">override</span><span class="w"> </span><span class="k">def</span><span class="w"> </span><span class="nf">empty</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">  </span><span class="k">override</span><span class="w"> </span><span class="k">def</span><span class="w"> </span><span class="nf">append</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">):</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">y</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -184,133 +183,133 @@ following verification conditions:</p>
 </div>
 <p>Armed with the knowledge that our <code class="docutils literal notranslate"><span class="pre">Monoid</span></code> will always be lawful, one can now fearlessly write
 the <code class="docutils literal notranslate"><span class="pre">foldMap</span></code> function, and get the expected result:</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">foldMap</span><span class="p">[</span><span class="nc">A</span><span class="p">,</span> <span class="nc">M</span><span class="p">](</span><span class="n">xs</span><span class="p">:</span> <span class="nc">List</span><span class="p">[</span><span class="nc">A</span><span class="p">])(</span><span class="n">f</span><span class="p">:</span> <span class="nc">A</span> <span class="o">=&gt;</span> <span class="nc">M</span><span class="p">)(</span><span class="k">implicit</span> <span class="nc">M</span><span class="p">:</span> <span class="nc">Monoid</span><span class="p">[</span><span class="nc">M</span><span class="p">]):</span> <span class="nc">M</span> <span class="o">=</span> <span class="n">xs</span> <span class="k">match</span> <span class="p">{</span>
-  <span class="k">case</span> <span class="nc">Nil</span><span class="p">()</span> <span class="o">=&gt;</span> <span class="nc">M</span><span class="p">.</span><span class="n">empty</span>
-  <span class="k">case</span> <span class="nc">Cons</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">ys</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="nc">M</span><span class="p">.</span><span class="n">append</span><span class="p">(</span><span class="n">f</span><span class="p">(</span><span class="n">y</span><span class="p">),</span> <span class="n">foldMap</span><span class="p">(</span><span class="n">ys</span><span class="p">)(</span><span class="n">f</span><span class="p">))</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">foldMap</span><span class="p">[</span><span class="nc">A</span><span class="p">,</span><span class="w"> </span><span class="nc">M</span><span class="p">](</span><span class="n">xs</span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">A</span><span class="p">])(</span><span class="n">f</span><span class="p">:</span><span class="w"> </span><span class="nc">A</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">M</span><span class="p">)(</span><span class="k">implicit</span><span class="w"> </span><span class="nc">M</span><span class="p">:</span><span class="w"> </span><span class="nc">Monoid</span><span class="p">[</span><span class="nc">M</span><span class="p">]):</span><span class="w"> </span><span class="nc">M</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">xs</span><span class="w"> </span><span class="k">match</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">case</span><span class="w"> </span><span class="nc">Nil</span><span class="p">()</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">M</span><span class="p">.</span><span class="n">empty</span>
+<span class="w">  </span><span class="k">case</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">y</span><span class="p">,</span><span class="w"> </span><span class="n">ys</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">M</span><span class="p">.</span><span class="n">append</span><span class="p">(</span><span class="n">f</span><span class="p">(</span><span class="n">y</span><span class="p">),</span><span class="w"> </span><span class="n">foldMap</span><span class="p">(</span><span class="n">ys</span><span class="p">)(</span><span class="n">f</span><span class="p">))</span>
 <span class="p">}</span>
 
-<span class="k">def</span> <span class="nf">sumBigInt</span><span class="p">(</span><span class="n">xs</span><span class="p">:</span> <span class="nc">List</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">]):</span> <span class="nc">BigInt</span> <span class="o">=</span> <span class="p">{</span>
-  <span class="n">foldMap</span><span class="p">(</span><span class="n">xs</span><span class="p">)(</span><span class="n">x</span> <span class="o">=&gt;</span> <span class="n">x</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">sumBigInt</span><span class="p">(</span><span class="n">xs</span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">]):</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">foldMap</span><span class="p">(</span><span class="n">xs</span><span class="p">)(</span><span class="n">x</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">x</span><span class="p">)</span>
 <span class="p">}</span>
 </pre></div>
 </div>
 <p>Sometimes, Stainless will not be able to automatically prove that an instance is lawful,
 for example when the property of interest involves a recursive definition over an inductive
 data type, as in the following code:</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">sealed</span> <span class="k">abstract</span> <span class="k">class</span> <span class="nc">Nat</span> <span class="p">{</span>
-  <span class="k">def</span> <span class="nf">+</span><span class="p">(</span><span class="n">m</span><span class="p">:</span> <span class="nc">Nat</span><span class="p">):</span> <span class="nc">Nat</span> <span class="o">=</span> <span class="bp">this</span> <span class="k">match</span> <span class="p">{</span>
-    <span class="k">case</span> <span class="nc">Zero</span> <span class="o">=&gt;</span> <span class="n">m</span>
-    <span class="k">case</span> <span class="nc">Succ</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="nc">Succ</span><span class="p">(</span><span class="n">n</span> <span class="o">+</span> <span class="n">m</span><span class="p">)</span>
-  <span class="p">}</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">sealed</span><span class="w"> </span><span class="k">abstract</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">Nat</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">+</span><span class="p">(</span><span class="n">m</span><span class="p">:</span><span class="w"> </span><span class="nc">Nat</span><span class="p">):</span><span class="w"> </span><span class="nc">Nat</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">this</span><span class="w"> </span><span class="k">match</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nc">Zero</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">m</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nc">Succ</span><span class="p">(</span><span class="n">n</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Succ</span><span class="p">(</span><span class="n">n</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">m</span><span class="p">)</span>
+<span class="w">  </span><span class="p">}</span>
 
-  <span class="k">def</span> <span class="nf">*</span><span class="p">(</span><span class="n">m</span><span class="p">:</span> <span class="nc">Nat</span><span class="p">):</span> <span class="nc">Nat</span> <span class="o">=</span> <span class="bp">this</span> <span class="k">match</span> <span class="p">{</span>
-    <span class="k">case</span> <span class="nc">Zero</span> <span class="o">=&gt;</span> <span class="nc">Zero</span>
-    <span class="k">case</span> <span class="nc">Succ</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="n">n</span> <span class="o">*</span> <span class="n">m</span> <span class="o">+</span> <span class="n">m</span>
-  <span class="p">}</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">*</span><span class="p">(</span><span class="n">m</span><span class="p">:</span><span class="w"> </span><span class="nc">Nat</span><span class="p">):</span><span class="w"> </span><span class="nc">Nat</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="bp">this</span><span class="w"> </span><span class="k">match</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nc">Zero</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Zero</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nc">Succ</span><span class="p">(</span><span class="n">n</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">m</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">m</span>
+<span class="w">  </span><span class="p">}</span>
 <span class="p">}</span>
 
-<span class="k">final</span> <span class="k">case</span> <span class="k">object</span> <span class="nc">Zero</span> <span class="k">extends</span> <span class="nc">Nat</span>
-<span class="k">final</span> <span class="k">case</span> <span class="k">class</span> <span class="nc">Succ</span><span class="p">(</span><span class="n">prev</span><span class="p">:</span> <span class="nc">Nat</span><span class="p">)</span> <span class="k">extends</span> <span class="nc">Nat</span>
+<span class="k">final</span><span class="w"> </span><span class="k">case</span><span class="w"> </span><span class="k">object</span><span class="w"> </span><span class="nc">Zero</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">Nat</span>
+<span class="k">final</span><span class="w"> </span><span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">Succ</span><span class="p">(</span><span class="n">prev</span><span class="p">:</span><span class="w"> </span><span class="nc">Nat</span><span class="p">)</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">Nat</span>
 
-<span class="k">final</span> <span class="kd">val</span> <span class="nc">One</span> <span class="o">=</span> <span class="nc">Succ</span><span class="p">(</span><span class="nc">Zero</span><span class="p">)</span>
+<span class="k">final</span><span class="w"> </span><span class="kd">val</span><span class="w"> </span><span class="nc">One</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Succ</span><span class="p">(</span><span class="nc">Zero</span><span class="p">)</span>
 
-<span class="k">implicit</span> <span class="k">def</span> <span class="nf">natAdditiveMonoid</span><span class="p">:</span> <span class="nc">Monoid</span><span class="p">[</span><span class="nc">Nat</span><span class="p">]</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Monoid</span><span class="p">[</span><span class="nc">Nat</span><span class="p">]</span> <span class="p">{</span>
-  <span class="k">def</span> <span class="nf">empty</span><span class="p">:</span> <span class="n">nat</span> <span class="o">=</span> <span class="nc">Zero</span>
-  <span class="k">def</span> <span class="nf">append</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">Nat</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nc">Nat</span><span class="p">):</span> <span class="nc">Nat</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="n">y</span>
+<span class="k">implicit</span><span class="w"> </span><span class="k">def</span><span class="w"> </span><span class="nf">natAdditiveMonoid</span><span class="p">:</span><span class="w"> </span><span class="nc">Monoid</span><span class="p">[</span><span class="nc">Nat</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="nc">Monoid</span><span class="p">[</span><span class="nc">Nat</span><span class="p">]</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">empty</span><span class="p">:</span><span class="w"> </span><span class="n">nat</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Zero</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">append</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">Nat</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="nc">Nat</span><span class="p">):</span><span class="w"> </span><span class="nc">Nat</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">y</span>
 <span class="p">}</span>
 </pre></div>
 </div>
 <p>To help Stainless out, one needs to prove that <code class="docutils literal notranslate"><span class="pre">Zero</span></code> indeed the right identity of <code class="docutils literal notranslate"><span class="pre">+</span></code>,
 as well as the associativity of the latter.</p>
 <div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="nd">@induct</span>
-<span class="k">def</span> <span class="nf">lemma_rightIdentity_plus</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">Nat</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
-  <span class="n">x</span> <span class="o">+</span> <span class="nc">Zero</span> <span class="o">==</span> <span class="n">x</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">lemma_rightIdentity_plus</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">Nat</span><span class="p">):</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">x</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nc">Zero</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">x</span>
 <span class="p">}.</span><span class="n">holds</span>
 
 <span class="nd">@induct</span>
-<span class="k">def</span> <span class="nf">lemma_associativity_plus</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">Nat</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nc">Nat</span><span class="p">,</span> <span class="n">z</span><span class="p">:</span> <span class="nc">Nat</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
-  <span class="n">x</span> <span class="o">+</span> <span class="p">(</span><span class="n">y</span> <span class="o">+</span> <span class="n">z</span><span class="p">)</span> <span class="o">==</span> <span class="p">(</span><span class="n">x</span> <span class="o">+</span> <span class="n">y</span><span class="p">)</span> <span class="o">+</span> <span class="n">z</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">lemma_associativity_plus</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">Nat</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="nc">Nat</span><span class="p">,</span><span class="w"> </span><span class="n">z</span><span class="p">:</span><span class="w"> </span><span class="nc">Nat</span><span class="p">):</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">x</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="n">y</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">z</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="p">(</span><span class="n">x</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">y</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">z</span>
 <span class="p">}.</span><span class="n">holds</span>
 </pre></div>
 </div>
 <p>One can then override the law of interest, and instantiate the lemma over the relevant parameters:</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">implicit</span> <span class="k">def</span> <span class="nf">natAdditiveMonoid</span><span class="p">:</span> <span class="nc">Monoid</span><span class="p">[</span><span class="nc">Nat</span><span class="p">]</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Monoid</span><span class="p">[</span><span class="nc">Nat</span><span class="p">]</span> <span class="p">{</span>
-  <span class="k">def</span> <span class="nf">empty</span><span class="p">:</span> <span class="n">nat</span> <span class="o">=</span> <span class="nc">Zero</span>
-  <span class="k">def</span> <span class="nf">append</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">Nat</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nc">Nat</span><span class="p">):</span> <span class="nc">Nat</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="n">y</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">implicit</span><span class="w"> </span><span class="k">def</span><span class="w"> </span><span class="nf">natAdditiveMonoid</span><span class="p">:</span><span class="w"> </span><span class="nc">Monoid</span><span class="p">[</span><span class="nc">Nat</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="nc">Monoid</span><span class="p">[</span><span class="nc">Nat</span><span class="p">]</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">empty</span><span class="p">:</span><span class="w"> </span><span class="n">nat</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Zero</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">append</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">Nat</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="nc">Nat</span><span class="p">):</span><span class="w"> </span><span class="nc">Nat</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">y</span>
 
-  <span class="k">override</span> <span class="k">def</span> <span class="nf">law_rightIdentity</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">Nat</span><span class="p">)</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="bp">super</span><span class="p">.</span><span class="n">law_rightIdentity</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="n">because</span> <span class="n">lemma_rightIdentity_plus</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-  <span class="p">}</span>
+<span class="w">  </span><span class="k">override</span><span class="w"> </span><span class="k">def</span><span class="w"> </span><span class="nf">law_rightIdentity</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">Nat</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="bp">super</span><span class="p">.</span><span class="n">law_rightIdentity</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="w"> </span><span class="n">because</span><span class="w"> </span><span class="n">lemma_rightIdentity_plus</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<span class="w">  </span><span class="p">}</span>
 
-  <span class="k">override</span> <span class="k">def</span> <span class="nf">law_associativity</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">Nat</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nc">Nat</span><span class="p">,</span> <span class="n">z</span><span class="p">:</span> <span class="nc">Nat</span><span class="p">)</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="bp">super</span><span class="p">.</span><span class="n">law_associativity</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">)</span> <span class="n">because</span> <span class="n">lemma_associativity_plus</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">)</span>
-  <span class="p">}</span>
+<span class="w">  </span><span class="k">override</span><span class="w"> </span><span class="k">def</span><span class="w"> </span><span class="nf">law_associativity</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">Nat</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="nc">Nat</span><span class="p">,</span><span class="w"> </span><span class="n">z</span><span class="p">:</span><span class="w"> </span><span class="nc">Nat</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="bp">super</span><span class="p">.</span><span class="n">law_associativity</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">,</span><span class="w"> </span><span class="n">z</span><span class="p">)</span><span class="w"> </span><span class="n">because</span><span class="w"> </span><span class="n">lemma_associativity_plus</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">,</span><span class="w"> </span><span class="n">z</span><span class="p">)</span>
+<span class="w">  </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
 </div>
 <p>With these modifications, the example goes through without a hitch.</p>
 </section>
 <section id="typeclass-inheritance">
-<h2>Typeclass inheritance<a class="headerlink" href="#typeclass-inheritance" title="Permalink to this headline">¶</a></h2>
+<h2>Typeclass inheritance<a class="headerlink" href="#typeclass-inheritance" title="Link to this heading">¶</a></h2>
 <p>Some algebraic structures can be defined as some other algebraic structure plus some additional
 operations and/or laws, eg. a monoid can be seen as a semigroup with identity.</p>
 <p>In Scala, typeclasses allow to represent such relationship between algebraic structures by mean of inheritance.</p>
 <p>Let’s take for example the <code class="docutils literal notranslate"><span class="pre">Ord</span></code> typeclass, which describes totally ordered datatypes.</p>
 <p>This class is defined as follows:</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">trait</span> <span class="nc">Eq</span><span class="p">[</span><span class="nc">A</span><span class="p">]</span> <span class="p">{</span>
-  <span class="k">def</span> <span class="nf">equals</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">A</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nc">A</span><span class="p">):</span> <span class="nc">Boolean</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">trait</span><span class="w"> </span><span class="nc">Eq</span><span class="p">[</span><span class="nc">A</span><span class="p">]</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">equals</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">A</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="nc">A</span><span class="p">):</span><span class="w"> </span><span class="nc">Boolean</span>
 <span class="p">}</span>
 
-<span class="k">trait</span> <span class="nc">Ord</span><span class="p">[</span><span class="nc">A</span><span class="p">]</span> <span class="k">extends</span> <span class="nc">Eq</span><span class="p">[</span><span class="nc">A</span><span class="p">]</span> <span class="p">{</span>
-  <span class="k">def</span> <span class="nf">lessThanEq</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">A</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nc">A</span><span class="p">):</span> <span class="nc">Boolean</span>
+<span class="k">trait</span><span class="w"> </span><span class="nc">Ord</span><span class="p">[</span><span class="nc">A</span><span class="p">]</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">Eq</span><span class="p">[</span><span class="nc">A</span><span class="p">]</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">lessThanEq</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">A</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="nc">A</span><span class="p">):</span><span class="w"> </span><span class="nc">Boolean</span>
 
-  <span class="k">def</span> <span class="nf">lessThan</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">A</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nc">A</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="n">lessThanEq</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="n">equals</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">lessThan</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">A</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="nc">A</span><span class="p">):</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">lessThanEq</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="o">!</span><span class="n">equals</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">)</span>
 <span class="p">}</span>
 </pre></div>
 </div>
 <p>This can also be read as: if <code class="docutils literal notranslate"><span class="pre">A</span></code> is an instance of <code class="docutils literal notranslate"><span class="pre">Ord</span></code>, then it also is a instance of <code class="docutils literal notranslate"><span class="pre">Eq</span></code>.</p>
 </section>
 <section id="associated-methods">
-<h2>Associated methods<a class="headerlink" href="#associated-methods" title="Permalink to this headline">¶</a></h2>
+<h2>Associated methods<a class="headerlink" href="#associated-methods" title="Link to this heading">¶</a></h2>
 <p>On top of abstract operations, a typeclass can also introduces concrete methods which
 do not need to (but can) be re-defined by the programmer at instance declaration time,
 just like the <code class="docutils literal notranslate"><span class="pre">lessThan</span></code> method of the <code class="docutils literal notranslate"><span class="pre">Ord</span></code> class above.</p>
 <p>While such methods could be defined as a standalone function with an <code class="docutils literal notranslate"><span class="pre">Ord</span></code> constraint,
 having it be a part of the class allows users to override it with e.g. a more efficient
 implementation specific to the datatype they are instantiating the class for, as shown below:</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">case</span> <span class="k">object</span> <span class="nc">BigIntOrd</span> <span class="k">extends</span> <span class="nc">Ord</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">]</span> <span class="p">{</span>
-  <span class="k">def</span> <span class="nf">equal</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">)</span> <span class="o">=</span> <span class="n">x</span> <span class="o">==</span> <span class="n">y</span>
-  <span class="k">def</span> <span class="nf">lessThanEq</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">)</span> <span class="o">=</span> <span class="n">x</span> <span class="o">&lt;=</span> <span class="n">y</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">case</span><span class="w"> </span><span class="k">object</span><span class="w"> </span><span class="nc">BigIntOrd</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">Ord</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">]</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">equal</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">y</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">lessThanEq</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">y</span>
 
-  <span class="k">override</span> <span class="k">def</span> <span class="nf">lessThan</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">)</span> <span class="n">x</span> <span class="o">&lt;</span> <span class="n">y</span>
+<span class="w">  </span><span class="k">override</span><span class="w"> </span><span class="k">def</span><span class="w"> </span><span class="nf">lessThan</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">)</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">y</span>
 <span class="p">}</span>
 </pre></div>
 </div>
 </section>
 <section id="coherence">
-<h2>Coherence<a class="headerlink" href="#coherence" title="Permalink to this headline">¶</a></h2>
+<h2>Coherence<a class="headerlink" href="#coherence" title="Link to this heading">¶</a></h2>
 <p>Let’s now look at an issue that might arise when working with typeclasses in Scala.</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">abstract</span> <span class="k">class</span> <span class="nc">Monoid</span><span class="p">[</span><span class="nc">A</span><span class="p">]</span> <span class="p">{</span>
-  <span class="k">def</span> <span class="nf">empty</span><span class="p">:</span> <span class="nc">A</span>
-  <span class="k">def</span> <span class="nf">combine</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">A</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nc">A</span><span class="p">):</span> <span class="nc">A</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">abstract</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">Monoid</span><span class="p">[</span><span class="nc">A</span><span class="p">]</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">empty</span><span class="p">:</span><span class="w"> </span><span class="nc">A</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">combine</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">A</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="nc">A</span><span class="p">):</span><span class="w"> </span><span class="nc">A</span>
 <span class="p">}</span>
 
-<span class="k">implicit</span> <span class="kd">val</span> <span class="n">bigIntAddMonoid</span><span class="p">:</span> <span class="nc">Monoid</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">]</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Monoid</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">]</span> <span class="p">{</span>
-  <span class="k">override</span> <span class="k">def</span> <span class="nf">empty</span><span class="p">:</span> <span class="nc">BigInt</span> <span class="o">=</span> <span class="mi">0</span>
-  <span class="k">override</span> <span class="k">def</span> <span class="nf">combine</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">):</span> <span class="nc">BigInt</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="n">y</span>
+<span class="k">implicit</span><span class="w"> </span><span class="kd">val</span><span class="w"> </span><span class="n">bigIntAddMonoid</span><span class="p">:</span><span class="w"> </span><span class="nc">Monoid</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="nc">Monoid</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">]</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">override</span><span class="w"> </span><span class="k">def</span><span class="w"> </span><span class="nf">empty</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">  </span><span class="k">override</span><span class="w"> </span><span class="k">def</span><span class="w"> </span><span class="nf">combine</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">):</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">y</span>
 <span class="p">}</span>
 
-<span class="k">implicit</span> <span class="kd">val</span> <span class="n">bigIntProdMonoid</span><span class="p">:</span> <span class="nc">Monoid</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">]</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Monoid</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">]</span> <span class="p">{</span>
-  <span class="k">override</span> <span class="k">def</span> <span class="nf">empty</span><span class="p">:</span> <span class="nc">BigInt</span> <span class="o">=</span> <span class="mi">1</span>
-  <span class="k">override</span> <span class="k">def</span> <span class="nf">combine</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">):</span> <span class="nc">BigInt</span> <span class="o">=</span> <span class="n">x</span> <span class="o">*</span> <span class="n">y</span>
+<span class="k">implicit</span><span class="w"> </span><span class="kd">val</span><span class="w"> </span><span class="n">bigIntProdMonoid</span><span class="p">:</span><span class="w"> </span><span class="nc">Monoid</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="nc">Monoid</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">]</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">override</span><span class="w"> </span><span class="k">def</span><span class="w"> </span><span class="nf">empty</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span>
+<span class="w">  </span><span class="k">override</span><span class="w"> </span><span class="k">def</span><span class="w"> </span><span class="nf">combine</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">):</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">y</span>
 <span class="p">}</span>
 
-<span class="k">def</span> <span class="nf">fold</span><span class="p">[</span><span class="nc">A</span><span class="p">](</span><span class="n">list</span><span class="p">:</span> <span class="nc">List</span><span class="p">[</span><span class="nc">A</span><span class="p">])(</span><span class="k">implicit</span> <span class="nc">M</span><span class="p">:</span> <span class="nc">Monoid</span><span class="p">[</span><span class="nc">A</span><span class="p">]):</span> <span class="nc">A</span> <span class="o">=</span> <span class="p">{</span>
-  <span class="n">list</span><span class="p">.</span><span class="n">foldRight</span><span class="p">(</span><span class="nc">M</span><span class="p">.</span><span class="n">empty</span><span class="p">)(</span><span class="nc">M</span><span class="p">.</span><span class="n">combine</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">fold</span><span class="p">[</span><span class="nc">A</span><span class="p">](</span><span class="n">list</span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">A</span><span class="p">])(</span><span class="k">implicit</span><span class="w"> </span><span class="nc">M</span><span class="p">:</span><span class="w"> </span><span class="nc">Monoid</span><span class="p">[</span><span class="nc">A</span><span class="p">]):</span><span class="w"> </span><span class="nc">A</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">list</span><span class="p">.</span><span class="n">foldRight</span><span class="p">(</span><span class="nc">M</span><span class="p">.</span><span class="n">empty</span><span class="p">)(</span><span class="nc">M</span><span class="p">.</span><span class="n">combine</span><span class="p">)</span>
 <span class="p">}</span>
 
-<span class="kd">val</span> <span class="n">list</span><span class="p">:</span> <span class="nc">List</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">]</span> <span class="o">=</span> <span class="nc">List</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
-<span class="kd">val</span> <span class="n">res</span><span class="p">:</span> <span class="nc">BigInt</span> <span class="o">=</span> <span class="n">fold</span><span class="p">(</span><span class="n">list</span><span class="p">)</span> <span class="c1">// ?</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">list</span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">List</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">)</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">res</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fold</span><span class="p">(</span><span class="n">list</span><span class="p">)</span><span class="w"> </span><span class="c1">// ?</span>
 </pre></div>
 </div>
 <p>Here, the Scala compiler bails out with an <em>ambiguous implicits</em> error but for good reasons this time.
@@ -333,83 +332,83 @@ instances altogether, but this has not been implemented yet.</p>
 <p>One might still want to provide both an additive and multiplicative <code class="docutils literal notranslate"><span class="pre">Monoid</span></code> instance for integers.
 To this end, one can wrap values of type <code class="docutils literal notranslate"><span class="pre">BigInt</span></code> with two different wrapper classes for which
 we will define the respective instances:</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">case</span> <span class="k">class</span> <span class="nc">Sum</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">)</span>     <span class="k">extends</span> <span class="nc">AnyVal</span>
-<span class="k">case</span> <span class="k">class</span> <span class="nc">Product</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">)</span> <span class="k">extends</span> <span class="nc">AnyVal</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">Sum</span><span class="p">(</span><span class="n">value</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">)</span><span class="w">     </span><span class="k">extends</span><span class="w"> </span><span class="nc">AnyVal</span>
+<span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">Product</span><span class="p">(</span><span class="n">value</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">)</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">AnyVal</span>
 
-<span class="k">implicit</span> <span class="kd">val</span> <span class="n">bigIntSumMonoid</span><span class="p">:</span> <span class="nc">Monoid</span><span class="p">[</span><span class="nc">Sum</span><span class="p">]</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Monoid</span><span class="p">[</span><span class="nc">Sum</span><span class="p">]</span> <span class="p">{</span>
-  <span class="k">override</span> <span class="k">def</span> <span class="nf">empty</span><span class="p">:</span> <span class="nc">Sum</span> <span class="o">=</span> <span class="nc">Sum</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-  <span class="k">override</span> <span class="k">def</span> <span class="nf">combine</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">Int</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nc">Int</span><span class="p">):</span> <span class="nc">Sum</span> <span class="o">=</span> <span class="nc">Sum</span><span class="p">(</span><span class="n">x</span><span class="p">.</span><span class="n">value</span> <span class="o">+</span> <span class="n">y</span><span class="p">.</span><span class="n">value</span><span class="p">)</span>
+<span class="k">implicit</span><span class="w"> </span><span class="kd">val</span><span class="w"> </span><span class="n">bigIntSumMonoid</span><span class="p">:</span><span class="w"> </span><span class="nc">Monoid</span><span class="p">[</span><span class="nc">Sum</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="nc">Monoid</span><span class="p">[</span><span class="nc">Sum</span><span class="p">]</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">override</span><span class="w"> </span><span class="k">def</span><span class="w"> </span><span class="nf">empty</span><span class="p">:</span><span class="w"> </span><span class="nc">Sum</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Sum</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="w">  </span><span class="k">override</span><span class="w"> </span><span class="k">def</span><span class="w"> </span><span class="nf">combine</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">):</span><span class="w"> </span><span class="nc">Sum</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Sum</span><span class="p">(</span><span class="n">x</span><span class="p">.</span><span class="n">value</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">y</span><span class="p">.</span><span class="n">value</span><span class="p">)</span>
 <span class="p">}</span>
 
-<span class="k">implicit</span> <span class="kd">val</span> <span class="n">bigIntProductMonoid</span><span class="p">:</span> <span class="nc">Monoid</span><span class="p">[</span><span class="nc">Product</span><span class="p">]</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Monoid</span><span class="p">[</span><span class="nc">Product</span><span class="p">]</span> <span class="p">{</span>
-  <span class="k">override</span> <span class="k">def</span> <span class="nf">empty</span><span class="p">:</span> <span class="nc">Product</span> <span class="o">=</span> <span class="nc">Product</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
-  <span class="k">override</span> <span class="k">def</span> <span class="nf">combine</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">Int</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nc">Int</span><span class="p">):</span> <span class="nc">Product</span> <span class="o">=</span> <span class="nc">Product</span><span class="p">(</span><span class="n">x</span><span class="p">.</span><span class="n">value</span> <span class="o">*</span> <span class="n">y</span><span class="p">.</span><span class="n">value</span><span class="p">)</span>
+<span class="k">implicit</span><span class="w"> </span><span class="kd">val</span><span class="w"> </span><span class="n">bigIntProductMonoid</span><span class="p">:</span><span class="w"> </span><span class="nc">Monoid</span><span class="p">[</span><span class="nc">Product</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="nc">Monoid</span><span class="p">[</span><span class="nc">Product</span><span class="p">]</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">override</span><span class="w"> </span><span class="k">def</span><span class="w"> </span><span class="nf">empty</span><span class="p">:</span><span class="w"> </span><span class="nc">Product</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Product</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="w">  </span><span class="k">override</span><span class="w"> </span><span class="k">def</span><span class="w"> </span><span class="nf">combine</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">):</span><span class="w"> </span><span class="nc">Product</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Product</span><span class="p">(</span><span class="n">x</span><span class="p">.</span><span class="n">value</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">y</span><span class="p">.</span><span class="n">value</span><span class="p">)</span>
 <span class="p">}</span>
 </pre></div>
 </div>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">foldMap</span><span class="p">[</span><span class="nc">A</span><span class="p">,</span> <span class="nc">B</span><span class="p">](</span><span class="n">list</span><span class="p">:</span> <span class="nc">List</span><span class="p">[</span><span class="nc">A</span><span class="p">])(</span><span class="n">f</span><span class="p">:</span> <span class="nc">A</span> <span class="o">=&gt;</span> <span class="nc">B</span><span class="p">)(</span><span class="k">implicit</span> <span class="nc">M</span><span class="p">:</span> <span class="nc">Monoid</span><span class="p">[</span><span class="nc">B</span><span class="p">]):</span> <span class="nc">B</span> <span class="o">=</span> <span class="p">{</span>
-  <span class="n">list</span><span class="p">.</span><span class="n">map</span><span class="p">(</span><span class="n">f</span><span class="p">).</span><span class="n">foldRight</span><span class="p">(</span><span class="nc">M</span><span class="p">.</span><span class="n">empty</span><span class="p">)(</span><span class="nc">M</span><span class="p">.</span><span class="n">combine</span><span class="p">)</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">foldMap</span><span class="p">[</span><span class="nc">A</span><span class="p">,</span><span class="w"> </span><span class="nc">B</span><span class="p">](</span><span class="n">list</span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">A</span><span class="p">])(</span><span class="n">f</span><span class="p">:</span><span class="w"> </span><span class="nc">A</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">B</span><span class="p">)(</span><span class="k">implicit</span><span class="w"> </span><span class="nc">M</span><span class="p">:</span><span class="w"> </span><span class="nc">Monoid</span><span class="p">[</span><span class="nc">B</span><span class="p">]):</span><span class="w"> </span><span class="nc">B</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">list</span><span class="p">.</span><span class="n">map</span><span class="p">(</span><span class="n">f</span><span class="p">).</span><span class="n">foldRight</span><span class="p">(</span><span class="nc">M</span><span class="p">.</span><span class="n">empty</span><span class="p">)(</span><span class="nc">M</span><span class="p">.</span><span class="n">combine</span><span class="p">)</span>
 <span class="p">}</span>
 </pre></div>
 </div>
 <p>It then becomes possible to unambiguously pick which instance to use depending on the semantics one wants:</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="kd">val</span> <span class="n">list</span><span class="p">:</span> <span class="nc">List</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">]</span> <span class="o">=</span> <span class="nc">List</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="kd">val</span><span class="w"> </span><span class="n">list</span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">List</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">)</span>
 
-<span class="kd">val</span> <span class="n">sum</span><span class="p">:</span> <span class="nc">BigInt</span>     <span class="o">=</span> <span class="n">foldMap</span><span class="p">(</span><span class="n">list</span><span class="p">)(</span><span class="nc">Sum</span><span class="p">(</span><span class="n">_</span><span class="p">)).</span><span class="n">value</span>     <span class="c1">// 5</span>
-<span class="kd">val</span> <span class="n">product</span><span class="p">:</span> <span class="nc">BigInt</span> <span class="o">=</span> <span class="n">foldMap</span><span class="p">(</span><span class="n">list</span><span class="p">)(</span><span class="nc">Product</span><span class="p">(</span><span class="n">_</span><span class="p">)).</span><span class="n">value</span> <span class="c1">// 6</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">sum</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="n">foldMap</span><span class="p">(</span><span class="n">list</span><span class="p">)(</span><span class="nc">Sum</span><span class="p">(</span><span class="n">_</span><span class="p">)).</span><span class="n">value</span><span class="w">     </span><span class="c1">// 5</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">product</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">foldMap</span><span class="p">(</span><span class="n">list</span><span class="p">)(</span><span class="nc">Product</span><span class="p">(</span><span class="n">_</span><span class="p">)).</span><span class="n">value</span><span class="w"> </span><span class="c1">// 6</span>
 </pre></div>
 </div>
 </section>
 <section id="under-the-hood">
-<h2>Under the hood<a class="headerlink" href="#under-the-hood" title="Permalink to this headline">¶</a></h2>
+<h2>Under the hood<a class="headerlink" href="#under-the-hood" title="Link to this heading">¶</a></h2>
 <p>In this section we describe how laws are encoded within Stainless.</p>
 <p>Let’s take as an example the Semigroup+Monoid hierarchy, slightly
 amended to exercise at once all the features described above.</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">abstract</span> <span class="k">class</span> <span class="nc">Semigroup</span><span class="p">[</span><span class="nc">A</span><span class="p">]</span> <span class="p">{</span>
-  <span class="k">def</span> <span class="nf">append</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">A</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nc">A</span><span class="p">):</span> <span class="nc">A</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">abstract</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">Semigroup</span><span class="p">[</span><span class="nc">A</span><span class="p">]</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">append</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">A</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="nc">A</span><span class="p">):</span><span class="w"> </span><span class="nc">A</span>
 
-  <span class="nd">@law</span>
-  <span class="k">def</span> <span class="nf">law_associativity</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">A</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nc">A</span><span class="p">,</span> <span class="n">z</span><span class="p">:</span> <span class="nc">A</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="n">append</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">append</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">))</span> <span class="o">==</span> <span class="n">append</span><span class="p">(</span><span class="n">append</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">),</span> <span class="n">z</span><span class="p">)</span>
-  <span class="p">}</span>
+<span class="w">  </span><span class="nd">@law</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">law_associativity</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">A</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="nc">A</span><span class="p">,</span><span class="w"> </span><span class="n">z</span><span class="p">:</span><span class="w"> </span><span class="nc">A</span><span class="p">):</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">append</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">append</span><span class="p">(</span><span class="n">y</span><span class="p">,</span><span class="w"> </span><span class="n">z</span><span class="p">))</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">append</span><span class="p">(</span><span class="n">append</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">),</span><span class="w"> </span><span class="n">z</span><span class="p">)</span>
+<span class="w">  </span><span class="p">}</span>
 <span class="p">}</span>
 
-<span class="k">abstract</span> <span class="k">class</span> <span class="nc">Monoid</span><span class="p">[</span><span class="nc">A</span><span class="p">]</span> <span class="k">extends</span> <span class="nc">Semigroup</span><span class="p">[</span><span class="nc">A</span><span class="p">]</span> <span class="p">{</span>
-  <span class="k">def</span> <span class="nf">empty</span><span class="p">:</span> <span class="nc">A</span>
+<span class="k">abstract</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">Monoid</span><span class="p">[</span><span class="nc">A</span><span class="p">]</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">Semigroup</span><span class="p">[</span><span class="nc">A</span><span class="p">]</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">empty</span><span class="p">:</span><span class="w"> </span><span class="nc">A</span>
 
-  <span class="nd">@law</span>
-  <span class="k">def</span> <span class="nf">law_leftIdentity</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">A</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="n">append</span><span class="p">(</span><span class="n">empty</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span> <span class="o">==</span> <span class="n">x</span>
-  <span class="p">}</span>
+<span class="w">  </span><span class="nd">@law</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">law_leftIdentity</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">A</span><span class="p">):</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">append</span><span class="p">(</span><span class="n">empty</span><span class="p">,</span><span class="w"> </span><span class="n">x</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">x</span>
+<span class="w">  </span><span class="p">}</span>
 
-  <span class="nd">@law</span>
-  <span class="k">def</span> <span class="nf">law_rightIdentity</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">A</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="n">append</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">empty</span><span class="p">)</span> <span class="o">==</span> <span class="n">x</span>
-  <span class="p">}</span>
+<span class="w">  </span><span class="nd">@law</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">law_rightIdentity</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">A</span><span class="p">):</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">append</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">empty</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">x</span>
+<span class="w">  </span><span class="p">}</span>
 
-  <span class="k">override</span> <span class="k">def</span> <span class="nf">law_associativity</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">A</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nc">A</span><span class="p">,</span> <span class="n">z</span><span class="p">:</span> <span class="nc">A</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="c1">// We refine the Semigroup associativity law with a dummy</span>
-    <span class="c1">// predicate `refineLaw` to demonstrate this feature.</span>
-    <span class="bp">super</span><span class="p">.</span><span class="n">law_associativity</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="n">refineLaw</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">)</span>
-  <span class="p">}</span>
+<span class="w">  </span><span class="k">override</span><span class="w"> </span><span class="k">def</span><span class="w"> </span><span class="nf">law_associativity</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">A</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="nc">A</span><span class="p">,</span><span class="w"> </span><span class="n">z</span><span class="p">:</span><span class="w"> </span><span class="nc">A</span><span class="p">):</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// We refine the Semigroup associativity law with a dummy</span>
+<span class="w">    </span><span class="c1">// predicate `refineLaw` to demonstrate this feature.</span>
+<span class="w">    </span><span class="bp">super</span><span class="p">.</span><span class="n">law_associativity</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">,</span><span class="w"> </span><span class="n">z</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">refineLaw</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">,</span><span class="w"> </span><span class="n">z</span><span class="p">)</span>
+<span class="w">  </span><span class="p">}</span>
 <span class="p">}</span>
 
-<span class="k">def</span> <span class="nf">refineLaw</span><span class="p">[</span><span class="nc">A</span><span class="p">](</span><span class="n">x</span><span class="p">:</span> <span class="nc">A</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nc">A</span><span class="p">,</span> <span class="n">z</span><span class="p">:</span> <span class="nc">A</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="kc">true</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">refineLaw</span><span class="p">[</span><span class="nc">A</span><span class="p">](</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">A</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="nc">A</span><span class="p">,</span><span class="w"> </span><span class="n">z</span><span class="p">:</span><span class="w"> </span><span class="nc">A</span><span class="p">):</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
 </pre></div>
 </div>
 <p>Together with a simple implementation for <code class="docutils literal notranslate"><span class="pre">BigInt</span></code>:</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">bigIntAdditiveMonoid</span><span class="p">:</span> <span class="nc">Monoid</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">]</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Monoid</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">]</span> <span class="p">{</span>
-  <span class="k">def</span> <span class="nf">empty</span><span class="p">:</span> <span class="nc">BigInt</span> <span class="o">=</span> <span class="mi">0</span>
-  <span class="k">def</span> <span class="nf">append</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">):</span> <span class="nc">BigInt</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="n">y</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">bigIntAdditiveMonoid</span><span class="p">:</span><span class="w"> </span><span class="nc">Monoid</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="nc">Monoid</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">]</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">empty</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">append</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">):</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">y</span>
 
-  <span class="k">override</span> <span class="k">def</span> <span class="nf">law_rightIdentity</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="c1">// no manual proof is needed in this case, but we include</span>
-    <span class="c1">// a dummy one for the sake of this example.</span>
-    <span class="n">someProof</span>
-  <span class="p">}</span>
+<span class="w">  </span><span class="k">override</span><span class="w"> </span><span class="k">def</span><span class="w"> </span><span class="nf">law_rightIdentity</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">):</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// no manual proof is needed in this case, but we include</span>
+<span class="w">    </span><span class="c1">// a dummy one for the sake of this example.</span>
+<span class="w">    </span><span class="n">someProof</span>
+<span class="w">  </span><span class="p">}</span>
 <span class="p">}</span>
 
-<span class="k">def</span> <span class="nf">someProof</span><span class="p">:</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="kc">true</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">someProof</span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
 </pre></div>
 </div>
 <p>Here is the internal Stainless AST pretty much right after extraction
@@ -418,146 +417,146 @@ from the Scala compiler.</p>
 (ie. the number after the <code class="docutils literal notranslate"><span class="pre">$</span></code> sign at the end of its name) which will prove useful
 for reading the code after the next phase, as it introduces new symbols with the same
 name but different identifiers.</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">abstract</span> <span class="k">class</span> <span class="nc">Semigroup$0</span><span class="p">[</span><span class="nc">A$85</span><span class="p">]</span> <span class="p">{</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">abstract</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">Semigroup$0</span><span class="p">[</span><span class="nc">A$85</span><span class="p">]</span><span class="w"> </span><span class="p">{</span>
 
-  <span class="nd">@abstract</span>
-  <span class="k">def</span> <span class="nf">append$3</span><span class="p">(</span><span class="n">x$108</span><span class="p">:</span> <span class="nc">A$85</span><span class="p">,</span> <span class="n">y$24</span><span class="p">:</span> <span class="nc">A$85</span><span class="p">):</span> <span class="nc">A$85</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">empty</span> <span class="n">tree</span><span class="o">&gt;</span><span class="p">[</span><span class="nc">A$85</span><span class="p">]</span>
+<span class="w">  </span><span class="nd">@abstract</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">append$3</span><span class="p">(</span><span class="n">x$108</span><span class="p">:</span><span class="w"> </span><span class="nc">A$85</span><span class="p">,</span><span class="w"> </span><span class="n">y$24</span><span class="p">:</span><span class="w"> </span><span class="nc">A$85</span><span class="p">):</span><span class="w"> </span><span class="nc">A$85</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="n">empty</span><span class="w"> </span><span class="n">tree</span><span class="o">&gt;</span><span class="p">[</span><span class="nc">A$85</span><span class="p">]</span>
 
-  <span class="nd">@law</span>
-  <span class="k">def</span> <span class="nf">law_associativity$0</span><span class="p">(</span><span class="n">x$109</span><span class="p">:</span> <span class="nc">A$85</span><span class="p">,</span> <span class="n">y$25</span><span class="p">:</span> <span class="nc">A$85</span><span class="p">,</span> <span class="n">z$11</span><span class="p">:</span> <span class="nc">A$85</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="bp">this</span><span class="p">.</span><span class="n">append$3</span><span class="p">(</span><span class="n">x$109</span><span class="p">,</span> <span class="bp">this</span><span class="p">.</span><span class="n">append$3</span><span class="p">(</span><span class="n">y$25</span><span class="p">,</span> <span class="n">z$11</span><span class="p">))</span> <span class="o">==</span>
-    <span class="bp">this</span><span class="p">.</span><span class="n">append$3</span><span class="p">(</span><span class="bp">this</span><span class="p">.</span><span class="n">append$3</span><span class="p">(</span><span class="n">x$109</span><span class="p">,</span> <span class="n">y$25</span><span class="p">),</span> <span class="n">z$11</span><span class="p">)</span>
-   <span class="p">}</span>
+<span class="w">  </span><span class="nd">@law</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">law_associativity$0</span><span class="p">(</span><span class="n">x$109</span><span class="p">:</span><span class="w"> </span><span class="nc">A$85</span><span class="p">,</span><span class="w"> </span><span class="n">y$25</span><span class="p">:</span><span class="w"> </span><span class="nc">A$85</span><span class="p">,</span><span class="w"> </span><span class="n">z$11</span><span class="p">:</span><span class="w"> </span><span class="nc">A$85</span><span class="p">):</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="bp">this</span><span class="p">.</span><span class="n">append$3</span><span class="p">(</span><span class="n">x$109</span><span class="p">,</span><span class="w"> </span><span class="bp">this</span><span class="p">.</span><span class="n">append$3</span><span class="p">(</span><span class="n">y$25</span><span class="p">,</span><span class="w"> </span><span class="n">z$11</span><span class="p">))</span><span class="w"> </span><span class="o">==</span>
+<span class="w">    </span><span class="bp">this</span><span class="p">.</span><span class="n">append$3</span><span class="p">(</span><span class="bp">this</span><span class="p">.</span><span class="n">append$3</span><span class="p">(</span><span class="n">x$109</span><span class="p">,</span><span class="w"> </span><span class="n">y$25</span><span class="p">),</span><span class="w"> </span><span class="n">z$11</span><span class="p">)</span>
+<span class="w">   </span><span class="p">}</span>
 <span class="p">}</span>
 
-<span class="k">abstract</span> <span class="k">class</span> <span class="nc">Monoid$0</span><span class="p">[</span><span class="nc">A$86</span><span class="p">]</span> <span class="k">extends</span> <span class="nc">Semigroup$0</span><span class="p">[</span><span class="nc">A$86</span><span class="p">]</span> <span class="p">{</span>
+<span class="k">abstract</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">Monoid$0</span><span class="p">[</span><span class="nc">A$86</span><span class="p">]</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">Semigroup$0</span><span class="p">[</span><span class="nc">A$86</span><span class="p">]</span><span class="w"> </span><span class="p">{</span>
 
-  <span class="nd">@abstract</span>
-  <span class="k">def</span> <span class="nf">empty$6</span><span class="p">:</span> <span class="nc">A$86</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">empty</span> <span class="n">tree</span><span class="o">&gt;</span><span class="p">[</span><span class="nc">A$86</span><span class="p">]</span>
+<span class="w">  </span><span class="nd">@abstract</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">empty$6</span><span class="p">:</span><span class="w"> </span><span class="nc">A$86</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="n">empty</span><span class="w"> </span><span class="n">tree</span><span class="o">&gt;</span><span class="p">[</span><span class="nc">A$86</span><span class="p">]</span>
 
-  <span class="nd">@law</span>
-  <span class="k">def</span> <span class="nf">law_leftIdentity$0</span><span class="p">(</span><span class="n">x$110</span><span class="p">:</span> <span class="nc">A$86</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span>
-   <span class="bp">this</span><span class="p">.</span><span class="n">append$3</span><span class="p">(</span><span class="bp">this</span><span class="p">.</span><span class="n">empty$6</span><span class="p">,</span> <span class="n">x$110</span><span class="p">)</span> <span class="o">==</span> <span class="n">x$110</span>
+<span class="w">  </span><span class="nd">@law</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">law_leftIdentity$0</span><span class="p">(</span><span class="n">x$110</span><span class="p">:</span><span class="w"> </span><span class="nc">A$86</span><span class="p">):</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span>
+<span class="w">   </span><span class="bp">this</span><span class="p">.</span><span class="n">append$3</span><span class="p">(</span><span class="bp">this</span><span class="p">.</span><span class="n">empty$6</span><span class="p">,</span><span class="w"> </span><span class="n">x$110</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">x$110</span>
 
-  <span class="nd">@law</span>
-  <span class="k">def</span> <span class="nf">law_rightIdentity$0</span><span class="p">(</span><span class="n">x$111</span><span class="p">:</span> <span class="nc">A$86</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span>
-   <span class="bp">this</span><span class="p">.</span><span class="n">append$3</span><span class="p">(</span><span class="n">x$111</span><span class="p">,</span> <span class="bp">this</span><span class="p">.</span><span class="n">empty$6</span><span class="p">)</span> <span class="o">==</span> <span class="n">x$111</span>
+<span class="w">  </span><span class="nd">@law</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">law_rightIdentity$0</span><span class="p">(</span><span class="n">x$111</span><span class="p">:</span><span class="w"> </span><span class="nc">A$86</span><span class="p">):</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span>
+<span class="w">   </span><span class="bp">this</span><span class="p">.</span><span class="n">append$3</span><span class="p">(</span><span class="n">x$111</span><span class="p">,</span><span class="w"> </span><span class="bp">this</span><span class="p">.</span><span class="n">empty$6</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">x$111</span>
 
-  <span class="k">def</span> <span class="nf">law_associativity$1</span><span class="p">(</span><span class="n">x$112</span><span class="p">:</span> <span class="nc">A$86</span><span class="p">,</span> <span class="n">y$26</span><span class="p">:</span> <span class="nc">A$86</span><span class="p">,</span> <span class="n">z$12</span><span class="p">:</span> <span class="nc">A$86</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span>
-    <span class="bp">super</span><span class="p">.</span><span class="n">law_associativity$0</span><span class="p">(</span><span class="n">x$112</span><span class="p">,</span> <span class="n">y$26</span><span class="p">,</span> <span class="n">z$12</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="n">refineLaw$0</span><span class="p">[</span><span class="nc">A$86</span><span class="p">](</span><span class="n">x$112</span><span class="p">,</span> <span class="n">y$26</span><span class="p">,</span> <span class="n">z$12</span><span class="p">)</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">law_associativity$1</span><span class="p">(</span><span class="n">x$112</span><span class="p">:</span><span class="w"> </span><span class="nc">A$86</span><span class="p">,</span><span class="w"> </span><span class="n">y$26</span><span class="p">:</span><span class="w"> </span><span class="nc">A$86</span><span class="p">,</span><span class="w"> </span><span class="n">z$12</span><span class="p">:</span><span class="w"> </span><span class="nc">A$86</span><span class="p">):</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span>
+<span class="w">    </span><span class="bp">super</span><span class="p">.</span><span class="n">law_associativity$0</span><span class="p">(</span><span class="n">x$112</span><span class="p">,</span><span class="w"> </span><span class="n">y$26</span><span class="p">,</span><span class="w"> </span><span class="n">z$12</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">refineLaw$0</span><span class="p">[</span><span class="nc">A$86</span><span class="p">](</span><span class="n">x$112</span><span class="p">,</span><span class="w"> </span><span class="n">y$26</span><span class="p">,</span><span class="w"> </span><span class="n">z$12</span><span class="p">)</span>
 <span class="p">}</span>
 
-<span class="k">def</span> <span class="nf">refineLaw$0</span><span class="p">[</span><span class="nc">A$87</span><span class="p">](</span><span class="n">x$113</span><span class="p">:</span> <span class="nc">A$87</span><span class="p">,</span> <span class="n">y$27</span><span class="p">:</span> <span class="nc">A$87</span><span class="p">,</span> <span class="n">z$13</span><span class="p">:</span> <span class="nc">A$87</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="kc">true</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">refineLaw$0</span><span class="p">[</span><span class="nc">A$87</span><span class="p">](</span><span class="n">x$113</span><span class="p">:</span><span class="w"> </span><span class="nc">A$87</span><span class="p">,</span><span class="w"> </span><span class="n">y$27</span><span class="p">:</span><span class="w"> </span><span class="nc">A$87</span><span class="p">,</span><span class="w"> </span><span class="n">z$13</span><span class="p">:</span><span class="w"> </span><span class="nc">A$87</span><span class="p">):</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
 
-<span class="k">case</span> <span class="k">class</span> <span class="nc">$anon$0</span><span class="p">()</span> <span class="k">extends</span> <span class="nc">Monoid$0</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">]</span> <span class="p">{</span>
-  <span class="k">def</span> <span class="nf">empty$7</span><span class="p">:</span> <span class="nc">BigInt</span> <span class="o">=</span> <span class="mi">0</span>
-  <span class="k">def</span> <span class="nf">append$4</span><span class="p">(</span><span class="n">x$112</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">,</span> <span class="n">y$26</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">):</span> <span class="nc">BigInt</span> <span class="o">=</span> <span class="n">x$112</span> <span class="o">+</span> <span class="n">y$26</span>
+<span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">$anon$0</span><span class="p">()</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">Monoid$0</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">]</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">empty$7</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">append$4</span><span class="p">(</span><span class="n">x$112</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">,</span><span class="w"> </span><span class="n">y$26</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">):</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x$112</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">y$26</span>
 
-  <span class="k">def</span> <span class="nf">law_rightIdentity$1</span><span class="p">(</span><span class="n">x$113</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="n">someProof$0</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">law_rightIdentity$1</span><span class="p">(</span><span class="n">x$113</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">):</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">someProof$0</span>
 <span class="p">}</span>
 
-<span class="k">def</span> <span class="nf">bigIntAdditiveMonoid$0</span><span class="p">:</span> <span class="nc">Monoid$0</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">]</span> <span class="o">=</span> <span class="n">$anon$0</span><span class="p">()</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">bigIntAdditiveMonoid$0</span><span class="p">:</span><span class="w"> </span><span class="nc">Monoid$0</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">$anon$0</span><span class="p">()</span>
 
-<span class="k">def</span> <span class="nf">someProof$0</span><span class="p">:</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="kc">true</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">someProof$0</span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
 </pre></div>
 </div>
 <p>The code above maps in straightforward way to the original code.</p>
 <p>Let’s now take a look at the output of the <code class="docutils literal notranslate"><span class="pre">Laws</span></code> phase. This is
 the phase which desugars the law definitions and their overrides
 into methods with explicit postconditions.</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">abstract</span> <span class="k">class</span> <span class="nc">Semigroup$0</span><span class="p">[</span><span class="nc">A$85</span><span class="p">]</span> <span class="p">{</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">abstract</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">Semigroup$0</span><span class="p">[</span><span class="nc">A$85</span><span class="p">]</span><span class="w"> </span><span class="p">{</span>
 
-  <span class="nd">@abstract</span>
-  <span class="k">def</span> <span class="nf">append$3</span><span class="p">(</span><span class="n">x$108</span><span class="p">:</span> <span class="nc">A$85</span><span class="p">,</span> <span class="n">y$24</span><span class="p">:</span> <span class="nc">A$85</span><span class="p">):</span> <span class="nc">A$85</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">empty</span> <span class="n">tree</span><span class="o">&gt;</span><span class="p">[</span><span class="nc">A$85</span><span class="p">]</span>
+<span class="w">  </span><span class="nd">@abstract</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">append$3</span><span class="p">(</span><span class="n">x$108</span><span class="p">:</span><span class="w"> </span><span class="nc">A$85</span><span class="p">,</span><span class="w"> </span><span class="n">y$24</span><span class="p">:</span><span class="w"> </span><span class="nc">A$85</span><span class="p">):</span><span class="w"> </span><span class="nc">A$85</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="n">empty</span><span class="w"> </span><span class="n">tree</span><span class="o">&gt;</span><span class="p">[</span><span class="nc">A$85</span><span class="p">]</span>
 
-  <span class="nd">@final</span>
-  <span class="nd">@inlineOnce</span>
-  <span class="nd">@derived</span><span class="p">(</span><span class="n">law_associativity$0</span><span class="p">)</span>
-  <span class="k">def</span> <span class="nf">law_associativity$2</span><span class="p">(</span><span class="n">x$120</span><span class="p">:</span> <span class="nc">A$85</span><span class="p">,</span> <span class="n">y$30</span><span class="p">:</span> <span class="nc">A$85</span><span class="p">,</span> <span class="n">z$14</span><span class="p">:</span> <span class="nc">A$85</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="bp">this</span><span class="p">.</span><span class="n">append$3</span><span class="p">(</span><span class="n">x$120</span><span class="p">,</span> <span class="bp">this</span><span class="p">.</span><span class="n">append$3</span><span class="p">(</span><span class="n">y$30</span><span class="p">,</span> <span class="n">z$14</span><span class="p">))</span> <span class="o">==</span>
-    <span class="bp">this</span><span class="p">.</span><span class="n">append$3</span><span class="p">(</span><span class="bp">this</span><span class="p">.</span><span class="n">append$3</span><span class="p">(</span><span class="n">x$120</span><span class="p">,</span> <span class="n">y$30</span><span class="p">),</span> <span class="n">z$14</span><span class="p">)</span>
-  <span class="p">}</span>
+<span class="w">  </span><span class="nd">@final</span>
+<span class="w">  </span><span class="nd">@inlineOnce</span>
+<span class="w">  </span><span class="nd">@derived</span><span class="p">(</span><span class="n">law_associativity$0</span><span class="p">)</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">law_associativity$2</span><span class="p">(</span><span class="n">x$120</span><span class="p">:</span><span class="w"> </span><span class="nc">A$85</span><span class="p">,</span><span class="w"> </span><span class="n">y$30</span><span class="p">:</span><span class="w"> </span><span class="nc">A$85</span><span class="p">,</span><span class="w"> </span><span class="n">z$14</span><span class="p">:</span><span class="w"> </span><span class="nc">A$85</span><span class="p">):</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="bp">this</span><span class="p">.</span><span class="n">append$3</span><span class="p">(</span><span class="n">x$120</span><span class="p">,</span><span class="w"> </span><span class="bp">this</span><span class="p">.</span><span class="n">append$3</span><span class="p">(</span><span class="n">y$30</span><span class="p">,</span><span class="w"> </span><span class="n">z$14</span><span class="p">))</span><span class="w"> </span><span class="o">==</span>
+<span class="w">    </span><span class="bp">this</span><span class="p">.</span><span class="n">append$3</span><span class="p">(</span><span class="bp">this</span><span class="p">.</span><span class="n">append$3</span><span class="p">(</span><span class="n">x$120</span><span class="p">,</span><span class="w"> </span><span class="n">y$30</span><span class="p">),</span><span class="w"> </span><span class="n">z$14</span><span class="p">)</span>
+<span class="w">  </span><span class="p">}</span>
 
-  <span class="nd">@abstract</span>
-  <span class="k">def</span> <span class="nf">law_associativity$0</span><span class="p">(</span><span class="n">x$109</span><span class="p">:</span> <span class="nc">A$85</span><span class="p">,</span> <span class="n">y$25</span><span class="p">:</span> <span class="nc">A$85</span><span class="p">,</span> <span class="n">z$11</span><span class="p">:</span> <span class="nc">A$85</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="o">&lt;</span><span class="n">empty</span> <span class="n">tree</span><span class="o">&gt;</span><span class="p">[</span><span class="nc">Boolean</span><span class="p">]</span>
-  <span class="p">}</span> <span class="n">ensuring</span> <span class="p">{</span>
-    <span class="p">(</span><span class="n">res$82</span><span class="p">:</span> <span class="nc">Boolean</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="n">res$82</span> <span class="o">&amp;&amp;</span> <span class="bp">this</span><span class="p">.</span><span class="n">law_associativity$2</span><span class="p">(</span><span class="n">x$109</span><span class="p">,</span> <span class="n">y$25</span><span class="p">,</span> <span class="n">z$11</span><span class="p">)</span>
-  <span class="p">}</span>
+<span class="w">  </span><span class="nd">@abstract</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">law_associativity$0</span><span class="p">(</span><span class="n">x$109</span><span class="p">:</span><span class="w"> </span><span class="nc">A$85</span><span class="p">,</span><span class="w"> </span><span class="n">y$25</span><span class="p">:</span><span class="w"> </span><span class="nc">A$85</span><span class="p">,</span><span class="w"> </span><span class="n">z$11</span><span class="p">:</span><span class="w"> </span><span class="nc">A$85</span><span class="p">):</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="o">&lt;</span><span class="n">empty</span><span class="w"> </span><span class="n">tree</span><span class="o">&gt;</span><span class="p">[</span><span class="nc">Boolean</span><span class="p">]</span>
+<span class="w"> </span><span class="p">}.</span><span class="n">ensuring</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">(</span><span class="n">res$82</span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">res$82</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="bp">this</span><span class="p">.</span><span class="n">law_associativity$2</span><span class="p">(</span><span class="n">x$109</span><span class="p">,</span><span class="w"> </span><span class="n">y$25</span><span class="p">,</span><span class="w"> </span><span class="n">z$11</span><span class="p">)</span>
+<span class="w">  </span><span class="p">}</span>
 <span class="p">}</span>
 
-<span class="k">abstract</span> <span class="k">class</span> <span class="nc">Monoid$0</span><span class="p">[</span><span class="nc">A$86</span><span class="p">]</span> <span class="k">extends</span> <span class="nc">Semigroup$0</span><span class="p">[</span><span class="nc">A$86</span><span class="p">]</span> <span class="p">{</span>
+<span class="k">abstract</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">Monoid$0</span><span class="p">[</span><span class="nc">A$86</span><span class="p">]</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">Semigroup$0</span><span class="p">[</span><span class="nc">A$86</span><span class="p">]</span><span class="w"> </span><span class="p">{</span>
 
-  <span class="nd">@abstract</span>
-  <span class="k">def</span> <span class="nf">empty$6</span><span class="p">:</span> <span class="nc">A$86</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">empty</span> <span class="n">tree</span><span class="o">&gt;</span><span class="p">[</span><span class="nc">A$86</span><span class="p">]</span>
+<span class="w">  </span><span class="nd">@abstract</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">empty$6</span><span class="p">:</span><span class="w"> </span><span class="nc">A$86</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="n">empty</span><span class="w"> </span><span class="n">tree</span><span class="o">&gt;</span><span class="p">[</span><span class="nc">A$86</span><span class="p">]</span>
 
-  <span class="nd">@final</span>
-  <span class="nd">@inlineOnce</span>
-  <span class="nd">@derived</span><span class="p">(</span><span class="n">law_leftIdentity$0</span><span class="p">)</span>
-  <span class="k">def</span> <span class="nf">law_leftIdentity$1</span><span class="p">(</span><span class="n">x$116</span><span class="p">:</span> <span class="nc">A$86</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span>
-    <span class="bp">this</span><span class="p">.</span><span class="n">append$3</span><span class="p">(</span><span class="bp">this</span><span class="p">.</span><span class="n">empty$6</span><span class="p">,</span> <span class="n">x$116</span><span class="p">)</span> <span class="o">==</span> <span class="n">x$116</span>
+<span class="w">  </span><span class="nd">@final</span>
+<span class="w">  </span><span class="nd">@inlineOnce</span>
+<span class="w">  </span><span class="nd">@derived</span><span class="p">(</span><span class="n">law_leftIdentity$0</span><span class="p">)</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">law_leftIdentity$1</span><span class="p">(</span><span class="n">x$116</span><span class="p">:</span><span class="w"> </span><span class="nc">A$86</span><span class="p">):</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span>
+<span class="w">    </span><span class="bp">this</span><span class="p">.</span><span class="n">append$3</span><span class="p">(</span><span class="bp">this</span><span class="p">.</span><span class="n">empty$6</span><span class="p">,</span><span class="w"> </span><span class="n">x$116</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">x$116</span>
 
-  <span class="nd">@abstract</span>
-  <span class="k">def</span> <span class="nf">law_leftIdentity$0</span><span class="p">(</span><span class="n">x$110</span><span class="p">:</span> <span class="nc">A$86</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="o">&lt;</span><span class="n">empty</span> <span class="n">tree</span><span class="o">&gt;</span><span class="p">[</span><span class="nc">Boolean</span><span class="p">]</span>
-  <span class="p">}</span> <span class="n">ensuring</span> <span class="p">{</span>
-    <span class="p">(</span><span class="n">res$77</span><span class="p">:</span> <span class="nc">Boolean</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="n">res$77</span> <span class="o">&amp;&amp;</span> <span class="bp">this</span><span class="p">.</span><span class="n">law_leftIdentity$1</span><span class="p">(</span><span class="n">x$110</span><span class="p">)</span>
-  <span class="p">}</span>
+<span class="w">  </span><span class="nd">@abstract</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">law_leftIdentity$0</span><span class="p">(</span><span class="n">x$110</span><span class="p">:</span><span class="w"> </span><span class="nc">A$86</span><span class="p">):</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="o">&lt;</span><span class="n">empty</span><span class="w"> </span><span class="n">tree</span><span class="o">&gt;</span><span class="p">[</span><span class="nc">Boolean</span><span class="p">]</span>
+<span class="w"> </span><span class="p">}.</span><span class="n">ensuring</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">(</span><span class="n">res$77</span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">res$77</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="bp">this</span><span class="p">.</span><span class="n">law_leftIdentity$1</span><span class="p">(</span><span class="n">x$110</span><span class="p">)</span>
+<span class="w">  </span><span class="p">}</span>
 
-  <span class="nd">@final</span>
-  <span class="nd">@inlineOnce</span>
-  <span class="nd">@derived</span><span class="p">(</span><span class="n">law_rightIdentity$0</span><span class="p">)</span>
-  <span class="k">def</span> <span class="nf">law_rightIdentity$2</span><span class="p">(</span><span class="n">x$117</span><span class="p">:</span> <span class="nc">A$86</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span>
-    <span class="bp">this</span><span class="p">.</span><span class="n">append$3</span><span class="p">(</span><span class="n">x$117</span><span class="p">,</span> <span class="bp">this</span><span class="p">.</span><span class="n">empty$6</span><span class="p">)</span> <span class="o">==</span> <span class="n">x$117</span>
+<span class="w">  </span><span class="nd">@final</span>
+<span class="w">  </span><span class="nd">@inlineOnce</span>
+<span class="w">  </span><span class="nd">@derived</span><span class="p">(</span><span class="n">law_rightIdentity$0</span><span class="p">)</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">law_rightIdentity$2</span><span class="p">(</span><span class="n">x$117</span><span class="p">:</span><span class="w"> </span><span class="nc">A$86</span><span class="p">):</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span>
+<span class="w">    </span><span class="bp">this</span><span class="p">.</span><span class="n">append$3</span><span class="p">(</span><span class="n">x$117</span><span class="p">,</span><span class="w"> </span><span class="bp">this</span><span class="p">.</span><span class="n">empty$6</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">x$117</span>
 
-  <span class="nd">@abstract</span>
-  <span class="k">def</span> <span class="nf">law_rightIdentity$0</span><span class="p">(</span><span class="n">x$111</span><span class="p">:</span> <span class="nc">A$86</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="o">&lt;</span><span class="n">empty</span> <span class="n">tree</span><span class="o">&gt;</span><span class="p">[</span><span class="nc">Boolean</span><span class="p">]</span>
-  <span class="p">}</span> <span class="n">ensuring</span> <span class="p">{</span>
-    <span class="p">(</span><span class="n">res$80</span><span class="p">:</span> <span class="nc">Boolean</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="n">res$80</span> <span class="o">&amp;&amp;</span> <span class="bp">this</span><span class="p">.</span><span class="n">law_rightIdentity$2</span><span class="p">(</span><span class="n">x$111</span><span class="p">)</span>
-  <span class="p">}</span>
+<span class="w">  </span><span class="nd">@abstract</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">law_rightIdentity$0</span><span class="p">(</span><span class="n">x$111</span><span class="p">:</span><span class="w"> </span><span class="nc">A$86</span><span class="p">):</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="o">&lt;</span><span class="n">empty</span><span class="w"> </span><span class="n">tree</span><span class="o">&gt;</span><span class="p">[</span><span class="nc">Boolean</span><span class="p">]</span>
+<span class="w"> </span><span class="p">}.</span><span class="n">ensuring</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">(</span><span class="n">res$80</span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">res$80</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="bp">this</span><span class="p">.</span><span class="n">law_rightIdentity$2</span><span class="p">(</span><span class="n">x$111</span><span class="p">)</span>
+<span class="w">  </span><span class="p">}</span>
 
-  <span class="nd">@law</span>
-  <span class="k">def</span> <span class="nf">law_associativity$1</span><span class="p">(</span><span class="n">x$112</span><span class="p">:</span> <span class="nc">A$86</span><span class="p">,</span> <span class="n">y$26</span><span class="p">:</span> <span class="nc">A$86</span><span class="p">,</span> <span class="n">z$12</span><span class="p">:</span> <span class="nc">A$86</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="bp">this</span><span class="p">.</span><span class="n">law_associativity$2</span><span class="p">(</span><span class="n">x$112</span><span class="p">,</span> <span class="n">y$26</span><span class="p">,</span> <span class="n">z$12</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="n">refineLaw$0</span><span class="p">[</span><span class="nc">A$86</span><span class="p">](</span><span class="n">x$112</span><span class="p">,</span> <span class="n">y$26</span><span class="p">,</span> <span class="n">z$12</span><span class="p">)</span>
-  <span class="p">}</span> <span class="n">ensuring</span> <span class="p">{</span>
-    <span class="p">(</span><span class="n">res$84</span><span class="p">:</span> <span class="nc">Boolean</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="n">res$84</span> <span class="o">&amp;&amp;</span> <span class="bp">this</span><span class="p">.</span><span class="n">law_associativity$2</span><span class="p">(</span><span class="n">x$112</span><span class="p">,</span> <span class="n">y$26</span><span class="p">,</span> <span class="n">z$12</span><span class="p">)</span>
-  <span class="p">}</span>
+<span class="w">  </span><span class="nd">@law</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">law_associativity$1</span><span class="p">(</span><span class="n">x$112</span><span class="p">:</span><span class="w"> </span><span class="nc">A$86</span><span class="p">,</span><span class="w"> </span><span class="n">y$26</span><span class="p">:</span><span class="w"> </span><span class="nc">A$86</span><span class="p">,</span><span class="w"> </span><span class="n">z$12</span><span class="p">:</span><span class="w"> </span><span class="nc">A$86</span><span class="p">):</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="bp">this</span><span class="p">.</span><span class="n">law_associativity$2</span><span class="p">(</span><span class="n">x$112</span><span class="p">,</span><span class="w"> </span><span class="n">y$26</span><span class="p">,</span><span class="w"> </span><span class="n">z$12</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">refineLaw$0</span><span class="p">[</span><span class="nc">A$86</span><span class="p">](</span><span class="n">x$112</span><span class="p">,</span><span class="w"> </span><span class="n">y$26</span><span class="p">,</span><span class="w"> </span><span class="n">z$12</span><span class="p">)</span>
+<span class="w"> </span><span class="p">}.</span><span class="n">ensuring</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">(</span><span class="n">res$84</span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">res$84</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="bp">this</span><span class="p">.</span><span class="n">law_associativity$2</span><span class="p">(</span><span class="n">x$112</span><span class="p">,</span><span class="w"> </span><span class="n">y$26</span><span class="p">,</span><span class="w"> </span><span class="n">z$12</span><span class="p">)</span>
+<span class="w">  </span><span class="p">}</span>
 <span class="p">}</span>
 
 <span class="nd">@derived</span><span class="p">(</span><span class="n">bigIntAdditiveMonoid$0</span><span class="p">)</span>
-<span class="k">case</span> <span class="k">class</span> <span class="nc">$anon$0</span><span class="p">()</span> <span class="k">extends</span> <span class="nc">Monoid$0</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">]</span> <span class="p">{</span>
+<span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">$anon$0</span><span class="p">()</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">Monoid$0</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">]</span><span class="w"> </span><span class="p">{</span>
 
-  <span class="k">def</span> <span class="nf">empty$7</span><span class="p">:</span> <span class="nc">BigInt</span> <span class="o">=</span> <span class="mi">0</span>
-  <span class="k">def</span> <span class="nf">append$4</span><span class="p">(</span><span class="n">x$114</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">,</span> <span class="n">y$27</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">):</span> <span class="nc">BigInt</span> <span class="o">=</span> <span class="n">x$114</span> <span class="o">+</span> <span class="n">y$27</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">empty$7</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">append$4</span><span class="p">(</span><span class="n">x$114</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">,</span><span class="w"> </span><span class="n">y$27</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">):</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x$114</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">y$27</span>
 
-  <span class="nd">@law</span>
-  <span class="nd">@derived</span><span class="p">(</span><span class="n">law_leftIdentity$0</span><span class="p">)</span>
-  <span class="k">def</span> <span class="nf">law_leftIdentity$2</span><span class="p">(</span><span class="n">x$119</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="kc">true</span>
-  <span class="p">}</span> <span class="n">ensuring</span> <span class="p">{</span>
-    <span class="p">(</span><span class="n">res$84</span><span class="p">:</span> <span class="nc">Boolean</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="bp">this</span><span class="p">.</span><span class="n">law_leftIdentity$1</span><span class="p">(</span><span class="n">x$119</span><span class="p">)</span>
-  <span class="p">}</span>
+<span class="w">  </span><span class="nd">@law</span>
+<span class="w">  </span><span class="nd">@derived</span><span class="p">(</span><span class="n">law_leftIdentity$0</span><span class="p">)</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">law_leftIdentity$2</span><span class="p">(</span><span class="n">x$119</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">):</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kc">true</span>
+<span class="w"> </span><span class="p">}.</span><span class="n">ensuring</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">(</span><span class="n">res$84</span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="bp">this</span><span class="p">.</span><span class="n">law_leftIdentity$1</span><span class="p">(</span><span class="n">x$119</span><span class="p">)</span>
+<span class="w">  </span><span class="p">}</span>
 
-  <span class="nd">@law</span>
-  <span class="k">def</span> <span class="nf">law_rightIdentity$1</span><span class="p">(</span><span class="n">x$115</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="n">someProof$0</span>
-  <span class="p">}</span> <span class="n">ensuring</span> <span class="p">{</span>
-    <span class="p">(</span><span class="n">res$79</span><span class="p">:</span> <span class="nc">Boolean</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="n">res$79</span> <span class="o">&amp;&amp;</span> <span class="bp">this</span><span class="p">.</span><span class="n">law_rightIdentity$2</span><span class="p">(</span><span class="n">x$115</span><span class="p">)</span>
-  <span class="p">}</span>
+<span class="w">  </span><span class="nd">@law</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">law_rightIdentity$1</span><span class="p">(</span><span class="n">x$115</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">):</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">someProof$0</span>
+<span class="w"> </span><span class="p">}.</span><span class="n">ensuring</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">(</span><span class="n">res$79</span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">res$79</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="bp">this</span><span class="p">.</span><span class="n">law_rightIdentity$2</span><span class="p">(</span><span class="n">x$115</span><span class="p">)</span>
+<span class="w">  </span><span class="p">}</span>
 
-  <span class="nd">@law</span>
-  <span class="nd">@derived</span><span class="p">(</span><span class="n">law_associativity$0</span><span class="p">)</span>
-  <span class="k">def</span> <span class="nf">law_associativity$2</span><span class="p">(</span><span class="n">x$120</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">,</span> <span class="n">y$29</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">,</span> <span class="n">z$13</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="kc">true</span>
-  <span class="p">}</span> <span class="n">ensuring</span> <span class="p">{</span>
-    <span class="p">(</span><span class="n">res$85</span><span class="p">:</span> <span class="nc">Boolean</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="bp">this</span><span class="p">.</span><span class="n">law_associativity$1</span><span class="p">(</span><span class="n">x$120</span><span class="p">,</span> <span class="n">y$29</span><span class="p">,</span> <span class="n">z$13</span><span class="p">)</span>
-  <span class="p">}</span>
+<span class="w">  </span><span class="nd">@law</span>
+<span class="w">  </span><span class="nd">@derived</span><span class="p">(</span><span class="n">law_associativity$0</span><span class="p">)</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">law_associativity$2</span><span class="p">(</span><span class="n">x$120</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">,</span><span class="w"> </span><span class="n">y$29</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">,</span><span class="w"> </span><span class="n">z$13</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">):</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kc">true</span>
+<span class="w"> </span><span class="p">}.</span><span class="n">ensuring</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">(</span><span class="n">res$85</span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="bp">this</span><span class="p">.</span><span class="n">law_associativity$1</span><span class="p">(</span><span class="n">x$120</span><span class="p">,</span><span class="w"> </span><span class="n">y$29</span><span class="p">,</span><span class="w"> </span><span class="n">z$13</span><span class="p">)</span>
+<span class="w">  </span><span class="p">}</span>
 <span class="p">}</span>
 
-<span class="k">def</span> <span class="nf">bigIntAdditiveMonoid$0</span><span class="p">:</span> <span class="nc">Monoid$0</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">]</span> <span class="o">=</span> <span class="n">$anon$0</span><span class="p">()</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">bigIntAdditiveMonoid$0</span><span class="p">:</span><span class="w"> </span><span class="nc">Monoid$0</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">$anon$0</span><span class="p">()</span>
 
-<span class="k">def</span> <span class="nf">someProof$0</span><span class="p">:</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="kc">true</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">someProof$0</span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
 </pre></div>
 </div>
 <p>There are a few things going on here:</p>
@@ -573,24 +572,24 @@ itself.</p>
 law’s body, without having to inline it or call the law itself,
 which is disallowed since it is conceptually an abstract method, as
 evidenced by its newly added <code class="docutils literal notranslate"><span class="pre">&#64;abstract</span></code> flag.</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="c1">// In class `Semigroup`...</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="w"> </span><span class="c1">// In class `Semigroup`...</span>
 
-<span class="c1">// This is the helper method.</span>
-<span class="nd">@final</span>
-<span class="nd">@inlineOnce</span>
-<span class="nd">@derived</span><span class="p">(</span><span class="n">law_associativity$0</span><span class="p">)</span>
-<span class="k">def</span> <span class="nf">law_associativity$2</span><span class="p">(</span><span class="n">x$120</span><span class="p">:</span> <span class="nc">A$85</span><span class="p">,</span> <span class="n">y$30</span><span class="p">:</span> <span class="nc">A$85</span><span class="p">,</span> <span class="n">z$14</span><span class="p">:</span> <span class="nc">A$85</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
-  <span class="bp">this</span><span class="p">.</span><span class="n">append$3</span><span class="p">(</span><span class="n">x$120</span><span class="p">,</span> <span class="bp">this</span><span class="p">.</span><span class="n">append$3</span><span class="p">(</span><span class="n">y$30</span><span class="p">,</span> <span class="n">z$14</span><span class="p">))</span> <span class="o">==</span>
-  <span class="bp">this</span><span class="p">.</span><span class="n">append$3</span><span class="p">(</span><span class="bp">this</span><span class="p">.</span><span class="n">append$3</span><span class="p">(</span><span class="n">x$120</span><span class="p">,</span> <span class="n">y$30</span><span class="p">),</span> <span class="n">z$14</span><span class="p">)</span>
-<span class="p">}</span>
+<span class="w"> </span><span class="c1">// This is the helper method.</span>
+<span class="w"> </span><span class="nd">@final</span>
+<span class="w"> </span><span class="nd">@inlineOnce</span>
+<span class="w"> </span><span class="nd">@derived</span><span class="p">(</span><span class="n">law_associativity$0</span><span class="p">)</span>
+<span class="w"> </span><span class="k">def</span><span class="w"> </span><span class="nf">law_associativity$2</span><span class="p">(</span><span class="n">x$120</span><span class="p">:</span><span class="w"> </span><span class="nc">A$85</span><span class="p">,</span><span class="w"> </span><span class="n">y$30</span><span class="p">:</span><span class="w"> </span><span class="nc">A$85</span><span class="p">,</span><span class="w"> </span><span class="n">z$14</span><span class="p">:</span><span class="w"> </span><span class="nc">A$85</span><span class="p">):</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">   </span><span class="bp">this</span><span class="p">.</span><span class="n">append$3</span><span class="p">(</span><span class="n">x$120</span><span class="p">,</span><span class="w"> </span><span class="bp">this</span><span class="p">.</span><span class="n">append$3</span><span class="p">(</span><span class="n">y$30</span><span class="p">,</span><span class="w"> </span><span class="n">z$14</span><span class="p">))</span><span class="w"> </span><span class="o">==</span>
+<span class="w">   </span><span class="bp">this</span><span class="p">.</span><span class="n">append$3</span><span class="p">(</span><span class="bp">this</span><span class="p">.</span><span class="n">append$3</span><span class="p">(</span><span class="n">x$120</span><span class="p">,</span><span class="w"> </span><span class="n">y$30</span><span class="p">),</span><span class="w"> </span><span class="n">z$14</span><span class="p">)</span>
+<span class="w"> </span><span class="p">}</span>
 
-<span class="c1">// This is the original law definition, which now became an abstract method.</span>
-<span class="nd">@abstract</span>
-<span class="k">def</span> <span class="nf">law_associativity$0</span><span class="p">(</span><span class="n">x$109</span><span class="p">:</span> <span class="nc">A$85</span><span class="p">,</span> <span class="n">y$25</span><span class="p">:</span> <span class="nc">A$85</span><span class="p">,</span> <span class="n">z$11</span><span class="p">:</span> <span class="nc">A$85</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
-  <span class="o">&lt;</span><span class="n">empty</span> <span class="n">tree</span><span class="o">&gt;</span><span class="p">[</span><span class="nc">Boolean</span><span class="p">]</span>
-<span class="p">}</span> <span class="n">ensuring</span> <span class="p">{</span>
-  <span class="p">(</span><span class="n">res$82</span><span class="p">:</span> <span class="nc">Boolean</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="n">res$82</span> <span class="o">&amp;&amp;</span> <span class="bp">this</span><span class="p">.</span><span class="n">law_associativity$2</span><span class="p">(</span><span class="n">x$109</span><span class="p">,</span> <span class="n">y$25</span><span class="p">,</span> <span class="n">z$11</span><span class="p">)</span>
-<span class="p">}</span>
+<span class="w"> </span><span class="c1">// This is the original law definition, which now became an abstract method.</span>
+<span class="w"> </span><span class="nd">@abstract</span>
+<span class="w"> </span><span class="k">def</span><span class="w"> </span><span class="nf">law_associativity$0</span><span class="p">(</span><span class="n">x$109</span><span class="p">:</span><span class="w"> </span><span class="nc">A$85</span><span class="p">,</span><span class="w"> </span><span class="n">y$25</span><span class="p">:</span><span class="w"> </span><span class="nc">A$85</span><span class="p">,</span><span class="w"> </span><span class="n">z$11</span><span class="p">:</span><span class="w"> </span><span class="nc">A$85</span><span class="p">):</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">   </span><span class="o">&lt;</span><span class="n">empty</span><span class="w"> </span><span class="n">tree</span><span class="o">&gt;</span><span class="p">[</span><span class="nc">Boolean</span><span class="p">]</span>
+<span class="p">}.</span><span class="n">ensuring</span><span class="w"> </span><span class="p">{</span>
+<span class="w">   </span><span class="p">(</span><span class="n">res$82</span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">res$82</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="bp">this</span><span class="p">.</span><span class="n">law_associativity$2</span><span class="p">(</span><span class="n">x$109</span><span class="p">,</span><span class="w"> </span><span class="n">y$25</span><span class="p">,</span><span class="w"> </span><span class="n">z$11</span><span class="p">)</span>
+<span class="w"> </span><span class="p">}</span>
 </pre></div>
 </div>
 </li>
@@ -599,14 +598,14 @@ postcondition that ensures that their body can be proven true,
 while still satisfying the original law via a call to the helper
 method introduced in the previous step. This step ensures that laws
 cannot be fully redefined, and thus potentially weakened, in subclasses.</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="c1">// In class `Monoid`...</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="w"> </span><span class="c1">// In class `Monoid`...</span>
 
-<span class="nd">@law</span>
-<span class="k">def</span> <span class="nf">law_associativity$1</span><span class="p">(</span><span class="n">x$112</span><span class="p">:</span> <span class="nc">A$86</span><span class="p">,</span> <span class="n">y$26</span><span class="p">:</span> <span class="nc">A$86</span><span class="p">,</span> <span class="n">z$12</span><span class="p">:</span> <span class="nc">A$86</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
-  <span class="bp">this</span><span class="p">.</span><span class="n">law_associativity$2</span><span class="p">(</span><span class="n">x$112</span><span class="p">,</span> <span class="n">y$26</span><span class="p">,</span> <span class="n">z$12</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="n">refineLaw$0</span><span class="p">[</span><span class="nc">A$86</span><span class="p">](</span><span class="n">x$112</span><span class="p">,</span> <span class="n">y$26</span><span class="p">,</span> <span class="n">z$12</span><span class="p">)</span>
-<span class="p">}</span> <span class="n">ensuring</span> <span class="p">{</span>
-  <span class="p">(</span><span class="n">res$84</span><span class="p">:</span> <span class="nc">Boolean</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="n">res$84</span> <span class="o">&amp;&amp;</span> <span class="bp">this</span><span class="p">.</span><span class="n">law_associativity$2</span><span class="p">(</span><span class="n">x$112</span><span class="p">,</span> <span class="n">y$26</span><span class="p">,</span> <span class="n">z$12</span><span class="p">)</span>
-<span class="p">}</span>
+<span class="w"> </span><span class="nd">@law</span>
+<span class="w"> </span><span class="k">def</span><span class="w"> </span><span class="nf">law_associativity$1</span><span class="p">(</span><span class="n">x$112</span><span class="p">:</span><span class="w"> </span><span class="nc">A$86</span><span class="p">,</span><span class="w"> </span><span class="n">y$26</span><span class="p">:</span><span class="w"> </span><span class="nc">A$86</span><span class="p">,</span><span class="w"> </span><span class="n">z$12</span><span class="p">:</span><span class="w"> </span><span class="nc">A$86</span><span class="p">):</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">   </span><span class="bp">this</span><span class="p">.</span><span class="n">law_associativity$2</span><span class="p">(</span><span class="n">x$112</span><span class="p">,</span><span class="w"> </span><span class="n">y$26</span><span class="p">,</span><span class="w"> </span><span class="n">z$12</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">refineLaw$0</span><span class="p">[</span><span class="nc">A$86</span><span class="p">](</span><span class="n">x$112</span><span class="p">,</span><span class="w"> </span><span class="n">y$26</span><span class="p">,</span><span class="w"> </span><span class="n">z$12</span><span class="p">)</span>
+<span class="p">}.</span><span class="n">ensuring</span><span class="w"> </span><span class="p">{</span>
+<span class="w">   </span><span class="p">(</span><span class="n">res$84</span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">res$84</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="bp">this</span><span class="p">.</span><span class="n">law_associativity$2</span><span class="p">(</span><span class="n">x$112</span><span class="p">,</span><span class="w"> </span><span class="n">y$26</span><span class="p">,</span><span class="w"> </span><span class="n">z$12</span><span class="p">)</span>
+<span class="w"> </span><span class="p">}</span>
 </pre></div>
 </div>
 </li>
@@ -614,14 +613,14 @@ cannot be fully redefined, and thus potentially weakened, in subclasses.</p>
 are provided with a postcondition which again ensures that their body holds,
 while still satisfying the law they override, again via a call to the helper
 method introduced in step 1.</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="c1">// In class `$anon$0`...</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="w"> </span><span class="c1">// In class `$anon$0`...</span>
 
-<span class="nd">@law</span>
-<span class="k">def</span> <span class="nf">law_rightIdentity$1</span><span class="p">(</span><span class="n">x$115</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
-  <span class="n">someProof$0</span>
-<span class="p">}</span> <span class="n">ensuring</span> <span class="p">{</span>
-  <span class="p">(</span><span class="n">res$79</span><span class="p">:</span> <span class="nc">Boolean</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="n">res$79</span> <span class="o">&amp;&amp;</span> <span class="bp">this</span><span class="p">.</span><span class="n">law_rightIdentity$2</span><span class="p">(</span><span class="n">x$115</span><span class="p">)</span>
-<span class="p">}</span>
+<span class="w"> </span><span class="nd">@law</span>
+<span class="w"> </span><span class="k">def</span><span class="w"> </span><span class="nf">law_rightIdentity$1</span><span class="p">(</span><span class="n">x$115</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">):</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">   </span><span class="n">someProof$0</span>
+<span class="p">}.</span><span class="n">ensuring</span><span class="w"> </span><span class="p">{</span>
+<span class="w">   </span><span class="p">(</span><span class="n">res$79</span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">res$79</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="bp">this</span><span class="p">.</span><span class="n">law_rightIdentity$2</span><span class="p">(</span><span class="n">x$115</span><span class="p">)</span>
+<span class="w"> </span><span class="p">}</span>
 </pre></div>
 </div>
 </li>
@@ -630,15 +629,15 @@ automatically defined by Stainless, to ensure that a verification condition
 will be generated. Those stubs just have <code class="docutils literal notranslate"><span class="pre">true</span></code> as a body, and a postcondition
 which calls to the appropriate law helper introduced in step 1.
 This expresses the fact that the law holds on its own, without any additional proof steps.</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="c1">// In class `$anon$0`</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="w"> </span><span class="c1">// In class `$anon$0`</span>
 
-<span class="nd">@law</span>
-<span class="nd">@derived</span><span class="p">(</span><span class="n">law_leftIdentity$0</span><span class="p">)</span>
-<span class="k">def</span> <span class="nf">law_leftIdentity$2</span><span class="p">(</span><span class="n">x$119</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
-  <span class="kc">true</span>
-<span class="p">}</span> <span class="n">ensuring</span> <span class="p">{</span>
-  <span class="p">(</span><span class="n">res$84</span><span class="p">:</span> <span class="nc">Boolean</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="bp">this</span><span class="p">.</span><span class="n">law_leftIdentity$1</span><span class="p">(</span><span class="n">x$119</span><span class="p">)</span>
-<span class="p">}</span>
+<span class="w"> </span><span class="nd">@law</span>
+<span class="w"> </span><span class="nd">@derived</span><span class="p">(</span><span class="n">law_leftIdentity$0</span><span class="p">)</span>
+<span class="w"> </span><span class="k">def</span><span class="w"> </span><span class="nf">law_leftIdentity$2</span><span class="p">(</span><span class="n">x$119</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">):</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">   </span><span class="kc">true</span>
+<span class="p">}.</span><span class="n">ensuring</span><span class="w"> </span><span class="p">{</span>
+<span class="w">   </span><span class="p">(</span><span class="n">res$84</span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="bp">this</span><span class="p">.</span><span class="n">law_leftIdentity$1</span><span class="p">(</span><span class="n">x$119</span><span class="p">)</span>
+<span class="w"> </span><span class="p">}</span>
 </pre></div>
 </div>
 </li>
@@ -650,21 +649,21 @@ or proving (such as in <code class="docutils literal notranslate"><span class="p
 during the encoding as to ensure that laws cannot be weakened. Doing so can nonetheless help
 readability, since it makes the code match more closely to the semantics of Scala.</p>
 </div>
-<dl class="citation">
-<dt class="label" id="wb89"><span class="brackets"><a class="fn-backref" href="#id1">WB89</a></span></dt>
-<dd><ol class="upperalpha simple" start="16">
+<div role="list" class="citation-list">
+<div class="citation" id="wb89" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id1">WB89</a><span class="fn-bracket">]</span></span>
+<ol class="upperalpha simple" start="16">
 <li><p>Wadler and S. Blott. 1989. How to make ad-hoc polymorphism less ad hoc.</p></li>
 </ol>
-</dd>
-</dl>
+</div>
+</div>
 </section>
 </section>
 
 
            </div>
           </div>
-          <footer>
-    <div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="verification.html" class="btn btn-neutral float-left" title="Verification conditions" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="imperative.html" class="btn btn-neutral float-right" title="Imperative" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
@@ -673,7 +672,7 @@ readability, since it makes the code match more closely to the semantics of Scal
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2021 EPFL, Lausanne.
-      <span class="lastupdated">Last updated on Dec 17, 2023.
+      <span class="lastupdated">Last updated on Aug 22, 2024.
       </span></p>
   </div>
 
@@ -684,7 +683,7 @@ readability, since it makes the code match more closely to the semantics of Scal
       </div>
     </section>
   </div>
-  <script type="text/javascript">
+  <script>
       jQuery(function () {
           SphinxRtdTheme.Navigation.enable(true);
       });

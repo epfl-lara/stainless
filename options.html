@@ -1,23 +1,22 @@
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="./">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Specifying Options &mdash; Stainless 0.9.1 documentation</title>
-  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
-  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
+
+  
   <!--[if lt IE 9]>
     <script src="_static/js/html5shiv.min.js"></script>
   <![endif]-->
-  <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
-        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
-        <script src="_static/jquery.js"></script>
-        <script src="_static/underscore.js"></script>
-        <script src="_static/doctools.js"></script>
-    <script type="text/javascript" src="_static/js/theme.js"></script>
+  
+        <script src="_static/documentation_options.js?v=9dc39874"></script>
+        <script src="_static/doctools.js?v=9a2dae69"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="Verification conditions" href="verification.html" />
@@ -29,20 +28,23 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-            <a href="index.html" class="icon icon-home"> Stainless
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Stainless
           </a>
               <div class="version">
                 0.9
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
 </div>
-        </div>
-        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Main">
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installing Stainless</a></li>
@@ -90,20 +92,17 @@
       </div>
     </nav>
 
-    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
-      <nav class="wy-nav-top" aria-label="Top" >
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
           <a href="index.html">Stainless</a>
       </nav>
 
       <div class="wy-nav-content">
         <div class="rst-content">
-          
-
-<div role="navigation" aria-label="Breadcrumbs">
+          <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
-      <li>Specifying Options</li>
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Specifying Options</li>
       <li class="wy-breadcrumbs-aside">
             <a href="_sources/options.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -114,7 +113,7 @@
            <div itemprop="articleBody">
              
   <section id="specifying-options">
-<span id="cmdlineoptions"></span><h1>Specifying Options<a class="headerlink" href="#specifying-options" title="Permalink to this headline">¶</a></h1>
+<span id="cmdlineoptions"></span><h1>Specifying Options<a class="headerlink" href="#specifying-options" title="Link to this heading">¶</a></h1>
 <p>Stainless’s command line options have the form <code class="docutils literal notranslate"><span class="pre">--option</span></code> or <code class="docutils literal notranslate"><span class="pre">--option=value</span></code>.
 To enable a flag option, use <code class="docutils literal notranslate"><span class="pre">--option=true</span></code> or <code class="docutils literal notranslate"><span class="pre">on</span></code> or <code class="docutils literal notranslate"><span class="pre">yes</span></code>,
 or just <code class="docutils literal notranslate"><span class="pre">--option</span></code>. To disable a flag option, use <code class="docutils literal notranslate"><span class="pre">--option=false</span></code>.</p>
@@ -123,7 +122,7 @@ you can do it by using a single dash <code class="docutils literal notranslate">
 <p>The rest of this section presents some of the command-line options that Stainless recognizes.
 For a short (but always up-to-date) summary, you can also invoke <code class="docutils literal notranslate"><span class="pre">stainless</span> <span class="pre">--help</span></code>.</p>
 <section id="choosing-which-stainless-feature-to-use">
-<h2>Choosing which Stainless feature to use<a class="headerlink" href="#choosing-which-stainless-feature-to-use" title="Permalink to this headline">¶</a></h2>
+<h2>Choosing which Stainless feature to use<a class="headerlink" href="#choosing-which-stainless-feature-to-use" title="Link to this heading">¶</a></h2>
 <p>The first group of options determines which feature of Stainless will be used.
 By default, <code class="docutils literal notranslate"><span class="pre">--verification</span></code> is chosen.</p>
 <ul>
@@ -164,7 +163,7 @@ an old verification-condition generator.</p>
 </ul>
 </section>
 <section id="additional-top-level-options">
-<h2>Additional top-level options<a class="headerlink" href="#additional-top-level-options" title="Permalink to this headline">¶</a></h2>
+<h2>Additional top-level options<a class="headerlink" href="#additional-top-level-options" title="Link to this heading">¶</a></h2>
 <p>These options are available to all Stainless components:</p>
 <ul>
 <li><p><code class="docutils literal notranslate"><span class="pre">--watch</span></code></p>
@@ -272,10 +271,10 @@ the <code class="docutils literal notranslate"><span class="pre">--extra-deps</s
 </ul>
 </section>
 <section id="additional-options-by-component">
-<h2>Additional Options (by component)<a class="headerlink" href="#additional-options-by-component" title="Permalink to this headline">¶</a></h2>
+<h2>Additional Options (by component)<a class="headerlink" href="#additional-options-by-component" title="Link to this heading">¶</a></h2>
 <p>The following options relate to specific components in Stainless.</p>
 <section id="verification">
-<h3>Verification<a class="headerlink" href="#verification" title="Permalink to this headline">¶</a></h3>
+<h3>Verification<a class="headerlink" href="#verification" title="Link to this heading">¶</a></h3>
 <ul>
 <li><p><code class="docutils literal notranslate"><span class="pre">--strict-aritmetic</span></code></p>
 <p>Check arithmetic operations for unintended behaviour and
@@ -296,7 +295,7 @@ have well-defined semantics in Scala.</p>
 </ul>
 </section>
 <section id="termination">
-<h3>Termination<a class="headerlink" href="#termination" title="Permalink to this headline">¶</a></h3>
+<h3>Termination<a class="headerlink" href="#termination" title="Link to this heading">¶</a></h3>
 <ul>
 <li><p><code class="docutils literal notranslate"><span class="pre">--ignore-posts</span></code></p>
 <p>Ignore postconditions during termination verification.</p>
@@ -304,7 +303,7 @@ have well-defined semantics in Scala.</p>
 </ul>
 </section>
 <section id="unrolling-solver">
-<h3>Unrolling Solver<a class="headerlink" href="#unrolling-solver" title="Permalink to this headline">¶</a></h3>
+<h3>Unrolling Solver<a class="headerlink" href="#unrolling-solver" title="Link to this heading">¶</a></h3>
 <ul>
 <li><p><code class="docutils literal notranslate"><span class="pre">--check-models</span></code></p>
 <p>Double-check counterexamples with the evaluator.</p>
@@ -331,7 +330,7 @@ the cost of proof construction.</p>
 </ul>
 </section>
 <section id="cvc5-solver">
-<h3>cvc5 Solver<a class="headerlink" href="#cvc5-solver" title="Permalink to this headline">¶</a></h3>
+<h3>cvc5 Solver<a class="headerlink" href="#cvc5-solver" title="Link to this heading">¶</a></h3>
 <ul>
 <li><p><code class="docutils literal notranslate"><span class="pre">--solver:cvc5=&lt;cvc5-opt&gt;</span></code></p>
 <p>Pass extra command-line arguments to cvc5.</p>
@@ -339,7 +338,7 @@ the cost of proof construction.</p>
 </ul>
 </section>
 <section id="evaluators">
-<h3>Evaluators<a class="headerlink" href="#evaluators" title="Permalink to this headline">¶</a></h3>
+<h3>Evaluators<a class="headerlink" href="#evaluators" title="Link to this heading">¶</a></h3>
 <ul>
 <li><p><code class="docutils literal notranslate"><span class="pre">--codegen</span></code></p>
 <p>Use compiled evaluator instead of an interpreter.</p>
@@ -359,7 +358,7 @@ the cost of proof construction.</p>
 </ul>
 </section>
 <section id="tests-generation">
-<h3>Tests generation<a class="headerlink" href="#tests-generation" title="Permalink to this headline">¶</a></h3>
+<h3>Tests generation<a class="headerlink" href="#tests-generation" title="Link to this heading">¶</a></h3>
 <ul>
 <li><p><code class="docutils literal notranslate"><span class="pre">testgen-file=&lt;file&gt;</span></code></p>
 <p>Specifies the output file for the generated tests.</p>
@@ -371,7 +370,7 @@ the cost of proof construction.</p>
 </section>
 </section>
 <section id="configuration-file">
-<h2>Configuration File<a class="headerlink" href="#configuration-file" title="Permalink to this headline">¶</a></h2>
+<h2>Configuration File<a class="headerlink" href="#configuration-file" title="Link to this heading">¶</a></h2>
 <p>Stainless supports setting default values for command line options configuration files.
 To specify configuration file you can use the option <code class="docutils literal notranslate"><span class="pre">`--config-file=FILE</span></code>. The default is
 <code class="docutils literal notranslate"><span class="pre">stainless.conf</span></code> or <code class="docutils literal notranslate"><span class="pre">.stainless.conf</span></code>. The file should be a valid HOCON file.</p>
@@ -392,9 +391,9 @@ from <code class="docutils literal notranslate"><span class="pre">/a/b/c</span><
 <cite>b</cite> or <cite>a</cite>, the first of those is going to be loaded.</p>
 </section>
 <section id="library-files">
-<h2>Library Files<a class="headerlink" href="#library-files" title="Permalink to this headline">¶</a></h2>
+<h2>Library Files<a class="headerlink" href="#library-files" title="Link to this heading">¶</a></h2>
 <section id="purpose-of-library-files">
-<h3>Purpose of library files<a class="headerlink" href="#purpose-of-library-files" title="Permalink to this headline">¶</a></h3>
+<h3>Purpose of library files<a class="headerlink" href="#purpose-of-library-files" title="Link to this heading">¶</a></h3>
 <p>Stainless contains library source Scala files that define types and functions that are meant to be always available
 via import statements such as <code class="docutils literal notranslate"><span class="pre">import</span> <span class="pre">stainless.lang._</span></code>, <code class="docutils literal notranslate"><span class="pre">import</span> <span class="pre">stainless.annotation._</span></code>,
 <code class="docutils literal notranslate"><span class="pre">import</span> <span class="pre">stainless.collection._</span></code>, and so on. Many of these types have special treatment inside the extraction
@@ -402,7 +401,7 @@ pipeline and will map directly to mathematical data types of the underlying SMT 
 At build time, the <code class="docutils literal notranslate"><span class="pre">build.sbt</span></code> script computes the list of these files by traversing the <code class="docutils literal notranslate"><span class="pre">frontends/library/</span></code> directory.</p>
 </section>
 <section id="changing-the-list-of-library-files">
-<h3>Changing the list of library files<a class="headerlink" href="#changing-the-list-of-library-files" title="Permalink to this headline">¶</a></h3>
+<h3>Changing the list of library files<a class="headerlink" href="#changing-the-list-of-library-files" title="Link to this heading">¶</a></h3>
 <p>To support further customization, if at run time stainless finds
 a file <code class="docutils literal notranslate"><span class="pre">libfiles.txt</span></code> in the current directory, it replaces the list of library files files with the list contained
 in this file, one file per line, with paths relative to the directory <code class="docutils literal notranslate"><span class="pre">frontends/library/</span></code>. For example, <code class="docutils literal notranslate"><span class="pre">libfiles.txt</span></code>
@@ -440,8 +439,7 @@ using the <code class="docutils literal notranslate"><span class="pre">--watch</
 
            </div>
           </div>
-          <footer>
-    <div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="tutorial.html" class="btn btn-neutral float-left" title="Tutorial: Sorting" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="verification.html" class="btn btn-neutral float-right" title="Verification conditions" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
@@ -450,7 +448,7 @@ using the <code class="docutils literal notranslate"><span class="pre">--watch</
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2021 EPFL, Lausanne.
-      <span class="lastupdated">Last updated on May 09, 2024.
+      <span class="lastupdated">Last updated on Aug 22, 2024.
       </span></p>
   </div>
 
@@ -461,7 +459,7 @@ using the <code class="docutils literal notranslate"><span class="pre">--watch</
       </div>
     </section>
   </div>
-  <script type="text/javascript">
+  <script>
       jQuery(function () {
           SphinxRtdTheme.Navigation.enable(true);
       });

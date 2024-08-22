@@ -75,7 +75,7 @@ I have defined a size function on my algebraic data type.
   def size(l: List) : Int = (l match {
     case Nil => 0
     case Cons(_, t) => 1 + size(t)
-  }) ensuring(_ >= 0)
+  }).ensuring(_ >= 0)
 
 Stainless neither proves nor gives a counterexample. Why?
 

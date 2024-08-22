@@ -1,23 +1,22 @@
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="./">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Working With Existing Code &mdash; Stainless 0.9.1 documentation</title>
-  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
-  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
+
+  
   <!--[if lt IE 9]>
     <script src="_static/js/html5shiv.min.js"></script>
   <![endif]-->
-  <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
-        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
-        <script src="_static/jquery.js"></script>
-        <script src="_static/underscore.js"></script>
-        <script src="_static/doctools.js"></script>
-    <script type="text/javascript" src="_static/js/theme.js"></script>
+  
+        <script src="_static/documentation_options.js?v=9dc39874"></script>
+        <script src="_static/doctools.js?v=9a2dae69"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="Pure Scala" href="purescala.html" />
@@ -29,20 +28,23 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-            <a href="index.html" class="icon icon-home"> Stainless
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Stainless
           </a>
               <div class="version">
                 0.9
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
 </div>
-        </div>
-        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Main">
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installing Stainless</a></li>
@@ -77,20 +79,17 @@
       </div>
     </nav>
 
-    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
-      <nav class="wy-nav-top" aria-label="Top" >
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
           <a href="index.html">Stainless</a>
       </nav>
 
       <div class="wy-nav-content">
         <div class="rst-content">
-          
-
-<div role="navigation" aria-label="Breadcrumbs">
+          <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
-      <li>Working With Existing Code</li>
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Working With Existing Code</li>
       <li class="wy-breadcrumbs-aside">
             <a href="_sources/wrap.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -101,69 +100,69 @@
            <div itemprop="articleBody">
              
   <section id="working-with-existing-code">
-<span id="wrap"></span><h1>Working With Existing Code<a class="headerlink" href="#working-with-existing-code" title="Permalink to this headline">¶</a></h1>
+<span id="wrap"></span><h1>Working With Existing Code<a class="headerlink" href="#working-with-existing-code" title="Link to this heading">¶</a></h1>
 <p>While the subset of Scala (namely, PureScala) that is currently supported by Stainless
 is already expressive enough to implement a lot of different data structures and algorithms,
 it is often the case that one would like to avoid re-implementing a piece of code from scratch
 in this fragment, but rather re-use some existing code, whether it is part of the codebase or
 pulled in from a Java or Scala library.</p>
 <section id="a-wrapper-for-triemap">
-<h2>A wrapper for TrieMap<a class="headerlink" href="#a-wrapper-for-triemap" title="Permalink to this headline">¶</a></h2>
+<h2>A wrapper for TrieMap<a class="headerlink" href="#a-wrapper-for-triemap" title="Link to this heading">¶</a></h2>
 <p>As a running example, let’s write a wrapper for the <code class="docutils literal notranslate"><span class="pre">scala.collection.concurrent.TrieMap</span></code> class.
 A first attempt to wrap it in a regular Stainless datatype could look like the following:</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">import</span> <span class="nn">stainless</span><span class="p">.</span><span class="nn">lang</span><span class="p">.</span><span class="n">_</span>
-<span class="k">import</span> <span class="nn">stainless</span><span class="p">.</span><span class="nn">annotation</span><span class="p">.</span><span class="n">_</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">import</span><span class="w"> </span><span class="nn">stainless</span><span class="p">.</span><span class="nn">lang</span><span class="p">.</span><span class="n">_</span>
+<span class="k">import</span><span class="w"> </span><span class="nn">stainless</span><span class="p">.</span><span class="nn">annotation</span><span class="p">.</span><span class="n">_</span>
 
-<span class="k">import</span> <span class="nn">scala</span><span class="p">.</span><span class="nn">collection</span><span class="p">.</span><span class="nn">concurrent</span><span class="p">.</span><span class="nc">TrieMap</span>
+<span class="k">import</span><span class="w"> </span><span class="nn">scala</span><span class="p">.</span><span class="nn">collection</span><span class="p">.</span><span class="nn">concurrent</span><span class="p">.</span><span class="nc">TrieMap</span>
 
-<span class="k">case</span> <span class="k">class</span> <span class="nc">TrieMapWrapper</span><span class="p">[</span><span class="nc">K</span><span class="p">,</span> <span class="nc">V</span><span class="p">](</span><span class="n">theMap</span><span class="p">:</span> <span class="nc">TrieMap</span><span class="p">[</span><span class="nc">K</span><span class="p">,</span> <span class="nc">V</span><span class="p">])</span>
+<span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">TrieMapWrapper</span><span class="p">[</span><span class="nc">K</span><span class="p">,</span><span class="w"> </span><span class="nc">V</span><span class="p">](</span><span class="n">theMap</span><span class="p">:</span><span class="w"> </span><span class="nc">TrieMap</span><span class="p">[</span><span class="nc">K</span><span class="p">,</span><span class="w"> </span><span class="nc">V</span><span class="p">])</span>
 </pre></div>
 </div>
 <p>Unfortunately, this will not work as Stainless will complain that it does not
 know about the <code class="docutils literal notranslate"><span class="pre">TrieMap</span></code> type. In order to work around this, one can annotate
 the field with the <code class="docutils literal notranslate"><span class="pre">&#64;extern</span></code> annotation, which tells Stainless that the type
 should be treated as opaque.</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">import</span> <span class="nn">stainless</span><span class="p">.</span><span class="nn">lang</span><span class="p">.</span><span class="n">_</span>
-<span class="k">import</span> <span class="nn">stainless</span><span class="p">.</span><span class="nn">annotation</span><span class="p">.</span><span class="n">_</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">import</span><span class="w"> </span><span class="nn">stainless</span><span class="p">.</span><span class="nn">lang</span><span class="p">.</span><span class="n">_</span>
+<span class="k">import</span><span class="w"> </span><span class="nn">stainless</span><span class="p">.</span><span class="nn">annotation</span><span class="p">.</span><span class="n">_</span>
 
-<span class="k">import</span> <span class="nn">scala</span><span class="p">.</span><span class="nn">collection</span><span class="p">.</span><span class="nn">concurrent</span><span class="p">.</span><span class="nc">TrieMap</span>
-<span class="k">import</span> <span class="nn">scala</span><span class="p">.</span><span class="nn">collection</span><span class="p">.</span><span class="nn">concurrent</span><span class="p">.</span><span class="nc">TrieMap</span>
+<span class="k">import</span><span class="w"> </span><span class="nn">scala</span><span class="p">.</span><span class="nn">collection</span><span class="p">.</span><span class="nn">concurrent</span><span class="p">.</span><span class="nc">TrieMap</span>
+<span class="k">import</span><span class="w"> </span><span class="nn">scala</span><span class="p">.</span><span class="nn">collection</span><span class="p">.</span><span class="nn">concurrent</span><span class="p">.</span><span class="nc">TrieMap</span>
 
-<span class="k">case</span> <span class="k">class</span> <span class="nc">TrieMapWrapper</span><span class="p">[</span><span class="nc">K</span><span class="p">,</span> <span class="nc">V</span><span class="p">](</span><span class="nd">@extern</span> <span class="n">theMap</span><span class="p">:</span> <span class="nc">TrieMap</span><span class="p">[</span><span class="nc">K</span><span class="p">,</span> <span class="nc">V</span><span class="p">])</span>
+<span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">TrieMapWrapper</span><span class="p">[</span><span class="nc">K</span><span class="p">,</span><span class="w"> </span><span class="nc">V</span><span class="p">](</span><span class="nd">@extern</span><span class="w"> </span><span class="n">theMap</span><span class="p">:</span><span class="w"> </span><span class="nc">TrieMap</span><span class="p">[</span><span class="nc">K</span><span class="p">,</span><span class="w"> </span><span class="nc">V</span><span class="p">])</span>
 </pre></div>
 </div>
 </section>
 <section id="extern-methods">
-<h2>Extern methods<a class="headerlink" href="#extern-methods" title="Permalink to this headline">¶</a></h2>
+<h2>Extern methods<a class="headerlink" href="#extern-methods" title="Link to this heading">¶</a></h2>
 <p>Let’s now define a forwarding method for the <code class="docutils literal notranslate"><span class="pre">contains</span></code> method of <code class="docutils literal notranslate"><span class="pre">TrieMap</span></code>:</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">import</span> <span class="nn">stainless</span><span class="p">.</span><span class="nn">lang</span><span class="p">.</span><span class="n">_</span>
-<span class="k">import</span> <span class="nn">stainless</span><span class="p">.</span><span class="nn">annotation</span><span class="p">.</span><span class="n">_</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">import</span><span class="w"> </span><span class="nn">stainless</span><span class="p">.</span><span class="nn">lang</span><span class="p">.</span><span class="n">_</span>
+<span class="k">import</span><span class="w"> </span><span class="nn">stainless</span><span class="p">.</span><span class="nn">annotation</span><span class="p">.</span><span class="n">_</span>
 
-<span class="k">import</span> <span class="nn">scala</span><span class="p">.</span><span class="nn">collection</span><span class="p">.</span><span class="nn">concurrent</span><span class="p">.</span><span class="nc">TrieMap</span>
-<span class="k">import</span> <span class="nn">scala</span><span class="p">.</span><span class="nn">collection</span><span class="p">.</span><span class="nn">concurrent</span><span class="p">.</span><span class="nc">TrieMap</span>
+<span class="k">import</span><span class="w"> </span><span class="nn">scala</span><span class="p">.</span><span class="nn">collection</span><span class="p">.</span><span class="nn">concurrent</span><span class="p">.</span><span class="nc">TrieMap</span>
+<span class="k">import</span><span class="w"> </span><span class="nn">scala</span><span class="p">.</span><span class="nn">collection</span><span class="p">.</span><span class="nn">concurrent</span><span class="p">.</span><span class="nc">TrieMap</span>
 
-<span class="k">case</span> <span class="k">class</span> <span class="nc">TrieMapWrapper</span><span class="p">[</span><span class="nc">K</span><span class="p">,</span> <span class="nc">V</span><span class="p">](</span><span class="nd">@extern</span> <span class="n">theMap</span><span class="p">:</span> <span class="nc">TrieMap</span><span class="p">[</span><span class="nc">K</span><span class="p">,</span> <span class="nc">V</span><span class="p">])</span> <span class="p">{</span>
+<span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">TrieMapWrapper</span><span class="p">[</span><span class="nc">K</span><span class="p">,</span><span class="w"> </span><span class="nc">V</span><span class="p">](</span><span class="nd">@extern</span><span class="w"> </span><span class="n">theMap</span><span class="p">:</span><span class="w"> </span><span class="nc">TrieMap</span><span class="p">[</span><span class="nc">K</span><span class="p">,</span><span class="w"> </span><span class="nc">V</span><span class="p">])</span><span class="w"> </span><span class="p">{</span>
 
-  <span class="k">def</span> <span class="nf">contains</span><span class="p">(</span><span class="n">k</span><span class="p">:</span> <span class="nc">K</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="n">theMap</span> <span class="n">contains</span> <span class="n">k</span>
-  <span class="p">}</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">contains</span><span class="p">(</span><span class="n">k</span><span class="p">:</span><span class="w"> </span><span class="nc">K</span><span class="p">):</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">theMap</span><span class="w"> </span><span class="n">contains</span><span class="w"> </span><span class="n">k</span>
+<span class="w">  </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
 </div>
 <p>Once again, this will fail because, from Stainless’ point of view, <code class="docutils literal notranslate"><span class="pre">theMap</span></code> has an opaque type
 and thus has no <code class="docutils literal notranslate"><span class="pre">contains</span></code> method. By annotating the method itself with <code class="docutils literal notranslate"><span class="pre">&#64;extern</span></code>, Stainless will
 not attempt to extract the method’s body, and we can thus freely refer to any of <code class="docutils literal notranslate"><span class="pre">TrieMap</span></code>’s methods:</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">import</span> <span class="nn">stainless</span><span class="p">.</span><span class="nn">lang</span><span class="p">.</span><span class="n">_</span>
-<span class="k">import</span> <span class="nn">stainless</span><span class="p">.</span><span class="nn">annotation</span><span class="p">.</span><span class="n">_</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">import</span><span class="w"> </span><span class="nn">stainless</span><span class="p">.</span><span class="nn">lang</span><span class="p">.</span><span class="n">_</span>
+<span class="k">import</span><span class="w"> </span><span class="nn">stainless</span><span class="p">.</span><span class="nn">annotation</span><span class="p">.</span><span class="n">_</span>
 
-<span class="k">import</span> <span class="nn">scala</span><span class="p">.</span><span class="nn">collection</span><span class="p">.</span><span class="nn">concurrent</span><span class="p">.</span><span class="nc">TrieMap</span>
+<span class="k">import</span><span class="w"> </span><span class="nn">scala</span><span class="p">.</span><span class="nn">collection</span><span class="p">.</span><span class="nn">concurrent</span><span class="p">.</span><span class="nc">TrieMap</span>
 
-<span class="k">case</span> <span class="k">class</span> <span class="nc">TrieMapWrapper</span><span class="p">[</span><span class="nc">K</span><span class="p">,</span> <span class="nc">V</span><span class="p">](</span><span class="nd">@extern</span> <span class="n">theMap</span><span class="p">:</span> <span class="nc">TrieMap</span><span class="p">[</span><span class="nc">K</span><span class="p">,</span> <span class="nc">V</span><span class="p">])</span> <span class="p">{</span>
+<span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">TrieMapWrapper</span><span class="p">[</span><span class="nc">K</span><span class="p">,</span><span class="w"> </span><span class="nc">V</span><span class="p">](</span><span class="nd">@extern</span><span class="w"> </span><span class="n">theMap</span><span class="p">:</span><span class="w"> </span><span class="nc">TrieMap</span><span class="p">[</span><span class="nc">K</span><span class="p">,</span><span class="w"> </span><span class="nc">V</span><span class="p">])</span><span class="w"> </span><span class="p">{</span>
 
-  <span class="nd">@extern</span>
-  <span class="k">def</span> <span class="nf">contains</span><span class="p">(</span><span class="n">k</span><span class="p">:</span> <span class="nc">K</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="n">theMap</span> <span class="n">contains</span> <span class="n">k</span>
-  <span class="p">}</span>
+<span class="w">  </span><span class="nd">@extern</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">contains</span><span class="p">(</span><span class="n">k</span><span class="p">:</span><span class="w"> </span><span class="nc">K</span><span class="p">):</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">theMap</span><span class="w"> </span><span class="n">contains</span><span class="w"> </span><span class="n">k</span>
+<span class="w">  </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -175,18 +174,18 @@ One can inspect which types are replaced during recovery, by supplying the <code
 </div>
 </section>
 <section id="contracts">
-<h2>Contracts<a class="headerlink" href="#contracts" title="Permalink to this headline">¶</a></h2>
+<h2>Contracts<a class="headerlink" href="#contracts" title="Link to this heading">¶</a></h2>
 <p>Let’s also define another extern function, which creates a new empty map:</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">object</span> <span class="nc">TrieMapWrapper</span> <span class="p">{</span>
-  <span class="nd">@extern</span>
-  <span class="k">def</span> <span class="nf">empty</span><span class="p">[</span><span class="nc">K</span><span class="p">,</span> <span class="nc">V</span><span class="p">]:</span> <span class="nc">TrieMapWrapper</span><span class="p">[</span><span class="nc">K</span><span class="p">,</span> <span class="nc">V</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="nc">TrieMapWrapper</span><span class="p">(</span><span class="nc">TrieMap</span><span class="p">.</span><span class="n">empty</span><span class="p">[</span><span class="nc">K</span><span class="p">,</span> <span class="nc">V</span><span class="p">])</span>
-  <span class="p">}</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">object</span><span class="w"> </span><span class="nc">TrieMapWrapper</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nd">@extern</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">empty</span><span class="p">[</span><span class="nc">K</span><span class="p">,</span><span class="w"> </span><span class="nc">V</span><span class="p">]:</span><span class="w"> </span><span class="nc">TrieMapWrapper</span><span class="p">[</span><span class="nc">K</span><span class="p">,</span><span class="w"> </span><span class="nc">V</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nc">TrieMapWrapper</span><span class="p">(</span><span class="nc">TrieMap</span><span class="p">.</span><span class="n">empty</span><span class="p">[</span><span class="nc">K</span><span class="p">,</span><span class="w"> </span><span class="nc">V</span><span class="p">])</span>
+<span class="w">  </span><span class="p">}</span>
 <span class="p">}</span>
 
-<span class="k">def</span> <span class="nf">prop1</span> <span class="o">=</span> <span class="p">{</span>
-  <span class="kd">val</span> <span class="n">wrapper</span> <span class="o">=</span> <span class="nc">TrieMapWrapper</span><span class="p">.</span><span class="n">empty</span><span class="p">[</span><span class="nc">Int</span><span class="p">,</span> <span class="nc">String</span><span class="p">]</span>
-  <span class="n">assert</span><span class="p">(</span><span class="o">!</span><span class="n">wrapper</span><span class="p">.</span><span class="n">contains</span><span class="p">(</span><span class="mi">42</span><span class="p">))</span> <span class="c1">// invalid</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">prop1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">wrapper</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">TrieMapWrapper</span><span class="p">.</span><span class="n">empty</span><span class="p">[</span><span class="nc">Int</span><span class="p">,</span><span class="w"> </span><span class="nc">String</span><span class="p">]</span>
+<span class="w">  </span><span class="n">assert</span><span class="p">(</span><span class="o">!</span><span class="n">wrapper</span><span class="p">.</span><span class="n">contains</span><span class="p">(</span><span class="mi">42</span><span class="p">))</span><span class="w"> </span><span class="c1">// invalid</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -194,25 +193,25 @@ One can inspect which types are replaced during recovery, by supplying the <code
 by itself that the result of <code class="docutils literal notranslate"><span class="pre">TrieMapWrapper.empty</span></code> does not contain any entries.</p>
 <p>We can remedy to that by adding a postcondition to the <code class="docutils literal notranslate"><span class="pre">empty</span></code> function which says that,
 for any key <code class="docutils literal notranslate"><span class="pre">k</span></code> of type <code class="docutils literal notranslate"><span class="pre">K</span></code>, the result of <code class="docutils literal notranslate"><span class="pre">TrieMapWrapper.empty</span></code> does not contain the key <code class="docutils literal notranslate"><span class="pre">k</span></code>.</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">object</span> <span class="nc">TrieMapWrapper</span> <span class="p">{</span>
-  <span class="nd">@extern</span>
-  <span class="k">def</span> <span class="nf">empty</span><span class="p">[</span><span class="nc">K</span><span class="p">,</span> <span class="nc">V</span><span class="p">]:</span> <span class="nc">TrieMapWrapper</span><span class="p">[</span><span class="nc">K</span><span class="p">,</span> <span class="nc">V</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="nc">TrieMapWrapper</span><span class="p">(</span><span class="nc">TrieMap</span><span class="p">.</span><span class="n">empty</span><span class="p">[</span><span class="nc">K</span><span class="p">,</span> <span class="nc">V</span><span class="p">])</span>
-  <span class="p">}</span> <span class="n">ensuring</span> <span class="p">{</span> <span class="n">res</span> <span class="o">=&gt;</span>
-    <span class="n">forall</span><span class="p">((</span><span class="n">k</span><span class="p">:</span> <span class="nc">K</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="o">!</span><span class="n">res</span><span class="p">.</span><span class="n">contains</span><span class="p">(</span><span class="n">k</span><span class="p">))</span>
-  <span class="p">}</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">object</span><span class="w"> </span><span class="nc">TrieMapWrapper</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nd">@extern</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">empty</span><span class="p">[</span><span class="nc">K</span><span class="p">,</span><span class="w"> </span><span class="nc">V</span><span class="p">]:</span><span class="w"> </span><span class="nc">TrieMapWrapper</span><span class="p">[</span><span class="nc">K</span><span class="p">,</span><span class="w"> </span><span class="nc">V</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nc">TrieMapWrapper</span><span class="p">(</span><span class="nc">TrieMap</span><span class="p">.</span><span class="n">empty</span><span class="p">[</span><span class="nc">K</span><span class="p">,</span><span class="w"> </span><span class="nc">V</span><span class="p">])</span>
+<span class="w"> </span><span class="p">}.</span><span class="n">ensuring</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">res</span><span class="w"> </span><span class="o">=&gt;</span>
+<span class="w">    </span><span class="n">forall</span><span class="p">((</span><span class="n">k</span><span class="p">:</span><span class="w"> </span><span class="nc">K</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="o">!</span><span class="n">res</span><span class="p">.</span><span class="n">contains</span><span class="p">(</span><span class="n">k</span><span class="p">))</span>
+<span class="w">  </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
 </div>
 <p>The assertion above now verifies successfully.</p>
 </section>
 <section id="purity-annotations">
-<h2>Purity annotations<a class="headerlink" href="#purity-annotations" title="Permalink to this headline">¶</a></h2>
+<h2>Purity annotations<a class="headerlink" href="#purity-annotations" title="Link to this heading">¶</a></h2>
 <p>Let’s now see what happens when we call <code class="docutils literal notranslate"><span class="pre">contains</span></code> twice:</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">prop1</span> <span class="o">=</span> <span class="p">{</span>
-  <span class="kd">val</span> <span class="n">wrapper</span> <span class="o">=</span> <span class="nc">TrieMapWrapper</span><span class="p">.</span><span class="n">empty</span><span class="p">[</span><span class="nc">Int</span><span class="p">,</span> <span class="nc">String</span><span class="p">]</span>
-  <span class="n">assert</span><span class="p">(</span><span class="o">!</span><span class="n">wrapper</span><span class="p">.</span><span class="n">contains</span><span class="p">(</span><span class="mi">42</span><span class="p">))</span>
-  <span class="n">assert</span><span class="p">(</span><span class="o">!</span><span class="n">wrapper</span><span class="p">.</span><span class="n">contains</span><span class="p">(</span><span class="mi">42</span><span class="p">))</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">prop1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">wrapper</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">TrieMapWrapper</span><span class="p">.</span><span class="n">empty</span><span class="p">[</span><span class="nc">Int</span><span class="p">,</span><span class="w"> </span><span class="nc">String</span><span class="p">]</span>
+<span class="w">  </span><span class="n">assert</span><span class="p">(</span><span class="o">!</span><span class="n">wrapper</span><span class="p">.</span><span class="n">contains</span><span class="p">(</span><span class="mi">42</span><span class="p">))</span>
+<span class="w">  </span><span class="n">assert</span><span class="p">(</span><span class="o">!</span><span class="n">wrapper</span><span class="p">.</span><span class="n">contains</span><span class="p">(</span><span class="mi">42</span><span class="p">))</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -228,12 +227,12 @@ for any key <code class="docutils literal notranslate"><span class="pre">k</span
 by default that extern functions and methods mutate their arguments. Indeed, because Stainless
 does not know about the body of such methods, it cannot know whether such a function is pure or not.
 It is thus up to the user to instruct Stainless otherwise, by annotating the function with <code class="docutils literal notranslate"><span class="pre">&#64;pure</span></code>:</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">case</span> <span class="k">class</span> <span class="nc">TrieMapWrapper</span><span class="p">[</span><span class="nc">K</span><span class="p">,</span> <span class="nc">V</span><span class="p">](</span><span class="nd">@extern</span> <span class="n">theMap</span><span class="p">:</span> <span class="nc">TrieMap</span><span class="p">[</span><span class="nc">K</span><span class="p">,</span> <span class="nc">V</span><span class="p">])</span> <span class="p">{</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">TrieMapWrapper</span><span class="p">[</span><span class="nc">K</span><span class="p">,</span><span class="w"> </span><span class="nc">V</span><span class="p">](</span><span class="nd">@extern</span><span class="w"> </span><span class="n">theMap</span><span class="p">:</span><span class="w"> </span><span class="nc">TrieMap</span><span class="p">[</span><span class="nc">K</span><span class="p">,</span><span class="w"> </span><span class="nc">V</span><span class="p">])</span><span class="w"> </span><span class="p">{</span>
 
-  <span class="nd">@extern</span> <span class="nd">@pure</span>
-  <span class="k">def</span> <span class="nf">contains</span><span class="p">(</span><span class="n">k</span><span class="p">:</span> <span class="nc">K</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="n">theMap</span> <span class="n">contains</span> <span class="n">k</span>
-  <span class="p">}</span>
+<span class="w">  </span><span class="nd">@extern</span><span class="w"> </span><span class="nd">@pure</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">contains</span><span class="p">(</span><span class="n">k</span><span class="p">:</span><span class="w"> </span><span class="nc">K</span><span class="p">):</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">theMap</span><span class="w"> </span><span class="n">contains</span><span class="w"> </span><span class="n">k</span>
+<span class="w">  </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -247,54 +246,54 @@ It is thus up to the user to instruct Stainless otherwise, by annotating the fun
 </pre></div>
 </div>
 <p>We can now define the other methods of interest, with their appropriate contract:</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">import</span> <span class="nn">stainless</span><span class="p">.</span><span class="nn">lang</span><span class="p">.</span><span class="n">_</span>
-<span class="k">import</span> <span class="nn">stainless</span><span class="p">.</span><span class="nn">annotation</span><span class="p">.</span><span class="n">_</span>
-<span class="k">import</span> <span class="nn">scala</span><span class="p">.</span><span class="nn">annotation</span><span class="p">.</span><span class="nn">meta</span><span class="p">.</span><span class="n">field</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">import</span><span class="w"> </span><span class="nn">stainless</span><span class="p">.</span><span class="nn">lang</span><span class="p">.</span><span class="n">_</span>
+<span class="k">import</span><span class="w"> </span><span class="nn">stainless</span><span class="p">.</span><span class="nn">annotation</span><span class="p">.</span><span class="n">_</span>
+<span class="k">import</span><span class="w"> </span><span class="nn">scala</span><span class="p">.</span><span class="nn">annotation</span><span class="p">.</span><span class="nn">meta</span><span class="p">.</span><span class="n">field</span>
 
-<span class="k">import</span> <span class="nn">scala</span><span class="p">.</span><span class="nn">collection</span><span class="p">.</span><span class="nn">concurrent</span><span class="p">.</span><span class="nc">TrieMap</span>
+<span class="k">import</span><span class="w"> </span><span class="nn">scala</span><span class="p">.</span><span class="nn">collection</span><span class="p">.</span><span class="nn">concurrent</span><span class="p">.</span><span class="nc">TrieMap</span>
 
-<span class="k">case</span> <span class="k">class</span> <span class="nc">TrieMapWrapper</span><span class="p">[</span><span class="nc">K</span><span class="p">,</span> <span class="nc">V</span><span class="p">](</span>
-  <span class="nd">@extern</span>
-  <span class="n">theMap</span><span class="p">:</span> <span class="nc">TrieMap</span><span class="p">[</span><span class="nc">K</span><span class="p">,</span> <span class="nc">V</span><span class="p">]</span>
-<span class="p">)</span> <span class="p">{</span>
+<span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">TrieMapWrapper</span><span class="p">[</span><span class="nc">K</span><span class="p">,</span><span class="w"> </span><span class="nc">V</span><span class="p">](</span>
+<span class="w">  </span><span class="nd">@extern</span>
+<span class="w">  </span><span class="n">theMap</span><span class="p">:</span><span class="w"> </span><span class="nc">TrieMap</span><span class="p">[</span><span class="nc">K</span><span class="p">,</span><span class="w"> </span><span class="nc">V</span><span class="p">]</span>
+<span class="p">)</span><span class="w"> </span><span class="p">{</span>
 
-  <span class="nd">@extern</span> <span class="nd">@pure</span>
-  <span class="k">def</span> <span class="nf">contains</span><span class="p">(</span><span class="n">k</span><span class="p">:</span> <span class="nc">K</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="n">theMap</span> <span class="n">contains</span> <span class="n">k</span>
-  <span class="p">}</span>
+<span class="w">  </span><span class="nd">@extern</span><span class="w"> </span><span class="nd">@pure</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">contains</span><span class="p">(</span><span class="n">k</span><span class="p">:</span><span class="w"> </span><span class="nc">K</span><span class="p">):</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">theMap</span><span class="w"> </span><span class="n">contains</span><span class="w"> </span><span class="n">k</span>
+<span class="w">  </span><span class="p">}</span>
 
-  <span class="nd">@extern</span>
-  <span class="k">def</span> <span class="nf">insert</span><span class="p">(</span><span class="n">k</span><span class="p">:</span> <span class="nc">K</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="nc">V</span><span class="p">):</span> <span class="nc">Unit</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="n">theMap</span><span class="p">.</span><span class="n">update</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
-  <span class="p">}</span> <span class="n">ensuring</span> <span class="p">{</span>
-    <span class="bp">this</span><span class="p">.</span><span class="n">contains</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="o">&amp;&amp;</span>
-    <span class="bp">this</span><span class="p">.</span><span class="n">apply</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="o">==</span> <span class="n">v</span>
-  <span class="p">}</span>
+<span class="w">  </span><span class="nd">@extern</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">insert</span><span class="p">(</span><span class="n">k</span><span class="p">:</span><span class="w"> </span><span class="nc">K</span><span class="p">,</span><span class="w"> </span><span class="n">v</span><span class="p">:</span><span class="w"> </span><span class="nc">V</span><span class="p">):</span><span class="w"> </span><span class="nc">Unit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">theMap</span><span class="p">.</span><span class="n">update</span><span class="p">(</span><span class="n">k</span><span class="p">,</span><span class="w"> </span><span class="n">v</span><span class="p">)</span>
+<span class="w"> </span><span class="p">}.</span><span class="n">ensuring</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="bp">this</span><span class="p">.</span><span class="n">contains</span><span class="p">(</span><span class="n">k</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span>
+<span class="w">    </span><span class="bp">this</span><span class="p">.</span><span class="n">apply</span><span class="p">(</span><span class="n">k</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">v</span>
+<span class="w">  </span><span class="p">}</span>
 
-  <span class="nd">@extern</span> <span class="nd">@pure</span>
-  <span class="k">def</span> <span class="nf">apply</span><span class="p">(</span><span class="n">k</span><span class="p">:</span> <span class="nc">K</span><span class="p">):</span> <span class="nc">V</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="n">require</span><span class="p">(</span><span class="n">contains</span><span class="p">(</span><span class="n">k</span><span class="p">))</span>
-    <span class="n">theMap</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
-  <span class="p">}</span>
+<span class="w">  </span><span class="nd">@extern</span><span class="w"> </span><span class="nd">@pure</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">apply</span><span class="p">(</span><span class="n">k</span><span class="p">:</span><span class="w"> </span><span class="nc">K</span><span class="p">):</span><span class="w"> </span><span class="nc">V</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">require</span><span class="p">(</span><span class="n">contains</span><span class="p">(</span><span class="n">k</span><span class="p">))</span>
+<span class="w">    </span><span class="n">theMap</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
+<span class="w">  </span><span class="p">}</span>
 <span class="p">}</span>
 
-<span class="k">object</span> <span class="nc">TrieMapWrapper</span> <span class="p">{</span>
-  <span class="nd">@extern</span> <span class="nd">@pure</span>
-  <span class="k">def</span> <span class="nf">empty</span><span class="p">[</span><span class="nc">K</span><span class="p">,</span> <span class="nc">V</span><span class="p">]:</span> <span class="nc">TrieMapWrapper</span><span class="p">[</span><span class="nc">K</span><span class="p">,</span> <span class="nc">V</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="nc">TrieMapWrapper</span><span class="p">(</span><span class="nc">TrieMap</span><span class="p">.</span><span class="n">empty</span><span class="p">[</span><span class="nc">K</span><span class="p">,</span> <span class="nc">V</span><span class="p">])</span>
-  <span class="p">}</span> <span class="n">ensuring</span> <span class="p">{</span> <span class="n">res</span> <span class="o">=&gt;</span>
-    <span class="n">forall</span><span class="p">((</span><span class="n">k</span><span class="p">:</span> <span class="nc">K</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="o">!</span><span class="n">res</span><span class="p">.</span><span class="n">contains</span><span class="p">(</span><span class="n">k</span><span class="p">))</span>
-  <span class="p">}</span>
+<span class="k">object</span><span class="w"> </span><span class="nc">TrieMapWrapper</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nd">@extern</span><span class="w"> </span><span class="nd">@pure</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">empty</span><span class="p">[</span><span class="nc">K</span><span class="p">,</span><span class="w"> </span><span class="nc">V</span><span class="p">]:</span><span class="w"> </span><span class="nc">TrieMapWrapper</span><span class="p">[</span><span class="nc">K</span><span class="p">,</span><span class="w"> </span><span class="nc">V</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nc">TrieMapWrapper</span><span class="p">(</span><span class="nc">TrieMap</span><span class="p">.</span><span class="n">empty</span><span class="p">[</span><span class="nc">K</span><span class="p">,</span><span class="w"> </span><span class="nc">V</span><span class="p">])</span>
+<span class="w"> </span><span class="p">}.</span><span class="n">ensuring</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">res</span><span class="w"> </span><span class="o">=&gt;</span>
+<span class="w">    </span><span class="n">forall</span><span class="p">((</span><span class="n">k</span><span class="p">:</span><span class="w"> </span><span class="nc">K</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="o">!</span><span class="n">res</span><span class="p">.</span><span class="n">contains</span><span class="p">(</span><span class="n">k</span><span class="p">))</span>
+<span class="w">  </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
 </div>
 <p>And we can now reason about our wrapper for <code class="docutils literal notranslate"><span class="pre">TrieMap</span></code>:</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">prop2</span> <span class="o">=</span> <span class="p">{</span>
-  <span class="kd">val</span> <span class="n">wrapper</span> <span class="o">=</span> <span class="nc">TrieMapWrapper</span><span class="p">.</span><span class="n">empty</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">,</span> <span class="nc">String</span><span class="p">]</span>
-  <span class="n">assert</span><span class="p">(</span><span class="o">!</span><span class="n">wrapper</span><span class="p">.</span><span class="n">contains</span><span class="p">(</span><span class="mi">42</span><span class="p">))</span>
-  <span class="n">wrapper</span><span class="p">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">42</span><span class="p">,</span> <span class="s">&quot;Hello&quot;</span><span class="p">)</span>
-  <span class="n">assert</span><span class="p">(</span><span class="n">wrapper</span><span class="p">.</span><span class="n">contains</span><span class="p">(</span><span class="mi">42</span><span class="p">))</span>
-  <span class="n">assert</span><span class="p">(</span><span class="n">wrapper</span><span class="p">(</span><span class="mi">42</span><span class="p">)</span> <span class="o">==</span> <span class="s">&quot;Hello&quot;</span><span class="p">)</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">prop2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">wrapper</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">TrieMapWrapper</span><span class="p">.</span><span class="n">empty</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">,</span><span class="w"> </span><span class="nc">String</span><span class="p">]</span>
+<span class="w">  </span><span class="n">assert</span><span class="p">(</span><span class="o">!</span><span class="n">wrapper</span><span class="p">.</span><span class="n">contains</span><span class="p">(</span><span class="mi">42</span><span class="p">))</span>
+<span class="w">  </span><span class="n">wrapper</span><span class="p">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">42</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Hello&quot;</span><span class="p">)</span>
+<span class="w">  </span><span class="n">assert</span><span class="p">(</span><span class="n">wrapper</span><span class="p">.</span><span class="n">contains</span><span class="p">(</span><span class="mi">42</span><span class="p">))</span>
+<span class="w">  </span><span class="n">assert</span><span class="p">(</span><span class="n">wrapper</span><span class="p">(</span><span class="mi">42</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s">&quot;Hello&quot;</span><span class="p">)</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -316,8 +315,7 @@ It is thus up to the user to instruct Stainless otherwise, by annotating the fun
 
            </div>
           </div>
-          <footer>
-    <div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="ghost.html" class="btn btn-neutral float-left" title="Ghost Context" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="purescala.html" class="btn btn-neutral float-right" title="Pure Scala" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
@@ -326,7 +324,7 @@ It is thus up to the user to instruct Stainless otherwise, by annotating the fun
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2021 EPFL, Lausanne.
-      <span class="lastupdated">Last updated on Dec 17, 2023.
+      <span class="lastupdated">Last updated on Aug 22, 2024.
       </span></p>
   </div>
 
@@ -337,7 +335,7 @@ It is thus up to the user to instruct Stainless otherwise, by annotating the fun
       </div>
     </section>
   </div>
-  <script type="text/javascript">
+  <script>
       jQuery(function () {
           SphinxRtdTheme.Navigation.enable(true);
       });

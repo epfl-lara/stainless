@@ -1,23 +1,22 @@
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="./">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Translation from Stainless to Coq &mdash; Stainless 0.9.1 documentation</title>
-  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
-  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
+
+  
   <!--[if lt IE 9]>
     <script src="_static/js/html5shiv.min.js"></script>
   <![endif]-->
-  <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
-        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
-        <script src="_static/jquery.js"></script>
-        <script src="_static/underscore.js"></script>
-        <script src="_static/doctools.js"></script>
-    <script type="text/javascript" src="_static/js/theme.js"></script>
+  
+        <script src="_static/documentation_options.js?v=9dc39874"></script>
+        <script src="_static/doctools.js?v=9a2dae69"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="FAQ: (Frequently) Asked Questions" href="faq.html" />
@@ -29,20 +28,23 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-            <a href="index.html" class="icon icon-home"> Stainless
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Stainless
           </a>
               <div class="version">
                 0.9
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
 </div>
-        </div>
-        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Main">
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installing Stainless</a></li>
@@ -75,20 +77,17 @@
       </div>
     </nav>
 
-    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
-      <nav class="wy-nav-top" aria-label="Top" >
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
           <a href="index.html">Stainless</a>
       </nav>
 
       <div class="wy-nav-content">
         <div class="rst-content">
-          
-
-<div role="navigation" aria-label="Breadcrumbs">
+          <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
-      <li>Translation from Stainless to Coq</li>
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Translation from Stainless to Coq</li>
       <li class="wy-breadcrumbs-aside">
             <a href="_sources/coq.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -99,7 +98,7 @@
            <div itemprop="articleBody">
              
   <section id="translation-from-stainless-to-coq">
-<span id="coq"></span><h1>Translation from Stainless to Coq<a class="headerlink" href="#translation-from-stainless-to-coq" title="Permalink to this headline">¶</a></h1>
+<span id="coq"></span><h1>Translation from Stainless to Coq<a class="headerlink" href="#translation-from-stainless-to-coq" title="Link to this heading">¶</a></h1>
 <p>Initially based on a project done by <a class="reference external" href="https://github.com/czipobence">Bence Czipó</a>, this translation is an early experimental
 stage.</p>
 <p>The <cite>–coq</cite> option of Stainless replaces the standard verification checker
@@ -107,7 +106,7 @@ stage.</p>
 is translated to a Coq file, and obligations corresponding to assertions,
 preconditions, and postconditions are solved using predefined tactics in Coq.</p>
 <section id="requirements">
-<span id="coq-requirements"></span><h2>Requirements<a class="headerlink" href="#requirements" title="Permalink to this headline">¶</a></h2>
+<span id="coq-requirements"></span><h2>Requirements<a class="headerlink" href="#requirements" title="Link to this heading">¶</a></h2>
 <ul class="simple">
 <li><p>Coq 8.11.2</p></li>
 <li><p>Coq Equations 1.2.2+8.11</p></li>
@@ -116,27 +115,27 @@ preconditions, and postconditions are solved using predefined tactics in Coq.</p
 README.md</a>.</p>
 </section>
 <section id="usage-of-the-coq-option">
-<span id="coq-option"></span><h2>Usage of the Coq option<a class="headerlink" href="#usage-of-the-coq-option" title="Permalink to this headline">¶</a></h2>
+<span id="coq-option"></span><h2>Usage of the Coq option<a class="headerlink" href="#usage-of-the-coq-option" title="Link to this heading">¶</a></h2>
 <p>First, clone the <a class="reference external" href="https://github.com/epfl-lara/stainless">Stainless repository</a>. In the <cite>slc-lib</cite> directory, run
 <cite>./configure</cite> and <cite>make</cite>.</p>
 <p>Then, assuming the Stainless binary <code class="docutils literal notranslate"><span class="pre">stainless-scalac</span></code> is in your path, run:
 <code class="docutils literal notranslate"><span class="pre">stainless-scalac</span> <span class="pre">--coq</span> <span class="pre">File.scala</span></code> on the file of your choice. As an example,
 consider the <code class="docutils literal notranslate"><span class="pre">test</span></code> function from the <a class="reference external" href="https://github.com/epfl-lara/stainless/blob/master/frontends/benchmarks/coq/Arith.scala">Arith.scala</a>
 file:</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">test</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">,</span> <span class="n">c</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">):</span> <span class="nc">BigInt</span> <span class="o">=</span> <span class="p">{</span>
-  <span class="n">require</span><span class="p">(</span><span class="n">a</span> <span class="o">&gt;</span> <span class="n">b</span> <span class="o">&amp;&amp;</span> <span class="n">c</span> <span class="o">&gt;</span> <span class="nc">BigInt</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
-  <span class="n">c</span> <span class="o">+</span> <span class="n">a</span>
-<span class="p">}</span> <span class="n">ensuring</span><span class="p">(</span> <span class="n">_</span> <span class="o">&gt;</span> <span class="n">c</span> <span class="o">+</span> <span class="n">b</span> <span class="p">)</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="w"> </span><span class="k">def</span><span class="w"> </span><span class="nf">test</span><span class="p">(</span><span class="n">a</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">,</span><span class="w"> </span><span class="n">c</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">):</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">   </span><span class="n">require</span><span class="p">(</span><span class="n">a</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">c</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+<span class="w">   </span><span class="n">c</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">a</span>
+<span class="p">}.</span><span class="n">ensuring</span><span class="p">(</span><span class="w"> </span><span class="n">_</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">c</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="p">)</span>
 </pre></div>
 </div>
 <p>Running <code class="docutils literal notranslate"><span class="pre">stainless-scalac</span> <span class="pre">--coq</span> <span class="pre">frontends/benchmarks/coq/Arith.scala</span></code>
 generates the file <code class="docutils literal notranslate"><span class="pre">tmp/test.v</span></code> which contains the following Coq definition.</p>
-<div class="highlight-coq notranslate"><div class="highlight"><pre><span></span><span class="kn">Definition</span> <span class="n">test</span> <span class="o">(</span><span class="n">a</span><span class="o">:</span> <span class="n">Z</span><span class="o">)</span> <span class="o">(</span><span class="n">b</span><span class="o">:</span> <span class="n">Z</span><span class="o">)</span> <span class="o">(</span><span class="n">c</span><span class="o">:</span> <span class="n">Z</span><span class="o">)</span> <span class="o">(</span><span class="n">contractHyp4</span><span class="o">:</span> <span class="o">(</span><span class="n">ifthenelse</span> <span class="o">(</span><span class="n">Z</span><span class="o">.</span><span class="n">gtb</span> <span class="n">a</span> <span class="n">b</span><span class="o">)</span> <span class="n">bool</span>
-        <span class="o">(</span><span class="k">fun</span> <span class="o">_</span> <span class="o">=&gt;</span> <span class="n">Z</span><span class="o">.</span><span class="n">gtb</span> <span class="n">c</span> <span class="o">(</span><span class="mi">0</span><span class="o">)%</span><span class="n">Z</span> <span class="o">)</span>
-        <span class="o">(</span><span class="k">fun</span> <span class="o">_</span> <span class="o">=&gt;</span> <span class="bp">false</span> <span class="o">)</span> <span class="o">=</span> <span class="bp">true</span><span class="o">))</span> <span class="o">:</span> <span class="o">{</span><span class="n">x___1</span><span class="o">:</span> <span class="n">Z</span> <span class="o">|</span> <span class="o">(</span><span class="n">Z</span><span class="o">.</span><span class="n">gtb</span> <span class="n">x___1</span> <span class="o">(</span><span class="n">Z</span><span class="o">.</span><span class="n">add</span> <span class="n">c</span> <span class="n">b</span><span class="o">)</span> <span class="o">=</span> <span class="bp">true</span><span class="o">)}</span> <span class="o">:=</span>
-<span class="n">Z</span><span class="o">.</span><span class="n">add</span> <span class="n">c</span> <span class="n">a</span><span class="o">.</span>
+<div class="highlight-coq notranslate"><div class="highlight"><pre><span></span><span class="kn">Definition</span> <span class="n">test</span> <span class="o">(</span><span class="n">a</span><span class="o">:</span> <span class="n">Z</span><span class="o">)</span> <span class="o">(</span><span class="n">b</span><span class="o">:</span> <span class="n">Z</span><span class="o">)</span> <span class="o">(</span><span class="n">c</span><span class="o">:</span> <span class="n">Z</span><span class="o">)</span> <span class="o">(</span><span class="n">contractHyp4</span><span class="o">:</span> <span class="o">(</span><span class="n">ifthenelse</span> <span class="o">(</span><span class="n">Z.gtb</span> <span class="n">a</span> <span class="n">b</span><span class="o">)</span> <span class="n">bool</span>
+        <span class="o">(</span><span class="k">fun</span> <span class="o">_</span> <span class="o">=&gt;</span> <span class="n">Z.gtb</span> <span class="n">c</span> <span class="o">(</span><span class="mi">0</span><span class="o">)%</span><span class="n">Z</span> <span class="o">)</span>
+        <span class="o">(</span><span class="k">fun</span> <span class="o">_</span> <span class="o">=&gt;</span> <span class="bp">false</span> <span class="o">)</span> <span class="o">=</span> <span class="bp">true</span><span class="o">))</span> <span class="o">:</span> <span class="o">{</span><span class="n">x___1</span><span class="o">:</span> <span class="n">Z</span> <span class="o">|</span> <span class="o">(</span><span class="n">Z.gtb</span> <span class="n">x___1</span> <span class="o">(</span><span class="n">Z.add</span> <span class="n">c</span> <span class="n">b</span><span class="o">)</span> <span class="o">=</span> <span class="bp">true</span><span class="o">)}</span> <span class="o">:=</span>
+<span class="n">Z.add</span> <span class="n">c</span> <span class="n">a</span><span class="o">.</span>
 
-<span class="n">Fail</span> <span class="n">Next</span> <span class="n">Obligation</span><span class="o">.</span>
+<span class="kn">Fail</span> <span class="kn">Next Obligation</span><span class="o">.</span>
 </pre></div>
 </div>
 <p>The <code class="docutils literal notranslate"><span class="pre">coqc</span></code> executable in run on the file, and the status is reported by
@@ -154,8 +153,7 @@ succeeds when the original command fails).</p>
 
            </div>
           </div>
-          <footer>
-    <div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="casestudies.html" class="btn btn-neutral float-left" title="Case Studies" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="faq.html" class="btn btn-neutral float-right" title="FAQ: (Frequently) Asked Questions" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
@@ -164,7 +162,7 @@ succeeds when the original command fails).</p>
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2021 EPFL, Lausanne.
-      <span class="lastupdated">Last updated on Dec 17, 2023.
+      <span class="lastupdated">Last updated on Aug 22, 2024.
       </span></p>
   </div>
 
@@ -175,7 +173,7 @@ succeeds when the original command fails).</p>
       </div>
     </section>
   </div>
-  <script type="text/javascript">
+  <script>
       jQuery(function () {
           SphinxRtdTheme.Navigation.enable(true);
       });

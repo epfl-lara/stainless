@@ -11,7 +11,7 @@ object Choose1 {
     def size(l: List) : BigInt = (l match {
         case Nil() => BigInt(0)
         case Cons(_, t) => 1 + size(t)
-    }) ensuring(res => res >= 0)
+    }).ensuring(res => res >= 0)
 
     def content(l: List) : Set[Int] = l match {
       case Nil() => Set.empty[Int]
@@ -26,7 +26,7 @@ object Choose1 {
       } else {
         choose[List] { (res: List) => size(res) == i-1 }
       }
-    } ensuring ( size(_) == i )
+   }.ensuring( size(_) == i )
 
 
     def listOfSize2(i: BigInt): List = {
@@ -37,5 +37,5 @@ object Choose1 {
       } else {
         Nil()
       }
-    } ensuring ( size(_) == i )
+   }.ensuring( size(_) == i )
 }

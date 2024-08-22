@@ -1,23 +1,22 @@
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="./">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Stainless Library &mdash; Stainless 0.9.1 documentation</title>
-  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
-  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
+
+  
   <!--[if lt IE 9]>
     <script src="_static/js/html5shiv.min.js"></script>
   <![endif]-->
-  <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
-        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
-        <script src="_static/jquery.js"></script>
-        <script src="_static/underscore.js"></script>
-        <script src="_static/doctools.js"></script>
-    <script type="text/javascript" src="_static/js/theme.js"></script>
+  
+        <script src="_static/documentation_options.js?v=9dc39874"></script>
+        <script src="_static/doctools.js?v=9a2dae69"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="Generating C Code" href="genc.html" />
@@ -29,20 +28,23 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-            <a href="index.html" class="icon icon-home"> Stainless
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Stainless
           </a>
               <div class="version">
                 0.9
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
 </div>
-        </div>
-        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Main">
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installing Stainless</a></li>
@@ -82,20 +84,17 @@
       </div>
     </nav>
 
-    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
-      <nav class="wy-nav-top" aria-label="Top" >
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
           <a href="index.html">Stainless</a>
       </nav>
 
       <div class="wy-nav-content">
         <div class="rst-content">
-          
-
-<div role="navigation" aria-label="Breadcrumbs">
+          <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
-      <li>Stainless Library</li>
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Stainless Library</li>
       <li class="wy-breadcrumbs-aside">
             <a href="_sources/library.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -106,7 +105,7 @@
            <div itemprop="articleBody">
              
   <section id="stainless-library">
-<span id="library"></span><h1>Stainless Library<a class="headerlink" href="#stainless-library" title="Permalink to this headline">¶</a></h1>
+<span id="library"></span><h1>Stainless Library<a class="headerlink" href="#stainless-library" title="Link to this heading">¶</a></h1>
 <p>Stainless defines its own library with some core data types and
 operations on them, which work with the fragment supported
 by Stainless, available in <code class="docutils literal notranslate"><span class="pre">frontends/library/stainless</span></code>, which
@@ -139,10 +138,6 @@ please consult the <code class="docutils literal notranslate"><span class="pre">
 <cite>import</cite> directive at the top of Stainless’ compilation units.
 Here is a quick summary of what to import.</p>
 <table class="docutils align-default">
-<colgroup>
-<col style="width: 33%" />
-<col style="width: 67%" />
-</colgroup>
 <thead>
 <tr class="row-odd"><th class="head"><p>Package to import</p></th>
 <th class="head"><p>What it gives access to</p></th>
@@ -162,14 +157,10 @@ Here is a quick summary of what to import.</p>
 </table>
 <p>To learn more, we encourage you to look in the <cite>library/</cite> subdirectory of Stainless distribution.</p>
 <section id="annotations">
-<h2>Annotations<a class="headerlink" href="#annotations" title="Permalink to this headline">¶</a></h2>
+<h2>Annotations<a class="headerlink" href="#annotations" title="Link to this heading">¶</a></h2>
 <p>Stainless provides some special annotations in the package <code class="docutils literal notranslate"><span class="pre">stainless.annotation</span></code>,
 which instruct Stainless to handle some functions or objects in a specialized way.</p>
 <table class="docutils align-default">
-<colgroup>
-<col style="width: 23%" />
-<col style="width: 77%" />
-</colgroup>
 <thead>
 <tr class="row-odd"><th class="head"><p>Annotation</p></th>
 <th class="head"><p>Meaning</p></th>
@@ -245,10 +236,6 @@ partially evaluate an expression.</p></td>
 <p>Stainless also has some special keywords defined in <code class="docutils literal notranslate"><span class="pre">stainless.lang</span></code> that can be used around
 function calls. <a class="reference external" href="https://github.com/epfl-lara/stainless/blob/master/frontends/benchmarks/verification/valid/MicroTests/VisibleOpaque.scala">Here</a> is an example for <code class="docutils literal notranslate"><span class="pre">unfold</span></code>.</p>
 <table class="docutils align-default">
-<colgroup>
-<col style="width: 23%" />
-<col style="width: 77%" />
-</colgroup>
 <thead>
 <tr class="row-odd"><th class="head"><p>Annotation</p></th>
 <th class="head"><p>Meaning</p></th>
@@ -267,22 +254,18 @@ unfolded version. Can be useful to locally override an
 </table>
 </section>
 <section id="list-t">
-<h2>List[T]<a class="headerlink" href="#list-t" title="Permalink to this headline">¶</a></h2>
+<h2>List[T]<a class="headerlink" href="#list-t" title="Link to this heading">¶</a></h2>
 <p>As there is no special support for Lists in SMT solvers, Stainless Lists are encoded
 as an ordinary algebraic data type:</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">sealed</span> <span class="k">abstract</span> <span class="k">class</span> <span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]</span>
-<span class="k">case</span> <span class="k">class</span> <span class="nc">Cons</span><span class="p">[</span><span class="nc">T</span><span class="p">](</span><span class="n">h</span><span class="p">:</span> <span class="nc">T</span><span class="p">,</span> <span class="n">t</span><span class="p">:</span> <span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">])</span> <span class="k">extends</span> <span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]</span>
-<span class="k">case</span> <span class="k">class</span> <span class="nc">Nil</span><span class="p">[</span><span class="nc">T</span><span class="p">]()</span> <span class="k">extends</span> <span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">sealed</span><span class="w"> </span><span class="k">abstract</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]</span>
+<span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">Cons</span><span class="p">[</span><span class="nc">T</span><span class="p">](</span><span class="n">h</span><span class="p">:</span><span class="w"> </span><span class="nc">T</span><span class="p">,</span><span class="w"> </span><span class="n">t</span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">])</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]</span>
+<span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">Nil</span><span class="p">[</span><span class="nc">T</span><span class="p">]()</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]</span>
 </pre></div>
 </div>
 <section id="list-api">
-<h3>List API<a class="headerlink" href="#list-api" title="Permalink to this headline">¶</a></h3>
+<h3>List API<a class="headerlink" href="#list-api" title="Link to this heading">¶</a></h3>
 <p>Stainless Lists support a rich and strongly specified API.</p>
 <table class="docutils align-default">
-<colgroup>
-<col style="width: 50%" />
-<col style="width: 50%" />
-</colgroup>
 <thead>
 <tr class="row-odd"><th class="head"><p>Method signature for <code class="docutils literal notranslate"><span class="pre">List[T]</span></code></p></th>
 <th class="head"><p>Short description</p></th>
@@ -466,13 +449,9 @@ predicate <code class="docutils literal notranslate"><span class="pre">p</span><
 </table>
 </section>
 <section id="additional-operations-on-lists">
-<h3>Additional operations on Lists<a class="headerlink" href="#additional-operations-on-lists" title="Permalink to this headline">¶</a></h3>
+<h3>Additional operations on Lists<a class="headerlink" href="#additional-operations-on-lists" title="Link to this heading">¶</a></h3>
 <p>The object <code class="docutils literal notranslate"><span class="pre">ListOps</span></code> offers this additional operations:</p>
 <table class="docutils align-default">
-<colgroup>
-<col style="width: 52%" />
-<col style="width: 48%" />
-</colgroup>
 <thead>
 <tr class="row-odd"><th class="head"><p>Function signature</p></th>
 <th class="head"><p>Short description</p></th>
@@ -499,14 +478,10 @@ is sorted in ascending order using insertion sort.</p></td>
 </table>
 </section>
 <section id="theorems-on-lists">
-<h3>Theorems on Lists<a class="headerlink" href="#theorems-on-lists" title="Permalink to this headline">¶</a></h3>
+<h3>Theorems on Lists<a class="headerlink" href="#theorems-on-lists" title="Link to this heading">¶</a></h3>
 <p>The following theorems on Lists have been proven by Stainless and are included
 in the object <code class="docutils literal notranslate"><span class="pre">ListSpecs</span></code>:</p>
 <table class="docutils align-default">
-<colgroup>
-<col style="width: 53%" />
-<col style="width: 47%" />
-</colgroup>
 <thead>
 <tr class="row-odd"><th class="head"><p>Theorem signature</p></th>
 <th class="head"><p>Proven Claim</p></th>
@@ -546,7 +521,7 @@ in the object <code class="docutils literal notranslate"><span class="pre">ListS
 </section>
 </section>
 <section id="set-t-map-t">
-<h2>Set[T], Map[T]<a class="headerlink" href="#set-t-map-t" title="Permalink to this headline">¶</a></h2>
+<h2>Set[T], Map[T]<a class="headerlink" href="#set-t-map-t" title="Link to this heading">¶</a></h2>
 <p>Stainless uses its own Sets and Maps, which are defined in the <code class="docutils literal notranslate"><span class="pre">stainless.lang</span></code> package.
 However, these classes are not implemented within Stainless.
 Instead, they are parsed into specialized trees.
@@ -557,10 +532,6 @@ in the <a class="reference internal" href="purescala.html"><span class="doc">Pur
 <p>Additionally, the following functions for Sets are provided in the
 <code class="docutils literal notranslate"><span class="pre">stainless.collection</span></code> package:</p>
 <table class="docutils align-default">
-<colgroup>
-<col style="width: 58%" />
-<col style="width: 42%" />
-</colgroup>
 <thead>
 <tr class="row-odd"><th class="head"><p>Function signature</p></th>
 <th class="head"><p>Short description</p></th>
@@ -582,29 +553,29 @@ for all elements of Set <code class="docutils literal notranslate"><span class="
 </table>
 </section>
 <section id="partialfunction-a-b">
-<h2>PartialFunction[A, B]<a class="headerlink" href="#partialfunction-a-b" title="Permalink to this headline">¶</a></h2>
+<h2>PartialFunction[A, B]<a class="headerlink" href="#partialfunction-a-b" title="Link to this heading">¶</a></h2>
 <p>To define anonymous functions with preconditions, Stainless has a <code class="docutils literal notranslate"><span class="pre">PartialFunction[A,</span> <span class="pre">B]</span></code> type
 with the corresponding annotation <code class="docutils literal notranslate"><span class="pre">A</span> <span class="pre">~&gt;</span> <span class="pre">B</span></code>. To construct a partial function, you must use
 <code class="docutils literal notranslate"><span class="pre">PartialFunction.apply</span></code> as in the <code class="docutils literal notranslate"><span class="pre">unOpt</span></code> function below. The precondition written in the
 <code class="docutils literal notranslate"><span class="pre">require</span></code> becomes the <code class="docutils literal notranslate"><span class="pre">pre</span></code> field of the partial function (as in the call to <code class="docutils literal notranslate"><span class="pre">f.pre</span></code> in <code class="docutils literal notranslate"><span class="pre">map1</span></code>).</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">map1</span><span class="p">[</span><span class="nc">A</span><span class="p">,</span> <span class="nc">B</span><span class="p">](</span><span class="n">l</span><span class="p">:</span> <span class="nc">List</span><span class="p">[</span><span class="nc">A</span><span class="p">],</span> <span class="n">f</span><span class="p">:</span> <span class="nc">A</span> <span class="o">~&gt;</span> <span class="nc">B</span><span class="p">):</span> <span class="nc">List</span><span class="p">[</span><span class="nc">B</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-  <span class="n">require</span><span class="p">(</span><span class="n">l</span><span class="p">.</span><span class="n">forall</span><span class="p">(</span><span class="n">f</span><span class="p">.</span><span class="n">pre</span><span class="p">))</span>
-  <span class="n">l</span> <span class="k">match</span> <span class="p">{</span>
-    <span class="k">case</span> <span class="nc">Cons</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">xs</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="nc">Cons</span><span class="p">[</span><span class="nc">B</span><span class="p">](</span><span class="n">f</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="n">map1</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">f</span><span class="p">))</span>
-    <span class="k">case</span> <span class="nc">Nil</span><span class="p">()</span> <span class="o">=&gt;</span> <span class="nc">Nil</span><span class="p">[</span><span class="nc">B</span><span class="p">]()</span>
-  <span class="p">}</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">map1</span><span class="p">[</span><span class="nc">A</span><span class="p">,</span><span class="w"> </span><span class="nc">B</span><span class="p">](</span><span class="n">l</span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">A</span><span class="p">],</span><span class="w"> </span><span class="n">f</span><span class="p">:</span><span class="w"> </span><span class="nc">A</span><span class="w"> </span><span class="o">~&gt;</span><span class="w"> </span><span class="nc">B</span><span class="p">):</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">B</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">require</span><span class="p">(</span><span class="n">l</span><span class="p">.</span><span class="n">forall</span><span class="p">(</span><span class="n">f</span><span class="p">.</span><span class="n">pre</span><span class="p">))</span>
+<span class="w">  </span><span class="n">l</span><span class="w"> </span><span class="k">match</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">xs</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Cons</span><span class="p">[</span><span class="nc">B</span><span class="p">](</span><span class="n">f</span><span class="p">(</span><span class="n">x</span><span class="p">),</span><span class="w"> </span><span class="n">map1</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span><span class="w"> </span><span class="n">f</span><span class="p">))</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nc">Nil</span><span class="p">()</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Nil</span><span class="p">[</span><span class="nc">B</span><span class="p">]()</span>
+<span class="w">  </span><span class="p">}</span>
 <span class="p">}</span>
 
-<span class="k">def</span> <span class="nf">unOpt</span><span class="p">[</span><span class="nc">T</span><span class="p">](</span><span class="n">l</span><span class="p">:</span> <span class="nc">List</span><span class="p">[</span><span class="nc">Option</span><span class="p">[</span><span class="nc">T</span><span class="p">]]):</span> <span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-  <span class="n">require</span><span class="p">(</span><span class="n">l</span><span class="p">.</span><span class="n">forall</span><span class="p">(</span><span class="n">_</span><span class="p">.</span><span class="n">nonEmpty</span><span class="p">))</span>
-  <span class="n">map1</span><span class="p">(</span><span class="n">l</span><span class="p">,</span> <span class="nc">PartialFunction</span> <span class="p">{(</span><span class="n">x</span><span class="p">:</span><span class="nc">Option</span><span class="p">[</span><span class="nc">T</span><span class="p">])</span> <span class="o">=&gt;</span> <span class="n">require</span><span class="p">(</span><span class="n">x</span><span class="p">.</span><span class="n">nonEmpty</span><span class="p">);</span> <span class="n">x</span><span class="p">.</span><span class="n">get</span><span class="p">})</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">unOpt</span><span class="p">[</span><span class="nc">T</span><span class="p">](</span><span class="n">l</span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">Option</span><span class="p">[</span><span class="nc">T</span><span class="p">]]):</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">require</span><span class="p">(</span><span class="n">l</span><span class="p">.</span><span class="n">forall</span><span class="p">(</span><span class="n">_</span><span class="p">.</span><span class="n">nonEmpty</span><span class="p">))</span>
+<span class="w">  </span><span class="n">map1</span><span class="p">(</span><span class="n">l</span><span class="p">,</span><span class="w"> </span><span class="nc">PartialFunction</span><span class="w"> </span><span class="p">{(</span><span class="n">x</span><span class="p">:</span><span class="nc">Option</span><span class="p">[</span><span class="nc">T</span><span class="p">])</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">require</span><span class="p">(</span><span class="n">x</span><span class="p">.</span><span class="n">nonEmpty</span><span class="p">);</span><span class="w"> </span><span class="n">x</span><span class="p">.</span><span class="n">get</span><span class="p">})</span>
 <span class="p">}</span>
 </pre></div>
 </div>
 <p>Partial functions can also be written using pattern matching:</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">unOptCase</span><span class="p">[</span><span class="nc">T</span><span class="p">](</span><span class="n">l</span><span class="p">:</span> <span class="nc">List</span><span class="p">[</span><span class="nc">Option</span><span class="p">[</span><span class="nc">T</span><span class="p">]]):</span> <span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-  <span class="n">require</span><span class="p">(</span><span class="n">l</span><span class="p">.</span><span class="n">forall</span> <span class="p">{</span> <span class="k">case</span> <span class="nc">Some</span><span class="p">(</span><span class="n">_</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="kc">true</span><span class="p">;</span> <span class="k">case</span> <span class="n">_</span> <span class="o">=&gt;</span> <span class="kc">false</span> <span class="p">})</span>
-  <span class="n">map1</span><span class="p">(</span><span class="n">l</span><span class="p">,</span> <span class="nc">PartialFunction</span><span class="p">[</span><span class="nc">Option</span><span class="p">[</span><span class="nc">T</span><span class="p">],</span> <span class="nc">T</span><span class="p">]</span> <span class="p">{</span> <span class="k">case</span> <span class="nc">Some</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="n">v</span> <span class="p">})</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">unOptCase</span><span class="p">[</span><span class="nc">T</span><span class="p">](</span><span class="n">l</span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">Option</span><span class="p">[</span><span class="nc">T</span><span class="p">]]):</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">require</span><span class="p">(</span><span class="n">l</span><span class="p">.</span><span class="n">forall</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">case</span><span class="w"> </span><span class="nc">Some</span><span class="p">(</span><span class="n">_</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="kc">true</span><span class="p">;</span><span class="w"> </span><span class="k">case</span><span class="w"> </span><span class="n">_</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="kc">false</span><span class="w"> </span><span class="p">})</span>
+<span class="w">  </span><span class="n">map1</span><span class="p">(</span><span class="n">l</span><span class="p">,</span><span class="w"> </span><span class="nc">PartialFunction</span><span class="p">[</span><span class="nc">Option</span><span class="p">[</span><span class="nc">T</span><span class="p">],</span><span class="w"> </span><span class="nc">T</span><span class="p">]</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">case</span><span class="w"> </span><span class="nc">Some</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="p">})</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -614,8 +585,7 @@ with the corresponding annotation <code class="docutils literal notranslate"><sp
 
            </div>
           </div>
-          <footer>
-    <div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="purescala.html" class="btn btn-neutral float-left" title="Pure Scala" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="genc.html" class="btn btn-neutral float-right" title="Generating C Code" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
@@ -624,7 +594,7 @@ with the corresponding annotation <code class="docutils literal notranslate"><sp
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2021 EPFL, Lausanne.
-      <span class="lastupdated">Last updated on Dec 17, 2023.
+      <span class="lastupdated">Last updated on Aug 22, 2024.
       </span></p>
   </div>
 
@@ -635,7 +605,7 @@ with the corresponding annotation <code class="docutils literal notranslate"><sp
       </div>
     </section>
   </div>
-  <script type="text/javascript">
+  <script>
       jQuery(function () {
           SphinxRtdTheme.Navigation.enable(true);
       });

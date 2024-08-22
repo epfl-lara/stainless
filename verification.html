@@ -1,24 +1,23 @@
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="./">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Verification conditions &mdash; Stainless 0.9.1 documentation</title>
-  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
-  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
+
+  
   <!--[if lt IE 9]>
     <script src="_static/js/html5shiv.min.js"></script>
   <![endif]-->
-  <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
-        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
-        <script src="_static/jquery.js"></script>
-        <script src="_static/underscore.js"></script>
-        <script src="_static/doctools.js"></script>
+  
+        <script src="_static/documentation_options.js?v=9dc39874"></script>
+        <script src="_static/doctools.js?v=9a2dae69"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
         <script async="async" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
-    <script type="text/javascript" src="_static/js/theme.js"></script>
+    <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="Specifying Algebraic Properties" href="laws.html" />
@@ -30,20 +29,23 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-            <a href="index.html" class="icon icon-home"> Stainless
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Stainless
           </a>
               <div class="version">
                 0.9
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
 </div>
-        </div>
-        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Main">
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installing Stainless</a></li>
@@ -82,20 +84,17 @@
       </div>
     </nav>
 
-    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
-      <nav class="wy-nav-top" aria-label="Top" >
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
           <a href="index.html">Stainless</a>
       </nav>
 
       <div class="wy-nav-content">
         <div class="rst-content">
-          
-
-<div role="navigation" aria-label="Breadcrumbs">
+          <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
-      <li>Verification conditions</li>
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Verification conditions</li>
       <li class="wy-breadcrumbs-aside">
             <a href="_sources/verification.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -106,7 +105,7 @@
            <div itemprop="articleBody">
              
   <section id="verification-conditions">
-<span id="verification"></span><h1>Verification conditions<a class="headerlink" href="#verification-conditions" title="Permalink to this headline">¶</a></h1>
+<span id="verification"></span><h1>Verification conditions<a class="headerlink" href="#verification-conditions" title="Link to this heading">¶</a></h1>
 <p>Software verification aims at making software safer. In its typical use case,
 it is a tool that takes as input the source code of a program with
 specifications as annotations and attempt to prove — or disprove — their
@@ -135,17 +134,17 @@ the Scala compiler checks on pattern matching exhaustiveness, as Stainless consi
 information provided by (explicit or implicit) preconditions to the <code class="docutils literal notranslate"><span class="pre">match</span></code>
 expression.</p>
 <section id="postconditions">
-<h2>Postconditions<a class="headerlink" href="#postconditions" title="Permalink to this headline">¶</a></h2>
+<h2>Postconditions<a class="headerlink" href="#postconditions" title="Link to this heading">¶</a></h2>
 <p>One core concept in verification is to check the contract of functions. The most
 important part of a contract is the postcondition. The postcondition specifies
 the behavior of the function. It takes into account the precondition and only
 asserts the property of the output when the input satisfies the precondition.</p>
 <p>Formally, we consider a function with a single parameter (one can generalize
 the following for any number of parameters):</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">f</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">A</span><span class="p">):</span> <span class="nc">B</span> <span class="o">=</span> <span class="p">{</span>
-  <span class="n">require</span><span class="p">(</span><span class="n">prec</span><span class="p">)</span>
-  <span class="n">body</span>
-<span class="p">}</span> <span class="n">ensuring</span><span class="p">(</span><span class="n">r</span> <span class="o">=&gt;</span> <span class="n">post</span><span class="p">)</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="w"> </span><span class="k">def</span><span class="w"> </span><span class="nf">f</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">A</span><span class="p">):</span><span class="w"> </span><span class="nc">B</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">   </span><span class="n">require</span><span class="p">(</span><span class="n">prec</span><span class="p">)</span>
+<span class="w">   </span><span class="n">body</span>
+<span class="p">}.</span><span class="n">ensuring</span><span class="p">(</span><span class="n">r</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">post</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>where, <span class="math notranslate nohighlight">\(\mbox{prec}(x)\)</span> is a Boolean expression with free variables
@@ -179,15 +178,15 @@ prove the correctness. We discuss the exact conditions for this in the
 chapter on Stainless’s algorithms.</p>
 </section>
 <section id="preconditions">
-<h2>Preconditions<a class="headerlink" href="#preconditions" title="Permalink to this headline">¶</a></h2>
+<h2>Preconditions<a class="headerlink" href="#preconditions" title="Link to this heading">¶</a></h2>
 <p>Preconditions are used as part of the contract of functions. They are a way to
 restrict the input to only relevant inputs, without having to implement guards
 and error handling in the functions themselves.</p>
 <p>Preconditions are contracts that the call sites should respect, and thus are
 not checked as part of verifying the function. Given the following definition:</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">f</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">A</span><span class="p">):</span> <span class="nc">B</span> <span class="o">=</span> <span class="p">{</span>
-  <span class="n">require</span><span class="p">(</span><span class="n">prec</span><span class="p">)</span>
-  <span class="n">body</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">f</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">A</span><span class="p">):</span><span class="w"> </span><span class="nc">B</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">require</span><span class="p">(</span><span class="n">prec</span><span class="p">)</span>
+<span class="w">  </span><span class="n">body</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -202,8 +201,8 @@ free variables among <span class="math notranslate nohighlight">\(\{ x \}\)</spa
 at that program point as <span class="math notranslate nohighlight">\(\mbox{pc}(x)\)</span>. The path condition is a formula that
 summarizes the facts known about <span class="math notranslate nohighlight">\(x\)</span> at that call site. A typical example is
 when the call site is inside an if expression:</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">if</span><span class="p">(</span><span class="n">x</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
-  <span class="n">f</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">if</span><span class="p">(</span><span class="n">x</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
+<span class="w">  </span><span class="n">f</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>The path condition on <span class="math notranslate nohighlight">\(x\)</span> would include the fact that <span class="math notranslate nohighlight">\(x &gt; 0\)</span>. This
@@ -225,20 +224,20 @@ of a function.</p>
 </div>
 </section>
 <section id="sharing-bindings-between-specifications-and-function-body">
-<h2>Sharing bindings between specifications and function body<a class="headerlink" href="#sharing-bindings-between-specifications-and-function-body" title="Permalink to this headline">¶</a></h2>
+<h2>Sharing bindings between specifications and function body<a class="headerlink" href="#sharing-bindings-between-specifications-and-function-body" title="Link to this heading">¶</a></h2>
 <p>The example <a class="reference external" href="https://github.com/epfl-lara/stainless/blob/master/frontends/benchmarks/verification/valid/MicroTests/ValEnsuring.scala">ValEnsuring</a>
 shows that Stainless supports multiple <code class="docutils literal notranslate"><span class="pre">require</span></code>’s (in functions, but not for ADT invariants), and
 shows how to share a <cite>val</cite> binding between precondition, postcondition, and function body.</p>
 </section>
 <section id="loop-invariants">
-<h2>Loop invariants<a class="headerlink" href="#loop-invariants" title="Permalink to this headline">¶</a></h2>
+<h2>Loop invariants<a class="headerlink" href="#loop-invariants" title="Link to this heading">¶</a></h2>
 <p>Stainless supports annotations for loop invariants in <a class="reference internal" href="imperative.html"><span class="doc">Imperative</span></a>. To
 simplify the presentation we will assume a single variable <span class="math notranslate nohighlight">\(x\)</span> is in
 scope, but the definitions generalize to any number of variables. Given the
 following program:</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="p">(</span><span class="k">while</span><span class="p">(</span><span class="n">cond</span><span class="p">)</span> <span class="p">{</span>
-  <span class="n">body</span>
-<span class="p">})</span> <span class="n">invariant</span><span class="p">(</span><span class="n">inv</span><span class="p">)</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="p">(</span><span class="k">while</span><span class="p">(</span><span class="n">cond</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">body</span>
+<span class="p">})</span><span class="w"> </span><span class="n">invariant</span><span class="p">(</span><span class="n">inv</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>where the Boolean expression <span class="math notranslate nohighlight">\(\mbox{cond}(x)\)</span> is over the free variable
@@ -260,12 +259,12 @@ that point (3) holds as well.</p>
 after a <a class="reference internal" href="imperative.html"><span class="doc">return</span></a> (can be combined with <code class="docutils literal notranslate"><span class="pre">invariant</span></code>).</p>
 </section>
 <section id="decrease-annotation-in-loops">
-<h2>Decrease annotation in loops<a class="headerlink" href="#decrease-annotation-in-loops" title="Permalink to this headline">¶</a></h2>
+<h2>Decrease annotation in loops<a class="headerlink" href="#decrease-annotation-in-loops" title="Link to this heading">¶</a></h2>
 <p>One can also specify that the value of a given expression of numerical type decreases
 at each loop iteration by adding a <code class="docutils literal notranslate"><span class="pre">decreases</span></code> measure within the loop body:</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">while</span><span class="p">(</span><span class="n">cond</span><span class="p">)</span> <span class="p">{</span>
-  <span class="n">decreases</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span>
-  <span class="n">body</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">while</span><span class="p">(</span><span class="n">cond</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">decreases</span><span class="p">(</span><span class="n">expr</span><span class="p">)</span>
+<span class="w">  </span><span class="n">body</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -273,7 +272,7 @@ at each loop iteration by adding a <code class="docutils literal notranslate"><s
 is strictly positive and decreases at each iteration.</p>
 </section>
 <section id="array-access-safety">
-<h2>Array access safety<a class="headerlink" href="#array-access-safety" title="Permalink to this headline">¶</a></h2>
+<h2>Array access safety<a class="headerlink" href="#array-access-safety" title="Link to this heading">¶</a></h2>
 <p>Stainless generates verification conditions for the safety of array accesses. For
 each array variable, Stainless carries along a symbolic information on its length.
 This information is used to prove that each expression used as an index in the
@@ -281,7 +280,7 @@ array is strictly smaller than that length. The expression is also checked to
 be positive.</p>
 </section>
 <section id="adt-invariants">
-<h2>ADT invariants<a class="headerlink" href="#adt-invariants" title="Permalink to this headline">¶</a></h2>
+<h2>ADT invariants<a class="headerlink" href="#adt-invariants" title="Link to this heading">¶</a></h2>
 <p>Stainless lets the user write ADT invariants with the <code class="docutils literal notranslate"><span class="pre">require</span></code> keyword.
 Internally, such invariants are extracted as methods (named <code class="docutils literal notranslate"><span class="pre">inv</span></code>). Whenever,
 an ADT is constructed, and to make sure that the invariant is true, a
@@ -291,44 +290,44 @@ method.</p>
 ancestors can be used to inline the call to <code class="docutils literal notranslate"><span class="pre">inv</span></code> in the verification
 condition, as shown in the following example. This annotation is only
 supported when <code class="docutils literal notranslate"><span class="pre">--type-checker=true</span></code> (which is the case by default).</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">import</span> <span class="nn">stainless</span><span class="p">.</span><span class="nn">annotation</span><span class="p">.</span><span class="n">_</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">import</span><span class="w"> </span><span class="nn">stainless</span><span class="p">.</span><span class="nn">annotation</span><span class="p">.</span><span class="n">_</span>
 
-<span class="k">object</span> <span class="nc">InlineInvariant</span> <span class="p">{</span>
-  <span class="k">sealed</span> <span class="k">abstract</span> <span class="k">class</span> <span class="nc">A</span>
+<span class="k">object</span><span class="w"> </span><span class="nc">InlineInvariant</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">sealed</span><span class="w"> </span><span class="k">abstract</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">A</span>
 
-  <span class="k">case</span> <span class="k">class</span> <span class="nc">B</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">)</span> <span class="k">extends</span> <span class="nc">A</span> <span class="p">{</span>
-    <span class="n">require</span><span class="p">(</span><span class="n">x</span> <span class="o">&gt;=</span> <span class="mi">50</span><span class="p">)</span>
-  <span class="p">}</span>
+<span class="w">  </span><span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">B</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">)</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">A</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">require</span><span class="p">(</span><span class="n">x</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="mi">50</span><span class="p">)</span>
+<span class="w">  </span><span class="p">}</span>
 
-  <span class="nd">@inlineInvariant</span>
-  <span class="k">case</span> <span class="k">class</span> <span class="nc">C</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">)</span> <span class="k">extends</span> <span class="nc">A</span> <span class="p">{</span>
-    <span class="n">require</span><span class="p">(</span><span class="n">x</span> <span class="o">&gt;=</span> <span class="mi">50</span><span class="p">)</span>
-  <span class="p">}</span>
+<span class="w">  </span><span class="nd">@inlineInvariant</span>
+<span class="w">  </span><span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">C</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">)</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">A</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">require</span><span class="p">(</span><span class="n">x</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="mi">50</span><span class="p">)</span>
+<span class="w">  </span><span class="p">}</span>
 
-  <span class="k">def</span> <span class="nf">f</span><span class="p">():</span> <span class="nc">A</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="nc">B</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span> <span class="c1">// VC: inv(B(100))</span>
-    <span class="n">c</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span> <span class="c1">// VC: 100 &gt;= 50 (call to `inv` was inlined)</span>
-  <span class="p">}</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">f</span><span class="p">():</span><span class="w"> </span><span class="nc">A</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nc">B</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span><span class="w"> </span><span class="c1">// VC: inv(B(100))</span>
+<span class="w">    </span><span class="n">c</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span><span class="w"> </span><span class="c1">// VC: 100 &gt;= 50 (call to `inv` was inlined)</span>
+<span class="w">  </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
 </div>
 </section>
 <section id="pattern-matching-exhaustiveness">
-<h2>Pattern matching exhaustiveness<a class="headerlink" href="#pattern-matching-exhaustiveness" title="Permalink to this headline">¶</a></h2>
+<h2>Pattern matching exhaustiveness<a class="headerlink" href="#pattern-matching-exhaustiveness" title="Link to this heading">¶</a></h2>
 <p>Stainless verifies that pattern matching is exhaustive. The regular Scala compiler
 only considers the types of expression involved in pattern matching, but Stainless
 will consider information such as precondition to formally prove the
 exhaustiveness of pattern matching.</p>
 <p>As an example, the following code should issue a warning with Scala:</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">abstract</span> <span class="k">class</span> <span class="nc">List</span>
-<span class="k">case</span> <span class="k">class</span> <span class="nc">Cons</span><span class="p">(</span><span class="n">head</span><span class="p">:</span> <span class="nc">Int</span><span class="p">,</span> <span class="n">tail</span><span class="p">:</span> <span class="nc">List</span><span class="p">)</span> <span class="k">extends</span> <span class="nc">List</span>
-<span class="k">case</span> <span class="k">object</span> <span class="nc">Nil</span> <span class="k">extends</span> <span class="nc">List</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">abstract</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">List</span>
+<span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">head</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">,</span><span class="w"> </span><span class="n">tail</span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="p">)</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">List</span>
+<span class="k">case</span><span class="w"> </span><span class="k">object</span><span class="w"> </span><span class="nc">Nil</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">List</span>
 
-<span class="k">def</span> <span class="nf">getHead</span><span class="p">(</span><span class="n">l</span><span class="p">:</span> <span class="nc">List</span><span class="p">):</span> <span class="nc">Int</span> <span class="o">=</span> <span class="p">{</span>
-  <span class="n">require</span><span class="p">(</span><span class="o">!</span><span class="n">l</span><span class="p">.</span><span class="k">isInstanceOf</span><span class="p">[</span><span class="nc">Nil</span><span class="p">])</span>
-  <span class="n">l</span> <span class="k">match</span> <span class="p">{</span>
-    <span class="k">case</span> <span class="nc">Cons</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">_</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="n">x</span>
-  <span class="p">}</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">getHead</span><span class="p">(</span><span class="n">l</span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="p">):</span><span class="w"> </span><span class="nc">Int</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">require</span><span class="p">(</span><span class="o">!</span><span class="n">l</span><span class="p">.</span><span class="k">isInstanceOf</span><span class="p">[</span><span class="nc">Nil</span><span class="p">])</span>
+<span class="w">  </span><span class="n">l</span><span class="w"> </span><span class="k">match</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">_</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">x</span>
+<span class="w">  </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -340,8 +339,7 @@ relying on the given precondition.</p>
 
            </div>
           </div>
-          <footer>
-    <div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="options.html" class="btn btn-neutral float-left" title="Specifying Options" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="laws.html" class="btn btn-neutral float-right" title="Specifying Algebraic Properties" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
@@ -350,7 +348,7 @@ relying on the given precondition.</p>
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2021 EPFL, Lausanne.
-      <span class="lastupdated">Last updated on Dec 17, 2023.
+      <span class="lastupdated">Last updated on Aug 22, 2024.
       </span></p>
   </div>
 
@@ -361,7 +359,7 @@ relying on the given precondition.</p>
       </div>
     </section>
   </div>
-  <script type="text/javascript">
+  <script>
       jQuery(function () {
           SphinxRtdTheme.Navigation.enable(true);
       });

@@ -1,24 +1,23 @@
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="./">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Pure Scala &mdash; Stainless 0.9.1 documentation</title>
-  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
-  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
+
+  
   <!--[if lt IE 9]>
     <script src="_static/js/html5shiv.min.js"></script>
   <![endif]-->
-  <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
-        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
-        <script src="_static/jquery.js"></script>
-        <script src="_static/underscore.js"></script>
-        <script src="_static/doctools.js"></script>
+  
+        <script src="_static/documentation_options.js?v=9dc39874"></script>
+        <script src="_static/doctools.js?v=9a2dae69"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
         <script async="async" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
-    <script type="text/javascript" src="_static/js/theme.js"></script>
+    <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="Stainless Library" href="library.html" />
@@ -30,20 +29,23 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-            <a href="index.html" class="icon icon-home"> Stainless
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Stainless
           </a>
               <div class="version">
                 0.9
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
 </div>
-        </div>
-        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Main">
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installing Stainless</a></li>
@@ -120,20 +122,17 @@
       </div>
     </nav>
 
-    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
-      <nav class="wy-nav-top" aria-label="Top" >
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
           <a href="index.html">Stainless</a>
       </nav>
 
       <div class="wy-nav-content">
         <div class="rst-content">
-          
-
-<div role="navigation" aria-label="Breadcrumbs">
+          <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
-      <li>Pure Scala</li>
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Pure Scala</li>
       <li class="wy-breadcrumbs-aside">
             <a href="_sources/purescala.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -146,7 +145,7 @@
   <blockquote>
 <div></div></blockquote>
 <section id="pure-scala">
-<span id="purescala"></span><h1>Pure Scala<a class="headerlink" href="#pure-scala" title="Permalink to this headline">¶</a></h1>
+<span id="purescala"></span><h1>Pure Scala<a class="headerlink" href="#pure-scala" title="Link to this heading">¶</a></h1>
 <p>The input to Stainless is a purely functional <strong>subset</strong> of <a class="reference external" href="http://www.scala-lang.org/">Scala</a>, which we call
 <strong>Pure Scala</strong>. Constructs specific for Stainless are defined inside
 Stainless’s libraries in package <cite>stainless</cite> and its subpackages.
@@ -158,25 +157,25 @@ belongs to Pure Scala.</p>
 <li><p>Algebraic Data Type (ADT) definitions in the form of an
 abstract class and case classes/objects</p></li>
 </ol>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">abstract</span> <span class="k">class</span> <span class="nc">MyList</span>
-<span class="k">case</span> <span class="k">object</span> <span class="nc">MyEmpty</span> <span class="k">extends</span> <span class="nc">MyList</span>
-<span class="k">case</span> <span class="k">class</span> <span class="nc">MyCons</span><span class="p">(</span><span class="n">elem</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">,</span> <span class="n">rest</span><span class="p">:</span> <span class="nc">MyList</span><span class="p">)</span> <span class="k">extends</span> <span class="nc">MyList</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">abstract</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">MyList</span>
+<span class="k">case</span><span class="w"> </span><span class="k">object</span><span class="w"> </span><span class="nc">MyEmpty</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">MyList</span>
+<span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">MyCons</span><span class="p">(</span><span class="n">elem</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">,</span><span class="w"> </span><span class="n">rest</span><span class="p">:</span><span class="w"> </span><span class="nc">MyList</span><span class="p">)</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">MyList</span>
 </pre></div>
 </div>
 <ol class="arabic simple" start="2">
 <li><p>Objects/modules, for grouping classes and functions</p></li>
 </ol>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">object</span> <span class="nc">Specs</span> <span class="p">{</span>
-   <span class="k">def</span> <span class="nf">increment</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">):</span> <span class="nc">BigInt</span> <span class="o">=</span> <span class="p">{</span>
-      <span class="n">a</span> <span class="o">+</span> <span class="mi">1</span>
-   <span class="p">}</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">object</span><span class="w"> </span><span class="nc">Specs</span><span class="w"> </span><span class="p">{</span>
+<span class="w">   </span><span class="k">def</span><span class="w"> </span><span class="nf">increment</span><span class="p">(</span><span class="n">a</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">):</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">a</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span>
+<span class="w">   </span><span class="p">}</span>
 
-   <span class="k">case</span> <span class="k">class</span> <span class="nc">Identifier</span><span class="p">(</span><span class="n">id</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">)</span>
+<span class="w">   </span><span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">Identifier</span><span class="p">(</span><span class="n">id</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">)</span>
 <span class="p">}</span>
 </pre></div>
 </div>
 <section id="booleans">
-<h2>Booleans<a class="headerlink" href="#booleans" title="Permalink to this headline">¶</a></h2>
+<h2>Booleans<a class="headerlink" href="#booleans" title="Link to this heading">¶</a></h2>
 <p>Booleans are used to express truth conditions in Stainless.
 Unlike some proof assistants, there is no separation
 at the type level between
@@ -186,20 +185,20 @@ and theorems.</p>
 notation, along
 with a new shorthand for implication. The <cite>if</cite> expression
 is also present.</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="n">a</span> <span class="o">&amp;&amp;</span> <span class="n">b</span>
-<span class="n">a</span> <span class="o">||</span> <span class="n">b</span>
-<span class="n">a</span> <span class="o">==</span> <span class="n">b</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="n">a</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">b</span>
+<span class="n">a</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">b</span>
+<span class="n">a</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">b</span>
 <span class="o">!</span><span class="n">a</span>
-<span class="n">a</span> <span class="o">==&gt;</span> <span class="n">b</span> <span class="c1">// Stainless syntax for boolean implication</span>
+<span class="n">a</span><span class="w"> </span><span class="o">==&gt;</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="c1">// Stainless syntax for boolean implication</span>
 </pre></div>
 </div>
 <p>Stainless uses short-circuit interpretation of <cite>&amp;&amp;</cite>, <cite>||</cite>, and <cite>==&gt;</cite>,
 which evaluates the second argument only when needed:</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="n">a</span> <span class="o">&amp;&amp;</span> <span class="n">b</span>  <span class="o">===</span> <span class="k">if</span> <span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="n">b</span> <span class="k">else</span> <span class="kc">false</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="n">a</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">b</span><span class="w">  </span><span class="o">===</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">a</span><span class="p">)</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="kc">false</span>
 
-<span class="n">a</span> <span class="o">||</span> <span class="n">b</span>  <span class="o">===</span> <span class="k">if</span> <span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="kc">true</span> <span class="k">else</span> <span class="n">b</span>
+<span class="n">a</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">b</span><span class="w">  </span><span class="o">===</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">a</span><span class="p">)</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="n">b</span>
 
-<span class="n">a</span> <span class="o">==&gt;</span> <span class="n">b</span> <span class="o">===</span> <span class="k">if</span> <span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="n">b</span> <span class="k">else</span> <span class="kc">true</span>
+<span class="n">a</span><span class="w"> </span><span class="o">==&gt;</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">a</span><span class="p">)</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="kc">true</span>
 </pre></div>
 </div>
 <p>This aspect is important because of:</p>
@@ -214,20 +213,20 @@ that the corresponding argument is evaluated.</p>
 </ol>
 </section>
 <section id="algebraic-data-types">
-<span id="adts"></span><h2>Algebraic Data Types<a class="headerlink" href="#algebraic-data-types" title="Permalink to this headline">¶</a></h2>
+<span id="adts"></span><h2>Algebraic Data Types<a class="headerlink" href="#algebraic-data-types" title="Link to this heading">¶</a></h2>
 <section id="abstract-classes">
-<h3>Abstract Classes<a class="headerlink" href="#abstract-classes" title="Permalink to this headline">¶</a></h3>
+<h3>Abstract Classes<a class="headerlink" href="#abstract-classes" title="Link to this heading">¶</a></h3>
 <p>ADT roots need to be defined as abstract, unless the ADT is defined with only one case class/object. Unlike in Scala, abstract classes cannot define fields or constructor arguments.</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">abstract</span> <span class="k">class</span> <span class="nc">MyType</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">abstract</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">MyType</span>
 </pre></div>
 </div>
 <p>An abstract class can be extended by other abstract classes.</p>
 </section>
 <section id="case-classes">
-<h3>Case Classes<a class="headerlink" href="#case-classes" title="Permalink to this headline">¶</a></h3>
+<h3>Case Classes<a class="headerlink" href="#case-classes" title="Link to this heading">¶</a></h3>
 <p>The abstract root can also be extended by a case-class, defining several fields:</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">case</span> <span class="k">class</span> <span class="nc">MyCase1</span><span class="p">(</span><span class="n">f</span><span class="p">:</span> <span class="nc">Type</span><span class="p">,</span> <span class="n">f2</span><span class="p">:</span> <span class="nc">MyType</span><span class="p">)</span> <span class="k">extends</span> <span class="nc">MyType</span>
-<span class="k">case</span> <span class="k">class</span> <span class="nc">MyCase2</span><span class="p">(</span><span class="n">f</span><span class="p">:</span> <span class="nc">Int</span><span class="p">)</span> <span class="k">extends</span> <span class="nc">MyType</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">MyCase1</span><span class="p">(</span><span class="n">f</span><span class="p">:</span><span class="w"> </span><span class="nc">Type</span><span class="p">,</span><span class="w"> </span><span class="n">f2</span><span class="p">:</span><span class="w"> </span><span class="nc">MyType</span><span class="p">)</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">MyType</span>
+<span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">MyCase2</span><span class="p">(</span><span class="n">f</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">)</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">MyType</span>
 </pre></div>
 </div>
 <div class="admonition note">
@@ -235,8 +234,8 @@ that the corresponding argument is evaluated.</p>
 <p>You can also define single case-class, for Tuple-like structures.</p>
 </div>
 <p>You can add invariants to case classes using a <code class="docutils literal notranslate"><span class="pre">require</span></code> clause, as follows:</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">case</span> <span class="k">class</span> <span class="nc">Positive</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nc">BigInt</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
-  <span class="n">require</span><span class="p">(</span><span class="n">value</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">Positive</span><span class="p">(</span><span class="n">value</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">require</span><span class="p">(</span><span class="n">value</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -252,19 +251,19 @@ fields are allowed).</p>
 </div>
 </section>
 <section id="case-objects">
-<h3>Case Objects<a class="headerlink" href="#case-objects" title="Permalink to this headline">¶</a></h3>
+<h3>Case Objects<a class="headerlink" href="#case-objects" title="Link to this heading">¶</a></h3>
 <p>It is also possible to defined case objects, without fields:</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">case</span> <span class="k">object</span> <span class="nc">BaseCase</span> <span class="k">extends</span> <span class="nc">MyType</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">case</span><span class="w"> </span><span class="k">object</span><span class="w"> </span><span class="nc">BaseCase</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">MyType</span>
 </pre></div>
 </div>
 </section>
 <section id="value-classes">
-<h3>Value Classes<a class="headerlink" href="#value-classes" title="Permalink to this headline">¶</a></h3>
+<h3>Value Classes<a class="headerlink" href="#value-classes" title="Link to this heading">¶</a></h3>
 <p>One can define a value class just like in standard Scala,
 by extending the <code class="docutils literal notranslate"><span class="pre">AnyVal</span></code> class.</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">case</span> <span class="k">class</span> <span class="nc">Positive</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">)</span> <span class="k">extends</span> <span class="nc">AnyVal</span> <span class="p">{</span>
-  <span class="nd">@invariant</span>
-  <span class="k">def</span> <span class="nf">isPositive</span><span class="p">:</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="n">value</span> <span class="o">&gt;=</span> <span class="mi">0</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">Positive</span><span class="p">(</span><span class="n">value</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">)</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">AnyVal</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nd">@invariant</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">isPositive</span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">value</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="mi">0</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -278,85 +277,85 @@ subsequently lifted into a refinement type of the underlying type.</p>
 </section>
 </section>
 <section id="generics">
-<h2>Generics<a class="headerlink" href="#generics" title="Permalink to this headline">¶</a></h2>
+<h2>Generics<a class="headerlink" href="#generics" title="Link to this heading">¶</a></h2>
 <p>Stainless supports type parameters for classes and functions.</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">object</span> <span class="nc">Test</span> <span class="p">{</span>
-  <span class="k">abstract</span> <span class="k">class</span> <span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]</span>
-  <span class="k">case</span> <span class="k">class</span> <span class="nc">Cons</span><span class="p">[</span><span class="nc">T</span><span class="p">](</span><span class="n">hd</span><span class="p">:</span> <span class="nc">T</span><span class="p">,</span> <span class="n">tl</span><span class="p">:</span> <span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">])</span> <span class="k">extends</span> <span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]</span>
-  <span class="k">case</span> <span class="k">class</span> <span class="nc">Nil</span><span class="p">[</span><span class="nc">T</span><span class="p">]()</span> <span class="k">extends</span> <span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">object</span><span class="w"> </span><span class="nc">Test</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">abstract</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]</span>
+<span class="w">  </span><span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">Cons</span><span class="p">[</span><span class="nc">T</span><span class="p">](</span><span class="n">hd</span><span class="p">:</span><span class="w"> </span><span class="nc">T</span><span class="p">,</span><span class="w"> </span><span class="n">tl</span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">])</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]</span>
+<span class="w">  </span><span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">Nil</span><span class="p">[</span><span class="nc">T</span><span class="p">]()</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]</span>
 
-  <span class="k">def</span> <span class="nf">contains</span><span class="p">[</span><span class="nc">T</span><span class="p">](</span><span class="n">l</span><span class="p">:</span> <span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">],</span> <span class="n">el</span><span class="p">:</span> <span class="nc">T</span><span class="p">)</span> <span class="o">=</span> <span class="p">{</span> <span class="p">...</span> <span class="p">}</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">contains</span><span class="p">[</span><span class="nc">T</span><span class="p">](</span><span class="n">l</span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">],</span><span class="w"> </span><span class="n">el</span><span class="p">:</span><span class="w"> </span><span class="nc">T</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">...</span><span class="w"> </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Type parameters can also be marked as co- or contra-variant, eg.</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">abstract</span> <span class="k">class</span> <span class="nc">List</span><span class="p">[</span><span class="o">+</span><span class="nc">T</span><span class="p">]</span>
-<span class="k">case</span> <span class="k">class</span> <span class="nc">Cons</span><span class="p">[</span><span class="nc">T</span><span class="p">](</span><span class="n">hd</span><span class="p">:</span> <span class="nc">T</span><span class="p">,</span> <span class="n">tl</span><span class="p">:</span> <span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">])</span> <span class="k">extends</span> <span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]</span>
-<span class="k">case</span> <span class="k">object</span> <span class="nc">Nil</span> <span class="k">extends</span> <span class="nc">List</span><span class="p">[</span><span class="nc">Nothing</span><span class="p">]</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">abstract</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="o">+</span><span class="nc">T</span><span class="p">]</span>
+<span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">Cons</span><span class="p">[</span><span class="nc">T</span><span class="p">](</span><span class="n">hd</span><span class="p">:</span><span class="w"> </span><span class="nc">T</span><span class="p">,</span><span class="w"> </span><span class="n">tl</span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">])</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]</span>
+<span class="k">case</span><span class="w"> </span><span class="k">object</span><span class="w"> </span><span class="nc">Nil</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">Nothing</span><span class="p">]</span>
 </pre></div>
 </div>
 </div>
 </section>
 <section id="methods">
-<h2>Methods<a class="headerlink" href="#methods" title="Permalink to this headline">¶</a></h2>
+<h2>Methods<a class="headerlink" href="#methods" title="Link to this heading">¶</a></h2>
 <p>You can define methods in classes.</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">abstract</span> <span class="k">class</span> <span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]</span> <span class="p">{</span>
-  <span class="k">def</span> <span class="nf">contains</span><span class="p">(</span><span class="n">e</span><span class="p">:</span> <span class="nc">T</span><span class="p">)</span> <span class="o">=</span> <span class="p">{</span> <span class="p">..</span> <span class="p">}</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">abstract</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">contains</span><span class="p">(</span><span class="n">e</span><span class="p">:</span><span class="w"> </span><span class="nc">T</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">..</span><span class="w"> </span><span class="p">}</span>
 <span class="p">}</span>
 
-<span class="k">case</span> <span class="k">class</span> <span class="nc">Cons</span><span class="p">[</span><span class="nc">T</span><span class="p">](</span><span class="n">hd</span><span class="p">:</span> <span class="nc">T</span><span class="p">,</span> <span class="n">tl</span><span class="p">:</span> <span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">])</span> <span class="k">extends</span> <span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]</span>
-<span class="k">case</span> <span class="k">object</span> <span class="nc">Nil</span> <span class="k">extends</span> <span class="nc">List</span><span class="p">[</span><span class="nc">Nothing</span><span class="p">]</span>
+<span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">Cons</span><span class="p">[</span><span class="nc">T</span><span class="p">](</span><span class="n">hd</span><span class="p">:</span><span class="w"> </span><span class="nc">T</span><span class="p">,</span><span class="w"> </span><span class="n">tl</span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">])</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]</span>
+<span class="k">case</span><span class="w"> </span><span class="k">object</span><span class="w"> </span><span class="nc">Nil</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">Nothing</span><span class="p">]</span>
 
-<span class="k">def</span> <span class="nf">test</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="nc">List</span><span class="p">[</span><span class="nc">Int</span><span class="p">])</span> <span class="o">=</span> <span class="n">a</span><span class="p">.</span><span class="n">contains</span><span class="p">(</span><span class="mi">42</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">test</span><span class="p">(</span><span class="n">a</span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">Int</span><span class="p">])</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">a</span><span class="p">.</span><span class="n">contains</span><span class="p">(</span><span class="mi">42</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>It is possible to define abstract methods in abstract classes and implement them in case classes.
 Multiple layers of inheritance are allowed, as is the ability to override concrete methods.</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">abstract</span> <span class="k">class</span> <span class="nc">A</span> <span class="p">{</span>
-  <span class="k">def</span> <span class="nf">x</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="nc">Int</span><span class="p">):</span> <span class="nc">Int</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">abstract</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">A</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">x</span><span class="p">(</span><span class="n">a</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">):</span><span class="w"> </span><span class="nc">Int</span>
 <span class="p">}</span>
 
-<span class="k">abstract</span> <span class="k">class</span> <span class="nc">B</span> <span class="k">extends</span> <span class="nc">A</span> <span class="p">{</span>
-  <span class="k">def</span> <span class="nf">x</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="nc">Int</span><span class="p">)</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="n">require</span><span class="p">(</span><span class="n">a</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
-    <span class="mi">42</span>
-  <span class="p">}</span> <span class="n">ensuring</span> <span class="p">{</span> <span class="n">_</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="p">}</span>
+<span class="k">abstract</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">B</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">A</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">x</span><span class="p">(</span><span class="n">a</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">require</span><span class="p">(</span><span class="n">a</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
+<span class="w">    </span><span class="mi">42</span>
+<span class="w"> </span><span class="p">}.</span><span class="n">ensuring</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">_</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">}</span>
 <span class="p">}</span>
 
-<span class="k">case</span> <span class="k">class</span> <span class="nc">C</span><span class="p">(</span><span class="n">c</span><span class="p">:</span> <span class="nc">Int</span><span class="p">)</span> <span class="k">extends</span> <span class="nc">B</span> <span class="p">{</span>
-  <span class="k">override</span> <span class="k">def</span> <span class="nf">x</span><span class="p">(</span><span class="n">i</span><span class="p">:</span> <span class="nc">Int</span><span class="p">)</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="n">require</span><span class="p">(</span><span class="n">i</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span>
-    <span class="k">if</span> <span class="p">(</span><span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="mi">0</span>
-    <span class="k">else</span> <span class="n">c</span> <span class="o">+</span> <span class="n">x</span><span class="p">(</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
-  <span class="p">}</span> <span class="n">ensuring</span> <span class="p">(</span> <span class="n">_</span> <span class="o">==</span> <span class="n">c</span> <span class="o">*</span> <span class="n">i</span> <span class="p">)</span>
+<span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">C</span><span class="p">(</span><span class="n">c</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">)</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">B</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">override</span><span class="w"> </span><span class="k">def</span><span class="w"> </span><span class="nf">x</span><span class="p">(</span><span class="n">i</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">require</span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">    </span><span class="k">else</span><span class="w"> </span><span class="n">c</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">x</span><span class="p">(</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+<span class="w"> </span><span class="p">}.</span><span class="n">ensuring</span><span class="p">(</span><span class="w"> </span><span class="n">_</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">c</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="p">)</span>
 <span class="p">}</span>
 
-<span class="k">case</span> <span class="k">class</span> <span class="nc">D</span><span class="p">()</span> <span class="k">extends</span> <span class="nc">B</span>
+<span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">D</span><span class="p">()</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">B</span>
 </pre></div>
 </div>
 <p>It is also possible to call methods of a superclass with the <code class="docutils literal notranslate"><span class="pre">super</span></code> keyword.</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">sealed</span> <span class="k">abstract</span> <span class="k">class</span> <span class="nc">Base</span> <span class="p">{</span>
-  <span class="k">def</span> <span class="nf">double</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">):</span> <span class="nc">BigInt</span> <span class="o">=</span> <span class="n">x</span> <span class="o">*</span> <span class="mi">2</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">sealed</span><span class="w"> </span><span class="k">abstract</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">Base</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">double</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">):</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">2</span>
 <span class="p">}</span>
 
-<span class="k">case</span> <span class="k">class</span> <span class="nc">Override</span><span class="p">()</span> <span class="k">extends</span> <span class="nc">Base</span> <span class="p">{</span>
-  <span class="k">override</span> <span class="k">def</span> <span class="nf">double</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">):</span> <span class="nc">BigInt</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="bp">super</span><span class="p">.</span><span class="n">double</span><span class="p">(</span><span class="n">x</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="mi">42</span>
-  <span class="p">}</span>
+<span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">Override</span><span class="p">()</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">Base</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">override</span><span class="w"> </span><span class="k">def</span><span class="w"> </span><span class="nf">double</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">):</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="bp">super</span><span class="p">.</span><span class="n">double</span><span class="p">(</span><span class="n">x</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">42</span>
+<span class="w">  </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
 </div>
 <p>Abstract methods may have contracts in terms of pre- and postconditions. The
 syntax uses <code class="docutils literal notranslate"><span class="pre">???</span></code> and is as follows:</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">abstract</span> <span class="k">class</span> <span class="nc">Set</span><span class="p">[</span><span class="nc">T</span><span class="p">]</span> <span class="p">{</span>
-  <span class="k">def</span> <span class="nf">contains</span><span class="p">[</span><span class="nc">T</span><span class="p">](</span><span class="n">t</span><span class="p">:</span> <span class="nc">T</span><span class="p">):</span> <span class="nc">Boolean</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">abstract</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">Set</span><span class="p">[</span><span class="nc">T</span><span class="p">]</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">contains</span><span class="p">[</span><span class="nc">T</span><span class="p">](</span><span class="n">t</span><span class="p">:</span><span class="w"> </span><span class="nc">T</span><span class="p">):</span><span class="w"> </span><span class="nc">Boolean</span>
 
-  <span class="k">def</span> <span class="nf">add</span><span class="p">[</span><span class="nc">T</span><span class="p">](</span><span class="n">t</span><span class="p">:</span> <span class="nc">T</span><span class="p">):</span> <span class="nc">Set</span><span class="p">[</span><span class="nc">T</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="n">require</span><span class="p">(</span><span class="o">!</span><span class="bp">this</span><span class="p">.</span><span class="n">contains</span><span class="p">(</span><span class="n">t</span><span class="p">))</span>
-    <span class="p">(</span><span class="o">???</span> <span class="p">:</span> <span class="nc">Set</span><span class="p">[</span><span class="nc">T</span><span class="p">])</span>
-  <span class="p">}.</span><span class="n">ensuring</span><span class="p">(</span><span class="n">res</span> <span class="o">=&gt;</span> <span class="n">res</span><span class="p">.</span><span class="n">contains</span><span class="p">(</span><span class="n">t</span><span class="p">))</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">add</span><span class="p">[</span><span class="nc">T</span><span class="p">](</span><span class="n">t</span><span class="p">:</span><span class="w"> </span><span class="nc">T</span><span class="p">):</span><span class="w"> </span><span class="nc">Set</span><span class="p">[</span><span class="nc">T</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">require</span><span class="p">(</span><span class="o">!</span><span class="bp">this</span><span class="p">.</span><span class="n">contains</span><span class="p">(</span><span class="n">t</span><span class="p">))</span>
+<span class="w">    </span><span class="p">(</span><span class="o">???</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="nc">Set</span><span class="p">[</span><span class="nc">T</span><span class="p">])</span>
+<span class="w"> </span><span class="p">}.</span><span class="n">ensuring</span><span class="p">(</span><span class="n">res</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">res</span><span class="p">.</span><span class="n">contains</span><span class="p">(</span><span class="n">t</span><span class="p">))</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -372,17 +371,17 @@ which are not inspected by Stainless (see e.g.
 <a class="reference external" href="https://github.com/epfl-lara/stainless-project.g8">https://github.com/epfl-lara/stainless-project.g8</a> for an example of how to setup
 such a hybrid project).</p>
 <section id="copy-method">
-<h3>Copy Method<a class="headerlink" href="#copy-method" title="Permalink to this headline">¶</a></h3>
+<h3>Copy Method<a class="headerlink" href="#copy-method" title="Link to this heading">¶</a></h3>
 <p>The <code class="docutils literal notranslate"><span class="pre">copy</span></code> method of classes with immutable fields is extracted as well,
 and ensures that the class invariant (if any) is maintained by requiring it
 to be satisfied as a precondition.</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">case</span> <span class="k">class</span> <span class="nc">Foo</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">)</span> <span class="p">{</span>
-  <span class="n">require</span><span class="p">(</span><span class="n">x</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">Foo</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">require</span><span class="p">(</span><span class="n">x</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
 <span class="p">}</span>
 
-<span class="k">def</span> <span class="nf">prop</span><span class="p">(</span><span class="n">foo</span><span class="p">:</span> <span class="nc">Foo</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">)</span> <span class="o">=</span> <span class="p">{</span>
-  <span class="n">require</span><span class="p">(</span><span class="n">y</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">)</span>
-  <span class="n">foo</span><span class="p">.</span><span class="n">copy</span><span class="p">(</span><span class="n">x</span> <span class="o">=</span> <span class="n">y</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">prop</span><span class="p">(</span><span class="n">foo</span><span class="p">:</span><span class="w"> </span><span class="nc">Foo</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">require</span><span class="p">(</span><span class="n">y</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span>
+<span class="w">  </span><span class="n">foo</span><span class="p">.</span><span class="n">copy</span><span class="p">(</span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">y</span><span class="p">)</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -393,111 +392,111 @@ as <code class="docutils literal notranslate"><span class="pre">Foo</span></code
 </div>
 </section>
 <section id="initialization">
-<h3>Initialization<a class="headerlink" href="#initialization" title="Permalink to this headline">¶</a></h3>
+<h3>Initialization<a class="headerlink" href="#initialization" title="Link to this heading">¶</a></h3>
 <p>In Pure Scala, initialization of <code class="docutils literal notranslate"><span class="pre">val</span></code>’s  may not have future or self-references:</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">object</span> <span class="nc">Initialization</span> <span class="p">{</span>
-  <span class="k">case</span> <span class="k">class</span> <span class="nc">C</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">BigInt</span><span class="p">)</span> <span class="p">{</span>
-    <span class="kd">val</span> <span class="n">y</span> <span class="o">=</span> <span class="n">x</span>       <span class="c1">// ok</span>
-    <span class="kd">val</span> <span class="n">z</span> <span class="o">=</span> <span class="n">y</span> <span class="o">+</span> <span class="n">x</span>   <span class="c1">// ok</span>
-    <span class="kd">val</span> <span class="n">a</span> <span class="o">=</span> <span class="n">b</span>       <span class="c1">// Error: &quot;because field `a` can only refer to previous fields, not to `b`&quot;</span>
-    <span class="kd">val</span> <span class="n">b</span> <span class="o">=</span> <span class="n">z</span> <span class="o">+</span> <span class="n">y</span>   <span class="c1">// ok</span>
-  <span class="p">}</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">object</span><span class="w"> </span><span class="nc">Initialization</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">C</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">val</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x</span><span class="w">       </span><span class="c1">// ok</span>
+<span class="w">    </span><span class="kd">val</span><span class="w"> </span><span class="n">z</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">x</span><span class="w">   </span><span class="c1">// ok</span>
+<span class="w">    </span><span class="kd">val</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">b</span><span class="w">       </span><span class="c1">// Error: &quot;because field `a` can only refer to previous fields, not to `b`&quot;</span>
+<span class="w">    </span><span class="kd">val</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">z</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">y</span><span class="w">   </span><span class="c1">// ok</span>
+<span class="w">  </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
 </div>
 </section>
 <section id="overriding">
-<h3>Overriding<a class="headerlink" href="#overriding" title="Permalink to this headline">¶</a></h3>
+<h3>Overriding<a class="headerlink" href="#overriding" title="Link to this heading">¶</a></h3>
 <p>Stainless supports overriding methods with some constraints:
 * A <code class="docutils literal notranslate"><span class="pre">val</span></code> in an abstract class can only be overridden by a concrete class parameter.
 * Methods and <code class="docutils literal notranslate"><span class="pre">lazy</span> <span class="pre">val``s</span> <span class="pre">in</span> <span class="pre">abstract</span> <span class="pre">classes</span> <span class="pre">can</span> <span class="pre">be</span> <span class="pre">overridden</span> <span class="pre">by</span> <span class="pre">concrete</span> <span class="pre">methods</span> <span class="pre">or</span>
 <span class="pre">``lazy</span> <span class="pre">val</span></code>’s (interchangably), or by a concrete class parameter, but not by
 a <code class="docutils literal notranslate"><span class="pre">val</span></code>.</p>
 <p>Here are a few examples that are rejected by Stainless:</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">object</span> <span class="nc">BadOverride1</span> <span class="p">{</span>
-  <span class="k">sealed</span> <span class="k">abstract</span> <span class="k">class</span> <span class="nc">Abs</span> <span class="p">{</span>
-    <span class="n">require</span><span class="p">(</span><span class="n">x</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span>
-    <span class="kd">val</span> <span class="n">x</span><span class="p">:</span> <span class="nc">Int</span>
-  <span class="p">}</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">object</span><span class="w"> </span><span class="nc">BadOverride1</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">sealed</span><span class="w"> </span><span class="k">abstract</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">Abs</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">require</span><span class="p">(</span><span class="n">x</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
+<span class="w">    </span><span class="kd">val</span><span class="w"> </span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span>
+<span class="w">  </span><span class="p">}</span>
 
-  <span class="c1">// Error: &quot;Abstract values `x` must be overridden with fields in concrete subclass&quot;</span>
-  <span class="k">case</span> <span class="k">class</span> <span class="nc">AbsInvalid</span><span class="p">()</span> <span class="k">extends</span> <span class="nc">Abs</span> <span class="p">{</span>
-    <span class="k">def</span> <span class="nf">x</span><span class="p">:</span> <span class="nc">Int</span> <span class="o">=</span> <span class="mi">1</span>
-  <span class="p">}</span>
+<span class="w">  </span><span class="c1">// Error: &quot;Abstract values `x` must be overridden with fields in concrete subclass&quot;</span>
+<span class="w">  </span><span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">AbsInvalid</span><span class="p">()</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">Abs</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">def</span><span class="w"> </span><span class="nf">x</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span>
+<span class="w">  </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
 </div>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">object</span> <span class="nc">BadOverride2</span> <span class="p">{</span>
-  <span class="k">sealed</span> <span class="k">abstract</span> <span class="k">class</span> <span class="nc">Abs</span> <span class="p">{</span>
-    <span class="kd">val</span> <span class="n">y</span><span class="p">:</span> <span class="nc">Int</span>
-  <span class="p">}</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">object</span><span class="w"> </span><span class="nc">BadOverride2</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">sealed</span><span class="w"> </span><span class="k">abstract</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">Abs</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">val</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span>
+<span class="w">  </span><span class="p">}</span>
 
-  <span class="c1">// Error: &quot;Abstract values `y` must be overridden with fields in concrete subclass&quot;</span>
-  <span class="k">case</span> <span class="k">class</span> <span class="nc">AbsInvalid</span><span class="p">()</span> <span class="k">extends</span> <span class="nc">Abs</span> <span class="p">{</span>
-    <span class="kd">val</span> <span class="n">y</span><span class="p">:</span> <span class="nc">Int</span> <span class="o">=</span> <span class="mi">2</span>
-  <span class="p">}</span>
+<span class="w">  </span><span class="c1">// Error: &quot;Abstract values `y` must be overridden with fields in concrete subclass&quot;</span>
+<span class="w">  </span><span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">AbsInvalid</span><span class="p">()</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">Abs</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">val</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span>
+<span class="w">  </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
 </div>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">object</span> <span class="nc">BadOverride3</span> <span class="p">{</span>
-  <span class="k">sealed</span> <span class="k">abstract</span> <span class="k">class</span> <span class="nc">AAA</span> <span class="p">{</span>
-    <span class="k">def</span> <span class="nf">f</span><span class="p">:</span> <span class="nc">BigInt</span>
-  <span class="p">}</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">object</span><span class="w"> </span><span class="nc">BadOverride3</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">sealed</span><span class="w"> </span><span class="k">abstract</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">AAA</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">def</span><span class="w"> </span><span class="nf">f</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span>
+<span class="w">  </span><span class="p">}</span>
 
-  <span class="c1">// Error: &quot;because abstract methods BadOverride3.AAA.f were not overridden by</span>
-  <span class="c1">//         a method, a lazy val, or a constructor parameter&quot;</span>
-  <span class="k">case</span> <span class="k">class</span> <span class="nc">BBB</span><span class="p">()</span> <span class="k">extends</span> <span class="nc">AAA</span> <span class="p">{</span>
-    <span class="kd">val</span> <span class="n">f</span><span class="p">:</span> <span class="nc">BigInt</span> <span class="o">=</span> <span class="mi">0</span>
-  <span class="p">}</span>
+<span class="w">  </span><span class="c1">// Error: &quot;because abstract methods BadOverride3.AAA.f were not overridden by</span>
+<span class="w">  </span><span class="c1">//         a method, a lazy val, or a constructor parameter&quot;</span>
+<span class="w">  </span><span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">BBB</span><span class="p">()</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">AAA</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">val</span><span class="w"> </span><span class="n">f</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">  </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
 </div>
 </section>
 <section id="default-parameters">
-<h3>Default Parameters<a class="headerlink" href="#default-parameters" title="Permalink to this headline">¶</a></h3>
+<h3>Default Parameters<a class="headerlink" href="#default-parameters" title="Link to this heading">¶</a></h3>
 <p>Functions and methods can have default values for their parameters.</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">test</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">Int</span> <span class="o">=</span> <span class="mi">21</span><span class="p">):</span> <span class="nc">Int</span> <span class="o">=</span> <span class="n">x</span> <span class="o">*</span> <span class="mi">2</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">test</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">21</span><span class="p">):</span><span class="w"> </span><span class="nc">Int</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">2</span>
 
-<span class="n">assert</span><span class="p">(</span><span class="n">test</span><span class="p">()</span> <span class="o">==</span> <span class="mi">42</span><span class="p">)</span> <span class="c1">// valid</span>
+<span class="n">assert</span><span class="p">(</span><span class="n">test</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">42</span><span class="p">)</span><span class="w"> </span><span class="c1">// valid</span>
 </pre></div>
 </div>
 </section>
 </section>
 <section id="type-definitions">
-<h2>Type Definitions<a class="headerlink" href="#type-definitions" title="Permalink to this headline">¶</a></h2>
+<h2>Type Definitions<a class="headerlink" href="#type-definitions" title="Link to this heading">¶</a></h2>
 <section id="type-aliases">
-<h3>Type Aliases<a class="headerlink" href="#type-aliases" title="Permalink to this headline">¶</a></h3>
+<h3>Type Aliases<a class="headerlink" href="#type-aliases" title="Link to this heading">¶</a></h3>
 <p>Type aliases can be defined the usual way:</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">object</span> <span class="nc">testcase</span> <span class="p">{</span>
-  <span class="k">type</span> <span class="nc">Identifier</span> <span class="o">=</span> <span class="nc">String</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">object</span><span class="w"> </span><span class="nc">testcase</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">type</span><span class="w"> </span><span class="nc">Identifier</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">String</span>
 
-  <span class="k">def</span> <span class="nf">newIdentifier</span><span class="p">:</span> <span class="nc">Identifier</span> <span class="o">=</span> <span class="cm">/* returns a String */</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">newIdentifier</span><span class="p">:</span><span class="w"> </span><span class="nc">Identifier</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="cm">/* returns a String */</span>
 <span class="p">}</span>
 </pre></div>
 </div>
 <p>Type aliases can also have one or more type parameters:</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">type</span> <span class="nc">Collection</span><span class="p">[</span><span class="nc">A</span><span class="p">]</span> <span class="o">=</span> <span class="nc">List</span><span class="p">[</span><span class="nc">A</span><span class="p">]</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">type</span><span class="w"> </span><span class="nc">Collection</span><span class="p">[</span><span class="nc">A</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">A</span><span class="p">]</span>
 
-<span class="k">def</span> <span class="nf">singleton</span><span class="p">[</span><span class="nc">A</span><span class="p">](</span><span class="n">x</span><span class="p">:</span> <span class="nc">A</span><span class="p">):</span> <span class="nc">Collection</span><span class="p">[</span><span class="nc">A</span><span class="p">]</span> <span class="o">=</span> <span class="nc">List</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">singleton</span><span class="p">[</span><span class="nc">A</span><span class="p">](</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">A</span><span class="p">):</span><span class="w"> </span><span class="nc">Collection</span><span class="p">[</span><span class="nc">A</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">List</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
 <section id="type-members">
-<h3>Type Members<a class="headerlink" href="#type-members" title="Permalink to this headline">¶</a></h3>
+<h3>Type Members<a class="headerlink" href="#type-members" title="Link to this heading">¶</a></h3>
 <p>Much like classes can have field members and method members, they can also
 define type members. Much like other members, those can also be declared
 abstract within an abstract class and overridden in implementations:</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">case</span> <span class="k">class</span> <span class="nc">Grass</span><span class="p">()</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">Grass</span><span class="p">()</span>
 
-<span class="k">abstract</span> <span class="k">class</span> <span class="nc">Animal</span> <span class="p">{</span>
-  <span class="k">type</span> <span class="nc">Food</span>
-  <span class="kd">val</span> <span class="n">happy</span><span class="p">:</span> <span class="nc">Boolean</span>
-  <span class="k">def</span> <span class="nf">eat</span><span class="p">(</span><span class="n">food</span><span class="p">:</span> <span class="nc">Food</span><span class="p">):</span> <span class="nc">Animal</span>
+<span class="k">abstract</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">Animal</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">type</span><span class="w"> </span><span class="nc">Food</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">happy</span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">eat</span><span class="p">(</span><span class="n">food</span><span class="p">:</span><span class="w"> </span><span class="nc">Food</span><span class="p">):</span><span class="w"> </span><span class="nc">Animal</span>
 <span class="p">}</span>
 
-<span class="k">case</span> <span class="k">class</span> <span class="nc">Cow</span><span class="p">(</span><span class="n">happy</span><span class="p">:</span> <span class="nc">Boolean</span><span class="p">)</span> <span class="k">extends</span> <span class="nc">Animal</span> <span class="p">{</span>
-  <span class="k">type</span> <span class="nc">Food</span> <span class="o">=</span> <span class="nc">Grass</span>
-  <span class="k">def</span> <span class="nf">eat</span><span class="p">(</span><span class="n">g</span><span class="p">:</span> <span class="nc">Grass</span><span class="p">):</span> <span class="nc">Cow</span> <span class="o">=</span> <span class="nc">Cow</span><span class="p">(</span><span class="n">happy</span> <span class="o">=</span> <span class="kc">true</span><span class="p">)</span>
+<span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">Cow</span><span class="p">(</span><span class="n">happy</span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="p">)</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">Animal</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">type</span><span class="w"> </span><span class="nc">Food</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Grass</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">eat</span><span class="p">(</span><span class="n">g</span><span class="p">:</span><span class="w"> </span><span class="nc">Grass</span><span class="p">):</span><span class="w"> </span><span class="nc">Cow</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Cow</span><span class="p">(</span><span class="n">happy</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">)</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -506,48 +505,48 @@ abstract within an abstract class and overridden in implementations:</p>
 can depend on another variable, by selecting a type member on the latter:</p>
 <div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="c1">//                             Path-dependent type</span>
 <span class="c1">//                                 vvvvvvvvvvv</span>
-<span class="k">def</span> <span class="nf">giveFood</span><span class="p">(</span><span class="n">animal</span><span class="p">:</span> <span class="nc">Animal</span><span class="p">)(</span><span class="n">food</span><span class="p">:</span> <span class="n">animal</span><span class="p">.</span><span class="nc">Food</span><span class="p">):</span> <span class="nc">Animal</span> <span class="o">=</span> <span class="p">{</span>
-  <span class="n">animal</span><span class="p">.</span><span class="n">eat</span><span class="p">(</span><span class="n">food</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">giveFood</span><span class="p">(</span><span class="n">animal</span><span class="p">:</span><span class="w"> </span><span class="nc">Animal</span><span class="p">)(</span><span class="n">food</span><span class="p">:</span><span class="w"> </span><span class="n">animal</span><span class="p">.</span><span class="nc">Food</span><span class="p">):</span><span class="w"> </span><span class="nc">Animal</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">animal</span><span class="p">.</span><span class="n">eat</span><span class="p">(</span><span class="n">food</span><span class="p">)</span>
 <span class="p">}</span>
 
-<span class="k">def</span> <span class="nf">test</span> <span class="o">=</span> <span class="p">{</span>
-  <span class="kd">val</span> <span class="n">cow1</span> <span class="o">=</span> <span class="nc">Cow</span><span class="p">(</span><span class="kc">false</span><span class="p">)</span>
-  <span class="kd">val</span> <span class="n">cow2</span> <span class="o">=</span> <span class="n">giveFood</span><span class="p">(</span><span class="n">cow1</span><span class="p">)(</span><span class="nc">Grass</span><span class="p">())</span>
-  <span class="n">assert</span><span class="p">(</span><span class="n">cow2</span><span class="p">.</span><span class="n">happy</span><span class="p">)</span> <span class="c1">// VALID</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">test</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">cow1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Cow</span><span class="p">(</span><span class="kc">false</span><span class="p">)</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">cow2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">giveFood</span><span class="p">(</span><span class="n">cow1</span><span class="p">)(</span><span class="nc">Grass</span><span class="p">())</span>
+<span class="w">  </span><span class="n">assert</span><span class="p">(</span><span class="n">cow2</span><span class="p">.</span><span class="n">happy</span><span class="p">)</span><span class="w"> </span><span class="c1">// VALID</span>
 <span class="p">}</span>
 </pre></div>
 </div>
 </section>
 </section>
 <section id="specifications">
-<h2>Specifications<a class="headerlink" href="#specifications" title="Permalink to this headline">¶</a></h2>
+<h2>Specifications<a class="headerlink" href="#specifications" title="Link to this heading">¶</a></h2>
 <p>Stainless supports three kinds of specifications to functions and methods:</p>
 <section id="preconditions">
-<h3>Preconditions<a class="headerlink" href="#preconditions" title="Permalink to this headline">¶</a></h3>
+<h3>Preconditions<a class="headerlink" href="#preconditions" title="Link to this heading">¶</a></h3>
 <p>Preconditions constraint the argument and is expressed using <cite>require</cite>. It should hold for all calls to the function.</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">foo</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="nc">Int</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="nc">Int</span><span class="p">)</span> <span class="o">=</span> <span class="p">{</span>
-  <span class="n">require</span><span class="p">(</span><span class="n">a</span> <span class="o">&gt;</span> <span class="n">b</span><span class="p">)</span>
-  <span class="p">...</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">foo</span><span class="p">(</span><span class="n">a</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">require</span><span class="p">(</span><span class="n">a</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">b</span><span class="p">)</span>
+<span class="w">  </span><span class="p">...</span>
 <span class="p">}</span>
 </pre></div>
 </div>
 </section>
 <section id="postconditions">
-<h3>Postconditions<a class="headerlink" href="#postconditions" title="Permalink to this headline">¶</a></h3>
+<h3>Postconditions<a class="headerlink" href="#postconditions" title="Link to this heading">¶</a></h3>
 <p>Postconditions constraint the resulting value, and is expressed using <cite>ensuring</cite>:</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">foo</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="nc">Int</span><span class="p">):</span> <span class="nc">Int</span> <span class="o">=</span> <span class="p">{</span>
-  <span class="n">a</span> <span class="o">+</span> <span class="mi">1</span>
-<span class="p">}</span> <span class="n">ensuring</span> <span class="p">{</span> <span class="n">res</span> <span class="o">=&gt;</span> <span class="n">res</span> <span class="o">&gt;</span> <span class="n">a</span> <span class="p">}</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="w"> </span><span class="k">def</span><span class="w"> </span><span class="nf">foo</span><span class="p">(</span><span class="n">a</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">):</span><span class="w"> </span><span class="nc">Int</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">   </span><span class="n">a</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span>
+<span class="p">}.</span><span class="n">ensuring</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">res</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">res</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="p">}</span>
 </pre></div>
 </div>
 </section>
 <section id="body-assertions">
-<h3>Body Assertions<a class="headerlink" href="#body-assertions" title="Permalink to this headline">¶</a></h3>
+<h3>Body Assertions<a class="headerlink" href="#body-assertions" title="Link to this heading">¶</a></h3>
 <p>Assertions constrain intermediate expressions within the body of a function.</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">foo</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="nc">Int</span><span class="p">):</span> <span class="nc">Int</span> <span class="o">=</span> <span class="p">{</span>
-  <span class="kd">val</span> <span class="n">b</span> <span class="o">=</span> <span class="o">-</span><span class="n">a</span>
-  <span class="n">assert</span><span class="p">(</span><span class="n">a</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="o">||</span> <span class="n">b</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">,</span> <span class="s">&quot;This will fail for -2^31&quot;</span><span class="p">)</span>
-  <span class="n">a</span> <span class="o">+</span> <span class="mi">1</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">foo</span><span class="p">(</span><span class="n">a</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">):</span><span class="w"> </span><span class="nc">Int</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">-</span><span class="n">a</span>
+<span class="w">  </span><span class="n">assert</span><span class="p">(</span><span class="n">a</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;This will fail for -2^31&quot;</span><span class="p">)</span>
+<span class="w">  </span><span class="n">a</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -555,46 +554,46 @@ can depend on another variable, by selecting a type member on the latter:</p>
 </section>
 </section>
 <section id="expressions">
-<h2>Expressions<a class="headerlink" href="#expressions" title="Permalink to this headline">¶</a></h2>
+<h2>Expressions<a class="headerlink" href="#expressions" title="Link to this heading">¶</a></h2>
 <p>Stainless supports most purely-functional Scala expressions:</p>
 <section id="pattern-matching">
-<h3>Pattern matching<a class="headerlink" href="#pattern-matching" title="Permalink to this headline">¶</a></h3>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="n">expr</span> <span class="k">match</span> <span class="p">{</span>
-  <span class="c1">// Simple (nested) patterns:</span>
-  <span class="k">case</span> <span class="nc">CaseClass</span><span class="p">(</span> <span class="p">..</span> <span class="p">,</span> <span class="p">..</span> <span class="p">,</span> <span class="p">..)</span> <span class="o">=&gt;</span> <span class="p">...</span>
-  <span class="k">case</span> <span class="n">v</span> <span class="o">@</span> <span class="nc">CaseClass</span><span class="p">(</span> <span class="p">..</span> <span class="p">,</span> <span class="p">..</span> <span class="p">,</span> <span class="p">..)</span> <span class="o">=&gt;</span> <span class="p">...</span>
-  <span class="k">case</span> <span class="n">v</span> <span class="p">:</span> <span class="nc">CaseClass</span> <span class="o">=&gt;</span> <span class="p">...</span>
-  <span class="k">case</span> <span class="p">(</span><span class="n">t1</span><span class="p">,</span> <span class="n">t2</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">...</span>
-  <span class="k">case</span> <span class="mi">42</span> <span class="o">=&gt;</span> <span class="p">...</span>
-  <span class="k">case</span> <span class="n">_</span> <span class="o">=&gt;</span> <span class="p">...</span>
+<h3>Pattern matching<a class="headerlink" href="#pattern-matching" title="Link to this heading">¶</a></h3>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="n">expr</span><span class="w"> </span><span class="k">match</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// Simple (nested) patterns:</span>
+<span class="w">  </span><span class="k">case</span><span class="w"> </span><span class="nc">CaseClass</span><span class="p">(</span><span class="w"> </span><span class="p">..</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="p">..</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="p">..)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">...</span>
+<span class="w">  </span><span class="k">case</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">@</span><span class="w"> </span><span class="nc">CaseClass</span><span class="p">(</span><span class="w"> </span><span class="p">..</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="p">..</span><span class="w"> </span><span class="p">,</span><span class="w"> </span><span class="p">..)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">...</span>
+<span class="w">  </span><span class="k">case</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="nc">CaseClass</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">...</span>
+<span class="w">  </span><span class="k">case</span><span class="w"> </span><span class="p">(</span><span class="n">t1</span><span class="p">,</span><span class="w"> </span><span class="n">t2</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">...</span>
+<span class="w">  </span><span class="k">case</span><span class="w"> </span><span class="mi">42</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">...</span>
+<span class="w">  </span><span class="k">case</span><span class="w"> </span><span class="n">_</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">...</span>
 
-  <span class="c1">// can also be guarded, e.g.</span>
-  <span class="k">case</span> <span class="nc">CaseClass</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">c</span><span class="p">)</span> <span class="k">if</span> <span class="n">a</span> <span class="o">&gt;</span> <span class="n">b</span> <span class="o">=&gt;</span> <span class="p">...</span>
+<span class="w">  </span><span class="c1">// can also be guarded, e.g.</span>
+<span class="w">  </span><span class="k">case</span><span class="w"> </span><span class="nc">CaseClass</span><span class="p">(</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="p">,</span><span class="w"> </span><span class="n">c</span><span class="p">)</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">...</span>
 <span class="p">}</span>
 </pre></div>
 </div>
 <p>Custom pattern matching with <code class="docutils literal notranslate"><span class="pre">unapply</span></code> methods are also supported:</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">object</span> <span class="nc">::</span> <span class="p">{</span>
-  <span class="k">def</span> <span class="nf">unapply</span><span class="p">[</span><span class="nc">A</span><span class="p">](</span><span class="n">l</span><span class="p">:</span> <span class="nc">List</span><span class="p">[</span><span class="nc">A</span><span class="p">]):</span> <span class="nc">Option</span><span class="p">[(</span><span class="nc">A</span><span class="p">,</span> <span class="nc">List</span><span class="p">[</span><span class="nc">A</span><span class="p">])]</span> <span class="o">=</span> <span class="n">l</span> <span class="k">match</span> <span class="p">{</span>
-    <span class="k">case</span> <span class="nc">Nil</span><span class="p">()</span> <span class="o">=&gt;</span> <span class="nc">None</span><span class="p">()</span>
-    <span class="k">case</span> <span class="nc">Cons</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">xs</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="nc">Some</span><span class="p">((</span><span class="n">x</span><span class="p">,</span> <span class="n">xs</span><span class="p">))</span>
-  <span class="p">}</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">object</span><span class="w"> </span><span class="nc">::</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">unapply</span><span class="p">[</span><span class="nc">A</span><span class="p">](</span><span class="n">l</span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">A</span><span class="p">]):</span><span class="w"> </span><span class="nc">Option</span><span class="p">[(</span><span class="nc">A</span><span class="p">,</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">A</span><span class="p">])]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">l</span><span class="w"> </span><span class="k">match</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nc">Nil</span><span class="p">()</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">None</span><span class="p">()</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">xs</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Some</span><span class="p">((</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">xs</span><span class="p">))</span>
+<span class="w">  </span><span class="p">}</span>
 <span class="p">}</span>
 
-<span class="k">def</span> <span class="nf">empty</span><span class="p">[</span><span class="nc">A</span><span class="p">](</span><span class="n">l</span><span class="p">:</span> <span class="nc">List</span><span class="p">[</span><span class="nc">A</span><span class="p">])</span> <span class="o">=</span> <span class="n">l</span> <span class="k">match</span> <span class="p">{</span>
-  <span class="k">case</span> <span class="n">x</span> <span class="o">::</span> <span class="n">xs</span> <span class="o">=&gt;</span> <span class="kc">false</span>
-  <span class="k">case</span> <span class="nc">Nil</span><span class="p">()</span> <span class="o">=&gt;</span> <span class="kc">true</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">empty</span><span class="p">[</span><span class="nc">A</span><span class="p">](</span><span class="n">l</span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">A</span><span class="p">])</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">l</span><span class="w"> </span><span class="k">match</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">case</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">::</span><span class="w"> </span><span class="n">xs</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">  </span><span class="k">case</span><span class="w"> </span><span class="nc">Nil</span><span class="p">()</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="kc">true</span>
 <span class="p">}</span>
 </pre></div>
 </div>
 </section>
 <section id="values">
-<h3>Values<a class="headerlink" href="#values" title="Permalink to this headline">¶</a></h3>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="kd">val</span> <span class="n">x</span> <span class="o">=</span> <span class="p">...</span>
+<h3>Values<a class="headerlink" href="#values" title="Link to this heading">¶</a></h3>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="kd">val</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">...</span>
 
-<span class="kd">val</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="o">=</span> <span class="p">...</span>
+<span class="kd">val</span><span class="w"> </span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">...</span>
 
-<span class="kd">val</span> <span class="nc">Cons</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="n">_</span><span class="p">)</span> <span class="o">=</span> <span class="p">...</span>
+<span class="kd">val</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">h</span><span class="p">,</span><span class="w"> </span><span class="n">_</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">...</span>
 </pre></div>
 </div>
 <div class="admonition note">
@@ -603,31 +602,31 @@ can depend on another variable, by selecting a type member on the latter:</p>
 </div>
 </section>
 <section id="inner-functions">
-<h3>Inner Functions<a class="headerlink" href="#inner-functions" title="Permalink to this headline">¶</a></h3>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">foo</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">Int</span><span class="p">)</span> <span class="o">=</span> <span class="p">{</span>
-  <span class="kd">val</span> <span class="n">y</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="mi">1</span>
-  <span class="k">def</span> <span class="nf">bar</span><span class="p">(</span><span class="n">z</span><span class="p">:</span> <span class="nc">Int</span><span class="p">)</span> <span class="o">=</span> <span class="p">{</span>
-     <span class="n">z</span> <span class="o">+</span> <span class="n">y</span>
-  <span class="p">}</span>
-  <span class="n">bar</span><span class="p">(</span><span class="mi">42</span><span class="p">)</span>
+<h3>Inner Functions<a class="headerlink" href="#inner-functions" title="Link to this heading">¶</a></h3>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">foo</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">bar</span><span class="p">(</span><span class="n">z</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">     </span><span class="n">z</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">y</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="n">bar</span><span class="p">(</span><span class="mi">42</span><span class="p">)</span>
 <span class="p">}</span>
 </pre></div>
 </div>
 </section>
 <section id="local-and-anonymous-classes">
-<h3>Local and Anonymous Classes<a class="headerlink" href="#local-and-anonymous-classes" title="Permalink to this headline">¶</a></h3>
+<h3>Local and Anonymous Classes<a class="headerlink" href="#local-and-anonymous-classes" title="Link to this heading">¶</a></h3>
 <p>Functions and methods can declare local classes, which can close over
 the fields of the enclosing class, as well as the parameters of the enclosing
 function or method.</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">abstract</span> <span class="k">class</span> <span class="nc">Foo</span> <span class="p">{</span>
-  <span class="k">def</span> <span class="nf">bar</span><span class="p">:</span> <span class="nc">Int</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">abstract</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">Foo</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">bar</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span>
 <span class="p">}</span>
 
-<span class="k">def</span> <span class="nf">makeFoo</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">Int</span><span class="p">):</span> <span class="nc">Foo</span> <span class="o">=</span> <span class="p">{</span>
-  <span class="k">case</span> <span class="k">class</span> <span class="nc">Local</span><span class="p">()</span> <span class="k">extends</span> <span class="nc">Foo</span> <span class="p">{</span>
-    <span class="k">def</span> <span class="nf">bar</span><span class="p">:</span> <span class="nc">Int</span> <span class="o">=</span> <span class="n">x</span>
-  <span class="p">}</span>
-  <span class="nc">Local</span><span class="p">()</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">makeFoo</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">):</span><span class="w"> </span><span class="nc">Foo</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">Local</span><span class="p">()</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">Foo</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">def</span><span class="w"> </span><span class="nf">bar</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="nc">Local</span><span class="p">()</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -639,12 +638,12 @@ Otherwise, a structural type will be inferred by the Scala compiler, and those a
 currently unsupported.</p>
 </div>
 <p>Anonymous classes with an explicit parent are supported as well:</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">abstract</span> <span class="k">class</span> <span class="nc">Foo</span> <span class="p">{</span>
-  <span class="k">def</span> <span class="nf">bar</span><span class="p">:</span> <span class="nc">Int</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">abstract</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">Foo</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">bar</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span>
 <span class="p">}</span>
 
-<span class="k">def</span> <span class="nf">makeFoo</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">Int</span><span class="p">):</span> <span class="nc">Foo</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Foo</span> <span class="p">{</span>
-  <span class="k">def</span> <span class="nf">bar</span><span class="p">:</span> <span class="nc">Int</span> <span class="o">=</span> <span class="n">x</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">makeFoo</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">):</span><span class="w"> </span><span class="nc">Foo</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="nc">Foo</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">bar</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -653,41 +652,41 @@ currently unsupported.</p>
 <p>Anonymous classes cannot declare more public members than their parent class,
 ie. the following is not supported:</p>
 </div>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">abstract</span> <span class="k">class</span> <span class="nc">Foo</span> <span class="p">{</span>
-  <span class="k">def</span> <span class="nf">bar</span><span class="p">:</span> <span class="nc">Int</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">abstract</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">Foo</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">bar</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span>
 <span class="p">}</span>
 
-<span class="k">def</span> <span class="nf">makeFoo</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">Int</span><span class="p">):</span> <span class="nc">Foo</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Foo</span> <span class="p">{</span>
-  <span class="k">def</span> <span class="nf">bar</span><span class="p">:</span> <span class="nc">Int</span> <span class="o">=</span> <span class="n">x</span>
-  <span class="k">def</span> <span class="nf">hi</span><span class="p">:</span> <span class="nc">String</span> <span class="o">=</span> <span class="s">&quot;Hello, world&quot;</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">makeFoo</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">):</span><span class="w"> </span><span class="nc">Foo</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="nc">Foo</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">bar</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">hi</span><span class="p">:</span><span class="w"> </span><span class="nc">String</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;Hello, world&quot;</span>
 <span class="p">}</span>
 </pre></div>
 </div>
 </section>
 </section>
 <section id="predefined-types">
-<h2>Predefined Types<a class="headerlink" href="#predefined-types" title="Permalink to this headline">¶</a></h2>
+<h2>Predefined Types<a class="headerlink" href="#predefined-types" title="Link to this heading">¶</a></h2>
 <section id="tuplex">
-<h3>TupleX<a class="headerlink" href="#tuplex" title="Permalink to this headline">¶</a></h3>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="kd">val</span> <span class="n">x</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">)</span>
-<span class="kd">val</span> <span class="n">y</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">-&gt;</span> <span class="mi">2</span> <span class="c1">// alternative Scala syntax for Tuple2</span>
-<span class="n">x</span><span class="p">.</span><span class="n">_1</span> <span class="c1">// == 1</span>
+<h3>TupleX<a class="headerlink" href="#tuplex" title="Link to this heading">¶</a></h3>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="kd">val</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">)</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="mi">2</span><span class="w"> </span><span class="c1">// alternative Scala syntax for Tuple2</span>
+<span class="n">x</span><span class="p">.</span><span class="n">_1</span><span class="w"> </span><span class="c1">// == 1</span>
 </pre></div>
 </div>
 </section>
 <section id="int">
-<h3>Int<a class="headerlink" href="#int" title="Permalink to this headline">¶</a></h3>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="n">a</span> <span class="o">+</span> <span class="n">b</span>
-<span class="n">a</span> <span class="o">-</span> <span class="n">b</span>
+<h3>Int<a class="headerlink" href="#int" title="Link to this heading">¶</a></h3>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="n">a</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">b</span>
+<span class="n">a</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">b</span>
 <span class="o">-</span><span class="n">a</span>
-<span class="n">a</span> <span class="o">*</span> <span class="n">b</span>
-<span class="n">a</span> <span class="o">/</span> <span class="n">b</span>
-<span class="n">a</span> <span class="o">%</span> <span class="n">b</span> <span class="c1">// a modulo b</span>
-<span class="n">a</span> <span class="o">&lt;</span> <span class="n">b</span>
-<span class="n">a</span> <span class="o">&lt;=</span> <span class="n">b</span>
-<span class="n">a</span> <span class="o">&gt;</span> <span class="n">b</span>
-<span class="n">a</span> <span class="o">&gt;=</span> <span class="n">b</span>
-<span class="n">a</span> <span class="o">==</span> <span class="n">b</span>
+<span class="n">a</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">b</span>
+<span class="n">a</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">b</span>
+<span class="n">a</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="c1">// a modulo b</span>
+<span class="n">a</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">b</span>
+<span class="n">a</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">b</span>
+<span class="n">a</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">b</span>
+<span class="n">a</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="n">b</span>
+<span class="n">a</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">b</span>
 </pre></div>
 </div>
 <div class="admonition note">
@@ -696,21 +695,21 @@ ie. the following is not supported:</p>
 </div>
 </section>
 <section id="bigint">
-<h3>BigInt<a class="headerlink" href="#bigint" title="Permalink to this headline">¶</a></h3>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="kd">val</span> <span class="n">a</span> <span class="o">=</span> <span class="nc">BigInt</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
-<span class="kd">val</span> <span class="n">b</span> <span class="o">=</span> <span class="nc">BigInt</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+<h3>BigInt<a class="headerlink" href="#bigint" title="Link to this heading">¶</a></h3>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="kd">val</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
 
 <span class="o">-</span><span class="n">a</span>
-<span class="n">a</span> <span class="o">+</span> <span class="n">b</span>
-<span class="n">a</span> <span class="o">-</span> <span class="n">b</span>
-<span class="n">a</span> <span class="o">*</span> <span class="n">b</span>
-<span class="n">a</span> <span class="o">/</span> <span class="n">b</span>
-<span class="n">a</span> <span class="o">%</span> <span class="n">b</span> <span class="c1">// a modulo b</span>
-<span class="n">a</span> <span class="o">&lt;</span> <span class="n">b</span>
-<span class="n">a</span> <span class="o">&gt;</span> <span class="n">b</span>
-<span class="n">a</span> <span class="o">&lt;=</span> <span class="n">b</span>
-<span class="n">a</span> <span class="o">&gt;=</span> <span class="n">b</span>
-<span class="n">a</span> <span class="o">==</span> <span class="n">b</span>
+<span class="n">a</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">b</span>
+<span class="n">a</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">b</span>
+<span class="n">a</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">b</span>
+<span class="n">a</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">b</span>
+<span class="n">a</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="c1">// a modulo b</span>
+<span class="n">a</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">b</span>
+<span class="n">a</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">b</span>
+<span class="n">a</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">b</span>
+<span class="n">a</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="n">b</span>
+<span class="n">a</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">b</span>
 </pre></div>
 </div>
 <div class="admonition note">
@@ -719,88 +718,88 @@ ie. the following is not supported:</p>
 </div>
 </section>
 <section id="real">
-<h3>Real<a class="headerlink" href="#real" title="Permalink to this headline">¶</a></h3>
+<h3>Real<a class="headerlink" href="#real" title="Link to this heading">¶</a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">Real</span></code> represents the mathematical real numbers (different from floating points). It is an
 extension to Scala which is meant to write programs closer to their true semantics.</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="kd">val</span> <span class="n">a</span><span class="p">:</span> <span class="nc">Real</span> <span class="o">=</span> <span class="nc">Real</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
-<span class="kd">val</span> <span class="n">b</span><span class="p">:</span> <span class="nc">Real</span> <span class="o">=</span> <span class="nc">Real</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span> <span class="c1">// 3/5</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="kd">val</span><span class="w"> </span><span class="n">a</span><span class="p">:</span><span class="w"> </span><span class="nc">Real</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Real</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">b</span><span class="p">:</span><span class="w"> </span><span class="nc">Real</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Real</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">5</span><span class="p">)</span><span class="w"> </span><span class="c1">// 3/5</span>
 
 <span class="o">-</span><span class="n">a</span>
-<span class="n">a</span> <span class="o">+</span> <span class="n">b</span>
-<span class="n">a</span> <span class="o">-</span> <span class="n">b</span>
-<span class="n">a</span> <span class="o">*</span> <span class="n">b</span>
-<span class="n">a</span> <span class="o">/</span> <span class="n">b</span>
-<span class="n">a</span> <span class="o">&lt;</span> <span class="n">b</span>
-<span class="n">a</span> <span class="o">&gt;</span> <span class="n">b</span>
-<span class="n">a</span> <span class="o">&lt;=</span> <span class="n">b</span>
-<span class="n">a</span> <span class="o">&gt;=</span> <span class="n">b</span>
-<span class="n">a</span> <span class="o">==</span> <span class="n">b</span>
+<span class="n">a</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">b</span>
+<span class="n">a</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">b</span>
+<span class="n">a</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">b</span>
+<span class="n">a</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">b</span>
+<span class="n">a</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">b</span>
+<span class="n">a</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">b</span>
+<span class="n">a</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">b</span>
+<span class="n">a</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="n">b</span>
+<span class="n">a</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">b</span>
 </pre></div>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Real have infinite precision, which means their properties differ from <code class="docutils literal notranslate"><span class="pre">Double</span></code>.
 For example, the following holds:</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">associativity</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">Real</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nc">Real</span><span class="p">,</span> <span class="n">z</span><span class="p">:</span> <span class="nc">Real</span><span class="p">):</span> <span class="nc">Boolean</span> <span class="o">=</span> <span class="p">{</span>
-  <span class="p">(</span><span class="n">x</span> <span class="o">+</span> <span class="n">y</span><span class="p">)</span> <span class="o">+</span> <span class="n">z</span> <span class="o">==</span> <span class="n">x</span> <span class="o">+</span> <span class="p">(</span><span class="n">y</span> <span class="o">+</span> <span class="n">z</span><span class="p">)</span>
-<span class="p">}</span> <span class="n">holds</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">associativity</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">Real</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="nc">Real</span><span class="p">,</span><span class="w"> </span><span class="n">z</span><span class="p">:</span><span class="w"> </span><span class="nc">Real</span><span class="p">):</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="p">(</span><span class="n">x</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">y</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">z</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="n">y</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">z</span><span class="p">)</span>
+<span class="p">}</span><span class="w"> </span><span class="n">holds</span>
 </pre></div>
 </div>
 <p>While it does not hold with floating point arithmetic.</p>
 </div>
 </section>
 <section id="set">
-<h3>Set<a class="headerlink" href="#set" title="Permalink to this headline">¶</a></h3>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">import</span> <span class="nn">stainless</span><span class="p">.</span><span class="nn">lang</span><span class="p">.</span><span class="nc">Set</span> <span class="c1">// Required to have support for Sets</span>
+<h3>Set<a class="headerlink" href="#set" title="Link to this heading">¶</a></h3>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">import</span><span class="w"> </span><span class="nn">stainless</span><span class="p">.</span><span class="nn">lang</span><span class="p">.</span><span class="nc">Set</span><span class="w"> </span><span class="c1">// Required to have support for Sets</span>
 
-<span class="kd">val</span> <span class="n">s1</span> <span class="o">=</span> <span class="nc">Set</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>
-<span class="kd">val</span> <span class="n">s2</span> <span class="o">=</span> <span class="nc">Set</span><span class="p">[</span><span class="nc">Int</span><span class="p">]()</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">s1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Set</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">s2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Set</span><span class="p">[</span><span class="nc">Int</span><span class="p">]()</span>
 
-<span class="n">s1</span> <span class="o">++</span> <span class="n">s2</span> <span class="c1">// Set union</span>
-<span class="n">s1</span> <span class="n">&amp;</span> <span class="n">s2</span>  <span class="c1">// Set intersection</span>
-<span class="n">s1</span> <span class="o">--</span> <span class="n">s2</span> <span class="c1">// Set difference</span>
-<span class="n">s1</span> <span class="n">subsetOf</span> <span class="n">s2</span>
-<span class="n">s1</span> <span class="n">contains</span> <span class="mi">42</span>
+<span class="n">s1</span><span class="w"> </span><span class="o">++</span><span class="w"> </span><span class="n">s2</span><span class="w"> </span><span class="c1">// Set union</span>
+<span class="n">s1</span><span class="w"> </span><span class="n">&amp;</span><span class="w"> </span><span class="n">s2</span><span class="w">  </span><span class="c1">// Set intersection</span>
+<span class="n">s1</span><span class="w"> </span><span class="o">--</span><span class="w"> </span><span class="n">s2</span><span class="w"> </span><span class="c1">// Set difference</span>
+<span class="n">s1</span><span class="w"> </span><span class="n">subsetOf</span><span class="w"> </span><span class="n">s2</span>
+<span class="n">s1</span><span class="w"> </span><span class="n">contains</span><span class="w"> </span><span class="mi">42</span>
 </pre></div>
 </div>
 </section>
 <section id="functional-array">
-<h3>Functional Array<a class="headerlink" href="#functional-array" title="Permalink to this headline">¶</a></h3>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="kd">val</span> <span class="n">a</span> <span class="o">=</span> <span class="nc">Array</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">)</span>
+<h3>Functional Array<a class="headerlink" href="#functional-array" title="Link to this heading">¶</a></h3>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="kd">val</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Array</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">)</span>
 
 <span class="n">a</span><span class="p">(</span><span class="n">index</span><span class="p">)</span>
-<span class="n">a</span><span class="p">.</span><span class="n">updated</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+<span class="n">a</span><span class="p">.</span><span class="n">updated</span><span class="p">(</span><span class="n">index</span><span class="p">,</span><span class="w"> </span><span class="n">value</span><span class="p">)</span>
 <span class="n">a</span><span class="p">.</span><span class="n">length</span>
 </pre></div>
 </div>
 </section>
 <section id="map">
-<h3>Map<a class="headerlink" href="#map" title="Permalink to this headline">¶</a></h3>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">import</span> <span class="nn">stainless</span><span class="p">.</span><span class="nn">lang</span><span class="p">.</span><span class="nc">Map</span> <span class="c1">// Required to have support for Maps</span>
+<h3>Map<a class="headerlink" href="#map" title="Link to this heading">¶</a></h3>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">import</span><span class="w"> </span><span class="nn">stainless</span><span class="p">.</span><span class="nn">lang</span><span class="p">.</span><span class="nc">Map</span><span class="w"> </span><span class="c1">// Required to have support for Maps</span>
 
-<span class="kd">val</span>  <span class="n">m</span> <span class="o">=</span> <span class="nc">Map</span><span class="p">[</span><span class="nc">Int</span><span class="p">,</span> <span class="nc">Boolean</span><span class="p">](</span><span class="mi">42</span> <span class="o">-&gt;</span> <span class="kc">false</span><span class="p">)</span>
+<span class="kd">val</span><span class="w">  </span><span class="n">m</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Map</span><span class="p">[</span><span class="nc">Int</span><span class="p">,</span><span class="w"> </span><span class="nc">Boolean</span><span class="p">](</span><span class="mi">42</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="kc">false</span><span class="p">)</span>
 
 <span class="n">m</span><span class="p">(</span><span class="n">index</span><span class="p">)</span>
-<span class="n">m</span> <span class="n">isDefinedAt</span> <span class="n">index</span>
-<span class="n">m</span> <span class="n">contains</span> <span class="n">index</span>
-<span class="n">m</span><span class="p">.</span><span class="n">updated</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
-<span class="n">m</span> <span class="o">+</span> <span class="p">(</span><span class="n">index</span> <span class="o">-&gt;</span> <span class="n">value</span><span class="p">)</span>
-<span class="n">m</span> <span class="o">+</span> <span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">index</span><span class="p">)</span>
+<span class="n">m</span><span class="w"> </span><span class="n">isDefinedAt</span><span class="w"> </span><span class="n">index</span>
+<span class="n">m</span><span class="w"> </span><span class="n">contains</span><span class="w"> </span><span class="n">index</span>
+<span class="n">m</span><span class="p">.</span><span class="n">updated</span><span class="p">(</span><span class="n">index</span><span class="p">,</span><span class="w"> </span><span class="n">value</span><span class="p">)</span>
+<span class="n">m</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="n">index</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">value</span><span class="p">)</span>
+<span class="n">m</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="n">value</span><span class="p">,</span><span class="w"> </span><span class="n">index</span><span class="p">)</span>
 <span class="n">m</span><span class="p">.</span><span class="n">get</span><span class="p">(</span><span class="n">index</span><span class="p">)</span>
-<span class="n">m</span><span class="p">.</span><span class="n">getOrElse</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">value2</span><span class="p">)</span>
+<span class="n">m</span><span class="p">.</span><span class="n">getOrElse</span><span class="p">(</span><span class="n">index</span><span class="p">,</span><span class="w"> </span><span class="n">value2</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
 <section id="function">
-<h3>Function<a class="headerlink" href="#function" title="Permalink to this headline">¶</a></h3>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="kd">val</span> <span class="n">f1</span> <span class="o">=</span> <span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">Int</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="n">x</span> <span class="o">+</span> <span class="mi">1</span>                 <span class="c1">// simple anonymous function</span>
+<h3>Function<a class="headerlink" href="#function" title="Link to this heading">¶</a></h3>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="kd">val</span><span class="w"> </span><span class="n">f1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="w">                 </span><span class="c1">// simple anonymous function</span>
 
-<span class="kd">val</span> <span class="n">y</span>  <span class="o">=</span> <span class="mi">2</span>
-<span class="kd">val</span> <span class="n">f2</span> <span class="o">=</span> <span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">Int</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="n">f1</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">+</span> <span class="n">y</span>             <span class="c1">// closes over `f1` and `y`</span>
-<span class="kd">val</span> <span class="n">f3</span> <span class="o">=</span> <span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nc">Int</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="k">if</span> <span class="p">(</span><span class="n">x</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="n">f1</span> <span class="k">else</span> <span class="n">f2</span> <span class="c1">// anonymous function returning another function</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">y</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">f2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">f1</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">y</span><span class="w">             </span><span class="c1">// closes over `f1` and `y`</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">f3</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">x</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="n">f1</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="n">f2</span><span class="w"> </span><span class="c1">// anonymous function returning another function</span>
 
-<span class="n">list</span><span class="p">.</span><span class="n">map</span><span class="p">(</span><span class="n">f1</span><span class="p">)</span>      <span class="c1">// functions can be passed around ...</span>
-<span class="n">list</span><span class="p">.</span><span class="n">map</span><span class="p">(</span><span class="n">f3</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="n">_</span><span class="p">)</span> <span class="c1">// ... and partially applied</span>
+<span class="n">list</span><span class="p">.</span><span class="n">map</span><span class="p">(</span><span class="n">f1</span><span class="p">)</span><span class="w">      </span><span class="c1">// functions can be passed around ...</span>
+<span class="n">list</span><span class="p">.</span><span class="n">map</span><span class="p">(</span><span class="n">f3</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="n">_</span><span class="p">)</span><span class="w"> </span><span class="c1">// ... and partially applied</span>
 </pre></div>
 </div>
 <div class="admonition note">
@@ -810,58 +809,58 @@ currently quite limited.</p>
 </div>
 </section>
 <section id="bitvectors">
-<h3>Bitvectors<a class="headerlink" href="#bitvectors" title="Permalink to this headline">¶</a></h3>
+<h3>Bitvectors<a class="headerlink" href="#bitvectors" title="Link to this heading">¶</a></h3>
 <p>Bitvectors are currently only supported in GenC and for verification, but
 <a class="reference external" href="https://github.com/epfl-lara/stainless/issues/982">not for compilation</a>.</p>
 <p>These examples are taken from <a class="reference external" href="https://github.com/epfl-lara/stainless/blob/master/frontends/benchmarks/verification/valid/MicroTests/BitVectors3.scala">BitVectors3.scala</a>.</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">import</span> <span class="nn">stainless</span><span class="p">.</span><span class="nn">math</span><span class="p">.</span><span class="nc">BitVectors</span><span class="p">.</span><span class="n">_</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">import</span><span class="w"> </span><span class="nn">stainless</span><span class="p">.</span><span class="nn">math</span><span class="p">.</span><span class="nc">BitVectors</span><span class="p">.</span><span class="n">_</span>
 
-<span class="kd">val</span> <span class="n">x1</span><span class="p">:</span> <span class="nc">UInt8</span> <span class="o">=</span> <span class="mi">145</span>
-<span class="kd">val</span> <span class="n">x2</span><span class="p">:</span> <span class="nc">Int8</span> <span class="o">=</span> <span class="n">x1</span><span class="p">.</span><span class="n">toSigned</span><span class="p">[</span><span class="nc">Int8</span><span class="p">]</span> <span class="c1">// conversion from unsigned to signed ints</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">x1</span><span class="p">:</span><span class="w"> </span><span class="nc">UInt8</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">145</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">x2</span><span class="p">:</span><span class="w"> </span><span class="nc">Int8</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x1</span><span class="p">.</span><span class="n">toSigned</span><span class="p">[</span><span class="nc">Int8</span><span class="p">]</span><span class="w"> </span><span class="c1">// conversion from unsigned to signed ints</span>
 
 <span class="c1">// Bitvectors can be compared to literal constants, which are encoded as a bitvector of the same</span>
 <span class="c1">// type as the left-hand-side bitvector.</span>
 <span class="c1">// In the line below, `-111` get encoded internally as an `Int8`.</span>
-<span class="n">assert</span><span class="p">(</span><span class="n">x2</span> <span class="o">==</span> <span class="o">-</span><span class="mi">111</span><span class="p">)</span>
+<span class="n">assert</span><span class="p">(</span><span class="n">x2</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="o">-</span><span class="mi">111</span><span class="p">)</span>
 
 <span class="c1">// In Stainless internals, `Int8` and `Byte` are the same type, but not for the surface language,</span>
 <span class="c1">// so `toByte` allows to go from `Int8` to `Byte`.</span>
 <span class="c1">// Similarly, we support `toShort`, `toInt`, `toLong` for conversions</span>
 <span class="c1">// respectively from `Int16` to `Short`, `Int32` to `Int`, `Int64` to `Long`,</span>
 <span class="c1">// and `fromByte`, `fromShort`, `fromInt`, `fromLong` for the other direction</span>
-<span class="kd">val</span> <span class="n">x3</span><span class="p">:</span> <span class="nc">Byte</span> <span class="o">=</span> <span class="n">x2</span><span class="p">.</span><span class="n">toByte</span>
-<span class="n">assert</span><span class="p">(</span><span class="n">x3</span> <span class="o">==</span> <span class="o">-</span><span class="mi">111</span><span class="p">)</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">x3</span><span class="p">:</span><span class="w"> </span><span class="nc">Byte</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x2</span><span class="p">.</span><span class="n">toByte</span>
+<span class="n">assert</span><span class="p">(</span><span class="n">x3</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="o">-</span><span class="mi">111</span><span class="p">)</span>
 
 <span class="c1">// Unsigned ints can be cast to larger unsigned types</span>
-<span class="kd">val</span> <span class="n">x4</span><span class="p">:</span> <span class="nc">UInt12</span> <span class="o">=</span> <span class="n">x1</span><span class="p">.</span><span class="n">widen</span><span class="p">[</span><span class="nc">UInt12</span><span class="p">]</span>
-<span class="n">assert</span><span class="p">(</span><span class="n">x4</span> <span class="o">==</span> <span class="mi">145</span><span class="p">)</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">x4</span><span class="p">:</span><span class="w"> </span><span class="nc">UInt12</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x1</span><span class="p">.</span><span class="n">widen</span><span class="p">[</span><span class="nc">UInt12</span><span class="p">]</span>
+<span class="n">assert</span><span class="p">(</span><span class="n">x4</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">145</span><span class="p">)</span>
 
 <span class="c1">// or truncated to smaller unsigned types.</span>
-<span class="kd">val</span> <span class="n">x5</span><span class="p">:</span> <span class="nc">UInt4</span> <span class="o">=</span> <span class="n">x1</span><span class="p">.</span><span class="n">narrow</span><span class="p">[</span><span class="nc">UInt4</span><span class="p">]</span>
-<span class="n">assert</span><span class="p">(</span><span class="n">x5</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span> <span class="c1">// 145 % 2^4 == 1</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">x5</span><span class="p">:</span><span class="w"> </span><span class="nc">UInt4</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x1</span><span class="p">.</span><span class="n">narrow</span><span class="p">[</span><span class="nc">UInt4</span><span class="p">]</span>
+<span class="n">assert</span><span class="p">(</span><span class="n">x5</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="c1">// 145 % 2^4 == 1</span>
 
 <span class="c1">// Signed ints can also be cast to larger signed types (using sign extension)</span>
-<span class="kd">val</span> <span class="n">x6</span><span class="p">:</span> <span class="nc">Int8</span> <span class="o">=</span> <span class="mi">120</span>
-<span class="kd">val</span> <span class="n">x7</span><span class="p">:</span> <span class="nc">Int12</span> <span class="o">=</span> <span class="n">x6</span><span class="p">.</span><span class="n">widen</span><span class="p">[</span><span class="nc">Int12</span><span class="p">]</span>
-<span class="n">assert</span><span class="p">(</span><span class="n">x7</span> <span class="o">==</span> <span class="mi">120</span><span class="p">)</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">x6</span><span class="p">:</span><span class="w"> </span><span class="nc">Int8</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">120</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">x7</span><span class="p">:</span><span class="w"> </span><span class="nc">Int12</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x6</span><span class="p">.</span><span class="n">widen</span><span class="p">[</span><span class="nc">Int12</span><span class="p">]</span>
+<span class="n">assert</span><span class="p">(</span><span class="n">x7</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">120</span><span class="p">)</span>
 
 <span class="c1">// and cast to smaller signed types.</span>
 <span class="c1">// This corresponds to extracting the least significant bits of the representation</span>
 <span class="c1">// (see `extract` here http://smtlib.cs.uiowa.edu/logics-all.shtml).</span>
-<span class="kd">val</span> <span class="n">x8</span><span class="p">:</span> <span class="nc">Int4</span> <span class="o">=</span> <span class="n">x6</span><span class="p">.</span><span class="n">narrow</span><span class="p">[</span><span class="nc">Int4</span><span class="p">]</span>
-<span class="n">assert</span><span class="p">(</span><span class="n">x8</span> <span class="o">==</span> <span class="o">-</span><span class="mi">8</span><span class="p">)</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">x8</span><span class="p">:</span><span class="w"> </span><span class="nc">Int4</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x6</span><span class="p">.</span><span class="n">narrow</span><span class="p">[</span><span class="nc">Int4</span><span class="p">]</span>
+<span class="n">assert</span><span class="p">(</span><span class="n">x8</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="o">-</span><span class="mi">8</span><span class="p">)</span>
 
 <span class="c1">// the `toByte`, `toShort`, `toInt`, and `toLong` methods described above</span>
 <span class="c1">// can be used on any bitvector type. For signed integers, this corresponds</span>
 <span class="c1">// to a narrowing or a widening operation depending on the bitvector size.</span>
 <span class="c1">// For unsigned integers, this corresponds to first doing a widening/narrowing</span>
 <span class="c1">// operation, and then applying `toSigned`</span>
-<span class="kd">val</span> <span class="n">x9</span><span class="p">:</span> <span class="nc">UInt2</span> <span class="o">=</span> <span class="mi">3</span>
-<span class="n">assert</span><span class="p">(</span><span class="n">x9</span><span class="p">.</span><span class="n">toInt</span> <span class="o">==</span> <span class="n">x9</span><span class="p">.</span><span class="n">widen</span><span class="p">[</span><span class="nc">UInt32</span><span class="p">].</span><span class="n">toSigned</span><span class="p">[</span><span class="nc">Int32</span><span class="p">].</span><span class="n">toInt</span><span class="p">)</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">x9</span><span class="p">:</span><span class="w"> </span><span class="nc">UInt2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span>
+<span class="n">assert</span><span class="p">(</span><span class="n">x9</span><span class="p">.</span><span class="n">toInt</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">x9</span><span class="p">.</span><span class="n">widen</span><span class="p">[</span><span class="nc">UInt32</span><span class="p">].</span><span class="n">toSigned</span><span class="p">[</span><span class="nc">Int32</span><span class="p">].</span><span class="n">toInt</span><span class="p">)</span>
 
 <span class="c1">// The library also provide constants for maximum and minimum values.</span>
-<span class="n">assert</span><span class="p">(</span><span class="n">max</span><span class="p">[</span><span class="nc">Int8</span><span class="p">]</span> <span class="o">==</span> <span class="mi">127</span><span class="p">)</span>
-<span class="n">assert</span><span class="p">(</span><span class="n">min</span><span class="p">[</span><span class="nc">Int8</span><span class="p">]</span> <span class="o">==</span> <span class="o">-</span><span class="mi">128</span><span class="p">)</span>
+<span class="n">assert</span><span class="p">(</span><span class="n">max</span><span class="p">[</span><span class="nc">Int8</span><span class="p">]</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">127</span><span class="p">)</span>
+<span class="n">assert</span><span class="p">(</span><span class="n">min</span><span class="p">[</span><span class="nc">Int8</span><span class="p">]</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="o">-</span><span class="mi">128</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>Arrays, which are usually indexed using <code class="docutils literal notranslate"><span class="pre">Int</span></code>, may also be indexed using the bitvector types.
@@ -903,8 +902,7 @@ In <code class="docutils literal notranslate"><span class="pre">strict-arithmeti
 
            </div>
           </div>
-          <footer>
-    <div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="wrap.html" class="btn btn-neutral float-left" title="Working With Existing Code" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="library.html" class="btn btn-neutral float-right" title="Stainless Library" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
@@ -913,7 +911,7 @@ In <code class="docutils literal notranslate"><span class="pre">strict-arithmeti
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2021 EPFL, Lausanne.
-      <span class="lastupdated">Last updated on Dec 17, 2023.
+      <span class="lastupdated">Last updated on Aug 22, 2024.
       </span></p>
   </div>
 
@@ -924,7 +922,7 @@ In <code class="docutils literal notranslate"><span class="pre">strict-arithmeti
       </div>
     </section>
   </div>
-  <script type="text/javascript">
+  <script>
       jQuery(function () {
           SphinxRtdTheme.Navigation.enable(true);
       });
