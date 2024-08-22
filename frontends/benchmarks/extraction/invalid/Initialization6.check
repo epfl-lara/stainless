@@ -1,13 +1,13 @@
 [ Error  ] Initialization6.scala:6:9: Access non-initialized value h. Calling trace:
-[ Error  ] ├── case class A() extends Top {     [ Initialization6.scala:12 ]
+[ Error  ] ├── case class A() extends Top {	[ Initialization6.scala:12 ]
 [ Error  ] │   ^
-[ Error  ] ├── sealed abstract class Top {      [ Initialization6.scala:4 ]
+[ Error  ] ├── sealed abstract class Top {	[ Initialization6.scala:4 ]
 [ Error  ] │   ^
-[ Error  ] ├── val g: B = this.foo      [ Initialization6.scala:5 ]
+[ Error  ] ├── val g: B = this.foo	[ Initialization6.scala:5 ]
 [ Error  ] │              ^^^^^^^^
-[ Error  ] ├── override def foo = {     [ Initialization6.scala:13 ]
+[ Error  ] ├── override def foo = {	[ Initialization6.scala:13 ]
 [ Error  ] │   ^
-[ Error  ] └── h        [ Initialization6.scala:14 ]
+[ Error  ] └── h	[ Initialization6.scala:14 ]
 [ Error  ]     ^
 [ Error  ] 
                val h: B = B(2)
