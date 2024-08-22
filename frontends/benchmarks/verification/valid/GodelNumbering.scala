@@ -198,7 +198,7 @@ object GodelNumbering {
     n1 match {
       case Zero => ()
       case Succ(n) =>
-        val Succ(p2) = n2
+        val Succ(p2) = n2: @unchecked
         succ_<(n, p2)
     }
  }.ensuring(_ => n1 < Succ(n2))
@@ -219,7 +219,7 @@ object GodelNumbering {
   def pred_<(n1: Nat, n2: Nat): Unit = {
     require(n1 < n2)
     decreases(n1)
-    val Succ(n) = n2
+    val Succ(n) = n2: @unchecked
     n2 match {
       case Succ(n) if n == n1 => ()
       case Succ(p2) => n1 match {
@@ -228,18 +228,18 @@ object GodelNumbering {
       }
     }
  }.ensuring {_ =>
-    val Succ(n) = n2
+    val Succ(n) = n2: @unchecked
     (n1 != n) ==> (n1 < n)
   }
 
   @opaque @inlineOnce
   def pred_<=(n1: Nat, n2: Nat): Unit = {
     require(n1 > Zero && n1 <= n2)
-    val Succ(p1) = n1
+    val Succ(p1) = n1: @unchecked
     succ_<(p1, p1)
     if (n1 != n2) transitive_<(p1, n1, n2)
  }.ensuring { _ =>
-    val Succ(p1) = n1
+    val Succ(p1) = n1: @unchecked
     p1 < n2
   }
 
