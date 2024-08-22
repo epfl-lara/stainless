@@ -1,5 +1,27 @@
 # Release Notes
 
+## Version 0.9.8.8 (2024-08-22)
+
+### Stainless frontend, library and internals
+
+- Remove Scala 2 frontend (#1517)
+- Transform `throw` into `assert(false)` (#1521)
+- Add measure transfer for equivalence checking (#1557)
+- Add further benchmarks for equivalence checking (#1538, #1554)
+- Add SAT Check for precondition (#1548)
+- Add various specifications to Stainless library (#1555, #1541)
+- Enhance unfold to work on bindings and imperative code as well (#1533)
+- Various bug fixes (#1531, #1532)
+
+### Build
+
+- Move Inox as a submodule instead of an http dependency (#1520)
+
+### Documentation
+
+- Add documentation for codespaces use and link to a sample repo (#1440)
+
+
 ## Version 0.9.8.7 (2024-05-06)
 
 ### Stainless frontend, library and internals
@@ -585,4 +607,3 @@
 ## Version 0.1-93dbd33 (14-01-2019)
 
 - First official release on GitHub
-
