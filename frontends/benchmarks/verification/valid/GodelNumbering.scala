@@ -27,7 +27,7 @@ object GodelNumbering {
         case (Succ(n1), Succ(n2)) => n1 - n2
         case _ => this
       })
-    } ensuring { res =>
+   }.ensuring { res =>
       res.repr <= repr &&
       ((this > Zero && that > Zero) ==> res.repr < repr)
     }
@@ -39,7 +39,7 @@ object GodelNumbering {
         case (Zero, Succ(_)) => true
         case _ => false
       })
-    } ensuring (_ == repr < that.repr)
+   }.ensuring(_ == repr < that.repr)
 
     def <=(that: Nat): Boolean = (this < that) || (this == that)
     def >(that: Nat): Boolean = !(this < that) && (this != that)
@@ -50,7 +50,7 @@ object GodelNumbering {
       decreases(repr)
       if (this < that) Zero else
       Succ((this - that) / that)
-    } ensuring { res =>
+   }.ensuring { res =>
       res.repr <= repr &&
       ((this > Zero && that > One) ==> res.repr < repr)
     }
@@ -68,7 +68,7 @@ object GodelNumbering {
         case Zero => BigInt(0)
         case Succ(n) => n.repr + BigInt(1)
       }
-     } ensuring (_ >= BigInt(0))
+    }.ensuring(_ >= BigInt(0))
   }
 
   case object Zero extends Nat
@@ -80,29 +80,29 @@ object GodelNumbering {
   @induct @opaque @inlineOnce
   def plus_zero(n: Nat): Unit = {
     ()
-  }.ensuring(_ => n + Zero == n)
+ }.ensuring(_ => n + Zero == n)
 
   @opaque @inlineOnce
   def zero_plus(n: Nat): Unit = {
     ()
-  }.ensuring(_ => Zero + n == n)
+ }.ensuring(_ => Zero + n == n)
 
   @opaque @inlineOnce
   def minus_identity(@induct n: Nat): Unit = {
     ()
-  }.ensuring(_ =>
+ }.ensuring(_ =>
     n - n == Zero
   )
 
   @opaque @inlineOnce
   def associative_plus(@induct n1: Nat, n2: Nat, n3: Nat): Unit = {
     ()
-  }.ensuring(_ => (n1 + n2) + n3 == n1 + (n2 + n3))
+ }.ensuring(_ => (n1 + n2) + n3 == n1 + (n2 + n3))
 
   @opaque @inlineOnce
   def plus_succ(@induct n1: Nat, n2: Nat): Unit = {
     ()
-  }.ensuring(_ => n1 + Succ(n2) == Succ(n1 + n2))
+ }.ensuring(_ => n1 + Succ(n2) == Succ(n1 + n2))
 
   @opaque @inlineOnce
   def commutative_plus(n1: Nat, n2: Nat): Unit = {
@@ -119,7 +119,7 @@ object GodelNumbering {
         n2 + n1
       }.qed
     }
-  }.ensuring(_ => n1 + n2 == n2 + n1)
+ }.ensuring(_ => n1 + n2 == n2 + n1)
 
   @opaque @inlineOnce
   def distributive_times(n1: Nat, n2: Nat, n3: Nat): Unit = {
@@ -138,7 +138,7 @@ object GodelNumbering {
         (n1 * n2) + (n1 * n3)
       }.qed
     }
-  }.ensuring(_ => n1 * (n2 + n3) == (n1 * n2) + (n1 * n3))
+ }.ensuring(_ => n1 * (n2 + n3) == (n1 * n2) + (n1 * n3))
 
   @opaque @inlineOnce
   def commutative_times(n1: Nat, n2: Nat): Unit = {
@@ -162,7 +162,7 @@ object GodelNumbering {
         n2 * n1
       }.qed
     }
-  }.ensuring(_ => n1 * n2 == n2 * n1)
+ }.ensuring(_ => n1 * n2 == n2 * n1)
 
   @opaque @inlineOnce
   def distributive_times2(n1: Nat, n2: Nat, n3: Nat): Unit = {
@@ -172,7 +172,7 @@ object GodelNumbering {
     commutative_times(n2, n3)
 
     ()
-  }.ensuring(_ => (n1 + n2) * n3 == (n1 * n3) + (n2 * n3))
+ }.ensuring(_ => (n1 + n2) * n3 == (n1 * n3) + (n2 * n3))
 
   @opaque @inlineOnce
   def associative_times(n1: Nat, n2: Nat, n3: Nat): Unit = {
@@ -189,7 +189,7 @@ object GodelNumbering {
         (n1 * n2) * n3
       }.qed
     }
-  }.ensuring(_ => n1 * (n2 * n3) == (n1 * n2) * n3)
+ }.ensuring(_ => n1 * (n2 * n3) == (n1 * n2) * n3)
 
   @opaque @inlineOnce
   def succ_<(n1: Nat, n2: Nat): Unit = {
@@ -201,7 +201,7 @@ object GodelNumbering {
         val Succ(p2) = n2
         succ_<(n, p2)
     }
-  }.ensuring(_ => n1 < Succ(n2))
+ }.ensuring(_ => n1 < Succ(n2))
 
   @opaque @inlineOnce
   def succ_<=(n1: Nat, n2: Nat): Unit = {
@@ -213,7 +213,7 @@ object GodelNumbering {
         succ_<=(n1, p2)
       case _ => ()
     }
-  }.ensuring(_ => Succ(n1) <= n2)
+ }.ensuring(_ => Succ(n1) <= n2)
 
   @opaque @inlineOnce
   def pred_<(n1: Nat, n2: Nat): Unit = {
@@ -227,7 +227,7 @@ object GodelNumbering {
         case Succ(p1) => pred_<(p1, p2)
       }
     }
-  }.ensuring {_ =>
+ }.ensuring {_ =>
     val Succ(n) = n2
     (n1 != n) ==> (n1 < n)
   }
@@ -238,7 +238,7 @@ object GodelNumbering {
     val Succ(p1) = n1
     succ_<(p1, p1)
     if (n1 != n2) transitive_<(p1, n1, n2)
-  }.ensuring { _ =>
+ }.ensuring { _ =>
     val Succ(p1) = n1
     p1 < n2
   }
@@ -255,7 +255,7 @@ object GodelNumbering {
         transitive_<(n1, n2, n)
         succ_<(n1, n)
     }
-  }.ensuring(_ => n1 < n3)
+ }.ensuring(_ => n1 < n3)
 
   @opaque @inlineOnce
   def antisymmetric_<(n1: Nat, n2: Nat): Unit = {
@@ -264,7 +264,7 @@ object GodelNumbering {
       case (Succ(p1), Succ(p2)) => antisymmetric_<(p1, p2)
       case _ => ()
     }
-  }.ensuring(_ => n1 < n2 == !(n2 <= n1))
+ }.ensuring(_ => n1 < n2 == !(n2 <= n1))
 
   @opaque @inlineOnce
   def plus_<(n1: Nat, n2: Nat, n3: Nat): Unit = {
@@ -280,7 +280,7 @@ object GodelNumbering {
         plus_<(n1, n2, p3)
         succ_<(n1 + n2, n1 + p3)
     }
-  }.ensuring(_ => n1 + n2 < n1 + n3)
+ }.ensuring(_ => n1 + n2 < n1 + n3)
 
   @opaque @inlineOnce
   def plus_<(n1: Nat, n2: Nat, n3: Nat, n4: Nat): Unit = {
@@ -295,7 +295,7 @@ object GodelNumbering {
         plus_<(n1, n2, p3, n4)
         succ_<(n1 + n2, p3 + n4)
     }
-  }.ensuring(_ => n1 + n2 <= n3 + n4)
+ }.ensuring(_ => n1 + n2 <= n3 + n4)
 
   @opaque @inlineOnce
   def associative_plus_minus(n1: Nat, n2: Nat, n3: Nat): Unit = {
@@ -314,14 +314,14 @@ object GodelNumbering {
         }.qed
       case _ => ()
     }
-  }.ensuring(_ => (n1 + n2) - n3 == n1 + (n2 - n3))
+ }.ensuring(_ => (n1 + n2) - n3 == n1 + (n2 - n3))
 
   @opaque @inlineOnce
   def additive_inverse(n1: Nat, n2: Nat): Unit = {
     associative_plus_minus(n1, n2, n2)
     minus_identity(n2)
     plus_zero(n1)
-  }.ensuring(_ => n1 + n2 - n2 == n1)
+ }.ensuring(_ => n1 + n2 - n2 == n1)
 
   @opaque @inlineOnce
   def multiplicative_inverse(n1: Nat, n2: Nat): Unit = {
@@ -340,18 +340,18 @@ object GodelNumbering {
 
       case _ => ()
     }
-  }.ensuring(_ => (n1 * n2) / n2 == n1)
+ }.ensuring(_ => (n1 * n2) / n2 == n1)
 
   @induct @opaque @inlineOnce
   def increasing_plus(n1: Nat, n2: Nat): Unit = {
     ()
-  }.ensuring(_ => n1 <= n1 + n2)
+ }.ensuring(_ => n1 <= n1 + n2)
 
   @induct @opaque @inlineOnce
   def increasing_plus_strict(n1: Nat, n2: Nat): Unit = {
     require(n2 > Zero)
     ()
-  }.ensuring(_ => n1 < n1 + n2)
+ }.ensuring(_ => n1 < n1 + n2)
 
   @opaque @inlineOnce
   def increasing_times(n1: Nat, n2: Nat): Unit = {
@@ -368,7 +368,7 @@ object GodelNumbering {
         check(n1 <= n1 * n2)
         ()
     }
-  }.ensuring(_ => n1 <= n1 * n2)
+ }.ensuring(_ => n1 <= n1 * n2)
 
   def pow(n1: Nat, n2: Nat): Nat = {
     decreases(n2)
@@ -388,7 +388,7 @@ object GodelNumbering {
         increasing_times(n1, pow(n1, p2))
       case _ => ()
     }
-  }.ensuring(_ => pow(n1, n2) > Zero)
+ }.ensuring(_ => pow(n1, n2) > Zero)
 
   def isEven(n: Nat): Boolean = {
     decreases(n)
@@ -413,20 +413,20 @@ object GodelNumbering {
         true
       }.qed
     }
-  }.ensuring(_ => isEven(Two * n))
+ }.ensuring(_ => isEven(Two * n))
 
   @opaque @inlineOnce
   def times_two_plus_one_odd(n: Nat): Unit = {
     times_two_even(n)
     assert(!isEven(One + Two * n))
     commutative_plus(Two * n, One)
-  }.ensuring(_ => !isEven(Two * n + One))
+ }.ensuring(_ => !isEven(Two * n + One))
 
   @opaque @inlineOnce
   def succ_times_two_odd(n: Nat): Unit = {
     times_two_plus_one_odd(n)
     commutative_plus(Two * n, One)
-  }.ensuring(_ => !isEven(Succ(Two * n)))
+ }.ensuring(_ => !isEven(Succ(Two * n)))
 
   @opaque @inlineOnce
   def power_two_even(n: Nat): Unit = {
@@ -434,7 +434,7 @@ object GodelNumbering {
     n match {
       case Succ(p) => times_two_even(pow(Two, p))
     }
-  }.ensuring(_ => isEven(pow(Two, n)))
+ }.ensuring(_ => isEven(pow(Two, n)))
 
   def pair(n1: Nat, n2: Nat): Nat = pow(Two, n1) * (Two * n2 + One) - One
 
@@ -459,7 +459,7 @@ object GodelNumbering {
     commutative_plus(Two * n2, One)
     increasing_times(pow(Two, n), (Two * n2 + One))
     associative_plus_minus(One, pow(Two, n) * (Two * n2 + One), One)
-  }.ensuring(_ =>
+ }.ensuring(_ =>
     One + (pow(Two, n) * (Two * n2 + One) - One) ==
     (One + pow(Two, n) * (Two * n2 + One)) - One
   )
@@ -515,7 +515,7 @@ object GodelNumbering {
           ((Zero, Two * n2 + One): (Nat, Nat))
         }.qed
     }
-  }.ensuring(_ => log2_and_remainder(Succ(pair(n1, n2))) == (n1, (Two * n2 + One)))
+ }.ensuring(_ => log2_and_remainder(Succ(pair(n1, n2))) == (n1, (Two * n2 + One)))
 
   @opaque @inlineOnce
   def inverse_lemma(n1: Nat, n2: Nat): Unit = {
@@ -532,7 +532,7 @@ object GodelNumbering {
       (n1, n2)
     }.qed
 
-  }.ensuring(_ => project(pair(n1, n2)) == (n1, n2))
+ }.ensuring(_ => project(pair(n1, n2)) == (n1, n2))
 
   @opaque @inlineOnce
   def pair_unique(n1: Nat, n2: Nat, n3: Nat, n4: Nat): Unit = {
@@ -546,5 +546,5 @@ object GodelNumbering {
       assert((n1, n2) != (n3, n4))
       ((n1, n2) == (n3, n4) ==:| trivial |: false).qed
     }
-  }.ensuring(_ => (pair(n1, n2) == pair(n3, n4)) == ((n1, n2) == (n3, n4)))
+ }.ensuring(_ => (pair(n1, n2) == pair(n3, n4)) == ((n1, n2) == (n3, n4)))
 }

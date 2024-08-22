@@ -1,7 +1,7 @@
 object i1343a {
   def myLemma(x: BigInt): Unit = {
     ()
-  }.ensuring(_ => x + x == 2 * x)
+ }.ensuring(_ => x + x == 2 * x)
 
   def ok1(x: BigInt): Unit = {
     require {

@@ -74,7 +74,7 @@ trait Printer extends imperative.Printer {
     case Throwing(Ensuring(body, post), pred) =>
       p"""|{
           |  $body
-          |} ensuring {
+          |}.ensuring {
           |  $post
           |} throwing {
           |  $pred

@@ -9,5 +9,5 @@ object SATPrecond4 {
       ListSpecs.forallContained(l, y => y > 0, x)
       x < 0})
     x
-  }.ensuring(res => res > 0)
+ }.ensuring(res => res > 0)
 }

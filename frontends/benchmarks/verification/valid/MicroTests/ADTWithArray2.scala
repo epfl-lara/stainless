@@ -9,6 +9,6 @@ object ADTWithArray2 {
   def test(b: B): Int = {
     require(b.t.length > 2)
     b.t.length
-  } ensuring(a => a > 0)
+ }.ensuring(a => a > 0)
 
 }

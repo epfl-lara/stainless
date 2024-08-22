@@ -7,7 +7,7 @@ object i1214a {
         case Nat() => BigInt(0)
         case Transfinite(in) => in.l + 1
       }
-    }.ensuring(res => res >= 0)
+   }.ensuring(res => res >= 0)
   }
 
   case class Nat() extends Ordinal

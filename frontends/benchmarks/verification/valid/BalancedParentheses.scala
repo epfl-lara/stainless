@@ -73,7 +73,7 @@ object Trees {
         case Leaf(x) => Cons(x, Nil())
         case Branch(l, r) => l.toList().append(r.toList())
       }
-    } ensuring (res => !res.isEmpty())
+   }.ensuring(res => !res.isEmpty())
 
     def fold(f: (A, A) => A): A = {
       decreases(this)

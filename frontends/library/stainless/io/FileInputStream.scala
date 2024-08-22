@@ -116,7 +116,7 @@ case class FileInputStream(var filename: Option[String], var consumed: BigInt) {
       consumed += read
       (true, b(0))
     }
-  }.ensuring(_ => isOpen)
+ }.ensuring(_ => isOpen)
 
   /** Attempt to read the next byte of data.
     */
@@ -146,18 +146,18 @@ case class FileInputStream(var filename: Option[String], var consumed: BigInt) {
       val (check, value) = nativeReadByte(state.seed)
       valid = check
       value
-    }.ensuring(_ => isOpen)
+   }.ensuring(_ => isOpen)
 
     val res = impl()
     if (valid) Some(res) else None[Byte]()
-  }.ensuring(_ => isOpen)
+ }.ensuring(_ => isOpen)
 
   @library
   def readInt(implicit state: State): Int = {
     require(isOpen)
     state.seed += 1
     nativeReadInt(state.seed)
-  }.ensuring(_ => isOpen)
+ }.ensuring(_ => isOpen)
 
   // Implementation detail
   @library
@@ -262,6 +262,6 @@ case class FileInputStream(var filename: Option[String], var consumed: BigInt) {
       case c if isDigit(c) => readDecInt(c - '0', true)
       case _               => fail(-3)
     }
-  }.ensuring(_ => isOpen)
+ }.ensuring(_ => isOpen)
 
 }

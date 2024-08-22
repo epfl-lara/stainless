@@ -25,11 +25,11 @@ object WhileAsFun2 {
       } else {
         ()
       }
-    } ensuring(_ => i >= 0 && counter == i && i <= n && i >= n)
+   }.ensuring(_ => i >= 0 && counter == i && i <= n && i >= n)
     rec()
 
 
     counter
-  } ensuring(_ == n)
+ }.ensuring(_ == n)
 
 }

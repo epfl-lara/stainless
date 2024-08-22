@@ -39,5 +39,5 @@ object OpaqueEffectsExample {
     modifies(t.repr)
     
     t.tmap(x => (x | 1))
-  } ensuring(_ => c.value == 0)
+ }.ensuring(_ => c.value == 0)
 }

@@ -9,7 +9,7 @@ object i1159 {
     def inside: Unit = {
       require(i <= 2000)
       i = 0
-    }.ensuring(_ =>
+   }.ensuring(_ =>
       isZero
     )
 
@@ -29,7 +29,7 @@ object i1159 {
         i = 0xbadca11
         j = 0
       }
-    }.ensuring(_ =>
+   }.ensuring(_ =>
       wantAnswer ==> isAnswerToLife
     )
 
@@ -48,7 +48,7 @@ object i1159 {
     def inside(newI: BigInt, newJ: BigInt): Unit = {
       i = newI
       j = newJ
-    }.ensuring(_ =>
+   }.ensuring(_ =>
       (newI % 2 == 0 && newJ % 2 == 0) ==> evenSumIsEven
     )
   }

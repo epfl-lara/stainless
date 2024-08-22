@@ -7,6 +7,6 @@ object MultiArray3 {
     b(2)(3) = 10
 
     b(2)(3)
-  } ensuring(_ == 10)
+ }.ensuring(_ == 10)
 
 }

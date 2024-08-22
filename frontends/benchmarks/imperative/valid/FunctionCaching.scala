@@ -14,7 +14,7 @@ object FunctionCaching {
       case Some(cached) =>
         cached
     }
-  } ensuring(res => old(funCache).cached.get(x) match {
+ }.ensuring(res => old(funCache).cached.get(x) match {
     case None() => true
     case Some(v) => v == res
   })
@@ -36,6 +36,6 @@ object FunctionCaching {
         fun(y)
         multipleCalls(ys, x)
     }
-  } ensuring(_ => funCache.cached.get(x).forall(_ == 2*x + 42))
+ }.ensuring(_ => funCache.cached.get(x).forall(_ == 2*x + 42))
 
 }

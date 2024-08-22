@@ -14,7 +14,7 @@ object BraunTree {
         Node(value, insert(left, x), right)
       case Leaf() => Node(x, Leaf(), Leaf())
     }
-  } ensuring { res => isBraun(res) }
+ }.ensuring { res => isBraun(res) }
 
   def height(tree: Tree): Int = {
     tree match {

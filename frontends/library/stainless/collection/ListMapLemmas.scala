@@ -19,7 +19,7 @@ object ListMapLemmas {
         noDuplicatePairs(ListMap(xs))
         tailDoesNotContainPair(lm)
     }
-  }.ensuring(_ => ListOps.noDuplicate(lm.toList))
+ }.ensuring(_ => ListOps.noDuplicate(lm.toList))
 
   @opaque
   def noDuplicateKeysSubseq[A, B](l1: List[(A, B)], l2: List[(A, B)]): Unit = {
@@ -41,7 +41,7 @@ object ListMapLemmas {
           noDuplicateKeysSubseq(l1, ys)
         }
     }
-  }.ensuring(_ => ListOps.noDuplicate(l1.map(_._1)))
+ }.ensuring(_ => ListOps.noDuplicate(l1.map(_._1)))
 
   @opaque
   def addValidProp[A, B](lm: ListMap[A, B], p: ((A, B)) => Boolean, a: A, b: B): Unit = {
@@ -51,7 +51,7 @@ object ListMapLemmas {
     if (!lm.isEmpty)
       addValidProp(lm.tail, p, a, b)
 
-  }.ensuring { _ =>
+ }.ensuring { _ =>
     val nlm = lm + (a, b)
     nlm.forall(p)
   }
@@ -62,7 +62,7 @@ object ListMapLemmas {
 
     listFilterValidProp(lm.toList, p, (ab: (A, B)) => ab._1 != a)
 
-  }.ensuring { _ =>
+ }.ensuring { _ =>
     val nlm = lm - a
     nlm.forall(p)
   }
@@ -77,7 +77,7 @@ object ListMapLemmas {
       insertAllValidProp(lm + kvs.head, kvs.tail, p)
     }
 
-  }.ensuring { _ =>
+ }.ensuring { _ =>
     val nlm = lm ++ kvs
     nlm.forall(p)
   }
@@ -92,7 +92,7 @@ object ListMapLemmas {
       removeAllValidProp(lm - l.head, l.tail, p)
     }
 
-  }.ensuring { _ =>
+ }.ensuring { _ =>
     val nlm = lm -- l
     nlm.forall(p)
   }
@@ -105,7 +105,7 @@ object ListMapLemmas {
     if (!l.isEmpty && l.head._1 != a2)
       filterStillContains(l.tail, a1, a2)
 
-  }.ensuring(_ =>
+ }.ensuring(_ =>
     l.find(_._1 == a2) == l.filter(_._1 != a1).find(_._1 == a2)
   )
 
@@ -115,7 +115,7 @@ object ListMapLemmas {
 
     filterStillContains(lm.toList, a, a0)
 
-  }.ensuring(_ =>
+ }.ensuring(_ =>
     (lm + (a -> b))(a0) == lm(a0)
   )
 
@@ -129,7 +129,7 @@ object ListMapLemmas {
     if (a != a0)
       filterStillContains(lm.toList, a, a0)
 
-  }.ensuring(_ =>
+ }.ensuring(_ =>
     (lm + (a, b)).contains(a0)
   )
 
@@ -141,7 +141,7 @@ object ListMapLemmas {
     if (!lm.isEmpty && lm.toList.head._1 != k)
       applyForall(lm.tail, p, k)
 
-  }.ensuring(_ => p(k, lm(k)))
+ }.ensuring(_ => p(k, lm(k)))
 
   @opaque
   def getForall[A, B](lm: ListMap[A, B], p: ((A, B)) => Boolean, k: A): Unit = {
@@ -151,7 +151,7 @@ object ListMapLemmas {
     if (!lm.isEmpty && lm.toList.head._1 != k)
       getForall(lm.tail, p, k)
 
-  }.ensuring(_ => lm.get(k).forall(v => p(k, v)))
+ }.ensuring(_ => lm.get(k).forall(v => p(k, v)))
 
   @opaque
   def findFirstContained[A, B](l: List[(A, B)], a: A): Unit = {
@@ -162,7 +162,7 @@ object ListMapLemmas {
       findFirstContained(l.tail, a)
 
 
-  }.ensuring(_ =>
+ }.ensuring(_ =>
     l.map(_._1).contains(a)
   )
 
@@ -178,7 +178,7 @@ object ListMapLemmas {
       assert(l.find(_._1 == a) == Some[(A,B)]((a, b)))
     }
 
-  }.ensuring(_ =>
+ }.ensuring(_ =>
     l.find(_._1 == a) == Some[(A,B)]((a, b))
   )
 
@@ -188,14 +188,14 @@ object ListMapLemmas {
 
     uniqueImage(lm.toList, a, b)
 
-  }.ensuring(_ =>
+ }.ensuring(_ =>
     lm.get(a) == Some[B](b)
   )
 
   def keysOfSoundLemma0[A, B](@induct l1: List[(A, B)], l2: List[(A, B)], b: B): Unit = {
     require(!l2.isEmpty && l1.forall(p => l2.tail.contains((p._1, b))))
 
-  }.ensuring(_ =>
+ }.ensuring(_ =>
     l1.forall(p => l2.contains((p._1, b)))
   )
 
@@ -211,7 +211,7 @@ object ListMapLemmas {
       assert(l.tail.forall(p => l.contains((p._1, b))))
     }
 
-  }.ensuring(_ =>
+ }.ensuring(_ =>
     l.forall(p => l.contains((p._1, b)))
   )
 
@@ -237,7 +237,7 @@ object ListMapLemmas {
       assert(l.head._2 == b)
     }
 
-  }.ensuring(_ =>
+ }.ensuring(_ =>
     l.map(_._1).forall(key => lm.get(key) == Some[B](b))
   )
 
@@ -256,7 +256,7 @@ object ListMapLemmas {
     keysOfSoundLemma2(filtered, lm, value) // gives us:
     assert(filtered.map(_._1).forall(key => lm.get(key) == Some[B](value)))
 
-  }.ensuring(_ =>
+ }.ensuring(_ =>
     lm.keysOf(value).forall(key => lm.get(key) == Some[B](value))
   )
 
@@ -268,7 +268,7 @@ object ListMapLemmas {
       case Cons(x, xs) =>
         containsByKeyEquiv(ListMap(xs), a)
     }
-  }.ensuring(_ => lm.contains(a) == lm.toList.map(_._1).contains(a))
+ }.ensuring(_ => lm.contains(a) == lm.toList.map(_._1).contains(a))
 
   @opaque
   def tailDoesNotContainKey[A, B](lm: ListMap[A, B]): Unit = {
@@ -276,7 +276,7 @@ object ListMapLemmas {
     decreases(lm.size)
     val Cons(x, xs) = lm.toList: @unchecked
     containsByKeyEquiv(ListMap(xs), x._1)
-  }.ensuring(_ => !lm.tail.contains(lm.head._1))
+ }.ensuring(_ => !lm.tail.contains(lm.head._1))
 
   @opaque
   def tailDoesNotContainPair[A, B](lm: ListMap[A, B]): Unit = {
@@ -286,14 +286,14 @@ object ListMapLemmas {
     def rec(x: (A, B), @induct xs: List[(A, B)]): Unit = {
       require(ListOps.noDuplicate(xs.map(_._1)))
       require(!ListMap(xs).contains(x._1))
-    }.ensuring(_ => !xs.contains(x))
+   }.ensuring(_ => !xs.contains(x))
 
     (lm.toList: @unchecked) match {
       case Cons(x, xs) =>
         tailDoesNotContainKey(lm)
         rec(x, xs)
     }
-  }.ensuring(_ => !lm.toList.tail.contains(lm.toList.head))
+ }.ensuring(_ => !lm.toList.tail.contains(lm.toList.head))
 
   @opaque
   def subseqKeys[A, B](l1: List[(A, B)], l2: List[(A, B)]): Unit = {
@@ -311,5 +311,5 @@ object ListMapLemmas {
           subseqKeys(l1, ys)
         }
     }
-  }.ensuring(_ => ListSpecs.subseq(l1.map(_._1), l2.map(_._1)))
+ }.ensuring(_ => ListSpecs.subseq(l1.map(_._1), l2.map(_._1)))
 }

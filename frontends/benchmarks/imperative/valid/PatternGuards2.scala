@@ -10,6 +10,6 @@ object PatternGuards2 {
       case z if foo() => x
       case _ => 11
     }
-  } ensuring(_ > 10)
+ }.ensuring(_ > 10)
 
 }

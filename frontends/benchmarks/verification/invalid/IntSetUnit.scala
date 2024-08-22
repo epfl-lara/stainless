@@ -30,7 +30,7 @@ object IntSetUnit {
 
       def P4(t1: IntSet, t2: IntSet, x: Int): Unit = {
         ()
-      } ensuring(_ =>  ((t1 union t2) contains x)==
+     }.ensuring(_ =>  ((t1 union t2) contains x)==
                         (t1 contains x) || (t2 contains x))
   /*
   [  Info  ]  - Now considering 'postcondition' VC for P4 @?:?...

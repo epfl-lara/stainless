@@ -13,6 +13,6 @@ object Array3Opaque {
       i = i + 1
     }).opaque.inline.invariant(i >= 0)
     sum
-  } ensuring(_ == 15)
+ }.ensuring(_ == 15)
 
 }

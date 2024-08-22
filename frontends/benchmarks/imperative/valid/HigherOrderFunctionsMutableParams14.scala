@@ -21,7 +21,7 @@ object HigherOrderFunctionsMutableParams14 {
     b.execute()
     b.execute()
     b.execute()
-  } ensuring(_ == 6)
+ }.ensuring(_ == 6)
 
 }
 

@@ -802,7 +802,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
                   //   var vd = newExpr
                   //   val resVd = {
                   //      newBody'
-                  //   }.ensuring(...) // oh no :(
+                  //  }.ensuring(...) // oh no :(
                   //   copyEffects
                   //   resVd
                   // What we would like is something as follows:
@@ -812,7 +812,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
                   //      val resVd = newBodyLastExpr
                   //      copyEffect
                   //      resVd
-                  //    }.ensuring(...)
+                  //   }.ensuring(...)
                   // To achieve this, we "drill" a hole in newBody using the normalizer object,
                   // insert copyEffect and plug it with resVd. This should get us something like the above.
                   val (newBodyCtx, newBodyLastExpr) = normalizer.drill(newBody)

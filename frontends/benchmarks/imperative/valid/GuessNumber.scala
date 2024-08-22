@@ -13,7 +13,7 @@ object GuessNumber {
     state.seed += 1
     assert(between(min, min, max))
     choose[Int]((x: Int) => between(min, x, max))
-  }.ensuring(res => min <= res && res <= max)
+ }.ensuring(res => min <= res && res <= max)
 
   def main()(implicit state: State): Unit = {
     val choice = random(0, 10)

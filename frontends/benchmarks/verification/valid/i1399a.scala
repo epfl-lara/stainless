@@ -9,7 +9,7 @@ object i1399a {
   }
 
   def barEqualsItsBody1(l: List[(BigInt, Option[BigInt])]): Unit = {
-  }.ensuring(bar(l) == (l.map{ case (left, right) => None[BigInt]()}))
+ }.ensuring(bar(l) == (l.map{ case (left, right) => None[BigInt]()}))
 
   def barEqualsItsBody2(l: List[(BigInt, Option[BigInt])]): Unit = {
 
@@ -23,7 +23,7 @@ object i1399a {
     }
 
     assert(a == b)
-  }.ensuring(bar(l) == (l.map{ case (left, right) => None[BigInt]()}))
+ }.ensuring(bar(l) == (l.map{ case (left, right) => None[BigInt]()}))
 
 
 }

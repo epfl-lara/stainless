@@ -16,6 +16,6 @@ object IfExpr3 {
       //b = b + 1
       //a + b
     }
-  } ensuring(_ == 5)
+ }.ensuring(_ == 5)
 
 }

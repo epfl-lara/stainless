@@ -30,7 +30,7 @@ case class ~>>[A, B](private val f: A ~> B, post: B => Boolean) {
   def apply(a: A): B = {
     require(pre(a))
     f(a)
-  } ensuring(post)
+ }.ensuring(post)
 }
 
 @library

@@ -10,7 +10,7 @@ object Nested1 {
       rec3(5)
     }
     rec2(2)
-  } ensuring(i + 7 == _)
+ }.ensuring(i + 7 == _)
 
 }
 

@@ -57,7 +57,7 @@ object TaskParallelBasicExample {
     t1.run
     t2.run
     (t1.join, t2.join)
-  } ensuring { res => res == (t1.join, t2.join) }
+ }.ensuring { res => res == (t1.join, t2.join) }
 
   def testParallel(t1: Task, t2: Task): Unit = {
     require(disjoint(t1, t2))

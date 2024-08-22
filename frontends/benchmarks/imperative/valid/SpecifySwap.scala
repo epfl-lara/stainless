@@ -16,7 +16,7 @@ object SpecifySwap {
       0 <= j && j < a.length
     )
 
-  }.ensuring(_ =>
+ }.ensuring(_ =>
     property(a.updated(i, a(j)).updated(j, a(i)))
   )
 

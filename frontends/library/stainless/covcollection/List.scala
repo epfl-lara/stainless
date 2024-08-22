@@ -14,7 +14,7 @@ sealed abstract class List[+T] {
   def bsize: BigInt = (this match {
     case Nil => BigInt(0)
     case h :: t => 1 + t.bsize
-  }) ensuring (_ >= 0)
+  }).ensuring (_ >= 0)
 
   def blength: BigInt = bsize
 
@@ -26,7 +26,7 @@ sealed abstract class List[+T] {
         if (tLen == Int.MaxValue) tLen
         else 1 + tLen
     }
-  } ensuring(res => 0 <= res && res <= Int.MaxValue)
+ }.ensuring(res => 0 <= res && res <= Int.MaxValue)
 
   def length: Int = size
 
@@ -38,14 +38,14 @@ sealed abstract class List[+T] {
   def contains[TT >: T](v: TT): Boolean = (this match {
     case h :: t => h == v || t.contains(v)
     case Nil => false
-  }) ensuring { _ == (content contains v) }
+  }).ensuring { _ == (content contains v) }
 
   def ++[TT >: T](that: List[TT]): List[TT] = {
     this match {
       case Nil => that
       case x :: xs => x :: (xs ++ that)
     }
-  }.ensuring { res =>
+ }.ensuring { res =>
     (res.content[TT] == this.content[TT] ++ that.content[TT]) &&
       (res.bsize == this.bsize + that.bsize) &&
       (res.size == (if (wrapping(this.size + that.size) < 0) Int.MaxValue else wrapping(this.size + that.size))) &&
@@ -72,7 +72,7 @@ sealed abstract class List[+T] {
     } else {
       tail.bapply(index-1)
     }
-  }.ensuring(contains(_))
+ }.ensuring(contains(_))
 
   def apply(index: Int): T = {
     require(0 <= index && index < size)
@@ -82,7 +82,7 @@ sealed abstract class List[+T] {
     } else {
       tail(index-1)
     }
-  }.ensuring(contains(_))
+ }.ensuring(contains(_))
 
   def :: [TT >: T](elem: TT): List[TT] = new ::(elem, this)
 
@@ -91,7 +91,7 @@ sealed abstract class List[+T] {
       case Nil => t :: this
       case x :: xs => x :: (xs :+ t)
     }
-  } ensuring(res =>
+ }.ensuring(res =>
     (res.bsize == bsize + 1) &&
       (res.size == (if (wrapping(this.size + 1) < 0) Int.MaxValue else wrapping(this.size + 1))) &&
       (res.content == content ++ Set(t)) &&
@@ -103,7 +103,7 @@ sealed abstract class List[+T] {
       case Nil => this
       case x :: xs => xs.reverse :+ x
     }
-  } ensuring (res =>
+ }.ensuring(res =>
     (res.size == size) &&
       (res.bsize == bsize) &&
       (res.content == content)
@@ -121,7 +121,7 @@ sealed abstract class List[+T] {
           h :: t.btake(i-1)
         }
     }
-  } ensuring { res =>
+ }.ensuring { res =>
     res.content.subsetOf(this.content) && (res.bsize == (
       if      (i <= 0)         BigInt(0)
       else if (i >= bsize) bsize
@@ -141,7 +141,7 @@ sealed abstract class List[+T] {
           h :: t.take(i-1)
         }
     }
-  } ensuring { res =>
+ }.ensuring { res =>
     res.content.subsetOf(this.content) && (res.size == (
       if      (i == 0)         0
       else if (i >= size)      size
@@ -161,7 +161,7 @@ sealed abstract class List[+T] {
           t.bdrop(i-1)
         }
     }
-  } ensuring { res =>
+ }.ensuring { res =>
     res.content.subsetOf(this.content) && (res.bsize == (
       if      (i <= 0)          this.bsize
       else if (i >= this.bsize) BigInt(0)
@@ -181,7 +181,7 @@ sealed abstract class List[+T] {
           t.drop(i-1)
         }
     }
-  } ensuring { res =>
+ }.ensuring { res =>
     res.content.subsetOf(this.content)
   }
 
@@ -204,7 +204,7 @@ sealed abstract class List[+T] {
           }
         }
     }
-  } ensuring { res =>
+ }.ensuring { res =>
     res.content.subsetOf(content) && res.size == to - from
   }
 
@@ -217,7 +217,7 @@ sealed abstract class List[+T] {
       } else {
         h :: r
       }
-  }} ensuring { (res: List[TT]) =>
+  }}.ensuring { (res: List[TT]) =>
     res.size == this.size &&
       res.bsize == this.bsize &&
       res.content[TT] == (
@@ -257,7 +257,7 @@ sealed abstract class List[+T] {
       case _ =>
         Nil
     }
-  } ensuring { res =>
+ }.ensuring { res =>
     res.size == (if (this.size <= that.size) this.size else that.size) &&
       res.bsize == (if (this.bsize <= that.bsize) this.bsize else that.bsize)
   }
@@ -270,7 +270,7 @@ sealed abstract class List[+T] {
         h :: (t - e)
       }
     case Nil => Nil
-  }} ensuring { res =>
+  }}.ensuring { res =>
     res.size <= this.size &&
       res.bsize <= this.bsize &&
       res.content[TT] == this.content[TT] -- Set(e)
@@ -284,7 +284,7 @@ sealed abstract class List[+T] {
         h :: (t -- that)
       }
     case Nil => Nil
-  }} ensuring { res =>
+  }}.ensuring { res =>
     res.size <= this.size &&
       res.bsize <= this.bsize &&
       res.content[TT] == this.content[TT] -- that.content[TT]
@@ -298,7 +298,7 @@ sealed abstract class List[+T] {
         t & that
       }
     case Nil => Nil
-  }} ensuring { res =>
+  }}.ensuring { res =>
     res.size <= this.size &&
       res.bsize <= this.bsize &&
       res.content[TT] == (this.content[TT] & that.content[TT])
@@ -314,7 +314,7 @@ sealed abstract class List[+T] {
       case (h :: t, s) =>
         h :: t.bpadTo(s-1, e)
     }
-  } ensuring { res =>
+ }.ensuring { res =>
     if (s <= this.bsize)
       res == this
     else
@@ -332,7 +332,7 @@ sealed abstract class List[+T] {
         else if (rec == Int.MaxValue) Int.MaxValue
         else rec + 1
     }
-  } ensuring { res =>
+ }.ensuring { res =>
     (res >= 0) == content.contains(elem) &&
     res <= size
   }
@@ -344,7 +344,7 @@ sealed abstract class List[+T] {
       val rec = t.bindexOf(elem)
       if (rec == BigInt(-1)) BigInt(-1)
       else rec + 1
-  }} ensuring { res =>
+  }}.ensuring { res =>
     (res >= 0) == content.contains(elem) &&
     res < bsize
   }
@@ -357,7 +357,7 @@ sealed abstract class List[+T] {
       case h :: t =>
         h :: t.init
     }
-  } ensuring ( (r: List[T]) =>
+ }.ensuring( (r: List[T]) =>
     r.size <= this.size &&
       r.bsize == this.bsize - 1 &&
       r.content.subsetOf(this.content)
@@ -369,21 +369,21 @@ sealed abstract class List[+T] {
       case h :: Nil => h
       case _ :: t => t.last
     }
-  } ensuring { this.contains[T](_) }
+ }.ensuring { this.contains[T](_) }
 
   def lastOption: Option[T] = { this match {
     case h :: t =>
       t.lastOption.orElse(Some(h))
     case Nil =>
       None
-  }} ensuring { _.isDefined != this.isEmpty }
+  }}.ensuring { _.isDefined != this.isEmpty }
 
   def headOption: Option[T] = { this match {
     case h :: t =>
       Some(h)
     case Nil =>
       None
-  }} ensuring { _.isDefined != this.isEmpty }
+  }}.ensuring { _.isDefined != this.isEmpty }
 
 
   def tailOption: Option[List[T]] = { this match {
@@ -391,7 +391,7 @@ sealed abstract class List[+T] {
       Some(t)
     case Nil =>
       None
-  }} ensuring { _.isDefined != this.isEmpty }
+  }}.ensuring { _.isDefined != this.isEmpty }
 
   def unique: List[T] = this match {
     case Nil => Nil
@@ -430,7 +430,7 @@ sealed abstract class List[+T] {
           (h :: left, right)
         }
     }
-  } ensuring { (res: (List[T],List[T])) =>
+ }.ensuring { (res: (List[T],List[T])) =>
     res._1 ++ res._2 == this &&
       res._1 == btake(index) && res._2 == bdrop(index)
   }
@@ -468,7 +468,7 @@ sealed abstract class List[+T] {
           l
       }
     }
-  } ensuring { res =>
+ }.ensuring { res =>
     res.size == (if (wrapping(this.size + l.size) < 0) Int.MaxValue else wrapping(this.size + l.size)) &&
       res.bsize == this.bsize + l.bsize &&
       res.content == this.content ++ l.content
@@ -481,7 +481,7 @@ sealed abstract class List[+T] {
     } else {
       binsertAtImpl(pos, l)
     }
-  } ensuring { res =>
+ }.ensuring { res =>
     res.size == (if (wrapping(this.size + l.size) < 0) Int.MaxValue else wrapping(this.size + l.size)) &&
       res.bsize == this.bsize + l.bsize &&
       res.content == this.content ++ l.content
@@ -490,7 +490,7 @@ sealed abstract class List[+T] {
   def binsertAt[TT >: T](pos: BigInt, e: TT): List[TT] = {
     require(-pos <= bsize && pos <= bsize)
     binsertAt(pos, e :: Nil)
-  } ensuring { res =>
+ }.ensuring { res =>
     res.size == (if (wrapping(this.size + 1) < 0) Int.MaxValue else wrapping(this.size + 1)) &&
       res.bsize == this.bsize + 1 &&
       res.content == this.content ++ Set(e)
@@ -509,7 +509,7 @@ sealed abstract class List[+T] {
           l
       }
     }
-  } ensuring { res =>
+ }.ensuring { res =>
     res.content.subsetOf(l.content ++ this.content)
   }
 
@@ -520,7 +520,7 @@ sealed abstract class List[+T] {
     } else {
       breplaceAtImpl(pos, l)
     }
-  } ensuring { res =>
+ }.ensuring { res =>
     res.content.subsetOf(l.content ++ this.content)
   }
 
@@ -530,7 +530,7 @@ sealed abstract class List[+T] {
     } else {
       bdrop(s mod bsize) ++ btake(s mod bsize)
     }
-  } ensuring { res =>
+ }.ensuring { res =>
     res.bsize == this.bsize
   }
 
@@ -545,7 +545,7 @@ sealed abstract class List[+T] {
   def map[R](f: T => R): List[R] = { this match {
     case Nil => Nil
     case h :: t => f(h) :: t.map(f)
-  }} ensuring { _.size == this.size }
+  }}.ensuring { _.size == this.size }
 
   def foldLeft[R](z: R)(f: (R,T) => R): R = this match {
     case Nil => z
@@ -560,14 +560,14 @@ sealed abstract class List[+T] {
   def scanLeft[R](z: R)(f: (R,T) => R): List[R] = { this match {
     case Nil => z :: Nil
     case h :: t => z :: t.scanLeft(f(z,h))(f)
-  }} ensuring { !_.isEmpty }
+  }}.ensuring { !_.isEmpty }
 
   def scanRight[R](z: R)(f: (T,R) => R): List[R] = { this match {
     case Nil => z :: Nil
     case h :: t =>
       val rest@(h1 :: _) = t.scanRight(z)(f): @unchecked
       f(h, h1) :: rest
-  }} ensuring { !_.isEmpty }
+  }}.ensuring { !_.isEmpty }
 
   def flatMap[R](f: T => List[R]): List[R] = this match {
     case Nil => Nil
@@ -578,7 +578,7 @@ sealed abstract class List[+T] {
     case Nil => Nil
     case h :: t if p(h) => h :: t.filter(p)
     case _ :: t => t.filter(p)
-  }} ensuring { res =>
+  }}.ensuring { res =>
     res.size <= this.size &&
       res.bsize <= this.bsize &&
       res.content.subsetOf(this.content) &&
@@ -586,7 +586,7 @@ sealed abstract class List[+T] {
   }
 
   def filterNot(p: T => Boolean): List[T] =
-    filter(!p(_)) ensuring { res =>
+    filter(!p(_)).ensuring { res =>
       res.size <= this.size &&
         res.content.subsetOf(this.content) &&
         res.forall(!p(_))
@@ -598,7 +598,7 @@ sealed abstract class List[+T] {
       val (l1, l2) = t.partition(p)
       if (p(h)) (h :: l1, l2)
       else      (l1, h :: l2)
-  }} ensuring { res =>
+  }}.ensuring { res =>
     res._1 == filter(p) &&
       res._2 == filterNot(p)
   }
@@ -606,7 +606,7 @@ sealed abstract class List[+T] {
   // In case we implement for-comprehensions
   def withFilter(p: T => Boolean): List[T] = {
     filter(p)
-  } ensuring { res =>
+ }.ensuring { res =>
     res.size <= this.size &&
       res.bsize <= this.bsize &&
       res.content.subsetOf(this.content) &&
@@ -623,7 +623,7 @@ sealed abstract class List[+T] {
   def find(p: T => Boolean): Option[T] = { this match {
     case Nil => None
     case h :: t => if (p(h)) Some(h) else t.find(p)
-  }} ensuring { res => res match {
+  }}.ensuring { res => res match {
     case Some(r) => (content contains r) && p(r)
     case None => true
   }}
@@ -640,7 +640,7 @@ sealed abstract class List[+T] {
   def takeWhile(p: T => Boolean): List[T] = { this match {
     case h :: t if p(h) => h :: t.takeWhile(p)
     case _ => Nil
-  }} ensuring { res =>
+  }}.ensuring { res =>
     (res forall p) &&
       (res.size <= this.size) &&
       (res.bsize <= this.bsize) &&
@@ -650,7 +650,7 @@ sealed abstract class List[+T] {
   def dropWhile(p: T => Boolean): List[T] = { this match {
     case h :: t if p(h) => t.dropWhile(p)
     case _ => this
-  }} ensuring { res =>
+  }}.ensuring { res =>
     (res.size <= this.size) &&
       (res.bsize <= this.bsize) &&
       (res.content subsetOf this.content) &&
@@ -665,7 +665,7 @@ sealed abstract class List[+T] {
         if (r == Int.MaxValue) Int.MaxValue
         else r + (if (p(h)) 1 else 0)
     }
-  } ensuring {
+ }.ensuring {
     _ == this.filter(p).size
   }
 
@@ -673,7 +673,7 @@ sealed abstract class List[+T] {
     case Nil => BigInt(0)
     case h :: t =>
       (if (p(h)) BigInt(1) else BigInt(0)) + t.bcount(p)
-  }} ensuring {
+  }}.ensuring {
     _ == this.filter(p).bsize
   }
 
@@ -687,7 +687,7 @@ sealed abstract class List[+T] {
         else if (rec >= 0) rec + 1
         else -1
     }
-  } ensuring {
+ }.ensuring {
     _ >= 0 == (this exists p)
   }
 
@@ -698,7 +698,7 @@ sealed abstract class List[+T] {
       val rec = t.bindexWhere(p)
       if (rec >= 0) rec + BigInt(1)
       else BigInt(-1)
-  }} ensuring {
+  }}.ensuring {
     _ >= BigInt(0) == (this exists p)
   }
 
@@ -741,7 +741,7 @@ object List {
     decreases(max(n, 0))
     if (n <= 0) Nil
     else x :: fill[T](n-1)(x)
-  } ensuring(res => (res.content[T] == (if (n <= 0) Set.empty[T] else Set(x))) &&
+ }.ensuring(res => (res.content[T] == (if (n <= 0) Set.empty[T] else Set(x))) &&
     res.size == (if (n <= 0) 0 else n))
 
   @library
@@ -749,7 +749,7 @@ object List {
     decreases(max(n, 0))
     if (n <= 0) Nil
     else x :: bfill[T](n-1)(x)
-  } ensuring(res => (res.content[T] == (if (n <= BigInt(0)) Set.empty[T] else Set(x))) &&
+ }.ensuring(res => (res.content[T] == (if (n <= BigInt(0)) Set.empty[T] else Set(x))) &&
     res.bsize == (if (n <= BigInt(0)) BigInt(0) else n))
 
   /* Range from start (inclusive) to until (exclusive) */
@@ -759,14 +759,14 @@ object List {
     require(wrapping(until - start) >= 0)
     decreases(until - start)
     if(until <= start) Nil else start :: range(start + 1, until)
-  } ensuring{(res: List[Int]) => res.size == until - start }
+ }.ensuring{(res: List[Int]) => res.size == until - start }
 
   @library
   def brange(start: BigInt, until: BigInt): List[BigInt] = {
     require(start <= until)
     decreases(until - start)
     if(until <= start) Nil else start :: brange(start + 1, until)
-  } ensuring{(res: List[BigInt]) => res.bsize == until - start }
+ }.ensuring{(res: List[BigInt]) => res.bsize == until - start }
 
   @library
   def mkString[A](l: List[A], mid: String, f: A => String) = {

@@ -38,7 +38,7 @@ object IntSet {
               (x2 == (t2 contains x)) &&
               (xu == (u contains x)) && 0 < x && x < 10)
       ()
-    } ensuring(_ =>  ((t1 union t2) contains x)==
+   }.ensuring(_ =>  ((t1 union t2) contains x)==
                       (t1 contains x) || (t2 contains x))
   /*
   [Warning ]  => INVALID

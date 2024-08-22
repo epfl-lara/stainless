@@ -14,6 +14,6 @@ object Array3 {
       i = i + 1
     }) invariant(i >= 0)
     sum
-  } ensuring(_ == 15)
+ }.ensuring(_ == 15)
 
 }

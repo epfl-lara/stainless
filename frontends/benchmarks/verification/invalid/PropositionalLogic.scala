@@ -15,7 +15,7 @@ object PropositionalLogic {
   def simplify(f: Formula): Formula = (f match {
     case Implies(lhs, rhs) => Or(Not(simplify(lhs)), simplify(rhs))
     case _ => f
-  }) ensuring(isSimplified(_))
+  }).ensuring(isSimplified(_))
 
   def isSimplified(f: Formula): Boolean = f match {
     case And(lhs, rhs) => isSimplified(lhs) && isSimplified(rhs)

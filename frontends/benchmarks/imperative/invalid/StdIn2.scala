@@ -8,6 +8,6 @@ object StdIn2 {
     val n2 = StdIn.readInt
 
     n1 == n2
-  } ensuring(res => res)
+ }.ensuring(res => res)
 
 }

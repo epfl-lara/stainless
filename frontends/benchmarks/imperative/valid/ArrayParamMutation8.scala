@@ -12,7 +12,7 @@ object ArrayParamMutation8 {
       a(0) = a(0) - 1
       even(a)
     }
-  } ensuring(res => if(old(a)(0) % 2 == 1) res else !res)
+ }.ensuring(res => if(old(a)(0) % 2 == 1) res else !res)
 
   def even(a: Array[BigInt]): Boolean = {
     require(a.length > 0 && a(0) >= 0)
@@ -22,6 +22,6 @@ object ArrayParamMutation8 {
       a(0) = a(0) - 1
       odd(a)
     }
-  } ensuring(res => if(old(a)(0) % 2 == 0) res else !res)
+ }.ensuring(res => if(old(a)(0) % 2 == 0) res else !res)
 
 }

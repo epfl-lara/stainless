@@ -21,6 +21,6 @@ object i1269 {
 
     def inner2: Unit = {
       b.value = 456
-    }.ensuring(_ => snapshot(b).value == 456)
+   }.ensuring(_ => snapshot(b).value == 456)
   }
 }

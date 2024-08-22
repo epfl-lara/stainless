@@ -13,7 +13,7 @@ object i1159d {
     def inside: Unit = {
       i = 41
       j = 0
-    }.ensuring(_ =>
+   }.ensuring(_ =>
       evenSumIsEven
     )
 

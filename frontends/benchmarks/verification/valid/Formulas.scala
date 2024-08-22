@@ -45,7 +45,7 @@ object Formulas {
       case Not(e) => Not(desugar(e))
       case e => e
     }
-  } ensuring { out =>
+ }.ensuring { out =>
     !existsImplies(out) &&
     !exists(out, f => f.isInstanceOf[Implies])
   }

@@ -70,7 +70,7 @@ precondition does hold. A simple example:
     } else {
       n * factorial(n - 1)
     }
-  } ensuring(res => res >= 0)
+ }.ensuring(res => res >= 0)
 
 Stainless generates a ``postcondition`` verification condition for the above
 function, corresponding to the predicate parameter to the ``ensuring``
@@ -128,7 +128,7 @@ can be shown terminating as follows:
   def M(n: BigInt): BigInt = {
     decreases(stainless.math.max(101 - n, 0))
     if (n > 100) n - 10 else M(M(n + 11))
-  } ensuring (_ == (if (n > 100) n - 10 else BigInt(91)))
+ }.ensuring(_ == (if (n > 100) n - 10 else BigInt(91)))
 
 
 It is also possible to add a pre-condition (``require(...)``) *before* ``decreases``.

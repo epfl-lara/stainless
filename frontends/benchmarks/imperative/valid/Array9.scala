@@ -9,6 +9,6 @@ object Array9 {
     val b = Array(1,2,3,4)
     val c = g(b)
     c(0)
-  } ensuring(_ == 10)
+ }.ensuring(_ == 10)
 
 }

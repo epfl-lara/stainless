@@ -33,6 +33,6 @@ object StateMonad {
       St(s0 => f(a).fun(s0)) ^=
       f(a))
       .qed
-    }.ensuring(_ => unit(a).flatMap(f) == f(a))
+   }.ensuring(_ => unit(a).flatMap(f) == f(a))
   }
 }

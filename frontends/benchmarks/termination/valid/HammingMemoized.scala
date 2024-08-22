@@ -37,7 +37,7 @@ object Hamming {
       val (v, ni, nj, nk) = threeWayMerge(a, b, c, i2, i3, i5)
       Data(v, ni, nj, nk)
     }
-  } ensuring(res =>  res.i2 <= n && res.i3 <= n && res.i5 <= n &&
+ }.ensuring(res =>  res.i2 <= n && res.i3 <= n && res.i5 <= n &&
       res.i3 >= 0 && res.i5 >= 0 && res.i2 >= 0)
 
   /**

@@ -8,7 +8,7 @@ object Throw:
     if (x < 0) then
       throw new IllegalArgumentException("x should not be negative")
     x + 1
-  } ensuring(res => res >= 1)
+ }.ensuring(res => res >= 1)
 
   def g_throw_unreachable_in_while(x: BigInt): BigInt = {
     var i: BigInt = 0
@@ -24,4 +24,4 @@ object Throw:
 
     ) invariant(i >= 0 && acc >= 0)
     acc
-  } ensuring(res => res >= 0)
+ }.ensuring(res => res >= 0)

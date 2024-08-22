@@ -68,19 +68,19 @@ object ContMonad_Throw {
   def test(a: Int, b: Int): Cont[Int, Int] = {
     require(a != 0)
     div(a, b)(err => zero)
-  } ensuring { res =>
+ }.ensuring { res =>
     res.run == 0 || b != 0 && res.run == (a / b)
   }
 
   def testOk(a: Int, b: Int): Cont[Int, Int] = {
     require(b != 0)
     div(a, b)(err => zero)
-  } ensuring { _.run == (a / b) }
+ }.ensuring { _.run == (a / b) }
 
   def testThrows(a: Int, b: Int): Cont[Int, Int] = {
     require(b == 0)
     div(a, b)(err => zero)
-  } ensuring { _.run == 0 }
+ }.ensuring { _.run == 0 }
 
   def groundTestOk = {
     assert(div(10, 2)(err => zero).run == 5)

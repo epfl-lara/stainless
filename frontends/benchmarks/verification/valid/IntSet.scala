@@ -31,7 +31,7 @@ object IntSet {
 
     def P1(x: Int): Boolean = {
       true
-    } ensuring(_ => !(Empty() contains x))
+   }.ensuring(_ => !(Empty() contains x))
 
     def P2(s: IntSet, x: Int): Boolean = {
       s match {
@@ -41,7 +41,7 @@ object IntSet {
           else if (x > elem) P2(right, x)
           else true
       }
-    } ensuring(_ => (s incl x) contains x)
+   }.ensuring(_ => (s incl x) contains x)
 
     def P3(s: IntSet, x: Int,  y: Int): Boolean = {
       require(x != y)
@@ -52,6 +52,6 @@ object IntSet {
           else if (x > elem) P3(right, x, y)
           else true
       }
-    } ensuring(_ =>  ((s incl x) contains y)==(s contains y))
+   }.ensuring(_ =>  ((s incl x) contains y)==(s contains y))
   }
 }

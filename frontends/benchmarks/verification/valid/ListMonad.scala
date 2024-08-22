@@ -10,7 +10,7 @@ object ListMonad {
       case Cons(head, tail) => Cons(head, append(tail, l2))
       case Nil() => l2
     }
-  } ensuring { res => (res == l1) || (l2 != Nil[T]()) }
+ }.ensuring { res => (res == l1) || (l2 != Nil[T]()) }
 
   def flatMap[T,U](list: List[T], f: T => List[U]): List[U] = {
     decreases(list)

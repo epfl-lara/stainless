@@ -39,7 +39,7 @@ object BoundedQuantifiers {
     if (n > 0 && i < n-1)
       elimForall(n-1, p, i)
 
-  } ensuring(_ => p(i))
+ }.ensuring(_ => p(i))
 
   def elimForall2(n: BigInt, m: BigInt, p: (BigInt, BigInt) => Boolean, i: BigInt, j: BigInt): Boolean = {
     require(0 <= i && i < n && 0 <= j && j < m && intForall2(n, m, p))
@@ -59,7 +59,7 @@ object BoundedQuantifiers {
     if (p(n-1)) n-1
     else elimExists(n-1, p)
 
-  } ensuring(res => p(res))
+ }.ensuring(res => p(res))
 
 
 
@@ -102,11 +102,11 @@ object BoundedQuantifiers {
     require(0 <= i && i < n)
     if (i < n-1) i+1
     else BigInt(0)
-  } ensuring(res => 0 <= res && res < n)
+ }.ensuring(res => 0 <= res && res < n)
 
   def decrement(i: BigInt, n: BigInt): BigInt = {
     require(0 <= i && i < n)
     if (i == 0) n-1
     else i-1
-  } ensuring(res => 0 <= res && res < n)
+ }.ensuring(res => 0 <= res && res < n)
 }

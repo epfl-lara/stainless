@@ -13,7 +13,7 @@ object BooleanOps {
     assert(x == 2) // always
 
     r
-  } ensuring { res =>
+ }.ensuring { res =>
     (res == (b && d)) &&
     (res == toBool(toInt(b) & toInt(d)))
   }
@@ -24,7 +24,7 @@ object BooleanOps {
     assert(x == 2) // always
 
     r
-  } ensuring { res =>
+ }.ensuring { res =>
     (res == (b || d)) &&
     (res == toBool(toInt(b) | toInt(d)))
   }
@@ -35,7 +35,7 @@ object BooleanOps {
     assert(x == 2) // always
 
     r
-  } ensuring { res =>
+ }.ensuring { res =>
     (res == (b != d)) &&
     (res == toBool(toInt(b) ^ toInt(d)))
   }

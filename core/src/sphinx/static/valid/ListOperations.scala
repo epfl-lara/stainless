@@ -18,12 +18,12 @@ object ListOperations {
     def size(l: List) : BigInt = (l match {
         case Nil() => BigInt(0)
         case Cons(_, t) => 1 + size(t)
-    }) ensuring(res => res >= 0)
+    }).ensuring(res => res >= 0)
 
     def iplSize(l: IntPairList) : BigInt = (l match {
       case IPNil() => BigInt(0)
       case IPCons(_, xs) => 1 + iplSize(xs)
-    }) ensuring(_ >= 0)
+    }).ensuring(_ >= 0)
 
     def zip(l1: List, l2: List) : IntPairList = {
       // try to comment this and see how pattern-matching becomes
@@ -36,7 +36,7 @@ object ListOperations {
           case Cons(y, ys) => IPCons(IP(x, y), zip(xs, ys))
         }
       }
-    } ensuring(iplSize(_) == size(l1))
+   }.ensuring(iplSize(_) == size(l1))
 
     def sizeTailRec(l: List) : BigInt = sizeTailRecAcc(l, 0)
     def sizeTailRecAcc(l: List, acc: BigInt) : BigInt = {
@@ -45,7 +45,7 @@ object ListOperations {
        case Nil() => acc
        case Cons(_, xs) => sizeTailRecAcc(xs, acc+1)
      }
-    } ensuring(res => res == size(l) + acc)
+   }.ensuring(res => res == size(l) + acc)
 
     def sizesAreEquiv(l: List) : Boolean = {
       size(l) == sizeTailRec(l)
@@ -63,18 +63,18 @@ object ListOperations {
     def drunk(l : List) : List = (l match {
       case Nil() => Nil()
       case Cons(x,l1) => Cons(x,Cons(x,drunk(l1)))
-    }) ensuring (size(_) == 2 * size(l))
+    }).ensuring (size(_) == 2 * size(l))
 
-    def reverse(l: List) : List = reverse0(l, Nil()) ensuring(content(_) == content(l))
+    def reverse(l: List) : List = reverse0(l, Nil()).ensuring(content(_) == content(l))
     def reverse0(l1: List, l2: List) : List = (l1 match {
       case Nil() => l2
       case Cons(x, xs) => reverse0(xs, Cons(x, l2))
-    }) ensuring(content(_) == content(l1) ++ content(l2))
+    }).ensuring(content(_) == content(l1) ++ content(l2))
 
     def append(l1 : List, l2 : List) : List = (l1 match {
       case Nil() => l2
       case Cons(x,xs) => Cons(x, append(xs, l2))
-    }) ensuring(content(_) == content(l1) ++ content(l2))
+    }).ensuring(content(_) == content(l1) ++ content(l2))
 
     @induct
     def nilAppend(l : List) : Boolean = (append(l, Nil()) == l).holds
@@ -89,7 +89,7 @@ object ListOperations {
 
     @induct
     def concat(l1: List, l2: List) : List = 
-      concat0(l1, l2, Nil()) ensuring(content(_) == content(l1) ++ content(l2))
+      concat0(l1, l2, Nil()).ensuring(content(_) == content(l1) ++ content(l2))
 
     @induct
     def concat0(l1: List, l2: List, l3: List) : List = (l1 match {
@@ -100,5 +100,5 @@ object ListOperations {
         }
       }
       case Cons(x, xs) => concat0(xs, l2, Cons(x, l3))
-    }) ensuring(content(_) == content(l1) ++ content(l2) ++ content(l3))
+    }).ensuring(content(_) == content(l1) ++ content(l2) ++ content(l3))
 }

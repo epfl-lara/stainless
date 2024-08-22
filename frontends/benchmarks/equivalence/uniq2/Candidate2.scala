@@ -19,7 +19,7 @@ object Candidate2 {
 
         def lem(a: Int, @induct lst: List[Int]): Unit = {
           ()
-        } ensuring(drop(a, lst).size <= lst.size)
+       }.ensuring(drop(a, lst).size <= lst.size)
 
         lem(hd, tl)
         assert(drop(hd, tl).size <= tl.size)

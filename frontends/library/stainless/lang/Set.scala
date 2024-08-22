@@ -39,7 +39,7 @@ object Set {
     @extern @pure
     def mapPost1[B](f: A => B)(a: A): Unit = {
       ()
-    }.ensuring { _ =>
+   }.ensuring { _ =>
       !set.contains(a) || map[B](f).contains(f(a))
     }
    
@@ -47,7 +47,7 @@ object Set {
     def mapPost2[B](f: A => B)(b: B): A = {
       require(map[B](f).contains(b))
       (??? : A)
-    }.ensuring { (a:A) =>
+   }.ensuring { (a:A) =>
       b == f(a) && set.contains(a)
     }
 
@@ -59,7 +59,7 @@ object Set {
     @extern @pure
     def filterPost(p: A => Boolean)(a: A): Unit = {
       ()
-    }.ensuring (_ => filter(p).contains(a) == (p(a) && set.contains(a)))
+   }.ensuring (_ => filter(p).contains(a) == (p(a) && set.contains(a)))
 
     @extern @pure
     def withFilter(p: A => Boolean): Set[A] = {
@@ -69,17 +69,17 @@ object Set {
     @extern @pure
     def withFilterPost(p: A => Boolean)(a: A): Unit = {
       ()
-    } ensuring (_ => withFilter(p).contains(a) == (p(a) && set.contains(a)))
+   }.ensuring(_ => withFilter(p).contains(a) == (p(a) && set.contains(a)))
 
     @extern @pure
     def toList: List[A] = {
       List.fromScala(set.theSet.toList)
-    } ensuring (res => ListOps.noDuplicate(res) && res.content == set)
+   }.ensuring(res => ListOps.noDuplicate(res) && res.content == set)
 
     @extern @pure
     def toListPost(a:A): Unit = {
       ()
-    } ensuring(_ => toList.contains(a) == set.contains(a))
+   }.ensuring(_ => toList.contains(a) == set.contains(a))
 
     @extern @pure
     def toScala: ScalaSet[A] = set.theSet

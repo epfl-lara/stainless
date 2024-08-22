@@ -8,5 +8,5 @@ object i1271e {
   def looping_f(x: BigInt): BigInt = {
     require(x >= 0)
     looping_f(x + 1)
-  }.ensuring(_ => false)
+ }.ensuring(_ => false)
 }

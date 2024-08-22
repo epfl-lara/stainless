@@ -26,7 +26,7 @@ object ForestNothing2 {
         check(false)
         false
     }
-  }.ensuring(_ => false)
+ }.ensuring(_ => false)
 
   def chooseFn[A, B]: A => B = choose[A => B](f => true)
 

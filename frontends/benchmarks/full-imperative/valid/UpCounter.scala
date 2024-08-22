@@ -19,27 +19,27 @@ object UpCounter {
       modifies(Set(this))
       i = v
       oldI = v
-    } ensuring(_ => valid)
+   }.ensuring(_ => valid)
     
     def inc: Unit = {
       reads(Set(this))
       require(valid)
       modifies(Set(this))
       i = i + 1
-    } ensuring(_ => valid)
+   }.ensuring(_ => valid)
 
     def incBy(k: BigInt): Unit = {
       reads(Set(this))
       require(0 <= k && valid)
       modifies(Set(this))
       i = i + k
-    } ensuring(_ => valid)
+   }.ensuring(_ => valid)
 
     def get: BigInt = {      
       reads(Set(this))
       require(valid)
       i
-    } ensuring(_ => valid)
+   }.ensuring(_ => valid)
   }
 
   @extern

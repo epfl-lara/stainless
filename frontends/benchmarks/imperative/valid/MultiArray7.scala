@@ -14,6 +14,6 @@ object MultiArray7 {
       i += 1
     }) invariant( a.length == 10 && a(3).length == 10 && i >= 0 && i <= 10 && ((i >= 4) ==> (a(3)(3) == 3)) )
     a(3)(3)
-  } ensuring(_ == 3)
+ }.ensuring(_ == 3)
 
 }

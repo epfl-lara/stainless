@@ -23,7 +23,7 @@ object ReturnInWhile {
 
     assert(false, "unreachable code")
     0
-  }.ensuring((res: Int) => res == n)
+ }.ensuring((res: Int) => res == n)
 
   def tests: Unit = {
     assert(return5 == 5)
