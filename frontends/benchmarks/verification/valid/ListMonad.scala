@@ -26,8 +26,8 @@ object ListMonad {
 
   def associative_lemma_induct[T,U,V](list: List[T], flist: List[U], glist: List[V], f: T => List[U], g: U => List[V]): Boolean = {
     decreases(list, flist, glist)
-    associative_lemma(list, f, g) because {
-      append(glist, flatMap(append(flist, flatMap(list, f)), g)) == append(append(glist, flatMap(flist, g)), flatMap(list, (x: T) => flatMap(f(x), g))).because(
+    associative_lemma(list, f, g).because {
+      (append(glist, flatMap(append(flist, flatMap(list, f)), g)) == append(append(glist, flatMap(flist, g)), flatMap(list, (x: T) => flatMap(f(x), g)))).because(
       (glist match {
         case Cons(ghead, gtail) =>
           associative_lemma_induct(list, flist, gtail, f, g)

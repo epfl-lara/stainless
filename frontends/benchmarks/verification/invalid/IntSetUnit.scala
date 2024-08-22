@@ -25,7 +25,7 @@ object IntSetUnit {
      def union(other: IntSet): IntSet = this match {
           case Empty() => other
           case Node(left, x, right) =>
-              (left.union.(right `union` other)).incl(x)
+              left.union(right.union(other)).incl(x)
       }
 
       def P4(t1: IntSet, t2: IntSet, x: Int): Unit = {

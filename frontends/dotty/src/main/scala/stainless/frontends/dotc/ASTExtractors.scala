@@ -1008,6 +1008,25 @@ trait ASTExtractors {
       }
     }
 
+    object ExFunctionOf {
+      // This is more or less what `defn.FunctionOf` used to be in 3.3.3, especially the `AppliedType` case.
+      // This case concerns parameterized type alias for function types (e.g. type F[A] = A => Int)
+      // In 3.3.3, `defn.FunctionOf` would return Some((List(A), Int)) but in 3.5, it would return Some(Nil, Int),
+      // omitting the argument list. We therefore "revert" to the 3.3.3 implementation here.
+      def unapply(ft: Type)(using DottyContext): Option[(List[Type], Type)] = {
+        ft match {
+          case defn.PolyFunctionOf(mt: MethodType) =>
+            Some(mt.paramInfos, mt.resType)
+          case AppliedType(_, _) if defn.isFunctionNType(ft) =>
+            val targs = ft.dealias.argInfos
+            if (targs.isEmpty) None
+            else Some((targs.init, targs.last))
+          case _ =>
+            None
+        }
+      }
+    }
+
     object ExAssign {
       def unapply(tree: tpd.Assign): Option[(Symbol, tpd.Tree, tpd.Tree)] = tree match {
         case Assign(sel@Select(lhs, _), rhs) => Some((sel.symbol, lhs, rhs))

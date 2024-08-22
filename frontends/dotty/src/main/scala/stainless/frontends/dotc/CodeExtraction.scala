@@ -2390,7 +2390,7 @@ class CodeExtraction(inoxCtx: inox.Context,
       case AppliedType(tr: TypeRef, Seq(tp)) if isArrayClassSym(tr.symbol) =>
         xt.ArrayType(extractType(tp))
 
-      case fo @ defn.FunctionOf(from, to, _) =>
+      case fo @ ExFunctionOf(from, to) =>
         xt.FunctionType(from map extractType, extractType(to))
 
       case tr @ TypeRef(_, _) if dctx.tparams contains tr.symbol =>
