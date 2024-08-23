@@ -84,8 +84,7 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
   scalacOptions ++= Seq(
     "-deprecation",
     "-unchecked",
-    "-feature",
-    "-source:3.4-migration", "-rewrite"
+    "-feature"
   ),
 
   resolvers ++= Resolver.sonatypeOssRepos("releases"),
