@@ -1,7 +1,5 @@
 package stainless.lang
-
 import stainless.annotation.*
-import stainless.lang.*
 
 object Ensures {
   /* `ensures` is an `ensuring` property for first-class functions. */

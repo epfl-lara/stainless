@@ -1,6 +1,5 @@
 package stainless.lang
 import stainless.annotation.*
-import stainless.lang.*
 object Forall {
   // Forall is opaque forall with (numbers in name instead of overloading)
   @ghost @opaque @library
