@@ -18,12 +18,12 @@ object TestEnsuresForall {
 
   // ensures test
 
-  def increasing(x: Int, res: Int): Boolean = {
+  def increasing(x: BigInt, res: BigInt): Boolean = {
     ! (x >= 0) || (res >= x)
   }
 
   @opaque
-  def twice(f: Int => Int, x: Int): Int = {
+  def twice(f: BigInt => BigInt, x: BigInt): BigInt = {
     require(0 <= x && ensures(f, increasing))
     ghostExpr {
       ensuresOf(f, increasing)(x)
@@ -32,10 +32,7 @@ object TestEnsuresForall {
     f(f(x))
   }.ensuring(res => res >= x)
 
-  def inc(x: Int): Int = {
-    if x < Int.MaxValue then x + 1
-    else x
-  }
+  def inc(x: BigInt): BigInt = x + 1
 
   // externally establish given property of a function
   @ghost @opaque
@@ -45,7 +42,7 @@ object TestEnsuresForall {
 
   // now we can call twice, ensures precondition is not unfolded
 
-  def testInc(x: Int): Int = {
+  def testInc(x: BigInt): BigInt = {
     require(100 <= x)
     ghostExpr(incIncreasing)
     twice(inc, x)
