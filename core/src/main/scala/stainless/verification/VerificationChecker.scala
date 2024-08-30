@@ -404,9 +404,9 @@ trait VerificationChecker { self =>
 
   protected def infoReportVCProgress(curr: Int, total: Int): Unit = {
     if curr == 1 then
-      reporter.emit(reporter.ProgressMessage(reporter.INFO, VCReportTag, s"Verifying: $total verification conditions"))
+      reporter.emit(reporter.ProgressMessage(reporter.INFO, VCReportTag, s"Verifying: $total verification conditions:"))
     if !isCompactModeOn then
-      reporter.emit(reporter.ProgressMessage(reporter.INFO, VCReportTag, s"Verified: $curr / $total"))
+      reporter.emit(reporter.ProgressMessage(reporter.INFO, VCReportTag, s" Verified: $curr / $total"))
   }
 
   protected def debugVC(simplifiedVC: VC, origVC: VC)(using inox.DebugSection): Unit = {
