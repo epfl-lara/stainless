@@ -2,6 +2,9 @@
 
 # Run the complete CI pipeline
 
+# Record the time to compute the total duration
+TIME_BEFORE=$(date +%s)
+
 # First parse the options
 while [[ $# -gt 0 ]]; do
   key="$1"
@@ -44,7 +47,6 @@ if [ $? -ne 0 ]; then
 fi
 
 # Run the Bolts benchmarks
-
 # if BOLTS_DIR is set, pass it to the script
 if [ -z "$BOLTS_DIR" ]; then
   bash bin/external-tests.sh
@@ -56,4 +58,9 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
+TIME_AFTER=$(date +%s)
+DURATION=$((TIME_AFTER - TIME_BEFORE))
+
 echo "********************************* All tests passed! *********************************"
+
+echo "Total time: $DURATION seconds"
