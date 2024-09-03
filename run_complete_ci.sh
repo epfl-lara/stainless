@@ -61,6 +61,7 @@ fi
 TIME_AFTER=$(date +%s)
 DURATION=$((TIME_AFTER - TIME_BEFORE))
 
-echo "********************************* All tests passed! *********************************"
+echo ""
+echo "********************************* CI PASSED! *********************************"
 
 echo "Total time: $DURATION seconds"
