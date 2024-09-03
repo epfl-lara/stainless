@@ -9,6 +9,7 @@ echo "Moving to $TEST_DIR"
 cd "$TEST_DIR" || exit 1
 
 if [[ -d "bolts" ]]; then
+  echo "Found bolts directory in $TEST_DIR!"
   cd bolts
   # We do not pull so that we can run the 
   # git pull || exit 1 
