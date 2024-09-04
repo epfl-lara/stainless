@@ -23,6 +23,8 @@ jobs:
       run: ./stainless-ci.sh --install-solvers ./local/bin
     - name: Add solvers to PATH
       run: echo "./local/bin" >> $GITHUB_PATH
+    - name: Test solvers availability
+      run: cvc5 --version && z3 --version && cvc4 --version
     - name: Build and Package
       run: ./stainless-ci.sh --build-only
     - name: Run Tests and Integration Tests
@@ -47,7 +49,7 @@ jobs:
       run: ./stainless-ci.sh --install-solvers ./local/bin
     - name: Add solvers to PATH
       run: echo "./local/bin" >> $GITHUB_PATH
-    - name: Test solvers available
+    - name: Test solvers availability
       run: cvc5 --version && z3 --version && cvc4 --version
     - name: Build and Package
       run: ./stainless-ci.sh --build-only
