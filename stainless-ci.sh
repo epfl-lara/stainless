@@ -79,7 +79,7 @@ if [ -n "$SOLVERS_DIR" ]; then
   mkdir -p "$SOLVERS_DIR"
   mkdir -p "$TEMP_DIR"
   # cvc5
-  wget https://github.com/cvc5/cvc5/releases/download/cvc5-1.2.0/cvc5-Linux-x86_64-static-gpl.zip -O "$TEMP_DIR/downloaded.zip"
+  wget https://github.com/cvc5/cvc5/releases/download/cvc5-1.2.0/cvc5-Linux-x86_64-static.zip -O "$TEMP_DIR/downloaded.zip"
   unzip "$TEMP_DIR/downloaded.zip" -d "$TEMP_DIR"
   CVC5_DIR=$(ls "$TEMP_DIR" | grep cvc5)
   mv "$TEMP_DIR/$CVC5_DIR/bin/cvc5" "$SOLVERS_DIR/cvc5"
