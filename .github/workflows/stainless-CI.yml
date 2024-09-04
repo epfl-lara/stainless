@@ -21,4 +21,6 @@ jobs:
         java-version: 17
     - name: Build and Package
       run: ./stainless-ci.sh --build-only
+    - name: Run Tests and Integration Tests
+      run: ./stainless-ci.sh --quick --skip-build
 
