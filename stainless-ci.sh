@@ -5,10 +5,11 @@
 # Record the time to compute the total duration
 TIME_BEFORE=$(date +%s)
 
-BOLTS_ONLY=false
 BUILD_ONLY=false
-QUICK=false
+SKIP_BOLTS=false
 SKIP_BUILD=false
+SKIP_SBT_PLUGIN=false
+SKIP_TESTS=false
 
 # First parse the options
 while [[ $# -gt 0 ]]; do
@@ -28,16 +29,20 @@ while [[ $# -gt 0 ]]; do
       BUILD_ONLY=true
       shift # past argument
       ;;
-    --quick)
-      QUICK=true
+    --skip-bolts)
+      SKIP_BOLTS=true
       shift # past argument
       ;;
     --skip-build)
       SKIP_BUILD=true
       shift # past argument
       ;;
-    --bolts-only)
-      BOLTS_ONLY=true
+    --skip-sbt-plugin)
+      SKIP_SBT_PLUGIN=true
+      shift # past argument
+      ;;
+    --skip-tests)
+      SKIP_TESTS=true
       shift # past argument
       ;;
     *)    # unknown option
@@ -52,12 +57,13 @@ usage() {
 Usage: external-tests.sh [options]
 
   -h | -help         Print this message
-  --skip-build       Do not build the project (saves time if the build is already up-to-date).
   --bolts-dir        Directory where bolts is located (default: clones from GitHub).
   --build-only       Only build the project, do not run tests.
-  --quick            Skip the bolts tests.
-  --bolts-only       Only run the bolts tests.
-
+  --skip-build       Do not build the project (saves time if the build is already up-to-date).
+  --skip-bolts       Do not run the Bolts benchmarks.
+  --skip-sbt-plugin  Do not run the sbt plugin tests.
+  --skip-tests       Do not run the unit and integration tests.
+  
 EOM
 }
 
@@ -75,7 +81,9 @@ else
   fi
 fi
 
-if [ "$BOLTS_ONLY" = false ]; then
+if [ "$SKIP_TESTS" = true ]; then
+  echo "************** Skipping tests **************"
+else
   # Run the tests
   sbt -batch -Dtestsuite-parallelism=5 test
   if [ $? -ne 0 ]; then
@@ -92,22 +100,38 @@ if [ "$BOLTS_ONLY" = false ]; then
 
 fi
 
-if [ "$QUICK" = true ]; then
-  echo "************** Quick mode, skipping bolts tests **************"
-  exit 0
-fi
-
 # Run the Bolts benchmarks
 # if BOLTS_DIR is set, pass it to the script
-if [ -z "$BOLTS_DIR" ]; then
-  bash bin/external-tests.sh --skip-build 
+if [ "$SKIP_BOLTS" = true ]; then
+  echo "************** Skipping Bolts tests **************"
 else
-  bash bin/external-tests.sh --skip-build --bolts-dir $BOLTS_DIR
+  if [ -z "$BOLTS_DIR" ]; then
+    bash bin/external-tests.sh --skip-build 
+  else
+    bash bin/external-tests.sh --skip-build --bolts-dir $BOLTS_DIR
+  fi
+  if [ $? -ne 0 ]; then
+    echo "Bolts benchmarks failed"
+    exit 1
+  fi
 fi
-if [ $? -ne 0 ]; then
-  echo "Bolts benchmarks failed"
-  exit 1
+
+# Run sbt scripted 
+if [ "$SKIP_SBT_PLUGIN" = true ]; then
+  echo "************** Skipping sbt plugin tests **************"
+else
+  sbt -batch scripted
+  if [ $? -ne 0 ]; then
+    echo "sbt scripted failed"
+    exit 1
+  fi
 fi
+
+# bash bin/build-slc-lib.sh
+# if [ $? -ne 0 ]; then
+#   echo "build-slc-lib.sh failed"
+#   exit 1
+# fi
 
 TIME_AFTER=$(date +%s)
 DURATION=$((TIME_AFTER - TIME_BEFORE))

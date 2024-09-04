@@ -22,7 +22,18 @@ jobs:
     - name: Build and Package
       run: ./stainless-ci.sh --build-only
     - name: Run Tests and Integration Tests
-      run: ./stainless-ci.sh --quick --skip-build
+      run: ./stainless-ci.sh --skip-build --skip-bolts --skip-sbt-plugin
+  bolts-sbt-plugin:
+    runs-on: ubuntu-latest
+    env:
+      # define Java options for both official sbt and sbt-extras
+      JAVA_OPTS: -Dsbt.io.implicit.relative.glob.conversion=allow -Xss512M -Xms1024M -Xmx12G -XX:MaxMetaspaceSize=2G -XX:+UseCodeCacheFlushing -XX:ReservedCodeCacheSize=768M
+      JVM_OPTS:  -Dsbt.io.implicit.relative.glob.conversion=allow -Xss512M -Xms1024M -Xmx12G -XX:MaxMetaspaceSize=2G -XX:+UseCodeCacheFlushing -XX:ReservedCodeCacheSize=768M
+    steps:
+    - name: Build and Package
+      run: ./stainless-ci.sh --build-only
     - name: Bolts Tests
-      run: ./stainless-ci.sh --bolts-only --skip-build
+      run: ./stainless-ci.sh --skip-build --skip-tests --skip-sbt-plugin
+    - name: Sbt Plugin Tests
+      run: ./stainless-ci.sh --skip-build --skip-tests --skip-bolts
 
