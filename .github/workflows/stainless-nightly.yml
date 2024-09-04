@@ -1,0 +1,31 @@
+name: Stainless CI
+on:
+  schedule:
+    - cron: '0 1 * * *'
+jobs:
+  bolts:
+    runs-on: [self-hosted, linux]
+    env:
+      # define Java options for both official sbt and sbt-extras
+      JAVA_OPTS: -Dsbt.io.implicit.relative.glob.conversion=allow -Xss512M -Xms1024M -Xmx12G -XX:MaxMetaspaceSize=2G -XX:+UseCodeCacheFlushing -XX:ReservedCodeCacheSize=768M
+      JVM_OPTS:  -Dsbt.io.implicit.relative.glob.conversion=allow -Xss512M -Xms1024M -Xmx12G -XX:MaxMetaspaceSize=2G -XX:+UseCodeCacheFlushing -XX:ReservedCodeCacheSize=768M
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    - name: Setup JDK
+      uses: actions/setup-java@v3
+      with:
+        distribution: temurin
+        java-version: 17
+    - name: Install solvers
+      run: ./stainless-ci.sh --install-solvers $GITHUB_WORKSPACE/.local/bin
+    - name: Add solvers to PATH
+      run: echo "$GITHUB_WORKSPACE/.local/bin" >> $GITHUB_PATH
+    - name: Test solvers availability
+      run: cvc5 --version && z3 --version && cvc4 --version
+    - name: Build and Package
+      run: ./stainless-ci.sh --build-only
+    - name: Bolts Tests
+      run: ./stainless-ci.sh --skip-build --skip-tests --skip-sbt-plugin
