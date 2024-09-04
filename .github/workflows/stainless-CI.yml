@@ -4,7 +4,7 @@ on:
   push:
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux]
     env:
       # define Java options for both official sbt and sbt-extras
       JAVA_OPTS: -Dsbt.io.implicit.relative.glob.conversion=allow -Xss512M -Xms1024M -Xmx12G -XX:MaxMetaspaceSize=2G -XX:+UseCodeCacheFlushing -XX:ReservedCodeCacheSize=768M
@@ -28,7 +28,7 @@ jobs:
     - name: Run Tests and Integration Tests
       run: ./stainless-ci.sh --skip-build --skip-bolts --skip-sbt-plugin
   bolts-sbt-plugin:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux]
     env:
       # define Java options for both official sbt and sbt-extras
       JAVA_OPTS: -Dsbt.io.implicit.relative.glob.conversion=allow -Xss512M -Xms1024M -Xmx12G -XX:MaxMetaspaceSize=2G -XX:+UseCodeCacheFlushing -XX:ReservedCodeCacheSize=768M
