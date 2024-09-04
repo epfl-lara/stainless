@@ -7,8 +7,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       # define Java options for both official sbt and sbt-extras
-      JAVA_OPTS: -Xms2048M -Xmx2048M -Xss6M -XX:ReservedCodeCacheSize=256M -Dfile.encoding=UTF-8
-      JVM_OPTS:  -Xms2048M -Xmx2048M -Xss6M -XX:ReservedCodeCacheSize=256M -Dfile.encoding=UTF-8
+      JAVA_OPTS: -Dsbt.io.implicit.relative.glob.conversion=allow -Xss512M -Xms1024M -Xmx12G -XX:MaxMetaspaceSize=2G -XX:+UseCodeCacheFlushing -XX:ReservedCodeCacheSize=768M
+      JVM_OPTS:  -Dsbt.io.implicit.relative.glob.conversion=allow -Xss512M -Xms1024M -Xmx12G -XX:MaxMetaspaceSize=2G -XX:+UseCodeCacheFlushing -XX:ReservedCodeCacheSize=768M
     steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -21,3 +21,4 @@ jobs:
         java-version: 17
     - name: Build and Package
       run: ./stainless-ci.sh --build-only
+
