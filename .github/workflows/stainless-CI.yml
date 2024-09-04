@@ -23,4 +23,6 @@ jobs:
       run: ./stainless-ci.sh --build-only
     - name: Run Tests and Integration Tests
       run: ./stainless-ci.sh --quick --skip-build
+    - name: Bolts Tests
+      run: ./stainless-ci.sh --bolts-only --skip-build
 
