@@ -3,7 +3,7 @@ on:
   schedule:
     - cron: '0 1 * * *'
 jobs:
-  bolts-sbt-plugin:
+  bolts:
     runs-on: [self-hosted, linux]
     env:
       # define Java options for both official sbt and sbt-extras
@@ -29,5 +29,3 @@ jobs:
       run: ./stainless-ci.sh --build-only
     - name: Bolts Tests
       run: ./stainless-ci.sh --skip-build --skip-tests --skip-sbt-plugin
-    - name: Sbt Plugin Tests
-      run: ./stainless-ci.sh --skip-build --skip-tests --skip-bolts

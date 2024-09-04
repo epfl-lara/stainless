@@ -6,7 +6,7 @@ on:
     branches:
       - main
 jobs:
-  test:
+  tests:
     if: github.event.pull_request.draft == false
     runs-on: [self-hosted, linux]
     env:
@@ -33,6 +33,8 @@ jobs:
       run: ./stainless-ci.sh --build-only
     - name: Run Tests and Integration Tests
       run: ./stainless-ci.sh --skip-build --skip-bolts --skip-sbt-plugin 
+    - name: Sbt Plugin Tests
+      run: ./stainless-ci.sh --skip-build --skip-tests --skip-bolts
   fail_if_pull_request_is_draft:
     if: github.event.pull_request.draft == true
     runs-on: [self-hosted, linux]
