@@ -1,13 +1,9 @@
 name: Stainless CI
 on:
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-  push:
-    branches:
-      - main
+  schedule:
+    - cron: '0 1 * * *'
 jobs:
-  test:
-    if: github.event.pull_request.draft == false
+  bolts-sbt-plugin:
     runs-on: [self-hosted, linux]
     env:
       # define Java options for both official sbt and sbt-extras
@@ -31,12 +27,7 @@ jobs:
       run: cvc5 --version && z3 --version && cvc4 --version
     - name: Build and Package
       run: ./stainless-ci.sh --build-only
-    - name: Run Tests and Integration Tests
-      run: ./stainless-ci.sh --skip-build --skip-bolts --skip-sbt-plugin 
-  fail_if_pull_request_is_draft:
-    if: github.event.pull_request.draft == true
-    runs-on: [self-hosted, linux]
-    steps:
-    - name: Fails in order to indicate that pull request needs to be marked as ready to review and tests workflows need to pass.
-      run: exit 1
-
+    - name: Bolts Tests
+      run: ./stainless-ci.sh --skip-build --skip-tests --skip-sbt-plugin
+    - name: Sbt Plugin Tests
+      run: ./stainless-ci.sh --skip-build --skip-tests --skip-bolts
