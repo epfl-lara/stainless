@@ -45,6 +45,11 @@ while [[ $# -gt 0 ]]; do
       SKIP_TESTS=true
       shift # past argument
       ;;
+    --install-solvers)
+      SOLVERS_DIR="$2"
+      shift # past argument
+      shift # past value
+      ;;
     *)    # unknown option
       usage
       exit 1
@@ -56,16 +61,47 @@ usage() {
  cat <<EOM
 Usage: external-tests.sh [options]
 
-  -h | -help         Print this message
-  --bolts-dir        Directory where bolts is located (default: clones from GitHub).
-  --build-only       Only build the project, do not run tests.
-  --skip-build       Do not build the project (saves time if the build is already up-to-date).
-  --skip-bolts       Do not run the Bolts benchmarks.
-  --skip-sbt-plugin  Do not run the sbt plugin tests.
-  --skip-tests       Do not run the unit and integration tests.
-  
+  -h | -help               Print this message
+  --bolts-dir       <DIR>  Directory where bolts is located (default: clones from GitHub).
+  --build-only             Only build the project, do not run tests.
+  --skip-build             Do not build the project (saves time if the build is already up-to-date).
+  --skip-bolts             Do not run the Bolts benchmarks.
+  --skip-sbt-plugin        Do not run the sbt plugin tests.
+  --skip-tests             Do not run the unit and integration tests.
+  --install-solvers <DIR>  Install the solvers required for the tests (cvc5, CVC4, and z3) FOR LINUX.
+
 EOM
 }
+
+# Download the solvers
+if [ -n "$SOLVERS_DIR" ]; then
+  TEMP_DIR="temp"
+  mkdir -p "$SOLVERS_DIR"
+  mkdir -p "$TEMP_DIR"
+  # cvc5
+  wget https://github.com/cvc5/cvc5/releases/download/cvc5-1.2.0/cvc5-Linux-arm64-shared-gpl.zip -O "$TEMP_DIR/downloaded.zip"
+  unzip "$TEMP_DIR/downloaded.zip" -d "$TEMP_DIR"
+  CVC5_DIR=$(ls "$TEMP_DIR" | grep cvc5)
+  mv "$TEMP_DIR/$CVC5_DIR/bin/cvc5" "$SOLVERS_DIR/cvc5"
+  chmod +x "$SOLVERS_DIR/cvc5"
+  rm -rf "$TEMP_DIR"
+  
+  # CVC4
+  wget https://cvc4.cs.stanford.edu/downloads/builds/x86_64-linux-opt/cvc4-1.8-x86_64-linux-opt -O "$SOLVERS_DIR/cvc4"
+  chmod +x "$SOLVERS_DIR/cvc4"
+
+  # z3
+  mkdir -p "$TEMP_DIR"
+  wget https://github.com/Z3Prover/z3/releases/download/z3-4.13.0/z3-4.13.0-x64-glibc-2.35.zip -O "$TEMP_DIR/downloaded.zip"
+  unzip "$TEMP_DIR/downloaded.zip" -d "$TEMP_DIR"
+  Z3_DIR=$(ls "$TEMP_DIR" | grep z3)
+  mv "$TEMP_DIR/$Z3_DIR/bin/z3" "$SOLVERS_DIR/z3"
+  chmod +x "$SOLVERS_DIR/z3"
+  rm -rf "$TEMP_DIR"
+
+  echo "************** Solvers Installed **************"
+  exit 0
+fi
 
 if [ "$SKIP_BUILD" = true ]; then
   echo "************** Skipping build **************"
