@@ -28,7 +28,7 @@ jobs:
     - name: Build and Package
       run: ./stainless-ci.sh --build-only
     - name: Run Tests and Integration Tests
-      run: ./stainless-ci.sh --skip-build --skip-bolts --skip-sbt-plugin --skip-tests
+      run: ./stainless-ci.sh --skip-build --skip-bolts --skip-sbt-plugin 
   bolts-sbt-plugin:
     runs-on: [self-hosted, linux]
     env:
