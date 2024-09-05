@@ -1,4 +1,4 @@
-# Stainless [![Release][release-img]][latest-release] [![Nightly Build Status][nightly-larabot-img]][nightly-larabot-ref] [![Build Status][larabot-img]][larabot-ref] [![Gitter chat][gitter-img]][gitter-ref] [![Apache 2.0 License][license-img]][license-ref]
+# Stainless [![Release][release-img]][latest-release] [![Nightly Status](https://github.com/epfl-lara/stainless/actions/workflows/stainless-nightly.yml/badge.svg)](https://github.com/epfl-lara/stainless/actions/workflows/stainless-nightly.yml) [![Build Status](https://github.com/epfl-lara/stainless/actions/workflows/stainless-CI.yml/badge.svg?branch=main)](https://github.com/epfl-lara/stainless/actions/workflows/stainless-CI.yml/?branch=main) [![Gitter chat][gitter-img]][gitter-ref] [![Apache 2.0 License][license-img]][license-ref]
 
 Hosted at https://github.com/epfl-lara/stainless ; mirrored at https://gitlab.epfl.ch/lara/stainless
 
