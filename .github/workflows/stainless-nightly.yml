@@ -1,4 +1,4 @@
-name: Stainless CI
+name: Stainless Nightly
 on:
   schedule:
     - cron: '0 1 * * *'
