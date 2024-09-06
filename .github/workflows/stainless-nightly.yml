@@ -19,6 +19,7 @@ jobs:
       with:
         distribution: temurin
         java-version: 17
+        cache: sbt
     - name: Install solvers
       run: ./stainless-ci.sh --install-solvers $GITHUB_WORKSPACE/.local/bin
     - name: Add solvers to PATH
