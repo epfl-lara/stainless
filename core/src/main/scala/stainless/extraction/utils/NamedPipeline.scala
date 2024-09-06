@@ -136,7 +136,8 @@ class NamedPipeline private(override val name: String, override val context: ino
   // `extract` is a wrapper around `super.extract` which outputs trees for
   // debugging and which outputs position checks
   override def extract(symbols: s.Symbols): (t.Symbols, ExtractionSummary) = debug { syms =>
-    context.reporter.emit(context.reporter.ProgressMessage(context.reporter.INFO, PhaseExtractionTag, s"Running phase $name"))
+    if !isCompactModeOn(using context) then
+      context.reporter.emit(context.reporter.ProgressMessage(context.reporter.INFO, PhaseExtractionTag, s"Running phase $name"))
     context.timers.extraction.get(name).run(underlying.extract(syms))
   } (symbols)
 }
