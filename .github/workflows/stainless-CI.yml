@@ -22,7 +22,11 @@ jobs:
       with:
         distribution: temurin
         java-version: 17
-        cache: sbt
+    - name: Install and unpack sbt
+      run: |
+        wget https://github.com/sbt/sbt/releases/download/v1.10.1/sbt-1.10.1.tgz
+        tar xfz sbt-1.10.1.tgz
+        echo "PATH=./sbt/bin/:$PATH" >> "$GITHUB_ENV"
     - name: Install solvers
       run: ./stainless-ci.sh --install-solvers $GITHUB_WORKSPACE/.local/bin
     - name: Add solvers to PATH
