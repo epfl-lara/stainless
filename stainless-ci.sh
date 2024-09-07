@@ -1,5 +1,23 @@
 #!/usr/bin/env bash
 
+usage() {
+ cat <<EOM
+Usage: stainless-ci.sh [options]
+
+  -h | -help               Print this message
+  --bolts-dir       <DIR>  Directory where bolts is located (default: clones from GitHub).
+  --build-only             Only build the project, do not run tests.
+  --skip-build             Do not build the project (saves time if the build is already up-to-date).
+  --skip-bolts             Do not run the Bolts benchmarks.
+  --skip-sbt-plugin        Do not run the sbt plugin tests.
+  --skip-tests             Do not run the unit and integration tests.
+  --install-solvers <DIR>  Install the solvers required for the tests (cvc5, CVC4, and z3) FOR LINUX.
+
+EOM
+}
+
+
+
 # Run the complete CI pipeline
 
 # Record the time to compute the total duration
@@ -56,22 +74,6 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
-
-usage() {
- cat <<EOM
-Usage: external-tests.sh [options]
-
-  -h | -help               Print this message
-  --bolts-dir       <DIR>  Directory where bolts is located (default: clones from GitHub).
-  --build-only             Only build the project, do not run tests.
-  --skip-build             Do not build the project (saves time if the build is already up-to-date).
-  --skip-bolts             Do not run the Bolts benchmarks.
-  --skip-sbt-plugin        Do not run the sbt plugin tests.
-  --skip-tests             Do not run the unit and integration tests.
-  --install-solvers <DIR>  Install the solvers required for the tests (cvc5, CVC4, and z3) FOR LINUX.
-
-EOM
-}
 
 # Download the solvers
 if [ -n "$SOLVERS_DIR" ]; then
