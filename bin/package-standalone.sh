@@ -255,8 +255,8 @@ info "$(tput bold)[] Assembling fat jar..."
 if [[ -f "$STAINLESS_DOTTY_JAR_PATH" && -f "$STAINLESS_LIB_BIN_JAR_PATH" && -f "$STAINLESS_LIB_SRC_JAR_PATH" ]]; then
   info "  (JAR already exists, skipping sbt assembly step.)" && okay
 else
-  $SBT_PACKAGE_DOTTY >> $LOG || fail
-  $SBT_PACKAGE_LIB >> $LOG && okay || fail
+  $SBT_PACKAGE_DOTTY | tee -a $LOG || fail
+  ($SBT_PACKAGE_LIB | tee -a $LOG) && okay || fail
 fi
 
 prepare_output_dir
