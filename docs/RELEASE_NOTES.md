@@ -1,5 +1,14 @@
 # Release Notes
 
+## Version 0.9.8.8.7 (2024-09-15)
+
+- Scala version is now 3.5.0
+- Inox now has a solver for ground assertions based on internal evaluator (Inox #218), called `eval`
+- Opaque Forall and ensures: help higher order contracts (#1567)
+- Option `--compact` also reduces progress messages (#1573)
+- Changed CI to use GitHub actions
+- Documented a limited use of `throw`
+
 ## Version 0.9.8.8 (2024-08-22)
 
 ### Stainless frontend, library and internals
