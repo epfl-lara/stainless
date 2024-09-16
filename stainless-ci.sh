@@ -32,9 +32,9 @@ SKIP_TESTS=false
 ROOT_DIR=$PWD
 SBT_TEMP=$ROOT_DIR/sbt-temp
 mkdir -p $SBT_TEMP
-export JAVA_OPTS="-Djava.io.tmpdir="$SBT_TEMP
+export JAVA_OPTS="-Djava.io.tmpdir=$SBT_TEMP"
 SBT_DIR=$ROOT_DIR/temp  # make better later
-SBT=${SBT_DIR}/sbt/bin/sbt
+SBT=${SBT_DIR}/sbt/bin/sbt 
 
 # First parse the options
 while [[ $# -gt 0 ]]; do
