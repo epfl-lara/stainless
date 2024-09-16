@@ -108,9 +108,9 @@ fi
 if [ "$SKIP_BUILD" = true ]; then
     echo "************** Skipping build **************"
 else
-    push
+    ROOT_DIR=$PWD
     echo "************** sbt **************"
-    SBT_DIR="temp"  # make better later
+    SBT_DIR=$ROOT_DIR/temp  # make better later
     mkdir -p $SBT_DIR
     SBT_NAME="sbt-1.10.1.tgz"
     wget https://github.com/sbt/sbt/releases/download/v1.10.1/$SBT_NAME -O $SBT_DIR/$SBT_NAME --no-verbose
@@ -118,7 +118,8 @@ else
     cd $SBT_DIR
     echo "  now I am in " `pwd`
     tar xfz $SBT_NAME
-
+    
+    cd $ROOT_DIR
     echo Testing ${SBT_DIR}/sbt/bin/sbt --version
     ${SBT_DIR}/sbt/bin/sbt --version
     pop
