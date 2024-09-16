@@ -29,6 +29,13 @@ SKIP_BUILD=false
 SKIP_SBT_PLUGIN=false
 SKIP_TESTS=false
 
+ROOT_DIR=$PWD
+SBT_TEMP=$ROOT_DIR/sbt-temp
+mkdir -p $SBT_TEMP
+export JAVA_OPTS="-Djava.io.tmpdir="$SBT_TEMP
+SBT_DIR=$ROOT_DIR/temp  # make better later
+SBT=${SBT_DIR}/sbt/bin/sbt
+
 # First parse the options
 while [[ $# -gt 0 ]]; do
   key="$1"
@@ -108,9 +115,7 @@ fi
 if [ "$SKIP_BUILD" = true ]; then
     echo "************** Skipping build **************"
 else
-    ROOT_DIR=$PWD
     echo "************** sbt **************"
-    SBT_DIR=$ROOT_DIR/temp  # make better later
     mkdir -p $SBT_DIR
     SBT_NAME="sbt-1.10.1.tgz"
     wget https://github.com/sbt/sbt/releases/download/v1.10.1/$SBT_NAME -O $SBT_DIR/$SBT_NAME --no-verbose
@@ -120,10 +125,10 @@ else
     tar xfz $SBT_NAME
     
     cd $ROOT_DIR
-    echo Testing ${SBT_DIR}/sbt/bin/sbt --version
-    ${SBT_DIR}/sbt/bin/sbt --version
-    echo *******     ${SBT_DIR}/sbt/bin/sbt universal:stage ********
-    ${SBT_DIR}/sbt/bin/sbt universal:stage
+    echo Testing $SBT --version
+    $SBT --version
+    echo *******     $SBT universal:stage ********
+    $SBT universal:stage
   if [ $? -ne 0 ]; then
     echo "************** Failed to build the universal package **************"
     exit 1
@@ -138,14 +143,14 @@ if [ "$SKIP_TESTS" = true ]; then
   echo "************** Skipping tests **************"
 else
   # Run the tests
-  sbt -batch -Dtestsuite-parallelism=5 test
+  $SBT -batch -Dtestsuite-parallelism=5 test
   if [ $? -ne 0 ]; then
     echo "************** Unit tests failed **************"
     exit 1
   fi
 
   # Run the integration tests
-  sbt -batch -Dtestsuite-parallelism=3 -Dtestcase-parallelism=5 it:test
+  $SBT -batch -Dtestsuite-parallelism=3 -Dtestcase-parallelism=5 it:test
   if [ $? -ne 0 ]; then
     echo "************** Integration tests failed **************"
     exit 1
@@ -173,7 +178,7 @@ fi
 if [ "$SKIP_SBT_PLUGIN" = true ]; then
   echo "************** Skipping sbt plugin tests **************"
 else
-  sbt -batch scripted
+  $SBT -batch scripted
   if [ $? -ne 0 ]; then
     echo "sbt scripted failed"
     exit 1
