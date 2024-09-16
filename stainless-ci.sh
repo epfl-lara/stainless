@@ -121,7 +121,6 @@ else
     wget https://github.com/sbt/sbt/releases/download/v1.10.1/$SBT_NAME -O $SBT_DIR/$SBT_NAME --no-verbose
     echo "  unpack $SBT_NAME"
     cd $SBT_DIR
-    echo "  now I am in " `pwd`
     tar xfz $SBT_NAME
     
     cd $ROOT_DIR
