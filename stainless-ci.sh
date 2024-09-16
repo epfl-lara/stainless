@@ -106,9 +106,22 @@ if [ -n "$SOLVERS_DIR" ]; then
 fi
 
 if [ "$SKIP_BUILD" = true ]; then
-  echo "************** Skipping build **************"
+    echo "************** Skipping build **************"
 else
-  sbt universal:stage
+    echo "************** sbt **************"
+    SBT_DIR=$SOLVERS_DIR
+    mkdir -p $SBT_DIR
+    SBT_NAME="sbt-1.10.1.tgz"
+    wget https://github.com/sbt/sbt/releases/download/v1.10.1/$SBT_NAME -O $SBT_DIR/$SBT_NAME --no-verbose
+    echo "  unpack $SBT_NAME"
+    cd $SBT_DIR
+    echo "  now I am in " `pwd`
+    tar xfz $SBT_NAME
+
+    echo Testing ${SBT_DIR}/sbt/bin/sbt --version
+    ${SBT_DIR}/sbt/bin/sbt --version
+    echo *******     ${SBT_DIR}/sbt/bin/sbt universal:stage ********
+    ${SBT_DIR}/sbt/bin/sbt universal:stage
   if [ $? -ne 0 ]; then
     echo "************** Failed to build the universal package **************"
     exit 1
