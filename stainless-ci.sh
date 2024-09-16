@@ -122,7 +122,6 @@ else
     cd $ROOT_DIR
     echo Testing ${SBT_DIR}/sbt/bin/sbt --version
     ${SBT_DIR}/sbt/bin/sbt --version
-    pop
     echo *******     ${SBT_DIR}/sbt/bin/sbt universal:stage ********
     ${SBT_DIR}/sbt/bin/sbt universal:stage
   if [ $? -ne 0 ]; then
