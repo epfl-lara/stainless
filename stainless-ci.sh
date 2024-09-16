@@ -17,7 +17,6 @@ EOM
 }
 
 
-
 # Run the complete CI pipeline
 
 # Record the time to compute the total duration
