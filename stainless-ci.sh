@@ -31,7 +31,8 @@ SKIP_TESTS=false
 ROOT_DIR=$PWD
 SBT_TEMP=$ROOT_DIR/sbt-temp
 mkdir -p $SBT_TEMP
-export JAVA_OPTS="-Djava.io.tmpdir=$SBT_TEMP"
+BLOODY_SOCKET_DIR=/var/tmp/$RANDOM
+export JAVA_OPTS="-Djava.io.tmpdir=$BLOODY_SOCKET_DIR"
 SBT_DIR=$ROOT_DIR/temp  # make better later
 SBT=${SBT_DIR}/sbt/bin/sbt 
 
@@ -195,4 +196,6 @@ DURATION=$((TIME_AFTER - TIME_BEFORE))
 echo ""
 echo "********************************* CI PASSED! *********************************"
 
+# Too bad we have all those `exit` commands all over place, so they do not see this cleanup!
+rm -rf $BLOODY_SOCKET_DIR
 echo "Total time: $DURATION seconds"
