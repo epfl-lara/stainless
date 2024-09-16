@@ -17,7 +17,6 @@ EOM
 }
 
 
-
 # Run the complete CI pipeline
 
 # Record the time to compute the total duration
@@ -28,6 +27,14 @@ SKIP_BOLTS=false
 SKIP_BUILD=false
 SKIP_SBT_PLUGIN=false
 SKIP_TESTS=false
+
+ROOT_DIR=$PWD
+SBT_TEMP=$ROOT_DIR/sbt-temp
+mkdir -p $SBT_TEMP
+BLOODY_SOCKET_DIR=/var/tmp/stnlsci-$RANDOM
+export JAVA_OPTS="-Djava.io.tmpdir=$BLOODY_SOCKET_DIR"
+SBT_DIR=$ROOT_DIR/temp  # make better later
+SBT=${SBT_DIR}/sbt/bin/sbt 
 
 # First parse the options
 while [[ $# -gt 0 ]]; do
@@ -109,19 +116,18 @@ if [ "$SKIP_BUILD" = true ]; then
     echo "************** Skipping build **************"
 else
     echo "************** sbt **************"
-    SBT_DIR="temp"  # make better later
     mkdir -p $SBT_DIR
     SBT_NAME="sbt-1.10.1.tgz"
     wget https://github.com/sbt/sbt/releases/download/v1.10.1/$SBT_NAME -O $SBT_DIR/$SBT_NAME --no-verbose
     echo "  unpack $SBT_NAME"
     cd $SBT_DIR
-    echo "  now I am in " `pwd`
     tar xfz $SBT_NAME
-
-    echo Testing ${SBT_DIR}/sbt/bin/sbt --version
-    ${SBT_DIR}/sbt/bin/sbt --version
-    echo *******     ${SBT_DIR}/sbt/bin/sbt universal:stage ********
-    ${SBT_DIR}/sbt/bin/sbt universal:stage
+    
+    cd $ROOT_DIR
+    echo Testing $SBT --version
+    $SBT --version
+    echo *******     $SBT universal:stage ********
+    $SBT universal:stage
   if [ $? -ne 0 ]; then
     echo "************** Failed to build the universal package **************"
     exit 1
@@ -136,14 +142,14 @@ if [ "$SKIP_TESTS" = true ]; then
   echo "************** Skipping tests **************"
 else
   # Run the tests
-  sbt -batch -Dtestsuite-parallelism=5 test
+  $SBT -batch -Dtestsuite-parallelism=5 test
   if [ $? -ne 0 ]; then
     echo "************** Unit tests failed **************"
     exit 1
   fi
 
   # Run the integration tests
-  sbt -batch -Dtestsuite-parallelism=3 -Dtestcase-parallelism=5 it:test
+  $SBT -batch -Dtestsuite-parallelism=3 -Dtestcase-parallelism=5 it:test
   if [ $? -ne 0 ]; then
     echo "************** Integration tests failed **************"
     exit 1
@@ -171,7 +177,7 @@ fi
 if [ "$SKIP_SBT_PLUGIN" = true ]; then
   echo "************** Skipping sbt plugin tests **************"
 else
-  sbt -batch scripted
+  $SBT -batch scripted
   if [ $? -ne 0 ]; then
     echo "sbt scripted failed"
     exit 1
@@ -190,4 +196,6 @@ DURATION=$((TIME_AFTER - TIME_BEFORE))
 echo ""
 echo "********************************* CI PASSED! *********************************"
 
+# Too bad we have all those `exit` commands all over place, so they do not see this cleanup!
+rm -rf $BLOODY_SOCKET_DIR
 echo "Total time: $DURATION seconds"
