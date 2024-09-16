@@ -108,6 +108,7 @@ fi
 if [ "$SKIP_BUILD" = true ]; then
     echo "************** Skipping build **************"
 else
+    push
     echo "************** sbt **************"
     SBT_DIR="temp"  # make better later
     mkdir -p $SBT_DIR
@@ -120,6 +121,7 @@ else
 
     echo Testing ${SBT_DIR}/sbt/bin/sbt --version
     ${SBT_DIR}/sbt/bin/sbt --version
+    pop
     echo *******     ${SBT_DIR}/sbt/bin/sbt universal:stage ********
     ${SBT_DIR}/sbt/bin/sbt universal:stage
   if [ $? -ne 0 ]; then
