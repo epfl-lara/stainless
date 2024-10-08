@@ -162,6 +162,7 @@ fi
 if [ "$SKIP_BOLTS" = true ]; then
   echo "************** Skipping Bolts tests **************"
 else
+  unset JAVA_OPTS
   if [ -z "$BOLTS_DIR" ]; then
     bash bin/external-tests.sh --skip-build 
   else
