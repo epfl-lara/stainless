@@ -30,7 +30,9 @@ SKIP_TESTS=false
 
 ROOT_DIR=$PWD
 SBT_TEMP=$ROOT_DIR/sbt-temp
-mkdir -p $SBT_TEMP
+# if TEMP_DIR is not set, set it to the default
+JAVA_OPTS_TMP_DIR=${JAVA_OPTS_TMP_DIR:-$ROOT_DIR/temporary}
+mkdir -p $JAVA_OPTS_TMP_DIR
 SBT_DIR=$ROOT_DIR/temp  # make better later
 SBT=${SBT_DIR}/sbt/bin/sbt 
 
@@ -195,5 +197,5 @@ echo ""
 echo "********************************* CI PASSED! *********************************"
 
 # Too bad we have all those `exit` commands all over place, so they do not see this cleanup!
-rm -rf $BLOODY_SOCKET_DIR
+rm -rf $JAVA_OPTS_TMP_DIR
 echo "Total time: $DURATION seconds"

@@ -10,9 +10,10 @@ jobs:
     if: github.event.pull_request.draft == false
     runs-on: [self-hosted, linux]
     env:
+      JAVA_OPTS_TMP_DIR: ./tmp_java
       # define Java options for both official sbt and sbt-extras
-      JAVA_OPTS: -Dsbt.io.implicit.relative.glob.conversion=allow -Xss512M -Xms1024M -Xmx12G -XX:MaxMetaspaceSize=2G -XX:+UseCodeCacheFlushing -XX:ReservedCodeCacheSize=768M
-      JVM_OPTS:  -Dsbt.io.implicit.relative.glob.conversion=allow -Xss512M -Xms1024M -Xmx12G -XX:MaxMetaspaceSize=2G -XX:+UseCodeCacheFlushing -XX:ReservedCodeCacheSize=768M
+      JAVA_OPTS: -Dsbt.io.implicit.relative.glob.conversion=allow -Xss512M -Xms1024M -Xmx12G -XX:MaxMetaspaceSize=2G -XX:+UseCodeCacheFlushing -XX:ReservedCodeCacheSize=768M -Djava.io.tmpdir=$JAVA_OPTS_TMP_DIR 
+      JVM_OPTS:  -Dsbt.io.implicit.relative.glob.conversion=allow -Xss512M -Xms1024M -Xmx12G -XX:MaxMetaspaceSize=2G -XX:+UseCodeCacheFlushing -XX:ReservedCodeCacheSize=768M -Djava.io.tmpdir=$JAVA_OPTS_TMP_DIR
     steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -40,6 +41,8 @@ jobs:
       run: ./stainless-ci.sh --skip-build --skip-bolts --skip-sbt-plugin 
     - name: Sbt Plugin Tests
       run: ./stainless-ci.sh --skip-build --skip-tests --skip-bolts
+    - name: Clean up
+      run: rm -rf $JAVA_OPTS_TMP_DIR
   fail_if_pull_request_is_draft:
     if: github.event.pull_request.draft == true
     runs-on: [self-hosted, linux]
