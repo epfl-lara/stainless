@@ -31,8 +31,6 @@ SKIP_TESTS=false
 ROOT_DIR=$PWD
 SBT_TEMP=$ROOT_DIR/sbt-temp
 mkdir -p $SBT_TEMP
-BLOODY_SOCKET_DIR=/var/tmp/stnlsci-$RANDOM
-export JAVA_OPTS="-Djava.io.tmpdir=$BLOODY_SOCKET_DIR"
 SBT_DIR=$ROOT_DIR/temp  # make better later
 SBT=${SBT_DIR}/sbt/bin/sbt 
 
@@ -162,7 +160,6 @@ fi
 if [ "$SKIP_BOLTS" = true ]; then
   echo "************** Skipping Bolts tests **************"
 else
-  unset JAVA_OPTS
   if [ -z "$BOLTS_DIR" ]; then
     bash bin/external-tests.sh --skip-build 
   else
