@@ -78,6 +78,12 @@ lazy val artifactSettings: Seq[Setting[_]] = baseSettings ++ Seq(
   buildInfoPackage := "stainless",
   buildInfoKeys := stainlessBuildInfoKeys,
   buildInfoOptions := Seq(BuildInfoOption.BuildTime),
+  excludeDependencies ++= Seq(
+    "org.scala-lang.modules" % "scala-parser-combinators_2.13",
+    "org.scala-lang.modules" % "scala-xml_2.13",
+    "org.scalactic" % "scalactic_2.13",
+  ),
+
 )
 
 lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
@@ -88,7 +94,7 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
   ),
 
   resolvers ++= Resolver.sonatypeOssRepos("releases"),
-  resolvers += ("uuverifiers" at "http://logicrunch.research.it.uu.se/maven").withAllowInsecureProtocol(true),
+  resolvers += ("uuverifiersStainless" at "https://eldarica.org/maven"),
 
   libraryDependencies ++= Seq(
     // "ch.epfl.lara"    %% "inox"          % inoxVersion,
