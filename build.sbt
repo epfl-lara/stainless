@@ -80,7 +80,7 @@ lazy val artifactSettings: Seq[Setting[_]] = baseSettings ++ Seq(
   buildInfoOptions := Seq(BuildInfoOption.BuildTime),
   excludeDependencies ++= Seq(
     "org.scala-lang.modules" % "scala-parser-combinators_2.13",
-    "org.scala-lang.modules" % "scala-xml_2.13",
+    "org.scala-lang.modules" % "scala-xml_3",
     "org.scalactic" % "scalactic_2.13",
   ),
 
