@@ -37,6 +37,11 @@ object Set {
     }
 
     @extern @pure
+    def flatMap[B](f: A => Set[B]): Set[B] = {
+      new Set(set.theSet.flatMap(f(_).theSet))
+    }
+
+    @extern @pure
     def mapPost1[B](f: A => B)(a: A): Unit = {
       ()
    }.ensuring { _ =>
