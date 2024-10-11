@@ -379,8 +379,13 @@ trait VerificationChecker { self =>
               reporter.warning(vc.getPos, " => INVALID")
               reason match {
                 case VCStatus.CounterExample(cex) =>
-                  reporter.warning("Found counter-example:")
-                  reporter.warning("  " + cex.asString.replaceAll("\n", "\n  "))
+                  vc.kind match {
+                    case VCKind.MeasureMissing =>
+                      reporter.warning("Measure is missing, cannot check termination")
+                    case _ =>
+                      reporter.warning("Found counter-example:")
+                      reporter.warning("  " + cex.asString.replaceAll("\n", "\n  "))
+                  }
 
                 case VCStatus.Unsatisfiable =>
                   reporter.warning("Property wasn't satisfiable")
