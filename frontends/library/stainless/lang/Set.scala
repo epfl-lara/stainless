@@ -37,14 +37,9 @@ object Set {
     }
 
     @extern @pure
-    def flatMap[B](f: A => Set[B]): Set[B] = {
-      new Set(set.theSet.flatMap(f(_).theSet))
-    }
-
-    @extern @pure
     def mapPost1[B](f: A => B)(a: A): Unit = {
       ()
-   }.ensuring { _ =>
+    }.ensuring { _ =>
       !set.contains(a) || map[B](f).contains(f(a))
     }
    
@@ -52,8 +47,20 @@ object Set {
     def mapPost2[B](f: A => B)(b: B): A = {
       require(map[B](f).contains(b))
       (??? : A)
-   }.ensuring { (a:A) =>
+    }.ensuring { (a:A) =>
       b == f(a) && set.contains(a)
+    }
+
+    @extern @pure
+    def flatMap[B](f: A => Set[B]): Set[B] = {
+      new Set(set.theSet.flatMap(f(_).theSet))
+    }
+
+    @extern @pure
+    def flatMapPost[B](f: A => B)(b: B) = {
+      (??? : A)
+    }.ensuring { _ =>
+      flatMap(f).contains(b) == set.exists(a => f(a).contains(b))
     }
 
     @extern @pure
