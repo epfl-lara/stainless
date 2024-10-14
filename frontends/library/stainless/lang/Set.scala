@@ -57,7 +57,7 @@ object Set {
     }
 
     @extern @pure
-    def flatMapPost[B](f: A => B)(b: B) = {
+    def flatMapPost[B](f: A => Set[B])(b: B) = {
       (??? : A)
     }.ensuring { _ =>
       flatMap(f).contains(b) == set.exists(a => f(a).contains(b))
@@ -126,4 +126,7 @@ sealed case class Set[T](theSet: scala.collection.immutable.Set[T]) {
 
   def contains(a: T): Boolean = theSet.contains(a)
   def subsetOf(b: Set[T]): Boolean = theSet.subsetOf(b.theSet)
+
+  def exists(p: T => Boolean): Boolean = theSet.exists(p)
+  def forall(p: T => Boolean): Boolean = theSet.forall(p)
 }
