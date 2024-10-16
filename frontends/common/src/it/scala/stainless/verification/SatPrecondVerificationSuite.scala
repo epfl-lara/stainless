@@ -46,7 +46,9 @@ class SatPrecondVerificationSuite extends VerificationComponentTestSuite {
             inox.optSelectedSolvers(Set(solver)),
             inox.solvers.optCheckModels(true),
             evaluators.optCodeGen(codeGen),
+            inox.optTimeout(4.seconds),
             inox.solvers.unrolling.optFeelingLucky(codeGen)) ++ seq
+            
       }
     } yield conf
   }
