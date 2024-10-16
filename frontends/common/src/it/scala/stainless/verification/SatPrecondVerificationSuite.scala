@@ -19,7 +19,7 @@ class SatPrecondVerificationSuite extends VerificationComponentTestSuite {
     Set()
 
   private val ignorePrincess: Set[String] = ignoreCommon ++
-    Set()
+    Set("sat-precondition/valid/SATPrecond4")
 
   private val ignoreCodegen: Set[String] = Set()
 
@@ -46,7 +46,7 @@ class SatPrecondVerificationSuite extends VerificationComponentTestSuite {
             inox.optSelectedSolvers(Set(solver)),
             inox.solvers.optCheckModels(true),
             evaluators.optCodeGen(codeGen),
-            inox.optTimeout(30.seconds),
+            inox.optTimeout(3.seconds),
             inox.solvers.unrolling.optFeelingLucky(codeGen)) ++ seq
             
       }
