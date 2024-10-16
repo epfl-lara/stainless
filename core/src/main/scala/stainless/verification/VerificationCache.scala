@@ -60,14 +60,14 @@ trait VerificationCache extends VerificationChecker { self =>
 
       val serialized = serializer.serialize((vc.satisfiability, canonicalSymbols, canonicalExpr))
 
-      val key = if(hashCacheFlag) {
+      val key: CacheKey = if(hashCacheFlag) {
                     val bytes = MessageDigest.getInstance("SHA-256").digest(serialized.bytes)
                     CacheKey(bytes)
                 } else {
                     CacheKey(serialized.bytes)
                 }
 
-      if (vccache `contains` key) {
+      if (vccache.contains(key)) {
         reporter.debug(s"Cache hit: '${vc.kind}' VC for ${vc.fid.asString} @${vc.getPos}...")(using DebugSectionVerification)
         given DebugSectionCacheHit.type = DebugSectionCacheHit
         reporter.synchronized {
@@ -117,18 +117,18 @@ object VerificationCache {
   private val serializer = utils.Serializer(stainless.trees)
   import serializer.{given, _}
 
-  /**
-   * Is serializable and has a corresponding given cacheKeyIsSerializable: Serializable[CacheKey] = new Serializable[CacheKey]
-   * in Serialization.scala
-   */
+  object CacheKey{
+    def apply(content: Seq[Byte]): CacheKey = CacheKey(content.toArray)
+  }
   case class CacheKey(content: Array[Byte]){
     override def equals(that: Any): Boolean = that match {
       case c: CacheKey => java.util.Arrays.equals(content, c.content)
       case _ => false
     }
     override val hashCode: Int = java.util.Arrays.hashCode(content)
+
+    def toSeq: Seq[Byte] = content.toSeq
   }
-  private given cacheKeyIsSerializable: Serializable[CacheKey] = new Serializable[CacheKey]
 
   /** Cache with the ability to save itself to disk. */
   private class Cache(cacheFile: File) {
@@ -137,7 +137,7 @@ object VerificationCache {
     def +=(key: CacheKey) = underlying += key -> unusedCacheValue
     def addPersistently(key: CacheKey): Unit = {
       this += key
-      this.synchronized { serializer.serialize(key, out) }
+      this.synchronized { serializer.serialize(key.toSeq, out) }
     }
 
     // Implementation details
@@ -201,7 +201,7 @@ object VerificationCache {
 
           try {
             while (true) {
-              val ck = serializer.deserialize[CacheKey](in)
+              val ck = CacheKey(serializer.deserialize[Seq[Byte]](in))
               cache += ck
             }
           } catch {
