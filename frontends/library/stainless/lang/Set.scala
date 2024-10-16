@@ -23,38 +23,36 @@ object Set {
     new Set(set)
   }
 
-  @extern @pure @library
-  def mkString[A](set: Set[A], infix: String)(format: A => String): String = {
-    set.theSet.map(format).toList.sorted.mkString(infix)
-  }
+  // @extern @pure @library
+  // def mkString[A](set: Set[A], infix: String)(format: A => String): String = {
+  //   set.theSet.map(format).toList.sorted.mkString(infix)
+  // }
 
-  @library
-  implicit class SetOps[A](val set: Set[A]) extends AnyVal {
+  extension[A](set: Set[A]) {
 
-
-    @extern @pure
+    @library @extern @pure
     def exists(p: A => Boolean): Boolean = {
       set.theSet.exists(p)
     }
 
-    @extern @pure
+    @library @extern @pure
     def forall(p: A => Boolean): Boolean = {
       set.theSet.forall(p)
     }
 
-    @extern @pure
+    @library @extern @pure
     def map[B](f: A => B): Set[B] = {
       new Set(set.theSet.map(f))
     }
 
-    @extern @pure
+    @library @extern @pure
     def mapPost1[B](f: A => B)(a: A): Unit = {
       ()
     }.ensuring { _ =>
       !set.contains(a) || map[B](f).contains(f(a))
     }
    
-    @extern @pure
+    @library @extern @pure
     def mapPost2[B](f: A => B)(b: B): A = {
       require(map[B](f).contains(b))
       (??? : A)
@@ -62,52 +60,52 @@ object Set {
       b == f(a) && set.contains(a)
     }
 
-    @extern @pure
+    @library @extern @pure
     def flatMap[B](f: A => Set[B]): Set[B] = {
       new Set(set.theSet.flatMap(f(_).theSet))
     }
 
-    @extern @pure
+    @library @extern @pure
     def flatMapPost[B](f: A => Set[B])(b: B) = {
       (??? : A)
     }.ensuring { _ =>
-      flatMap(f).contains(b) == set.exists(a => f(a).contains(b))
+      set.flatMap(f).contains(b) == set.exists(a => f(a).contains(b))
     }
 
-    @extern @pure
+    @library @extern @pure
     def filter(p: A => Boolean): Set[A] = {
       new Set(set.theSet.filter(p))
     }
 
-    @extern @pure
+    @library @extern @pure
     def filterPost(p: A => Boolean)(a: A): Unit = {
       ()
    }.ensuring (_ => filter(p).contains(a) == (p(a) && set.contains(a)))
 
-    @extern @pure
+    @library @extern @pure
     def withFilter(p: A => Boolean): Set[A] = {
       new Set(set.theSet.filter(p))
     }
 
-    @extern @pure
+    @library @extern @pure
     def withFilterPost(p: A => Boolean)(a: A): Unit = {
       ()
    }.ensuring(_ => withFilter(p).contains(a) == (p(a) && set.contains(a)))
 
-    @extern @pure
+    @library @extern @pure
     def toList: List[A] = {
       List.fromScala(set.theSet.toList)
    }.ensuring(res => ListOps.noDuplicate(res) && res.content == set)
 
-    @extern @pure
+    @library @extern @pure
     def toListPost(a:A): Unit = {
       ()
    }.ensuring(_ => toList.contains(a) == set.contains(a))
 
-    @extern @pure
+    @library @extern @pure
     def toScala: ScalaSet[A] = set.theSet
 
-    @extern @pure
+    @library @extern @pure
     def mkString(infix: String)(format: A => String): String = {
       set.theSet.map(format).toList.sorted.mkString(infix)
     }
