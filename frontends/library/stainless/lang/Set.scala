@@ -31,6 +31,17 @@ object Set {
   @library
   implicit class SetOps[A](val set: Set[A]) extends AnyVal {
 
+
+    @extern @pure
+    def exists(p: A => Boolean): Boolean = {
+      set.theSet.exists(p)
+    }
+
+    @extern @pure
+    def forall(p: A => Boolean): Boolean = {
+      set.theSet.forall(p)
+    }
+
     @extern @pure
     def map[B](f: A => B): Set[B] = {
       new Set(set.theSet.map(f))
@@ -126,7 +137,4 @@ sealed case class Set[T](theSet: scala.collection.immutable.Set[T]) {
 
   def contains(a: T): Boolean = theSet.contains(a)
   def subsetOf(b: Set[T]): Boolean = theSet.subsetOf(b.theSet)
-
-  def exists(p: T => Boolean): Boolean = theSet.exists(p)
-  def forall(p: T => Boolean): Boolean = theSet.forall(p)
 }
