@@ -41,7 +41,7 @@ trait VerificationCache extends VerificationChecker { self =>
 
   private lazy val vccache = CacheLoader.get(context)
 
-  private val hashCacheFlag = context.options.findOptionOrDefault(utils.Caches.optBinaryCache)
+  private val binaryCacheFlag = context.options.findOptionOrDefault(utils.Caches.optBinaryCache)
 
   override def checkVC(vc: VC, origVC: VC, sf: SolverFactory { val program: self.program.type }) = {
     reporter.debug(s" - Checking cache: '${vc.kind}' VC for ${vc.fid} @${vc.getPos}...")(using DebugSectionVerification)
@@ -60,13 +60,13 @@ trait VerificationCache extends VerificationChecker { self =>
 
       val serialized = serializer.serialize((vc.satisfiability, canonicalSymbols, canonicalExpr))
 
-      val key: CacheKey = if(hashCacheFlag) {
-                    val bytes = MessageDigest.getInstance("SHA-256").digest(serialized.bytes)
-                    CacheKey(bytes)
+      val key: CacheKey = if(binaryCacheFlag) {
+                  CacheKey(serialized.bytes)
                 } else {
-                    CacheKey(serialized.bytes)
+                  val bytes = MessageDigest.getInstance("SHA-256").digest(serialized.bytes)
+                  CacheKey(bytes)
                 }
-
+      reporter.debug(s"CacheKey size = ${key.content.size} and serialised size = ${serializer.serialize(key.toSeq).bytes.length}")(using DebugSectionVerification)
       if (vccache.contains(key)) {
         reporter.debug(s"Cache hit: '${vc.kind}' VC for ${vc.fid.asString} @${vc.getPos}...")(using DebugSectionVerification)
         given DebugSectionCacheHit.type = DebugSectionCacheHit
@@ -82,9 +82,8 @@ trait VerificationCache extends VerificationChecker { self =>
           reporter.ifDebug { debug =>
             given DebugSectionCacheMiss.type = DebugSectionCacheMiss
             given PrinterOptions = new PrinterOptions(printUniqueIds = true, printTypes = true, symbols = Some(canonicalSymbols))
-
+            
             debugVC(vc, origVC)
-
             debug("Canonical symbols:")
             debug(" ## SORTS ##")
             debug(canonicalSymbols.sorts.values.map(_.asString).toList.sorted.mkString("\n\n"))
