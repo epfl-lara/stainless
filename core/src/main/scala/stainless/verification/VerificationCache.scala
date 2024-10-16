@@ -66,7 +66,6 @@ trait VerificationCache extends VerificationChecker { self =>
                   val bytes = MessageDigest.getInstance("SHA-256").digest(serialized.bytes)
                   CacheKey(bytes)
                 }
-      reporter.debug(s"CacheKey size = ${key.content.size} and serialised size = ${serializer.serialize(key.toSeq).bytes.length}")(using DebugSectionVerification)
       if (vccache.contains(key)) {
         reporter.debug(s"Cache hit: '${vc.kind}' VC for ${vc.fid.asString} @${vc.getPos}...")(using DebugSectionVerification)
         given DebugSectionCacheHit.type = DebugSectionCacheHit
