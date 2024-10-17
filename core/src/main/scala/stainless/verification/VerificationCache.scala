@@ -60,12 +60,8 @@ trait VerificationCache extends VerificationChecker { self =>
 
       val serialized = serializer.serialize((vc.satisfiability, canonicalSymbols, canonicalExpr))
 
-      val key: CacheKey = if(binaryCacheFlag) {
-                  CacheKey(serialized.bytes)
-                } else {
-                  val bytes = MessageDigest.getInstance("SHA-256").digest(serialized.bytes)
-                  CacheKey(bytes)
-                }
+      val key: CacheKey = vccache.computeKey(serialized.bytes)
+      reporter.debug(s"Cache key size: ${key.content.size} bytes")(using DebugSectionVerification)
       if (vccache.contains(key)) {
         reporter.debug(s"Cache hit: '${vc.kind}' VC for ${vc.fid.asString} @${vc.getPos}...")(using DebugSectionVerification)
         given DebugSectionCacheHit.type = DebugSectionCacheHit
@@ -129,13 +125,46 @@ object VerificationCache {
   }
 
   /** Cache with the ability to save itself to disk. */
-  private class Cache(cacheFile: File) {
+  private class Cache(ctx: inox.Context, cacheFile: File) {
+    val hashingFunctionName = "SHA-256"
+    val hashSize = MessageDigest.getInstance(hashingFunctionName).getDigestLength()
+    val hashCache = !ctx.options.findOptionOrDefault(utils.Caches.optBinaryCache)
+
     // API
-    def contains(key: CacheKey): Boolean = underlying contains key
+    def computeKey(content: Array[Byte]): CacheKey = 
+      if(hashCache) {
+        val bytes = MessageDigest.getInstance(hashingFunctionName).digest(content)
+        CacheKey(bytes)
+      } else {
+        CacheKey(content)
+      }
+    def contains(key: CacheKey): Boolean = underlying.contains(key)
     def +=(key: CacheKey) = underlying += key -> unusedCacheValue
     def addPersistently(key: CacheKey): Unit = {
       this += key
-      this.synchronized { serializer.serialize(key.toSeq, out) }
+      this.synchronized { CacheKeySerializer.serialize(key, out) }
+    }
+
+    object CacheKeySerializer {
+      def serialize(key: CacheKey, out: OutputStream): Unit = {
+        if(hashCache){
+          assert(key.content.size == hashSize)
+          out.write(key.content)
+        } else {
+          serializer.serialize(key.toSeq, out)
+        }
+      }
+
+      def deserialize(in: InputStream): CacheKey = {
+        if(hashCache){
+          val bytes = new Array[Byte](hashSize)
+          if (in.available() < hashSize) throw new java.io.EOFException()
+          in.read(bytes)
+          CacheKey(bytes)
+        } else {
+          CacheKey(serializer.deserialize[Seq[Byte]](in))
+        }
+      }
     }
 
     // Implementation details
@@ -192,14 +221,14 @@ object VerificationCache {
       val cacheFile: File = utils.Caches.getCacheFile(ctx, utils.Caches.getCacheFilename(ctx))
 
       db.getOrElse(cacheFile, {
-        val cache = new Cache(cacheFile)
+        val cache = new Cache(ctx, cacheFile)
 
         if (cacheFile.exists) {
           val in = openStream(ctx, cacheFile)
 
           try {
             while (true) {
-              val ck = CacheKey(serializer.deserialize[Seq[Byte]](in))
+              val ck = cache.CacheKeySerializer.deserialize(in)
               cache += ck
             }
           } catch {
