@@ -2362,6 +2362,9 @@ class CodeExtraction(inoxCtx: inox.Context,
       case tpe if isStringSym(tpe.typeSymbol) => xt.StringType()
 
       case AppliedType(tr: TypeRef, Seq(tp)) if isSetSym(tr.symbol) =>
+        // We know the underlying is a set, but it may be hidden under an alias
+        // just as for Tuple below
+        val AppliedType(_, Seq(tp)) = tpt.dealias: @unchecked
         xt.SetType(extractType(tp))
 
       case AppliedType(tr: TypeRef, Seq(tp)) if isBagSym(tr.symbol) =>
