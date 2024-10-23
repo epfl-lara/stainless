@@ -2368,16 +2368,25 @@ class CodeExtraction(inoxCtx: inox.Context,
         xt.SetType(extractType(tp))
 
       case AppliedType(tr: TypeRef, Seq(tp)) if isBagSym(tr.symbol) =>
+        // We know the underlying is a bag, but it may be hidden under an alias
+        // just as for Tuple below
+        val AppliedType(_, Seq(tp)) = tpt.dealias: @unchecked
         xt.BagType(extractType(tp))
 
       case FrontendBVType(signed, size) =>
         xt.AnnotatedType(xt.BVType(signed, size), Seq(xt.StrictBV))
 
       case AppliedType(tr: TypeRef, tps) if isMapSym(tr.symbol) =>
+        // We know the underlying is a map, but it may be hidden under an alias
+        // just as for Tuple below
+        val AppliedType(_, tps) = tpt.dealias: @unchecked
         val Seq(from, to) = tps map extractType
         xt.MapType(from, xt.ClassType(getIdentifier(optionSymbol), Seq(to)).setPos(pos))
 
       case AppliedType(tr: TypeRef, tps) if isMutableMapSym(tr.symbol) =>
+        // We know the underlying is a map, but it may be hidden under an alias
+        // just as for Tuple below
+        val AppliedType(_, tps) = tpt.dealias: @unchecked
         val Seq(from, to) = tps map extractType
         xt.MutableMapType(from, to)
 
