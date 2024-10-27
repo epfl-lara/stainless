@@ -75,6 +75,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
     frontend.optExtraDeps -> Description(General, "Fetch the specified extra source dependencies and add their source files to the session"),
     frontend.optExtraResolvers -> Description(General, "Extra resolvers to use to fetch extra source dependencies"),
     utils.Caches.optCacheDir -> Description(General, "Specify the directory in which cache files should be stored"),
+    utils.Caches.optBinaryCache -> Description(General, "Set Binary mode for the cache instead of Hash mode, i.e., the cache will contain the entire VC and program in serialized format. This is less space efficient."),
     testgen.optOutputFile -> Description(TestsGeneration, "Specify the output file"),
     testgen.optGenCIncludes -> Description(TestsGeneration, "(GenC variant only) Specify header includes"),
     equivchk.optCompareFuns -> Description(EquivChk, "Only consider functions f1,f2,... for equivalence checking"),
