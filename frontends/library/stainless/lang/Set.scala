@@ -33,12 +33,12 @@ object Set {
     @library @extern @pure
     def exists(p: A => Boolean): Boolean = {
       set.theSet.exists(p)
-    }
+    }.ensuring(res => res == set.toList.exists(p))
 
     @library @extern @pure
     def forall(p: A => Boolean): Boolean = {
       set.theSet.forall(p)
-    }
+    }.ensuring(res => res == set.toList.forall(p))
 
     @library @extern @pure
     def map[B](f: A => B): Set[B] = {
