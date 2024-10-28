@@ -6,15 +6,15 @@ import stainless.annotation.*
 object PropositionalLogic:
 
   sealed abstract class Formula:
-    def size: BigInt = {
+    def size: BigInt = { // just to be clear what measure we are using
       this match
         case And(l, r)  => l.size + r.size + 1
         case Or(l, r)   => l.size + r.size + 1
-        case Not(f)     => f.size + 1 // bad negation, bad!
-        case Implies(l, r) => l.size + r.size + 1 // why does false imply true?!
+        case Not(f)     => f.size + 1
+        case Implies(l, r) => l.size + r.size + 1
         case Literal(_) => BigInt(1)
     }.ensuring(res => res >= 1)
-    
+
   case class And(lhs: Formula, rhs: Formula) extends Formula
   case class Or(lhs: Formula, rhs: Formula) extends Formula
   case class Implies(lhs: Formula, rhs: Formula) extends Formula
@@ -22,6 +22,7 @@ object PropositionalLogic:
   case class Literal(id: Int) extends Formula
 
   def simplify(f: Formula): Formula = {
+    decreases(f.size)
     f match 
       case And(lhs, rhs) => And(simplify(lhs), simplify(rhs))
       case Or(lhs, rhs) => Or(simplify(lhs), simplify(rhs))
@@ -30,12 +31,14 @@ object PropositionalLogic:
       case Literal(_) => f
   }.ensuring(isSimplified(_))
 
-  def isSimplified(f: Formula): Boolean = f match {
-    case And(lhs, rhs) => isSimplified(lhs) && isSimplified(rhs)
-    case Or(lhs, rhs) => isSimplified(lhs) && isSimplified(rhs)
-    case Implies(_,_) => false
-    case Not(f) => isSimplified(f)
-    case Literal(_) => true
+  def isSimplified(f: Formula): Boolean = {
+    decreases(f.size)
+    f match 
+      case And(lhs, rhs) => isSimplified(lhs) && isSimplified(rhs)
+      case Or(lhs, rhs) => isSimplified(lhs) && isSimplified(rhs)
+      case Implies(_,_) => false
+      case Not(f) => isSimplified(f)
+      case Literal(_) => true
   }
 
   def nnf(formula: Formula): Formula = {
@@ -53,6 +56,7 @@ object PropositionalLogic:
   }.ensuring(isNNF(_))
 
   def isNNF(f: Formula): Boolean = {
+    decreases(f.size)
     f match 
       case And(lhs, rhs) => isNNF(lhs) && isNNF(rhs)
       case Or(lhs, rhs) => isNNF(lhs) && isNNF(rhs)
@@ -64,6 +68,7 @@ object PropositionalLogic:
 
   def vars(f: Formula): Set[Int] = {
     require(isNNF(f))
+    decreases(f.size)
     f match {
       case And(lhs, rhs) => vars(lhs) ++ vars(rhs)
       case Or(lhs, rhs) => vars(lhs) ++ vars(rhs)
@@ -88,4 +93,3 @@ object PropositionalLogic:
 
 
 end PropositionalLogic 
-
