@@ -88,6 +88,7 @@ class FunctionInlining(override val s: Trees, override val t: trace.Trees)
                   Assert(annotated(cond.setPos(fi), DropVCs), Some(s"Inlined precondition$num of " + tfd.id.asString), acc).setPos(fi),
                   i-1
                 )
+              case (spec, (acc,i)) => context.reporter.fatalError(f"In addPreconditionAssertions, I did not expect spec that is not LetInSpec or Precondition; I got the following spec: ${spec.toString}")
             }._1
           }
 
