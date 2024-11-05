@@ -92,7 +92,7 @@ object Set {
       ()
    }.ensuring(_ => withFilter(p).contains(a) == (p(a) && set.contains(a)))
 
-    @library @extern @pure
+    @library @extern @pure @ghost
     def toList: List[A] = {
       List.fromScala(set.theSet.toList)
    }.ensuring(res => ListOps.noDuplicate(res) && res.content == set)
