@@ -5,7 +5,7 @@ import stainless.annotation._
 import stainless.proof._
 
 object Iterables {
-
+  @ghost
   def test_setToList(set: Set[BigInt]) = {
     require(set.contains(1) && set.contains(2) && !set.contains(3))
 
@@ -17,7 +17,7 @@ object Iterables {
     set.toListPost(3)
     assert(!res.contains(3))
   }
-
+  @ghost
   def test_setMap(set: Set[BigInt]) = {
     require(set.contains(1) && set.contains(2) && !set.contains(3))
 
@@ -37,7 +37,7 @@ object Iterables {
   }
 
   val oneToSix = Set[BigInt](1,2,3,4,5,6)
-
+  @ghost
   def test_setFilter(set: Set[BigInt]) = {
     require((set & oneToSix) == oneToSix)
 
@@ -56,7 +56,7 @@ object Iterables {
     set.filterPost(p)(6)
     assert(!res.contains(6))
   }
-
+  @ghost
   def test_mapKeys(map: Map[Int, String]) = {
     require(map.contains(1) && map.contains(2) && !map.contains(3))
 
@@ -69,7 +69,7 @@ object Iterables {
     map.keysPost(3)
     assert(!res.contains(3))
   }
-
+  @ghost
   def test_mapValues(map: Map[Int, String]) = {
     require(map.get(1) == Some("foo") && map.get(2) == Some("bar"))
 
@@ -80,7 +80,7 @@ object Iterables {
     map.valuesPost1(2)
     assert(res.contains("bar"))
   }
-
+  @ghost
   def test_mapToList(map: Map[Int, String]) = {
     require(map.get(1) == Some("foo") && map.get(2) == Some("bar"))
 
