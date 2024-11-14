@@ -484,6 +484,7 @@ private[genc] sealed trait IR { ir =>
 }
 
 object IRs {
+  object TIR extends IR
   object SIR extends IR
   object CIR extends IR
   object RIR extends IR
