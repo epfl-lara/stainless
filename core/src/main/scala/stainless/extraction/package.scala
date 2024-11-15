@@ -45,7 +45,7 @@ package object extraction {
     "ImperativeCleanup"         -> "Cleanup after imperative transformations",
     "InvariantInitialization"   -> "Add initialization for classes where all fields have default values",
     "AdtSpecialization"         -> "Specialize classes into ADTs (when possible)",
-    "RefinementLifting"         -> "Lift simple refinements to contracts",
+    //"RefinementLifting"         -> "Lift simple refinements to contracts",
     "TypeEncoding"              -> "Encode non-ADT types",
     "FunctionClosure"           -> "Lift inner functions",
     "FunctionSpecialization"    -> "Specialize functions",
