@@ -121,7 +121,7 @@ abstract class Transformer[From <: IR, To <: IR](final val from: From, final val
       to.ArrayAllocVLA(to.ArrayType(rec(base), optLength), rec(length), rec(valueInit))
   }
 
-  protected final def rec(e: Expr)(using Env): to.Expr = recImpl(e)._1
+  protected def rec(e: Expr)(using Env): to.Expr = recImpl(e)._1
 
   protected final def recCallable(fun: Callable)(using Env): to.Callable = rec(fun).asInstanceOf[to.Callable]
 
