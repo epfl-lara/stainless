@@ -292,6 +292,11 @@ lazy val `stainless-core` = (project in file("core"))
   .enablePlugins(BuildInfoPlugin)
   //.enablePlugins(SphinxPlugin)
   .settings(name := "stainless-core")
+  .settings(
+    libraryDependencies ++= Seq(
+      "com.lihaoyi" %% "pprint" % "0.9.0"
+    )
+  )
   .settings(commonSettings, publishMavenSettings)
   //.settings(site.settings)
   .dependsOn(inox % "compile->compile;test->test")

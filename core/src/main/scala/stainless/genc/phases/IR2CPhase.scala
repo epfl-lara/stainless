@@ -4,22 +4,22 @@ package stainless
 package genc
 package phases
 
-import ir.IRs.{ SIR }
+import ir.IRs.{ TIR }
 
 import ir.PrimitiveTypes._
 import ir.Literals._
 import ir.Operators._
 
 import genc.{ CAST => C }
-import SIR._
+import TIR._
 
 import collection.mutable.{ Map => MutableMap, Set => MutableSet }
 
-class IR2CPhase(using override val context: inox.Context) extends LeonPipeline[SIR.Prog, CAST.Prog](context) {
+class IR2CPhase(using override val context: inox.Context) extends LeonPipeline[TIR.Prog, CAST.Prog](context) {
   val name = "CASTer"
   val description = "Translate the IR tree into the final C AST"
 
-  def run(ir: SIR.Prog): CAST.Prog = new IR2CImpl()(using context)(ir)
+  def run(ir: TIR.Prog): CAST.Prog = new IR2CImpl()(using context)(ir)
 }
 
 // This implementation is basically a Transformer that produce something which isn't an IR tree.
