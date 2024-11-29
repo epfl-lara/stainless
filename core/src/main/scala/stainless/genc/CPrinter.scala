@@ -322,6 +322,8 @@ class CPrinter(
 
     case Break => c"break"
 
+    case Continue => c"continue"
+
     case Return(Lit(UnitLit)) => c"return"
     case Return(value) => c"return $value"
     case Assert(expr) => c"assert($expr)"

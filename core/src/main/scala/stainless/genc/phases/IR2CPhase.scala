@@ -356,6 +356,7 @@ private class IR2CImpl()(using ctx: inox.Context) {
 
     case Return(e) => C.Return(rec(e))
     case Break => C.Break
+    case Continue => C.Continue
   }
 
   // Construct an instantce of the given case class.

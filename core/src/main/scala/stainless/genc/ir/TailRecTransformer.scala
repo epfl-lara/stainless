@@ -93,7 +93,7 @@ final class TailRecTransformer(val ctx: inox.Context) extends Transformer(SIR, T
           val tmpValDefs = valdefs.map(vd => ValDef(freshId(vd.id), vd.typ, isVar = false))
           val tmpDecls = tmpValDefs.zip(args).map { case (vd, arg) => Decl(vd, Some(arg)) }
           val valdefAssign = valdefs.zip(tmpValDefs).map { case (vd, tmp) => Assign(Binding(vd), Binding(tmp)) }
-          Block(tmpDecls ++ valdefAssign/*  :+ Continue() */)
+          Block(tmpDecls ++ valdefAssign :+ Continue)
         case _ => super.rec(e)
       }
     }
@@ -112,7 +112,10 @@ final class TailRecTransformer(val ctx: inox.Context) extends Transformer(SIR, T
   override protected def recImpl(fd: from.FunDef)(using Unit): to.FunDef = {
     super.recImpl{
       if isTailRecursive(fd) then
-        rewriteToAWhileLoop(fd)
+        val newFd = rewriteToAWhileLoop(fd)
+        val irPrinter = IRPrinter(SIR)
+        print(irPrinter.apply(newFd)(using irPrinter.Context(0)))
+        newFd
       else
         fd
     }
