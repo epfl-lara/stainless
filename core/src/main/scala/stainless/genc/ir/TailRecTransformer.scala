@@ -112,9 +112,7 @@ final class TailRecTransformer(val ctx: inox.Context) extends Transformer(SIR, T
   override protected def recImpl(fd: from.FunDef)(using Unit): to.FunDef = {
     super.recImpl{
       if isTailRecursive(fd) then
-        val newFd = rewriteToAWhileLoop(fd)
-        pprint.pprintln(newFd)
-        newFd
+        rewriteToAWhileLoop(fd)
       else
         fd
     }
