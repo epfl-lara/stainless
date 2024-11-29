@@ -1,11 +1,13 @@
 import stainless.annotation._
 import stainless.lang._
 
-object TailRecFib {
+object TailRecReturnInLoop {
 
   def fib(n: Int, i: Int = 0, j: Int = 1): Int =
-    if n == 0 then i
-    else fib(n-1, j, i+j)
+    for (n <- 1 to 2) {
+        if n == 0 then return i
+        else return fib(n-1, j, i+j)
+    }
 
   @cCode.`export`
   def main(): Int = {
