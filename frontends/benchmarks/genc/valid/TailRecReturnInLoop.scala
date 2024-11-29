@@ -8,6 +8,7 @@ object TailRecReturnInLoop {
         if n == 0 then return i
         else return fib(n-1, j, i+j)
     }
+    1
 
   @cCode.`export`
   def main(): Int = {
