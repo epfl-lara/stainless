@@ -192,6 +192,7 @@ private[genc] sealed trait IR { ir =>
       case Binding(vd) => vd.getType
       case c: Callable => c.typ
       case Block(exprs) => exprs.last.getType
+      case Labeled(_, block) => block.getType
       case MemSet(_, _, _) => NoType
       case SizeOf(_) => PrimitiveType(UInt32Type)
       case Decl(_, _) => NoType
@@ -221,6 +222,7 @@ private[genc] sealed trait IR { ir =>
       case If(_, _) => NoType
       case IfElse(_, thenn, _) => thenn.getType // same as elze
       case While(_, _) => NoType
+      case Goto(_) => NoType
       case IsA(_, _) => PrimitiveType(BoolType)
       case AsA(_, ct) => ct
       case IntegralCast(_, newIntegralType) => PrimitiveType(newIntegralType)
@@ -261,6 +263,7 @@ private[genc] sealed trait IR { ir =>
   case class Block(exprs: Seq[Expr]) extends Expr {
     require(exprs.nonEmpty, "GenC IR blocks must be non-empty")
   }
+  case class Labeled(name: String, expr: Expr) extends Expr
 
   case class MemSet(pointer: Expr, value: Expr, size: Expr) extends Expr
   case class SizeOf(tpe: Type) extends Expr
@@ -297,6 +300,7 @@ private[genc] sealed trait IR { ir =>
   case class If(cond: Expr, thenn: Expr) extends Expr
   case class IfElse(cond: Expr, thenn: Expr, elze: Expr) extends Expr
   case class While(cond: Expr, body: Expr) extends Expr
+  case class Goto(label: String) extends Expr
 
   // Type probindg + casting
   case class IsA(expr: Expr, ct: ClassType) extends Expr

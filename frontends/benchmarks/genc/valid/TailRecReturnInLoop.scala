@@ -5,8 +5,8 @@ object TailRecReturnInLoop {
 
   def fib(n: Int, i: Int = 0, j: Int = 1): Int =
     while (true) {
-        if n == 0 then return i
-        else return fib(n-1, j, i+j)
+      if n == 0 then return i
+      else return fib(n-1, j, i+j)
     }
     1
 

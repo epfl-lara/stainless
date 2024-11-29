@@ -167,6 +167,9 @@ private class IR2CImpl()(using ctx: inox.Context) {
         .map(rec(_))
     }
 
+    case Labeled(name, block) =>
+      C.Labeled(name, rec(block))
+
     case Decl(vd, None) => C.Decl(rec(vd.id), rec(vd.getType), None)
 
     case Decl(vd, Some(ArrayInit(ArrayAllocStatic(arrayType, length, values0)))) if allowFixedArray && vd.typ.isFixedArray =>
@@ -315,6 +318,7 @@ private class IR2CImpl()(using ctx: inox.Context) {
     case IfElse(cond, thenn, Lit(UnitLit)) => C.If(rec(cond), C.buildBlock(rec(thenn)))
     case IfElse(cond, thenn, elze) => C.IfElse(rec(cond), C.buildBlock(rec(thenn)), C.buildBlock(rec(elze)))
     case While(cond, body) => C.While(rec(cond), C.buildBlock(rec(body)))
+    case Goto(label) => C.Goto(label)
 
     // Find out if we can actually handle IsInstanceOf.
     case IsA(_, ClassType(cd)) if cd.parent.isEmpty => C.True // Since it has typechecked, it can only be true.

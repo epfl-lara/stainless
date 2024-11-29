@@ -93,6 +93,9 @@ final class IRPrinter[S <: IR](val ir: S) {
     case MemSet(pointer, value, size) => s"memset(${rec(pointer)}, ${rec(value)}, ${rec(size)})"
     case SizeOf(tpe) => s"sizeof(${rec(tpe)})"
     case Block(exprs) => "{{ " + (exprs map rec mkString ptx.newLine) + " }}"
+    case Labeled(label, expr) =>
+      s"""|$label:
+          |    ${rec(expr)}"""
     case Decl(vd, None) => (if (vd.isVar) "var" else "val") + " " + rec(vd)
     case Decl(vd, Some(value)) => (if (vd.isVar) "var" else "val") + " " + rec(vd) + " = " + rec(value)
     case App(callable, extra, args) =>
@@ -112,6 +115,8 @@ final class IRPrinter[S <: IR](val ir: S) {
       "else {" + ptx.newLine + "  " + rec(elze)(using ptx + 1) + ptx.newLine + "}"
     case While(cond, body) =>
       "while (" + rec(cond) + ") {" + ptx.newLine + "  " + rec(body)(using ptx + 1) + ptx.newLine + "}"
+    case Goto(label) =>
+      s"goto $label"
     case IsA(expr, ct) => "¿" + ct.clazz.id + "?" + rec(expr)
     case AsA(expr, ct) => "(" + ct.clazz.id + ")" + rec(expr)
     case IntegralCast(expr, newType) => "(" + newType + ")" + rec(expr)

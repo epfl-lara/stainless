@@ -96,6 +96,7 @@ abstract class Visitor[S <: IR](val ir: S) {
       case FunRef(e) => rec(e)
       case Assert(e) => rec(e)
       case Block(exprs) => exprs foreach rec
+      case Labeled(name, block) => rec(block)
       case Decl(vd, None) => rec(vd)
       case Decl(vd, Some(value)) => rec(vd); rec(value)
       case App(fun, extra, args) => rec(fun); extra foreach rec; args foreach rec
@@ -110,6 +111,7 @@ abstract class Visitor[S <: IR](val ir: S) {
       case If(cond, thenn) => rec(cond); rec(thenn)
       case IfElse(cond, thenn, elze) => rec(cond); rec(thenn); rec(elze)
       case While(cond, body) => rec(cond); rec(body)
+      case Goto(_) => ()
       case IsA(expr, ct) => rec(expr); rec(ct.clazz)
       case AsA(expr, ct) => rec(expr); rec(ct.clazz)
       case IntegralCast(expr, _) => rec(expr)

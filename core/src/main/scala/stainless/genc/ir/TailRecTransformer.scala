@@ -55,17 +55,18 @@ final class TailRecTransformer(val ctx: inox.Context) extends Transformer(SIR, T
   *    var i$ = i
   *    var j$ = j
   *    while (true) {
-  *      if (n$ == 0) {
-  *        return i$
-  *      } else {
-  *        val n$1 = n$ - 1
-  *        val i$1 = j$
-  *        val j$1 = i$ + j$
-  *        n$ = n$1
-  *        i$ = i$1
-  *        j$ = j$1
-  *        continue
-  *      }
+  *      someLabel:
+  *        if (n$ == 0) {
+  *          return i$
+  *        } else {
+  *          val n$1 = n$ - 1
+  *          val i$1 = j$
+  *          val j$1 = i$ + j$
+  *          n$ = n$1
+  *          i$ = i$1
+  *          j$ = j$1
+  *          goto someLabel
+  *        }
   *    }
   * }
   * Steps:
@@ -78,22 +79,24 @@ final class TailRecTransformer(val ctx: inox.Context) extends Transformer(SIR, T
     case FunBodyAST(body) =>
       val newParams = fd.params.map(p => ValDef(freshId(p.id), p.typ, isVar = true))
       val newParamMap = fd.params.zip(newParams).toMap
+      val labelName = freshId("label")
       val bodyWithNewParams = replaceBindings(newParamMap, body)
       val declarations = newParamMap.toList.map { case (old, nw) => Decl(nw, Some(Binding(old))) }
-      val newBody = replaceRecursiveCalls(fd, bodyWithNewParams, newParams.toList)
-      val newBodyWIthAWhileLoop = While(True, newBody)
+      val newBody = replaceRecursiveCalls(fd, bodyWithNewParams, newParams.toList, labelName)
+      val newBodyWithALabel = Labeled(labelName, newBody)
+      val newBodyWIthAWhileLoop = While(True, newBodyWithALabel)
       FunDef(fd.id, fd.returnType, fd.ctx, fd.params, FunBodyAST(Block(declarations :+ newBodyWIthAWhileLoop)), fd.isExported, fd.isPure)
     case _ => fd
   }
 
-  private def replaceRecursiveCalls(fd: FunDef, body: Expr, valdefs: List[ValDef]): Expr = {
+  private def replaceRecursiveCalls(fd: FunDef, body: Expr, valdefs: List[ValDef], labelName: String): Expr = {
     val replacer = new Transformer(from, from) with NoEnv {
       override def rec(e: Expr)(using Env): Expr = e match {
         case Return(App(FunVal(fdcall), _, args)) if fdcall == fd =>
           val tmpValDefs = valdefs.map(vd => ValDef(freshId(vd.id), vd.typ, isVar = false))
           val tmpDecls = tmpValDefs.zip(args).map { case (vd, arg) => Decl(vd, Some(arg)) }
           val valdefAssign = valdefs.zip(tmpValDefs).map { case (vd, tmp) => Assign(Binding(vd), Binding(tmp)) }
-          Block(tmpDecls ++ valdefAssign :+ Continue)
+          Block(tmpDecls ++ valdefAssign :+ Goto(labelName))
         case _ => super.rec(e)
       }
     }
