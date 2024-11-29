@@ -14,7 +14,7 @@ import java.io.PrintWriter
 import Utils._
 
 class GenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUtils with Matchers {
-  val validFiles = resourceFiles("genc/valid", n => n.endsWith(".scala") & n.contains("tailrec"), false).map(_.getPath)
+  val validFiles = resourceFiles("genc/valid", n => n.endsWith(".scala") & n.contains("TailRec"), false).map(_.getPath)
   val invalidFiles = resourceFiles("genc/invalid", _.endsWith(".scala"), false).map(_.getPath)
   val ctx = TestContext.empty
 
