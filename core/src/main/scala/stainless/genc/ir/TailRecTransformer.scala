@@ -116,8 +116,8 @@ final class TailRecTransformer(val ctx: inox.Context) extends Transformer(SIR, T
     super.recImpl{
       if isTailRecursive(fd) then
         val newFd = rewriteToAWhileLoop(fd)
-        val irPrinter = IRPrinter(SIR)
-        print(irPrinter.apply(newFd)(using irPrinter.Context(0)))
+        // val irPrinter = IRPrinter(SIR)
+        // print(irPrinter.apply(newFd)(using irPrinter.Context(0)))
         newFd
       else
         fd

@@ -94,8 +94,8 @@ final class IRPrinter[S <: IR](val ir: S) {
     case SizeOf(tpe) => s"sizeof(${rec(tpe)})"
     case Block(exprs) => "{{ " + (exprs map rec mkString ptx.newLine) + " }}"
     case Labeled(label, expr) =>
-      s"""|$label:
-          |    ${rec(expr)}"""
+      s"""|{{ $label:
+          |  ${rec(expr)} }}""".stripMargin
     case Decl(vd, None) => (if (vd.isVar) "var" else "val") + " " + rec(vd)
     case Decl(vd, Some(value)) => (if (vd.isVar) "var" else "val") + " " + rec(vd) + " = " + rec(value)
     case App(callable, extra, args) =>

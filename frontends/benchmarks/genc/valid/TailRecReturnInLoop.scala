@@ -1,5 +1,6 @@
 import stainless.annotation._
 import stainless.lang._
+import stainless.io._
 
 object TailRecReturnInLoop {
 
@@ -11,9 +12,9 @@ object TailRecReturnInLoop {
     1
 
   @cCode.`export`
-  def main(): Int = {
+  def main(): Unit = {
     implicit val state = stainless.io.newState
-    fib(10)
+    StdOut.println(fib(10))
   }
 
 }

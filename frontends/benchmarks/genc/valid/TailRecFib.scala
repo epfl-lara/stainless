@@ -1,5 +1,6 @@
 import stainless.annotation._
 import stainless.lang._
+import stainless.io._
 
 object TailRecFib {
 
@@ -8,9 +9,9 @@ object TailRecFib {
     else fib(n-1, j, i+j)
 
   @cCode.`export`
-  def main(): Int = {
+  def main(): Unit = {
     implicit val state = stainless.io.newState
-    fib(10)
+    StdOut.println(fib(10))
   }
 
 }
