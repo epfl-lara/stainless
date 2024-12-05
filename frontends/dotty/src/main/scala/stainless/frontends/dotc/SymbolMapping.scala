@@ -10,7 +10,7 @@ import dotty.tools.dotc.core.Symbols._
 import dotty.tools.dotc.core.Contexts._
 import stainless.ast.SymbolIdentifier
 
-import scala.collection.mutable.{ Map => MutableMap }
+import scala.collection.mutable.{ Map => MutableMap, Set => MutableSet }
 
 class SymbolMapping {
   import SymbolMapping._
@@ -25,10 +25,16 @@ class SymbolMapping {
   private val s2sAccessor = MutableMap[Symbol, SymbolIdentifier]()
   private val s2sEnumType = MutableMap[Symbol, SymbolIdentifier]()
 
+  private val usedTastyClasses = MutableSet[ClassSymbol]()
+  def getUsedTastyClasses(): Set[ClassSymbol] = usedTastyClasses.toSet
+
   /** Get the identifier associated with the given [[sym]], creating a new one if needed. */
   def fetch(sym: Symbol, mode: FetchingMode)(using Context): SymbolIdentifier = mode match {
     case Plain =>
       s2s.getOrElseUpdate(sym, {
+        if (sym.tastyInfo.isDefined) {
+          usedTastyClasses += sym.topLevelClass.asClass
+        }
         val overrides = sym.allOverriddenSymbols.toSeq
         val top = overrides.lastOption.getOrElse(sym)
         if (top eq sym) {
@@ -66,6 +72,7 @@ class SymbolMapping {
       res
     })
   }
+
 }
 
 object SymbolMapping {
