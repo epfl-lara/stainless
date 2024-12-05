@@ -50,7 +50,10 @@ class DottyCompiler(ctx: inox.Context, callback: CallBack) extends Compiler {
 
     override def runOn(units: List[CompilationUnit])(using dottyCtx: DottyContext): List[CompilationUnit] = {
       exportedSymsMapping = exportedSymbolsMapping(ctx, this.start, units)
-      super.runOn(units)
+      val res = super.runOn(units)
+      extraction.extractClasspathUnits(exportedSymsMapping).foreach(extracted =>
+        callback(extracted.file, extracted.unit, extracted.classes, extracted.functions, extracted.typeDefs))
+      res
     }
   }
 
@@ -153,8 +156,9 @@ object DottyCompiler {
             x => new File(x.getLocation.toURI).getAbsolutePath
           } getOrElse { ctx.reporter.fatalError("No Scala 3 library found.") }
 
-          val cps = Seq(scala213Lib, scala3Lib).distinct.mkString(java.io.File.pathSeparator)
-          val flags = Seq("-color:never", "-language:implicitConversions", "-Wsafe-init", s"-cp:$cps") // -Ysafe-init is deprecated (SAM 21.08.2024)
+          val extraCps = ctx.options.findOptionOrDefault(frontend.optClasspath).toSeq
+          val cps = (extraCps ++ Seq(scala213Lib, scala3Lib)).distinct.mkString(java.io.File.pathSeparator)
+          val flags = Seq("-Yretain-trees", "-color:never", "-language:implicitConversions", "-Wsafe-init", s"-cp:$cps") // -Ysafe-init is deprecated (SAM 21.08.2024)
           allCompilerArguments(ctx, compilerArgs) ++ flags
         }
         val compiler: DottyCompiler = new DottyCompiler(ctx, this.callback)

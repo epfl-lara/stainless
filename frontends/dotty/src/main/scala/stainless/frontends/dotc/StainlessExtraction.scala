@@ -11,6 +11,7 @@ import transform._
 import ast.tpd
 import ast.Trees._
 import typer._
+import util.SourceFile
 
 import extraction.xlang.{trees => xt}
 import frontend.{CallBack, Frontend, FrontendFactory, ThreadedFrontend, UnsupportedCodeException}
@@ -22,35 +23,43 @@ class StainlessExtraction(val inoxCtx: inox.Context) {
   private val symbolMapping = new SymbolMapping
 
   def extractUnit(exportedSymsMapping: ExportedSymbolsMapping)(using ctx: DottyContext): Option[ExtractedUnit] = {
+    val unit = ctx.compilationUnit
+    val tree = unit.tpdTree
+    extractUnit(tree, unit.source, exportedSymsMapping)
+  }
+
+  def extractUnit(
+    tree: tpd.Tree,
+    source: SourceFile,
+    exportedSymsMapping: ExportedSymbolsMapping
+  )(using ctx: DottyContext): Option[ExtractedUnit] = {
     // Remark: the method `extractUnit` is called for each compilation unit (which corresponds more or less to a Scala file)
     // Therefore, the symbolMapping instances needs to be shared accross compilation unit.
     // Since `extractUnit` is called within the same thread, we do not need to synchronize accesses to symbolMapping.
     val extraction = new CodeExtraction(inoxCtx, symbolMapping, exportedSymsMapping)
     import extraction._
 
-    val unit = ctx.compilationUnit
-    val tree = unit.tpdTree
     val (id, stats) = tree match {
       case pd@PackageDef(_, lst) =>
         val id = lst.collectFirst { case PackageDef(ref, _) => ref } match {
           case Some(ref) => extractRef(ref)
-          case None => FreshIdentifier(unit.source.file.name.replaceFirst("[.][^.]+$", ""))
+          case None => FreshIdentifier(source.file.name.replaceFirst("[.][^.]+$", ""))
         }
         (id, pd.stats)
       case _ =>
-        (FreshIdentifier(unit.source.file.name.replaceFirst("[.][^.]+$", "")), List.empty)
+        (FreshIdentifier(source.file.name.replaceFirst("[.][^.]+$", "")), List.empty)
     }
 
     val fragmentChecker = new FragmentChecker(inoxCtx)
     fragmentChecker.ghostChecker(tree)
     fragmentChecker.checker(tree)
 
-    if (!fragmentChecker.hasErrors()) tryExtractUnit(extraction, unit, id, stats)
+    if (!fragmentChecker.hasErrors()) tryExtractUnit(extraction, source, id, stats)
     else None
   }
 
   private def tryExtractUnit(extraction: CodeExtraction,
-                             unit: CompilationUnit,
+                             source: SourceFile,
                              id: Identifier,
                              stats: List[tpd.Tree])(using DottyContext): Option[ExtractedUnit] = {
     // If the user annotates a function with @main, the compiler will generate a top-level class
@@ -67,7 +76,7 @@ class StainlessExtraction(val inoxCtx: inox.Context) {
     try {
       val (imports, unitClasses, unitFunctions, _, subs, classes, functions, typeDefs) = extraction.extractStatic(filteredStats)
       assert(unitFunctions.isEmpty, "Packages shouldn't contain functions")
-      val file = unit.source.file.absolute.path
+      val file = source.file.absolute.path
       val isLibrary = stainless.Main.libraryFiles contains file
       val xtUnit = xt.UnitDef(id, imports, unitClasses, subs, !isLibrary)
       Some(ExtractedUnit(file, xtUnit, classes, functions, typeDefs))
@@ -91,5 +100,20 @@ class StainlessExtraction(val inoxCtx: inox.Context) {
       }
     }
     trAcc(None, stats)
+  }
+
+  def extractClasspathUnits(exportedSymsMapping: ExportedSymbolsMapping)(using DottyContext): Seq[ExtractedUnit] = {
+    @scala.annotation.tailrec
+    def loop(units: Map[ClassSymbol, ExtractedUnit]): Seq[ExtractedUnit] =
+      val newUnits =
+        symbolMapping
+          .getUsedTastyClasses()
+          .filterNot(units.contains)
+          .map(sym => sym -> extractUnit(sym.rootTree, sym.sourceOfClass, exportedSymsMapping).get)
+          .toMap
+      if (newUnits.isEmpty) units.values.toSeq
+      else loop(units ++ newUnits)
+
+    loop(Map.empty)
   }
 }
