@@ -1,13 +1,11 @@
-name: Stainless CI
+name: Stainless Explicit fast-machines
 on:
   workflow_dispatch:
   pull_request:
-  push:
-    branches:
-      - main
 jobs:
   tests:
     runs-on:
+      group: fast-machines
       labels: [self-hosted, linux]
     env:
       JAVA_OPTS_TMP_DIR: ./tmp_java
