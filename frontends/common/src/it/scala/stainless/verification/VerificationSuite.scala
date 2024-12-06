@@ -101,6 +101,7 @@ class VerificationSuite extends VerificationComponentTestSuite {
       "verification/valid/IntSetInv",
       "verification/valid/Iterables",
       "verification/valid/LawTypeArgsElim",
+      "verification/valid/LeanMergeSort",
       "verification/valid/ListMonad",
       "verification/valid/ListOperations",
       "verification/valid/LiteralMaps",
