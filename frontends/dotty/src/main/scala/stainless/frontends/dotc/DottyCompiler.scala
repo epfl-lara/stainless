@@ -8,6 +8,7 @@ import plugins._
 import dotty.tools.dotc.reporting.{Diagnostic, Reporter => DottyReporter}
 import dotty.tools.dotc.interfaces.Diagnostic.{ERROR, WARNING, INFO}
 import dotty.tools.dotc.util.SourcePosition
+import dotty.tools.dotc.core.Symbols.{ClassSymbol => DottyClasSymbol}
 import dotty.tools.io.AbstractFile
 import core.Contexts.{Context => DottyContext, _}
 import core.Phases._
@@ -51,7 +52,7 @@ class DottyCompiler(ctx: inox.Context, callback: CallBack) extends Compiler {
     override def runOn(units: List[CompilationUnit])(using dottyCtx: DottyContext): List[CompilationUnit] = {
       exportedSymsMapping = exportedSymbolsMapping(ctx, this.start, units)
       val res = super.runOn(units)
-      extraction.extractClasspathUnits(exportedSymsMapping).foreach(extracted =>
+      extraction.extractClasspathUnits(exportedSymsMapping, ctx).foreach(extracted =>
         callback(extracted.file, extracted.unit, extracted.classes, extracted.functions, extracted.typeDefs))
       res
     }
@@ -142,10 +143,16 @@ object DottyCompiler {
     override val libraryPaths: Seq[String]
   ) extends FrontendFactory {
 
+    /** Overriden to not include library sources. */
+    final override protected def allCompilerArguments(ctx: inox.Context, compilerArgs: Seq[String]): Seq[String] = {
+      val extraSources = extraSourceFiles(ctx)
+      extraCompilerArguments ++ extraSources ++ compilerArgs
+    }
+    
     override def apply(ctx: inox.Context, compilerArgs: Seq[String], callback: CallBack): Frontend =
       new ThreadedFrontend(callback, ctx) {
         val args = {
-          // Attempt to find where the Scala 2.13 and 3.0 libs are.
+          // Attempt to find where the Scala 2.13 and 3.0 libs, and the Stainless lib are.
           // The 3.0 library depends on the 2.13, so we need to fetch the later as well.
           val scala213Lib: String = Option(scala.Predef.getClass.getProtectionDomain.getCodeSource) map {
             x => new File(x.getLocation.toURI).getAbsolutePath
@@ -155,9 +162,15 @@ object DottyCompiler {
           val scala3Lib: String = Option(scala.util.NotGiven.getClass.getProtectionDomain.getCodeSource) map {
             x => new File(x.getLocation.toURI).getAbsolutePath
           } getOrElse { ctx.reporter.fatalError("No Scala 3 library found.") }
+          // Find the Stainless library by looking at the location of the `stainless.collection.List`.
+          val stainlessLib: String = Option(stainless.collection.List.getClass.getProtectionDomain.getCodeSource) map {
+            x => new File(x.getLocation.toURI).getAbsolutePath
+          } getOrElse { ctx.reporter.fatalError("No Stainless Library found.") }
+
+          ctx.reporter.info(s"Stainless library found at: $stainlessLib")
 
           val extraCps = ctx.options.findOptionOrDefault(frontend.optClasspath).toSeq
-          val cps = (extraCps ++ Seq(scala213Lib, scala3Lib)).distinct.mkString(java.io.File.pathSeparator)
+          val cps = (extraCps ++ Seq(stainlessLib, scala213Lib, scala3Lib)).distinct.mkString(java.io.File.pathSeparator)
           val flags = Seq("-Yretain-trees", "-color:never", "-language:implicitConversions", "-Wsafe-init", s"-cp:$cps") // -Ysafe-init is deprecated (SAM 21.08.2024)
           allCompilerArguments(ctx, compilerArgs) ++ flags
         }
