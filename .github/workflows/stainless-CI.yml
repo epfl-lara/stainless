@@ -8,7 +8,7 @@ on:
 jobs:
   tests:
     runs-on:
-      group: [fast-machines]
+      group: fast-machines
       labels: [self-hosted, linux]
     env:
       JAVA_OPTS_TMP_DIR: ./tmp_java
