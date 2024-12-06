@@ -27,6 +27,8 @@ case class VC[T <: ast.Trees](val trees: T)(val condition: trees.Expr, val fid: 
     val state = Seq(trees, condition, fid, kind, satisfiability)
     state.map(_.hashCode()).foldLeft(0)((a, b) => 31 * a + b)
   }
+
+  override def toString(): String =  s"VC($condition)"
 }
 
 sealed abstract class VCKind(val name: String, val abbrv: String) {

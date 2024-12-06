@@ -35,7 +35,7 @@ trait InputUtils {
     loadFiles(files, filterOpt, sanitize)
   }
 
-  /** Compile and extract the given files (& the library). */
+  /** Compile and extract the given files. */
   def loadFiles(files: Seq[String], filterOpt: Option[Filter] = None, sanitize: Boolean = true)
                (using ctx: inox.Context): (Seq[xt.UnitDef], Program { val trees: xt.type }) = {
 
