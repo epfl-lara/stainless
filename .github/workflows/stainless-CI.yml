@@ -7,7 +7,7 @@ on:
       - main
 jobs:
   tests:
-    runs-on: [self-hosted, linux]
+    runs-on: [self-hosted, linux, fast-machines]
     env:
       JAVA_OPTS_TMP_DIR: ./tmp_java
       # define Java options for both official sbt and sbt-extras
