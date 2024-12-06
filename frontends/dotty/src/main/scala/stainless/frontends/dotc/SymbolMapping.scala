@@ -28,13 +28,17 @@ class SymbolMapping {
   private val usedTastyClasses = MutableSet[ClassSymbol]()
   def getUsedTastyClasses(): Set[ClassSymbol] = usedTastyClasses.toSet
 
+  private def maybeRegisterTastyClass(sym: Symbol)(using Context): Unit = {
+    if (sym.tastyInfo.isDefined) {
+      usedTastyClasses += sym.topLevelClass.asClass
+    }
+  }
+
   /** Get the identifier associated with the given [[sym]], creating a new one if needed. */
   def fetch(sym: Symbol, mode: FetchingMode)(using Context): SymbolIdentifier = mode match {
     case Plain =>
       s2s.getOrElseUpdate(sym, {
-        if (sym.tastyInfo.isDefined) {
-          usedTastyClasses += sym.topLevelClass.asClass
-        }
+        maybeRegisterTastyClass(sym)
         val overrides = sym.allOverriddenSymbols.toSeq
         val top = overrides.lastOption.getOrElse(sym)
         if (top eq sym) {
@@ -45,6 +49,7 @@ class SymbolMapping {
       })
     case FieldAccessor =>
       s2sAccessor.getOrElseUpdate(sym, {
+        maybeRegisterTastyClass(sym)
         val overrides = sym.allOverriddenSymbols.toSeq
         val top = overrides.lastOption.getOrElse(sym)
         if (top eq sym) {
@@ -58,6 +63,7 @@ class SymbolMapping {
       })
     case EnumType =>
       s2sEnumType.getOrElseUpdate(sym, {
+        maybeRegisterTastyClass(sym)
         assert(sym.allOverriddenSymbols.isEmpty)
         SymbolIdentifier(ast.Symbol(symFullName(sym)))
       })
