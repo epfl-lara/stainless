@@ -80,6 +80,6 @@ BASE_DIR="$( dirname "$( realpath "${BASH_SOURCE[0]}" )" )"
 JARS="$BASE_DIR/lib"
 
 # NOTE: $JAVA_OPTS not quoted, as it may be empty!
-TORUN="scala-cli --jar ${JARS}/stainless-library.jar ${JARS}/stainless-library-sources.jar $@"
+TORUN="scala-cli -S 3.5.2 --jar ${JARS}/stainless-library.jar ${JARS}/stainless-library-sources.jar $@"
 echo $TORUN
 ${TORUN}
