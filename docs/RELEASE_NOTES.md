@@ -1,5 +1,13 @@
 # Release Notes
 
+- Scala version is now 3.5.2 
+- Update to Inox that supports Horn clause solving, https://github.com/epfl-lara/inox/pull/214
+- Fix an extraction bug with type synonym definitions (#1595)
+- Explicit measures in List library so termination checks are cached
+- More properties and methods on lists and sets
+- Set considered to have positive polarity (it is finite)
+- Internal solver errors are now silent by default
+
 ## Version 0.9.8.9 (2024-10-19)
 
 - Default cache now only stores SHA-256 hash of formulas ( -binary-cache=true for old version)
