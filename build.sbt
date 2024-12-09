@@ -303,8 +303,6 @@ lazy val `stainless-library` = (project in file("frontends") / "library")
   .settings(
     name := "stainless-library",
     scalaVersion := stainlessLibScalaVersion,
-    // don't publish binaries - stainless-library is only consumed as a sources component
-    packageBin / publishArtifact := false,
     crossVersion := CrossVersion.binary,
     Compile / scalaSource := baseDirectory.value / "stainless"
   )
@@ -343,6 +341,7 @@ lazy val `stainless-dotty` = (project in file("frontends/dotty"))
     },
   )
   .dependsOn(`stainless-core`)
+  .dependsOn(`stainless-library`)
   .dependsOn(inox % "test->test;it->test,it")
   .configs(IntegrationTest)
 
