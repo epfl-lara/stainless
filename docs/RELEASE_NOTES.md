@@ -1,5 +1,7 @@
 # Release Notes
 
+## Version 0.9.9.0 (2024-12-09)
+
 - Scala version is now 3.5.2 
 - Update to Inox that supports Horn clause solving, https://github.com/epfl-lara/inox/pull/214
 - Fix an extraction bug with type synonym definitions (#1595)
