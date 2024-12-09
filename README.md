@@ -83,7 +83,7 @@ For instance:
 ```scala
 ThisBuild / version := "0.1.0"
 
-ThisBuild / scalaVersion := "3.5.0"
+ThisBuild / scalaVersion := "3.5.2"
 
 lazy val myTestProject = (project in file("."))
   .enablePlugins(StainlessPlugin) // <--------
