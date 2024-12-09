@@ -16,7 +16,7 @@ import Utils._
 class GenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUtils with Matchers {
   val validFiles = resourceFiles("genc/valid", _.endsWith(".scala"), false).map(_.getPath)
   val invalidFiles = resourceFiles("genc/invalid", _.endsWith(".scala"), false).map(_.getPath)
-  val tailrecFiles = validFiles.filter(_.toLowerCase.contains("tailrec")).map { path =>
+  val tailrecFiles = validFiles.filter(_.toLowerCase.contains("tailrec".toLowerCase)).map { path =>
     val checkFile = path.replace(".scala", ".check")
     path -> checkFile
   }

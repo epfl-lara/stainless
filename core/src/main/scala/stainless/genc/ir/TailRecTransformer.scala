@@ -26,17 +26,6 @@ final class TailRecTransformer(val ctx: inox.Context) extends Transformer(SIR, T
       override protected def visit(expr: Expr): Unit = expr match {
         case Return(App(FunVal(fdcall), _, _)) => tailFunctionRefs += fdcall
 
-        case Block(stmts) =>
-          stmts.zipWithIndex.foreach {
-            case (Decl(id, Some(App(FunVal(fdcall), _, _))), idx) =>
-              stmts.lift(idx + 1) match {
-                case Some(Return(Binding(retId))) if retId == id =>
-                  tailFunctionRefs += fdcall
-                case _ =>
-              }
-            case _ =>
-          }
-
         case _ =>
       }
     }
@@ -80,12 +69,6 @@ final class TailRecTransformer(val ctx: inox.Context) extends Transformer(SIR, T
   * [x] Replace existing parameter references with the new variables
   * [x] Create a while loop with a condition true
   * [x] Replace the recursive return with a variable assignments (updating the state) and a continue statement
-  * [x] Detect and replace aliased tail recursive calls
-  *     Example:
-  *     def f(...) = 
-  *       ...
-  *       val res = f(...)
-  *       return res
   */
   private def rewriteToAWhileLoop(fd: FunDef): FunDef = fd.body match {
     case FunBodyAST(body) =>
@@ -103,38 +86,14 @@ final class TailRecTransformer(val ctx: inox.Context) extends Transformer(SIR, T
 
   private def replaceRecursiveCalls(fd: FunDef, body: Expr, valdefs: List[ValDef], labelName: String): Expr = {
     val replacer = new Transformer(from, from) with NoEnv {
-      override def rec(e: Expr)(using Env): Expr = e match {
+      override def recImpl(e: Expr)(using Env): (Expr, Env) = e match {
         case Return(App(FunVal(fdcall), _, args)) if fdcall == fd =>
           val tmpValDefs = valdefs.map(vd => ValDef(freshId(vd.id), vd.typ, isVar = false))
           val tmpDecls = tmpValDefs.zip(args).map { case (vd, arg) => Decl(vd, Some(arg)) }
           val valdefAssign = valdefs.zip(tmpValDefs).map { case (vd, tmp) => Assign(Binding(vd), Binding(tmp)) }
-          Block(tmpDecls ++ valdefAssign :+ Goto(labelName))
-
-        // For aliased case
-        case Block(stmts) =>
-          val newStmts = stmts.zipWithIndex.flatMap {
-            case (d @ Decl(id, Some(App(FunVal(fdcall), _, args))), idx) if fdcall == fd =>
-              stmts.lift(idx + 1) match {
-                // The next statement returns the result of the tail recursive call
-                case Some(Return(Binding(retId))) if retId == id =>
-                  val tmpValDefs = valdefs.map(vd => ValDef(freshId(vd.id), vd.typ, isVar = false))
-                  val tmpDecls = tmpValDefs.zip(args).map { case (vd, arg) => Decl(vd, Some(arg)) }
-                  val valdefAssign = valdefs.zip(tmpValDefs).map { case (vd, tmp) => Assign(Binding(vd), Binding(tmp)) }
-                  val newStmt = Block(tmpDecls ++ valdefAssign :+ Goto(labelName))
-                  List(newStmt)
-                case _ => List(d)
-              }
-            case (stmt @ Return(Binding(retId)), idx) =>
-              stmts.lift(idx - 1) match {
-                // The previous statement is a tail recursive call that is assigned to the returned variable
-                case Some(Decl(id, Some(App(FunVal(fdcall), _, _)))) if fdcall == fd && id == retId => Nil
-                case _ => List(stmt)
-              }
-            case (stmt, idx) => List(stmt)
-          }
-          Block(newStmts.map(rec))
-
-        case _ => super.rec(e)
+          Block(tmpDecls ++ valdefAssign :+ Goto(labelName)) -> ()
+        case _ =>
+          super.recImpl(e)
       }
     }
     replacer(body)
