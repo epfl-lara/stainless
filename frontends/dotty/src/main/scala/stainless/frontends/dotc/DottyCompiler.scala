@@ -17,6 +17,8 @@ import typer._
 import frontend.{CallBack, Frontend, FrontendFactory, ThreadedFrontend}
 import Utils._
 
+import inox.DebugSection
+
 import java.io.File
 import java.net.URL
 
@@ -52,7 +54,7 @@ class DottyCompiler(ctx: inox.Context, callback: CallBack) extends Compiler {
     override def runOn(units: List[CompilationUnit])(using dottyCtx: DottyContext): List[CompilationUnit] = {
       exportedSymsMapping = exportedSymbolsMapping(ctx, this.start, units)
       val res = super.runOn(units)
-      extraction.extractClasspathUnits(exportedSymsMapping, ctx).foreach(extracted =>
+      extraction.extractTastyUnits(exportedSymsMapping, ctx).foreach(extracted =>
         callback(extracted.file, extracted.unit, extracted.classes, extracted.functions, extracted.typeDefs))
       res
     }
@@ -167,7 +169,10 @@ object DottyCompiler {
             x => new File(x.getLocation.toURI).getAbsolutePath
           } getOrElse { ctx.reporter.fatalError("No Stainless Library found.") }
 
-          ctx.reporter.info(s"Stainless library found at: $stainlessLib")
+          given DebugSection = frontend.DebugSectionFrontend
+          ctx.reporter.debug(s"Scala library 2.13 found at: $scala213Lib")
+          ctx.reporter.debug(s"Scala library 3 found at: $scala3Lib")
+          ctx.reporter.debug(s"Stainless library found at: $stainlessLib")
 
           val extraCps = ctx.options.findOptionOrDefault(frontend.optClasspath).toSeq
           val cps = (extraCps ++ Seq(stainlessLib, scala213Lib, scala3Lib)).distinct.mkString(java.io.File.pathSeparator)

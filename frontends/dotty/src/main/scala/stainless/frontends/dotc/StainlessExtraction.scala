@@ -3,19 +3,25 @@
 package stainless
 package frontends.dotc
 
+import scala.collection.mutable.{LinkedHashMap, ArrayBuffer}
+
+import dotty.tools.io.AbstractFile
 import dotty.tools.dotc._
 import core.Names._
 import core.Symbols._
+import core.CompilationUnitInfo
 import core.Contexts.{Context => DottyContext}
 import transform._
 import ast.tpd
 import ast.Trees._
 import typer._
-import util.SourceFile
+
+import inox.DebugSection
 
 import extraction.xlang.{trees => xt}
 import frontend.{CallBack, Frontend, FrontendFactory, ThreadedFrontend, UnsupportedCodeException, DebugSectionFrontend}
 import Utils._
+import stainless.verification.CoqEncoder.m
 
 case class ExtractedUnit(file: String, unit: xt.UnitDef, classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef], typeDefs: Seq[xt.TypeDef])
 
@@ -25,14 +31,14 @@ class StainlessExtraction(val inoxCtx: inox.Context) {
   def extractUnit(exportedSymsMapping: ExportedSymbolsMapping)(using ctx: DottyContext): Option[ExtractedUnit] = {
     val unit = ctx.compilationUnit
     val tree = unit.tpdTree
-    extractUnit(tree, unit.source, exportedSymsMapping, isFromSource = true)
+    extractUnit(tree, unit.source.file, exportedSymsMapping, isFromSource = true)
   }
 
   def extractUnit(
     tree: tpd.Tree,
-    source: SourceFile,
+    file: AbstractFile,
     exportedSymsMapping: ExportedSymbolsMapping,
-    isFromSource: Boolean
+    isFromSource: Boolean,
   )(using ctx: DottyContext): Option[ExtractedUnit] = {
     // Remark: the method `extractUnit` is called for each compilation unit (which corresponds more or less to a Scala file)
     // Therefore, the symbolMapping instances needs to be shared accross compilation unit.
@@ -44,24 +50,24 @@ class StainlessExtraction(val inoxCtx: inox.Context) {
       case pd@PackageDef(pid, lst) =>
         val id = lst.collectFirst { case PackageDef(ref, _) => ref } match {
           case Some(ref) => extractRef(ref)
-          case None => FreshIdentifier(source.file.name.replaceFirst("[.][^.]+$", ""))
+          case None => FreshIdentifier(file.name.replaceFirst("[.][^.]+$", ""))
         }
         (id, pd.stats)
       case _ =>
-        inoxCtx.reporter.info("Empty package definition: " + source.file.name)
-        (FreshIdentifier(source.file.name.replaceFirst("[.][^.]+$", "")), List.empty)
+        inoxCtx.reporter.info("Empty package definition: " + file.name)
+        (FreshIdentifier(file.name.replaceFirst("[.][^.]+$", "")), List.empty)
     }
 
     val fragmentChecker = new FragmentChecker(inoxCtx)
     fragmentChecker.ghostChecker(tree)
     fragmentChecker.checker(tree)
 
-    if (!fragmentChecker.hasErrors()) tryExtractUnit(extraction, source, id, stats, isFromSource)
+    if (!fragmentChecker.hasErrors()) tryExtractUnit(extraction, file, id, stats, isFromSource)
     else None
   }
 
   private def tryExtractUnit(extraction: CodeExtraction,
-                             source: SourceFile,
+                             file: AbstractFile,
                              id: Identifier,
                              stats: List[tpd.Tree],
                              isFromSource: Boolean
@@ -80,11 +86,8 @@ class StainlessExtraction(val inoxCtx: inox.Context) {
     try {
       val (imports, unitClasses, unitFunctions, _, subs, classes, functions, typeDefs) = extraction.extractStatic(filteredStats)
       assert(unitFunctions.isEmpty, "Packages shouldn't contain functions")
-      val file = source.file.absolute.path
-      val isLibrary = stainless.Main.libraryFiles contains file
-      val isMain = isFromSource && !isLibrary
-      val xtUnit = xt.UnitDef(id, imports, unitClasses, subs, isMain)
-      Some(ExtractedUnit(file, xtUnit, classes, functions, typeDefs))
+      val xtUnit = xt.UnitDef(id, imports, unitClasses, subs, isFromSource)
+      Some(ExtractedUnit(file.absolute.path, xtUnit, classes, functions, typeDefs))
     } catch {
       case UnsupportedCodeException(pos, msg) =>
         inoxCtx.reporter.error(pos, msg)
@@ -107,19 +110,66 @@ class StainlessExtraction(val inoxCtx: inox.Context) {
     trAcc(None, stats)
   }
 
-  def extractClasspathUnits(exportedSymsMapping: ExportedSymbolsMapping, inoxCtx: inox.Context)(using DottyContext): Seq[ExtractedUnit] = {
-    def loop(units: Map[ClassSymbol, ExtractedUnit], depth: Int): Seq[ExtractedUnit] =
-      val newSymbols = symbolMapping.getUsedTastyClasses().filterNot(units.contains)
-      inoxCtx.reporter.debug(f"Symbols to extract from classpath at depth $depth: [${newSymbols.map(_.fullName).mkString(", ")}]")(using DebugSectionFrontend)
+  /** Extract units defined in Tasty files.
+    * 
+    * This will only extract units that have not been extracted yet.
+    * 
+    * See [[SymbolMapping.popUsedTastyUnits]] for more information about how
+    * these units are collected.
+    * 
+    * Side-effect: calls [[SymbolMapping.popUsedTastyUnits]].
+    */
+  def extractTastyUnits(exportedSymsMapping: ExportedSymbolsMapping, inoxCtx: inox.Context)(using DottyContext): Seq[ExtractedUnit] = {
+    given DebugSection = DebugSectionFrontend
+
+    def extractTastyUnit(tree: tpd.Tree, info: CompilationUnitInfo): Option[ExtractedUnit] = {
+      val res = extractUnit(tree, info.associatedFile, exportedSymsMapping, isFromSource = false)
+      res match {
+        case Some(extracted) => inoxCtx.reporter.debug(s"- Extracted ${extracted.unit.id}.")
+        case None => inoxCtx.reporter.debug(s"- Failed to extract Tasty unit from ${info.associatedFile.path}.")
+      }
+      res
+    }
+
+    // We avoid extracting Tasty units under `scala` because these are generally
+    // not supported by Stainless, and because only a fragment of the Scala
+    // standard library is available as Tasty files. Trying to extract units
+    // from `scala` would therefore cause missing dependencies errors.  
+    //
+    // TODO(mbovel): However, this is not a general fix. A similar situation
+    // could happen for non-library files: extracting the Tasty unit of a symbol
+    // accessed only from within an `@exern` method could yield failures when
+    // extracting the unit is not required in the first place. This is an edge
+    // case to be addressed later, either by making sure that the body of
+    // `@extern` methods is not visited at all, or by not registering used Tasty
+    // units for symbols accessed only from within `@extern` methods.
+    val unextractedPackages: Set[Symbol] = Set(defn.ScalaPackageClass)
+
+    // Potential performance improvement: share the Map of extracted Tasty units
+    // accross runs, so that we don't extract the same units multiple times in
+    // watch mode. However that could also cause a memory leak if the map is
+    // never cleared. To be investigated.
+    val extractedTastyUnits = LinkedHashMap[tpd.Tree, Option[ExtractedUnit]]()
+
+    var depth = 0
+
+    while depth < 100 do
+      inoxCtx.reporter.debug(f"Extracting Tasty units at depth $depth:")
       val newUnits =
-        newSymbols.map(sym => {
-          val extracted = extractUnit(sym.rootTree, sym.sourceOfClass, exportedSymsMapping, isFromSource = false).get
-          inoxCtx.reporter.debug(s"Extracted class ${sym.fullName} from classpath as unit ${extracted.unit.id}.")(using DebugSectionFrontend)
-          (sym -> extracted)
-        })
-        .toMap
-      if (newUnits.isEmpty) units.values.toSeq
-      else loop(units ++ newUnits, depth + 1)
-    loop(Map.empty, 0)
+        symbolMapping
+          .popUsedTastyUnits()
+          .filterNot((tree, _) => extractedTastyUnits.contains(tree))
+          .filterNot((tree, _) => tree.symbol.ownersIterator.exists(unextractedPackages))
+          .map((tree, info) => tree -> extractTastyUnit(tree, info))
+      if newUnits.isEmpty then
+        inoxCtx.reporter.debug(f"- No more units to extract.")
+        return extractedTastyUnits.values.flatten.toSeq
+      extractedTastyUnits ++= newUnits
+      depth += 1
+
+    // This should not be reached.
+    inoxCtx.reporter.error("Reached maximum depth while extracting Tasty units. This is likely a bug in Stainless.")
+    Nil
   }
 }
+
