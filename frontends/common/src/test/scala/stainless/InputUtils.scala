@@ -61,7 +61,6 @@ trait InputUtils {
     val callback = new CallBack {
       override def join(): Unit = ()
       override def stop(): Unit = ()
-      override def failed(): Unit = ()
       override def getReport = None
 
       override def beginExtractions(): Unit = ()

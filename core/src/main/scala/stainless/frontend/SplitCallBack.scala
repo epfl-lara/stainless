@@ -71,8 +71,6 @@ class SplitCallBack(components: Seq[Component])(using override val context: inox
     }
   }
 
-  final override def failed(): Unit = ()
-
   final override def endExtractions(): Unit = {
     if (reporter.errorCount != 0) {
       reporter.reset()
