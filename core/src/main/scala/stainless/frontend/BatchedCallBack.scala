@@ -67,8 +67,6 @@ class BatchedCallBack(components: Seq[Component])(using val context: inox.Contex
     }
   }
 
-  def failed(): Unit = {}
-
   def endExtractions(): Unit = {
     def reportProgress(msg: String) =
       context.reporter.emit(context.reporter.ProgressMessage(context.reporter.INFO, PreprocessingTag, msg))
