@@ -10,11 +10,9 @@ jobs:
     runs-on:
       labels: [self-hosted, linux]
     env:
-      JAVA_OPTS_TMP_DIR: ./tmp_java
       # define Java options for both official sbt and sbt-extras
-      JAVA_OPTS: -Dsbt.io.implicit.relative.glob.conversion=allow -Xss512M -Xms1024M -Xmx12G -XX:MaxMetaspaceSize=2G -XX:+UseCodeCacheFlushing -XX:ReservedCodeCacheSize=768M -Djava.io.tmpdir=./tmp_java
-      JVM_OPTS:  -Dsbt.io.implicit.relative.glob.conversion=allow -Xss512M -Xms1024M -Xmx12G -XX:MaxMetaspaceSize=2G -XX:+UseCodeCacheFlushing -XX:ReservedCodeCacheSize=768M -Djava.io.tmpdir=./tmp_java
-      SBT_OPTS: -Djava.io.tmpdir=./temp_java --sbt-dir ./temp_java/.sbt
+      JAVA_OPTS: -Dsbt.io.implicit.relative.glob.conversion=allow -Xss512M -Xms1024M -Xmx12G -XX:MaxMetaspaceSize=2G -XX:+UseCodeCacheFlushing -XX:ReservedCodeCacheSize=768M 
+      JVM_OPTS:  -Dsbt.io.implicit.relative.glob.conversion=allow -Xss512M -Xms1024M -Xmx12G -XX:MaxMetaspaceSize=2G -XX:+UseCodeCacheFlushing -XX:ReservedCodeCacheSize=768M 
     steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -25,6 +23,11 @@ jobs:
       with:
         distribution: temurin
         java-version: 17
+    - name: Setup temp folder
+      run: echo "JAVA_OPTS_TMP_DIR=$GITHUB_WORKSPACE//tmp_java" >> "$GITHUB_ENV" && \
+            echo "JAVA_OPTS=$JAVA_OPTS -Djava.io.tmpdir=$JAVA_OPTS_TMP_DIR" >> "$GITHUB_ENV" && \
+            echo "JVM_OPTS=$JVM_OPTS -Djava.io.tmpdir=$JAVA_OPTS_TMP_DIR" >> "$GITHUB_ENV" && \
+            echo "SBT_OPTS=-Djava.io.tmpdir=$JAVA_OPTS_TMP_DIR --sbt-dir $JAVA_OPTS_TMP_DIR" >> "$GITHUB_ENV"
     - name: Install and unpack sbt
       run: |
         wget https://github.com/sbt/sbt/releases/download/v1.10.1/sbt-1.10.1.tgz
