@@ -31,7 +31,7 @@ abstract class AbstractLibrarySuite(opts: Seq[inox.OptionValue[?]]) extends AnyF
     val ctx: inox.Context = stainless.TestContext(options)
     import ctx.{reporter, given}
 
-    val tryProgram = scala.util.Try(loadFiles(Seq.empty)._2)
+    val tryProgram = scala.util.Try(loadFiles(Main.libraryFiles)._2)
     it("should be extractable") {
       assert(tryProgram.isSuccess, "Extraction crashed with exception")
       assert(reporter.errorCount == 0, "Extraction had errors")

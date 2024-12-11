@@ -21,6 +21,7 @@ import inox.DebugSection
 
 import java.io.File
 import java.net.URL
+import DottyReporter.NoReporter
 
 class DottyCompiler(ctx: inox.Context, callback: CallBack) extends Compiler {
   override def phases: List[List[Phase]] = {
@@ -72,10 +73,13 @@ class DottyCompiler(ctx: inox.Context, callback: CallBack) extends Compiler {
   }
 }
 
-private class DottyDriver(args: Seq[String], compiler: DottyCompiler, reporter: DottyReporter) extends Driver {
+private class DottyDriver(args: Seq[String], compiler: DottyCompiler, reporter: SimpleReporter) extends Driver {
   override def newCompiler(using DottyContext) = compiler
 
-  lazy val files: List[String] = setup(args.toArray, initCtx).map(_._1.map(_.path)).getOrElse(Nil)
+  lazy val files: List[String] =
+    setup(args.toArray, initCtx.fresh.setReporter(NoReporter))
+      .map(_._1.map(_.path))
+      .getOrElse(reporter.reporter.internalError(f"Error parsing arguments from ${args.toList}"))
 
   def run(): Unit = process(args.toArray, reporter)
 }
