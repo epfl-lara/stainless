@@ -33,6 +33,7 @@ SBT_TEMP=$ROOT_DIR/sbt-temp
 # if TEMP_DIR is not set, set it to the default
 JAVA_OPTS_TMP_DIR=${JAVA_OPTS_TMP_DIR:-$ROOT_DIR/temporary}
 mkdir -p $JAVA_OPTS_TMP_DIR
+chmod 777 $JAVA_OPTS_TMP_DIR
 SBT_DIR=$ROOT_DIR/temp  # make better later
 SBT=${SBT_DIR}/sbt/bin/sbt 
 
