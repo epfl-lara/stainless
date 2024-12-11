@@ -10,11 +10,10 @@ jobs:
     runs-on:
       labels: [self-hosted, linux]
     env:
-      JAVA_OPTS_TMP_DIR: ./tmp_java
       # define Java options for both official sbt and sbt-extras
-      JAVA_OPTS: -Dsbt.io.implicit.relative.glob.conversion=allow -Xss512M -Xms1024M -Xmx12G -XX:MaxMetaspaceSize=2G -XX:+UseCodeCacheFlushing -XX:ReservedCodeCacheSize=768M -Djava.io.tmpdir=./tmp_java
-      JVM_OPTS:  -Dsbt.io.implicit.relative.glob.conversion=allow -Xss512M -Xms1024M -Xmx12G -XX:MaxMetaspaceSize=2G -XX:+UseCodeCacheFlushing -XX:ReservedCodeCacheSize=768M -Djava.io.tmpdir=./tmp_java
-      SBT_OPTS: -Djava.io.tmpdir=./temp_java --sbt-dir ./temp_java/.sbt
+      JAVA_OPTS: -Dsbt.io.implicit.relative.glob.conversion=allow -Xss512M -Xms1024M -Xmx12G -XX:MaxMetaspaceSize=2G -XX:+UseCodeCacheFlushing -XX:ReservedCodeCacheSize=768M 
+      JVM_OPTS:  -Dsbt.io.implicit.relative.glob.conversion=allow -Xss512M -Xms1024M -Xmx12G -XX:MaxMetaspaceSize=2G -XX:+UseCodeCacheFlushing -XX:ReservedCodeCacheSize=768M 
+      JAVA_OPTS_TMP_DIR: /tmp/tmp_${{ github.run_id }}_${{ github.run_attempt }}
     steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -25,6 +24,13 @@ jobs:
       with:
         distribution: temurin
         java-version: 17
+    - name: Setup java options
+      run: |
+          echo "JAVA_OPTS=$JAVA_OPTS -Djava.io.tmpdir=$JAVA_OPTS_TMP_DIR" >> "$GITHUB_ENV" && \
+          echo "JVM_OPTS=$JVM_OPTS -Djava.io.tmpdir=$JAVA_OPTS_TMP_DIR" >> "$GITHUB_ENV" && \
+          echo "SBT_OPTS=-Djava.io.tmpdir=$JAVA_OPTS_TMP_DIR --sbt-dir $JAVA_OPTS_TMP_DIR" >> "$GITHUB_ENV"
+    - name: Creating temp folder
+      run: rm -rf $JAVA_OPTS_TMP_DIR && mkdir -p $JAVA_OPTS_TMP_DIR && chmod 777 $JAVA_OPTS_TMP_DIR
     - name: Install and unpack sbt
       run: |
         wget https://github.com/sbt/sbt/releases/download/v1.10.1/sbt-1.10.1.tgz
@@ -37,7 +43,7 @@ jobs:
     - name: Test solvers availability
       run: cvc5 --version && z3 --version && cvc4 --version
     - name: Build and Package
-      run: ./stainless-ci.sh --build-only
+      run: ./stainless-ci.sh --build-only && echo "PATH=./frontends/dotty/target/universal/stage/bin:$PATH" >> "$GITHUB_ENV"
     - name: Run Tests and Integration Tests
       run: ./stainless-ci.sh --skip-build --skip-bolts --skip-sbt-plugin 
     - name: Sbt Plugin Tests
