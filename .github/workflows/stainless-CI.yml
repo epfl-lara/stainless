@@ -37,7 +37,7 @@ jobs:
     - name: Test solvers availability
       run: cvc5 --version && z3 --version && cvc4 --version
     - name: Build and Package
-      run: ./stainless-ci.sh --build-only
+      run: ./stainless-ci.sh --build-only && echo "PATH=./frontends/dotty/target/universal/stage/bin:$PATH" >> "$GITHUB_ENV"
     - name: Run Tests and Integration Tests
       run: ./stainless-ci.sh --skip-build --skip-bolts --skip-sbt-plugin 
     - name: Sbt Plugin Tests
