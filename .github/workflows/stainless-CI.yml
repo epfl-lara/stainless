@@ -24,7 +24,11 @@ jobs:
         distribution: temurin
         java-version: 17
     - name: Setup temp folder
-      run: echo "JAVA_OPTS_TMP_DIR=$GITHUB_WORKSPACE//tmp_java" >> "$GITHUB_ENV" && echo "JAVA_OPTS=$JAVA_OPTS -Djava.io.tmpdir=$JAVA_OPTS_TMP_DIR" >> "$GITHUB_ENV" && echo "JVM_OPTS=$JVM_OPTS -Djava.io.tmpdir=$JAVA_OPTS_TMP_DIR" >> "$GITHUB_ENV" && echo "SBT_OPTS=-Djava.io.tmpdir=$JAVA_OPTS_TMP_DIR --sbt-dir $JAVA_OPTS_TMP_DIR" >> "$GITHUB_ENV"
+      run: |
+          echo "JAVA_OPTS_TMP_DIR=$GITHUB_WORKSPACE//tmp_java" >> "$GITHUB_ENV" && \
+          echo "JAVA_OPTS=$JAVA_OPTS -Djava.io.tmpdir=$JAVA_OPTS_TMP_DIR" >> "$GITHUB_ENV" && \
+          echo "JVM_OPTS=$JVM_OPTS -Djava.io.tmpdir=$JAVA_OPTS_TMP_DIR" >> "$GITHUB_ENV" && \
+          echo "SBT_OPTS=-Djava.io.tmpdir=$JAVA_OPTS_TMP_DIR --sbt-dir $JAVA_OPTS_TMP_DIR" >> "$GITHUB_ENV"
     - name: Install and unpack sbt
       run: |
         wget https://github.com/sbt/sbt/releases/download/v1.10.1/sbt-1.10.1.tgz
