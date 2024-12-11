@@ -23,9 +23,10 @@ jobs:
       with:
         distribution: temurin
         java-version: 17
-    - name: Setup temp folder
+    - name: Setup temp directory
+      run: echo "JAVA_OPTS_TMP_DIR=$GITHUB_WORKSPACE/tmp_java" >> "$GITHUB_ENV"
+    - name: Setup java options
       run: |
-          echo "JAVA_OPTS_TMP_DIR=$GITHUB_WORKSPACE//tmp_java" >> "$GITHUB_ENV" && \
           echo "JAVA_OPTS=$JAVA_OPTS -Djava.io.tmpdir=$JAVA_OPTS_TMP_DIR" >> "$GITHUB_ENV" && \
           echo "JVM_OPTS=$JVM_OPTS -Djava.io.tmpdir=$JAVA_OPTS_TMP_DIR" >> "$GITHUB_ENV" && \
           echo "SBT_OPTS=-Djava.io.tmpdir=$JAVA_OPTS_TMP_DIR --sbt-dir $JAVA_OPTS_TMP_DIR" >> "$GITHUB_ENV"
