@@ -46,6 +46,8 @@ trait InputUtils {
       val t: xt.type = xt
     }
 
+    ctx.reporter.error(files.mkString("\n"))
+
     // Use the callback to collect the trees.
     val units = ListBuffer[xt.UnitDef]()
     val cls = ListBuffer[xt.ClassDef]()
