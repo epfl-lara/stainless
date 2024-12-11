@@ -23,6 +23,13 @@ package object frontend {
     */
   object optBatchedProgram extends inox.FlagOptionDef("batched", false)
 
+  object optClasspath extends inox.OptionDef[Option[String]] {
+    val name = "classpath"
+    val default = None
+    val parser = input => Some(Some(input))
+    val usageRhs = "DIR"
+  }
+
   /**
    * Given a context (with its reporter) and a frontend factory, proceed to compile,
    * extract, transform and verify the input programs based on the active components
