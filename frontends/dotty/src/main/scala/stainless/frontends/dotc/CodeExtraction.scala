@@ -1327,10 +1327,6 @@ class CodeExtraction(inoxCtx: inox.Context,
         case (v, vd) => v.symbol -> (() => vd.toVariable)
       })))
 
-    case Block(es, e) =>
-      val b = extractBlock(es :+ e)
-      xt.exprOps.flattenBlocks(b)
-
     case Try(body, cses, fin) =>
       val rb = extractTree(body)
       val rc = cses.map(extractMatchCase)
@@ -1382,6 +1378,11 @@ class CodeExtraction(inoxCtx: inox.Context,
           })).setPos(post)
       })
 
+    // Needs to be after `ExEnsuredExpression`, as it matches blocks.
+    case Block(es, e) =>
+      val b = extractBlock(es :+ e)
+      xt.exprOps.flattenBlocks(b)
+
     case ExThrowingExpression(body, contract) =>
       val pred = extractTree(contract)
       val b = extractTreeOrNoTree(body)
@@ -1393,7 +1394,7 @@ class CodeExtraction(inoxCtx: inox.Context,
           val vd = xt.ValDef.fresh("res", tpe).setPos(other)
           xt.Lambda(Seq(vd), xt.Application(other, Seq(vd.toVariable)).setPos(other)).setPos(other)
       })
-
+    
     case t @ ExHoldsWithProofExpression(body, ExMaybeBecauseExpressionWrapper(proof)) =>
       val vd = xt.ValDef.fresh("holds", xt.BooleanType().setPos(tr.sourcePos)).setPos(tr.sourcePos)
       val p = extractTreeOrNoTree(proof)

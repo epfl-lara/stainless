@@ -4,12 +4,16 @@ import stainless.annotation._
 
 object StaticChecks {
 
-  @library
-  implicit class Ensuring[A](val x: A) extends AnyVal {
-    def ensuring(@ghost cond: A => Boolean): A = x
+  extension [A](x: A)
+    @library
+    inline def ensuring(@ghost inline cond: A => Boolean, inline msg: String = ""): A = x
 
-    def ensuring(@ghost cond: A => Boolean, msg: => String): A = x
-  }
+  //@library
+  //implicit class Ensuring[A](val x: A) extends AnyVal {
+  //  def ensuring(@ghost cond: A => Boolean): A = x
+  //
+  //  def ensuring(@ghost cond: A => Boolean, msg: => String): A = x
+  //}
 
   @library @ignore
   implicit class WhileDecorations(val u: Unit) {

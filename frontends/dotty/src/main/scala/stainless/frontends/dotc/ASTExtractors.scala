@@ -18,6 +18,7 @@ import core.Annotations._
 import util.SourcePosition
 
 import scala.collection.mutable.{Map => MutableMap}
+import dotty.tools.dotc.transform.Inlining
 
 trait ASTExtractors {
   val dottyCtx: DottyContext
@@ -524,6 +525,32 @@ trait ASTExtractors {
           }
           (newRec, sym, tps, args)
         }
+      }
+    }
+
+    object ExInlinedCall {
+      /** Extracts an inlined function or method call, returning a 4-tuple
+        * containing the receiver, function or method symbol, type arguments,
+        * and term arguments.
+        * 
+        * Unlift the receiver and arguments to their definitions if they are
+        * inline proxies.
+        */
+      def unapply(tree: tpd.Tree): Option[(Option[tpd.Tree], Symbol, Seq[tpd.Tree], Seq[tpd.Tree])] = tree match {
+        // TODO(mbovel): should probably use InlineOrProxy instead of
+        // Synthetic. Why is this not working?
+        case Block(stats, Inlined(ExCall(rec, sym, tps, args), _, _)) if stats.forall(_.symbol.is(Synthetic)) =>
+          def unliftArg(arg: tpd.Tree) = arg match {
+            case arg @ Ident(_) if arg.symbol.is(Synthetic) =>
+              stats.find(_.symbol == arg.symbol) match
+                case Some(proxyDef: tpd.ValOrDefDef) => proxyDef.rhs
+                case _ => throw new IllegalStateException(s"Could not find inline proxy definition for $arg")
+            case arg => arg
+          }
+          Some(rec.map(unliftArg), sym, tps, args.map(unliftArg))
+        case Inlined(ExCall(rec, sym, tps, args), _, _) =>
+          Some(rec, sym, tps, args)
+        case _ => None
       }
     }
 
@@ -1180,17 +1207,25 @@ trait ASTExtractors {
     }
 
     object ExEnsuredExpression {
+      /** Extracts an `ensuring` call.
+        *
+        * When matching, returngs a triple containing the receiver, the contract
+        * and a boolean indicating if the check is static.
+        */ 
       def unapply(tree: tpd.Tree): Option[(tpd.Tree, tpd.Tree, Boolean)] = tree match {
+        // Dynamic check (Predef.ensuring)
         // An optional message may comes after `contract`, but we do not make use of it.
         case ExCall(Some(rec),
           ExSymbol("scala", "Predef$", "Ensuring", "ensuring"),
           _, contract +: _
         ) => Some((rec, contract, false))
 
-        // Ditto
-        case ExCall(Some(rec),
-          ExSymbol("stainless", "lang", "StaticChecks$", "Ensuring", "ensuring"),
-          _, contract +: _
+        // Static check (stainless.lang.StaticChecks.ensuring)
+        case ExInlinedCall(
+          _,
+          ExSymbol("stainless", "lang", "StaticChecks$", "ensuring"),
+          _,
+          Seq(rec, contract, message)
         ) => Some((rec, contract, true))
 
         case _ => None
