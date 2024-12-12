@@ -3,8 +3,9 @@ package genc
 package phases
 
 import ir.IRs.{ SIR, TIR }
-import ir.TailRecTransformer
 import ir.TailRecSimpTransformer
+import ir.TailRecTransformer
+import ir.TailRecIFOTransformer
 
 class TailRecPhase(using override val context: inox.Context) extends LeonPipeline[SIR.Prog, TIR.Prog](context) {
   val name = "TailRec"
@@ -14,6 +15,7 @@ class TailRecPhase(using override val context: inox.Context) extends LeonPipelin
   def run(sprog: SIR.Prog): TIR.Prog =
     val simplTransformer = new TailRecSimpTransformer
     val sprog1 = simplTransformer(sprog)
-    new TailRecTransformer(context)(sprog1)
+    val sprog2 = new TailRecTransformer(context)(sprog1)
+    new TailRecIFOTransformer(context)(sprog2)
 }
 

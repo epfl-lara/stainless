@@ -8,30 +8,62 @@ import Operators._
 import IRs._
 import scala.collection.mutable
 
-final class TailRecTransformer(val ctx: inox.Context) extends Transformer(SIR, TIR) with NoEnv {
+final class TailRecTransformer(val ctx: inox.Context) extends Transformer(SIR, SIR) with NoEnv {
   import from._
 
   private given givenDebugSection: DebugSectionGenC.type = DebugSectionGenC
 
-  private def isTailRecursive(fd: FunDef): Boolean = {
-    var functionRefs = mutable.ListBuffer.empty[FunDef]
-    val functionRefVisitor = new ir.Visitor(from) {
-      override protected def visit(expr: Expr): Unit = expr match {
-        case FunVal(fd) => functionRefs += fd
-        case _ =>
+  /* 
+  * Find mutually recursive functions in a program
+  * 
+  * Example:
+  *
+  * def odd(n: Int): Boolean = if (n == 0) false else even(n - 1)
+  * def even(n: Int): Boolean = if (n == 0) true else odd(n - 1)
+  * 
+  * Steps:
+  * [x] for every function collect all the tail calls
+  * [x] for every function collect all function references
+  * [x] check that all self recursive references are tail calls
+  * [x] group functions that tail recursively call each other
+  */
+  private def findMutuallyRecursive(prog: Prog): Seq[Seq[FunDef]] = {
+    val refsMap = prog.functions.map { fd =>
+      var functionRefs = mutable.ListBuffer.empty[FunDef]
+      val functionRefVisitor = new ir.Visitor(from) {
+        override protected def visit(expr: Expr): Unit = expr match {
+          case FunVal(fd) => functionRefs += fd
+          case _ =>
+        }
       }
+      var tailFunctionRefs = mutable.ListBuffer.empty[FunDef]
+      val tailRecCallVisitor = new ir.Visitor(from) {
+        override protected def visit(expr: Expr): Unit = expr match {
+          case Return(App(FunVal(fdcall), _, _)) => tailFunctionRefs += fdcall
+          case _ =>
+        }
+      }
+      functionRefVisitor(fd)
+      tailRecCallVisitor(fd)
+      fd -> (functionRefs, tailFunctionRefs)
+    }.filter { case (fd, (functionRefs, tailFunctionRefs)) =>
+      functionRefs.contains(fd) && functionRefs.filter(_ == fd).size == tailFunctionRefs.filter(_ == fd).size
+    }.map { case (fd, (_, tailFunctionRefs)) =>
+      fd -> tailFunctionRefs
     }
-    var tailFunctionRefs = mutable.ListBuffer.empty[FunDef]
-    val tailRecCallVisitor = new ir.Visitor(from) {
-      override protected def visit(expr: Expr): Unit = expr match {
-        case Return(App(FunVal(fdcall), _, _)) => tailFunctionRefs += fdcall
 
-        case _ =>
-      }
+    val grouped: mutable.ListBuffer[Seq[from.FunDef]] = mutable.ListBuffer.from(refsMap.map(_(0)).map(Seq(_)))
+
+    refsMap.foreach { case (fd, tailFunctionRefs) =>
+      val myGroup = grouped.find(_.contains(fd))
+      val referencedGroups = grouped.filter(_.exists(tailFunctionRefs.contains))
+      val allGroups = (myGroup.toList ++ referencedGroups).distinct
+      val newGroup = allGroups.flatten.distinct
+      grouped --= allGroups
+      grouped += newGroup
     }
-    functionRefVisitor(fd)
-    tailRecCallVisitor(fd)
-    functionRefs.contains(fd) && functionRefs.filter(_ == fd).size == tailFunctionRefs.filter(_ == fd).size
+
+    grouped.toSeq
   }
 
   /* Rewrite a tail recursive function to a while loop
@@ -108,15 +140,20 @@ final class TailRecTransformer(val ctx: inox.Context) extends Transformer(SIR, T
     replacer(funBody)
   }
 
-  override protected def recImpl(fd: from.FunDef)(using Unit): to.FunDef = {
-    super.recImpl{
-      if isTailRecursive(fd) then
-        val newFd = rewriteToAWhileLoop(fd)
-        // val irPrinter = IRPrinter(SIR)
-        // print(irPrinter.apply(newFd)(using irPrinter.Context(0)))
-        newFd
-      else
-        fd
+  override protected def rec(prog: from.Prog)(using Unit): to.Prog = {
+    super.rec {
+      val mutuallyRecursive = findMutuallyRecursive(prog)
+      val singleRecursive = mutuallyRecursive.filter(_.size == 1).flatten
+      val newFds = prog.functions.map { fd =>
+        if singleRecursive.contains(fd) then
+          val newFd = rewriteToAWhileLoop(fd)
+          // given printer.Context = printer.Context(0)
+          // println(printer(newFd))
+          newFd
+        else
+          fd
+      }
+      Prog(prog.decls, newFds, prog.classes)
     }
   }
 
