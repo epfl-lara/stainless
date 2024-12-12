@@ -69,13 +69,6 @@ final class TailRecIFOTransformer(val ctx: inox.Context) extends Transformer(SIR
   override protected def rec(prog: from.Prog)(using Unit): to.Prog = {
     super.rec {
       val mutuallyRecursive = findMutuallyRecursive(prog)
-      given printer.Context = printer.Context(0)
-      mutuallyRecursive.foreach { fds =>
-        println("Mutually recursive functions:")
-        fds.foreach { fd =>
-          println(printer(fd))
-        }
-      }
       prog
     }
   }

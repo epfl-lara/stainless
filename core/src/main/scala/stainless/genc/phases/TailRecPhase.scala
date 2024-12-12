@@ -15,7 +15,6 @@ class TailRecPhase(using override val context: inox.Context) extends LeonPipelin
   def run(sprog: SIR.Prog): TIR.Prog =
     val simplTransformer = new TailRecSimpTransformer
     val sprog1 = simplTransformer(sprog)
-    val sprog2 = new TailRecTransformer(context)(sprog1)
-    new TailRecIFOTransformer(context)(sprog2)
+    new TailRecTransformer(context)(sprog1)
 }
 

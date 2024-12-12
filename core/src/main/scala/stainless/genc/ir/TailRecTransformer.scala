@@ -8,10 +8,12 @@ import Operators._
 import IRs._
 import scala.collection.mutable
 
-final class TailRecTransformer(val ctx: inox.Context) extends Transformer(SIR, SIR) with NoEnv {
+final class TailRecTransformer(val ctx: inox.Context) extends Transformer(SIR, TIR) with NoEnv {
   import from._
 
   private given givenDebugSection: DebugSectionGenC.type = DebugSectionGenC
+
+  private given printer.Context = printer.Context(0)
 
   /* 
   * Find mutually recursive functions in a program
@@ -111,8 +113,8 @@ final class TailRecTransformer(val ctx: inox.Context) extends Transformer(SIR, S
       val declarations = newParamMap.toList.map { case (old, nw) => Decl(nw, Some(Binding(old))) }
       val newBody = replaceRecursiveCalls(fd, bodyWithNewParams, newParams.toList, labelName)
       val newBodyWithALabel = Labeled(labelName, newBody)
-      val newBodyWIthAWhileLoop = While(True, newBodyWithALabel)
-      FunDef(fd.id, fd.returnType, fd.ctx, fd.params, FunBodyAST(Block(declarations :+ newBodyWIthAWhileLoop)), fd.isExported, fd.isPure)
+      val newBodyWithAWhileLoop = While(True, newBodyWithALabel)
+      FunDef(fd.id, fd.returnType, fd.ctx, fd.params, FunBodyAST(Block(declarations :+ newBodyWithAWhileLoop)), fd.isExported, fd.isPure)
     case _ => fd
   }
 
@@ -140,20 +142,27 @@ final class TailRecTransformer(val ctx: inox.Context) extends Transformer(SIR, S
     replacer(funBody)
   }
 
+  private def replaceWithNewFuns(prog: Prog, newFdsMap: Map[FunDef, FunDef]): Prog = {
+    val replacer = new Transformer(from, from) with NoEnv {
+      override protected def recImpl(fd: FunDef)(using Env): FunDef =
+        super.recImpl(newFdsMap.getOrElse(fd, fd))
+    }
+    replacer(prog)
+  }
+
   override protected def rec(prog: from.Prog)(using Unit): to.Prog = {
     super.rec {
       val mutuallyRecursive = findMutuallyRecursive(prog)
       val singleRecursive = mutuallyRecursive.filter(_.size == 1).flatten
-      val newFds = prog.functions.map { fd =>
+      val newFdsMap = prog.functions.map { fd =>
         if singleRecursive.contains(fd) then
           val newFd = rewriteToAWhileLoop(fd)
-          // given printer.Context = printer.Context(0)
-          // println(printer(newFd))
-          newFd
+          fd -> newFd
         else
-          fd
-      }
-      Prog(prog.decls, newFds, prog.classes)
+          fd -> fd
+      }.toMap
+      val prog1 = Prog(prog.decls, newFdsMap.values.toSeq, prog.classes)
+      replaceWithNewFuns(prog1, newFdsMap)
     }
   }
 
