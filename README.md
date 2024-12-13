@@ -121,6 +121,7 @@ To allow running Stainless with only a browser, we have provided a sample reposi
 ## Further Documentation and Learning Materials
 
 To get started, see videos:
+  * [Stainless Introduction for 2nd year EPFL BSc students](https://mediaspace.epfl.ch/media/%5BCS214+W13+FP%5D+Formal+Verification+%282024-12-09%29/0_g7v3qvjp)
   * [ASPLOS'22 tutorial](https://epfl-lara.github.io/asplos2022tutorial/)
   * [FMCAD'21 tutorial](https://github.com/epfl-lara/fmcad2021tutorial/)
   * [Formal Verification Course](https://tube.switch.ch/channels/f2d4e01d): [Getting Started](https://tube.switch.ch/videos/c7d203e8),  [Tutorial 1](https://tube.switch.ch/videos/03edee61) [Tutorial 2](https://tube.switch.ch/videos/c22ea3e8) [Tutorial 3](https://tube.switch.ch/videos/7f57f7a9) [Tutorial 4](https://tube.switch.ch/videos/2a9fd35c), [Assertions](https://tube.switch.ch/videos/44e8a0dc), [Unfolding](https://tube.switch.ch/videos/ada8a42c), [Dispenser Example](https://tube.switch.ch/videos/ded227dd)
