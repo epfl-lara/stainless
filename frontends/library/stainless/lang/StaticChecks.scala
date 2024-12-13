@@ -6,7 +6,7 @@ object StaticChecks {
 
   extension [A](x: A)
     @library
-    inline def ensuring(@ghost inline cond: A => Boolean, inline msg: String = ""): A = x
+    inline def ensuring(cond: A => Boolean, msg: => String = ""): A = x
 
   //@library
   //implicit class Ensuring[A](val x: A) extends AnyVal {
