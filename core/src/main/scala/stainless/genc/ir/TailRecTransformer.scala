@@ -110,15 +110,27 @@ final class TailRecTransformer(val ctx: inox.Context) extends Transformer(SIR, T
     replacer(funBody)
   }
 
-  override protected def recImpl(fd: from.FunDef)(using Unit): to.FunDef = {
-    super.recImpl{
-      if isTailRecursive(fd) then
-        val newFd = rewriteToAWhileLoop(fd)
-        // val irPrinter = IRPrinter(SIR)
-        // print(irPrinter.apply(newFd)
-        newFd
-      else
-        fd
+  private def replaceWithNewFuns(prog: Prog, newFdsMap: Map[FunDef, FunDef]): Prog = {
+    val replacer = new Transformer(from, from) with NoEnv {
+      override protected def recImpl(fd: FunDef)(using Env): FunDef =
+        super.recImpl(newFdsMap.getOrElse(fd, fd))
+      }
+      replacer(prog)
+  }
+
+  override protected def rec(prog: from.Prog)(using Unit): to.Prog = {
+    super.rec {
+      val newFdsMap = prog.functions.map { fd => 
+        if isTailRecursive(fd) then
+          val newFd = rewriteToAWhileLoop(fd)
+          // val irPrinter = IRPrinter(SIR)
+          // print(irPrinter.apply(newFd)
+          fd -> newFd
+        else
+          fd -> fd
+      }.toMap
+      val prog1 = Prog(prog.decls, newFdsMap.values.toSeq, prog.classes)
+      replaceWithNewFuns(prog1, newFdsMap)
     }
   }
 
