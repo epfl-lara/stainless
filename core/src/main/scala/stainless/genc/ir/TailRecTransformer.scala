@@ -15,6 +15,32 @@ final class TailRecTransformer(val ctx: inox.Context) extends Transformer(SIR, T
 
   private given printer.Context = printer.Context(0)
 
+  /**
+    * If the function returns Unit type and the last one statement is a recursive call,
+    * put the recursive call in a return statement.
+    * 
+    * Example:
+    * def countDown(n: Int): Unit =
+    *   if (n == 0) return
+    *   countDown(n - 1)
+    * 
+    * ==>
+    *
+    * def countDown(n: Int): Unit =
+    *   if (n == 0) return
+    *   return countDown(n - 1)
+    */
+  private def putTailRecursiveUnitCallInReturn(fd: FunDef): FunDef = {
+    fd.body match {
+      case FunBodyAST(Block(stmts)) if fd.returnType.isUnitType => stmts.lastOption match {
+        case Some(app @ App(FunVal(calledFd), _, _)) if calledFd.id == fd.id =>
+          fd.copy(body = FunBodyAST(Block(stmts.dropRight(1) :+ Return(app))))
+        case _ => fd
+      }
+      case _ => fd
+    }
+  }
+
   private def isTailRecursive(fd: FunDef): Boolean = {
     var functionRefs = mutable.ListBuffer.empty[FunDef]
     val functionRefVisitor = new ir.Visitor(from) {
@@ -121,16 +147,17 @@ final class TailRecTransformer(val ctx: inox.Context) extends Transformer(SIR, T
   override protected def rec(prog: from.Prog)(using Unit): to.Prog = {
     super.rec {
       val newFdsMap = prog.functions.map { fd => 
-        if isTailRecursive(fd) then
-          val newFd = rewriteToAWhileLoop(fd)
+        val fdWithTailRecUnitInReturn = putTailRecursiveUnitCallInReturn(fd)
+        if isTailRecursive(fdWithTailRecUnitInReturn) then
+          val fdRewrittenToLoop = rewriteToAWhileLoop(fdWithTailRecUnitInReturn)
           // val irPrinter = IRPrinter(SIR)
-          // print(irPrinter.apply(newFd)
-          fd -> newFd
+          // print(irPrinter.apply(newFd)(using irPrinter.Context(0)))
+          fd -> fdRewrittenToLoop
         else
-          fd -> fd
+          fd -> fdWithTailRecUnitInReturn
       }.toMap
-      val prog1 = Prog(prog.decls, newFdsMap.values.toSeq, prog.classes)
-      replaceWithNewFuns(prog1, newFdsMap)
+      val newProg = Prog(prog.decls, newFdsMap.values.toSeq, prog.classes)
+      replaceWithNewFuns(newProg, newFdsMap)
     }
   }
 
