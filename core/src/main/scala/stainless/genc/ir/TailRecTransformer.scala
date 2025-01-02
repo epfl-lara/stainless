@@ -15,57 +15,25 @@ final class TailRecTransformer(val ctx: inox.Context) extends Transformer(SIR, T
 
   private given printer.Context = printer.Context(0)
 
-  /* 
-  * Find mutually recursive functions in a program
-  * 
-  * Example:
-  *
-  * def odd(n: Int): Boolean = if (n == 0) false else even(n - 1)
-  * def even(n: Int): Boolean = if (n == 0) true else odd(n - 1)
-  * 
-  * Steps:
-  * [x] for every function collect all the tail calls
-  * [x] for every function collect all function references
-  * [x] check that all self recursive references are tail calls
-  * [x] group functions that tail recursively call each other
-  */
-  private def findMutuallyRecursive(prog: Prog): Seq[Seq[FunDef]] = {
-    val refsMap = prog.functions.map { fd =>
-      var functionRefs = mutable.ListBuffer.empty[FunDef]
-      val functionRefVisitor = new ir.Visitor(from) {
-        override protected def visit(expr: Expr): Unit = expr match {
-          case FunVal(fd) => functionRefs += fd
-          case _ =>
-        }
+  private def isTailRecursive(fd: FunDef): Boolean = {
+    var functionRefs = mutable.ListBuffer.empty[FunDef]
+    val functionRefVisitor = new ir.Visitor(from) {
+      override protected def visit(expr: Expr): Unit = expr match {
+        case FunVal(fd) => functionRefs += fd
+        case _ =>
       }
-      var tailFunctionRefs = mutable.ListBuffer.empty[FunDef]
-      val tailRecCallVisitor = new ir.Visitor(from) {
-        override protected def visit(expr: Expr): Unit = expr match {
-          case Return(App(FunVal(fdcall), _, _)) => tailFunctionRefs += fdcall
-          case _ =>
-        }
+    }
+    var tailFunctionRefs = mutable.ListBuffer.empty[FunDef]
+    val tailRecCallVisitor = new ir.Visitor(from) {
+      override protected def visit(expr: Expr): Unit = expr match {
+        case Return(App(FunVal(fdcall), _, _)) => tailFunctionRefs += fdcall
+
+        case _ =>
       }
-      functionRefVisitor(fd)
-      tailRecCallVisitor(fd)
-      fd -> (functionRefs, tailFunctionRefs)
-    }.filter { case (fd, (functionRefs, tailFunctionRefs)) =>
-      functionRefs.contains(fd) && functionRefs.filter(_ == fd).size == tailFunctionRefs.filter(_ == fd).size
-    }.map { case (fd, (_, tailFunctionRefs)) =>
-      fd -> tailFunctionRefs
     }
-
-    val grouped: mutable.ListBuffer[Seq[from.FunDef]] = mutable.ListBuffer.from(refsMap.map(_(0)).map(Seq(_)))
-
-    refsMap.foreach { case (fd, tailFunctionRefs) =>
-      val myGroup = grouped.find(_.contains(fd))
-      val referencedGroups = grouped.filter(_.exists(tailFunctionRefs.contains))
-      val allGroups = (myGroup.toList ++ referencedGroups).distinct
-      val newGroup = allGroups.flatten.distinct
-      grouped --= allGroups
-      grouped += newGroup
-    }
-
-    grouped.toSeq
+    functionRefVisitor(fd)
+    tailRecCallVisitor(fd)
+    functionRefs.contains(fd) && functionRefs.filter(_ == fd).size == tailFunctionRefs.filter(_ == fd).size
   }
 
   /* Rewrite a tail recursive function to a while loop
@@ -142,27 +110,15 @@ final class TailRecTransformer(val ctx: inox.Context) extends Transformer(SIR, T
     replacer(funBody)
   }
 
-  private def replaceWithNewFuns(prog: Prog, newFdsMap: Map[FunDef, FunDef]): Prog = {
-    val replacer = new Transformer(from, from) with NoEnv {
-      override protected def recImpl(fd: FunDef)(using Env): FunDef =
-        super.recImpl(newFdsMap.getOrElse(fd, fd))
-    }
-    replacer(prog)
-  }
-
-  override protected def rec(prog: from.Prog)(using Unit): to.Prog = {
-    super.rec {
-      val mutuallyRecursive = findMutuallyRecursive(prog)
-      val singleRecursive = mutuallyRecursive.filter(_.size == 1).flatten
-      val newFdsMap = prog.functions.map { fd =>
-        if singleRecursive.contains(fd) then
-          val newFd = rewriteToAWhileLoop(fd)
-          fd -> newFd
-        else
-          fd -> fd
-      }.toMap
-      val prog1 = Prog(prog.decls, newFdsMap.values.toSeq, prog.classes)
-      replaceWithNewFuns(prog1, newFdsMap)
+  override protected def recImpl(fd: from.FunDef)(using Unit): to.FunDef = {
+    super.recImpl{
+      if isTailRecursive(fd) then
+        val newFd = rewriteToAWhileLoop(fd)
+        // val irPrinter = IRPrinter(SIR)
+        // print(irPrinter.apply(newFd)
+        newFd
+      else
+        fd
     }
   }
 

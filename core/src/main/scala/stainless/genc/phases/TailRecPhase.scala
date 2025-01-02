@@ -5,7 +5,6 @@ package phases
 import ir.IRs.{ SIR, TIR }
 import ir.TailRecSimpTransformer
 import ir.TailRecTransformer
-import ir.TailRecIFOTransformer
 
 class TailRecPhase(using override val context: inox.Context) extends LeonPipeline[SIR.Prog, TIR.Prog](context) {
   val name = "TailRec"
