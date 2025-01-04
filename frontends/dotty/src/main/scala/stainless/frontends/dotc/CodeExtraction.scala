@@ -919,8 +919,8 @@ class CodeExtraction(inoxCtx: inox.Context,
   private def extractPattern(p: tpd.Tree, expectedTpe: Option[xt.Type], binder: Option[xt.ValDef] = None)(using dctx: DefContext): (xt.Pattern, DefContext) = p match {
     
     case a @ Alternative(subpatterns) =>
-      val (patterns, nctx) = subpatterns.map(extractPattern(_, expectedTpe, None)).unzip
-      (xt.AlternativePattern(binder, patterns), nctx.foldLeft(dctx)(_ `union` _))
+      val (patterns, nctx) = subpatterns.map(extractPattern(_, expectedTpe)).unzip
+      (xt.AlternativePattern(binder, patterns), dctx)
     
     case b @ Bind(name, t @ Typed(pat, tpt)) =>
       val vd = xt.ValDef(FreshIdentifier(name.toString), extractType(tpt), annotationsOf(b.symbol, ignoreOwner = true)).setPos(b.sourcePos)

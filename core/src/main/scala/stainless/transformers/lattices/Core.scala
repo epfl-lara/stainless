@@ -3295,14 +3295,14 @@ trait Core extends Definitions { ocbsl =>
         PatBdgsAndConds(newCtxs, subscruts ++ recBdgs, recPatConds)
 
       case LabelledPattern.Alternative(sub) => 
-        val PatBdgsAndConds(newCtxs, subBdgs, subPatConds) = 
+        val PatBdgsAndConds(newCtxs, _, subPatConds) = 
           sub.foldLeft(PatBdgsAndConds(ctxs, Seq.empty, Seq.empty)) {
-            case (PatBdgsAndConds(ctxs, bdgsAcc, condsAcc), subpat) =>
-              val PatBdgsAndConds(ctxs2, bdgs2, conds2) = addPatternBindingsAndConds(ctxs, scrut, subpat)
-              PatBdgsAndConds(ctxs2, bdgsAcc ++ bdgs2, condsAcc ++ conds2)
+            case (PatBdgsAndConds(ctxs, _, condsAcc), subpat) =>
+              val PatBdgsAndConds(ctxs2, _, conds2) = addPatternBindingsAndConds(ctxs, scrut, subpat)
+              PatBdgsAndConds(ctxs2, Seq.empty, condsAcc ++ conds2)
           }
-        // At least one of the subpatterns must match
         val cond = codeOfSig(mkOr(subPatConds), BoolTy)
+        assert(ctxs.isPrefixOf(newCtxs))
         PatBdgsAndConds(newCtxs.withCond(cond), Seq.empty, Seq(cond))
 
       case LabelledPattern.Unapply(recs, id, tps, subps) =>
