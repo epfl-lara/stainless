@@ -45,6 +45,14 @@ class TailRecGenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUti
     }
   }
 
+  for (case (file, _) <- tailrecFiles) {
+    test(s"Checking that ${file.split("/").last} has tail recursive function rewritten as loop") {
+      val cFile = file.replace(".scala", ".c")
+      val cCode = Files.readAllLines(Paths.get(cFile)).toArray.mkString
+      assert(cCode.contains("goto"), "Should contain a goto statement")
+    }
+  }
+
   for (case (file, checkFile) <- tailrecFiles) {
     test(s"Checking that ${file.split("/").last} outputs ${Files.readAllLines(Paths.get(checkFile)).toArray.mkString}") {
       val output = runCHelper(file)

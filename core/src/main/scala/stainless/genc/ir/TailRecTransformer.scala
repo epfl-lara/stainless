@@ -31,12 +31,18 @@ final class TailRecTransformer(val ctx: inox.Context) extends Transformer(SIR, T
     *   return countDown(n - 1)
     */
   private def putTailRecursiveUnitCallInReturn(fd: FunDef): FunDef = {
+    def go(expr: Expr): Expr = expr match {
+      case Block(stmts) if stmts.nonEmpty =>
+        Block(stmts.init :+ go(stmts.last))
+      case IfElse(cond, thenn, elze) =>
+        IfElse(cond, go(thenn), go(elze))
+      case app @ App(FunVal(calledFd), _, _) if calledFd.id == fd.id =>
+        Return(app)
+      case _ => expr
+    }
     fd.body match {
-      case FunBodyAST(Block(stmts)) if fd.returnType.isUnitType => stmts.lastOption match {
-        case Some(app @ App(FunVal(calledFd), _, _)) if calledFd.id == fd.id =>
-          fd.copy(body = FunBodyAST(Block(stmts.dropRight(1) :+ Return(app))))
-        case _ => fd
-      }
+      case FunBodyAST(expr) if fd.returnType.isUnitType =>
+        fd.copy(body = FunBodyAST(go(expr)))
       case _ => fd
     }
   }
@@ -93,10 +99,10 @@ final class TailRecTransformer(val ctx: inox.Context) extends Transformer(SIR, T
   *    }
   * }
   * Steps:
-  * [x] Create a new variable for each parameter of the function
-  * [x] Replace existing parameter references with the new variables
-  * [x] Create a while loop with a condition true
-  * [x] Replace the recursive return with a variable assignments (updating the state) and a continue statement
+  * - Create a new variable for each parameter of the function
+  * - Replace existing parameter references with the new variables
+  * - Create a while loop with a condition true
+  * - Replace the recursive return with a variable assignments (updating the state) and a continue statement
   */
   private def rewriteToAWhileLoop(fd: FunDef): FunDef = fd.body match {
     case FunBodyAST(body) =>
