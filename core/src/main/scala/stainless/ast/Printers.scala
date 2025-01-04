@@ -110,6 +110,10 @@ trait Printer extends inox.ast.Printer {
       printNameWithPath(id)
       p"(${nary(subs)})"
 
+    case AlternativePattern(ovd, subs) =>
+      ovd foreach (vd => p"${vd.toVariable} : ")
+      p"(${nary(subs, " | ")})"
+
     case Passes(in, out, cases) =>
       optP {
         p"""|($in, $out) passes {

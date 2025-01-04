@@ -137,6 +137,12 @@ abstract class RecursiveEvaluator(override val program: Program,
           None
         }
 
+      case (AlternativePattern(ob, subs), scrut) =>
+        subs.map(matchesPattern(_, scrut)).find(_.isDefined) match {
+          case Some(_) => Some(obind(ob, expr)) // There should be no mapping nested in the alternative
+          case _ => None
+        }
+
       case (up @ UnapplyPattern(ob, rec, id, tps, subs), scrut) =>
         val eRec = rec map e
         val unapp = e(FunctionInvocation(id, tps, eRec :+ scrut))

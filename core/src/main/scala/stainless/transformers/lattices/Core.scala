@@ -938,6 +938,13 @@ trait Core extends Definitions { ocbsl =>
           val subScruts = tupleSubscrutinees(scrut, tt)
           val (rsubs, subst2) = recHelper(subScruts, subps)
           (LabelledPattern.TuplePattern(rsubs), subst2)
+        case AlternativePattern(_, subps) => 
+          val (rsubs, subst2) = subps.foldLeft((Seq.empty[LabelledPattern], subst1)) {
+            case ((acc, subst), subp) =>
+              val (rsub, subst2) = convertPattern(scrut, subp, subst)
+              (acc :+ rsub, subst2)
+          }
+          (LabelledPattern.Alternative(rsubs), subst2)
         case UnapplyPattern(_, recs, id, tps, subps) =>
           if (recs.nonEmpty) throw UnsupportedOperationException("recs is not empty")
           val unapp = unapplySubScrutinees(scrut, id, tps)
@@ -2644,6 +2651,7 @@ trait Core extends Definitions { ocbsl =>
           assert(bases.size == subps.size)
           val rsubs = recHelper(tupleSubscrutinees(scrut, tt), subps)
           TuplePattern(bdg, rsubs)
+        case LabelledPattern.Alternative(subs) => AlternativePattern(bdg, subs.map(sub => convertPattern(scrut, sub, vds)))
         case LabelledPattern.Lit(lit) => LiteralPattern(bdg, lit)
         case LabelledPattern.Unapply(recs, id, tps, subps) =>
           assert(recs.isEmpty)
@@ -3285,6 +3293,17 @@ trait Core extends Definitions { ocbsl =>
         val PatBdgsAndConds(newCtxs, recBdgs, recPatConds) = recHelper(ctxs, subscruts, subps)
         assert(ctxs.isPrefixOf(newCtxs))
         PatBdgsAndConds(newCtxs, subscruts ++ recBdgs, recPatConds)
+
+      case LabelledPattern.Alternative(sub) => 
+        val PatBdgsAndConds(newCtxs, subBdgs, subPatConds) = 
+          sub.foldLeft(PatBdgsAndConds(ctxs, Seq.empty, Seq.empty)) {
+            case (PatBdgsAndConds(ctxs, bdgsAcc, condsAcc), subpat) =>
+              val PatBdgsAndConds(ctxs2, bdgs2, conds2) = addPatternBindingsAndConds(ctxs, scrut, subpat)
+              PatBdgsAndConds(ctxs2, bdgsAcc ++ bdgs2, condsAcc ++ conds2)
+          }
+        // At least one of the subpatterns must match
+        val cond = codeOfSig(mkOr(subPatConds), BoolTy)
+        PatBdgsAndConds(newCtxs.withCond(cond), Seq.empty, Seq(cond))
 
       case LabelledPattern.Unapply(recs, id, tps, subps) =>
         assert(recs.isEmpty)

@@ -88,6 +88,12 @@ trait SymbolOps extends inox.ast.SymbolOps with TypeOps { self =>
         val subTests = subps.zipWithIndex.map { case (p, i) => apply(tupleSelect(in, i+1, subps.size), p) }
         bind(ob, in) `merge` subTests
 
+      case AlternativePattern(ob, subps) =>
+        // one of the alternatives must hold (disjunction)
+        // we use A \/ B = ~ (~A /\ ~B)
+        val disjunction = subps.map(p => apply(in, p).negate).reduce(_ `merge` _).negate
+        bind(ob, in) `merge` disjunction
+
       case up @ UnapplyPattern(ob, _, _, _, subps) =>
         val subs = unwrapTuple(up.get(in), subps.size).zip(subps) map (apply).tupled
         bind(ob, in) `withCond` Not(up.isEmpty(in)) `merge` subs

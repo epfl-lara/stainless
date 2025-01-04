@@ -917,6 +917,11 @@ class CodeExtraction(inoxCtx: inox.Context,
   // Note that this pattern will be correctly rejected as "Unsupported pattern" (in fact, it cannot be even tested at runtime):
   //     val (aa: B, bb: B) = (a, b)
   private def extractPattern(p: tpd.Tree, expectedTpe: Option[xt.Type], binder: Option[xt.ValDef] = None)(using dctx: DefContext): (xt.Pattern, DefContext) = p match {
+    
+    case a @ Alternative(subpatterns) =>
+      val (patterns, nctx) = subpatterns.map(extractPattern(_, expectedTpe, None)).unzip
+      (xt.AlternativePattern(binder, patterns), nctx.foldLeft(dctx)(_ `union` _))
+    
     case b @ Bind(name, t @ Typed(pat, tpt)) =>
       val vd = xt.ValDef(FreshIdentifier(name.toString), extractType(tpt), annotationsOf(b.symbol, ignoreOwner = true)).setPos(b.sourcePos)
       val pctx = dctx.withNewVar(b.symbol -> (() => vd.toVariable))
