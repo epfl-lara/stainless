@@ -120,7 +120,6 @@ abstract class Visitor[S <: IR](val ir: S) {
       case Deref(e) => rec(e)
       case Return(e) => rec(e)
       case Break => ()
-      case Continue => ()
     }
     visit(e)
   }

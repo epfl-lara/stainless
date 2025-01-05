@@ -232,7 +232,6 @@ private[genc] sealed trait IR { ir =>
       case Return(e) => e.getType
       case Assert(_) => NoType
       case Break => NoType
-      case Continue => NoType
     }
   }
 
@@ -327,8 +326,6 @@ private[genc] sealed trait IR { ir =>
   case class Return(e: Expr) extends Expr
 
   case object Break extends Expr
-
-  case object Continue extends Expr
 
   /****************************************************************************************************
    *                                                       Expression Helpers                         *

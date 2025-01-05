@@ -171,7 +171,6 @@ abstract class Transformer[From <: IR, To <: IR](final val from: From, final val
     case Return(e) => to.Return(rec(e)) -> env
     case Assert(e) => to.Assert(rec(e)) -> env
     case Break => to.Break -> env
-    case Continue => to.Continue -> env
   }
 
   protected def rec(typ: Type)(using Env): to.Type = (typ: @unchecked) match {

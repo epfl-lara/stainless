@@ -126,7 +126,6 @@ final class IRPrinter[S <: IR](val ir: S) {
     case Return(e) => "return " + rec(e)
     case Assert(e) => "assert(" + rec(e) + ")"
     case Break => "break"
-    case Continue => "continue"
   }
 
   private def rec(typ: Type)(using Context): String = (typ: @unchecked) match {
