@@ -218,8 +218,6 @@ object CAST { // C Abstract Syntax Tree
 
   case object Break extends Expr
 
-  case object Continue extends Expr
-
   case class Return(value: Expr) extends Expr {
     require(value.isValue, s"Return expressions ($value) must be values")
   }
