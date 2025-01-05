@@ -121,9 +121,6 @@ class CASTTraverser(using ctx: inox.Context) {
 
     case Break =>
       Seq()
-    
-    case Continue =>
-      Seq()
 
     case Return(value) =>
       Seq(value)
