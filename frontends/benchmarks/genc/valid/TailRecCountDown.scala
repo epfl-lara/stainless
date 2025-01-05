@@ -10,6 +10,6 @@ object TailRecNoArguments {
   @cCode.`export`
   def main(): Unit = {
     implicit val state = stainless.io.newState
-    StdOut.println(countDown(10)) // Expected: 0
+    StdOut.println(countDown(1000000)) // Expected: 0
   }
 }
