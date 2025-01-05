@@ -110,8 +110,16 @@ final class TailRecTransformer(val ctx: inox.Context) extends Transformer(SIR, T
       val newParamMap = fd.params.zip(newParams).toMap
       val labelName = freshId("label")
       val bodyWithNewParams = replaceBindings(newParamMap, body)
+      val bodyWithUnitReturn = bodyWithNewParams match {
+        case Block(stmts) =>
+          if fd.returnType.isUnitType then
+            Block(stmts :+ Return(Lit(UnitLit)))
+          else
+            bodyWithNewParams
+        case _ => bodyWithNewParams
+      }
       val declarations = newParamMap.toList.map { case (old, nw) => Decl(nw, Some(Binding(old))) }
-      val newBody = replaceRecursiveCalls(fd, bodyWithNewParams, newParams.toList, labelName)
+      val newBody = replaceRecursiveCalls(fd, bodyWithUnitReturn, newParams.toList, labelName)
       val newBodyWithALabel = Labeled(labelName, newBody)
       val newBodyWithAWhileLoop = While(True, newBodyWithALabel)
       FunDef(fd.id, fd.returnType, fd.ctx, fd.params, FunBodyAST(Block(declarations :+ newBodyWithAWhileLoop)), fd.isExported, fd.isPure)
