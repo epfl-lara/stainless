@@ -8,13 +8,13 @@ import scala.collection.mutable.{Map => MutableMap}
 class LoopProcessor(override val checker: ProcessingPipeline)
                    // Alias for checker, as we cannot use it to define ordering
                    (override val chker: checker.type)
-                   (override val ordering: OrderingRelation with ChainBuilder with Strengthener {
+                   (override val ordering: OrderingRelation & ChainBuilder & Strengthener {
                      val checker: chker.type
                    })
   extends OrderingProcessor("Loop Processor", checker, ordering) {
 
   def this(chker: ProcessingPipeline,
-           ordering: OrderingRelation with ChainBuilder with Strengthener {
+           ordering: OrderingRelation & ChainBuilder & Strengthener {
              val checker: chker.type
            }) =
     this(chker)(chker)(ordering)
@@ -55,7 +55,7 @@ class LoopProcessor(override val checker: ProcessingPipeline)
           val srcTuple = tupleWrap(chain.fd.params.map(_.toVariable))
           val resTuple = tupleWrap(args)
 
-          api.solveSAT(path and equality(srcTuple, resTuple)) match {
+          api.solveSAT(path `and` equality(srcTuple, resTuple)) match {
             case inox.solvers.SolverResponses.SatWithModel(model) =>
               val args = chain.fd.params.map(vd => model.vars(vd))
               val fi = chain.fd.typed.applied(args)

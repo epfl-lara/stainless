@@ -7,6 +7,6 @@ object Sequencing2 {
     x += 5
     x *= 10
     x
-  } ensuring(x => x == 50)
+ }.ensuring(x => x == 50)
 
 }

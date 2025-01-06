@@ -10,7 +10,7 @@ object TreeImmutMapExample {
 
   @mutable abstract class Task {
     @ghostAnnot def readSet: Set[AnyHeapRef]
-    @ghostAnnot def writeSet: Set[AnyHeapRef] = { ??? : Set[AnyHeapRef] } ensuring (_.subsetOf(readSet))
+    @ghostAnnot def writeSet: Set[AnyHeapRef] = { ??? : Set[AnyHeapRef]}.ensuring(_.subsetOf(readSet))
 
     def run(): Unit = {
       reads(readSet)
@@ -40,7 +40,7 @@ object TreeImmutMapExample {
       case Nil() =>
       case Cons(_, xs) => lemmaMapConcat(xs, ys, f)
     }
-  } ensuring (_ => xs.map(f) ++ ys.map(f) == (xs ++ ys).map(f))
+ }.ensuring(_ => xs.map(f) ++ ys.map(f) == (xs ++ ys).map(f))
 
   case class Cell[T](var value: T) extends AnyHeapRef
 
@@ -90,7 +90,7 @@ object TreeImmutMapExample {
             assert(toList == oldList.map(f))
           }
       }
-    } ensuring (_ => toList == old(toList.map(f)))
+   }.ensuring(_ => toList == old(toList.map(f)))
 
     // FIXME: Times out
 /*
@@ -121,7 +121,7 @@ object TreeImmutMapExample {
           }
       }
       ()
-    } ensuring (_ => toList == old(toList.map(f)))
+   }.ensuring(_ => toList == old(toList.map(f)))
 */
   }
 

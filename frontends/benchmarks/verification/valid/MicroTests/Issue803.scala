@@ -18,5 +18,5 @@ object verified {
   def countDownNonneg(n: Int): Unit = {
     require(n >= 0)
     ()
-  }.ensuring(_ => countDown(n) <= 0)
+ }.ensuring(_ => countDown(n) <= 0)
 }

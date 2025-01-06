@@ -5,7 +5,7 @@ package stainless.utils
 import java.io.{ File, PrintWriter }
 import java.util.concurrent.TimeUnit
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.collection.mutable.{ Map => MutableMap }
 import scala.io.{Source, BufferedSource}
 import scala.concurrent.Future

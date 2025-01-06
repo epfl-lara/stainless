@@ -5,5 +5,5 @@ object Initialization2 {
   }
   def getM: Int = {
     new Hello().message
-  } ensuring (_ == 45)
+ }.ensuring(_ == 45)
 }

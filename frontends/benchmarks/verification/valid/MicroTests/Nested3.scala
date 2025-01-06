@@ -12,6 +12,6 @@ object Nested3 {
       e
     }
     rec1(2)
-  } ensuring(_ > 0)
+ }.ensuring(_ > 0)
 
 }

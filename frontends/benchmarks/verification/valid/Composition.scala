@@ -10,7 +10,7 @@ object Composition {
     if(x == 1)
       f(g(a))
     else 2
-  } ensuring { _ == 2 }
+ }.ensuring { _ == 2 }
 }
 
 // vim: set ts=4 sw=4 et:

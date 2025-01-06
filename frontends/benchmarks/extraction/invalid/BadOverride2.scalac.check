@@ -1,3 +1,0 @@
-[ Error  ] BadOverride2.scala:5:3: Abstract values `y` must be overridden with fields in concrete subclass
-             case class AbsInvalid() extends Abs {
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^...

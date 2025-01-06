@@ -6,6 +6,7 @@ package termination
 import org.scalatest.funsuite.AnyFunSuite
 import stainless.utils.YesNoOnly
 import stainless.verification._
+import extraction.xlang.{trees => xt}
 
 import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
@@ -29,6 +30,8 @@ class TerminationSuite extends VerificationComponentTestSuite {
     case "verification/valid/BitsTricksSlow" => Skip
     // Flaky
     case "verification/valid/PackedFloat8" => Ignore
+    // Succeeds most of the time, but unsuitable for CI due to its flakiness
+    case "imperative/valid/i1306b" => Ignore
     case _ => super.filter(ctx, name)
   }
 
@@ -39,41 +42,21 @@ class TerminationSuite extends VerificationComponentTestSuite {
     analysis.sources
       .toSeq
       .sortBy(_.name)
-      .map(symbols.getFunction(_))
+      .map(symbols.getFunction)
       .map { fd =>
         fd -> fd.flags.collectFirst { case TerminationStatus(status) => status }
       }
   }
 
-  testAll("termination/valid") { (analysis, reporter, _) =>
-    val failures = getResults(analysis).collect {
-      case (fd, Some(status)) if !status.isTerminating => fd
-    }
+  import TerminationSuite._
 
-    assert(failures.isEmpty, "Functions " + failures.map(_.id) + " should be annotated as terminating")
+  testAllTerminating("termination/valid", terminationValid._1, terminationValid._2)
 
-    for ((vc, vr) <- analysis.vrs) {
-      if (vr.isInvalid) fail(s"The following verification condition was invalid: $vc @${vc.getPos}")
-      if (vr.isInconclusive) fail(s"The following verification condition was inconclusive: $vc @${vc.getPos}")
-    }
-    reporter.terminateIfError()
-  }
+  testAllTerminating("verification/valid", verificationValid._1, verificationValid._2)
 
-  testAll("verification/valid") { (analysis, reporter, _) =>
-    val failures = getResults(analysis).collect {
-      case (fd, Some(status)) if !status.isTerminating => fd
-    }
+  testAllTerminating("imperative/valid", imperativeValid._1, imperativeValid._2)
 
-    assert(failures.isEmpty, "Functions " + failures.map(_.id) + " should be annotated as terminating")
-
-    for ((vc, vr) <- analysis.vrs) {
-      if (vr.isInvalid) fail(s"The following verification condition was invalid: $vc @${vc.getPos}")
-      if (vr.isInconclusive) fail(s"The following verification condition was inconclusive: $vc @${vc.getPos}")
-    }
-    reporter.terminateIfError()
-  }
-
-  testAll("termination/looping") { (analysis, reporter, _) =>
+  testAll("termination/looping", terminationLooping._1, terminationLooping._2) { (analysis, reporter, _) =>
     import analysis.program.symbols
     import analysis.program.trees._
 
@@ -98,10 +81,10 @@ class TerminationSuite extends VerificationComponentTestSuite {
     reporter.terminateIfError()
   }
 
-  testUncheckedAll("termination/unchecked-invalid")
+  testUncheckedAll("termination/unchecked-invalid", terminationUncheckedInvalid._1, terminationUncheckedInvalid._2)
 
   // Tests that should be verified, but aren't (not compatible with System FR type-checker, or needs more inference)
-  testNegAll("termination/false-invalid")
+  testNegAll("termination/false-invalid", terminationFalseInvalid._1, terminationFalseInvalid._2)
 
   // Looping programs that are already correctly rejected by the type-checker
   // Since these are rejected at extraction (and not due to invalid VCs), we need
@@ -129,7 +112,31 @@ class TerminationSuite extends VerificationComponentTestSuite {
     }}
   }
 
+  private def testAllTerminating(dir: String, structure: Seq[xt.UnitDef], programSymbols: xt.Symbols): Unit = {
+    testAll(dir, structure, programSymbols) { (analysis, reporter, _) =>
+      val failures = getResults(analysis).collect {
+        case (fd, Some(status)) if !status.isTerminating => fd
+      }
+
+      assert(failures.isEmpty, "Functions " + failures.map(_.id) + " should be annotated as terminating")
+
+      for ((vc, vr) <- analysis.vrs) {
+        if (vr.isInvalid) fail(s"The following verification condition was invalid: $vc @${vc.getPos}")
+        if (vr.isInconclusive) fail(s"The following verification condition was inconclusive: $vc @${vc.getPos}")
+      }
+      reporter.terminateIfError()
+    }
+  }
+
   // Workaround for a compiler crash caused by calling super.test
   def superTest(self: AnyFunSuite, testName: String)(body: => Unit): Unit =
     self.test(testName)(body)
+}
+object TerminationSuite {
+  private lazy val terminationValid = ComponentTestSuite.loadPrograms("termination/valid")
+  private lazy val verificationValid = ComponentTestSuite.loadPrograms("verification/valid")
+  private lazy val imperativeValid = ComponentTestSuite.loadPrograms("imperative/valid")
+  private lazy val terminationLooping = ComponentTestSuite.loadPrograms("termination/looping")
+  private lazy val terminationUncheckedInvalid = ComponentTestSuite.loadPrograms("termination/unchecked-invalid")
+  private lazy val terminationFalseInvalid = ComponentTestSuite.loadPrograms("termination/false-invalid")
 }

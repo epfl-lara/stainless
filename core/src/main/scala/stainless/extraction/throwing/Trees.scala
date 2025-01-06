@@ -74,7 +74,7 @@ trait Printer extends imperative.Printer {
     case Throwing(Ensuring(body, post), pred) =>
       p"""|{
           |  $body
-          |} ensuring {
+          |}.ensuring {
           |  $post
           |} throwing {
           |  $pred
@@ -132,7 +132,8 @@ class ExprOps(override val trees: Trees) extends imperative.ExprOps(trees) { sel
         //
         val tLambda: tt.Lambda = tr.transform(expr, env) match {
           // doing case lam: tt.Lambda triggers a compile-time error, but not if we mix it with tr.t.Lambda...
-          case lam: tr.t.Lambda with tt.Lambda => lam
+          // SAM 21.08.2024 remove the mix in the match to migrate to scala 3.5
+          case lam: tt.Lambda => lam
         }
         tt.exprOps.Exceptions(tLambda).setPos(this).asInstanceOf[tr.t.exprOps.Specification]
       case _ =>
@@ -143,7 +144,7 @@ class ExprOps(override val trees: Trees) extends imperative.ExprOps(trees) { sel
       case tt: throwing.Trees =>
         // Same story here
         val tLambda: tt.Lambda = tr.transform(expr) match {
-          case lam: tr.t.Lambda with tt.Lambda => lam
+          case lam: tt.Lambda => lam
         }
         tt.exprOps.Exceptions(tLambda).setPos(this).asInstanceOf[tr.t.exprOps.Specification]
       case _ =>

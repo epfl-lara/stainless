@@ -7,7 +7,7 @@ object OldThis2 {
   case class A(b: B) {
     def foo(y: Int): Unit = {
       b.x += y
-    } ensuring(_ => b.x == old(this).b.x + y)
+   }.ensuring(_ => b.x == old(this).b.x + y)
   }
 
 }

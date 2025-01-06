@@ -42,7 +42,7 @@ object Streams {
     def zip[U](that: Stream[U]): Stream[(T, U)] = {
       decreases(this) // FIXME(measure): Should be inferred by RecursionProcessor (cleared)
       (this, that) match {
-        case (SCons(x, xs), SCons(y, ys)) => SCons((x, y), () => xs() zip ys())
+        case (SCons(x, xs), SCons(y, ys)) => SCons((x, y), () => xs().zip(ys()))
         case _ => SNil()
       }
     }

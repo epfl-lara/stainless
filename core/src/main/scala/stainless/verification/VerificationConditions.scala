@@ -11,7 +11,7 @@ case class VC[T <: ast.Trees](val trees: T)(val condition: trees.Expr, val fid: 
 
   // We override hashCode and equals because, for some reasons, the synthesized methods only use `trees` and ignore the rest
 
-  override def canEqual(that: Any): Boolean = that.isInstanceOf[VC[_]]
+  override def canEqual(that: Any): Boolean = that.isInstanceOf[VC[?]]
 
   override def equals(other: Any): Boolean = other match {
     case that: VC[t] =>
@@ -27,6 +27,8 @@ case class VC[T <: ast.Trees](val trees: T)(val condition: trees.Expr, val fid: 
     val state = Seq(trees, condition, fid, kind, satisfiability)
     state.map(_.hashCode()).foldLeft(0)((a, b) => 31 * a + b)
   }
+
+  override def toString(): String =  s"VC($condition)"
 }
 
 sealed abstract class VCKind(val name: String, val abbrv: String) {
@@ -71,6 +73,7 @@ object VCKind {
   case object CoqMethod                     extends VCKind("coq function", "coq fun.")
   case class  Error(err: String)            extends VCKind(err, "error")
   case class  AdtInvariant(inv: Identifier) extends VCKind("class invariant", "class inv.")
+  case object SATPrecondCheck               extends VCKind("precondition satisfiability", "sat precond.")
 
   def fromErr(optErr: Option[String]) = {
     optErr.map { err =>
@@ -112,12 +115,13 @@ object VCStatus {
 case class VCResult[+Model](
   status: VCStatus[Model],
   solverName: Option[String],
-  time: Option[Long]
+  time: Option[Long],
+  smtLibFileId: Option[Int]
 ) {
   def isValid           = status == VCStatus.Valid || isValidFromCache || isTrivial
   def isValidFromCache  = status == VCStatus.ValidFromCache
   def isTrivial         = status == VCStatus.Trivial
   def isAdmitted        = status == VCStatus.Admitted
-  def isInvalid         = status.isInstanceOf[VCStatus.Invalid[_]]
+  def isInvalid         = status.isInstanceOf[VCStatus.Invalid[?]]
   def isInconclusive    = !isValid && !isInvalid
 }

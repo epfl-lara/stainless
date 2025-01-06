@@ -36,6 +36,7 @@ package object extraction {
     "MethodLifting"             -> "Lift methods into dispatching functions",
     "MergeInvariants"           -> "Merge all class invariants into a single method",
     "ValueClasses"              -> "Erase value classes",
+    "ExceptionLifting"          -> "Removes all throw statements, and replaces them with an assertion with false condition",
     "FieldAccessors"            -> "Inline field accessors of concrete classes",
     "EffectElaboration"         -> "Transform all side-effectful operations into mutable map updates",
     "AntiAliasing"              -> "Rewrite field and array mutations",
@@ -48,7 +49,7 @@ package object extraction {
     "TypeEncoding"              -> "Encode non-ADT types",
     "FunctionClosure"           -> "Lift inner functions",
     "FunctionSpecialization"    -> "Specialize functions",
-    "UnfoldOpaque  "            -> "Injects equality assumption with inlined call for calls wrapped in unfold keyword",
+    "UnfoldOpaque"              -> "Injects equality assumption with inlined call for calls wrapped in unfold keyword",
     "CallSiteInline"            -> "Call-side inline for calls wrapped in inline keyword",
     "ChooseInjector"            -> "Insert chooses where necessary",
     "ChooseEncoder"             -> "Encodes chooses as functions",
@@ -71,6 +72,9 @@ package object extraction {
     "Referencing"               -> "(GenC) Add 'referencing' to the input LIR program to produce a RIR program",
     "IR2C"                      -> "(GenC) From IR to C",
   )
+
+  // The tag used when printing progress about which phase is currently running
+  case object PhaseExtractionTag
 
   val phaseNames: Set[String] = phases.map(_._1).toSet
 
@@ -121,24 +125,24 @@ package object extraction {
     object printer extends Printer { val trees: extraction.trees.type = extraction.trees }
   }
 
-  case class ExtractionFailed() extends Exception
+  case class ExtractionFailed() extends Exception("Extraction failed")
   case class MalformedStainlessCode(tree: inox.ast.Trees#Tree, msg: String)
     extends Exception(msg)
 
   def pipeline(using inox.Context): StainlessPipeline = {
-    xlang.extractor        andThen
-    innerclasses.extractor andThen
-    methods.extractor      andThen
-    throwing.extractor     andThen
-    imperative.extractor   andThen
-    oo.extractor           andThen
-    innerfuns.extractor    andThen
-    inlining.extractor     andThen
-    trace.extractor        andThen
+    xlang.extractor        `andThen`
+    innerclasses.extractor `andThen`
+    methods.extractor      `andThen`
+    throwing.extractor     `andThen`
+    imperative.extractor   `andThen`
+    oo.extractor           `andThen`
+    innerfuns.extractor    `andThen`
+    inlining.extractor     `andThen`
+    trace.extractor        `andThen`
     termination.extractor
   }
 
-  private[this] def completeSymbols(symbols: trees.Symbols)(to: ast.Trees): to.Symbols = {
+  private def completeSymbols(symbols: trees.Symbols)(to: ast.Trees): to.Symbols = {
     class CompleteSymbolsImpl(override val s: extraction.trees.type, override val t: to.type) extends CheckingTransformer
     symbols.transform(new CompleteSymbolsImpl(extraction.trees, to))
   }
@@ -184,8 +188,8 @@ package object extraction {
         val program: Program { val trees: p.trees.type; val symbols: p.symbols.type } =
           p.asInstanceOf[Program { val trees: p.trees.type; val symbols: p.symbols.type }]
 
-        private[this] val targetSymbols = completeSymbols(processSymbols(symbols))(stainless.trees)
-        private[this] val targetProgram = inox.Program(stainless.trees)(targetSymbols)
+        private val targetSymbols = completeSymbols(processSymbols(symbols))(stainless.trees)
+        private val targetProgram = inox.Program(stainless.trees)(targetSymbols)
 
         private class ProgramEncoderImpl(override val sourceProgram: self.program.type,
                                          override val targetProgram: self.targetProgram.type )

@@ -23,6 +23,13 @@ package object frontend {
     */
   object optBatchedProgram extends inox.FlagOptionDef("batched", false)
 
+  object optClasspath extends inox.OptionDef[Option[String]] {
+    val name = "classpath"
+    val default = None
+    val parser = input => Some(Some(input))
+    val usageRhs = "DIR"
+  }
+
   /**
    * Given a context (with its reporter) and a frontend factory, proceed to compile,
    * extract, transform and verify the input programs based on the active components
@@ -79,7 +86,7 @@ package object frontend {
 
   private def batchSymbols(activeComponents: Seq[Component])(using ctx: inox.Context): Boolean = {
     ctx.options.findOptionOrDefault(optBatchedProgram) ||
-    activeComponents.exists(Set(genc.GenCComponent, testgen.ScalaTestGenComponent, testgen.GenCTestGenComponent, equivchk.EquivalenceCheckingComponent).contains) ||
+    activeComponents.exists(Set(genc.GenCComponent, testgen.ScalaTestGenComponent, testgen.GenCTestGenComponent).contains) ||
     ctx.options.findOptionOrDefault(optKeep).nonEmpty
   }
 

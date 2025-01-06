@@ -5,26 +5,25 @@ package verification
 
 import org.scalatest._
 
-trait UncheckedSuite extends VerificationComponentTestSuite {
+class UncheckedSuite extends VerificationComponentTestSuite {
+  private val solvers = Seq("smt-z3", "smt-cvc4", "smt-cvc5")
 
-  override def configurations = super.configurations.map {
-    seq => Seq(optFailEarly(true), inox.solvers.optCheckModels(false)) ++ seq
+  override def configurations: Seq[Seq[inox.OptionValue[?]]] = {
+    solvers.flatMap { solver =>
+      super.configurations.map {
+        seq => Seq(
+          inox.optSelectedSolvers(Set(solver)),
+          optFailEarly(true),
+          inox.solvers.optCheckModels(false)) ++ seq
+      }
+    }
   }
 
-  override val component: VerificationComponent.type = VerificationComponent
-
-  testUncheckedAll("verification/unchecked-invalid")
-  testUncheckedAll("verification/unchecked-valid")
+  import UncheckedSuite._
+  testUncheckedAll("verification/unchecked-invalid", uncheckedInvalid._1, uncheckedInvalid._2)
+  testUncheckedAll("verification/unchecked-valid", uncheckedValid._1, uncheckedValid._2)
 }
-
-class SMTZ3UncheckedSuite extends UncheckedSuite {
-  override def configurations = super.configurations.map {
-    seq => inox.optSelectedSolvers(Set("smt-z3:z3-4.8.12")) +: seq
-  }
-}
-
-class SMTCVC4UncheckedSuite extends UncheckedSuite {
-  override def configurations = super.configurations.map {
-    seq => inox.optSelectedSolvers(Set("smt-cvc4")) +: seq
-  }
+object UncheckedSuite {
+  private lazy val uncheckedInvalid = ComponentTestSuite.loadPrograms("verification/unchecked-invalid")
+  private lazy val uncheckedValid = ComponentTestSuite.loadPrograms("verification/unchecked-valid")
 }

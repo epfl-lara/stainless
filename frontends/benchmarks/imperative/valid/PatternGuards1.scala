@@ -10,6 +10,6 @@ object PatternGuards1 {
       case z if x > 11 => z
       case _ => 12
     }
-  } ensuring(_ > 11)
+ }.ensuring(_ > 11)
 
 }

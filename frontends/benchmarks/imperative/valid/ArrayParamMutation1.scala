@@ -12,6 +12,6 @@ object ArrayParamMutation1 {
     val a = Array.fill(10)(BigInt(0))
     update(a)
     a(0)
-  } ensuring(res => res == 10)
+ }.ensuring(res => res == 10)
 
 }

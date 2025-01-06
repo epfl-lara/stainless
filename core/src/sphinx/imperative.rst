@@ -1,7 +1,7 @@
 .. _imperative:
 
-Imperative
-==========
+Imperative and Other Effects
+============================
 
 To complement the core :doc:`Pure Scala <purescala>` language, Stainless
 proposes a few extensions to that core language.
@@ -9,6 +9,8 @@ proposes a few extensions to that core language.
 On the technical side, these extensions do not have specific treatment in the
 back-end of Stainless. Instead, they are desugared into :doc:`Pure Scala <purescala>`
 constructs during a preprocessing phase in the Stainless front-end.
+
+These transformations are partly documented in the `EPFL PhD thesis of Régis Blanc <https://doi.org/10.5075/epfl-thesis-7636>`_.
 
 Imperative Code
 ---------------
@@ -141,6 +143,7 @@ Stainless also has a ``swap`` operation in ``stainless.lang``, which is equivale
 
   def swap[@mutable T](a1: Array[T], i1: Int, a2: Array[T], i2: Int): Unit
 
+We recommend avoiding the use of arrays of mutable structures.
 
 Mutable Objects
 ---------------
@@ -160,6 +163,9 @@ arguments:
 Mutable case classes are behaving similarly to ``Array``, and are handled with a
 rewriting, where each field updates becomes essentially a copy of the object with
 the modified parameter changed.
+
+First class functions may accept mutable classes as declared
+type parameters, but they may not capture mutable objects.
 
 Aliasing
 --------
@@ -210,7 +216,7 @@ properties:
   case class A(var x: Int)
   def inc(a: A): Unit = {
     a.x = a.x + 1
-  } ensuring(_ => a.x == old(a).x + 1)
+ }.ensuring(_ => a.x == old(a).x + 1)
 
 ``old`` can be wrapped around any identifier that is affected by the body. You can also use
 ``old`` for variables in scope, in the case of nested functions:
@@ -221,10 +227,118 @@ properties:
     var x = 0
     def inc(): Unit = {
       x = x + 1
-    } ensuring(_ => x == old(x) + 1)
+   }.ensuring(_ => x == old(x) + 1)
 
     inc(); inc();
     assert(x == 2)
+  }
+
+Another useful and similar construct is ``snapshot`` that semantically makes a deep copy of a mutable object.
+Contrarily to ``old``, ``snapshot`` allows to refer to the state of an object prior to its mutation within
+the body of the function, as long as it is used in a :doc:`ghost context <ghost>`.
+
+For instance:
+
+.. code-block:: scala
+
+  def updateArray(a: Array[BigInt], i: Int, x: BigInt): Unit = {
+    require(0 <= i && i < a.length - 1)
+    require(a(i) == 0 && a(i + 1) == 0)
+    @ghost val a0 = snapshot(a)
+    a(i) = x
+    // a0 is unaffected by the update of a
+    // Note: using StaticChecks assert, which introduces a ghost context
+    assert(a0(i) == 0 && a(i) == x)
+    @ghost val a1 = snapshot(a)
+    a(i + 1) = 2 * x
+    assert(a1(i + 1) == 0 && a(i + 1) == 2 * x)
+  }
+
+
+Extern functions and abstract methods
+-------------------------------------
+
+``@extern`` functions and abstract methods of non-sealed trait taking mutable objects as parameters are treated as-if
+they were applying arbitrary modifications to them.
+For instance, the assertions in the following snippet are invalid:
+
+.. code-block:: scala
+
+  @extern
+  def triple(mc: MutableClass): BigInt = ???
+
+  trait UnsealedTrait {
+    def quadruple(mc: MutableClass): BigInt
+  }
+
+  def test1(mc: MutableClass): Unit = {
+    val i = mc.i
+    triple(mc)
+    assert(i == mc.i) // Invalid, mc.i could be anything
+  }
+
+  def test2(ut: UnsealedTrait, mc: MutableClass): Unit = {
+    val i = mc.i
+    ut.quadruple(mc)
+    assert(i == mc.i) // Invalid as well
+  }
+
+Annotating such methods or functions with ``@pure`` tells Stainless to assume the parameters are not mutated:
+
+.. code-block:: scala
+
+  case class MutableClass(var i: BigInt)
+
+  @pure @extern
+  def triple(mc: MutableClass): BigInt = ???
+
+  trait UnsealedTrait {
+    @pure
+    def quadruple(mc: MutableClass): BigInt
+  }
+
+  def test1(mc: MutableClass): Unit = {
+    val i = mc.i
+    triple(mc)
+    assert(i == mc.i) // Ok
+  }
+
+  def test2(ut: UnsealedTrait, mc: MutableClass): Unit = {
+    val i = mc.i
+    ut.quadruple(mc)
+    assert(i == mc.i) // Ok
+  }
+
+Note that Stainless will enforce purity for visible implementations of ``quadruple``.
+
+Sometimes, a method or ``@extern`` function may mutate some parameters but not all of them.
+In such cases, the untouched parameters can be annotated with ``@pure``:
+
+.. code-block:: scala
+
+  case class MutableClass(var i: BigInt)
+
+  @extern
+  def sum(@pure mc1: MutableClass, mc2: MutableClass): BigInt = ???
+
+  trait UnsealedTrait {
+    def doubleSum(@pure mc1: MutableClass, mc2: MutableClass): BigInt
+  }
+
+  def test1(mc1: MutableClass, mc2: MutableClass): Unit = {
+    val i1 = mc1.i
+    val i2 = mc2.i
+    sum(mc1, mc2)
+    assert(i1 == mc1.i) // Ok
+    assert(i2 == mc2.i) // Invalid, mc2.i may have any value
+  }
+
+  def test2(ut: UnsealedTrait, mc1: MutableClass, mc2: MutableClass): Unit = {
+    val i1 = mc1.i
+    val i2 = mc2.i
+    ut.doubleSum(mc1, mc2)
+    assert(i1 == mc1.i) // Ok
+    assert(i2 == mc2.i) // Invalid
   }
 
 Trait Variables
@@ -362,7 +476,7 @@ the ``ReturnElimination`` phase. Here is a function taken from `ReturnInWhile.sc
 
       assert(false, "unreachable code")
       0
-    }.ensuring((res: Int) => res == n)
+   }.ensuring((res: Int) => res == n)
 
 After transformation, we get a recursive (local) function named ``returnWhile``
 that returns a control flow element to indicate whether the loop terminated
@@ -405,7 +519,7 @@ the postcondition of the top-level holds (see comment).
                 Proceed[Int, Unit](())
               }
           }
-        } ensuring {
+       }.ensuring {
           (cfWhile: ControlFlow[Int, Unit]) => cfWhile match {
             case Return(retValue) =>
               // we check the postcondition `retValue == n` of the top-level function
@@ -427,9 +541,27 @@ the postcondition of the top-level holds (see comment).
           assert(false, "unreachable code")
           0
       }
-    } ensuring {
+   }.ensuring {
       (res: Int) => res == n
     }
 
 Finally, ``return`` is also supported for local function definitions, with the same transformation.
 It is however not supported for anonymous functions.
+
+Exceptions
+----------
+
+
+As an alternative to exceptions, we recommend specifying
+appropriate preconditions for functions using `require` or
+using richer return types (e.g. `Option`, `Either`, or a
+class such as `Try`).
+
+It is possible to use `throw` to document reasons why
+certain situation would not be desirable.  However,
+stainless currently requires the `throw` to be provably
+unreachable, given the `require` specifications, so it will
+never be executed. There is no support for `try`. To use
+`throw` for such documentation purposes, it is necessary to
+use a simple exception class that extends
+`stainless.lang.Exception`.

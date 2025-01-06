@@ -11,6 +11,6 @@ object IfExpr1 {
     else
       b = a + b
     a
-  } ensuring(_ == 2)
+ }.ensuring(_ == 2)
 
 }

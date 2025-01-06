@@ -37,7 +37,7 @@ package object proof {
   def check(prop: Boolean): Unit = {
     require(prop)
     ()
-  }.ensuring(_ => prop)
+ }.ensuring(_ => prop)
 
   /**
    * Relational reasoning.

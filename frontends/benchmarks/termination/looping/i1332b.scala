@@ -10,5 +10,5 @@ object i1332b {
     decreases(i)
     val x = looping_f(looping_f(i) - i - 1)
     x + 1
-  }.ensuring(_ == i + 1)
+ }.ensuring(_ == i + 1)
 }

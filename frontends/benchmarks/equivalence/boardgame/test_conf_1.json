@@ -10,5 +10,24 @@
   ],
   "tests": [
     "Model.testsValidCitySettlement"
-  ]
+  ],
+  "outcome": {
+    "equivalent": [
+      {
+        "model": "Model.validCitySettlement",
+        "functions": [
+          "Candidate1.validCitySettlement"
+        ]
+      }
+    ],
+    "unequivalent": [
+      "Candidate2.validCitySettlement",
+      "Candidate3.validCitySettlement",
+      "Candidate4.validCitySettlement"
+    ],
+    "unsafe": [],
+    "unknownSafety": [],
+    "unknownEquivalence": [],
+    "wrong": []
+  }
 }

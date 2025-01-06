@@ -1,0 +1,19 @@
+{
+  "models": [
+    "Model.isEvenTopLvl"
+  ],
+  "comparefuns": [
+    "Candidate.isEvenTopLvl"
+  ],
+  "tests": [],
+  "outcome": {
+    "equivalent": [],
+    "unequivalent": [],
+    "unsafe": [],
+    "unknownSafety": [
+      "Candidate.isEvenTopLvl"
+    ],
+    "unknownEquivalence": [],
+    "wrong": []
+  }
+}

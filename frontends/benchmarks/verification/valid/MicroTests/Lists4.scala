@@ -18,10 +18,10 @@ object Lists4 {
   }
 
   def map_lemma_induct[D,E,F](list: List[D], f: D => E, g: E => F): Boolean = {
-    map_lemma(list, f, g) because (list match {
+    map_lemma(list, f, g).because((list match {
       case Nil() => true
       case Cons(head, tail) => map_lemma_induct(tail, f, g)
-    })
+    }))
   }.holds
 
 }

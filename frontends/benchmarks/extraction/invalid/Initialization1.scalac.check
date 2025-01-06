@@ -1,8 +1,0 @@
-[ Error  ] Initialization1.scala:3:5: Not well formed definition @private
-[ Error  ] @field
-[ Error  ] @fieldDefPosition(1)
-[ Error  ] @method(InitA)
-[ Error  ] def x: Int = this.y
-[ Error  ] 	because field `x` can only refer to previous fields, not to `y`
-               val x = y
-               ^^^^^^^^^

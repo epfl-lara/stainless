@@ -13,7 +13,7 @@ package frontend
 abstract class ThreadedFrontend(callback: CallBack, ctx: inox.Context) extends Frontend(callback) {
   private given givenDebugSection: DebugSectionFrontend.type = DebugSectionFrontend
 
-  private var thread: Thread = _
+  private var thread: Thread = scala.compiletime.uninitialized
   private val exceptions = new scala.collection.mutable.ListBuffer[Throwable]
 
   protected def initRun(): Unit // Called when initializing the thread (before callback initialisation).
@@ -25,14 +25,19 @@ abstract class ThreadedFrontend(callback: CallBack, ctx: inox.Context) extends F
     assert(!isRunning)
 
     val runnable = new Runnable {
-      override def run(): Unit = try {
-        exceptions.clear()
-        initRun()
-        callback.beginExtractions()
-        onRun()
-      } finally {
-        callback.endExtractions()
-        onEnd()
+      override def run(): Unit = {
+        val start = System.currentTimeMillis()
+        try {
+          exceptions.clear()
+          initRun()
+          callback.beginExtractions()
+          onRun()
+        } finally {
+          callback.endExtractions()
+          onEnd()
+          val end = System.currentTimeMillis()
+          ctx.reporter.info(s"Done in %.2fs".format((end - start) / 1000d))
+        }
       }
     }
 

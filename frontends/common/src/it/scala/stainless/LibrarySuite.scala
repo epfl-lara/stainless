@@ -10,7 +10,7 @@ import scala.concurrent.duration._
 import extraction.ExtractionSummary
 import stainless.utils.YesNoOnly
 
-abstract class AbstractLibrarySuite(opts: Seq[inox.OptionValue[_]]) extends AnyFunSpec with InputUtils {
+abstract class AbstractLibrarySuite(opts: Seq[inox.OptionValue[?]]) extends AnyFunSpec with InputUtils {
   import ast.SymbolIdentifier
 
   protected val defaultOptions = Seq(inox.optSelectedSolvers(Set("smt-z3")))
@@ -31,7 +31,7 @@ abstract class AbstractLibrarySuite(opts: Seq[inox.OptionValue[_]]) extends AnyF
     val ctx: inox.Context = stainless.TestContext(options)
     import ctx.{reporter, given}
 
-    val tryProgram = scala.util.Try(loadFiles(Seq.empty)._2)
+    val tryProgram = scala.util.Try(loadFiles(Main.libraryFiles)._2)
     it("should be extractable") {
       assert(tryProgram.isSuccess, "Extraction crashed with exception")
       assert(reporter.errorCount == 0, "Extraction had errors")
@@ -47,10 +47,12 @@ abstract class AbstractLibrarySuite(opts: Seq[inox.OptionValue[_]]) extends AnyF
       val funs = exProgram.symbols.functions.values.filter(keep(exProgram.trees)).map(_.id).toSeq
       val analysis = Await.result(run.execute(funs, exProgram.symbols, ExtractionSummary.NoSummary), Duration.Inf)
       val report = analysis.toReport
+      val invalids = analysis.vrs.filter(_._2.isInvalid)
+      val inconcls = analysis.vrs.filter(_._2.isInconclusive)
       assert(report.totalConditions == report.totalValid,
         "Only " + report.totalValid + " valid out of " + report.totalConditions + "\n" +
-        "Invalids are:\n" + analysis.vrs.filter(_._2.isInvalid).mkString("\n") + "\n" +
-        "Unknowns are:\n" + analysis.vrs.filter(_._2.isInconclusive).mkString("\n"))
+        "Invalids are:\n" + invalids.map(_._1.condition.getPos).mkString("\n") + "\n" +
+        "Unknowns are:\n" + inconcls.map(_._1.condition.getPos).mkString("\n"))
     }
   }
 }
@@ -58,5 +60,6 @@ abstract class AbstractLibrarySuite(opts: Seq[inox.OptionValue[_]]) extends AnyF
 class LibrarySuite extends AbstractLibrarySuite(Seq(
   termination.optInferMeasures(true),
   termination.optCheckMeasures(YesNoOnly.Yes),
+  inox.optTimeout(30.seconds),
 ))
 

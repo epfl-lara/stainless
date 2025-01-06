@@ -22,7 +22,7 @@ object NewImpExamples {
     reads(Set(b))
     modifies(Set(b))
     b.value = g(b.value >= 0, b.value)
-  } ensuring(_ => b.value >= 0)
+ }.ensuring(_ => b.value >= 0)
 
   // Example inc
 
@@ -30,7 +30,7 @@ object NewImpExamples {
     reads(Set(b))
     modifies(Set(b))
     b.value = b.value + 1
-  } ensuring(_ => b.value > old(b.value))
+ }.ensuring(_ => b.value > old(b.value))
 
   // Example accumulate
 
@@ -45,7 +45,7 @@ object NewImpExamples {
     modifies(Set(bb.inner))
     require(b.value > 0)
     accumulateBox(bb.inner, b)
-  } ensuring(_ => bb.inner.value > old(bb.inner.value))
+ }.ensuring(_ => bb.inner.value > old(bb.inner.value))
 
   // Example Ops
 
@@ -67,7 +67,7 @@ object NewImpExamples {
         runOps(b, ops)
       case _ =>
     }
-  } ensuring(_ => isWithin(b.value, old(b.value), ops.size))
+ }.ensuring(_ => isWithin(b.value, old(b.value), ops.size))
 
 
   // TODO(gsps): Add local heap to reason about allocation?
@@ -77,7 +77,7 @@ object NewImpExamples {
 
   // def foo2a(): BigInt = {
   //   foo1a(Up(2))
-  // } ensuring(res => res == 1)
+  //}.ensuring(res => res == 1)
 
   def foo1b(op: Op): BigInt = {
     reads(Set(op))
@@ -90,7 +90,7 @@ object NewImpExamples {
 
   // def foo2b(): BigInt = {
   //   foo1b(Up(2))
-  // } ensuring(res => res == 1)
+  //}.ensuring(res => res == 1)
 
 
   def bar(box: Box, x: BigInt): Unit = {
@@ -108,9 +108,9 @@ object NewImpExamples {
   //     case Cons(x, xs) => f(x); foreach(xs)(f)
   //     case _ =>
   //   }
-  // } ensuring(_ => spec(xs))
+  //}.ensuring(_ => spec(xs))
 
   // def runOps2(b: Box, ops: List[Boolean]): Unit = {
   //   ops.foreach(op => runOp(b, op))(ops => isWithin(b.value, old(b.value), ops.size))
-  // } ensuring(_ => isWithin(b.value, old(b.value), ops.size))
+  //}.ensuring(_ => isWithin(b.value, old(b.value), ops.size))
 }

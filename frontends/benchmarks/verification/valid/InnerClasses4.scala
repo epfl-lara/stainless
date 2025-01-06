@@ -38,7 +38,7 @@ object InnerClasses4 {
     def append(l: List[A], r: List[A]) = l ++ r
 
     override def law_associativity(x: List[A], y: List[A], z: List[A]): Boolean = {
-      super.law_associativity(x, y, z) because listAppendIsAssociative(x, y, z)
+      super.law_associativity(x, y, z).because(listAppendIsAssociative(x, y, z))
     }
   }
 

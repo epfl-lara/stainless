@@ -3,7 +3,6 @@ package frontends.dotc
 
 import scala.language.implicitConversions
 import dotty.tools.dotc._
-import typer.Inliner
 import ast.tpd
 import ast.Trees._
 import core.Contexts.{NoContext, Context => DottyContext}
@@ -22,7 +21,7 @@ import scala.collection.mutable.{Map => MutableMap}
 
 trait ASTExtractors {
   val dottyCtx: DottyContext
-  import dottyCtx.given
+  given DottyContext = dottyCtx
 
   def classFromName(nameStr: String): ClassSymbol = requiredClass(typeName(nameStr))
   def moduleFromName(nameStr: String): TermSymbol = requiredModule(typeName(nameStr))
@@ -41,27 +40,49 @@ trait ASTExtractors {
     defn.AnyValType,
   )
 
+  // Annotations that are propagated to symbols owned by an owner containing these.
+  // Note: we do not necessarily want @opaque/@inlineOnce function to have their inner functions
+  // automatically annotated with @opaque/@inlineOnce, we therefore leave them out
+  private val propagatedAnnotations: Set[String] = Set(
+    "stainless.annotation.ignore",
+    "stainless.annotation.library",
+    "stainless.annotation.extern",
+    "stainless.annotation.dropVCs",
+    "stainless.annotation.pure",
+    "stainless.annotation.wrapping",
+    "stainless.annotation.keep",
+    "stainless.annotation.keepFor",
+    "stainless.annotation.cCode.drop"
+  )
+  private val ghostAnnot: String = "stainless.annotation.ghost"
+
   def isIgnored(tp: Type): Boolean = ignoredClasses.exists(_ frozen_=:= tp)
 
   def getAnnotations(sym: Symbol, ignoreOwner: Boolean = false): Seq[(String, Seq[tpd.Tree])] = {
     if (sym eq NoSymbol)
       return Seq.empty
 
-    val erased = if (sym.isEffectivelyErased) Seq(("ghost", Seq.empty[tpd.Tree])) else Seq()
+    val erased = if (sym.isEffectivelyErased && !(sym `is` Inline)) Seq(("ghost", Seq.empty[tpd.Tree])) else Seq()
     val selfs = sym.annotations
     val owners =
       if (ignoreOwner) List.empty[Annotation]
-      else sym.owner.annotations.filter(annot =>
-        annot.toString != "stainless.annotation.export" &&
-          !annot.toString.startsWith("stainless.annotation.cCode.global")
-      )
+      else sym.ownersIterator.drop(1) // drop(1) to skip `sym` itself
+        .zipWithIndex
+        .flatMap { case (owner, ix) =>
+          owner.annotations.filter { annot =>
+            val annotNme = annot.symbol.fullName.toString
+            // Keep this annotation if is either an annotation to propagate (`propagatedAnnotations`)
+            // or if it's a @ghost that applies to a method whose direct owner is a class (ix == 0 and owner.isClass).
+            propagatedAnnotations(annotNme) || (annotNme == ghostAnnot && ix == 0 && (sym `is` Method) && owner.isClass)
+          }
+        }.toList
     val companions = List(sym.denot.companionModule).filter(_ ne NoSymbol).flatMap(_.annotations)
     erased ++ (for {
       a <- selfs ++ owners ++ companions
       name = a.symbol.showFullName
         .replace(".package.", ".")
     } yield {
-      if (name startsWith "stainless.annotation.") {
+      if (name `startsWith` "stainless.annotation.") {
         val shortName = name drop "stainless.annotation.".length
         Some(shortName, a.arguments)
       } else if (name == "inline" || name == "scala.inline") {
@@ -103,6 +124,7 @@ trait ASTExtractors {
   protected lazy val mutableMapSym  = classFromName("stainless.lang.MutableMap")
   protected lazy val bagSym         = classFromName("stainless.lang.Bag")
   protected lazy val realSym        = classFromName("stainless.lang.Real")
+   protected lazy val cellSym       = classFromName("stainless.lang.Cell")
 
   protected lazy val bvSym          = classFromName("stainless.math.BitVectors.BV")
 
@@ -199,6 +221,10 @@ trait ASTExtractors {
     getResolvedTypeSym(sym) == realSym
   }
 
+  def isCellSym(sym: Symbol): Boolean = {
+    getResolvedTypeSym(sym) == cellSym
+  }
+
   def isScalaSetSym(sym: Symbol) : Boolean = {
     getResolvedTypeSym(sym) == scalaSetSym
   }
@@ -240,15 +266,15 @@ trait ASTExtractors {
   def hasBooleanType(t: tpd.Tree) = t.tpe frozen_<:< defn.BooleanType
 
   def isDefaultGetter(sym: Symbol) = {
-    (sym is Synthetic) && sym.name.isTermName && sym.name.toTermName.toString.contains("$default$")
+    (sym `is` Synthetic) && sym.name.isTermName && sym.name.toTermName.toString.contains("$default$")
   }
 
   def isCopyMethod(sym: Symbol) = {
-    (sym is Synthetic) && sym.name.isTermName && sym.name.toTermName.toString.startsWith("copy")
+    (sym `is` Synthetic) && sym.name.isTermName && sym.name.toTermName.toString.startsWith("copy")
   }
 
   def canExtractSynthetic(sym: Symbol) = {
-    (sym is Implicit) ||
+    (sym `is` Implicit) ||
     isDefaultGetter(sym) ||
     isCopyMethod(sym)
   }
@@ -314,7 +340,7 @@ trait ASTExtractors {
       */
     object ExEffectivelyLiteral {
       def unapply(tree: tpd.Tree): Option[tpd.Literal] = tree match {
-        case sel@Select(Ident(_), _) if sel.symbol is Final =>
+        case sel@Select(Ident(_), _) if sel.symbol `is` Final =>
           sel.symbol.denot.info match {
             case ExprType(ConstantType(c)) =>
               Some(tpd.Literal(c))
@@ -413,7 +439,7 @@ trait ASTExtractors {
 
         optCall.flatMap { case (id, tps, args) =>
           id.tpe match {
-            case ref @ TermRef(tt: ThisType, _) if !(ref.symbol.owner is Module) =>
+            case ref @ TermRef(tt: ThisType, _) if !(ref.symbol.owner `is` Module) =>
               Some((tt, id.symbol, tps, args))
             case _ => None
           }
@@ -494,7 +520,7 @@ trait ASTExtractors {
 
         optCall.map { case (rec, sym, tps, args) =>
           val newRec = rec.filterNot { r =>
-            (r.symbol is Module) && !(r.symbol is Case)
+            (r.symbol `is` Module) && !(r.symbol `is` Case)
           }
           (newRec, sym, tps, args)
         }
@@ -510,15 +536,15 @@ trait ASTExtractors {
           Some((tree.tpe, args))
 
         case Apply(e, args) if (
-          (e.symbol.owner is Module) &&
-          (e.symbol is Synthetic) &&
+          (e.symbol.owner `is` Module) &&
+          (e.symbol `is` Synthetic) &&
           (e.symbol.name.toString == "apply")
         ) => Some((tree.tpe, args))
 
-        case Select(s, _) if (tree.symbol is Case) && (tree.symbol is Module) =>
+        case Select(s, _) if (tree.symbol `is` Case) && (tree.symbol `is` Module) =>
           Some((tree.tpe, Seq()))
 
-        case Ident(_) if (tree.symbol is Case) && (tree.symbol is Module) =>
+        case Ident(_) if (tree.symbol `is` Case) && (tree.symbol `is` Module) =>
           Some((tree.tpe, Seq()))
 
         case _ =>
@@ -680,7 +706,7 @@ trait ASTExtractors {
     object ExObjectDef {
       def unapply(td: tpd.TypeDef): Boolean = {
         val sym = td.symbol
-        td.isClassDef && ((sym is ModuleClass) || (sym is Package)) && !(sym is Case)
+        td.isClassDef && ((sym `is` ModuleClass) || (sym `is` Package)) && !(sym `is` Case)
       }
     }
 
@@ -716,7 +742,7 @@ trait ASTExtractors {
     object ExFancyObjectCreation {
       def unapply(vd: tpd.ValDef): Option[(Symbol, Type)] = {
         val sym = vd.symbol
-        if ((sym is Module) && !(sym is Case)) {
+        if ((sym `is` Module) && !(sym `is` Case)) {
           sym.denot.info match {
             case TypeRef(_, cls: ClassSymbol) if cls.classDenot.classInfo.declaredParents.exists(p => !isIgnored(p)) =>
               Some((sym, vd.tpt.tpe))
@@ -736,13 +762,13 @@ trait ASTExtractors {
     object ExPlainObjectCreation {
       def unapply(vd: tpd.ValDef): Boolean = vd match {
         case ExFancyObjectCreation(_, _) => false
-        case _ => vd.symbol is Module
+        case _ => vd.symbol `is` Module
       }
     }
 
     object ExCaseObject {
       def unapply(s: tpd.Select): Option[Symbol] = {
-        if (s.tpe.typeSymbol is ModuleClass) {
+        if (s.tpe.typeSymbol `is` ModuleClass) {
           Some(s.tpe.typeSymbol)
         } else {
           None
@@ -771,13 +797,37 @@ trait ASTExtractors {
           !dd.symbol.is(Synthetic) &&
           !dd.symbol.is(Label)
         ) || (
-          (dd.symbol is Synthetic) &&
+          (dd.symbol `is` Synthetic) &&
           canExtractSynthetic(dd.symbol) &&
           !(getAnnotations(tpt.symbol) exists (_._1 == "ignore"))
         )) =>
-          Some((dd.symbol, dd.leadingTypeParams, dd.termParamss.flatten, tpt.tpe, dd.rhs))
+          Some((dd.symbol, allTypeParams(dd), dd.termParamss.flatten, tpt.tpe, dd.rhs))
 
         case _ => None
+      }
+
+      // Get all type parameters of a DefDef. Note that dd.leadingTypeParams will only retrieve the leading ones
+      // which is insufficient for parametric extension methods since these have type parameters in the "middle" of `paramss`.
+      // For instance, for the following extension method:
+      //   extension[T](m: Option[T])
+      //     def map[U](f: U => T): Option[U] = ...
+      // `paramss` will be as follows:
+      //   List(
+      //     List(TypeDef(T)),
+      //     List(ValDef(m)),
+      //     List(TypeDef(U)),
+      //     List(ValDef(f)),
+      //   )
+      // and `d.leadingTypeParams` will only get `T` and miss `U`.
+      private def allTypeParams(dd: tpd.DefDef): Seq[tpd.TypeDef] = {
+        def go(paramss: List[tpd.ParamClause], acc: List[tpd.TypeDef]): List[tpd.TypeDef] = {
+          paramss match {
+            case Nil => acc
+            case (tparams@(tparam: tpd.TypeDef) :: _) :: rest => go(rest, acc ++ tparams.asInstanceOf[List[tpd.TypeDef]])
+            case _ :: rest => go(rest, acc)
+          }
+        }
+        go(dd.paramss, Nil)
       }
     }
 
@@ -825,7 +875,7 @@ trait ASTExtractors {
       def unapply(vd: tpd.ValDef): Option[(Symbol, Type)] = {
         val sym = vd.symbol
         vd match {
-          case ValDef(_, tpt, _) if sym isAllOf EnumCase =>
+          case ValDef(_, tpt, _) if sym `isAllOf` EnumCase =>
             Some((sym, tpt.tpe))
 
           case _ => None
@@ -841,8 +891,8 @@ trait ASTExtractors {
         val sym = vd.symbol
         vd match {
           case ValDef(_, tpt, _) if
-            ((sym is CaseAccessor) || (sym is ParamAccessor)) &&
-            !(sym is Synthetic) && !(sym is Mutable) // Note: Check for not being lazy omitted because a ctor field cannot be lazy
+            ((sym `is` CaseAccessor) || (sym `is` ParamAccessor)) &&
+            !(sym `is` Synthetic) && !(sym `is` Mutable) // Note: Check for not being lazy omitted because a ctor field cannot be lazy
             => Some((sym, tpt.tpe, vd.rhs))
 
           case _ => None
@@ -858,8 +908,8 @@ trait ASTExtractors {
         val sym = vd.symbol
         vd match {
           case ValDef(_, tpt, _) if
-            ((sym is CaseAccessor) || (sym is ParamAccessor)) &&
-            !(sym is Synthetic) && (sym is Mutable)
+            ((sym `is` CaseAccessor) || (sym `is` ParamAccessor)) &&
+            !(sym `is` Synthetic) && (sym `is` Mutable)
             => Some((sym, tpt.tpe, vd.rhs))
 
           case _ => None
@@ -875,8 +925,8 @@ trait ASTExtractors {
         val sym = vd.symbol
         vd match {
           case ValDef(_, tpt, _) if
-            !(sym is CaseAccessor) && !(sym is ParamAccessor) &&
-            !(sym is Mutable) && !(sym is Lazy)
+            !(sym `is` CaseAccessor) && !(sym `is` ParamAccessor) &&
+            !(sym `is` Mutable) && !(sym `is` Lazy)
             => Some((sym, tpt.tpe, vd.rhs))
 
           case _ => None
@@ -892,9 +942,9 @@ trait ASTExtractors {
         val sym = vd.symbol
         vd match {
           case ValDef(_, tpt, _) if
-            !(sym is CaseAccessor) && !(sym is ParamAccessor) &&
+            !(sym `is` CaseAccessor) && !(sym `is` ParamAccessor) &&
             // Since a lazy can't be mutable (and vice-versa), we do not need to check the Mutable flag.
-            !(sym is Synthetic) && (sym is Mutable)
+            !(sym `is` Synthetic) && (sym `is` Mutable)
             => Some((sym, tpt.tpe, vd.rhs))
 
           case _ => None
@@ -910,8 +960,8 @@ trait ASTExtractors {
         val sym = vd.symbol
         vd match {
           case ValDef(_, tpt, _) if
-            !(sym is CaseAccessor) && !(sym is ParamAccessor) &&
-            !(sym is Synthetic) && (sym is Lazy)
+            !(sym `is` CaseAccessor) && !(sym `is` ParamAccessor) &&
+            !(sym `is` Synthetic) && (sym `is` Lazy)
             => Some((sym, tpt.tpe, vd.rhs))
           case _ => None
         }
@@ -941,10 +991,10 @@ trait ASTExtractors {
       def unapply(dd: tpd.DefDef): Option[(Symbol, Symbol, Type, tpd.ValDef, tpd.Tree)] = dd match {
         case ExDefDefSimple(name, _, List(param), tpt, _) if (
           name.isSetterName &&
-          (dd.symbol is Accessor) && !(dd.symbol is Lazy)
+          (dd.symbol `is` Accessor) && !(dd.symbol `is` Lazy)
         ) =>
           val fieldSymbol = dd.symbol.underlyingSymbol
-          val isCtorField = (fieldSymbol is ParamAccessor) || (fieldSymbol is CaseAccessor)
+          val isCtorField = (fieldSymbol `is` ParamAccessor) || (fieldSymbol `is` CaseAccessor)
           val rhs =
             if (isCtorField && dd.rhs.isEmpty) {
               val cls = fieldSymbol.owner.asClass
@@ -955,6 +1005,25 @@ trait ASTExtractors {
             else dd.rhs
           Some((dd.symbol, fieldSymbol, tpt.tpe, param, rhs))
         case _ => None
+      }
+    }
+
+    object ExFunctionOf {
+      // This is more or less what `defn.FunctionOf` used to be in 3.3.3, especially the `AppliedType` case.
+      // This case concerns parameterized type alias for function types (e.g. type F[A] = A => Int)
+      // In 3.3.3, `defn.FunctionOf` would return Some((List(A), Int)) but in 3.5, it would return Some(Nil, Int),
+      // omitting the argument list. We therefore "revert" to the 3.3.3 implementation here.
+      def unapply(ft: Type)(using DottyContext): Option[(List[Type], Type)] = {
+        ft match {
+          case defn.PolyFunctionOf(mt: MethodType) =>
+            Some(mt.paramInfos, mt.resType)
+          case AppliedType(_, _) if defn.isFunctionNType(ft) =>
+            val targs = ft.dealias.argInfos
+            if (targs.isEmpty) None
+            else Some((targs.init, targs.last))
+          case _ =>
+            None
+        }
       }
     }
 
@@ -1174,15 +1243,6 @@ trait ASTExtractors {
           Apply(ExSymbol("stainless", "proof" | "equations", "package$", "boolean2ProofOps"), body :: Nil),
           ExNamed("because")
         ), proof :: Nil) => Some((body, proof))
-        case _ => None
-      }
-    }
-
-    object ExComputesExpression {
-      def unapply(tree: tpd.Tree): Option[(tpd.Tree, tpd.Tree)] = tree match {
-        case ExCall(Some(rec),
-          ExSymbol("stainless", "lang", "package$", "SpecsDecorations", "computes"),
-          _, Seq(expected)) => Some((rec, expected))
         case _ => None
       }
     }
@@ -1411,6 +1471,23 @@ trait ASTExtractors {
       }
     }
 
+    object ExCellSwapExpression {
+      def unapply(
+          tree: tpd.Apply
+      ): Option[(tpd.Tree, tpd.Tree)] =
+        tree match {
+          case Apply(
+                TypeApply(
+                  ExSymbol("stainless", "lang", "package$", "swap"),
+                  _
+                ),
+                cell1 :: cell2 :: Nil
+              ) =>
+            Some((cell1, cell2))
+          case _ => None
+        }
+    }
+
     object ExForallExpression {
       def unapply(tree: tpd.Apply) : Option[tpd.Tree] = tree match {
         case Apply(TypeApply(ExSymbol("stainless", "lang", "package$", "forall"), _), List(fun)) =>
@@ -1506,7 +1583,7 @@ trait ASTExtractors {
       def unapply(tree: tpd.Apply): Option[(tpd.Tree, tpd.Tree, tpd.Tree)] = tree match {
         case Apply(Apply(
           TypeApply(Select(Apply(ExSymbol("scala", "Predef$", s), List(lhs)), ExNamed("updated")), _),
-          List(index, value)), List(Apply(_, _))) if s.toString contains "Array" =>
+          List(index, value)), List(Apply(_, _))) if s.toString `contains` "Array" =>
           Some((lhs, index, value))
 
         case Apply(
@@ -1532,7 +1609,7 @@ trait ASTExtractors {
      */
     object ExArrayLength {
       def unapply(tree: tpd.Select): Option[tpd.Tree] = tree match {
-        case Select(Apply(ExSymbol("scala", "Predef$", s), List(lhs)), ExNamed("size")) if s.toString contains "Array" =>
+        case Select(Apply(ExSymbol("scala", "Predef$", s), List(lhs)), ExNamed("size")) if s.toString.contains("Array") =>
           Some(lhs)
 
         case ExArraySelect(array, "length") => Some(array)

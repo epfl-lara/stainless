@@ -1,8 +1,0 @@
-[ Error  ] Initialization2.scala:4:9: Access non-initialized value answer. Calling trace:
-[ Error  ] -> case class Hello() {	[ Initialization2.scala:2 ]
-[ Error  ]    ^
-[ Error  ] -> val message = answer + 3	[ Initialization2.scala:3 ]
-[ Error  ]                  ^^^^^^
-[ Error  ]
-               val answer = 42
-                   ^

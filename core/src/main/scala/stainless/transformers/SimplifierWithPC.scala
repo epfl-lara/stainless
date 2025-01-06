@@ -12,12 +12,6 @@ trait SimplifierWithPC extends Transformer with inox.transformers.SimplifierWith
   given givenPP: pp.type = pp
 
   override protected def simplify(e: Expr, path: Env): (Expr, Boolean) = e match {
-    case Let(vd, a @ Annotated(ADTSelector(v: Variable, _), flags), b) if flags.contains(DropVCs) =>
-      simplify(exprOps.replaceFromSymbols(Map(vd -> a), b), path)
-
-    case Let(vd, cs @ ADTSelector(v: Variable, _), b) =>
-      simplify(exprOps.replaceFromSymbols(Map(vd -> cs), b), path)
-
     case Assert(pred, oerr, body) => simplify(pred, path) match {
       case (BooleanLiteral(true), true) => simplify(body, path)
       case (BooleanLiteral(false), true) =>
@@ -27,14 +21,14 @@ trait SimplifierWithPC extends Transformer with inox.transformers.SimplifierWith
           opts.assumeChecked && p
         )
       case (rp, _) =>
-        val (rb, p) = simplify(body, path withCond rp)
+        val (rb, p) = simplify(body, path `withCond` rp)
         (Assert(rp, oerr, rb).copiedFrom(e), opts.assumeChecked && p)
     }
 
     case Require(pred, body) => simplify(pred, path) match {
       case (BooleanLiteral(true), true) => simplify(body, path)
       case (rp, _) =>
-        val (rb, p) = simplify(body, path withCond rp)
+        val (rb, p) = simplify(body, path `withCond` rp)
         (Require(rp, rb).copiedFrom(e), opts.assumeChecked && p)
     }
 
@@ -54,7 +48,7 @@ trait SimplifierWithPC extends Transformer with inox.transformers.SimplifierWith
             case (BooleanLiteral(false), true) => (soFar, false, purity, newCases)
             case (rc, pc) =>
               val path = conditionForPattern[Env](rs, pattern, includeBinders = true)
-              val (rg, pg) = guard.map(simplify(_, soFar merge path)).getOrElse((BooleanLiteral(true), true))
+              val (rg, pg) = guard.map(simplify(_, soFar `merge` path)).getOrElse((BooleanLiteral(true), true))
               (and(rc, rg), pc && pg) match {
                 case (BooleanLiteral(false), true) => (soFar, false, purity, newCases)
                 case (BooleanLiteral(true), true) =>
@@ -65,10 +59,10 @@ trait SimplifierWithPC extends Transformer with inox.transformers.SimplifierWith
                   (soFar, true, purity && pr, newCases :+ lastCase)
 
                 case (_, _) =>
-                  val (rr, pr) = simplify(rhs, soFar merge (path withCond rg))
+                  val (rr, pr) = simplify(rhs, soFar `merge` (path `withCond` rg))
                   val newGuard = if (rg == BooleanLiteral(true)) None else Some(rg)
                   (
-                    soFar merge (path withCond rg).negate,
+                    soFar `merge` (path `withCond` rg).negate,
                     false,
                     purity && pc && pg && pr,
                     newCases :+ MatchCase(pattern, newGuard, rr).copiedFrom(c)

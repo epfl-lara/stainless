@@ -35,8 +35,8 @@ package object termination {
     }
     val lowering = ExtractionPipeline(new LoweringImpl(trees, extraction.trees))
 
-    utils.DebugPipeline("SizedADTExtraction", SizedADTExtraction(trees)) andThen
-    utils.DebugPipeline("InductElimination", InductElimination(trees)) andThen
+    utils.NamedPipeline("SizedADTExtraction", SizedADTExtraction(trees)) `andThen`
+    utils.NamedPipeline("InductElimination", InductElimination(trees)) `andThen`
     lowering
   }
 

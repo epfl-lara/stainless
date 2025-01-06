@@ -15,7 +15,7 @@ class StainlessSerializer(override val trees: ast.Trees, serializeProducts: Bool
   extends InoxSerializer(trees, serializeProducts) {
   import trees._
 
-  final inline def stainlessClassSerializer[T: ClassTag](inline id: Int): (Class[_], Serializer[T]) =
+  final inline def stainlessClassSerializer[T: ClassTag](inline id: Int): (Class[?], Serializer[T]) =
     classTag[T].runtimeClass -> stainlessClassSerializerMacro[T](this, id).asInstanceOf[Serializer[T]]
 
   /** An extension to the set of registered classes in the `InoxSerializer`.
@@ -25,7 +25,7 @@ class StainlessSerializer(override val trees: ast.Trees, serializeProducts: Bool
     *
     * NEXT ID: 173
     */
-  override protected def classSerializers: Map[Class[_], Serializer[_]] =
+  override protected def classSerializers: Map[Class[?], Serializer[?]] =
     super.classSerializers ++ Map(
       stainlessClassSerializer[NoTree]             (120),
       stainlessClassSerializer[Error]              (121),
@@ -99,11 +99,11 @@ class XLangSerializer(override val trees: extraction.xlang.Trees, serializeProdu
   /** An extension to the set of registered classes in the `StainlessSerializer`.
     * occur within Stainless programs.
     *
-    * The new identifiers in the mapping range from 180 to 261.
+    * The new identifiers in the mapping range from 180 to 262.
     *
-    * NEXT ID: 262
+    * NEXT ID: 263
     */
-  override protected def classSerializers: Map[Class[_], Serializer[_]] =
+  override protected def classSerializers: Map[Class[?], Serializer[?]] =
     super.classSerializers ++ Map(
       // Termination trees
       stainlessClassSerializer[Decreases](180),
@@ -146,6 +146,7 @@ class XLangSerializer(override val trees: extraction.xlang.Trees, serializeProdu
       stainlessClassSerializer[MutableMapUpdated]      (252),
       stainlessClassSerializer[MutableMapDuplicate]    (253),
       stainlessClassSerializer[Swap]                   (259),
+      stainlessClassSerializer[CellSwap]               (262),
       stainlessClassSerializer[FreshCopy]              (260),
       stainlessClassSerializer[Reads]                  (182),
       stainlessClassSerializer[Modifies]               (210),

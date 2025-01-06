@@ -79,6 +79,6 @@ package object equations {
     @inline
     def qed: Unit = {
       ()
-    } ensuring(_ => x() == y())
+   }.ensuring(_ => x() == y())
   }
 }

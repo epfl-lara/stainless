@@ -38,6 +38,6 @@ class ConcurrentCache[A,B](underlying: ConcurrentHashMap[A,B] = new ConcurrentHa
 }
 
 class ConcurrentCached[A,B](builder: A => B) extends (A => B) {
-  private[this] val cache: ConcurrentCache[A,B] = new ConcurrentCache[A,B]
+  private val cache: ConcurrentCache[A,B] = new ConcurrentCache[A,B]
   override def apply(key: A): B = cache.cached(key)(builder(key))
 }

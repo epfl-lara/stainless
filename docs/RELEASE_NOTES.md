@@ -1,5 +1,131 @@
 # Release Notes
 
+## Version 0.9.9.0 (2024-12-09)
+
+- Scala version is now 3.5.2 
+- Update to Inox that supports Horn clause solving, https://github.com/epfl-lara/inox/pull/214
+- Fix an extraction bug with type synonym definitions (#1595)
+- Explicit measures in List library so termination checks are cached
+- More properties and methods on lists and sets
+- Set considered to have positive polarity (it is finite)
+- Internal solver errors are now silent by default
+
+## Version 0.9.8.9 (2024-10-19)
+
+- Default cache now only stores SHA-256 hash of formulas ( -binary-cache=true for old version)
+- Scala version is now 3.5.0
+- Inox now has a solver for ground assertions based on internal evaluator (Inox #218), called `eval`
+- Opaque Forall and ensures: help higher order contracts (#1567)
+- Option `--compact` also reduces progress messages (#1573)
+- Changed CI to use GitHub actions
+- Documented a limited use of `throw`
+- CI scripts as part of move to GitHub actions
+
+## Version 0.9.8.8 (2024-08-22)
+
+### Stainless frontend, library and internals
+
+- Remove Scala 2 frontend (#1517)
+- Transform `throw` into `assert(false)` (#1521)
+- Add measure transfer for equivalence checking (#1557)
+- Add further benchmarks for equivalence checking (#1538, #1554)
+- Add SAT Check for precondition (#1548)
+- Add various specifications to Stainless library (#1555, #1541)
+- Enhance unfold to work on bindings and imperative code as well (#1533)
+- Various bug fixes (#1531, #1532)
+
+### Build
+
+- Move Inox as a submodule instead of an http dependency (#1520)
+
+### Documentation
+
+- Add documentation for codespaces use and link to a sample repo (#1440)
+
+
+## Version 0.9.8.7 (2024-05-06)
+
+### Stainless frontend, library and internals
+
+- Add `stainless.lang.Try` allowing for a monadic try construct (#1515)
+- Upgrade the Scala 3 frontend to Scala 3.3.3 (#1514 and #1516)
+- Avoid rebuilding mutated objects when possible in AntiAliasing (#1507 and #1509)
+- Show the ID of the corresponding generated SMT-lib file for each VC in the summary when `debug=smt` option is enabled (#1508)
+- Have `isExpressionFresh` consider arguments when computing freshness of a function call (#1505)
+- Avoid pairwise matching of "external" methods in Equivalence checking mode (#1503)
+- Fix in documentation (#1502)
+- Add support for exported methods (#1501)
+- Fix ImperativeCleanup phase to not clean some unused bindings that should not be removed (#1500)
+- Fix a bug in Equivalence checking mode that was considering the wrong preconditions in some cases (#1499)
+- Fix type alias of opaque triggering missing dependencies (#1498)
+- Add missing dropVCs annotation in AntiAliasing (#1496)
+- Relax fallback condition of AntiAliasing handling of Let (#1495)
+- Add missing case for Array typeBounds, make private final, fix minor bug in RefinementLifting (#1494)
+- Fix MatchError in EffectsAnalyzer leading to a crash in some cases (#1492)
+- Fix parametric extension methods (#1490)
+- Allow for redundant type checks for pattern matching (#1489)
+- Add 'unknown safety' category for Equivalence checkign (#1488)
+- Allows for let-binding in tests and output 'expected but got' results in Equivalence checking (#1485)
+- Add a tail recursive implementation of `map` for mutable tail lists as a benchmark (#1484)
+
+### Build
+
+- Fix the `stainless-cli` script (#1486)
+
+## Version 0.9.8.2 (2023-11-10)
+
+### Stainless frontend, library and internals
+
+- Add `stainless.lang.Cell` and `stainless.lang.swap`, allowing to swap the content of two `Cells` (#1461)
+- Add support for cvc5 (#1444)
+- Upgrade the Scala 3 frontend to Scala 3.3 (#1442)
+- Upgrade the Scala 2 frontend to Scala 2.13.12 (#1469)
+- Support for `new Array(len)` constructor for primitive types (#1453)
+- Remove ensuring clause in ghost elimination (#1454)
+- Fix while loops being mistakenly considered as ghost (#1467)
+- Fix occasionally incorrect positions (#1447, #1455, #1473, #1477)
+- Enforce purity for class invariants (#1475)
+- Do not treat inline methods or functions as ghost (#1481)
+- Applying some type widening in `ReturnElimination` to avoid triggering `AdtSpecialization` (#1466)
+- Relax freshness condition and improve aliasing error messages (#1468)
+
+### Build
+
+- Upgrade the shipped Z3 version (`smt-z3`) to 4.12.2 (#1469)
+- Add cvc5 1.0.8 to the archive (#1469)
+- Add arm64 build for macOS (#1469)
+- Add the compiled and source code of the Stainless library to the archive, under `lib` (#1469)
+- Add a `stainless-cli` script to invoke scala-cli with the library (#1469)
+- Rename `stainless.sh` to `stainless` (#1469)
+
+
+## Version 0.9.8.1 (2023-09-21)
+
+### Stainless frontend, library and internals
+
+- Fix `--watch` crashing on compilation error (#1424)
+- Expand options for equivalence checking (#1422, #1435)
+- Add more info messages (#1425)
+- Add further postconditions for indexOf and apply (#1428)
+- Documentation updates (#1429, #1434, #1431)
+- Fix ghost elimination for GenC (#1433)
+- Reorganize some library files and allow for verification without Stainless library (#1436)
+- Fix issue #1399
+
+
+## Version 0.9.8 (2023-05-30)
+
+### Stainless frontend, library and internals
+
+- Expand Stainless library (#1400, #1402, #1418)
+- Improved reporting (#1396, #1410)
+- Support for enum case objects (#1384)
+- Support `require` and `ensuring` message overloads (#1382)
+- Make `ghost`, `assert` and `require` arguments by-name (#1364)
+- Move equivalence checking to a component (#1378)
+- Some improvements to OL and OCBSL based simplifiers (#1380)
+- Fix issues #1343, #1214, #1351, #1352, #1353, #1365, #1379, #1389, #1390, #1377, #1349, #1405, #1401
+
 ## Version 0.9.7 (2022-11-21)
 
 ### Stainless frontend, library and internals
@@ -502,4 +628,3 @@
 ## Version 0.1-93dbd33 (14-01-2019)
 
 - First official release on GitHub
-

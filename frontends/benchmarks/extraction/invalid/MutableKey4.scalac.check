@@ -1,3 +1,0 @@
-[ Error  ] MutableKey4.scala:9:12: Cannot instantiate a bag Bag[Box] with a mutable type Box
-             def test(set: Bag[Box]): Unit = ()
-                      ^^^^^^^^^^^^^

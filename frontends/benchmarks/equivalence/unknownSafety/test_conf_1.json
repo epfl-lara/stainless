@@ -1,0 +1,19 @@
+{
+  "models": [
+    "Model.add"
+  ],
+  "comparefuns": [
+    "Candidate.add"
+  ],
+  "tests": [],
+  "outcome": {
+    "equivalent": [],
+    "unequivalent": [],
+    "unsafe": [],
+    "unknownSafety": [
+      "Candidate.add"
+    ],
+    "unknownEquivalence": [],
+    "wrong": []
+  }
+}

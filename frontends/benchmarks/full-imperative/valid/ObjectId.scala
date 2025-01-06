@@ -3,6 +3,6 @@ import stainless.lang.StaticChecks._
 
 object ObjectIdExample {
   def f(x: AnyHeapRef, y: AnyHeapRef): Unit = {
-    assert((x refEq y) == (objectId(x) == objectId(y)))
+    assert((x.refEq(y)) == (objectId(x) == objectId(y)))
   }
 }

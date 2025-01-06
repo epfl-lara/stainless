@@ -13,11 +13,11 @@ class AdtSpecialization(override val s: Trees, override val t: Trees)
      with SimpleTypeDefs
      with utils.SyntheticSorts { self =>
 
-  private[this] def root(id: Identifier)(using symbols: s.Symbols): Identifier = {
+  private def root(id: Identifier)(using symbols: s.Symbols): Identifier = {
     symbols.getClass(id).parents.map(ct => root(ct.id)).headOption.getOrElse(id)
   }
 
-  private[this] def isCandidate(id: Identifier)(using symbols: s.Symbols): Boolean = {
+  private def isCandidate(id: Identifier)(using symbols: s.Symbols): Boolean = {
     import s._
     val cd = symbols.getClass(id)
 
@@ -38,25 +38,25 @@ class AdtSpecialization(override val s: Trees, override val t: Trees)
     }
   }
 
-  private[this] val constructorCache = new utils.ConcurrentCached[Identifier, Identifier](_.freshen)
-  private[this] def constructorID(id: Identifier)(using symbols: s.Symbols): Identifier =
+  private val constructorCache = new utils.ConcurrentCached[Identifier, Identifier](_.freshen)
+  private def constructorID(id: Identifier)(using symbols: s.Symbols): Identifier =
     symbols.lookupClass(id).map { cd =>
       if (cd.parents.isEmpty && !(cd.flags contains s.IsAbstract)) constructorCache(cd.id)
       else cd.id
     }.get
 
-  private[this] def constructors(id: Identifier)(using symbols: s.Symbols): Seq[Identifier] = {
+  private def constructors(id: Identifier)(using symbols: s.Symbols): Seq[Identifier] = {
     val cd = symbols.getClass(id)
     val classes = cd +: cd.descendants
 
     classes.filterNot(_.flags contains s.IsAbstract).map(_.id)
   }
 
-  private[this] def isCaseObject(id: Identifier)(using symbols: s.Symbols): Boolean =
+  private def isCaseObject(id: Identifier)(using symbols: s.Symbols): Boolean =
     isCandidate(id) && (symbols.getClass(id).flags contains s.IsCaseObject)
 
-  private[this] val caseObject = new utils.ConcurrentCached[Identifier, Identifier](_.freshen)
-  private[this] val unapplyID = new utils.ConcurrentCached[Identifier, Identifier](_.freshen)
+  private val caseObject = new utils.ConcurrentCached[Identifier, Identifier](_.freshen)
+  private val unapplyID = new utils.ConcurrentCached[Identifier, Identifier](_.freshen)
 
   override protected final def getContext(symbols: s.Symbols) = new TransformerContext(self.s, self.t)(using symbols)
 
@@ -118,7 +118,7 @@ class AdtSpecialization(override val s: Trees, override val t: Trees)
     }
   }
 
-  private[this] def descendantKey(id: Identifier)(using symbols: s.Symbols): CacheKey =
+  private def descendantKey(id: Identifier)(using symbols: s.Symbols): CacheKey =
     SetKey(
       (symbols.dependencies(id) + id)
         .flatMap(id => Set(id) ++ symbols.lookupClass(id).toSeq.flatMap { cd =>
@@ -211,8 +211,8 @@ class AdtSpecialization(override val s: Trees, override val t: Trees)
           val cons = constructors(cd.id)
           val unapplyFunction = if (root(cd.id) != cd.id && cons != Seq(cd.id)) {
             Some(mkFunDef(unapplyID(cd.id), t.DropVCs, t.Synthetic, t.IsUnapply(isEmpty, get))
-                         (cd.typeArgs.map(_.id.name) : _*) { tparams =>
-              val base = T(root(cd.id))(tparams : _*)
+                         (cd.typeArgs.map(_.id.name)*) { tparams =>
+              val base = T(root(cd.id))(tparams*)
               def condition(e: t.Expr): t.Expr = t.orJoin(cons.map(t.IsConstructor(e, _)))
 
               val vd = t.ValDef.fresh("v", base)

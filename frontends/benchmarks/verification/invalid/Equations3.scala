@@ -6,7 +6,7 @@ object Equations3 {
   @extern
   def makeEqual(x: BigInt, y: BigInt): Unit = {
     (??? : Unit)
-  } ensuring(_ => x == y)
+ }.ensuring(_ => x == y)
 
   def f(x: BigInt, y: BigInt, z: BigInt) = {
     (

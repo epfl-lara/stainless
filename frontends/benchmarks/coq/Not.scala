@@ -5,5 +5,5 @@ object Not {
     def f(x: Boolean) = {
         require(x)
         !x
-    } ensuring (y => !y)
+   }.ensuring(y => !y)
 }

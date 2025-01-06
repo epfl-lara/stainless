@@ -41,7 +41,7 @@ trait TreeTraverser extends DefinitionTraverser with inox.transformers.TreeTrave
 }
 
 trait TraverserWithPatternOp extends Traverser {
-  private[this] val op = new TraverserOp[trees.Pattern, Env](traverse(_, _), super.traverse(_, _))
+  private val op = new TraverserOp[trees.Pattern, Env](traverse(_, _), super.traverse(_, _))
 
   protected val patternOp: (trees.Pattern, Env, TraverserOp[trees.Pattern, Env]) => Unit
 

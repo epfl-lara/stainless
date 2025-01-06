@@ -13,7 +13,13 @@ class StrictArithmeticSuite extends VerificationComponentTestSuite {
 
   override protected def optionsString(options: inox.Options): String = ""
 
-  testPosAll("strictarithmetic/valid")
+  import StrictArithmeticSuite._
 
-  testNegAll("strictarithmetic/invalid")
+  testPosAll("strictarithmetic/valid", valid._1, valid._2)
+
+  testNegAll("strictarithmetic/invalid", invalid._1, invalid._2)
+}
+object StrictArithmeticSuite {
+  private lazy val valid = ComponentTestSuite.loadPrograms("strictarithmetic/valid")
+  private lazy val invalid = ComponentTestSuite.loadPrograms("strictarithmetic/invalid")
 }

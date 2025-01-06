@@ -14,6 +14,6 @@ object HigherOrderFunctionsMutableParams7 {
   def test(): Int = {
     val x = 12
     app(id, 12)
-  } ensuring(_ == 12)
+ }.ensuring(_ == 12)
 
 }

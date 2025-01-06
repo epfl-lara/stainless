@@ -23,7 +23,7 @@ object FirstClassHeapExample {
     val heapA = Heap.get
     c.value += 1
     heapA.eval { c.value }
-  } ensuring (_ == old(c.value))
+ }.ensuring(_ == old(c.value))
 
   def getHypothetical(c: Cell): Unit = {
     reads(Set(c))

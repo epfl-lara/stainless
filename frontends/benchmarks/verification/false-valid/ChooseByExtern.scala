@@ -6,7 +6,7 @@ object ChooseByExtern {
   @extern
   def universalEquality(a: BigInt): BigInt = {
     ??? : BigInt // Replaced by a choose over the postcondition
-  }.ensuring(r => r == 42 && r == 24)
+ }.ensuring(r => r == 42 && r == 24)
 
   def theorem(): Unit = {
     val x = universalEquality(0)

@@ -1,4 +1,0 @@
-[ Error  ] ExtendNonMutable.scala:4:1: A mutable class (B) cannot have a non-@mutable and non-sealed parent (A).
-[ Error  ] Please annotate A with @mutable.
-           case class B(var x: BigInt) extends A {
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^...

@@ -1,3 +1,0 @@
-[ Error  ] NonMutableTypeParameter.scala:4:1: Cannot extend non-mutable type parameter X with mutable type X @mutable.
-           trait MutableTypeParameter[@mutable X] extends NonMutableTypeParameters[X, X] {
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^...

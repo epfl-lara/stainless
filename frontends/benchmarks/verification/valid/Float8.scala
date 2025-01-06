@@ -22,5 +22,5 @@ object Float8 {
 
   def plusComm(x: Float8, y: Float8): Unit = {
     ()
-  }.ensuring(_ => x + y == y + x)
+ }.ensuring(_ => x + y == y + x)
 }

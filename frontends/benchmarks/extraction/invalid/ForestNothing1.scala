@@ -10,7 +10,7 @@ object ForestNothing1 {
 
   def what(f: Forest): Unit = {
     what(f.left)
-  }.ensuring(_ => false)
+ }.ensuring(_ => false)
 
   def theorem() = {
     val f: Forest = choose((x: Forest) => true)

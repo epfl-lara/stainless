@@ -25,10 +25,10 @@ class FunctionInlining(override val s: Trees, override val t: trace.Trees)
   override protected type TransformerContext = s.Symbols
   override protected def getContext(symbols: s.Symbols) = symbols
 
-  private[this] class FnInliningIdentityImpl(override val s: self.s.type, override val t: self.t.type)
+  private class FnInliningIdentityImpl(override val s: self.s.type, override val t: self.t.type)
     extends transformers.ConcreteTreeTransformer(s, t)
 
-  private[this] val identity = new FnInliningIdentityImpl(self.s, self.t)
+  private val identity = new FnInliningIdentityImpl(self.s, self.t)
 
   override protected def registerFunctions(symbols: t.Symbols, functions: Seq[Option[t.FunDef]]): t.Symbols =
     symbols.withFunctions(functions.flatten)
@@ -88,6 +88,7 @@ class FunctionInlining(override val s: Trees, override val t: trace.Trees)
                   Assert(annotated(cond.setPos(fi), DropVCs), Some(s"Inlined precondition$num of " + tfd.id.asString), acc).setPos(fi),
                   i-1
                 )
+              case (spec, (acc,i)) => context.reporter.fatalError(f"In addPreconditionAssertions, I did not expect spec that is not LetInSpec or Precondition; I got the following spec: ${spec.toString}")
             }._1
           }
 
@@ -125,18 +126,24 @@ class FunctionInlining(override val s: Trees, override val t: trace.Trees)
             case None => context.reporter.fatalError("In FunctionInlining, all functions should have bodies thanks to ChooseEncoder running before.")
           }
 
+          exprOps.preTraversal {
+            // Set the position of all occurrences of parameters to the position of their argument
+            // For other expressions, we set the position to the call site
+            case v: Variable =>
+              val ix = argBinders.indexWhere(_.id == v.id)
+              if (ix >= 0) {
+                // An `argBinder`
+                v.setPos(argBinders(ix))
+              } else {
+                // Some local variable
+                v.setPos(fi)
+              }
+            case e => e.setPos(fi)
+          }(inlined)
           val result = (argBinders zip args).foldRight(inlined) {
-            case ((vd, e), body) => let(vd, e, body).setPos(fi)
+            case ((vd, e), body) => let(vd.copiedFrom(e), e, body).setPos(fi)
           }
-          val freshened = exprOps.freshenLocals(result)
-
-          // For some common shims, fill in missing positions with the position of the inlined call site
-          if (isSynthetic && hasInlineOnceFlag) {
-            exprOps.preTraversal {
-              case e if !e.getPos.isDefined => e.setPos(fi)
-              case _ =>
-            }(freshened)
-          }
+          val freshened = exprOps.freshenLocals(result).copiedFrom(fi)
 
           val inliner = new Inliner(if (hasInlineOnceFlag) inlinedOnce + tfd.id else inlinedOnce)
           inliner.transform(freshened)

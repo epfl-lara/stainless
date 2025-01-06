@@ -30,13 +30,21 @@ object Caches {
     override val usageRhs = "DIR"
   }
 
+  object optBinaryCache extends inox.FlagOptionDef("binary-cache", false)
+
+  /**
+    * Return the filename for the cache file, depending on the type of cache (Hash or Binary).
+    */
+  def getCacheFilename(ctx: inox.Context): String = 
+    if (ctx.options.findOptionOrDefault(optBinaryCache)) "vccachebin.bin" else "vccachehash.bin" 
+
   /**
    * Get the cache file after creating the cache directory.
    *
    * The cache file itself is not created. Return None when the switch if off.
    */
   def getCacheFile(ctx: inox.Context, optCacheSwitch: inox.FlagOptionDef, filename: String): Option[File] = {
-    val cacheEnabled = ctx.options findOptionOrDefault optCacheSwitch
+    val cacheEnabled = ctx.options `findOptionOrDefault` optCacheSwitch
     if (cacheEnabled) Some(getCacheFile(ctx, filename)) else None
   }
 

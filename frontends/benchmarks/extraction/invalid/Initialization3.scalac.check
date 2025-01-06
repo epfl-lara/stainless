@@ -1,8 +1,0 @@
-[ Error  ] Initialization3.scala:3:5: Not well formed definition @private
-[ Error  ] @field
-[ Error  ] @fieldDefPosition(1)
-[ Error  ] @method(NoThis)
-[ Error  ] def nothis: Boolean = this.h
-[ Error  ] 	because field `nothis` can only refer to previous fields, not to `nothis`
-               val nothis: Boolean = h()
-               ^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -4,9 +4,11 @@ package stainless
 
 import stainless.annotation._
 import stainless.lang.StaticChecks._
+import stainless.lang.Cell
 
 package object lang {
 
+  // TODO: should be renamed to ghostExpr
   @library
   def ghost[A](@ghost value: => A): Unit = ()
 
@@ -17,13 +19,13 @@ package object lang {
   implicit class BooleanDecorations(val underlying: Boolean) {
     def holds : Boolean = {
       underlying
-    } ensuring {
+   }.ensuring {
       (res: Boolean) => res
     }
 
     def holds(becauseOfThat: Boolean) = {
       underlying
-    } ensuring {
+   }.ensuring {
       (res: Boolean) => becauseOfThat && res
     }
 
@@ -40,7 +42,27 @@ package object lang {
   @library
   abstract class Exception extends Throwable
 
-  @ignore
+  @library
+  @extern
+  def Exception(msg: String): Exception = new Exception{}
+
+  @library
+  sealed abstract class Try[T]{
+    def map[U](f: T => U): Try[U] = this match {
+      case Success(t) => Success(f(t))
+      case Failure(exc: Exception) => Failure(exc)
+    }
+
+    inline def flatMap[U](f: T => Try[U]): Try[U] = this match {
+      case Success(t) => f(t)
+      case Failure(exc: Exception) => Failure(exc)
+    }
+  }
+  @library case class Success[T](t: T) extends Try[T]
+  @library case class Failure[T](exc: Exception) extends Try[T]
+
+  /* // This would be a widely applicable implicit
+  @ignore 
   implicit class Throwing[T](underlying: => T) {
     def throwing(pred: Exception => Boolean): T = try {
       underlying
@@ -50,6 +72,7 @@ package object lang {
         throw e
     }
   }
+   */
 
   @inline @library def because(b: Boolean) = b
 
@@ -104,16 +127,7 @@ package object lang {
   @partialEval
   def partialEval[A](x: A): A = x
 
-  @library
-  implicit class SpecsDecorations[A](val underlying: A) {
-    @ignore
-    def computes(target: A) = {
-      underlying
-    } ensuring {
-      res => res == target
-    }
-  }
-
+  // TODO: put into a separate object
   @ignore
   implicit class Passes[A, B](io: (A, B)) {
     val (in, out) = io
@@ -191,6 +205,15 @@ package object lang {
     a2(i2) = t
   }
 
+  @ignore @library
+    def swap[@mutable T](c1: Cell[T], c2: Cell[T]): Unit = {
+      val t = c2.v
+      c2.v = c1.v
+      c1.v = t
+  }
+
+  // This --full-imperative stuff should perhaps move to a separate object.
+
   @extern @library @mutable @anyHeapRef
   trait AnyHeapRef {
     @refEq
@@ -230,4 +253,5 @@ package object lang {
     def unchanged(objs: Set[AnyHeapRef], h0: Heap, h1: Heap): Boolean =
       /* objs.mapMerge(h1, h0) == h0 */ ???
   }
+
 }

@@ -17,7 +17,7 @@ object Asserts1 {
     assert(x > 2)
     x
 
-  } ensuring {
+ }.ensuring {
     _ > a
   }
 
@@ -32,7 +32,7 @@ object Asserts1 {
     assert(x > 2)
     x
 
-  } ensuring {
+ }.ensuring {
     _ > a
   }
 }

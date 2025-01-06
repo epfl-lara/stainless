@@ -6,5 +6,5 @@ object BadPre1 {
     require(x > 0)
     require(y > 0) // should be rejected
     x + y
-  } ensuring { _ > 0 }
+ }.ensuring { _ > 0 }
 }

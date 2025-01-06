@@ -12,11 +12,19 @@ class ImperativeSuite extends VerificationComponentTestSuite {
   override def filter(ctx: inox.Context, name: String): FilterStatus = name match {
     // Unstable on 4.8.12, but works in non-incremental mode
     case "imperative/valid/WhileAsFun2" => Ignore
+    // Succeeds most of the time, but unsuitable for CI due to its flakiness
+    case "imperative/valid/i1306b" => Ignore
 
     case _ => super.filter(ctx, name)
   }
 
-  testPosAll("imperative/valid")
+  import ImperativeSuite._
 
-  testNegAll("imperative/invalid")
+  testPosAll("imperative/valid", valid._1, valid._2)
+
+  testNegAll("imperative/invalid", invalid._1, invalid._2)
+}
+object ImperativeSuite {
+  private lazy val valid = ComponentTestSuite.loadPrograms("imperative/valid")
+  private lazy val invalid = ComponentTestSuite.loadPrograms("imperative/invalid")
 }

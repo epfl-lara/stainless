@@ -77,8 +77,10 @@ class RefinementLifting(override val s: Trees, override val t: Trees)
           val (Seq(nvd), pred2) = parameterConds(Seq(vd.copy(tpe = vd2.tpe).copiedFrom(vd)))
 
           (nvd, s.exprOps.replaceFromSymbols(Map(vd2 -> nvd.toVariable), s.and(pred, pred2)))
-        case _ =>
-          (vd, s.BooleanLiteral(true).copiedFrom(vd))
+        case t =>
+          // Note: t may have been dealiased, hence we need to update the type of the variable
+          // so it is consistent with each of its occurrence in the body of the function
+          (vd.copy(tpe = t), s.BooleanLiteral(true).copiedFrom(vd))
       }).unzip
 
       (newParams, s.andJoin(conds))
@@ -277,7 +279,7 @@ class RefinementLifting(override val s: Trees, override val t: Trees)
 
         case None =>
           import s.dsl._
-          mkFunDef(FreshIdentifier("inv"))(sort.typeArgs.map(_.id.name) : _*) {
+          mkFunDef(FreshIdentifier("inv"))(sort.typeArgs.map(_.id.name)*) {
             tparams => (
               Seq("thiss" :: s.ADTType(sort.id, tparams).copiedFrom(sort)),
               s.BooleanType().copiedFrom(sort), { case Seq(thiss) =>

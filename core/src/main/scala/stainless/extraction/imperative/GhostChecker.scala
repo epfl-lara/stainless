@@ -81,6 +81,9 @@ trait GhostChecker { self: EffectsAnalyzer =>
       case FieldAssignment(_, _, _) => false
       case Block(_, e) => isGhostExpression(e)
 
+      // Invariants on `while` are allowed to be ghost
+      case While(cond, body, _, _, flags) => flags.contains(Ghost) || isGhostExpression(cond) || isGhostExpression(body)
+
       case Operator(es, _) => es.exists(isGhostExpression)
     }
 
@@ -102,12 +105,12 @@ trait GhostChecker { self: EffectsAnalyzer =>
 
     class Checker(inGhost: Boolean) extends ConcreteOOSelfTreeTraverser {
 
-      private[this] def isADT(e: Expr): Boolean = e.getType match {
+      private def isADT(e: Expr): Boolean = e.getType match {
         case _: ADTType => true
         case _ => false
       }
 
-      private[this] def isObject(e: Expr): Boolean = e.getType match {
+      private def isObject(e: Expr): Boolean = e.getType match {
         case _: ClassType => true
         case _ => false
       }

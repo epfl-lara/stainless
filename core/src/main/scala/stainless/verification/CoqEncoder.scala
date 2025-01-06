@@ -235,14 +235,14 @@ trait CoqEncoder {
       makeFresh(a.id),
       a.tparams.map { case p => (CoqIdentifier(p.id), TypeSort) },
       a.constructors.map(c => makeCase(a, c))
-    ) $
+    ) `$`
     (if (a.constructors.size > 1) {
-      buildRecognizers(a) $
-      buildExistsCreators(a) $
-      buildSubTypes(a) $
+      buildRecognizers(a) `$`
+      buildExistsCreators(a) `$`
+      buildSubTypes(a) `$`
       buildAdtTactic(a)
     } else
-      NoCommand) $
+      NoCommand) `$`
     buildAccessorsForChildren(a)
   }
 
@@ -278,7 +278,7 @@ trait CoqEncoder {
           trueBoolean
         )) ++ extraCase
       )
-    ) $
+    ) `$`
     RawCommand(s"#[export] Hint Unfold  ${recognizer(constructor.id).coqString}: recognizers.\n")
   }
 
@@ -324,7 +324,7 @@ trait CoqEncoder {
         CoqApplication(makeFresh(root.id), tparams),
         CoqApplication(recognizer(constructor.id), tparams :+ element) === trueBoolean
       )
-    ) $
+    ) `$`
     RawCommand(s"#[export] Hint Unfold  ${refinedIdentifier(constructor.id).coqString}: refinements.\n")
   }
 
@@ -385,7 +385,7 @@ trait CoqEncoder {
     lastTactic = newTactic
     CoqMatchTactic(newTactic,
       sort.constructors.flatMap(con => makeTacticCases(con)) :+ CoqCase(VariablePattern(None), prevTactic)
-    ) $
+    ) `$`
     updateObligationTactic()
   }
 
@@ -401,11 +401,11 @@ trait CoqEncoder {
                   |  rewrite_ifthenelse ||
                   |  destruct_ifthenelse ||
                   |  (progress autorewrite with libCase in *) ||
-                  |  autounfold with definitions in *.""".stripMargin) $
+                  |  autounfold with definitions in *.""".stripMargin) `$`
     RawCommand(s"""Ltac ${t.coqString} :=
                   |  ${t1.coqString} ||
                   |  ${rewriteTactic.coqString} ||
-                  |  autounfold with recognizers in *.""".stripMargin) $
+                  |  autounfold with recognizers in *.""".stripMargin) `$`
     RawCommand(s"\nObligation Tactic := repeat ${t.coqString}.\n")
   }
 
@@ -483,13 +483,13 @@ trait CoqEncoder {
         val fullType: Map[CoqIdentifier, CoqExpression] =
           allParamMap map {
             case (x,tpe) => if (dependentParamNames contains x)
-              (x, dependentParamNames(x)(dependsOn(x):_*))
+              (x, dependentParamNames(x)(dependsOn(x)*))
               else
               (x, tpe)
           }
 
         val argDefs: Seq[CoqCommand] = dependentParams.toSeq map { case (x, body) =>
-          NormalDefinition(dependentParamNames(x), dependsOn(x) map(y => (y, fullType(y))), typeSort, body) $
+          NormalDefinition(dependentParamNames(x), dependsOn(x) map(y => (y, fullType(y))), typeSort, body) `$`
           RawCommand(s"#[export] Hint Unfold ${dependentParamNames(x).coqString}: core.\n\n")
         }
 
@@ -517,35 +517,35 @@ trait CoqEncoder {
               (CoqApplication(CoqLibraryConstant(s"${funName.coqString}_equation_1"), ids))
           ))
 
-        SeparatorComment(s"Start of ${fd.id.name}") $
-        RawCommand(s"Obligation Tactic := ${idtac.coqString}.") $
-        manyCommands(argDefs) $
+        SeparatorComment(s"Start of ${fd.id.name}") `$`
+        RawCommand(s"Obligation Tactic := ${idtac.coqString}.") `$`
+        manyCommands(argDefs) `$`
         CoqEquation(funName,
                     allParams.map {case(x, _) => (x, fullType(x)) } ,
-                    fullType(returnTypeName), Seq((CoqApplication(funName, allParams map (_._1)), body)), true) $
+                    fullType(returnTypeName), Seq((CoqApplication(funName, allParams map (_._1)), body)), true) `$`
         (if (admitObligations)
           RawCommand("\nAdmit Obligations.")
         else
           RawCommand(s"\nSolve Obligations with (repeat ${mainTactic.coqString}).")
-        ) $
-        RawCommand("Fail Next Obligation.\n") $
+        ) `$`
+        RawCommand("Fail Next Obligation.\n") `$`
         CoqMatchTactic(phaseA, Seq(
           CoqCase(CoqTacticPattern(Map(h1 -> rwrtTarget)),
             CoqSequence(Seq(label))),
           CoqCase(CoqTacticPattern(Map(), rwrtTarget),
             CoqSequence(Seq(label)))
-        )) $
+        )) `$`
         CoqMatchTactic(phaseB, Seq(
           CoqCase(CoqTacticPattern(Map(h1 -> rwrtTarget, h2 -> markedUnfolding)), let),
           CoqCase(CoqTacticPattern(Map(h2 -> markedUnfolding), rwrtTarget), let)
-        )) $
-        RawCommand(s"Ltac ${rewriteTactic.coqString} := ${oldRewriteTactic.coqString}; repeat ${phaseA.coqString}; repeat ${phaseB.coqString}.\n") $
-        updateObligationTactic() $
+        )) `$`
+        RawCommand(s"Ltac ${rewriteTactic.coqString} := ${oldRewriteTactic.coqString}; repeat ${phaseA.coqString}; repeat ${phaseB.coqString}.\n") `$`
+        updateObligationTactic() `$`
         SeparatorComment(s"End of ${fd.id.name}")
       } else {
-        SeparatorComment(s"Start of ${fd.id.name}") $
-        NormalDefinition(makeFresh(fd.id), allParams, returnType, body) $
-        RawCommand(s"#[export] Hint Unfold ${makeFresh(fd.id).coqString}: definitions.\n") $
+        SeparatorComment(s"Start of ${fd.id.name}") `$`
+        NormalDefinition(makeFresh(fd.id), allParams, returnType, body) `$`
+        RawCommand(s"#[export] Hint Unfold ${makeFresh(fd.id).coqString}: definitions.\n") `$`
         SeparatorComment(s"End of ${fd.id.name}")
       }
       tmp
@@ -565,7 +565,7 @@ trait CoqEncoder {
     case ADTType(id, args) if (sorts.contains(id)) =>
       CoqApplication(makeFresh(id), args map transformType)
     case ADTType(id, args) =>
-      refinedIdentifier(id)((args map transformType): _*)
+      refinedIdentifier(id)((args map transformType)*)
     case TypeParameter(id,flags) =>
       ignoreFlags(tpe.toString, flags)
       CoqIdentifier(id)
@@ -599,7 +599,7 @@ trait CoqEncoder {
       }
       f match {
         case Some(fd) =>
-          transformFunction(fd, admitObligations) $ transformFunctionsInOrder(fds.filterNot(_ == fd), admitObligations)
+          transformFunction(fd, admitObligations) `$` transformFunctionsInOrder(fds.filterNot(_ == fd), admitObligations)
         case None =>
           ctx.reporter.warning(s"Coq translation: mutual recursion is not supported yet (" + fds.map(_.id).mkString(",") + ").")
           NoCommand
@@ -640,11 +640,11 @@ trait CoqEncoder {
         mainTactic = initTactic
         rewriteTactic = idtac
         (f.id, makeFresh(f.id).coqString, (
-          header() $
-          updateObligationTactic() $
-          makeTactic(p.symbols.sorts.values.toSeq)$
-          manyCommands(p.symbols.sorts.values.toSeq.map(transformADT))$
-          transformFunctionsInOrder(d,true) $
+          header() `$`
+          updateObligationTactic() `$`
+          makeTactic(p.symbols.sorts.values.toSeq)`$`
+          manyCommands(p.symbols.sorts.values.toSeq.map(transformADT))`$`
+          transformFunctionsInOrder(d,true) `$`
           transformFunction(f)))
       }
 
@@ -656,33 +656,33 @@ trait CoqEncoder {
   }
 
   def header(): CoqCommand = {
-    RawCommand("Require Import SLC.Lib.") $
-    RawCommand("Require Import SLC.PropBool.") $
-    RawCommand("Require Import SLC.Booleans.") $
-    RawCommand("Require Import SLC.Sets.") $
+    RawCommand("Require Import SLC.Lib.") `$`
+    RawCommand("Require Import SLC.PropBool.") `$`
+    RawCommand("Require Import SLC.Booleans.") `$`
+    RawCommand("Require Import SLC.Sets.") `$`
     // RawCommand("Require Import stdpp.set.") $
     // RawCommand("Require Import SLC.stdppSets.") $
-    RawCommand("Require Import SLC.Tactics.") $
-    RawCommand("Require Import SLC.Ints.") $
-    RawCommand("Require Import SLC.Unfolding.\n") $
-    RawCommand("Require Import ZArith.") $
-    RawCommand("Require Import Coq.Strings.String.") $
-    RawCommand("From Equations Require Import Equations.\n") $
-    RawCommand("Set Program Mode.\n") $
-    RawCommand("Opaque set_elem_of.") $
-    RawCommand("Opaque set_union.") $
-    RawCommand("Opaque set_intersection.") $
-    RawCommand("Opaque set_subset.") $
-    RawCommand("Opaque set_empty.") $
-    RawCommand("Opaque set_singleton.") $
+    RawCommand("Require Import SLC.Tactics.") `$`
+    RawCommand("Require Import SLC.Ints.") `$`
+    RawCommand("Require Import SLC.Unfolding.\n") `$`
+    RawCommand("Require Import ZArith.") `$`
+    RawCommand("Require Import Coq.Strings.String.") `$`
+    RawCommand("From Equations Require Import Equations.\n") `$`
+    RawCommand("Set Program Mode.\n") `$`
+    RawCommand("Opaque set_elem_of.") `$`
+    RawCommand("Opaque set_union.") `$`
+    RawCommand("Opaque set_intersection.") `$`
+    RawCommand("Opaque set_subset.") `$`
+    RawCommand("Opaque set_empty.") `$`
+    RawCommand("Opaque set_singleton.") `$`
     RawCommand("Opaque set_difference.\n")
   }
 
   def transform(): CoqCommand = {
-    header() $
-    updateObligationTactic() $
-    makeTactic(p.symbols.sorts.values.toSeq)$
-    manyCommands(p.symbols.sorts.values.toSeq.map(transformADT)) $
+    header() `$`
+    updateObligationTactic() `$`
+    makeTactic(p.symbols.sorts.values.toSeq)`$`
+    manyCommands(p.symbols.sorts.values.toSeq.map(transformADT)) `$`
     transformFunctionsInOrder(p.symbols.functions.values.toSeq.sortBy(_.id.name))
   }
 
@@ -747,7 +747,7 @@ object CoqEncoder {
 
   def manyCommands(l: Seq[CoqCommand]): CoqCommand = {
     if (l.isEmpty) NoCommand
-    else l.tail.foldLeft(l.head)(_ $ _)
+    else l.tail.foldLeft(l.head)(_ `$` _)
   }
 
   def transformProgram(program: StainlessProgram, context: inox.Context): Seq[(Identifier, String, CoqCommand)] = {

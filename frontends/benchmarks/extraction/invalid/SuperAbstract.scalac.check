@@ -1,6 +1,0 @@
-[ Error  ] SuperAbstract.scala:9:26: Cannot issue a super call to an abstract method.
-               override def hello = super.hello + 1
-                                    ^^^^^^^^^^^^^^^
-[ Error  ] SuperAbstract.scala:9:32: method hello in class A is accessed from super. It may not be abstract unless it is overridden by a member declared `abstract` and `override`
-               override def hello = super.hello + 1
-                                          ^

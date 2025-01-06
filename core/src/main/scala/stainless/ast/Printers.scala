@@ -65,7 +65,7 @@ trait Printer extends inox.ast.Printer {
     case Ensuring(body, post) =>
       p"""|{
           |  $body
-          |} ensuring {
+          |}.ensuring {
           |  $post
           |}"""
 

@@ -6,10 +6,12 @@ if [[ $(git diff --stat) != '' ]]; then
   STAINLESS_VERSION="$STAINLESS_VERSION-SNAPSHOT"
 fi
 
+SCALA_VERSION="3.5.2"
+SCALA_LIB_VERSION="3.5.2"
 PUBLISHED_SBT_PLUGIN_DIR="$HOME/.ivy2/local/ch.epfl.lara/sbt-stainless/scala_2.12/sbt_1.0/$STAINLESS_VERSION"
-PUBLISHED_LIB_DIR="$HOME/.ivy2/local/ch.epfl.lara/stainless-library_2.13/$STAINLESS_VERSION"
-PUBLISHED_DOTTY_DIR="$HOME/.ivy2/local/ch.epfl.lara/stainless-dotty-plugin_3.2.0/$STAINLESS_VERSION"
-PUBLISHED_SCALAC_DIR="$HOME/.ivy2/local/ch.epfl.lara/stainless-scalac-plugin_3.2.0/$STAINLESS_VERSION"
+LIB_SCALA_VERSION_JAR_NAME_PART=$(echo $SCALA_LIB_VERSION | cut -d '.' -f 1)
+PUBLISHED_LIB_DIR="$HOME/.ivy2/local/ch.epfl.lara/stainless-library_$LIB_SCALA_VERSION_JAR_NAME_PART/$STAINLESS_VERSION"
+PUBLISHED_DOTTY_DIR="$HOME/.ivy2/local/ch.epfl.lara/stainless-dotty-plugin_$SCALA_VERSION/$STAINLESS_VERSION"
 
 OUTPUT="./.stainless-package-sbt-plugin"
 rm -rf "$OUTPUT" || true
@@ -41,24 +43,16 @@ info "$(tput bold)[] Preparing SBT plugin jar..."
 OUT_SBT_JAR_DIR="$OUTPUT/project/lib"
 mkdir -p "$OUT_SBT_JAR_DIR"
 cp "$PUBLISHED_SBT_PLUGIN_DIR/jars/sbt-stainless.jar" "$OUT_SBT_JAR_DIR/sbt-stainless.jar"
+OUT_DOTTY_DIR="$OUTPUT/stainless/ch/epfl/lara/stainless-dotty-plugin_$SCALA_VERSION/$STAINLESS_VERSION"
+mkdir -p "$OUT_DOTTY_DIR"
+cp "$PUBLISHED_DOTTY_DIR/jars/stainless-dotty-plugin_$SCALA_VERSION.jar" "$OUT_DOTTY_DIR/stainless-dotty-plugin_$SCALA_VERSION-$STAINLESS_VERSION.jar"
+cp "$PUBLISHED_DOTTY_DIR/poms/stainless-dotty-plugin_$SCALA_VERSION.pom" "$OUT_DOTTY_DIR/stainless-dotty-plugin_$SCALA_VERSION-$STAINLESS_VERSION.pom"
 
 info "$(tput bold)[] Preparing Stainless library jar..."
-OUT_LIB_DIR="$OUTPUT/stainless/ch/epfl/lara/stainless-library_2.13/$STAINLESS_VERSION"
+OUT_LIB_DIR="$OUTPUT/stainless/ch/epfl/lara/stainless-library_$LIB_SCALA_VERSION_JAR_NAME_PART/$STAINLESS_VERSION"
 mkdir -p "$OUT_LIB_DIR"
-cp "$PUBLISHED_LIB_DIR/srcs/stainless-library_2.13-sources.jar" "$OUT_LIB_DIR/stainless-library_2.13-$STAINLESS_VERSION-sources.jar"
-cp "$PUBLISHED_LIB_DIR/poms/stainless-library_2.13.pom" "$OUT_LIB_DIR/stainless-library_2.13-$STAINLESS_VERSION.pom"
-
-info "$(tput bold)[] Preparing Dotty plugin jar..."
-OUT_DOTTY_DIR="$OUTPUT/stainless/ch/epfl/lara/stainless-dotty-plugin_3.2.0/$STAINLESS_VERSION"
-mkdir -p "$OUT_DOTTY_DIR"
-cp "$PUBLISHED_DOTTY_DIR/jars/stainless-dotty-plugin_3.2.0.jar" "$OUT_DOTTY_DIR/stainless-dotty-plugin_3.2.0-$STAINLESS_VERSION.jar"
-cp "$PUBLISHED_DOTTY_DIR/poms/stainless-dotty-plugin_3.2.0.pom" "$OUT_DOTTY_DIR/stainless-dotty-plugin_3.2.0-$STAINLESS_VERSION.pom"
-
-info "$(tput bold)[] Preparing Scalac plugin jar..."
-OUT_SCALAC_DIR="$OUTPUT/stainless/ch/epfl/lara/stainless-scalac-plugin_3.2.0/$STAINLESS_VERSION"
-mkdir -p "$OUT_SCALAC_DIR"
-cp "$PUBLISHED_SCALAC_DIR/jars/stainless-scalac-plugin_3.2.0.jar" "$OUT_SCALAC_DIR/stainless-scalac-plugin_3.2.0-$STAINLESS_VERSION.jar"
-cp "$PUBLISHED_SCALAC_DIR/poms/stainless-scalac-plugin_3.2.0.pom" "$OUT_SCALAC_DIR/stainless-scalac-plugin_3.2.0-$STAINLESS_VERSION.pom"
+cp "$PUBLISHED_LIB_DIR/srcs/stainless-library_$LIB_SCALA_VERSION_JAR_NAME_PART-sources.jar" "$OUT_LIB_DIR/stainless-library_$LIB_SCALA_VERSION_JAR_NAME_PART-$STAINLESS_VERSION-sources.jar"
+cp "$PUBLISHED_LIB_DIR/poms/stainless-library_$LIB_SCALA_VERSION_JAR_NAME_PART.pom" "$OUT_LIB_DIR/stainless-library_$LIB_SCALA_VERSION_JAR_NAME_PART-$STAINLESS_VERSION.pom"
 
 info "$(tput bold)[] Creating archive..."
 ARCHIVE="sbt-stainless"

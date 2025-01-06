@@ -9,13 +9,13 @@ object Extern2 {
     // Does not satisfy the postcondition, but works as intended
     // (@extern functions bodies are not extracted, only their contracts).
     a + scala.math.abs(-3)
-  } ensuring {
+ }.ensuring {
     _ > 0
   }
 
   def test(b: BigInt): BigInt = {
     plop(if (b <= 0) -b+1 else b)
-  } ensuring {
+ }.ensuring {
     _ > 0
   }
 

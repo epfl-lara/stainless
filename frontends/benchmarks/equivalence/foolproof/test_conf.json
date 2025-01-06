@@ -5,5 +5,22 @@
   "comparefuns": [
     "Candidate.funnyZip"
   ],
-  "tests": []
+  "unequivalent": [],
+  "unsafe": [],
+  "tests": [],
+  "outcome": {
+    "equivalent": [
+      {
+        "model": "Model.funnyZip",
+        "functions": [
+          "Candidate.funnyZip"
+        ]
+      }
+    ],
+    "unequivalent": [],
+    "unsafe": [],
+    "unknownSafety": [],
+    "unknownEquivalence": [],
+    "wrong": []
+  }
 }

@@ -88,7 +88,7 @@ class CICFA(val program: Program { val trees: Trees }, val context: inox.Context
   private val emptyEnv = AbsEnv(Map())
 
   /** A helper function for combining multiple abstract values */
-  private def flatten(envs: Seq[AbsEnv]): AbsEnv = envs.foldLeft(emptyEnv)(_ join _)
+  private def flatten(envs: Seq[AbsEnv]): AbsEnv = envs.foldLeft(emptyEnv)(_ `join` _)
 
   case class Summary(in: AbsEnv, out: AbsEnv, ret: Set[AbsValue])
 
@@ -191,8 +191,8 @@ class CICFA(val program: Program { val trees: Trees }, val context: inox.Context
     private def rec(e: Expr, in: AbsEnv)(using current: Function): (Set[AbsValue], AbsEnv) = e match {
       case Let(vd, v, body) =>
         val (res, escenv) = rec(v, in)
-        val (bres, bescenv) = rec(body, AbsEnv(in.store + (vd.toVariable -> res)) join escenv)
-        (bres, escenv join bescenv)
+        val (bres, bescenv) = rec(body, AbsEnv(in.store + (vd.toVariable -> res)) `join` escenv)
+        (bres, escenv `join` bescenv)
 
       case Application(callee, args) =>
         val (targets, escenv) = rec(callee, in)
@@ -245,7 +245,7 @@ class CICFA(val program: Program { val trees: Trees }, val context: inox.Context
             (Set(External), emptyEnv)
         }
         val resval = resabs.foldLeft(Set[AbsValue]()) { case (acc, (resvals, _)) => acc ++ resvals }
-        val resesc = argescenv join flatten(resabs.map(_._2).toSeq)
+        val resesc = argescenv `join` flatten(resabs.map(_._2).toSeq)
         (resval, resesc)
 
       case lam @ Lambda(args, body) =>
@@ -285,7 +285,7 @@ class CICFA(val program: Program { val trees: Trees }, val context: inox.Context
           tabulation.update(fd, Summary(join, currSummary.out, currSummary.ret))
         }
         // use the out fact as a temporary result
-        (currSummary.ret, argesc join currSummary.out)
+        (currSummary.ret, argesc `join` currSummary.out)
 
       case adt @ ADT(id, tps, args) =>
         val absres = args.map(rec(_, in))
@@ -346,29 +346,29 @@ class CICFA(val program: Program { val trees: Trees }, val context: inox.Context
       case IfExpr(cond, th, el) =>
         val (_, condesc) = rec(cond, in)
         val Seq((tval, tesc), (eval, eesc)) = Seq(th, el).map(ie => rec(ie, in))
-        (tval ++ eval, condesc join tesc join eesc)
+        (tval ++ eval, condesc `join` tesc `join` eesc)
 
       case MatchExpr(scrut, cases) =>
         import Path.{CloseBound, Condition}
         var resenv: AbsEnv = emptyEnv
         val absres = for (cse <- cases) yield {
           val patCond = conditionForPattern[Path](scrut, cse.pattern, includeBinders = true)
-          val realCond = patCond withConds cse.optGuard.toSeq
+          val realCond = patCond `withConds` cse.optGuard.toSeq
           val rhsIn = realCond.elements.foldLeft(in) {
             case (in, CloseBound(vd, e)) =>
               val (res, resc) = rec(e, in)
-              resenv = resenv join resc
+              resenv = resenv `join` resc
               AbsEnv(in.store + (vd.toVariable -> res))
             case (in, Condition(cond)) =>
               val (res, resc) = rec(cond, in)
-              resenv = resenv join resc
+              resenv = resenv `join` resc
               in
             // Note that case pattern paths can't contain open bounds.
             case _ => scala.sys.error("Should never happen")
           }
           rec(cse.rhs, rhsIn)
         }
-        (absres.flatMap(_._1).toSet, resenv join flatten(absres.map(_._2)))
+        (absres.flatMap(_._1).toSet, resenv `join` flatten(absres.map(_._2)))
 
       case v: Variable =>
         (in.store.getOrElse(v, Set()), emptyEnv)

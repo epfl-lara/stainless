@@ -9,10 +9,11 @@ object Array3 {
     var i = 0
     var sum = 0
     (while(i < a.length) {
+      decreases(a.length - i)
       sum = sum + a(i)
       i = i + 1
-    }) invariant(i >= 0)
+    }).invariant(i >= 0)
     sum
-  } ensuring(_ == 15)
+ }.ensuring(_ == 15)
 
 }

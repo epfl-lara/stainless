@@ -19,6 +19,6 @@ object ExternFallbackMut {
 
   def prop(a: Wrapper) = {
     a.doStuff()
-  } ensuring { a == old(a) }
+ }.ensuring { a == old(a) }
 
 }

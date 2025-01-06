@@ -43,19 +43,19 @@ object GenCRun {
   case class Result(fd: xt.FunDef, status: GenCReport.Status, time: Long)
 
   def pipelineBegin(using inox.Context): ExtractionPipeline{val s: xt.type; val t: tt.type} =
-    xlang.extractor        andThen
-      innerclasses.extractor andThen
-      utils.DebugPipeline("Laws",            methods.Laws(methods.trees))            andThen
-      utils.DebugPipeline("SuperInvariants", methods.SuperInvariants(methods.trees)) andThen
-      utils.DebugPipeline("SuperCalls",      methods.SuperCalls(methods.trees))      andThen
+    xlang.extractor        `andThen`
+      innerclasses.extractor `andThen`
+      utils.NamedPipeline("Laws",            methods.Laws(methods.trees))            `andThen`
+      utils.NamedPipeline("SuperInvariants", methods.SuperInvariants(methods.trees)) `andThen`
+      utils.NamedPipeline("SuperCalls",      methods.SuperCalls(methods.trees))      `andThen`
       // No Sealing with GenC
       // utils.DebugPipeline("Sealing",         methods.Sealing(methods.trees))         andThen
-      utils.DebugPipeline("MethodLifting",   methods.MethodLifting(methods.trees))   andThen
-      utils.DebugPipeline("MergeInvariants", methods.MergeInvariants(methods.trees)) andThen
-      utils.DebugPipeline("FieldAccessors",  methods.FieldAccessors(methods.trees))  andThen
-      utils.DebugPipeline("ValueClasses",    methods.ValueClasses(methods.trees))    andThen
-      methods.lowering andThen
-      utils.DebugPipeline("LeonInlining", LeonInlining(tt, tt))
+      utils.NamedPipeline("MethodLifting",   methods.MethodLifting(methods.trees))   `andThen`
+      utils.NamedPipeline("MergeInvariants", methods.MergeInvariants(methods.trees)) `andThen`
+      utils.NamedPipeline("FieldAccessors",  methods.FieldAccessors(methods.trees))  `andThen`
+      utils.NamedPipeline("ValueClasses",    methods.ValueClasses(methods.trees))    `andThen`
+      methods.lowering `andThen`
+      utils.NamedPipeline("LeonInlining", LeonInlining(tt, tt))
 }
 
 class GenCRun private(override val component: GenCComponent.type,
@@ -131,7 +131,7 @@ case class GenCReport(results: Seq[Record], sources: Set[Identifier], override v
   override val name = GenCComponent.name
 
   override def annotatedRows: Seq[RecordRow] = results.map {
-    case Record(id, pos, status, time) => RecordRow(id, pos, levelOf(status), Seq(descriptionOf(status)), time)
+    case Record(id, pos, status, time) => RecordRow(id, pos, levelOf(status), Seq(descriptionOf(status)), time, None)
   }
 
   protected def build(results: Seq[Record], sources: Set[Identifier]): GenCReport =

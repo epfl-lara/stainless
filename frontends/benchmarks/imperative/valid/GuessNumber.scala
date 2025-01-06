@@ -12,8 +12,8 @@ object GuessNumber {
     require(min <= max)
     state.seed += 1
     assert(between(min, min, max))
-    choose((x: Int) => between(min, x, max))
-  }
+    choose[Int]((x: Int) => between(min, x, max))
+ }.ensuring(res => min <= res && res <= max)
 
   def main()(implicit state: State): Unit = {
     val choice = random(0, 10)
@@ -21,18 +21,21 @@ object GuessNumber {
     var guess = random(0, 10)
     var top = 10
     var bot = 0
+    var done = false
 
-    (while(bot < top) {
+    (while(!done && bot < top) {
+      decreases((if (done) 0 else 1, top - bot))
       if(isGreater(guess, choice)) {
         top = guess-1
         guess = random(bot, top)
       } else if(isSmaller(guess, choice)) {
         bot = guess+1
         guess = random(bot, top)
+      } else {
+        done = true
       }
-    }) invariant(guess >= bot && guess <= top && bot >= 0 && top <= 10 && bot <= top && choice >= bot && choice <= top &&
-                 true)
-    val answer = bot
+    }).invariant(guess >= bot && guess <= top && bot >= 0 && top <= 10 && bot <= top && choice >= bot && choice <= top && (done ==> (guess == choice)))
+    val answer = guess
     assert(answer == choice)
   }
 

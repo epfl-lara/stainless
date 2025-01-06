@@ -34,7 +34,7 @@ object MutListExample {
         case None() => BigInt(1)
         case Some(next) => 1 + next.size
       }
-    } ensuring (_ > 0)
+   }.ensuring(_ > 0)
 
     def last: Node = {
       reads(repr.content ++ Set(this))
@@ -68,7 +68,7 @@ object MutListExample {
 
         case Some(next) =>
           assert(next.valid)
-          assert(next.repr.content subsetOf repr.content)
+          assert(next.repr.content.subsetOf(repr.content))
 
           @ghostAnnot val oldReprNext = next.repr
           @ghostAnnot val oldReprC = next.repr.content ++ node.repr.content
@@ -80,12 +80,12 @@ object MutListExample {
 
           repr = this :: next.repr
 
-          assert(next.repr.content subsetOf repr.content)
+          assert(next.repr.content.subsetOf(repr.content))
           assert(repr == this :: (oldReprNext ++ node.repr))
           assert(repr == (this :: oldReprNext) ++ node.repr)
           ghost { check(repr == oldRepr ++ node.repr) }
       }
-    } ensuring { _ => valid &&& repr == old(repr ++ node.repr) &&& repr.content == old(repr.content ++ node.repr.content) }
+   }.ensuring { _ => valid &&& repr == old(repr ++ node.repr) &&& repr.content == old(repr.content ++ node.repr.content) }
   }
 
   def readInvariant(l1: Node, l2: Node): Unit = {

@@ -31,11 +31,13 @@ package object throwing {
 
   def extractor(using inox.Context) = {
     class ExtractorImpl(override val s: trees.type, override val t: imperative.trees.type) extends CheckingTransformer
-    // utils.DebugPipeline("ExceptionLifting", ExceptionLifting(trees, imperative.trees))
-    ExtractionPipeline(new ExtractorImpl(trees, imperative.trees))
+
+    val extraction = ExtractionPipeline(new ExtractorImpl(trees, imperative.trees))
+    utils.NamedPipeline("ExceptionLifting", ExceptionLifting(trees, imperative.trees))
+
   }
 
-  def fullExtractor(using inox.Context) = extractor andThen nextExtractor
+  def fullExtractor(using inox.Context) = extractor `andThen` nextExtractor
   def nextExtractor(using inox.Context) = imperative.fullExtractor
 
   def phaseSemantics(using inox.Context): inox.SemanticsProvider { val trees: throwing.trees.type } = {

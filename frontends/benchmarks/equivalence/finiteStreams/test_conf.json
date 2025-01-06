@@ -1,0 +1,23 @@
+{
+  "models": [
+    "FiniteStream.finiteM"
+  ],
+  "comparefuns": [
+    "FiniteStream.finite"
+  ],
+  "outcome": {
+    "equivalent": [
+      {
+        "model": "FiniteStream.finiteM",
+        "functions": [
+          "FiniteStream.finite"
+        ]
+      }
+    ],
+    "unequivalent": [],
+    "unsafe": [],
+    "unknownSafety": [],
+    "unknownEquivalence": [],
+    "wrong": []
+  }
+}

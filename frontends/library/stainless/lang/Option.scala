@@ -4,7 +4,6 @@ package stainless.lang
 
 import stainless.annotation._
 import stainless.lang.StaticChecks._
-import stainless.covcollection.{Option => CovOption, Some => CovSome, None => CovNone}
 
 @library
 @isabelle.typ(name = "Option.option")
@@ -25,7 +24,7 @@ sealed abstract class Option[T] {
   def orElse(or: => Option[T]): Option[T] = { this match {
     case Some(v) => this
     case None() => or
-  }} ensuring {
+  }}.ensuring {
     _.isDefined == this.isDefined || or.isDefined
   }
 
@@ -44,7 +43,7 @@ sealed abstract class Option[T] {
   def map[R](f: T => R): Option[R] = { this match {
     case None() => None[R]()
     case Some(x) => Some(f(x))
-  }} ensuring { _.isDefined == this.isDefined }
+  }}.ensuring { _.isDefined == this.isDefined }
 
   @isabelle.function(term = "Option.bind")
   def flatMap[R](f: T => Option[R]): Option[R] = this match {
@@ -74,11 +73,6 @@ sealed abstract class Option[T] {
   }
   */
 
-  def toCovariantOption: CovOption[T] = this match {
-    case None() => CovNone
-    case Some(x) => CovSome[T](x)
-  }
-
   def toSet: Set[T] = this match {
     case None() => Set[T]()
     case Some(x) => Set(x)
@@ -98,7 +92,7 @@ object Option {
   @library @extern @pure
   def apply[A](x: A): Option[A] = {
     if (x == null) None[A]() else Some[A](x)
-  } ensuring { res =>
+ }.ensuring { res =>
     res == None[A]() || res == Some[A](x)
   }
 }

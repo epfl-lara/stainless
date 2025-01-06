@@ -17,20 +17,22 @@ class BatchedCallBack(components: Seq[Component])(using val context: inox.Contex
 
   private given givenDebugSection: DebugSectionFrontend.type = DebugSectionFrontend
 
+  private case object PreprocessingTag
+
   private var currentClasses = Seq[xt.ClassDef]()
   private var currentFunctions = Seq[xt.FunDef]()
   private var currentTypeDefs = Seq[xt.TypeDef]()
 
-  private var report: AbstractReport[Report] = _
+  private var report: AbstractReport[Report] = scala.compiletime.uninitialized
 
-  private[this] val preprocessing = new DebugSymbols {
+  private val preprocessing = new DebugSymbols {
     val name = "Preprocessing"
     val context = self.context
     val s: xt.type = xt
     val t: xt.type = xt
   }
 
-  private[this] val userFiltering = new DebugSymbols {
+  private val userFiltering = new DebugSymbols {
     val name = "UserFiltering"
     val context = self.context
     val s: xt.type = xt
@@ -38,7 +40,7 @@ class BatchedCallBack(components: Seq[Component])(using val context: inox.Contex
   }
 
   protected val pipeline: extraction.StainlessPipeline = extraction.pipeline
-  private[this] val runs = components.map(_.run(pipeline))
+  private val runs = components.map(_.run(pipeline))
 
   def beginExtractions(): Unit = {
     currentClasses = Seq()
@@ -65,14 +67,16 @@ class BatchedCallBack(components: Seq[Component])(using val context: inox.Contex
     }
   }
 
-  def failed(): Unit = {}
-
   def endExtractions(): Unit = {
+    def reportProgress(msg: String) =
+      context.reporter.emit(context.reporter.ProgressMessage(context.reporter.INFO, PreprocessingTag, msg))
+
     if (reporter.errorCount != 0) {
       reporter.reset()
       throw ExtractionFailed()
     }
 
+    reportProgress("Preprocessing the symbols...")
     val allSymbols = xt.NoSymbols
       .withClasses(currentClasses)
       .withFunctions(currentFunctions)
@@ -104,6 +108,9 @@ class BatchedCallBack(components: Seq[Component])(using val context: inox.Contex
         reporter.debug(e)
         reportError(defn.getPos, e.getMessage, symbols)
     }
+
+    reportProgress("Preprocessing finished")
+
     val reports = runs map { run =>
       val ids = symbols.functions.keys.toSeq
       val analysis = Await.result(run(ids, symbols), Duration.Inf)

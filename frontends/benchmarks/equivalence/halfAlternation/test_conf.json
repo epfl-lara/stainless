@@ -4,5 +4,20 @@
   ],
   "comparefuns": [
     "HalfAlternation.h2"
-  ]
+  ],
+  "outcome": {
+    "equivalent": [
+      {
+        "model": "HalfAlternation.h1",
+        "functions": [
+          "HalfAlternation.h2"
+        ]
+      }
+    ],
+    "unequivalent": [],
+    "unsafe": [],
+    "unknownSafety": [],
+    "unknownEquivalence": [],
+    "wrong": []
+  }
 }

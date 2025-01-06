@@ -33,6 +33,21 @@ trait Trees extends oo.Trees with Definitions { self =>
       }
   }
 
+  /* Cell Operations */
+
+    /** Swap values from two (not necessarily distinct) cells */
+  sealed case class CellSwap(cell1: Expr, cell2: Expr) extends Expr with CachingTyped {
+    override protected def computeType(using s: Symbols): Type =
+      val cellClassDef = s.lookup.get[ClassDef]("stainless.lang.Cell")
+      (cell1.getType, cell2.getType) match {
+        case (ClassType(id1, tps1), ClassType(id2, tps2)) if cellClassDef.isDefined && id1 == cellClassDef.get.id && id1 == id2 && tps1 == tps2 => {
+          UnitType()
+        }
+        case _ =>
+          Untyped
+      }
+  }
+
   /** $encodingof `{ expr1; expr2; ...; exprn; last }` */
   case class Block(exprs: Seq[Expr], last: Expr) extends Expr with CachingTyped {
     protected def computeType(using Symbols): Type = if (exprs.forall(_.isTyped)) last.getType else Untyped
@@ -81,8 +96,8 @@ trait Trees extends oo.Trees with Definitions { self =>
 
   /** $encodingof `array(index) = value` */
   case class ArrayUpdate(array: Expr, index: Expr, value: Expr) extends Expr with CachingTyped {
-    protected def computeType(using Symbols): Type = array.getType match {
-      case ArrayType(base) => checkParamTypes(Seq(index, value), Seq(Int32Type(), base), UnitType())
+    protected def computeType(using Symbols): Type = getArrayType(array) match {
+      case at @ ArrayType(base) => checkParamTypes(Seq(index, value), Seq(Int32Type(), base), UnitType())
       case _ => Untyped
     }
   }
@@ -95,13 +110,13 @@ trait Trees extends oo.Trees with Definitions { self =>
   /** $encodingof `MutableMap.withDefaultValue[From,To](default)` */
   sealed case class MutableMapWithDefault(from: Type, to: Type, default: Expr) extends Expr with CachingTyped {
     override protected def computeType(using Symbols): Type = {
-      checkParamType(default, FunctionType(Seq(), to), unveilUntyped(MutableMapType(from, to)))
+      checkParamType(default, FunctionType(Seq(), to), getMutableMapType(MutableMapType(from, to)))
     }
   }
 
   /** $encodingof `map.apply(key)` (or `map(key)`) */
   sealed case class MutableMapApply(map: Expr, key: Expr) extends Expr with CachingTyped {
-    override protected def computeType(using Symbols): Type = map.getType match {
+    override protected def computeType(using Symbols): Type = getMutableMapType(map) match {
       case MutableMapType(from, to) => checkParamType(key, from, to)
       case _ => Untyped
     }
@@ -109,20 +124,20 @@ trait Trees extends oo.Trees with Definitions { self =>
 
   /** $encodingof `map.updated(key, value)` (or `map + (key -> value)`) */
   sealed case class MutableMapUpdated(map: Expr, key: Expr, value: Expr) extends Expr with CachingTyped {
-    override protected def computeType(using Symbols): Type = map.getType match {
-      case mmt @ MutableMapType(from, to) => checkParamTypes(Seq(key, value), Seq(from, to), MutableMapType(from, to))
+    override protected def computeType(using Symbols): Type = getMutableMapType(map) match {
+      case mmt @ MutableMapType(from, to) => checkParamType(key, from, getMutableMapType(mmt, MutableMapType(from, value.getType)))
       case _ => Untyped
     }
   }
 
   /** $encodingof `map.duplicate()` */
   sealed case class MutableMapDuplicate(map: Expr) extends Expr with CachingTyped {
-    override protected def computeType(using Symbols): Type = map.getType
+    override protected def computeType(using Symbols): Type = getMutableMapType(map)
   }
 
   /** $encodingof `map.update(key, value)` (or `map(key) = value`) */
   sealed case class MutableMapUpdate(map: Expr, key: Expr, value: Expr) extends Expr with CachingTyped {
-    override protected def computeType(using Symbols): Type = map.getType match {
+    override protected def computeType(using Symbols): Type = getMutableMapType(map) match {
       case mmt @ MutableMapType(from, to) => checkParamTypes(Seq(key, value), Seq(from, to), UnitType())
       case _ => Untyped
     }
@@ -225,6 +240,11 @@ trait Trees extends oo.Trees with Definitions { self =>
     new ExprOpsImpl(self)
   }
 
+  protected def getMutableMapType(tpe: Typed, tpes: Typed*)(using s: Symbols): Type =
+    widenTypeParameter(s.leastUpperBound(tpe +: tpes map (_.getType))) match {
+      case mt: MutableMapType => mt
+      case _ => Untyped
+    }
 
   /* ========================================
    *               EXTRACTORS
@@ -248,13 +268,13 @@ trait Trees extends oo.Trees with Definitions { self =>
    *               HEAP ENCODING
    * ======================================== */
 
-  private[this] lazy val heapRefId: Identifier = ast.SymbolIdentifier("stainless.lang.HeapRef")
-  private[this] lazy val heapRefCons: Identifier = ast.SymbolIdentifier("stainless.lang.HeapRef")
+  private lazy val heapRefId: Identifier = ast.SymbolIdentifier("stainless.lang.HeapRef")
+  private lazy val heapRefCons: Identifier = ast.SymbolIdentifier("stainless.lang.HeapRef")
   lazy val heapRefSort: ADTSort = dsl.mkSort(heapRefId)() { _ =>
     Seq((heapRefCons, Seq(ValDef(FreshIdentifier("id"), IntegerType()))))
   }
 
-  private[this] lazy val dummyHeapId: Identifier = ast.SymbolIdentifier("stainless.lang.dummyHeap")
+  private lazy val dummyHeapId: Identifier = ast.SymbolIdentifier("stainless.lang.dummyHeap")
   lazy val dummyHeap: FunDef = dsl.mkFunDef(dummyHeapId, Synthetic, Extern)() { _ =>
     (Seq(), HeapMapType, { _ => NoTree(HeapMapType) })
   }
@@ -277,6 +297,9 @@ trait Printer extends oo.Printer {
 
     case Swap(array1, index1, array2, index2) =>
       p"swap($array1, $index1, $array2, $index2)"
+
+    case CellSwap(cell1, cell2) =>
+      p"swap($cell1, $cell2)"
 
     case LetVar(vd, value, expr) =>
       p"""|var $vd = $value
@@ -429,6 +452,9 @@ trait TreeDeconstructor extends oo.TreeDeconstructor {
     case s.Swap(array1, index1, array2, index2) =>
       (Seq(), Seq(), Seq(array1, index1, array2, index2), Seq(), Seq(), (_, _, es, _, _) => t.Swap(es(0), es(1), es(2), es(3)))
 
+    case s.CellSwap(cell1, cell2) =>
+      (Seq(), Seq(), Seq(cell1, cell2), Seq(), Seq(), (_, _, es, _, _) => t.CellSwap(es(0), es(1)))
+
     case s.MutableMapWithDefault(from, to, default) =>
       (Seq(), Seq(), Seq(default), Seq(from, to), Seq(), (_, _, es, tps, _) => t.MutableMapWithDefault(tps(0), tps(1), es(0)))
 
@@ -492,8 +518,9 @@ class ExprOps(override val trees: Trees) extends oo.ExprOps(trees) { self =>
         //          .setPos(this).asInstanceOf[tr.t.exprOps.Specification]
         //
         val otExpr: ot.Expr = tr.transform(expr, env) match {
-          // doing case e: ot.Expr triggers a compile-time error, but not if we mix it with tr.t.Expr...
-          case e: tr.t.Expr with ot.Expr => e
+          // doing case e: ot.Expr triggers a compile-time error, but not if we mix it with tr.t.Expr... 
+          // SAM 21.08.2024 remove the match with syntax to migrate to scala 3.5
+          case e: ot.Expr => e
         }
         ot.exprOps.ReadsContract(otExpr).setPos(this).asInstanceOf[tr.t.exprOps.Specification]
       case _ =>
@@ -505,7 +532,7 @@ class ExprOps(override val trees: Trees) extends oo.ExprOps(trees) { self =>
         case ot: imperative.Trees =>
           // Same story here
           val otExpr: ot.Expr = tr.transform(expr) match {
-            case e: tr.t.Expr with ot.Expr => e
+            case e: ot.Expr => e
           }
           ot.exprOps.ReadsContract(otExpr).asInstanceOf[tr.t.exprOps.Specification]
         case _ =>
@@ -531,7 +558,7 @@ class ExprOps(override val trees: Trees) extends oo.ExprOps(trees) { self =>
       case ot: imperative.Trees =>
         // See ReadsContract#transform for the reasons of this strange pattern match.
         val otExpr: ot.Expr = tr.transform(expr, env) match {
-          case e: tr.t.Expr with ot.Expr => e
+          case e: ot.Expr => e
         }
         ot.exprOps.ModifiesContract(otExpr).setPos(this).asInstanceOf[tr.t.exprOps.Specification]
       case _ =>
@@ -542,7 +569,7 @@ class ExprOps(override val trees: Trees) extends oo.ExprOps(trees) { self =>
       case ot: imperative.Trees =>
         // Ditto
         val otExpr: ot.Expr = tr.transform(expr) match {
-          case e: tr.t.Expr with ot.Expr => e
+          case e: ot.Expr => e
         }
         ot.exprOps.ModifiesContract(otExpr).setPos(this).asInstanceOf[tr.t.exprOps.Specification]
       case _ =>

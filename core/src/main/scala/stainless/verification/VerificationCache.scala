@@ -15,6 +15,10 @@ import scala.util.{ Success, Failure }
 
 import inox.solvers.SolverFactory
 
+// For Hashing
+import java.security.MessageDigest
+import java.util.HexFormat
+
 object DebugSectionCacheHit extends inox.DebugSection("cachehit")
 object DebugSectionCacheMiss extends inox.DebugSection("cachemiss")
 
@@ -37,6 +41,8 @@ trait VerificationCache extends VerificationChecker { self =>
 
   private lazy val vccache = CacheLoader.get(context)
 
+  private val binaryCacheFlag = context.options.findOptionOrDefault(utils.Caches.optBinaryCache)
+
   override def checkVC(vc: VC, origVC: VC, sf: SolverFactory { val program: self.program.type }) = {
     reporter.debug(s" - Checking cache: '${vc.kind}' VC for ${vc.fid} @${vc.getPos}...")(using DebugSectionVerification)
 
@@ -51,9 +57,12 @@ trait VerificationCache extends VerificationChecker { self =>
       val (canonicalSymbols, canonicalExpr): (Symbols, Expr) =
         utils.Canonization(program)(program.symbols, vc.condition)
 
-      val key = serializer.serialize((vc.satisfiability, canonicalSymbols, canonicalExpr))
 
-      if (vccache contains key) {
+      val serialized = serializer.serialize((vc.satisfiability, canonicalSymbols, canonicalExpr))
+
+      val key: CacheKey = vccache.computeKey(serialized.bytes)
+      reporter.debug(s"Cache key size: ${key.content.size} bytes")(using DebugSectionVerification)
+      if (vccache.contains(key)) {
         reporter.debug(s"Cache hit: '${vc.kind}' VC for ${vc.fid.asString} @${vc.getPos}...")(using DebugSectionVerification)
         given DebugSectionCacheHit.type = DebugSectionCacheHit
         reporter.synchronized {
@@ -61,16 +70,15 @@ trait VerificationCache extends VerificationChecker { self =>
           debugVC(vc, origVC)
           reporter.debug("--------------")
         }
-        VCResult(VCStatus.ValidFromCache, None, None)
+        VCResult(VCStatus.ValidFromCache, None, None, None)
       } else {
         reporter.synchronized {
           reporter.debug(s"Cache miss: '${vc.kind}' VC for ${vc.fid.asString} @${vc.getPos}...")
           reporter.ifDebug { debug =>
             given DebugSectionCacheMiss.type = DebugSectionCacheMiss
             given PrinterOptions = new PrinterOptions(printUniqueIds = true, printTypes = true, symbols = Some(canonicalSymbols))
-
+            
             debugVC(vc, origVC)
-
             debug("Canonical symbols:")
             debug(" ## SORTS ##")
             debug(canonicalSymbols.sorts.values.map(_.asString).toList.sorted.mkString("\n\n"))
@@ -84,7 +92,7 @@ trait VerificationCache extends VerificationChecker { self =>
 
         val result = super.checkVC(vc, origVC, sf)
         if (result.isValid && vc.condition != BooleanLiteral(true)) {
-          vccache addPersistently key
+          vccache `addPersistently` key
         }
 
         result
@@ -94,7 +102,7 @@ trait VerificationCache extends VerificationChecker { self =>
     // Update the result with the correct processing time
     tryResult match {
       case Failure(e) => reporter.internalError(e)
-      case Success(VCResult(status, solver, _)) => VCResult(status, solver, Some(time))
+      case Success(VCResult(status, solver, _, smtLibFileId)) => VCResult(status, solver, Some(time), smtLibFileId)
     }
   }
 }
@@ -103,18 +111,64 @@ object VerificationCache {
   private val serializer = utils.Serializer(stainless.trees)
   import serializer.{given, _}
 
+  object CacheKey{
+    def apply(content: Seq[Byte]): CacheKey = CacheKey(content.toArray)
+  }
+  case class CacheKey(content: Array[Byte]){
+    override def equals(that: Any): Boolean = that match {
+      case c: CacheKey => java.util.Arrays.equals(content, c.content)
+      case _ => false
+    }
+    override val hashCode: Int = java.util.Arrays.hashCode(content)
+
+    def toSeq: Seq[Byte] = content.toSeq
+  }
+
   /** Cache with the ability to save itself to disk. */
-  private class Cache(cacheFile: File) {
+  private class Cache(ctx: inox.Context, cacheFile: File) {
+    val hashingFunctionName = "SHA-256"
+    val hashSize = MessageDigest.getInstance(hashingFunctionName).getDigestLength()
+    val hashCache = !ctx.options.findOptionOrDefault(utils.Caches.optBinaryCache)
+
     // API
-    def contains(key: SerializationResult): Boolean = underlying contains key
-    def +=(key: SerializationResult) = underlying += key -> unusedCacheValue
-    def addPersistently(key: SerializationResult): Unit = {
+    def computeKey(content: Array[Byte]): CacheKey = 
+      if(hashCache) {
+        val bytes = MessageDigest.getInstance(hashingFunctionName).digest(content)
+        CacheKey(bytes)
+      } else {
+        CacheKey(content)
+      }
+    def contains(key: CacheKey): Boolean = underlying.contains(key)
+    def +=(key: CacheKey) = underlying += key -> unusedCacheValue
+    def addPersistently(key: CacheKey): Unit = {
       this += key
-      this.synchronized { serializer.serialize(key, out) }
+      this.synchronized { CacheKeySerializer.serialize(key, out) }
+    }
+
+    object CacheKeySerializer {
+      def serialize(key: CacheKey, out: OutputStream): Unit = {
+        if(hashCache){
+          assert(key.content.size == hashSize)
+          out.write(key.content)
+        } else {
+          serializer.serialize(key.toSeq, out)
+        }
+      }
+
+      def deserialize(in: InputStream): CacheKey = {
+        if(hashCache){
+          val bytes = new Array[Byte](hashSize)
+          if (in.available() < hashSize) throw new java.io.EOFException()
+          in.read(bytes)
+          CacheKey(bytes)
+        } else {
+          CacheKey(serializer.deserialize[Seq[Byte]](in))
+        }
+      }
     }
 
     // Implementation details
-    private val underlying = TrieMap[SerializationResult, Unit]() // Thread safe
+    private val underlying = TrieMap[CacheKey, Unit]() // Thread safe
     private val unusedCacheValue = ()
 
     // output stream used to save verified VCs
@@ -164,18 +218,18 @@ object VerificationCache {
      *      while being loaded!
      */
     def get(ctx: inox.Context): Cache = this.synchronized {
-      val cacheFile: File = utils.Caches.getCacheFile(ctx, "vccache.bin")
+      val cacheFile: File = utils.Caches.getCacheFile(ctx, utils.Caches.getCacheFilename(ctx))
 
       db.getOrElse(cacheFile, {
-        val cache = new Cache(cacheFile)
+        val cache = new Cache(ctx, cacheFile)
 
         if (cacheFile.exists) {
           val in = openStream(ctx, cacheFile)
 
           try {
             while (true) {
-              val s = serializer.deserialize[SerializationResult](in)
-              cache += s
+              val ck = cache.CacheKeySerializer.deserialize(in)
+              cache += ck
             }
           } catch {
             case e: java.io.EOFException => // Silently consume expected exception.

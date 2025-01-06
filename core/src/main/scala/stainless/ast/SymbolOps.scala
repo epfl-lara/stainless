@@ -30,7 +30,7 @@ trait SymbolOps extends inox.ast.SymbolOps with TypeOps { self =>
     override val t: self.trees.type,
     val symbols: self.symbols.type
   )(using PathProvider[P]) extends TransformerWithPC[P](s, t) {
-    self0: TransformerWithExprOp with TransformerWithTypeOp =>
+    self0: TransformerWithExprOp & TransformerWithTypeOp =>
   }
 
   override protected def transformerWithPC[P <: PathLike[P]](
@@ -67,7 +67,7 @@ trait SymbolOps extends inox.ast.SymbolOps with TypeOps { self =>
       if (!includeBinders) {
         pp.empty
       } else {
-        ob.map(vd => pp.empty withBinding (vd -> to)).getOrElse(pp.empty)
+        ob.map(vd => pp.empty `withBinding` (vd -> to)).getOrElse(pp.empty)
       }
     }
 
@@ -80,20 +80,20 @@ trait SymbolOps extends inox.ast.SymbolOps with TypeOps { self =>
         assert(tcons.fields.size == subps.size)
         val pairs = tcons.fields zip subps
         val subTests = pairs.map(p => apply(Annotated(adtSelector(in, p._1.id), Seq(DropVCs)).copiedFrom(p._1), p._2))
-        pp.empty withCond isCons(in, id) merge bind(ob, in) merge subTests
+        pp.empty `withCond` isCons(in, id) `merge` bind(ob, in) `merge` subTests
 
       case TuplePattern(ob, subps) =>
         val TupleType(tpes) = in.getType: @unchecked
         assert(tpes.size == subps.size)
         val subTests = subps.zipWithIndex.map { case (p, i) => apply(tupleSelect(in, i+1, subps.size), p) }
-        bind(ob, in) merge subTests
+        bind(ob, in) `merge` subTests
 
       case up @ UnapplyPattern(ob, _, _, _, subps) =>
-        val subs = unwrapTuple(up.get(in), subps.size).zip(subps) map (apply _).tupled
-        bind(ob, in) withCond Not(up.isEmpty(in)) merge subs
+        val subs = unwrapTuple(up.get(in), subps.size).zip(subps) map (apply).tupled
+        bind(ob, in) `withCond` Not(up.isEmpty(in)) `merge` subs
 
       case LiteralPattern(ob, lit) =>
-        pp.empty withCond Equals(in, lit) merge bind(ob, in)
+        pp.empty `withCond` Equals(in, lit) `merge` bind(ob, in)
     }
   }
 
@@ -169,10 +169,10 @@ trait SymbolOps extends inox.ast.SymbolOps with TypeOps { self =>
           val map = mapForPattern(scrutV, cse.pattern)
           val patCond = conditionForPattern[Path](scrutV, cse.pattern, includeBinders = false)
           val realCond = cse.optGuard match {
-            case Some(g) => patCond withCond replaceFromSymbols(map, g)
+            case Some(g) => patCond `withCond` replaceFromSymbols(map, g)
             case None => patCond
           }
-          val newRhs = replaceFromSymbols(map, cse.rhs).copiedFrom(cse.rhs)
+          val newRhs = replaceFromSymbols(map, cse.rhs)
           (realCond.toClause.copiedFrom(cse), newRhs, cse)
         }
 
@@ -214,12 +214,12 @@ trait SymbolOps extends inox.ast.SymbolOps with TypeOps { self =>
     for (c <- cases) yield {
       val g = c.optGuard getOrElse BooleanLiteral(true)
       val cond = conditionForPattern[P](scrut, c.pattern, includeBinders = true)
-      val localCond = pcSoFar merge (cond withCond g)
+      val localCond = pcSoFar `merge` (cond `withCond` g)
 
       // These contain no binders defined in this MatchCase
       val condSafe = conditionForPattern[P](scrut, c.pattern)
       val gSafe = replaceFromSymbols(mapForPattern(scrut, c.pattern), g)
-      pcSoFar = pcSoFar merge (condSafe withCond gSafe).negate
+      pcSoFar = pcSoFar `merge` (condSafe `withCond` gSafe).negate
 
       localCond
     }
@@ -234,7 +234,7 @@ trait SymbolOps extends inox.ast.SymbolOps with TypeOps { self =>
       case Some(g) =>
         // guard might refer to binders
         val map  = mapForPattern(scrut, c.pattern)
-        patternC withCond replaceFromSymbols(map, g)
+        patternC `withCond` replaceFromSymbols(map, g)
 
       case None =>
         patternC

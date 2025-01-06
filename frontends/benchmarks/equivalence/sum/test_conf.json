@@ -4,5 +4,20 @@
   ],
   "comparefuns": [
     "Sum.sum2"
-  ]
+  ],
+  "outcome": {
+    "equivalent": [
+      {
+        "model": "Sum.sum1",
+        "functions": [
+          "Sum.sum2"
+        ]
+      }
+    ],
+    "unequivalent": [],
+    "unsafe": [],
+    "unknownSafety": [],
+    "unknownEquivalence": [],
+    "wrong": []
+  }
 }

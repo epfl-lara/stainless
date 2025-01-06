@@ -4,15 +4,18 @@ package frontends.dotc
 import dotty.tools.dotc
 import dotc._
 import core._
+import Decorators.toMessage
 import dotc.util._
 import Contexts.{Context => DottyContext}
 import plugins._
 import Phases._
+import Symbols._
 import transform._
 import reporting._
 import inox.{Context, DebugSection, utils => InoxPosition}
 import stainless.frontend
 import stainless.frontend.{CallBack, Frontend}
+import Utils._
 
 object StainlessPlugin {
   val PluginName                       = "stainless"
@@ -29,17 +32,29 @@ class StainlessPlugin extends StandardPlugin {
   override val name: String = PluginName
   override val description: String = PluginDescription
 
-  def init(options: List[String]): List[PluginPhase] = {
+  override def initialize(options: List[String])(using DottyContext): List[PluginPhase] = {
     val pluginOpts = parseOptions(options)
     List(
       if (pluginOpts.enableVerification)
         Some(new ExtractionAndVerification)
       else None,
       if (pluginOpts.enableGhostElimination)
-        Some(new GhostAccessRewriter)
+        Some(new GhostAccessRewriter(if (pluginOpts.enableVerification) "stainless" else Pickler.name))
       else None
     ).flatten
   }
+
+//  def init(options: List[String]): List[PluginPhase] = {
+//    val pluginOpts = parseOptions(options)
+//    List(
+//      if (pluginOpts.enableVerification)
+//        Some(new ExtractionAndVerification)
+//      else None,
+//      if (pluginOpts.enableGhostElimination)
+//        Some(new GhostAccessRewriter(if (pluginOpts.enableVerification) "stainless" else Pickler.name))
+//      else None
+//    ).flatten
+//  }
 
   private def parseOptions(options: List[String]): PluginOptions = {
     var enableVerification = false
@@ -75,11 +90,12 @@ class StainlessPlugin extends StandardPlugin {
 
     private var extraction: Option[StainlessExtraction] = None
     private var callback: Option[CallBack] = None
+    private var exportedSymsMapping: ExportedSymbolsMapping = ExportedSymbolsMapping.empty
 
     // This method id called for every compilation unit, and in the same thread.
     // It is called within super.runOn.
     override def run(using DottyContext): Unit =
-      extraction.get.extractUnit.foreach(extracted =>
+      extraction.get.extractUnit(exportedSymsMapping).foreach(extracted =>
         callback.get(extracted.file, extracted.unit, extracted.classes, extracted.functions, extracted.typeDefs))
 
     override def runOn(units: List[CompilationUnit])(using dottyCtx: DottyContext): List[CompilationUnit] = {
@@ -104,6 +120,7 @@ class StainlessPlugin extends StandardPlugin {
       // Not pretty at all... Oh well...
       callback = Some(cb)
       extraction = Some(new StainlessExtraction(inoxCtx))
+      exportedSymsMapping = Utils.exportedSymbolsMapping(inoxCtx, this.start, units)
 
       cb.beginExtractions()
       val unitRes = super.runOn(units)
@@ -150,7 +167,7 @@ class StainlessPlugin extends StandardPlugin {
         case msg: String =>
           message.severity match {
             case INFO                     => dottyCtx.reporter.report(Info(msg, pos))
-            case WARNING                  => dottyCtx.reporter.report(Warning(msg, pos))
+            case WARNING                  => dottyCtx.reporter.report(Warning(msg.toMessage, pos))
             case ERROR | FATAL | INTERNAL => dottyCtx.reporter.report(Diagnostic.Error(msg, pos))
             case _                        => dottyCtx.reporter.report(Info(msg, pos)) // DEBUG messages are at reported at INFO level
           }

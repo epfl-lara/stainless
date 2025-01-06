@@ -50,7 +50,7 @@ object FiniteSort {
       (x5, x1s, x2s, x3s, x4s)
     }
 
-  } ensuring (_ match {
+ }.ensuring(_ match {
     case (a, b, c, d, e) => a <= b && b <= c && c <= d && d <= e && Set(a,b,c,d,e) == Set(x1,x2,x3,x4,x4) // last one should be x5
   })
 }

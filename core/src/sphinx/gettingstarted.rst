@@ -29,7 +29,7 @@ distributed with Stainless:
 
 .. code-block:: bash
 
-  $ stainless --solvers=smt-cvc4 frontends/benchmarks/verification/invalid/InsertionSort.scala
+  $ stainless --solvers=smt-cvc5 frontends/benchmarks/verification/invalid/InsertionSort.scala
 
 and get something like this (some output cropped)
 

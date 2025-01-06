@@ -24,6 +24,6 @@ object NestedFunState7 {
     }
 
     a
-  } ensuring(res => res >= 0 && res <= 100)
+ }.ensuring(res => res >= 0 && res <= 100)
 
 }

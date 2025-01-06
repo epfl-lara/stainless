@@ -21,6 +21,7 @@ object LoopInv {
     var state   = 0
 
     (while (left) {
+      decreases(remains)
       remains match {
         case Nil() =>
           left = false
@@ -34,7 +35,7 @@ object LoopInv {
 
           remains = remains.tail
       }
-    }) invariant (G3.contains(state))
+    }).invariant (G3.contains(state))
   }
 
 }

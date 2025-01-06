@@ -30,7 +30,7 @@ trait StainlessReports {
     override def emitJson = reports.map(rr => rr.run.component.name -> rr.report.emitJson).asJson
 
     override def filter(ids: Set[Identifier]): Report =
-      Report(reports.map(rr => RunReport(rr.run)(rr.report filter ids)))
+      Report(reports.map(rr => RunReport(rr.run)(rr.report `filter` ids)))
 
     override lazy val stats: stainless.ReportStats = {
       val reportStats = reports.map(_.report.stats)

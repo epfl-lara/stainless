@@ -21,6 +21,6 @@ object i1333 {
         val (arr3, xyz) = upd(arr2, i)
         app(arr3, i - 1)
       }
-    }.ensuring { _ => i < arr.length }
+   }.ensuring { _ => i < arr.length }
   }
 }

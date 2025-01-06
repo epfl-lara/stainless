@@ -56,7 +56,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
   import exprOps._
   import context.given
 
-  private[this] val effectsCache = new ExtractionCache[FunDef, Result]((fd, context) =>
+  private val effectsCache = new ExtractionCache[FunDef, Result]((fd, context) =>
     getDependencyKey(fd.id)(using context.symbols)
   )
 
@@ -87,7 +87,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     val symbols: s.Symbols
     import symbols.given
 
-    private[this] def functionEffects(fd: FunAbstraction, current: Result): Set[Effect] =
+    private def functionEffects(fd: FunAbstraction, current: Result): Set[Effect] =
       BodyWithSpecs(fd.fullBody).bodyOpt match {
         case Some(body) =>
           expressionEffects(body, current)
@@ -101,12 +101,12 @@ trait EffectsAnalyzer extends oo.CachingPhase {
           Set.empty
       }
 
-    private[this] val result: Result = symbols.functions.values.foldLeft(Result.empty) {
+    private val result: Result = symbols.functions.values.foldLeft(Result.empty) {
       case (results, fd) =>
         val fds = (symbols.transitiveCallees(fd) + fd).toSeq.sortBy(_.id)
-        val lookups = fds.map(effectsCache get (_, this))
+        val lookups = fds.map(effectsCache `get` (_, this))
         val newFds = (fds zip lookups).filter(_._2.isEmpty).map(_._1)
-        val prevResult = lookups.flatten.foldLeft(Result.empty)(_ merge _)
+        val prevResult = lookups.flatten.foldLeft(Result.empty)(_ `merge` _)
 
         val newResult = if (newFds.isEmpty) {
           prevResult
@@ -124,7 +124,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
 
           val result = inox.utils.fixpoint[Result] { case res @ Result(effects, locals) =>
             Result(effects.map { case (fd, _) => fd -> functionEffects(fd, res) }, locals)
-          } (prevResult merge baseResult)
+          } (prevResult `merge` baseResult)
 
           for ((fd, inners) <- inners) {
             effectsCache(fd, this) = Result(
@@ -136,7 +136,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
           result
         }
 
-        results merge newResult
+        results `merge` newResult
     }
 
     def effects(fd: FunDef): Set[Effect] = result.effects(Outer(fd))
@@ -362,13 +362,13 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     }
 
     def maybePrefixOf(that: Target): Boolean =
-      receiver == that.receiver && (path maybePrefixOf that.path)
+      receiver == that.receiver && (path `maybePrefixOf` that.path)
 
     def maybeProperPrefixOf(that: Target): Boolean =
-      receiver == that.receiver && (path maybeProperPrefixOf that.path)
+      receiver == that.receiver && (path `maybeProperPrefixOf` that.path)
 
     def definitelyPrefixOf(that: Target): Boolean =
-      receiver == that.receiver && (path definitelyPrefixOf that.path)
+      receiver == that.receiver && (path `definitelyPrefixOf` that.path)
 
     def wrap(using Symbols): Option[Expr] = path.wrap(receiver)
 
@@ -392,7 +392,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
         case (tt: TupleType, TupleFieldAccessor(idx) +: xs) =>
           0 < idx && idx <= tt.dimension && rec(tt.bases(idx - 1), xs)
 
-        case (ArrayType(base), ArrayAccessor(idx) +: xs) =>
+        case (ArrayType(base), (ArrayAccessor(_) | UnknownArrayAccessor) +: xs) =>
           rec(base, xs)
 
         case (_, Nil) =>
@@ -465,10 +465,10 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     }
 
     def maybePrefixOf(that: Effect): Boolean =
-      receiver == that.receiver && (path maybePrefixOf that.path)
+      receiver == that.receiver && (path `maybePrefixOf` that.path)
 
     def definitelyPrefixOf(that: Effect): Boolean =
-      receiver == that.receiver && (path definitelyPrefixOf that.path)
+      receiver == that.receiver && (path `definitelyPrefixOf` that.path)
 
     def toTarget(cond: Option[Expr] = None): Target = Target(receiver, cond, path)
 
@@ -698,9 +698,10 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       case Old(_) => true
 
       case fi @ FunctionInvocation(id, _, _) if !symbols.isRecursive(id) =>
-        BodyWithSpecs(symbols.simplifyLets(fi.inlined))
-          .bodyOpt
-          .forall(isExpressionFresh)
+        val specced = BodyWithSpecs(symbols.simplifyLets(fi.inlined))
+        specced.bodyOpt
+          .map(specced.wrapLets)
+          .forall(rec(_, bindings))
 
       // other function invocations always return a fresh expression, by hypothesis (global assumption)
       case (_: FunctionInvocation | _: ApplyLetRec | _: Application) => true
@@ -719,7 +720,9 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       // For `Let`, it is safe to add `vd` as a fresh binding because we disallow
       // `FieldAssignments` with non-fresh expressions in `EffetsChecker.check(fd: FunAbstraction)`.
       // See discussion on: https://github.com/epfl-lara/stainless/pull/985#discussion_r614583479
-      case Let(vd, e, b) => rec(e, bindings) && rec(b, bindings + vd)
+      case Let(vd, e, b) =>
+        val eFresh = rec(e, bindings)
+        rec(b, if (eFresh) bindings + vd else bindings)
 
       // A `LetVar` can be fresh if `vd` is only assigned fresh values both
       // here and in all subsequent Assign statements.
@@ -736,7 +739,12 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       case Block(_, e) => rec(e, bindings)
 
       case IfExpr(_, e1, e2) => rec(e1, bindings) && rec(e2, bindings)
-      case MatchExpr(_, cases) => cases.forall(cse => rec(cse.rhs, bindings))
+      case MatchExpr(scrut, cases) =>
+        val scrutFresh = rec(scrut, bindings)
+        cases.forall {  cse =>
+          val extraBdgs = if (scrutFresh) cse.pattern.binders else Set.empty
+          rec(cse.rhs, bindings ++ extraBdgs)
+        }
 
       //any other expression is conservatively assumed to be non-fresh if
       //any sub-expression is non-fresh
@@ -761,7 +769,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     case _: (ArraySelect | MutableMapApply) => false
     case _: (Literal[t] | Lambda) => true
     case fi @ FunctionInvocation(_, _, _) => functionTypeEffects(fi.tfd.functionType).isEmpty
-    case _: (Application | ApplyLetRec | Swap | ArrayUpdate | MutableMapUpdate | FieldAssignment | Assignment) => false
+    case _: (Application | ApplyLetRec | Swap | CellSwap | ArrayUpdate | MutableMapUpdate | FieldAssignment | Assignment) => false
     case Operator(es, _) => es.forall(isReferentiallyTransparent)
   }
 
@@ -818,6 +826,12 @@ trait EffectsAnalyzer extends oo.CachingPhase {
         effect(array1, env).map(_.precise(ArrayAccessor(index1))) ++
         effect(array2, env).map(_.precise(ArrayAccessor(index2)))
 
+      case CellSwap(cell1, cell2) =>
+        val vFieldId = symbols.lookup.get[ClassDef]("stainless.lang.Cell").get.fields.head.id
+        rec(cell1, env) ++ rec(cell2, env) ++
+        effect(cell1, env).map(_.precise(ClassFieldAccessor(vFieldId))) ++
+        effect(cell2, env).map(_.precise(ClassFieldAccessor(vFieldId)))
+
       case ArrayUpdate(o, idx, v) =>
         rec(o, env) ++ rec(idx, env) ++ rec(v, env) ++
         effect(o, env).map(_.precise(ArrayAccessor(idx)))
@@ -857,19 +871,19 @@ trait EffectsAnalyzer extends oo.CachingPhase {
           case FunctionInvocation(id, _, _) => Outer(getFunction(id))
           case ApplyLetRec(id, _, _, _, _) => result.locals(id)
         }
-
-        if (fun.flags.contains(IsPure)) Set()
+        val argsEff = args.flatMap(rec(_, env)).toSet
+        if (fun.flags.contains(IsPure)) argsEff
         else {
           val currentEffects: Set[Effect] = result.effects(fun)
           val paramSubst = (fun.params.map(_.toVariable) zip args).toMap
           val invocEffects = currentEffects.flatMap(e => paramSubst.get(e.receiver) match {
-            case Some(arg) => (e on arg).flatMap((e, _) => inEnv(e, env))
+            case Some(arg) => (e `on` arg).flatMap((e, _) => inEnv(e, env))
             case None => Seq(e) // This effect occurs on some variable captured from scope
           })
 
           val effectsOnLocalFreeVars = currentEffects.filterNot(e => paramSubst contains e.receiver)
 
-          invocEffects ++ effectsOnLocalFreeVars ++ args.flatMap(rec(_, env))
+          invocEffects ++ effectsOnLocalFreeVars ++ argsEff
         }
 
       case Operator(es, _) => es.flatMap(rec(_, env)).toSet

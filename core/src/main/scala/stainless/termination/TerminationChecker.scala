@@ -78,15 +78,15 @@ trait TerminationChecker { self =>
     def get = cache
   }
 
-  val integerOrdering: StructuralSize with SolverProvider {
+  val integerOrdering: StructuralSize & SolverProvider {
     val checker: self.type
   }
 
-  val lexicographicOrdering: StructuralSize with SolverProvider {
+  val lexicographicOrdering: StructuralSize & SolverProvider {
     val checker: self.type
   }
 
-  val bvOrdering: StructuralSize with SolverProvider {
+  val bvOrdering: StructuralSize & SolverProvider {
     val checker: self.type
   }
 
@@ -123,7 +123,7 @@ object TerminationChecker {
                                 override val cfa: self.cfa.type, override val encoder: encoderImpl.type)
         extends SumOrdering with StructuralSize with Strengthener with RelationBuilder with ChainBuilder
       // We explicitly widen integerOrdering because scalac seems to ignore some of the mixed traits if we don't do so.
-      val integerOrdering: SumOrdering with StructuralSize with Strengthener with RelationBuilder with ChainBuilder {
+      val integerOrdering: SumOrdering & StructuralSize & Strengthener & RelationBuilder & ChainBuilder {
         val checker: self.type
       } = new IntegerOrderingImpl(self, sze, self.cfa, encoderImpl)
 
@@ -131,7 +131,7 @@ object TerminationChecker {
                                       override val cfa: self.cfa.type, override val encoder: encoderImpl.type)
         extends LexicographicOrdering with StructuralSize with Strengthener with RelationBuilder
       // Ditto
-      val lexicographicOrdering: LexicographicOrdering with StructuralSize with Strengthener with RelationBuilder {
+      val lexicographicOrdering: LexicographicOrdering & StructuralSize & Strengthener & RelationBuilder {
         val checker: self.type
       } = new LexicographicOrderingImpl(self, sze, self.cfa, encoderImpl)
 
@@ -139,7 +139,7 @@ object TerminationChecker {
                            override val cfa: self.cfa.type, override val encoder: encoderImpl.type)
         extends BVOrdering with StructuralSize with Strengthener with RelationBuilder
       // Ditto
-      val bvOrdering: BVOrdering with StructuralSize with Strengthener with RelationBuilder {
+      val bvOrdering: BVOrdering & StructuralSize & Strengthener & RelationBuilder {
         val checker: self.type
       } = new BVOrderingImpl(self, sze, self.cfa, encoderImpl)
 

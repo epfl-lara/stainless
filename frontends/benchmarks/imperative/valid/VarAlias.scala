@@ -7,7 +7,7 @@ object VarAlias {
 
     a.data(0) = 10
 
-  }.ensuring(_ =>
+ }.ensuring(_ =>
     a.data.length > 0
   )
 

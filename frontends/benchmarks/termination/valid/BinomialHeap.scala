@@ -65,7 +65,7 @@ object BinomialHeap {
       case ConsHeap(head, tail) =>  1 + treeNum(tail)
       case _ => BigInt(0)
     }
-  } ensuring(_ >= 0)
+ }.ensuring(_ >= 0)
 
   /* Insert a tree into a binomial heap. The tree should be correct in relation to the heap */
   def insTree(t: TreeNode, h: BinomialHeap) : BinomialHeap = {
@@ -164,7 +164,7 @@ object BinomialHeap {
       case Some(TreeNode(_,e,ts1)) => e
       case _ => Element(-1)
     }
-  } ensuring(res => true && tmpl((a,b) => steps <= a*treeNum(h) + b))*/
+ }.ensuring(res => true && tmpl((a,b) => steps <= a*treeNum(h) + b))*/
 
   def minTreeChildren(h: BinomialHeap) : BigInt = {
     val (min, _) = removeMinTree(h)

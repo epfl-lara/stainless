@@ -51,7 +51,7 @@ object VerificationReport {
   case class Record(
     id: Identifier, pos: inox.utils.Position, time: Long,
     status: Status, solverName: Option[String], kind: String,
-    derivedFrom: Identifier
+    derivedFrom: Identifier, smtId: Option[Int]
   ) extends AbstractReportHelper.Record
 
   given recordDecoder: Decoder[Record] = deriveDecoder
@@ -84,12 +84,12 @@ class VerificationReport(val results: Seq[VerificationReport.Record], val source
   override val name = VerificationComponent.name
 
   override lazy val annotatedRows = results map {
-    case Record(id, pos, time, status, solverName, kind, _) =>
+    case Record(id, pos, time, status, solverName, kind, _, smtId) =>
       val level = levelOf(status)
       val solver = solverName getOrElse ""
       val extra = Seq(kind, status.name, solver)
 
-      RecordRow(id, pos, level, extra, time)
+      RecordRow(id, pos, level, extra, time, smtId)
   }
 
 

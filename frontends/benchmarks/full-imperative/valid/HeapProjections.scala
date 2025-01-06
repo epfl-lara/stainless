@@ -14,7 +14,7 @@ object HeapProjectionsExample {
   def readInvariant(x: Box, y: Box): Unit = {
     reads(Set(x, y))
     modifies(Set(y))
-    require(!(x refEq y))
+    require(!(x.refEq(y)))
     val x1 = read(x)
     y.value += 1
     val x2 = read(x)
@@ -30,7 +30,7 @@ object HeapProjectionsExample {
   def writeInvariant(x: Box, y: Box): Unit = {
     reads(Set(x, y))
     modifies(Set(x))
-    require(!(x refEq y))
+    require(!(x.refEq(y)))
     val y1 = y.value
     write(x, y)
     val y2 = y.value
@@ -48,7 +48,7 @@ object HeapProjectionsExample {
   def readInvariantExt(x: Box, y: Box): Unit = {
     reads(Set(x, y))
     modifies(Set(y))
-    require(!(x refEq y))
+    require(!(x.refEq(y)))
     val x1 = readExt(x)
     y.value += 1
     val x2 = readExt(x)
@@ -65,7 +65,7 @@ object HeapProjectionsExample {
   def writeInvariantExt(x: Box, y: Box): Unit = {
     reads(Set(x, y))
     modifies(Set(x))
-    require(!(x refEq y))
+    require(!(x.refEq(y)))
     val y1 = y.value
     writeExt(x, y)
     val y2 = y.value

@@ -29,7 +29,7 @@ object GlobalUninitialized {
     state.data(state.y) = 1
     state.stable = true
     if (state.y > 0) move()
-  }.ensuring(_ => state.stable)
+ }.ensuring(_ => state.stable)
 
   @cCode.`export`
   def main(): Unit = {

@@ -28,7 +28,7 @@ object CastCorrectness {
       case Cons(head, tail) if head == t => freshCopy(remove(tail, t))
       case Cons(head, tail) => freshCopy(Cons[Int](head, remove(tail, t)))
     }
-  } ensuring {
+ }.ensuring {
     (ret: List[Int]) =>
       !contains(freshCopy(ret), t) &&
         contents(freshCopy(ret)).subsetOf(contents(freshCopy(self)))

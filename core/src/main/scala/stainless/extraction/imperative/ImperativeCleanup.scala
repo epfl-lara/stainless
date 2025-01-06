@@ -54,21 +54,25 @@ class ImperativeCleanup(override val s: Trees, override val t: oo.Trees)
     object ReconstructTuple {
       def unapply(e: s.Expr): Option[s.Expr] = e match {
         case s.Let(vd, tuple, Lets(lets, s.Tuple(es))) =>
-          val letsMap = lets.map { case (vd, e) => (vd.id, e) }.toMap
-          if (
-            vd.getType.isInstanceOf[s.TupleType] &&
-            es.length == vd.getType.asInstanceOf[s.TupleType].bases.length &&
-            es.zipWithIndex.forall {
-              case (e0 : s.Variable, i) =>
-                letsMap.contains(e0.id) &&
-                letsMap(e0.id) == s.TupleSelect(vd.toVariable, i + 1)
-              case (e0, i) =>
-                e0 == s.TupleSelect(vd.toVariable, i + 1)
-            }
-          )
-            Some(tuple)
-          else
-            None
+          vd.getType match {
+            case s.TupleType(bases) =>
+              val letsMap = lets.map { case (vd, e) => (vd.id, e) }.toMap
+              // All let-bindings are used in the "returned" value `es`
+              lazy val returnedLets = letsMap.keySet.filter(id => es.exists { case v: s.Variable => v.id == id; case _ => false })
+              // All values in `es` are reconstruction of selections of `vd`
+              lazy val esIsTupleSel = es.zipWithIndex.forall {
+                case (e0: s.Variable, i) =>
+                  letsMap.contains(e0.id) &&
+                  letsMap(e0.id) == s.TupleSelect(vd.toVariable, i + 1)
+                case (e0, i) =>
+                  e0 == s.TupleSelect(vd.toVariable, i + 1)
+              }
+              if (es.length == bases.length && returnedLets.size == letsMap.size && esIsTupleSel)
+                Some(tuple)
+              else None
+            case _ =>
+              None
+          }
 
         case s.Let(vd, e, Lets(Seq(), v)) if v == vd.toVariable =>
           Some(e)
@@ -87,15 +91,15 @@ class ImperativeCleanup(override val s: Trees, override val t: oo.Trees)
           Some(s.Variable(id, tpe, flags filterNot isImperativeFlag).copiedFrom(expr))
 
         case s.MutableMapWithDefault(from, to, default) =>
-          Some(s.FiniteMap(Seq(), s.Application(default, Seq()), from, to))
-        case s.MutableMapApply(map, index) => Some(s.MapApply(map, index))
-        case s.MutableMapUpdated(map, key, value) => Some(s.MapUpdated(map, key, value))
+          Some(s.FiniteMap(Seq(), s.Application(default, Seq()).copiedFrom(default), from, to).copiedFrom(expr))
+        case s.MutableMapApply(map, index) => Some(s.MapApply(map, index).copiedFrom(expr))
+        case s.MutableMapUpdated(map, key, value) => Some(s.MapUpdated(map, key, value).copiedFrom(expr))
         case s.MutableMapDuplicate(map) => Some(map)
 
         case ReconstructTuple(tuple) => Some(tuple)
 
         case s.LetRec(fds, body) =>
-          Some(s.LetRec(fds.map(fd => fd.copy(flags = fd.flags filterNot isImperativeFlag)), body))
+          Some(s.LetRec(fds.map(fd => fd.copy(flags = fd.flags filterNot isImperativeFlag)), body).copiedFrom(expr))
 
         case _ => None
       } } (expr))
@@ -133,9 +137,9 @@ class ImperativeCleanup(override val s: Trees, override val t: oo.Trees)
       case post: s.exprOps.Postcondition =>
         // The new imperative phase allows for arbitrary expressions inside `old(...)`.
         if (!ImperativeCleanup.this.context.options.findOptionOrDefault(optFullImperative)) {
-          post.traverse(checkValidOldUsage _)
+          post.traverse(checkValidOldUsage)
         }
-      case spec => spec.traverse(checkNoOld _)
+      case spec => spec.traverse(checkNoOld)
     }
 
     body foreach checkNoOld

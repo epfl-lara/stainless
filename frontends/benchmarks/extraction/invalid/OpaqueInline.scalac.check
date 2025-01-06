@@ -1,3 +1,0 @@
-[ Error  ] OpaqueInline.scala:7:3: Can't inline opaque or extern function, use @inlineOnce instead
-             def f(x: BigInt): Unit = ()
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^

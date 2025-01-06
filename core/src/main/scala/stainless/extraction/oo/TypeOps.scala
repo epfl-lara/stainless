@@ -122,6 +122,9 @@ trait TypeOps extends innerfuns.TypeOps { self =>
     case (MapType(f1, t1), MapType(f2, t2)) if leastUpperBound(f1, f2) == greatestLowerBound(f1, f2) =>
       Some(MapType(f1, typeBound(t1, t2, upper)))
 
+    case (ArrayType(b1), ArrayType(b2)) if leastUpperBound(b1, b2) == greatestLowerBound(b1, b2) =>
+      Some(ArrayType(b1))
+
     case _ => None
   }).getOrElse(if (upper) AnyType() else NothingType()).getType
 

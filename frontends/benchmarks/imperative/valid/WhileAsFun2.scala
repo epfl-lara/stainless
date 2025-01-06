@@ -16,6 +16,7 @@ object WhileAsFun2 {
 
     var i = 0
     def rec(): Unit = {
+      decreases(n - i)
       require(i >= 0 && counter == i && i <= n)
       if(i < n) {
         inc()
@@ -24,11 +25,11 @@ object WhileAsFun2 {
       } else {
         ()
       }
-    } ensuring(_ => i >= 0 && counter == i && i <= n && i >= n)
+   }.ensuring(_ => i >= 0 && counter == i && i <= n && i >= n)
     rec()
 
 
     counter
-  } ensuring(_ == n)
+ }.ensuring(_ == n)
 
 }

@@ -1,4 +1,0 @@
-<plugin>
-    <name>stainless-plugin</name>
-    <classname>stainless.frontends.scalac.StainlessPlugin</classname>
-</plugin>

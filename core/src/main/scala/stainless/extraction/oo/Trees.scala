@@ -4,7 +4,7 @@ package stainless
 package extraction
 package oo
 
-import scala.collection.mutable.{Map => MutableMap}
+import scala.collection.mutable.Map as MutableMap
 
 trait Trees extends innerfuns.Trees with Definitions { self =>
 
@@ -171,26 +171,30 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
     }
 
   override protected def getBVType(tpe: Typed, tpes: Typed*)(using Symbols): Type =
-    super.getBVType(widenTypeParameter(tpe), tpes: _*)
+    super.getBVType(widenTypeParameter(tpe), tpes*)
 
   override protected def getADTType(tpe: Typed, tpes: Typed*)(using Symbols): Type = {
-    super.getADTType(widenTypeParameter(tpe), tpes: _*)
+    super.getADTType(widenTypeParameter(tpe), tpes*)
   }
 
   override protected def getTupleType(tpe: Typed, tpes: Typed*)(using Symbols): Type =
-    super.getTupleType(widenTypeParameter(tpe), tpes: _*)
+    super.getTupleType(widenTypeParameter(tpe), tpes*)
 
   override protected def getSetType(tpe: Typed, tpes: Typed*)(using Symbols): Type =
-    super.getSetType(widenTypeParameter(tpe), tpes: _*)
+    super.getSetType(widenTypeParameter(tpe), tpes*)
 
   override protected def getBagType(tpe: Typed, tpes: Typed*)(using Symbols): Type =
-    super.getBagType(widenTypeParameter(tpe), tpes: _*)
+    super.getBagType(widenTypeParameter(tpe), tpes*)
 
   override protected def getMapType(tpe: Typed, tpes: Typed*)(using s: Symbols): Type =
     widenTypeParameter(s.leastUpperBound(tpe +: tpes map (_.getType))) match {
       case mt: MapType => mt
       case _ => Untyped
     }
+
+  override protected def getArrayType(tpe: Typed, tpes: Typed*)(using Symbols): Type =
+    super.getArrayType(widenTypeParameter(tpe), tpes*)
+
 
   /* ========================================
    *              EXTRACTORS
@@ -230,12 +234,12 @@ trait Printer extends innerfuns.Printer {
 
   protected def withSymbols[T <: Tree](elems: Seq[Either[T, Identifier]], header: String)
                                       (using PrinterContext): Unit = {
-    new StringContext("" +: (List.fill(elems.size - 1)("\n\n") :+ "") : _*).p((for (e <- elems) yield e match {
+    new StringContext("" +: (List.fill(elems.size - 1)("\n\n") :+ "")*).p((for (e <- elems) yield e match {
       case Left(d) => d
       case Right(id) => PrintWrapper {
         p"<unknown> $header $id"
       }
-    }) : _*)
+    })*)
   }
 
   protected def functions(funs: Seq[Identifier]): PrintWrapper = PrintWrapper {

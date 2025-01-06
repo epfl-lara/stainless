@@ -19,5 +19,5 @@ object Generics {
 
   def insert[T](a: T, l: List[T]): List[T] = {
     Cons(a, l)
-  } ensuring { res => (size(res) == size(l) + 1) && (content(res) == content(l) ++ Set(a))}
+ }.ensuring { res => (size(res) == size(l) + 1) && (content(res) == content(l) ++ Set(a))}
 }

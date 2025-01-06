@@ -1043,22 +1043,23 @@ object BitVectors {
   type UInt255 = BV[u255.type]
   type UInt256 = BV[u256.type]
 
-  implicit def intToBV[T <: BVKind with Singleton](i: Int): BV[T] = ???
-  implicit def bigIntToBV[T <: BVKind with Singleton](i: BigInt): BV[T] = ???
+  implicit def intToBV[T <: BVKind & Singleton](i: Int): BV[T] = ???
+  implicit def bigIntToBV[T <: BVKind & Singleton](i: BigInt): BV[T] = ???
 
+  @library
   implicit class ArrayIndexing[T](underlying: Array[T]) {
-    def apply[X <: BVKind with Singleton](bv: BV[X]): T = underlying(bv.toInt)
+    def apply[X <: BVKind & Singleton](bv: BV[X]): T = underlying(bv.toInt)
   }
 
-  def min[X <: BV[_ <: BVKind with Singleton]]: X = ???
-  def max[X <: BV[_ <: BVKind with Singleton]]: X = ???
+  def min[X <: BV[? <: BVKind & Singleton]]: X = ???
+  def max[X <: BV[? <: BVKind & Singleton]]: X = ???
 
   def fromByte(n: Byte): Int8 = ???
   def fromShort(n: Short): Int16 = ???
   def fromInt(n: Int): Int32 = ???
   def fromLong(n: Long): Int64 = ???
 
-  case class BV[T <: BVKind with Singleton](underlying: BitSet) {
+  case class BV[T <: BVKind & Singleton](underlying: BitSet) {
 
     def unary_~ :           BV[T]   = { ??? }
     def unary_- :           BV[T]   = { ??? }
@@ -1079,10 +1080,10 @@ object BitVectors {
     def >>(other: BV[T]):   BV[T]   = { ??? }
     def >>>(other: BV[T]):  BV[T]   = { ??? }
 
-    def widen [X <: BV[_ <: BVKind with Singleton]]: X = { ??? }
-    def narrow[X <: BV[_ <: BVKind with Singleton]]: X = { ??? }
-    def toSigned[X <: BV[_ <: BVKind with Singleton]]: X = { ??? }
-    def toUnsigned[X <: BV[_ <: BVKind with Singleton]]: X = { ??? }
+    def widen [X <: BV[? <: BVKind & Singleton]]: X = { ??? }
+    def narrow[X <: BV[? <: BVKind & Singleton]]: X = { ??? }
+    def toSigned[X <: BV[? <: BVKind & Singleton]]: X = { ??? }
+    def toUnsigned[X <: BV[? <: BVKind & Singleton]]: X = { ??? }
 
     def toByte: Byte = { ??? }
     def toShort: Short = { ??? }

@@ -21,5 +21,5 @@ object Float8 {
 
   def plusAssoc(x: Float8, y: Float8, z: Float8): Unit = {
     ()
-  }.ensuring(_ => x + (y + z) == (x + y) + z)
+ }.ensuring(_ => x + (y + z) == (x + y) + z)
 }

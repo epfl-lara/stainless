@@ -19,7 +19,7 @@ class MethodLifting(override val s: Trees, override val t: oo.Trees)
   // Note that we actually use the set of transitive overrides here as computing
   // the set of direct overrides is significantly more expensive and shouldn't improve
   // the cache hit rate that much.
-  private[this] final val funCache = new ExtractionCache[s.FunDef, t.FunDef]({ (fd, symbols) =>
+  private final val funCache = new ExtractionCache[s.FunDef, t.FunDef]({ (fd, symbols) =>
     FunctionKey(fd) + SetKey(fd.flags
       .collectFirst { case s.IsMethodOf(id) => symbols.getClass(id) }.toSeq
       .flatMap { cd =>
@@ -41,7 +41,7 @@ class MethodLifting(override val s: Trees, override val t: oo.Trees)
 
   // The class cache must consider all direct overrides of potential invariants function attached to the class.
   // Note that we could again use the set of transitive overrides here instead of all invariants.
-  private[this] final val classCache = new ExtractionCache[s.ClassDef, (t.ClassDef, Seq[t.FunDef])]({
+  private final val classCache = new ExtractionCache[s.ClassDef, (t.ClassDef, Seq[t.FunDef])]({
     (cd, symbols) =>
       val ids = cd.descendants(using symbols).map(_.id).toSet + cd.id
 
@@ -53,16 +53,16 @@ class MethodLifting(override val s: Trees, override val t: oo.Trees)
       ClassKey(cd) + SetKey(invariants)
   })
 
-  private[this] final val typeDefCache = new ExtractionCache[s.TypeDef, t.TypeDef]({
+  private final val typeDefCache = new ExtractionCache[s.TypeDef, t.TypeDef]({
     (td, symbols) => TypeDefKey(td)
   })
 
   private case class Override(cid: Identifier, fid: Option[Identifier], children: Seq[Override])
 
-  private[this] class IdentityImpl(override val s: self.s.type, override val t: self.t.type)
+  private class IdentityImpl(override val s: self.s.type, override val t: self.t.type)
     extends oo.ConcreteTreeTransformer(s, t)
 
-  private[this] val identity = new IdentityImpl(self.s, self.t)
+  private val identity = new IdentityImpl(self.s, self.t)
 
   private class BaseTransformer(override val s: self.s.type,
                                 override val t: self.t.type,
@@ -141,8 +141,8 @@ class MethodLifting(override val s: Trees, override val t: oo.Trees)
     (t.NoSymbols.withFunctions(functions.toSeq).withClasses(classes.toSeq).withTypeDefs(typeDefs.toSeq), ExtractionSummary.NoSummary)
   }
 
-  private[this] type Metadata = (Seq[s.FunDef], Map[Identifier, Override])
-  private[this] def metadata(cid: Identifier)(symbols: s.Symbols): Metadata = {
+  private type Metadata = (Seq[s.FunDef], Map[Identifier, Override])
+  private def metadata(cid: Identifier)(symbols: s.Symbols): Metadata = {
     val overrides: Map[Symbol, Override] = {
       def rec(id: Identifier): Map[Symbol, Override] = {
         val cd = symbols.getClass(id)
@@ -200,7 +200,7 @@ class MethodLifting(override val s: Trees, override val t: oo.Trees)
     (invariants, mappings)
   }
 
-  private[this] def makeFunction(cid: Identifier, fid: Identifier, cos: Seq[Override])(symbols: s.Symbols): t.FunDef = {
+  private def makeFunction(cid: Identifier, fid: Identifier, cos: Seq[Override])(symbols: s.Symbols): t.FunDef = {
     val cd = symbols.getClass(cid)
     val fd = symbols.getFunction(fid)
     val tpSeq = exprOps.freshenTypeParams(cd.typeArgs).map { tp =>

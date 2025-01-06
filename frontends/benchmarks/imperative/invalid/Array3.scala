@@ -11,7 +11,7 @@ object Array3 {
     (while(i <= a.length) {
       sum = sum + a(i)
       i = i + 1
-    }) invariant(i >= 0 && a.length < 100)
+    }).invariant(i >= 0 && a.length < 100)
     sum
   } //ensuring(_ == 15)
 

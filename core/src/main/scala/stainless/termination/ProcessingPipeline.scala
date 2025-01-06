@@ -188,7 +188,7 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
     val callGraph = pairs.groupBy(_._1).view.mapValues(_.map(_._2)).toMap
     val allComponents = inox.utils.SCC.scc(callGraph)
 
-    val notWellFormed = (for (fd <- funDefs; reason <- dtChecker check fd) yield {
+    val notWellFormed = (for (fd <- funDefs; reason <- dtChecker `check` fd) yield {
       processResult(Broken(fd, reason), "WF-checker")
       fd
     }).toSet
@@ -241,12 +241,12 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
           case Some(results) =>
             val impacted = problem.funDefs.flatMap(fd => transitiveCallers(fd))
             val reenter = unsolved.filter(p => (p.funDefs intersect impacted).nonEmpty)
-            problems.enqueue(reenter.map(_ -> 0).toSeq: _*)
+            problems.enqueue(reenter.map(_ -> 0).toSeq*)
             unsolved --= reenter
         }
 
         if (dependencies.nonEmpty) {
-          problems.enqueue(dependencies.map(_ -> 0).toSeq: _*)
+          problems.enqueue(dependencies.map(_ -> 0).toSeq*)
           dependencies.clear()
         }
 

@@ -9,7 +9,7 @@ object i1159a {
     def inside: Unit = {
       require(i <= 10)
       i += 1
-    }.ensuring(_ =>
+   }.ensuring(_ =>
       isZero
     )
 

@@ -84,14 +84,11 @@ Usage: external-tests.sh [options]
 
   -h | -help         Print this message
   --skip-build       Do not build Stainless (saves time if the build is already up-to-date).
-  --only-scalac      Run the tests for the Scalac frontend only.
-  --only-dotty       Run the tests for the Dotty frontend only.
+  --bolts-dir        Directory where bolts is located (default: clones from GitHub)
 EOM
 }
 
 SKIP_BUILD=false
-ONLY_SCALAC=false
-ONLY_DOTTY=false
 while [[ $# -gt 0 ]]; do
   key="$1"
 
@@ -104,13 +101,10 @@ while [[ $# -gt 0 ]]; do
       SKIP_BUILD=true
       shift # past argument
       ;;
-    --only-scalac)
-      ONLY_SCALAC=true
+    --bolts-dir)
+      BOLTS_DIR="$2"
       shift # past argument
-      ;;
-    --only-dotty)
-      ONLY_DOTTY=true
-      shift # past argument
+      shift # past value
       ;;
     *)    # unknown option
       usage
@@ -141,7 +135,7 @@ if [[ "$SKIP_BUILD" = false ]]; then
 
   echo "Publishing Stainless..."
 
-  STAINLESS_VERSION=$(sbt publishLocal | $SED -n -r 's#^.*stainless-scalac-plugin_2.12.13/([^/]+)/poms.*$#\1#p' | head -n1)
+  STAINLESS_VERSION=$(sbt publishLocal | $SED -n -r 's#^.*stainless-dotty-plugin_3.3.3/([^/]+)/poms.*$#\1#p' | head -n1)
 
   echo "Published Stainless version is: $STAINLESS_VERSION"
 else
@@ -151,18 +145,20 @@ fi
 export PATH="$BASE_DIR/frontends/scalac/target/universal/stage/bin:$PATH"
 export PATH="$BASE_DIR/frontends/dotty/target/universal/stage/bin:$PATH"
 
-# Create a directory for doing tests and move there
+# If the bolts directory is provided, TEST_DIR is set to its parent directory
+if [[ -n "$BOLTS_DIR" ]]; then
+  TEST_DIR=$(dirname "$BOLTS_DIR")
+else
+  # Create a directory for doing tests and move there
+  TEST_DIR="$BASE_DIR/.stainless-external-tests"
+  mkdir -p "$TEST_DIR"
+fi
 
-TEST_DIR="$BASE_DIR/.stainless-external-tests"
-mkdir -p "$TEST_DIR"
+echo "TEST_DIR = $TEST_DIR"
+
+
 
 # Stainless Actors are currently disabled: https://github.com/epfl-lara/stainless/issues/970
 # "$BIN_DIR/stainless-actors-tests.sh" "$TEST_DIR" "$STAINLESS_VERSION"
-if [[ "$ONLY_DOTTY" = false ]]; then
-  echo "Running bolts test for scalac"
-  "$BIN_DIR/bolts-tests.sh" "$TEST_DIR" "stainless-scalac"
-fi
-if [[ "$ONLY_SCALAC" = false ]]; then
-  echo "Running bolts test for dotty"
-  "$BIN_DIR/bolts-tests.sh" "$TEST_DIR" "stainless-dotty"
-fi
+echo "Running bolts test"
+"$BIN_DIR/bolts-tests.sh" "$TEST_DIR" "stainless-dotty"

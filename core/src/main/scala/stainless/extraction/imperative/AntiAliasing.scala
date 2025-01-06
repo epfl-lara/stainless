@@ -135,7 +135,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
 
         val newBody = body.map { body =>
           val freshBody = exprOps.replaceFromSymbols(freshSubst, body)
-          val explicitBody = makeSideEffectsExplicit(freshBody, fd, env withBindings freshLocals, freshLocals.map(_.toVariable))
+          val explicitBody = makeSideEffectsExplicit(freshBody, fd, env `withBindings` freshLocals, freshLocals.map(_.toVariable))
 
           //WARNING: only works if side effects in Tuples are extracted from left to right,
           //         in the ImperativeTransformation phase.
@@ -256,34 +256,221 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
         }
 
         // NOTE: `args` must refer to the arguments of the function invocation before transformation (the original args)
-        def mapApplication(formalArgs: Seq[ValDef], args: Seq[Expr], nfi: Expr, nfiType: Type, fiEffects: Set[Effect], env: Env): Expr = {
+        // * When set to true, `isOpaqueOrExtern` assumes that all targets of mutated parameters are affected
+        // (see the `imperative/valid|invalid/OpaqueMutationX` for examples).
+        // * `selectResult` selects the first element of the tuple returned by the transformed function
+        // (the others elements are the "updated" version of the mutated parameters).
+        // By default, it should be set to `true`.
+        // However, in the particular case of `unfold(fn(...))`, we would like *not* to have this selection be performed
+        // due to the following. `AntiAliasing` will transform this call to:
+        //   unfold {
+        //      val res = fn(...)
+        //      // update all targets using `res`
+        //      res._1 // the result of `fn`
+        //   }
+        // and later, `ImperativeCodeElimination` will hoist the call to `fn` (alongside the updates) out of
+        // `unfold`, only leaving `res._1`. To have the `UnfoldOpaque` phase catch this unfolding, we instead need to
+        // "return" `res` and drop the tuple projection. Since `unfold` discards the result, "returning" res
+        // is fine; the only adaptation needed is the type application of `unfold` to match the type of `res`.
+        // See `imperative/valid/UnfoldOpaqueMutate` for an example.
+        //
+        // IMPORTANT NOTICE:
+        // In the `Let` case transformation of `transform`, we need to compute the targets of the transformed binding.
+        // If this binding happens to contain a function call, the returned targets may be invalid because
+        // `getTargets` works on functions prior to the AntiAliasing function purification, not after (as it's done it this `Let` case).
+        //
+        // It turns out that if we bind the result of the function call to a `var` (for mutable type) the target computation
+        // will fail which will result in rejection (with the message "Unsupported `val` definition in AntiAliasing").
+        // Not doing so will very likely result in a crash later on in unrelated part of the code (due to invalid targets being applied).
+        //
+        // To properly fix this, we would need to distinguish pre/post transformation `getTargets` computation,
+        // which would require significant changes to EffectsAnalyzer.
+        def mapApplication(formalArgs: Seq[ValDef], args: Seq[Expr], nfi: Expr, nfiType: Type, fiEffects: Set[Effect], isOpaqueOrExtern: Boolean, selectResult: Boolean, env: Env): Expr = {
+
+          def affectedBindings(updTarget: Target, isReplacement: Boolean): Map[ValDef, Set[Target]] = {
+            def isAffected(t: Target): Boolean = {
+              if (isReplacement) t.maybeProperPrefixOf(updTarget)
+              else t.maybePrefixOf(updTarget) || updTarget.maybePrefixOf(t)
+            }
+            env.targets.map {
+              case (vd, targets) =>
+                val affected = targets.filter(isAffected)
+                vd -> affected
+            }.filter(_._2.nonEmpty)
+          }
+
           if (fiEffects.exists(e => formalArgs contains e.receiver.toVal)) {
-            val localEffects: Seq[Set[(Effect, Set[(Effect, Option[Expr])])]] = (formalArgs zip args)
-              .map { case (vd, arg) => (fiEffects.filter(_.receiver == vd.toVariable), arg) }
-              .filter { case (effects, _) => effects.nonEmpty }
-              .map { case (effects, arg) => effects map (e => (e, e on arg)) }
+            val localEffects = formalArgs.zip(args)
+              .map { case (vd, arg) =>
+                // Effects for each parameter
+                (vd.toVariable, fiEffects.filter(_.receiver == vd.toVariable), arg)
+              }.filter { case (_, effects, _) => effects.nonEmpty }
 
             val freshRes = ValDef(FreshIdentifier("res"), nfiType).copiedFrom(nfi)
 
-            val assgns = (for {
-              (effects, index) <- localEffects.zipWithIndex
-              (outerEffect0, innerEffects) <- effects
-              (effect0, effectCond) <- innerEffects
-            } yield {
-              val outerEffect = outerEffect0.removeUnknownAccessor
-              val effect = effect0.removeUnknownAccessor
-              val pos = args(index).getPos
-              val resSelect = TupleSelect(freshRes.toVariable, index + 2)
-              // Follow all aliases of the updated target (may include self if it has no alias)
-              val primaryTargs = dealiasTarget(effect.toTarget(effectCond), env)
-              val assignedPrimaryTargs = primaryTargs.toSeq
-                .map(t => makeAssignment(pos, resSelect, outerEffect.path.path, t, dropVcs = true))
-              val updAliasingValDefs = updatedAliasingValDefs(primaryTargs, env, pos)
-
-              assignedPrimaryTargs ++ updAliasingValDefs
-            }).flatten
-            val extractResults = Block(assgns, TupleSelect(freshRes.toVariable, 1))
-
+            val assgns = localEffects.zipWithIndex.flatMap {
+              case ((vd, effects, arg), effIndex) =>
+                // +1 because we are a tuple and +1 because the first component is for the result of the function
+                val resSelect = TupleSelect(freshRes.toVariable, effIndex + 2)
+                // All effects on the given parameter, applied to the given argument
+                val paramWithArgsEffect = for {
+                  outerEffect0 <- effects
+                  (effect0, effectCond) <- outerEffect0 `on` arg
+                } yield {
+                  val outerEffect = outerEffect0.removeUnknownAccessor
+                  val effect = effect0.removeUnknownAccessor
+                  val primaryTargs = dealiasTarget(effect.toTarget(effectCond), env)
+                  (outerEffect, primaryTargs)
+                }
+                // Suppose we have the following definitions:
+                //   case class Ref(var x: Int, var y: Int)
+                //   case class RefRef(var lhs: Ref, var rhs: Ref)
+                //
+                //   def modifyLhs(rr: RefRef, v: Int): Unit = {
+                //     rr.lhs.x = v
+                //     rr.lhs.y = v
+                //   }
+                //   def test1(testRR: RefRef): Unit = {
+                //     val rrAlias = testRR
+                //     val lhsAlias = testRR.lhs
+                //     modifyLhs(testRR, 123)
+                //     // ...
+                //   }
+                // `modifyLhs` is (essentially) transformed as follows by `AntiAliasing` (not here in `mapApplication`):
+                //   def modifyLhs(rr: RefRef, v: Int): (Unit, RefRef) = {
+                //     ((), RefRef(Ref(v, v), rr.rhs)
+                //   }
+                // The transformed `modifyLhs` returns a copy of the "updated" `rr`.
+                //
+                // Our task here in `mapApplication` is to transform the call to `modifyLhs`.
+                // Intuitively, in this case, we can "update" `testRR` to point to the "updated" version
+                // returned by `modifyLhs`, and update the aliases accordingly:
+                //   def test1(testRR: RefRef): Unit = {
+                //     val rrAlias = testRR
+                //     val lhsAlias = testRR.lhs
+                //     val res = modifyLhs(testRR, 123)
+                //     testRR = res._2
+                //     rrAlias = testRR
+                //     lhsAlias = testRR.lhs
+                //     // ...
+                //   }
+                // We can do so because we know precisely the `Targets` of the argument, namely `testRR`
+                // and we can update its aliases accordingly.
+                // This correspond to the `Success` case of having a `ModifyingEffect` on `vd` (here: `rr`)
+                // applied on `arg` (here: `testRR`).
+                //
+                // However, sometimes, we may not always succeed in computing the precise targets,
+                // as in the following example:
+                //   def test2(testRR: RefRef): Unit = {
+                //     val lhsAlias = testRR.lhs
+                //     val rhsAlias = testRR.rhs
+                //     modifyLhs(RefRef(lhsAlias, rhsAlias), 123)
+                //   }
+                // Here, we are not able to compute the targets of `RefRef(lhsAlias, rhsAlias)`,
+                // which corresponds to the `Failure` case. As such, we cannot simply "update"
+                // the `testRR` variable using the returned result as-is (as we did for `test1`).
+                //
+                // Instead, we need to apply each effect of `modifyLhs` *individually* on the argument.
+                // The effects for `modifyLhs` are (stored in `localEffects`):
+                //   rr -> Set(ReplacementEffect(rr.lhs.x), ReplacementEffect(rr.lhs.y)))
+                // So we need to apply two `ReplacementEffect`, one on `rr.lhs.x` and one on `rr.lhs.y` on the argument.
+                // Doing so with `paramWithArgsEffect` gives us:
+                //   ReplacementEffect(rr.lhs.x) -> Set(Target(testRR, None, .lhs.x))
+                //   ReplacementEffect(rr.lhs.y) -> Set(Target(testRR, None, .lhs.y))
+                // which we can then use to update `testRR` (alongside their aliases):
+                //   def test2(testRR: RefRef): Unit = {
+                //     var lhsAlias: Ref = testRR.lhs
+                //     val rhsAlias: Ref = testRR.rhs
+                //     val res: (Unit, RefRef) = modifyLhs(RefRef(lhsAlias, rhsAlias), 123)
+                //     // Note that we "update" each field individually, this is due to
+                //     // having each effect applied separately!
+                //     testRR = RefRef(Ref(res._2.lhs.x, testRR.lhs.y), testRR.rhs)
+                //     lhsAlias = testRR.lhs
+                //     testRR = RefRef(Ref(testRR.lhs.x, res._2.lhs.y), testRR.rhs)
+                //     lhsAlias = testRR.lhs
+                //     // ...
+                //   }
+                //
+                // Note that we can always apply this second technique even if we have precise aliases.
+                // However, this tends to "rebuild" the object instead of reusing the "updated" result
+                // which can lead to verification inefficiency (and does not work well in presence of
+                // @opaque or @extern functions).
+                Try(ModifyingEffect(vd, Path.empty).on(arg)) match {
+                  case Success(modEffect) =>
+                    // Update everything that the argument is aliasing
+                    val primaryTargs = modEffect.flatMap { case (eff, cond) => dealiasTarget(eff.toTarget(cond), env) }
+                    val assignedPrimaryTargs = primaryTargs
+                      // The order of assignments does not matter between "primary targets"
+                      // but it must precede the update of aliases (`updAliasingValDefs`)
+                      .toSeq
+                      .map(t => makeAssignment(arg.getPos, resSelect, Seq.empty, t, dropVcs = true))
+                    // We need to be careful with what we are updating here.
+                    // If we expand on the above example with the following function:
+                    //   def t3(refref: RefRef): Unit = {
+                    //     val lhs = refref.lhs
+                    //     val oldLhs = lhs.x
+                    //     replaceLhs(refref, 123)
+                    //     assert(lhs.x == oldLhs)
+                    //     assert(refref.lhs.x == 123)
+                    //  }
+                    // In `replaceLhs`, we have a ReplacementEffect on `rr.lhs`, this means
+                    // that `rr.lhs` is replaced with a new `Ref`, leaving all aliases of `rr.lhs`
+                    // (in `t3`, the `val lhs`) untouched. So, after the call to `replaceLhs`,
+                    // any modification to `rr.lhs` do not alter the other aliases (here, `lhs`).
+                    // The function `t3` should be transformed as follows:
+                    //   def t3(refref: RefRef): Unit = {
+                    //     val lhs = refref.lhs
+                    //     val oldLhs = lhs.x
+                    //     val res = replaceLhs(refref, 123)
+                    //     refref = res._2
+                    //     assert(lhs.x == oldLhs)
+                    //     assert(refref.lhs.x == 123)
+                    //   }
+                    // In particular, note that we *do not* touch `lhs`: the following transformation is incorrect:
+                    //   var lhs = refref.lhs
+                    //   val oldLhs = lhs.x
+                    //   val res = replaceLhs(refref, 123)
+                    //   refref = res._2
+                    //   lhs = refref.lhs
+                    // because after the call to `replaceLhs`, `lhs` and `refref.lhs` become unrelated.
+                    // Note that, for @opaque and @extern function, we assume the object was mutated in each of its field
+                    // and therefore update all aliases.
+                    val aliasingVds = {
+                      if (isOpaqueOrExtern) {
+                        primaryTargs.flatMap(affectedBindings(_, false))
+                      } else {
+                        paramWithArgsEffect.flatMap {
+                          case (eff, targs) =>
+                            targs.flatMap(affectedBindings(_, eff.kind == ReplacementKind))
+                        }
+                      }
+                    }
+                    val updAliasingValDefs = aliasingVds
+                      .toSeq // See comment on `assignedPrimaryTargs`
+                      .flatMap { case (vd, targs) =>
+                        targs.map(t => makeAssignment(arg.getPos, t.wrap.get, Seq.empty, Target(vd.toVariable, t.condition, Path.empty), true))
+                      }
+                    assignedPrimaryTargs ++ updAliasingValDefs
+                  case Failure(_) =>
+                    paramWithArgsEffect.toSeq.flatMap { case (outerEffect, primaryTargs) =>
+                      // Update everything that the argument is aliasing
+                      val assignedPrimaryTargs = primaryTargs
+                        .toSeq
+                        .map(t => makeAssignment(arg.getPos, resSelect, outerEffect.path.path, t, dropVcs = true))
+                      // Update everything aliasing the argument
+                      val updAliasingValDefs = updatedAliasingValDefs(primaryTargs, env, arg.getPos)
+                      assignedPrimaryTargs ++ updAliasingValDefs
+                    }
+                }
+            }
+            val exprRes =
+              if (selectResult) TupleSelect(freshRes.toVariable, 1)
+              else freshRes.toVariable
+            val extractResults = Block(assgns, exprRes)
+            // FIXME: This should be `Let` and not `LetVar`, however doing so will cause a crash in e.g. `MapAliasing1`
+            //  because `getAllTargetsDealiased` in the `Let` case will result in an invalid target due to
+            //  this function not supporting targets computation on function application *post-transformation*
+            // (see important notice on above).
             if (isMutableType(nfiType)) {
               LetVar(freshRes, nfi, extractResults)
             } else {
@@ -494,109 +681,158 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
                 Block(updates.init, updates.last).setPos(swap)
               ).setPos(swap)
 
+          case cellSwap @ CellSwap(cell1, cell2) =>
+            // Though `cell1`, `cell2` are all normalized, we still need to recursively transform
+            // them, as they can refer to constructs that needs transformation, such as lambdas that mutate their params
+            val recCell1 = transform(cell1, env)
+            val recCell2 = transform(cell2, env)
+
+            val base = recCell1.getType.asInstanceOf[ClassType].tps.head
+
+            val cellClassDef = symbols.lookup.get[ClassDef]("stainless.lang.Cell").get
+            val vFieldId = cellClassDef.fields.head.id
+
+            val temp = ValDef.fresh("temp", base).setPos(cellSwap)
+            val targets1 = getDirectTargetsDealiased(recCell1, ClassFieldAccessor(vFieldId), env)
+              .getOrElse(throw MalformedStainlessCode(cellSwap, "Unsupported cellSwap (first cell)"))
+            val targets2 = getDirectTargetsDealiased(recCell2, ClassFieldAccessor(vFieldId), env)
+              .getOrElse(throw MalformedStainlessCode(cellSwap, "Unsupported cellSwap (second cell)"))
+
+            val updates1 = updatedTargetsAndAliases(targets2, ClassSelector(cell1, vFieldId).setPos(cellSwap), env, cellSwap.getPos)
+            val updates2 = updatedTargetsAndAliases(targets1, temp.toVariable, env, cellSwap.getPos)
+            val updates = updates1 ++ updates2
+            if (updates.isEmpty) UnitLiteral().setPos(cellSwap)
+            else
+              Let(temp, transform(ClassSelector(recCell2, vFieldId).setPos(cellSwap), env),
+                Block(updates.init, updates.last).setPos(cellSwap)
+              ).setPos(cellSwap)
+
           case l @ Let(vd, e, b) if isMutableType(vd.tpe) =>
             // see https://github.com/epfl-lara/stainless/pull/920 for discussion
 
             val newExpr = transform(e, env)
             val targets = getAllTargetsDealiased(newExpr, env)
+            targets match {
+              case Some(targets) =>
+                // This branch handles all cases when targets can be precisely computed, namely when
+                // 1. newExpr is a fresh expression
+                // 2. newExpr is a precise alias to existing variable(s)
+                // 3. A combination of 1. and 2. (e.g. val y = if (cond) x else Ref(123))
 
-            if (targets.isDefined) {
-              // This branch handles all cases when targets can be precisely computed, namely when
-              // 1. newExpr is a fresh expression
-              // 2. newExpr is a precise alias to existing variable(s)
-              // 3. A combination of 1. and 2. (e.g. val y = if (cond) x else Ref(123))
+                // Targets with a false condition are those that are never accessed, we can remove them.
+                val targs = targets.filterNot(_.condition == Some(BooleanLiteral(false)))
+                // If there are more than one target, then it must be the case that their conditions are all disjoint,
+                // due to the way they are computed by `getTargets`.
+                // (here, we use a weaker prop. that asserts that all their condition are defined, for sanity checks)
+                assert(targs.size <= 1 || targs.forall(_.condition.isDefined))
 
-              // Targets with a false condition are those that are never accessed, we can remove them.
-              val targs = targets.get.filterNot(_.condition == Some(BooleanLiteral(false)))
-              // If there are more than one target, then it must be the case that their conditions are all disjoint,
-              // due to the way they are computed by `getTargets`.
-              // (here, we use a weaker prop. that asserts that all their condition are defined, for sanity checks)
-              assert(targs.size <= 1 || targs.forall(_.condition.isDefined))
-
-              // extraTarget: whether we should treat `vd` as a new target or not.
-              val extraTarget = {
-                if (targs.isEmpty) {
-                  // newExpr is a fresh expression (case 1), so `vd` is introducing a new target.
-                  Seq(Target(vd.toVariable, None, Path.empty))
-                } else if (targs.size == 1 && targs.head.condition.isEmpty) {
-                  // newExpr is a precise and unconditional alias to an existing variable - no new targets (case 2).
-                  Seq.empty[Target]
-                } else {
-                  // Here, we have >= 1 targets and all of them are conditional:
-                  //   cond1 -> target1
-                  //   ...
-                  //   condn -> targetn
-                  // If cond1 && ... && condn provably cover all possible cases, then we know that `newExpr` is
-                  // a precise alias to n existing variables, so there are no new targets to consider (case 2).
-                  // Otherwise, it may be the case that `newExpr` refer to fresh expression and alias existing variables (case 3),
-                  // such as in the following example:
-                  //   val y = if (cond1) x else Ref(123)
-                  // Here, the targets of `y` would be the targets of x, with condition cond1.
-                  // But it also conditionally introduce a new target, namely Ref(123) when !cond1.
-                  // In such case, we introduce `y` as a new target, with condition !cond1.
-                  assert(targs.forall(_.condition.isDefined))
-                  val disj = simplifyOr(targs.map(_.condition.get).toSeq)
-                  val negatedConds = simpleNot(disj)
-                  if (negatedConds == BooleanLiteral(false)) Seq.empty[Target]
-                  else Seq(Target(vd.toVariable, Some(negatedConds), Path.empty))
+                // extraTarget: whether we should treat `vd` as a new target or not.
+                val extraTarget = {
+                  if (targs.isEmpty) {
+                    // newExpr is a fresh expression (case 1), so `vd` is introducing a new target.
+                    Seq(Target(vd.toVariable, None, Path.empty))
+                  } else if (targs.size == 1 && targs.head.condition.isEmpty) {
+                    // newExpr is a precise and unconditional alias to an existing variable - no new targets (case 2).
+                    Seq.empty[Target]
+                  } else {
+                    // Here, we have >= 1 targets and all of them are conditional:
+                    //   cond1 -> target1
+                    //   ...
+                    //   condn -> targetn
+                    // If cond1 && ... && condn provably cover all possible cases, then we know that `newExpr` is
+                    // a precise alias to n existing variables, so there are no new targets to consider (case 2).
+                    // Otherwise, it may be the case that `newExpr` refer to fresh expression and alias existing variables (case 3),
+                    // such as in the following example:
+                    //   val y = if (cond1) x else Ref(123)
+                    // Here, the targets of `y` would be the targets of x, with condition cond1.
+                    // But it also conditionally introduce a new target, namely Ref(123) when !cond1.
+                    // In such case, we introduce `y` as a new target, with condition !cond1.
+                    assert(targs.forall(_.condition.isDefined))
+                    val disj = simplifyOr(targs.map(_.condition.get).toSeq)
+                    val negatedConds = simpleNot(disj)
+                    if (negatedConds == BooleanLiteral(false)) Seq.empty[Target]
+                    else Seq(Target(vd.toVariable, Some(negatedConds), Path.empty))
+                  }
                 }
-              }
 
-              val newBody = transform(b, env.withTargets(vd, targs ++ extraTarget).withBinding(vd))
-              // Note: even though there are no effects on `vd`, we still need to re-assign it
-              // in case it aliases a target that gets updated.
-              // As such, we use appearsInAssignment (on the transformed body) instead of checking for effects (on the original body)
-              val canLetVal = !appearsInAssignment(vd.toVariable, newBody)
-              if (canLetVal) Let(vd, newExpr, newBody).copiedFrom(l)
-              else LetVar(vd, newExpr, newBody).copiedFrom(l)
-            } else if ((varsOfExprDealiased(e, env) & varsOfExprDealiased(b, env)).forall(v => !isMutableType(v.tpe))) {
-              // The above condition is similar to the one in EffectsChecker#check#traverser#traverse#Let, with the
-              // difference that we also account for rewrites (which may introduce other variables, as in i1099.scala).
-              val newBody = transform(b, env withBinding vd)
+                val newBody = transform(b, env.withTargets(vd, targs ++ extraTarget).withBinding(vd))
+                // Note: even though there are no effects on `vd`, we still need to re-assign it
+                // in case it aliases a target that gets updated.
+                // As such, we use appearsInAssignment (on the transformed body) instead of checking for effects (on the original body)
+                val canLetVal = !appearsInAssignment(vd.toVariable, newBody)
+                if (canLetVal) Let(vd, newExpr, newBody).copiedFrom(l)
+                else LetVar(vd, newExpr, newBody).copiedFrom(l)
+              case None =>
+                // In this scenario, where we cannot precisely compute the targets of `e`, we can observe that
+                // if the (dealiased) variables appearing in `e` and those appearing in `b` (dealiased as well)
+                // are disjoint, then we can be sure that `b` will not *directly* modify the variables in `e`.
+                // On the other hand, `b` is of course allowed to modify `vd`, for which we must
+                // apply the effects afterwards (represented below as `copyEffects`).
+                //
+                // We can further refine this observation by noting that (dealised) variables in `e` *may* appear
+                // in `b` as well as long as they are not constituting the evaluation result of `e`, or in other
+                // terms, that they do not appear in a terminal position, which is recursively define as follows:
+                //   -Terminal of let v = e in b is the terminal in b
+                //   -Terminal of v is v itself
+                //   -Terminals of if (b) e1 else e2 is terminals of e1 and e2
+                //   -and so on
+                // Indeed, these occurrences will properly be updated by the recursive transformation.
+                // The test `imperative/valid/TargetMutation8` illustrates this refinement.
+                val eVars = terminalVarsOfExprDealiased(e, env)
+                val bVars = varsOfExprDealiased(b, env)
+                val commonMutable = (eVars & bVars).filter(v => isMutableType(v.tpe))
+                if (commonMutable.isEmpty) {
+                  // The above condition is similar to the one in EffectsChecker#check#traverser#traverse#Let, with the
+                  // difference that we also account for rewrites (which may introduce other variables, as in i1099.scala).
+                  val newBody = transform(b, env `withBinding` vd)
 
-              // for all effects of `b` whose receiver is `vd`
-              val copyEffects = effects(b).filter(_.receiver == vd.toVariable).flatMap { eff =>
-                // we apply the effect on the bound expression (after transformation)
-                eff.on(newExpr).map { case (eff2, cond2) => makeAssignment(l.getPos, eff.receiver, eff.path.path, eff2.toTarget(cond2)) }
-              }
+                  // for all effects of `b` whose receiver is `vd`
+                  val copyEffects = effects(b).filter(_.receiver == vd.toVariable).flatMap { eff =>
+                    // we apply the effect on the bound expression (after transformation)
+                    eff.on(newExpr).map { case (eff2, cond2) => makeAssignment(l.getPos, eff.receiver, eff.path.path, eff2.toTarget(cond2)) }
+                  }
+                  val resVd = ValDef.fresh("res", b.getType).copiedFrom(b)
 
-              val resVd = ValDef.fresh("res", b.getType).copiedFrom(b)
-
-              // What we would like is the following:
-              //   var vd = newExpr
-              //   val resVd = newBody
-              //   copyEffects // must happen after newBody and newExpr
-              //   resVd
-              // However, newBody may contain an `Ensuring` clause which would get "lost" in the newBody:
-              //   var vd = newExpr
-              //   val resVd = {
-              //      newBody'
-              //   }.ensuring(...) // oh no :(
-              //   copyEffects
-              //   resVd
-              // What we would like is something as follows:
-              //   var vd = newExpr
-              //   {
-              //      newBodyBlocks // e.g. assignments etc.
-              //      val resVd = newBodyLastExpr
-              //      copyEffect
-              //      resVd
-              //    }.ensuring(...)
-              // To achieve this, we "drill" a hole in newBody using the normalizer object,
-              // insert copyEffect and plug it with resVd. This should get us something like the above.
-              val (newBodyCtx, newBodyLastExpr) = normalizer.drill(newBody)
-              val (copyEffectCtx, copyEffectLastExpr) = normalizer.normalizeBlock(Block(copyEffects.toSeq, resVd.toVariable).copiedFrom(l))(using normalizer.BlockNorm.Standard)
-              assert(copyEffectLastExpr == resVd.toVariable) // To be sure we are on the good track.
-              val combined =
-                newBodyCtx(let(resVd, newBodyLastExpr, copyEffectCtx(resVd.toVariable)))
-              LetVar(vd, newExpr, combined).copiedFrom(l)
-            } else {
-              throw MalformedStainlessCode(l, "Unsupported `val` definition in AntiAliasing (couldn't compute targets and there are mutable variables shared between the binding and the body)")
+                  // What we would like is the following:
+                  //   var vd = newExpr
+                  //   val resVd = newBody
+                  //   copyEffects // must happen after newBody and newExpr
+                  //   resVd
+                  // However, newBody may contain an `Ensuring` clause which would get "lost" in the newBody:
+                  //   var vd = newExpr
+                  //   val resVd = {
+                  //      newBody'
+                  //  }.ensuring(...) // oh no :(
+                  //   copyEffects
+                  //   resVd
+                  // What we would like is something as follows:
+                  //   var vd = newExpr
+                  //   {
+                  //      newBodyBlocks // e.g. assignments etc.
+                  //      val resVd = newBodyLastExpr
+                  //      copyEffect
+                  //      resVd
+                  //   }.ensuring(...)
+                  // To achieve this, we "drill" a hole in newBody using the normalizer object,
+                  // insert copyEffect and plug it with resVd. This should get us something like the above.
+                  val (newBodyCtx, newBodyLastExpr) = normalizer.drill(newBody)
+                  val (copyEffectCtx, copyEffectLastExpr) = normalizer.normalizeBlock(Block(copyEffects.toSeq, resVd.toVariable).copiedFrom(l))(using normalizer.BlockNorm.Standard)
+                  assert(copyEffectLastExpr == resVd.toVariable) // To be sure we are on the good track.
+                  val combined =
+                    newBodyCtx(let(resVd, newBodyLastExpr, copyEffectCtx(resVd.toVariable)))
+                  LetVar(vd, newExpr, combined).copiedFrom(l)
+                } else {
+                  val msg =
+                    s"""Unsupported `val` definition in AntiAliasing
+                       |The following variables of mutable types are shared between the binding and the body:
+                       |  ${commonMutable.toSeq.sortBy(_.id.name).map(v => s"${v.id}: ${v.tpe}").mkString(", ")}""".stripMargin
+                  throw MalformedStainlessCode(l, msg)
+                }
             }
 
           case l @ LetVar(vd, e, b) if isMutableType(vd.tpe) =>
             val newExpr = transform(e, env)
-            val newBody = transform(b, env withBinding vd)
+            val newBody = transform(b, env `withBinding` vd)
             LetVar(vd, newExpr, newBody).copiedFrom(l)
 
           case up @ ArrayUpdate(arr, i, v) =>
@@ -630,8 +866,8 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
 
           // we need to replace local fundef by the new updated fun defs.
           case l @ LetRec(fds, body) =>
-            val nfds = fds.map(fd => updateFunction(Inner(fd), env withLocals fds).toLocal)
-            LetRec(nfds, transform(body, env withLocals fds)).copiedFrom(l)
+            val nfds = fds.map(fd => updateFunction(Inner(fd), env `withLocals` fds).toLocal)
+            LetRec(nfds, transform(body, env `withLocals` fds)).copiedFrom(l)
 
           case e @ Ensuring(body, l @ Lambda(params, post)) =>
             Ensuring(transform(body, env), Lambda(params, transform(post, env)).copiedFrom(l)).copiedFrom(e)
@@ -666,17 +902,27 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
               Lambda(params, transform(wrappedBody, env)).copiedFrom(l)
             }
 
-          case fi @ FunctionInvocation(id, tps, args) =>
-            val fd = Outer(fi.tfd.fd)
+          case fi @ (_: FunctionInvocation | UnfoldOpaque(_)) =>
+            def mapFnInvoc(fi: FunctionInvocation, selectResult: Boolean): (Type, Expr) = {
+              val fd = Outer(fi.tfd.fd)
 
-            if (!fi.tfd.flags.exists(_.name == "accessor"))
-              checkAliasing(fi, args, env)
+              if (!fi.tfd.flags.exists(_.name == "accessor"))
+                checkAliasing(fi, fi.args, env)
 
-            val nfi = FunctionInvocation(
-              id, tps, args.map(transform(_, env))
-            ).copiedFrom(fi)
-
-            mapApplication(fd.params, args, nfi, fi.tfd.instantiate(analysis.getReturnType(fd)), effects(fd), env)
+              val nfi = FunctionInvocation(
+                fi.id, fi.tps, fi.args.map(transform(_, env))
+              ).copiedFrom(fi)
+              val nfiType = fi.tfd.instantiate(analysis.getReturnType(fd))
+              val isOpaqueOrExtern = symbols.getFunction(fi.id).flags.exists(f => f == Extern || f == Opaque)
+              val res = mapApplication(fd.params, fi.args, nfi, nfiType, effects(fd), isOpaqueOrExtern, selectResult, env)
+              (nfiType, res)
+            }
+            fi match {
+              case UnfoldOpaque(unfoldId, theFi) =>
+                val (resTpe, transformedInvoc) = mapFnInvoc(theFi, selectResult = false)
+                FunctionInvocation(unfoldId, Seq(resTpe), Seq(transformedInvoc)).setPos(fi)
+              case fi: FunctionInvocation => mapFnInvoc(fi, selectResult = true)._2
+            }
 
           case alr @ ApplyLetRec(id, tparams, tpe, tps, args) =>
             val fd = Inner(env.locals(id))
@@ -703,7 +949,8 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
             ).copiedFrom(alr)
 
             val resultType = typeOps.instantiateType(analysis.getReturnType(fd), (tparams zip tps).toMap)
-            mapApplication(fd.params, args, nfi, resultType, effects(fd), env)
+            val isExternOrOpaque = env.locals(id).flags.exists(f => f == Extern || f == Opaque)
+            mapApplication(fd.params, args, nfi, resultType, effects(fd), isExternOrOpaque, selectResult = true, env)
 
           case app @ Application(callee, args) =>
             checkAliasing(app, args, env)
@@ -721,7 +968,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
                 case (vd, i) if ftEffects(i) => ModifyingEffect(vd.toVariable, Path.empty)
               }
               val to = makeFunctionTypeExplicit(ft).asInstanceOf[FunctionType].to
-              mapApplication(params, args, nfi, to, appEffects.toSet, env)
+              mapApplication(params, args, nfi, to, appEffects.toSet, isOpaqueOrExtern = false, selectResult = true, env)
             } else {
               Application(transform(callee, env), args.map(transform(_, env))).copiedFrom(app)
             }
@@ -764,8 +1011,54 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
           }
         }
 
+        def terminalVarsOfExprDealiased(expr: Expr, env: Env): Set[Variable] = {
+          // Like `varsOfExprDealiased` but takes into account local binding in `vars`
+          def varsOfExprDealiasedWithLocalBdgs(e: Expr, vars: Map[Variable, Set[Variable]]): Set[Variable] = {
+            for {
+              v <- exprOps.variablesOf(e)
+              v1 <- vars.getOrElse(v, Set(v))
+              v2 <- env.targets.get(v1.toVal).map(_.map(_.receiver)).getOrElse(Set(v1))
+            } yield v2
+          }
+          // Note: we do not have to worry about reassignment (via FieldAssignment, ArrayUpdate, etc.)
+          // because these must be fresh expressions and therefore cannot add further aliasing.
+          def go(e: Expr, vars: Map[Variable, Set[Variable]]): Set[Variable] = e match {
+            case Let(vd, df, body) =>
+              val dfTargets = getAllTargetsDealiased(df, env)
+              val dfVars = dfTargets match {
+                case Some(dfTargets) =>
+                  dfTargets.flatMap(t => vars.getOrElse(t.receiver, Set(t.receiver)))
+                case None => varsOfExprDealiasedWithLocalBdgs(df, vars)
+              }
+              go(body, vars + (vd.toVariable -> dfVars))
+            case LetVar(vd, _, body) =>
+              assert(!isMutableType(vd.tpe))
+              // No special handling is needed since `vd` is immutable
+              go(body, vars)
+            case Block(_, last) => go(last, vars)
+            case LetRec(_, body) => go(body, vars)
+            case Ensuring(body, _) => go(body, vars)
+            case Assert(_, _, body) => go(body, vars)
+            case Assume(_, body) => go(body, vars)
+            case Decreases(_, body) => go(body, vars)
+            case Require(_, body) => go(body, vars)
+            case IfExpr(_, thn, elze) => go(thn, vars) ++ go(elze, vars)
+            case MatchExpr(_, cases) => cases.flatMap(mc => go(mc.rhs, vars)).toSet
+            case _ => varsOfExprDealiasedWithLocalBdgs(e, vars)
+          }
+          go(expr, Map.empty)
+        }
+
         def assertReferentiallyTransparent(expr: Expr): Unit = {
           assert(isReferentiallyTransparent(expr), s"${expr.asString} is not referentially transparent")
+        }
+
+        object UnfoldOpaque {
+          def unapply(e: Expr): Option[(Identifier, FunctionInvocation)] = e match {
+            case FunctionInvocation(id @ ast.SymbolIdentifier("stainless.lang.unfold"), Seq(_), Seq(fi: s.FunctionInvocation)) =>
+              Some((id, fi))
+            case _ => None
+          }
         }
       }
 
@@ -849,11 +1142,12 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
           throw MalformedStainlessCode(condition, s"Effects are not allowed in condition of effects: ${condition.asString}")
 
         case Target(receiver, Some(condition), path) =>
+          val recRecv = rec(receiver, path.toSeq)
           Annotated(
             AsInstanceOf(
               IfExpr(
                 condition.setPos(newValue),
-                rec(receiver, path.toSeq),
+                Annotated(recRecv, Seq(DropVCs)).copiedFrom(recRecv),
                 receiver
               ).copiedFrom(newValue),
               receiver.getType
@@ -1096,6 +1390,11 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
           val (ctxArr2, normArr2) = normalizeForTarget(arr2)
           val (ctxI2, normI2) = normalizeSelector(i2)
           (ctxArr1 compose ctxI1 compose ctxArr2 compose ctxI2, Swap(normArr1, normI1, normArr2, normI2).copiedFrom(swp))
+
+        case swp @ CellSwap(cell1, cell2) =>
+          val (ctxCell1, normCell1) = normalizeForTarget(cell1)
+          val (ctxCell2, normCell2) = normalizeForTarget(cell2)
+          (ctxCell1 compose ctxCell2, CellSwap(normCell1, normCell2).copiedFrom(swp))
 
         case call: (Application | FunctionInvocation | ApplyLetRec) =>
           normalizeCall(call)

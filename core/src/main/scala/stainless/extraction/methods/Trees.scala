@@ -62,7 +62,7 @@ trait Trees extends throwing.Trees { self =>
     }
   }
 
-  private[this] class InstantiateThis(override val s: self.type,
+  private class InstantiateThis(override val s: self.type,
                                       override val t: self.type,
                                       thisType: ClassType) extends oo.ConcreteTreeTransformer(s, t) {
 

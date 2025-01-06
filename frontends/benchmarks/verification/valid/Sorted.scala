@@ -24,6 +24,6 @@ object Sorted {
   @traceInduct("")
   def sorted_check(l: List[BigInt]): Unit = {
     ()
-  } ensuring (sorted1(l) == sorted2(l))
+ }.ensuring(sorted1(l) == sorted2(l))
 
 }

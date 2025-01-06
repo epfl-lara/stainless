@@ -1,6 +1,7 @@
 package stainless
 
-import sys.process._
+import java.io.File
+import scala.sys.process.*
 
 object Utils {
   def runCommand(cmd: String): (List[String], Int) = {
@@ -9,7 +10,7 @@ object Utils {
     (std.toList, exitCode)
   }
 
-  def runMainWithArgs(args: Array[String]): (inox.Context, Option[AbstractReport[_]]) = {
+  def runMainWithArgs(args: Array[String]): (inox.Context, Option[AbstractReport[?]]) = {
     val ctx = Main.setup(args).copy(reporter = new inox.TestSilentReporter())
     val compilerArgs = args.toList filterNot { _.startsWith("--") }
     val compiler = frontend.build(ctx, compilerArgs, stainless.Main.factory)
@@ -17,5 +18,13 @@ object Utils {
     compiler.run()
     compiler.join()
     (ctx, compiler.getReport)
+  }
+
+  def getFolders(dir: String): Seq[String] = {
+    Option(getClass.getResource(s"/$dir")).toSeq.flatMap { dirUrl =>
+      val dirFile = new File(dirUrl.getPath)
+      Option(dirFile.listFiles().toSeq).getOrElse(Seq.empty).filter(_.isDirectory)
+        .map(_.getName)
+    }.sorted
   }
 }

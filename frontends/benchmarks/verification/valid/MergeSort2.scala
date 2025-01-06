@@ -25,7 +25,7 @@ object MergeSort2 {
         else Cons(y, merge(l1, ys))
       case _ => l1 ++ l2
     }
-  } ensuring { res =>
+ }.ensuring { res =>
     isSorted(res) &&
     res.size == l1.size + l2.size &&
     bag(res) == bag(l1) ++ bag(l2)
@@ -40,7 +40,7 @@ object MergeSort2 {
         val (s1, s2) = split(xs)
         (Cons(x1, s1), Cons(x2, s2))
     }
-  } ensuring { res =>
+ }.ensuring { res =>
     res._1.size + res._2.size == list.size &&
     res._1.size > 0 &&
     res._2.size > 0 &&
@@ -54,7 +54,7 @@ object MergeSort2 {
         merge(mergeSort(s1), mergeSort(s2))
       case _ => list
     }
-  } ensuring { res =>
+ }.ensuring { res =>
     isSorted(res) &&
     res.size == list.size &&
     bag(res) == bag(list)

@@ -12,6 +12,6 @@ object ADTWithArray3 {
     val b = B(Array(A(1),A(2),A(3)))
     foo(b)
     b
-  } ensuring(b => b.a(0).x == 12)
+ }.ensuring(b => b.a(0).x == 12)
 
 }

@@ -1,0 +1,59 @@
+name: Stainless CI
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - main
+jobs:
+  tests:
+    runs-on:
+      labels: [self-hosted, linux]
+    env:
+      # define Java options for both official sbt and sbt-extras
+      JAVA_OPTS: -Dsbt.io.implicit.relative.glob.conversion=allow -Xss512M -Xms1024M -Xmx12G -XX:MaxMetaspaceSize=2G -XX:+UseCodeCacheFlushing -XX:ReservedCodeCacheSize=768M 
+      JVM_OPTS:  -Dsbt.io.implicit.relative.glob.conversion=allow -Xss512M -Xms1024M -Xmx12G -XX:MaxMetaspaceSize=2G -XX:+UseCodeCacheFlushing -XX:ReservedCodeCacheSize=768M 
+      JAVA_OPTS_TMP_DIR: /tmp/tmp_${{ github.run_id }}_${{ github.run_attempt }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    - name: Setup JDK
+      uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: 17
+    - name: Setup java options
+      run: |
+          echo "JAVA_OPTS=$JAVA_OPTS -Djava.io.tmpdir=$JAVA_OPTS_TMP_DIR" >> "$GITHUB_ENV" && \
+          echo "JVM_OPTS=$JVM_OPTS -Djava.io.tmpdir=$JAVA_OPTS_TMP_DIR" >> "$GITHUB_ENV" && \
+          echo "SBT_OPTS=-Djava.io.tmpdir=$JAVA_OPTS_TMP_DIR --sbt-dir $JAVA_OPTS_TMP_DIR" >> "$GITHUB_ENV"
+    - name: Creating temp folder
+      run: rm -rf $JAVA_OPTS_TMP_DIR && mkdir -p $JAVA_OPTS_TMP_DIR && chmod 777 $JAVA_OPTS_TMP_DIR
+    - name: Install and unpack sbt
+      run: |
+        wget https://github.com/sbt/sbt/releases/download/v1.10.1/sbt-1.10.1.tgz
+        tar xfz sbt-1.10.1.tgz
+        echo "PATH=./sbt/bin/:$PATH" >> "$GITHUB_ENV"
+    - name: Install solvers
+      run: ./stainless-ci.sh --install-solvers $GITHUB_WORKSPACE/.local/bin
+    - name: Add solvers to PATH
+      run: echo "$GITHUB_WORKSPACE/.local/bin" >> $GITHUB_PATH
+    - name: Test solvers availability
+      run: cvc5 --version && z3 --version && cvc4 --version
+    - name: Build and Package
+      run: ./stainless-ci.sh --build-only && echo "PATH=./frontends/dotty/target/universal/stage/bin:$PATH" >> "$GITHUB_ENV"
+    - name: Run Tests and Integration Tests
+      run: ./stainless-ci.sh --skip-build --skip-bolts --skip-sbt-plugin 
+    - name: Sbt Plugin Tests
+      run: ./stainless-ci.sh --skip-build --skip-tests --skip-bolts
+    - name: Clean up
+      run: rm -rf $JAVA_OPTS_TMP_DIR
+  fail_if_pull_request_is_draft:
+    if: github.event.pull_request.draft == true
+    runs-on: [self-hosted, linux]
+    steps:
+    - name: Fails in order to indicate that pull request needs to be marked as ready to review and tests workflows need to pass.
+      run: exit 1
+

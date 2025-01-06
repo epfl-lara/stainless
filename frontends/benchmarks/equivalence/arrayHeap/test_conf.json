@@ -1,0 +1,23 @@
+{
+  "models": [
+    "ArrayHeap.childrenAreHeapsM"
+  ],
+  "comparefuns": [
+    "ArrayHeap.childrenAreHeaps"
+  ],
+  "outcome": {
+    "equivalent": [
+      {
+        "model": "ArrayHeap.childrenAreHeapsM",
+        "functions": [
+          "ArrayHeap.childrenAreHeaps"
+        ]
+      }
+    ],
+    "unequivalent": [],
+    "unsafe": [],
+    "unknownSafety": [],
+    "unknownEquivalence": [],
+    "wrong": []
+  }
+}

@@ -13,6 +13,6 @@ object i1401a {
     @extern
     def ++(that: Set[T]): Set[T] = {
       Set(s ++ that.s)
-    }.ensuring(res => this.subsetOf(res) && that.subsetOf(res))
+   }.ensuring(res => this.subsetOf(res) && that.subsetOf(res))
   }
 }

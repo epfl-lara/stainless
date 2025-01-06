@@ -4,6 +4,6 @@ object InliningUnchecked {
 
   def g: Int = {
     f
-  }.ensuring(_ == 10)
+ }.ensuring(_ == 10)
 
 }

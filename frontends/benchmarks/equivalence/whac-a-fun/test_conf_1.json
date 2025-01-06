@@ -4,5 +4,20 @@
   ],
   "comparefuns": [
     "WhacAFun.andThen2"
-  ]
+  ],
+  "outcome": {
+    "equivalent": [
+      {
+        "model": "WhacAFun.andThen1",
+        "functions": [
+          "WhacAFun.andThen2"
+        ]
+      }
+    ],
+    "unequivalent": [],
+    "unsafe": [],
+    "unknownSafety": [],
+    "unknownEquivalence": [],
+    "wrong": []
+  }
 }

@@ -1,4 +1,6 @@
+import stainless.lang._
 import stainless.annotation._
+import StaticChecks._
 
 object ExternMutation {
   case class Box(var value: BigInt)
@@ -8,7 +10,7 @@ object ExternMutation {
   def f2(b: Container[Box]): Unit = ???
 
   def g2(b: Container[Box]) = {
-    val b0 = b
+    @ghost val b0 = snapshot(b)
     f2(b)
     assert(b == b0) // fails because `Container` is mutable
   }

@@ -11,5 +11,30 @@
   ],
   "tests": [
     "Model.testsAdjacencyBonus"
-  ]
+  ],
+  "outcome": {
+    "equivalent": [
+      {
+        "model": "Model.adjacencyBonus2",
+        "functions": [
+          "Candidate1.adjacencyBonus"
+        ]
+      },
+      {
+        "model": "Model.adjacencyBonus1",
+        "functions": [
+          "Candidate2.adjacencyBonus"
+        ]
+      }
+    ],
+    "unequivalent": [
+      "Candidate4.adjacencyBonus"
+    ],
+    "unsafe": [
+      "Candidate3.adjacencyBonus"
+    ],
+    "unknownSafety": [],
+    "unknownEquivalence": [],
+    "wrong": []
+  }
 }
