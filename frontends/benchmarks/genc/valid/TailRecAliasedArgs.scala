@@ -4,6 +4,8 @@ import stainless.io._
 
 object TailRecAliasedArgs {
   def aliased(n: Int, a: Int, b: Int): Int =
+    require(n >= 0)
+    decreases(n)
     if n == 0 then a
     else aliased(n - 1, b, a + b)
 

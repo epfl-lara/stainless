@@ -4,6 +4,8 @@ import stainless.io._
 
 object TailRecComplexArgs {
   def complexArgs(n: Int): Int =
+    require(n >= 0)
+    decreases(n)
     if n <= 0 then 1
     else complexArgs(n - 1 * 2 + 1) // Complex argument
 

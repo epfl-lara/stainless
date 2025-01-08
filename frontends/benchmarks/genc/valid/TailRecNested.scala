@@ -4,7 +4,10 @@ import stainless.io._
 
 object TailRecNested {
   def outer(n: Int): Int = 
+    require(n >= 0)
     def inner(x: Int): Int = 
+      require(x >= 0)
+      decreases(x)
       if x == 0 then 0
       else inner(x - 1)
     inner(n)

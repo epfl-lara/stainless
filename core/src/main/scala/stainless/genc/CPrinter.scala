@@ -244,7 +244,9 @@ class CPrinter(
       }
 
     case Labeled(name, block) =>
-      c"""|$name:
+      // In C, a label cannot be followed by a variable declaration
+      // So we add a semicolon to add an empty statement to work around this
+      c"""|$name: ;
           |    $block"""
 
     case Lit(lit) => c"$lit"

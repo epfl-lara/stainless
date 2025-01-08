@@ -5,6 +5,8 @@ import stainless.io._
 object TailRecFibAliased {
 
   def fib(n: Int, i: Int = 0, j: Int = 1): Int =
+    require(n >= 0)
+    decreases(n)
     if n == 0 then i
     else
         val res = fib(n-1, j, i+j)

@@ -4,6 +4,8 @@ import stainless.io._
 
 object TailRecUnit {
   def countDown(n: Int): Unit =
+    require(n >= 0)
+    decreases(n)
     if (n == 0) return
     countDown(n - 1)
 

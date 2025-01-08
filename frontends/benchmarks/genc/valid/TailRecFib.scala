@@ -5,6 +5,8 @@ import stainless.io._
 object TailRecFib {
 
   def fib(n: Int, i: Int = 0, j: Int = 1): Int =
+    require(n >= 0)
+    decreases(n)
     if n == 0 then i
     else fib(n-1, j, i+j)
 

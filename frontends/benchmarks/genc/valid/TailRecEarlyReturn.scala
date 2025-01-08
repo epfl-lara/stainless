@@ -4,6 +4,8 @@ import stainless.io._
 
 object TailRecEarlyReturn {
   def earlyReturn(n: Int, acc: Int): Int =
+    require(n >= 0)
+    decreases(n)
     if n == 0 then acc
     else if n == 3 then return acc * 2 // Early return
     else earlyReturn(n - 1, acc + 1)
