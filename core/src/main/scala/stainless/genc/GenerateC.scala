@@ -21,6 +21,7 @@ object GenerateC {
     NamedLeonPhase("Lifting", new LiftingPhase) `andThen`
     NamedLeonPhase("Referencing", new ReferencingPhase) `andThen`
     NamedLeonPhase("StructInlining", new StructInliningPhase) `andThen`
+    NamedLeonPhase("TailRecElim", new TailRecElimPhase) `andThen`
     NamedLeonPhase("IR2C", new IR2CPhase)
   }
 

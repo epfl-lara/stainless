@@ -243,6 +243,12 @@ class CPrinter(
               |"""
       }
 
+    case Labeled(name, block) =>
+      // In C, a label cannot be followed by a variable declaration
+      // So we add a semicolon to add an empty statement to work around this
+      c"""|$name: ;
+          |    $block"""
+
     case Lit(lit) => c"$lit"
 
     case EnumLiteral(lit) => c"$lit"
@@ -319,6 +325,9 @@ class CPrinter(
       c"""|while ($cond) {
           |    $body
           |}"""
+    
+    case Goto(label) =>
+      c"goto $label"
 
     case Break => c"break"
 

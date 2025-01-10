@@ -114,6 +114,8 @@ object CAST { // C Abstract Syntax Tree
 
   case class Block(exprs: Seq[Expr]) extends Expr // Can be empty
 
+  case class Labeled(label: String, block: Expr) extends Expr
+
   case class Lit(lit: Literal) extends Expr
 
   case class EnumLiteral(id: Id) extends Expr
@@ -211,6 +213,8 @@ object CAST { // C Abstract Syntax Tree
   case class While(cond: Expr, body: Block) extends Expr {
     require(cond.isValue, s"Condition ($cond) of while loop must be a value")
   }
+
+  case class Goto(name: String) extends Expr
 
   case object Break extends Expr
 
