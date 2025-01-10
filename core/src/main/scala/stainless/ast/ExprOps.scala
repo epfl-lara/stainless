@@ -458,6 +458,14 @@ class ExprOps(override val trees: Trees) extends inox.ast.ExprOps(trees) { self 
             (_ ++ _)
         )
 
+      case AlternativePattern(vdOpt, subPatterns) =>
+        val freshVdOpt = vdOpt.map(vd => transform(vd.freshen, env))
+        // We don't need to freshen the subPatterns here, as they are not bound
+        (
+          AlternativePattern(freshVdOpt, subPatterns),
+          env ++ freshVdOpt.map(freshVd => vdOpt.get.id -> freshVd.id)
+        )
+
       case LiteralPattern(vdOpt, lit) =>
         val freshVdOpt = vdOpt.map(vd => transform(vd.freshen, env))
         val newEnv = env ++ freshVdOpt.map(freshVd => vdOpt.get.id -> freshVd.id)

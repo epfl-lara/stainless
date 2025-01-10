@@ -244,6 +244,7 @@ trait TypeOps extends innerfuns.TypeOps { self =>
         .map(cons => ADTType(cons.sort, tps))
         .getOrElse(Untyped)
     case TuplePattern(_, subs) => TupleType(subs map patternInType)
+    case AlternativePattern(_, subs) => leastUpperBound(subs map patternInType)
     case ClassPattern(_, ct, subs) => ct
     case UnapplyPattern(_, recs, id, tps, _) =>
       lookupFunction(id)

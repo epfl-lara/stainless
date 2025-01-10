@@ -157,6 +157,13 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
     val subPatterns = Seq()
   }
 
+  /**
+    * Pattern encoding like `case binder @ (subPattern1 | subPattern2 | ...) => ...`
+    * 
+    * If [[binder]] is empty, consider a wildcard `_` in its place.
+    */
+  sealed case class AlternativePattern(binder: Option[ValDef], subPatterns: Seq[Pattern]) extends Pattern 
+
   protected def unapplyScrut(scrut: Expr, up: UnapplyPattern)(using s: Symbols): Expr = {
     FunctionInvocation(up.id, up.tps, up.recs :+ scrut)
   }
