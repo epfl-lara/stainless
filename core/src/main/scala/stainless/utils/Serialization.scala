@@ -21,9 +21,9 @@ class StainlessSerializer(override val trees: ast.Trees, serializeProducts: Bool
   /** An extension to the set of registered classes in the `InoxSerializer`.
     * occur within Stainless programs.
     *
-    * The new identifiers in the mapping range from 120 to 172.
+    * The new identifiers in the mapping range from 120 to 173.
     *
-    * NEXT ID: 173
+    * NEXT ID: 174
     */
   override protected def classSerializers: Map[Class[?], Serializer[?]] =
     super.classSerializers ++ Map(
@@ -40,6 +40,7 @@ class StainlessSerializer(override val trees: ast.Trees, serializeProducts: Bool
       stainlessClassSerializer[TuplePattern]       (130),
       stainlessClassSerializer[LiteralPattern[Any]](131),
       stainlessClassSerializer[UnapplyPattern]     (132),
+      stainlessClassSerializer[AlternativePattern] (173),
       stainlessClassSerializer[FiniteArray]        (133),
       stainlessClassSerializer[LargeArray]         (134),
       stainlessClassSerializer[ArraySelect]        (135),

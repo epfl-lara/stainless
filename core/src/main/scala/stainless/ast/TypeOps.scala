@@ -47,6 +47,10 @@ trait TypeOps extends inox.ast.TypeOps {
         case _ => false
       }
 
+      case AlternativePattern(ob, subs) => 
+        ob.forall(vd => isSubtypeOf(vd.getType, in)) &&
+        (subs exists (patternIsTyped(in, _)))
+
       case up @ UnapplyPattern(ob, recs, id, tps, subs) =>
         ob.forall(vd => isSubtypeOf(vd.getType, in)) &&
         lookupFunction(id).exists(_.tparams.size == tps.size) && {

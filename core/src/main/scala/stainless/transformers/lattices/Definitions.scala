@@ -223,6 +223,7 @@ trait Definitions {
     case Wildcard extends LabelledPattern
     case ADT(id: Identifier, tps: Seq[Type], sub: Seq[LabelledPattern]) extends LabelledPattern
     case TuplePattern(sub: Seq[LabelledPattern]) extends LabelledPattern
+    case Alternative(sub: Seq[LabelledPattern]) extends LabelledPattern
     case Lit[T](lit: Literal[T]) extends LabelledPattern
     case Unapply(recs: Seq[Code], id: Identifier, tps: Seq[Type], sub: Seq[LabelledPattern]) extends LabelledPattern
 
@@ -231,6 +232,7 @@ trait Definitions {
       case Wildcard => Seq.empty
       case ADT(_, _, sub) => sub.flatMap(_.allPatterns)
       case TuplePattern(sub) => sub.flatMap(_.allPatterns)
+      case Alternative(sub) => sub.flatMap(_.allPatterns)
       case Lit(_) => Seq.empty
       case Unapply(_, _, _, sub) => sub.flatMap(_.allPatterns)
     })

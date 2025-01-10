@@ -34,6 +34,10 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
       (Seq(id), binder.map(_.toVariable).toSeq, recs, tps, subs, (ids, vs, es, tps, pats) => {
         t.UnapplyPattern(vs.headOption.map(_.toVal), es, ids.head, tps, pats)
       })
+    case s.AlternativePattern(binder, subs) =>
+      (Seq(), binder.map(_.toVariable).toSeq, Seq(), Seq(), subs, (_, vs, _, _, pats) => {
+        t.AlternativePattern(vs.headOption.map(_.toVal), pats)
+      })
   }
 
   /** Rebuild a match case from the given set of identifiers, variables, expressions and types */

@@ -465,6 +465,9 @@ private class S2IRImpl(override val s: tt.type,
         update(b, scrutinee)
         buildBinOp(scrutinee, O.Equals, lit)(pat.getPos)
 
+      case AlternativePattern(_, _) =>
+        reporter.fatalError(pat.getPos, s"Alternative Pattern, a.k.a pattern disjunction, is not yet supported by GenC")
+
       case UnapplyPattern(_, _, _, _, _) =>
         reporter.fatalError(pat.getPos, s"Unapply Pattern, a.k.a. Extractor Objects, is not supported by GenC")
     }
