@@ -18,10 +18,10 @@ object WhileAsFun1 {
       } else {
         ()
       }
-    } ensuring(_ => i >= 0 && i <= n && i >= n)
+   }.ensuring(_ => i >= 0 && i <= n && i >= n)
     rec()
 
     i
-  } ensuring(_ == n)
+ }.ensuring(_ == n)
 
 }

@@ -8,5 +8,5 @@ object EnsuringBoolean {
   def congR(x: BigInt)(implicit mod: BigInt): Unit = {
     require(mod >= 1);
     ()
-  } ensuring(false)
+ }.ensuring(false)
 }

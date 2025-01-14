@@ -17,10 +17,10 @@ class ExceptionLifting(override val s: Trees, override val t: imperative.Trees)
 
   import s._
 
-  private[this] class ThrowingIdentityImpl(override val s: self.s.type, override val t: self.t.type)
+  private class ThrowingIdentityImpl(override val s: self.s.type, override val t: self.t.type)
     extends transformers.ConcreteTreeTransformer(s, t)
 
-  private[this] val identity = new ThrowingIdentityImpl(self.s, self.t)
+  private val identity = new ThrowingIdentityImpl(self.s, self.t)
 
   override def extractFunction(context: s.Symbols, fd: s.FunDef): (t.FunDef, Unit) = {
     import context.{given, _}

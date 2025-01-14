@@ -86,7 +86,7 @@ trait Definitions extends extraction.Trees { self: Trees =>
 
     override def equals(other: Any): Boolean = other match {
       case that: Outer =>
-        (that canEqual this) &&
+        (that `canEqual` this) &&
           fd == that.fd
       case _ => false
     }
@@ -122,7 +122,7 @@ trait Definitions extends extraction.Trees { self: Trees =>
 
     override def equals(other: Any): Boolean = other match {
       case that: Inner =>
-        (that canEqual this) &&
+        (that `canEqual` this) &&
           fd == that.fd
       case _ => false
     }

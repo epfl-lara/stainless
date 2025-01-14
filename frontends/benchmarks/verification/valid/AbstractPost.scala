@@ -3,5 +3,5 @@ trait AbstractPost {
 
   def f(): Unit = {
     (??? : Unit)
-  } ensuring(_ => inv())
+ }.ensuring(_ => inv())
 }

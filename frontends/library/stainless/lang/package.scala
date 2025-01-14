@@ -8,6 +8,7 @@ import stainless.lang.Cell
 
 package object lang {
 
+  // TODO: should be renamed to ghostExpr
   @library
   def ghost[A](@ghost value: => A): Unit = ()
 
@@ -18,13 +19,13 @@ package object lang {
   implicit class BooleanDecorations(val underlying: Boolean) {
     def holds : Boolean = {
       underlying
-    } ensuring {
+   }.ensuring {
       (res: Boolean) => res
     }
 
     def holds(becauseOfThat: Boolean) = {
       underlying
-    } ensuring {
+   }.ensuring {
       (res: Boolean) => becauseOfThat && res
     }
 
@@ -60,7 +61,8 @@ package object lang {
   @library case class Success[T](t: T) extends Try[T]
   @library case class Failure[T](exc: Exception) extends Try[T]
 
-  @ignore
+  /* // This would be a widely applicable implicit
+  @ignore 
   implicit class Throwing[T](underlying: => T) {
     def throwing(pred: Exception => Boolean): T = try {
       underlying
@@ -70,6 +72,7 @@ package object lang {
         throw e
     }
   }
+   */
 
   @inline @library def because(b: Boolean) = b
 
@@ -124,6 +127,7 @@ package object lang {
   @partialEval
   def partialEval[A](x: A): A = x
 
+  // TODO: put into a separate object
   @ignore
   implicit class Passes[A, B](io: (A, B)) {
     val (in, out) = io
@@ -208,6 +212,8 @@ package object lang {
       c1.v = t
   }
 
+  // This --full-imperative stuff should perhaps move to a separate object.
+
   @extern @library @mutable @anyHeapRef
   trait AnyHeapRef {
     @refEq
@@ -247,4 +253,5 @@ package object lang {
     def unchanged(objs: Set[AnyHeapRef], h0: Heap, h1: Heap): Boolean =
       /* objs.mapMerge(h1, h0) == h0 */ ???
   }
+
 }

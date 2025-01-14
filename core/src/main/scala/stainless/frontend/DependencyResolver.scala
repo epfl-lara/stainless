@@ -59,7 +59,7 @@ class DependencyResolver(ctx: inox.Context, repositories: Set[Repository]) {
 
     val fetch = Fetch()
       .withDependencies(deps.map(_.withTransitive(false)).toSeq)
-      .addRepositories(repos.toSeq: _*)
+      .addRepositories(repos.toSeq*)
       .withClassifiers(Set(Classifier.sources))
 
     reporter.debug(s"Fetching ${deps map prettyName mkString ", "}...")

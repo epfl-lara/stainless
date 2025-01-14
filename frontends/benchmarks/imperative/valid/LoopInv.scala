@@ -35,7 +35,7 @@ object LoopInv {
 
           remains = remains.tail
       }
-    }) invariant (G3.contains(state))
+    }).invariant (G3.contains(state))
   }
 
 }

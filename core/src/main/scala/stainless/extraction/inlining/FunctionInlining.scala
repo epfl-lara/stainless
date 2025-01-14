@@ -25,10 +25,10 @@ class FunctionInlining(override val s: Trees, override val t: trace.Trees)
   override protected type TransformerContext = s.Symbols
   override protected def getContext(symbols: s.Symbols) = symbols
 
-  private[this] class FnInliningIdentityImpl(override val s: self.s.type, override val t: self.t.type)
+  private class FnInliningIdentityImpl(override val s: self.s.type, override val t: self.t.type)
     extends transformers.ConcreteTreeTransformer(s, t)
 
-  private[this] val identity = new FnInliningIdentityImpl(self.s, self.t)
+  private val identity = new FnInliningIdentityImpl(self.s, self.t)
 
   override protected def registerFunctions(symbols: t.Symbols, functions: Seq[Option[t.FunDef]]): t.Symbols =
     symbols.withFunctions(functions.flatten)
@@ -88,6 +88,7 @@ class FunctionInlining(override val s: Trees, override val t: trace.Trees)
                   Assert(annotated(cond.setPos(fi), DropVCs), Some(s"Inlined precondition$num of " + tfd.id.asString), acc).setPos(fi),
                   i-1
                 )
+              case (spec, (acc,i)) => context.reporter.fatalError(f"In addPreconditionAssertions, I did not expect spec that is not LetInSpec or Precondition; I got the following spec: ${spec.toString}")
             }._1
           }
 

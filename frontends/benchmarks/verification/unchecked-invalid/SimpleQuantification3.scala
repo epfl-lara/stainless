@@ -8,5 +8,5 @@ object SimpleQuantification3 {
     require(forall((a: BigInt, b: BigInt) => f(a) + g(a) > 0))
     if(x < 0) f(x) + g(x)
     else x // Postcondition does not hold for x == 0
-  } ensuring { res => res > 0 }
+ }.ensuring { res => res > 0 }
 }

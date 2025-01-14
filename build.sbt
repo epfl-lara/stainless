@@ -39,10 +39,10 @@ lazy val nTestSuiteParallelism = {
 }
 
 // The Scala version with which Stainless is compiled.
-val stainlessScalaVersion = "3.3.3"
-// Stainless supports Scala 3.3 programs.
+// Note: in case of version bump, do not forget to update the `test` files in `sbt-plugin` (for `sbt scripted`)!
+val stainlessScalaVersion = "3.5.2"
 val frontendDottyVersion = stainlessScalaVersion
-// The Stainless libraries use Scala 2.13 and Scala 3.3, and is compatible only with Scala 3.3.
+// The Stainless libraries use Scala 2.13 and Scala 3.5, and is compatible only with Scala 3.5.
 val stainlessLibScalaVersion = stainlessScalaVersion
 
 scalaVersion := stainlessScalaVersion
@@ -78,6 +78,12 @@ lazy val artifactSettings: Seq[Setting[_]] = baseSettings ++ Seq(
   buildInfoPackage := "stainless",
   buildInfoKeys := stainlessBuildInfoKeys,
   buildInfoOptions := Seq(BuildInfoOption.BuildTime),
+  excludeDependencies ++= Seq(
+    "org.scala-lang.modules" % "scala-parser-combinators_2.13",
+    "org.scala-lang.modules" % "scala-xml_3",
+    "org.scalactic" % "scalactic_2.13",
+  ),
+
 )
 
 lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
@@ -88,7 +94,7 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
   ),
 
   resolvers ++= Resolver.sonatypeOssRepos("releases"),
-  resolvers += ("uuverifiers" at "http://logicrunch.research.it.uu.se/maven").withAllowInsecureProtocol(true),
+  resolvers += ("uuverifiersStainless" at "https://eldarica.org/maven"),
 
   libraryDependencies ++= Seq(
     // "ch.epfl.lara"    %% "inox"          % inoxVersion,
@@ -297,8 +303,6 @@ lazy val `stainless-library` = (project in file("frontends") / "library")
   .settings(
     name := "stainless-library",
     scalaVersion := stainlessLibScalaVersion,
-    // don't publish binaries - stainless-library is only consumed as a sources component
-    packageBin / publishArtifact := false,
     crossVersion := CrossVersion.binary,
     Compile / scalaSource := baseDirectory.value / "stainless"
   )
@@ -337,6 +341,7 @@ lazy val `stainless-dotty` = (project in file("frontends/dotty"))
     },
   )
   .dependsOn(`stainless-core`)
+  .dependsOn(`stainless-library`)
   .dependsOn(inox % "test->test;it->test,it")
   .configs(IntegrationTest)
 

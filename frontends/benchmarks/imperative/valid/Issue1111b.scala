@@ -27,7 +27,7 @@ object Issue1111b {
   @pure
   def neww[@mutable K, @mutable V]: Container[K, V] = {
     freshCopy(Container[K, V](MutCell[Option[Tuple2[K, V]]](None[Tuple2[K, V]]())))
-  } ensuring {
+ }.ensuring {
     (ret: Container[K, V]) => is_empty[K, V](ret)
   }
 
@@ -44,7 +44,7 @@ object Issue1111b {
       case _ =>
         None[V]()
     }
-  } ensuring {
+ }.ensuring {
     (ret: Option[V]) => is_empty[K, V](self.value) ==> (ret match {
       case None() =>
         true
@@ -55,7 +55,7 @@ object Issue1111b {
 
   def insert[@mutable K, @mutable V](self: MutCell[Container[K, V]], k: K, v: V): Unit = {
     self.value.pair.value = freshCopy(Some[Tuple2[K, V]](MutCell[Tuple2[K, V]](Tuple2[K, V](MutCell[K](k), MutCell[V](v)))))
-  } ensuring {
+ }.ensuring {
     (ret: Unit) => !is_empty[K, V](self.value)
   }
 

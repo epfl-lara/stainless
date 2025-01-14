@@ -5,7 +5,7 @@ object Overrides {
     def x(a: BigInt): BigInt = {
       require(a > 0)
       BigInt(42)
-    } ensuring { _ >= 0 }
+   }.ensuring { _ >= 0 }
   }
 
   case class C(c: BigInt) extends B {
@@ -15,7 +15,7 @@ object Overrides {
       require(i >= 0)
       if (i == 0) BigInt(0)
       else c + x(i-1)
-    } ensuring ( _ == c * i )
+   }.ensuring( _ == c * i )
   }
 
   case class D() extends B

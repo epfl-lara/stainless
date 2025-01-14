@@ -938,6 +938,13 @@ trait Core extends Definitions { ocbsl =>
           val subScruts = tupleSubscrutinees(scrut, tt)
           val (rsubs, subst2) = recHelper(subScruts, subps)
           (LabelledPattern.TuplePattern(rsubs), subst2)
+        case AlternativePattern(_, subps) => 
+          val (rsubs, subst2) = subps.foldLeft((Seq.empty[LabelledPattern], subst1)) {
+            case ((acc, subst), subp) =>
+              val (rsub, subst2) = convertPattern(scrut, subp, subst)
+              (acc :+ rsub, subst2)
+          }
+          (LabelledPattern.Alternative(rsubs), subst2)
         case UnapplyPattern(_, recs, id, tps, subps) =>
           if (recs.nonEmpty) throw UnsupportedOperationException("recs is not empty")
           val unapp = unapplySubScrutinees(scrut, id, tps)
@@ -2644,6 +2651,7 @@ trait Core extends Definitions { ocbsl =>
           assert(bases.size == subps.size)
           val rsubs = recHelper(tupleSubscrutinees(scrut, tt), subps)
           TuplePattern(bdg, rsubs)
+        case LabelledPattern.Alternative(subs) => AlternativePattern(bdg, subs.map(sub => convertPattern(scrut, sub, vds)))
         case LabelledPattern.Lit(lit) => LiteralPattern(bdg, lit)
         case LabelledPattern.Unapply(recs, id, tps, subps) =>
           assert(recs.isEmpty)
@@ -3286,6 +3294,17 @@ trait Core extends Definitions { ocbsl =>
         assert(ctxs.isPrefixOf(newCtxs))
         PatBdgsAndConds(newCtxs, subscruts ++ recBdgs, recPatConds)
 
+      case LabelledPattern.Alternative(sub) => 
+        val PatBdgsAndConds(newCtxs, _, subPatConds) = 
+          sub.foldLeft(PatBdgsAndConds(ctxs, Seq.empty, Seq.empty)) {
+            case (PatBdgsAndConds(ctxs, _, condsAcc), subpat) =>
+              val PatBdgsAndConds(ctxs2, _, conds2) = addPatternBindingsAndConds(ctxs, scrut, subpat)
+              PatBdgsAndConds(ctxs2, Seq.empty, condsAcc ++ conds2)
+          }
+        val cond = codeOfSig(mkOr(subPatConds), BoolTy)
+        assert(ctxs.isPrefixOf(newCtxs))
+        PatBdgsAndConds(newCtxs.withCond(cond), Seq.empty, Seq(cond))
+
       case LabelledPattern.Unapply(recs, id, tps, subps) =>
         assert(recs.isEmpty)
         val unapp = unapplySubScrutinees(scrut, id, tps)
@@ -3313,7 +3332,7 @@ trait Core extends Definitions { ocbsl =>
   //region Misc
 
   object LitSig {
-    def unapply(sig: Signature): Option[Literal[_]] = sig match {
+    def unapply(sig: Signature): Option[Literal[?]] = sig match {
       case Signature(Label.Lit(l), _) => Some(l)
       case _ => None
     }
@@ -3576,7 +3595,7 @@ trait Core extends Definitions { ocbsl =>
 
   final def codeOfIntLit(lit: BigInt, tpe: Type): Code = codeOfLit(intLitOfType(lit, tpe))
 
-  final def intLitOfType(lit: BigInt, tpe: Type): Literal[_] = tpe match {
+  final def intLitOfType(lit: BigInt, tpe: Type): Literal[?] = tpe match {
     case IntegerType() => IntegerLiteral(lit)
     case RealType() => FractionLiteral(lit, 1)
     case bvt@BVType(signed, size) =>

@@ -5,7 +5,7 @@ package termination
 
 import scala.collection.mutable.{Map => MutableMap}
 
-trait ChainBuilder extends RelationBuilder { self: Strengthener with OrderingRelation =>
+trait ChainBuilder extends RelationBuilder { self: Strengthener & OrderingRelation =>
 
   import checker._
   import program.trees._
@@ -36,7 +36,7 @@ trait ChainBuilder extends RelationBuilder { self: Strengthener with OrderingRel
     lazy val size: Int = relations.size
 
     lazy val loop: (Path, Seq[Expr]) = {
-      val bigRel = relations.reduce(_ compose _)
+      val bigRel = relations.reduce(_ `compose` _)
       (bigRel.path, bigRel.call.args)
     }
 

@@ -68,12 +68,12 @@ package object xlang {
     }
 
     val lowering = new Lowering(trees, innerclasses.trees)
-    utils.NamedPipeline("ConstructsUsage", ConstructsUsage(trees)) andThen
-    utils.NamedPipeline("PartialFunctions", PartialFunctions(trees)) andThen
+    utils.NamedPipeline("ConstructsUsage", ConstructsUsage(trees)) `andThen`
+    utils.NamedPipeline("PartialFunctions", PartialFunctions(trees)) `andThen`
     utils.NamedPipeline("XlangLowering", lowering)
   }
 
-  def fullExtractor(using inox.Context) = extractor andThen nextExtractor
+  def fullExtractor(using inox.Context) = extractor `andThen` nextExtractor
   def nextExtractor(using inox.Context) = innerclasses.fullExtractor
 
   def phaseSemantics(using inox.Context): inox.SemanticsProvider { val trees: xlang.trees.type } = {

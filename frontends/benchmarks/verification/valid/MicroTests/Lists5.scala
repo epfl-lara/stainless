@@ -27,9 +27,9 @@ object Lists5 {
   }
 
   def equivalence_lemma_induct[T](f: T => Boolean, list: List[T]): Boolean = {
-    equivalence_lemma(f, list) because (list match {
+    equivalence_lemma(f, list).because((list match {
       case Cons(head, tail) => equivalence_lemma_induct(f, tail)
       case Nil() => true
-    })
+    }))
   }.holds
 }

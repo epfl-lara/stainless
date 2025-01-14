@@ -16,6 +16,11 @@ import Utils._
 class GenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUtils with Matchers {
   val validFiles = resourceFiles("genc/valid", _.endsWith(".scala"), false).map(_.getPath)
   val invalidFiles = resourceFiles("genc/invalid", _.endsWith(".scala"), false).map(_.getPath)
+  val tailrecFiles = validFiles.filter(_.toLowerCase.contains("tailrec".toLowerCase)).map { path =>
+    val checkFile = path.replace(".scala", ".check")
+    path -> checkFile
+  }
+  val tailrecScalaFiles = tailrecFiles.map(_._1)
   val ctx = TestContext.empty
 
   for (file <- invalidFiles) {
@@ -67,6 +72,22 @@ class GenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUtils with
   test("Checking that Pointer2 outputs 124443") {
     val output = runCHelper("Pointer2.scala")
     assert(output == "124443", s"Output '$output' should be '124443'")
+  }
+
+  for (case (file, _) <- tailrecFiles) {
+    test(s"Checking that ${file.split("/").last} has tail recursive function rewritten as loop") {
+      val cFile = file.replace(".scala", ".c")
+      val cCode = Files.readAllLines(Paths.get(cFile)).toArray.mkString
+      assert(cCode.contains("goto"), "Should contain a goto statement")
+    }
+  }
+
+  for (case (file, checkFile) <- tailrecFiles) {
+    test(s"Checking that ${file.split("/").last} outputs ${Files.readAllLines(Paths.get(checkFile)).toArray.mkString}") {
+      val output = runCHelper(file)
+      val checkValue = Files.readAllLines(Paths.get(checkFile)).toArray.mkString
+      assert(output == checkValue, s"Output '$output' should be $checkValue")
+    }
   }
 
   def runCHelper(filename: String): String = {

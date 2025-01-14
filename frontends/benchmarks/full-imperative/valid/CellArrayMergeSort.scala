@@ -94,11 +94,11 @@ object CellArrayMergeSortExample {
     private def indicesFrom(i: BigInt): List[BigInt] = {
       require(0 <= i && i <= size)
       if (i == size) Nil[BigInt]() else Cons(i, indicesFrom(i + 1))
-    } ensuring { res => res.forall(validIndex) && res.size == size - i }
+   }.ensuring { res => res.forall(validIndex) && res.size == size - i }
 
     def indices: List[BigInt] = {
       indicesFrom(0)
-    } ensuring { _.forall(validIndex) }
+   }.ensuring { _.forall(validIndex) }
 
     private def indicesApplied(is: List[BigInt]): List[Int] = {
       reads(cellSet)
@@ -109,7 +109,7 @@ object CellArrayMergeSortExample {
           lemmaCellSetContainsValidIndex(i)
           Cons(apply(i), indicesApplied(is))
       }
-    } ensuring (_.size == is.size)
+   }.ensuring(_.size == is.size)
 
     def lemmaIndicesAppliedElem(i: BigInt, j: BigInt): Boolean = {
       reads(cellSet)
@@ -138,7 +138,7 @@ object CellArrayMergeSortExample {
     def toList: List[Int] = {
       reads(cellSet)
       indicesApplied(indices)
-    } ensuring (_.size == size)
+   }.ensuring(_.size == size)
 
     // Cell access and separation
 
@@ -159,7 +159,7 @@ object CellArrayMergeSortExample {
     //     assert(false)
     //     ??? : BigInt
     //   }
-    // } ensuring { j => validIndex(j) && cell(j) == theCell }
+    //}.ensuring { j => validIndex(j) && cell(j) == theCell }
 
     @inline
     def cellAsSet(i: BigInt): Set[AnyHeapRef] = {
@@ -243,7 +243,7 @@ object CellArrayMergeSortExample {
       modifies(cellAsSet(i))
       require(validIndex(i))
       underlying(from + i) = v
-    } ensuring (_ => toList == old(toList).updated(i, v))
+   }.ensuring(_ => toList == old(toList).updated(i, v))
 
     @inline
     def slice(from: BigInt, until: BigInt): IntArrayView = {
@@ -295,14 +295,14 @@ object CellArrayMergeSortExample {
         check(toList == that.toList)
       }
       ()
-    } ensuring (_ => toList == that.toList)
+   }.ensuring(_ => toList == that.toList)
 
     def copyTo(that: IntArrayView): Unit = {
       reads(cellSet ++ that.cellSet)
       modifies(that.cellSet)
       require(this * that && size == that.size)
       copyToFrom(that, 0)
-    } ensuring (_ => toList == that.toList)
+   }.ensuring(_ => toList == that.toList)
 */
 
 
@@ -381,7 +381,7 @@ object CellArrayMergeSortExample {
         }
       }
     }
-  } ensuring { _ => tmp1.isSorted }
+ }.ensuring { _ => tmp1.isSorted }
 
   def mergeSort(xs: IntArrayView, tmp: IntArrayView, lo: BigInt, hi: BigInt): Unit = {
     reads(xs.cellSet ++ tmp.cellSet)
@@ -421,6 +421,6 @@ object CellArrayMergeSortExample {
         xs(lo + 1) = a
       }
     }
-  } ensuring { _ => xs.isSorted }
+ }.ensuring { _ => xs.isSorted }
 */
 }

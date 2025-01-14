@@ -14,6 +14,6 @@ object NestedVar {
       c+b
     }
     rec(a)
-  } ensuring(_ == 5)
+ }.ensuring(_ == 5)
 
 }

@@ -58,7 +58,7 @@ object ConcTrees {
         case CC(l, r) =>
           1 + max(l.level, r.level)
       }): BigInt
-    } ensuring (_ >= 0)
+   }.ensuring(_ >= 0)
 
     lazy val size: BigInt = {
       (this match {
@@ -67,7 +67,7 @@ object ConcTrees {
         case CC(l, r) =>
           l.size + r.size
       }): BigInt
-    } ensuring (_ >= 0)
+   }.ensuring(_ >= 0)
 
     def toList: List[T] = {
       this match {
@@ -76,7 +76,7 @@ object ConcTrees {
         case CC(l, r) =>
           l.toList ++ r.toList // note: left elements precede the right elements in the list
       }
-    } ensuring (res => res.size == this.size)
+   }.ensuring(res => res.size == this.size)
   }
 
   case class Empty[T]() extends Conc[T]
@@ -96,7 +96,7 @@ object ConcTrees {
         if (i < l.size) lookup(l, i)
         else lookup(r, i - l.size)
     }
-  } ensuring (res =>
+ }.ensuring(res =>
     // axiom instantiation
     instAppendIndexAxiom(xs, i) &&
       res == xs.toList(i)) // lookup time is linear in the height
@@ -118,7 +118,7 @@ object ConcTrees {
         if (i < l.size) CC(update(l, i, y), r)
         else CC(l, update(r, i - l.size, y))
     }
-  } ensuring (res => instAppendUpdateAxiom(xs, i, y) && // an auxiliary axiom instantiation
+ }.ensuring(res => instAppendUpdateAxiom(xs, i, y) && // an auxiliary axiom instantiation
     res.level == xs.level && // heights of the input and output trees are equal
     res.valid && // tree invariants are preserved
     res.toList == xs.toList.updated(i, y)) // update time is linear in the height of the tree
@@ -175,7 +175,7 @@ object ConcTrees {
           }
         }
     }
-  } ensuring (res =>
+ }.ensuring(res =>
     res.level <= max(xs.level, ys.level) + 1 && // height invariants
       res.level >= max(xs.level, ys.level) &&
       res.valid &&
@@ -218,7 +218,7 @@ object ConcTrees {
       case (Empty(), ys) => ys
       case _             => concatNonEmpty(xs, ys)
     }
-  } ensuring (res => res.valid && // tree invariants
+ }.ensuring(res => res.valid && // tree invariants
     res.level <= max(xs.level, ys.level) + 1 && // height invariants
     res.level >= max(xs.level, ys.level) &&
     concatCorrectness(res, xs, ys))
@@ -239,7 +239,7 @@ object ConcTrees {
         else
           concatNonEmpty(l, insert(r, i - l.size, y))
     }
-  } ensuring (res =>
+ }.ensuring(res =>
     res.valid && // tree invariants
       res.level - xs.level <= 1 && res.level >= xs.level && // height of the output tree is at most 1 greater than that of the input tree
       !res.isEmpty &&
@@ -301,7 +301,7 @@ object ConcTrees {
           (l, r)
         }
     }
-  } ensuring (res => res._1.valid && res._2.valid && // tree invariants are preserved
+ }.ensuring(res => res._1.valid && res._2.valid && // tree invariants are preserved
     xs.level >= res._1.level && xs.level >= res._2.level && // height bounds of the resulting tree
     instSplitAxiom(xs, n) && // instantiation of an axiom
     splitCorrectness(res, xs, n))

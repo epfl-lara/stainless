@@ -18,6 +18,6 @@ object WhileConditionSubexpression {
       i += 1
     }).invariant(i >= 0)
     b
-  } ensuring(res => res || (x != 0 && x != 1 && x != 2))
+ }.ensuring(res => res || (x != 0 && x != 1 && x != 2))
 
 }

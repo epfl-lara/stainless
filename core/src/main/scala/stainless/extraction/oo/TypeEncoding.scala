@@ -22,45 +22,45 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
    *             IDENTIFIERS
    * ==================================== */
 
-  private[this] class CachedID[T](builder: T => Identifier)
+  private class CachedID[T](builder: T => Identifier)
     extends utils.ConcurrentCached[T, Identifier](builder)
 
-  private[this] val refID = FreshIdentifier("Object")
-  private[this] def ref = T(refID)()
+  private val refID = FreshIdentifier("Object")
+  private def ref = T(refID)()
 
-  private[this] val (int,  intValue)  = (FreshIdentifier("Integer"),   FreshIdentifier("value"))
-  private[this] val (bool, boolValue) = (FreshIdentifier("Boolean"),   FreshIdentifier("value"))
-  private[this] val (char, charValue) = (FreshIdentifier("Character"), FreshIdentifier("value"))
-  private[this] val (real, realValue) = (FreshIdentifier("Real"),      FreshIdentifier("value"))
-  private[this] val (str,  strValue)  = (FreshIdentifier("String"),    FreshIdentifier("value"))
-  private[this] val (open, openValue) = (FreshIdentifier("Open"),      FreshIdentifier("value"))
-  private[this] val (arr,  arrValue)  = (FreshIdentifier("Array"),     FreshIdentifier("value"))
-  private[this] val (set,  setValue)  = (FreshIdentifier("Set"),       FreshIdentifier("value"))
-  private[this] val (bag,  bagValue)  = (FreshIdentifier("Bag"),       FreshIdentifier("value"))
-  private[this] val (map,  mapValue)  = (FreshIdentifier("Map"),       FreshIdentifier("value"))
-  private[this] val unit = FreshIdentifier("Unit")
+  private val (int,  intValue)  = (FreshIdentifier("Integer"),   FreshIdentifier("value"))
+  private val (bool, boolValue) = (FreshIdentifier("Boolean"),   FreshIdentifier("value"))
+  private val (char, charValue) = (FreshIdentifier("Character"), FreshIdentifier("value"))
+  private val (real, realValue) = (FreshIdentifier("Real"),      FreshIdentifier("value"))
+  private val (str,  strValue)  = (FreshIdentifier("String"),    FreshIdentifier("value"))
+  private val (open, openValue) = (FreshIdentifier("Open"),      FreshIdentifier("value"))
+  private val (arr,  arrValue)  = (FreshIdentifier("Array"),     FreshIdentifier("value"))
+  private val (set,  setValue)  = (FreshIdentifier("Set"),       FreshIdentifier("value"))
+  private val (bag,  bagValue)  = (FreshIdentifier("Bag"),       FreshIdentifier("value"))
+  private val (map,  mapValue)  = (FreshIdentifier("Map"),       FreshIdentifier("value"))
+  private val unit = FreshIdentifier("Unit")
 
-  private[this] val bv: ((Boolean, Int)) => Identifier = new CachedID[(Boolean, Int)]({
+  private val bv: ((Boolean, Int)) => Identifier = new CachedID[(Boolean, Int)]({
     case (signed, i) => FreshIdentifier((if (signed) "Signed" else "Unsigned") + "Bitvector" + i)
   })
-  private[this] val bvValue: ((Boolean, Int)) => Identifier =
+  private val bvValue: ((Boolean, Int)) => Identifier =
     new CachedID[(Boolean, Int)](_ => FreshIdentifier("value"))
 
-  private[this] val tpl: Int => Identifier = new CachedID[Int](i => FreshIdentifier("Tuple" + i))
-  private[this] val tplValue: Int => Identifier = new CachedID[Int](i => FreshIdentifier("value"))
+  private val tpl: Int => Identifier = new CachedID[Int](i => FreshIdentifier("Tuple" + i))
+  private val tplValue: Int => Identifier = new CachedID[Int](i => FreshIdentifier("value"))
 
-  private[this] val fun: Int => Identifier = new CachedID[Int](i => FreshIdentifier("Function" + i))
-  private[this] val funValue: Int => Identifier = new CachedID[Int](_ => FreshIdentifier("value"))
+  private val fun: Int => Identifier = new CachedID[Int](i => FreshIdentifier("Function" + i))
+  private val funValue: Int => Identifier = new CachedID[Int](_ => FreshIdentifier("value"))
 
-  private[this] val adt: Identifier => Identifier = new CachedID[Identifier](_.freshen)
-  private[this] val adtValue: Identifier => Identifier = new CachedID[Identifier](_ => FreshIdentifier("value"))
+  private val adt: Identifier => Identifier = new CachedID[Identifier](_.freshen)
+  private val adtValue: Identifier => Identifier = new CachedID[Identifier](_ => FreshIdentifier("value"))
 
 
   /* ====================================
    *          OBJECT TESTING
    * ==================================== */
 
-  private[this] def isObject(tpe: s.Type)(using scope: Scope): Boolean = tpe match {
+  private def isObject(tpe: s.Type)(using scope: Scope): Boolean = tpe match {
     case _: s.ClassType => true
     case s.NothingType() | s.AnyType() => true
     case s.UnknownType(_) => true
@@ -70,10 +70,10 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
     case _ => false
   }
 
-  private[this] def isSimple(tpe: s.Type)(using Scope): Boolean = !s.typeOps.exists(isObject)(tpe)
+  private def isSimple(tpe: s.Type)(using Scope): Boolean = !s.typeOps.exists(isObject)(tpe)
 
 
-  private[this] def simplify(lambda: t.Lambda): t.Expr = lambda match {
+  private def simplify(lambda: t.Lambda): t.Expr = lambda match {
     case t.Lambda(Seq(vd), t.Application(f: t.Variable, Seq(v: t.Variable))) if vd.toVariable == v => f
     case _ => lambda
   }
@@ -82,25 +82,25 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
    *      WRAPPING AND UNWRAPPING
    * ==================================== */
 
-  private[this] def getRefField(e: t.Expr, id: Identifier): t.Expr = e match {
+  private def getRefField(e: t.Expr, id: Identifier): t.Expr = e match {
     case v: t.Variable => t.Annotated(e.getField(id).copiedFrom(e), Seq(DropVCs)).copiedFrom(e)
     case _ => let(("x" :: ref.copiedFrom(e)).copiedFrom(e), e) { x =>
       t.Annotated(x.getField(id).copiedFrom(e), Seq(DropVCs)).copiedFrom(e)
     }.copiedFrom(e)
   }
 
-  private[this] def erased[T <: s.Type](tpe: T): T = {
+  private def erased[T <: s.Type](tpe: T): T = {
     val s.NAryType(tps, recons) = tpe: @unchecked
     recons(tps.map(tp => s.AnyType().copiedFrom(tp))).copiedFrom(tpe).asInstanceOf[T]
   }
 
-  private[this] def erasedBy(tpe: s.Type)(using scope: Scope): s.Type = s.typeOps.postMap {
+  private def erasedBy(tpe: s.Type)(using scope: Scope): s.Type = s.typeOps.postMap {
     case tp: s.TypeParameter if scope.tparams contains tp => Some(s.AnyType().copiedFrom(tp))
     case tb @ s.TypeBounds(s.NothingType(), s.AnyType(), _) => Some(s.AnyType().copiedFrom(tb))
     case _ => None
   } (tpe)
 
-  private[this] def wrap(e: t.Expr, tpe: s.Type)(using Scope): t.Expr = (tpe match {
+  private def wrap(e: t.Expr, tpe: s.Type)(using Scope): t.Expr = (tpe match {
     case s.AnyType() => e
     case s.ClassType(id, tps) => e
     case tp: s.TypeParameter => e
@@ -122,7 +122,7 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
     case s.UnitType() => let(("u" :: t.UnitType()).copiedFrom(e), e) { _ => t.ADT(unit, Seq(), Seq()).copiedFrom(e) }
   }).copiedFrom(e)
 
-  private[this] def unwrap(e: t.Expr, tpe: s.Type)(using Scope): t.Expr = (tpe match {
+  private def unwrap(e: t.Expr, tpe: s.Type)(using Scope): t.Expr = (tpe match {
     case s.AnyType() => e
     case s.ClassType(id, tps) => e
     case tp: s.TypeParameter => e
@@ -149,9 +149,9 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
    *          TYPE CONVERSIONS
    * ==================================== */
 
-  private[this] val convertID = new CachedID[Identifier](id => FreshIdentifier("as" + id.name))
+  private val convertID = new CachedID[Identifier](id => FreshIdentifier("as" + id.name))
 
-  private[this] def convert(e: t.Expr, tpe: s.Type, expected: s.Type)(using scope: Scope): t.Expr = {
+  private def convert(e: t.Expr, tpe: s.Type, expected: s.Type)(using scope: Scope): t.Expr = {
     val t1 = tpe.getType(using scope.symbols)
     val t2 = expected.getType(using scope.symbols)
 
@@ -168,10 +168,10 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
       case (_, t1, t2) if isObject(t1) && !isObject(t2) => unwrap(e, t2)
       case (_, t1, t2) if !isObject(t1) && isObject(t2) => wrap(e, t1)
 
-      case (_, t1, t2) if scope.converters contains (t1 -> t2) =>
+      case (_, t1, t2) if scope.converters `contains` (t1 -> t2) =>
         t.Application(scope.converters(t1 -> t2), Seq(e))
 
-      case (_, t1, t2) if scope.converters contains t2 =>
+      case (_, t1, t2) if scope.converters `contains` t2 =>
         t.Application(scope.converters(t2), Seq(wrap(e, t1)))
 
       case (_, s.RefinementType(vd, pred), t2) =>
@@ -303,24 +303,24 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
    *          INSTANCE TESTS
    * ==================================== */
 
-  private[this] val instanceID = new CachedID[Identifier](id => FreshIdentifier("is" + id.name))
+  private val instanceID = new CachedID[Identifier](id => FreshIdentifier("is" + id.name))
 
-  private[this] def instanceOf(e: t.Expr, in: s.Type, tpe: s.Type)(using scope: Scope): t.Expr = {
+  private def instanceOf(e: t.Expr, in: s.Type, tpe: s.Type)(using scope: Scope): t.Expr = {
     ((in.getType(using scope.symbols), tpe.getType(using scope.symbols)) match {
       case (tp1, tp2) if (
         tp1 == tp2 &&
         !s.typeOps.typeParamsOf(tp2).exists { t2 =>
-          (scope.testers contains t2) ||
+          (scope.testers `contains` t2) ||
           s.typeOps.typeParamsOf(tp1).exists { t1 =>
-            scope.testers contains (t1 -> t2)
+            scope.testers `contains` (t1 -> t2)
           }
         }
       ) => t.BooleanLiteral(true)
 
-      case (tp1, tp2) if scope.testers contains (tp1 -> tp2) =>
+      case (tp1, tp2) if scope.testers `contains` (tp1 -> tp2) =>
         t.Application(scope.testers(tp1 -> tp2), Seq(e))
 
-      case (tp1, tp2) if scope.testers contains tp2 =>
+      case (tp1, tp2) if scope.testers `contains` tp2 =>
         t.Application(scope.testers(tp2), Seq(wrap(e, tp1)))
 
       case (_, s.AnyType()) => t.BooleanLiteral(true)
@@ -360,7 +360,7 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
         )
 
       case (_, s.ADTType(id, tps)) if isObject(in) =>
-        (e is adt(id)).copiedFrom(e) &&
+        (e `is` adt(id)).copiedFrom(e) &&
         instanceOf(getRefField(e, adtValue(id)), erased(tpe), tpe)
 
       case (ft1 @ (_: s.FunctionType | _: s.PiType), ft2 @ (_: s.FunctionType | _: s.PiType)) =>
@@ -389,11 +389,11 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
         t.Forall(nparams2.map(vd => scope.transform(vd)), t.Implies(paramsCond, toCond).copiedFrom(e))
 
       case (_, s.FunctionType(from, _)) if isObject(in) =>
-        (e is fun(from.size)).copiedFrom(e) &&
+        (e `is` fun(from.size)).copiedFrom(e) &&
         instanceOf(getRefField(e, funValue(from.size)), erased(tpe), tpe)
 
       case (_, s.PiType(params, _)) if isObject(in) =>
-        (e is fun(params.size)).copiedFrom(e) &&
+        (e `is` fun(params.size)).copiedFrom(e) &&
         instanceOf(getRefField(e, funValue(params.size)), erased(tpe), tpe)
 
       case (tt1 @ (_: s.TupleType | _: s.SigmaType), tt2 @ (_: s.TupleType | _: s.SigmaType)) =>
@@ -432,11 +432,11 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
         t.and(paramsCond, toCond)
 
       case (_, s.TupleType(tpes)) if isObject(in) =>
-        (e is tpl(tpes.size)).copiedFrom(e) &&
+        (e `is` tpl(tpes.size)).copiedFrom(e) &&
         instanceOf(getRefField(e, tplValue(tpes.size)), erased(tpe), tpe)
 
       case (_, s.SigmaType(params, to)) =>
-        (e is tpl(params.size + 1)).copiedFrom(e) &&
+        (e `is` tpl(params.size + 1)).copiedFrom(e) &&
         instanceOf(getRefField(e, tplValue(params.size + 1)), erased(tpe), tpe)
 
       case (s.ArrayType(b1), s.ArrayType(b2)) =>
@@ -450,7 +450,7 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
         }.copiedFrom(e)
 
       case (_, s.ArrayType(_)) if isObject(in) =>
-        (e is arr).copiedFrom(e) &&
+        (e `is` arr).copiedFrom(e) &&
         instanceOf(getRefField(e, arrValue), erased(tpe), tpe)
 
       case (s.SetType(b1), s.SetType(b2)) =>
@@ -459,7 +459,7 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
         }.copiedFrom(e)
 
       case (_, s.SetType(_)) if isObject(in) =>
-        (e is set).copiedFrom(e) &&
+        (e `is` set).copiedFrom(e) &&
         instanceOf(getRefField(e, setValue), erased(tpe), tpe)
 
       case (s.BagType(b1), s.BagType(b2)) =>
@@ -472,7 +472,7 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
         }.copiedFrom(e)
 
       case (_, s.BagType(_)) if isObject(in) =>
-        (e is bag).copiedFrom(e) &&
+        (e `is` bag).copiedFrom(e) &&
         instanceOf(getRefField(e, bagValue), erased(tpe), tpe)
 
       case (s.MapType(f1, t1), s.MapType(f2, t2)) =>
@@ -481,16 +481,16 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
         }
 
       case (_, s.MapType(_, _)) if isObject(in) =>
-        (e is map).copiedFrom(e) &&
+        (e `is` map).copiedFrom(e) &&
         instanceOf(getRefField(e, mapValue), erased(tpe), tpe)
 
-      case (_, s.BVType(signed, size)) if isObject(in) => e is bv(signed -> size)
-      case (_, s.IntegerType()) if isObject(in) => e is int
-      case (_, s.BooleanType()) if isObject(in) => e is bool
-      case (_, s.CharType()) if isObject(in) => e is char
-      case (_, s.RealType()) if isObject(in) => e is real
-      case (_, s.StringType()) if isObject(in) => e is str
-      case (_, s.UnitType()) if isObject(in) => e is unit
+      case (_, s.BVType(signed, size)) if isObject(in) => e `is` bv(signed -> size)
+      case (_, s.IntegerType()) if isObject(in) => e `is` int
+      case (_, s.BooleanType()) if isObject(in) => e `is` bool
+      case (_, s.CharType()) if isObject(in) => e `is` char
+      case (_, s.RealType()) if isObject(in) => e `is` real
+      case (_, s.StringType()) if isObject(in) => e `is` str
+      case (_, s.UnitType()) if isObject(in) => e `is` unit
       case _ => t.BooleanLiteral(false)
     }).copiedFrom(e)
   }
@@ -500,21 +500,21 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
    *           CLASS INSTANCE
    * ==================================== */
 
-  private[this] def constructors(cd: s.ClassDef)(using s.Symbols): Seq[Identifier] =
+  private def constructors(cd: s.ClassDef)(using s.Symbols): Seq[Identifier] =
     (cd +: cd.descendants).filterNot(_.flags contains s.IsAbstract).map(_.id)
 
-  private[this] def constructors(id: Identifier)(using symbols: s.Symbols): Seq[Identifier] =
+  private def constructors(id: Identifier)(using symbols: s.Symbols): Seq[Identifier] =
     constructors(symbols.getClass(id))
 
   // The class instance function depends on the current class as well as its children on
   // which the `instanceOf` call well be recursively performed, so the cache key consists of
   // - the class definition
   // - the children class definitions
-  private[this] val classInstanceCache = new ExtractionCache[s.ClassDef, t.FunDef]({
+  private val classInstanceCache = new ExtractionCache[s.ClassDef, t.FunDef]({
     (cd, context) => ClassKey(cd) + SetKey(cd.children(using context.symbols).toSet)
   })
 
-  private[this] def classInstance(id: Identifier)(using context: TransformerContext): t.FunDef = {
+  private def classInstance(id: Identifier)(using context: TransformerContext): t.FunDef = {
     import context.symbols
     import symbols.{given, _}
     val cd = symbols.getClass(id)
@@ -528,7 +528,7 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
                 cd.typed.children.map(ccd => instanceOf(x, cd.typed.toType, ccd.toType))
               )
             } else {
-              (x is cd.id) &&
+              (x `is` cd.id) &&
               t.andJoin(cd.fields.map(vd => instanceOf(t.ADTSelector(x, vd.id), vd.tpe, vd.tpe)))
             }
         })
@@ -541,7 +541,7 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
    *           CLASS UNAPPLY
    * ==================================== */
 
-  private[this] val unapplyID = new CachedID[Identifier](_.freshen)
+  private val unapplyID = new CachedID[Identifier](_.freshen)
 
   // The class unapply function depends on the current class and all its descendants
   // as it directly checks the dominated constructor set (no use of `instanceOf`).
@@ -549,11 +549,11 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
   // - the class definition
   // - the descendant class definitions
   // - the synthetic OptionSort definitions
-  private[this] val classUnapplyCache = new ExtractionCache[s.ClassDef, t.FunDef]({ (cd, context) =>
+  private val classUnapplyCache = new ExtractionCache[s.ClassDef, t.FunDef]({ (cd, context) =>
     ClassKey(cd) + SetKey(cd.descendants(using context.symbols).toSet) + OptionSort.key(using context.symbols)
   })
 
-  private[this] def classUnapply(id: Identifier)(using context: TransformerContext): t.FunDef = {
+  private def classUnapply(id: Identifier)(using context: TransformerContext): t.FunDef = {
     import context.symbols
     import symbols.given
     val cd = symbols.getClass(id)
@@ -583,11 +583,11 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
    * ==================================== */
 
   // The unapply function only depends on the synthetic OptionSort
-  private[this] val unapplyAnyCache = new ExtractionCache[s.Symbols, t.FunDef](
+  private val unapplyAnyCache = new ExtractionCache[s.Symbols, t.FunDef](
     (_, context) => OptionSort.key(using context.symbols)
   )
 
-  private[this] def unapplyAny(using context: TransformerContext): t.FunDef = unapplyAnyCache.cached(context.symbols, context) {
+  private def unapplyAny(using context: TransformerContext): t.FunDef = unapplyAnyCache.cached(context.symbols, context) {
     import context.symbols.given
     import OptionSort.{value => _, _}
     mkFunDef(FreshIdentifier("InstanceOf"), t.DropVCs, t.Synthetic, t.IsUnapply(isEmpty, get))("A", "B") {
@@ -611,9 +611,9 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
 
   // The sort instance function depends only on the sort definition, so
   // we can use a simple cache here
-  private[this] val sortInstanceCache = new SimpleCache[s.ADTSort, t.FunDef]
+  private val sortInstanceCache = new SimpleCache[s.ADTSort, t.FunDef]
 
-  private[this] def sortInstance(id: Identifier)(using context: TransformerContext): t.FunDef = {
+  private def sortInstance(id: Identifier)(using context: TransformerContext): t.FunDef = {
     import context.{symbols, emptyScope => scope}
     import symbols.given
     val sort = symbols.getSort(id)
@@ -621,12 +621,12 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
       val in = sort.typeArgs.map(_.freshen)
       val tin = in.map(tp => scope.transform(tp).asInstanceOf[t.TypeParameter])
 
-      val x = "x" :: T(id)(tin: _*)
+      val x = "x" :: T(id)(tin*)
       val fs = tin map { i => i.id.name :: (i =>: t.BooleanType()) }
 
-      val newScope = scope testing (in zip fs map { case (ti, vd) => (ti, ti) -> vd.toVariable })
+      val newScope = scope `testing` (in zip fs map { case (ti, vd) => (ti, ti) -> vd.toVariable })
       val fullBody = t.orJoin(sort.typed(in).constructors map { cons =>
-        (x.toVariable is cons.id) &&
+        (x.toVariable `is` cons.id) &&
         t.andJoin(cons.fields.map(vd => instanceOf(x.toVariable.getField(vd.id), vd.tpe, vd.tpe)(using newScope)))
       })
 
@@ -644,9 +644,9 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
 
   // The sort conversion function depends only on the sort definition, so
   // we can again use a simple cache here
-  private[this] val sortConvertCache = new SimpleCache[s.ADTSort, t.FunDef]
+  private val sortConvertCache = new SimpleCache[s.ADTSort, t.FunDef]
 
-  private[this] def sortConvert(id: Identifier)(using context: TransformerContext): t.FunDef = {
+  private def sortConvert(id: Identifier)(using context: TransformerContext): t.FunDef = {
     import context.{symbols, emptyScope => scope}
     import symbols.given
     val sort = symbols.getSort(id)
@@ -655,17 +655,17 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
       val tin = in.map(tp => scope.transform(tp).asInstanceOf[t.TypeParameter])
       val tout = out.map(tp => scope.transform(tp).asInstanceOf[t.TypeParameter])
 
-      val x = "x" :: T(id)(tin: _*)
+      val x = "x" :: T(id)(tin*)
       val fs = tin zip tout map { case (i, o) => (i.id.name :: (i =>: o), i.id.name :: (o =>: i)) }
 
-      val newScope = scope converting (in zip out zip fs flatMap {
+      val newScope = scope `converting` (in zip out zip fs flatMap {
         case ((ti, to), (vd1, vd2)) => Seq((ti, to) -> vd1.toVariable, (to, ti) -> vd2.toVariable)
       })
 
       val conversions = sort.typed(in).constructors zip sort.typed(out).constructors map { case (ci, co) =>
-        (x.toVariable is ci.id, C(ci.id)(tout: _*)(ci.fields zip co.fields map { case (vi, vo) =>
+        (x.toVariable `is` ci.id, C(ci.id)(tout*)(ci.fields zip co.fields map { case (vi, vo) =>
           convert(x.toVariable.getField(vi.id), vi.tpe, vo.tpe)(using newScope)
-        }: _*))
+        }*))
       }
 
       val fullBody = conversions.init.foldRight(conversions.last._2: Expr) {
@@ -673,7 +673,7 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
       }
 
       new t.FunDef(
-        convertID(id), (tin ++ tout).map(t.TypeParameterDef(_)), x +: fs.flatMap((vd1, vd2) => Seq(vd1, vd2)), T(id)(tout: _*), fullBody,
+        convertID(id), (tin ++ tout).map(t.TypeParameterDef(_)), x +: fs.flatMap((vd1, vd2) => Seq(vd1, vd2)), T(id)(tout*), fullBody,
         Seq(t.DropVCs, t.Synthetic)
       ).setPos(sort)
     }
@@ -765,7 +765,7 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
       case ta: s.TypeApply if !ta.isAbstract =>
         transform(ta.resolve)
 
-      case tp: s.TypeParameter if testers contains tp =>
+      case tp: s.TypeParameter if testers `contains` tp =>
         refinement(("x" :: ref.copiedFrom(tp)).copiedFrom(tp)) {
           x => t.Annotated(instanceOf(x, s.AnyType().copiedFrom(tp), tp), Seq(t.DropConjunct)).copiedFrom(tp)
         }.copiedFrom(tp)
@@ -813,7 +813,7 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
           ).copiedFrom(e)).copiedFrom(e)
 
       case fi @ s.FunctionInvocation(id, tps, args) =>
-        val funScope = this in id
+        val funScope = this `in` id
         val FunInfo(fun, tparams) = functions(id)
         val tpSubst = (fun.tparams.map(_.tp) zip tps).zipWithIndex.map {
           case ((tp, tpe), i) => tp -> (if (tparams(i)) tp else tpe)
@@ -828,7 +828,7 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
           }).copiedFrom(e), s.typeOps.instantiateType(fun.returnType.getType, tpSubst), inType)(using funScope)
 
       case app @ s.ApplyLetRec(id, tparams, tpe, tps, args) =>
-        val funScope = this in id
+        val funScope = this `in` id
         val FunInfo(fun, ctparams) = functions(id)
         val tpSubst = (fun.tparams.map(_.tp) zip tps).zipWithIndex.map {
           case ((tp, tpe), i) => tp -> (if (ctparams(i)) tp else tpe)
@@ -920,8 +920,14 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
       case s.TuplePattern(Some(vd), _) =>
         instanceOfPattern(super.transform(pat, vd.tpe), tpe, vd.tpe)
 
+      case s.AlternativePattern(None, subs) =>
+        t.AlternativePattern(None, subs.map(transform)).copiedFrom(pat)
+
+      case s.AlternativePattern(Some(vd), subs) =>
+        instanceOfPattern(t.AlternativePattern(Some(transform(vd)), subs.map(transform)).copiedFrom(pat), tpe, vd.tpe)
+
       case up @ s.UnapplyPattern(ob, recs, id, tps, subs) =>
-        val funScope = this in id
+        val funScope = this `in` id
         val FunInfo(fun, tparams) = functions(id)
         val tpSubst = (fun.tparams.map(_.tp) zip tps).zipWithIndex.map {
           case ((tp, tpe), i) => tp -> (if (tparams(i)) tp else tpe)
@@ -955,7 +961,7 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
 
       val (scope, tparamParams) = fd.tparams.map(_.tp).zipWithIndex
         .collect { case (tp, i) if tparams(i) => tp }
-        .foldLeft((this in fd.id, Seq[t.ValDef]())) {
+        .foldLeft((this `in` fd.id, Seq[t.ValDef]())) {
           case ((scope, vds), tp) =>
             val s.TypeBounds(lowerBound, upperBound, _) = tp.bounds
 
@@ -987,7 +993,7 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
     }
   }
 
-  private[this] object Scope {
+  private object Scope {
     def empty(using context: TransformerContext): Scope = {
       import context.symbols
       import symbols.{given, _}
@@ -1027,6 +1033,10 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
                 simple --= s.typeOps.typeParamsOf(in.getType)
                 super.transform(pat, in)
             }
+
+            case s.AlternativePattern(ob, subs) =>
+              simple --= s.typeOps.typeParamsOf(in.getType)
+              super.transform(pat, in)
 
             case up @ s.UnapplyPattern(ob, recs, id, tps, subs) =>
               val tparams = infos(id).tparams
@@ -1165,7 +1175,7 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
     val refSort = new t.ADTSort(refID, Seq(),
       symbols.classes.values.toSeq.filterNot(_.flags contains s.IsAbstract).map { cd =>
         val anys = cd.typeArgs.map(tp => s.AnyType().copiedFrom(tp))
-        val fields = cd.typed(anys).fields.map(emptyScope.transform _)
+        val fields = cd.typed(anys).fields.map(emptyScope.transform)
         new t.ADTConstructor(cd.id, refID, fields).copiedFrom(cd)
       } ++ symbols.sorts.values.toSeq.map { sort =>
         new t.ADTConstructor(adt(sort.id), refID, Seq(t.ValDef(

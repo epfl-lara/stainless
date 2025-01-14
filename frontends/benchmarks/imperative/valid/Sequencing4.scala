@@ -7,6 +7,6 @@ object Sequencing4 {
 
     {x = x + 1; x} + {x = x * 2; x}
 
-  } ensuring(res => res == 18)
+ }.ensuring(res => res == 18)
 
 }

@@ -8,6 +8,6 @@ object HigherOrderFunctionMutableParams17 {
 
   def test(f: (A) => Int): Int = {
     f(A(0))
-  } ensuring(res => true)
+ }.ensuring(res => true)
 
 }

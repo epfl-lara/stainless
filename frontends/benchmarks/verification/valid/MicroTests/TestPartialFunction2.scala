@@ -6,11 +6,11 @@ object TestPartialFunctions2 {
   def partial(x: BigInt, y: BigInt): BigInt = {
     require(x > y)
     x - y
-  } ensuring (_ >= BigInt(0))
+ }.ensuring(_ >= BigInt(0))
 
   def test(x: BigInt): Boolean = {
     require(x > 0)
-    val f = PartialFunction(partial _)
+    val f = PartialFunction(partial)
     assert(!f.pre(0, 0))
     f(x, 0) > 0
   }.holds

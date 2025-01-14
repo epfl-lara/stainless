@@ -483,7 +483,7 @@ object CoqExpression {
     s.replace("\n", "\n" + tabs)
   }
 
-  def validCoqIdentifier(s: String) = s matches """[A-Z|a-z|_][\w_]*"""
+  def validCoqIdentifier(s: String) = s `matches` """[A-Z|a-z|_][\w_]*"""
 
   val coqKeywords = Map(
     "forall" -> "_forall",

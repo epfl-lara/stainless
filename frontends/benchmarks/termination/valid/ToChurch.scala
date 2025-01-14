@@ -14,7 +14,7 @@ object ToChurch {
 
   def toChurch(n: BigInt, f: BigInt => BigInt): BigInt => BigInt = {
     require(n >= 0)
-    if (n == 0) id[BigInt] _
+    if (n == 0) id[BigInt]
     else compose(f, toChurch(n - 1, f))
   }
 

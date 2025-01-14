@@ -33,13 +33,13 @@ trait DebugSymbols extends PositionChecker { self =>
   val name: String
   val context: inox.Context
 
-  private[this] lazy val positions = new PositionTraverser
+  private lazy val positions = new PositionTraverser
 
   lazy val phases = context.options.findOption(optDebugPhases).map(_.toSet)
   lazy val objects = context.options.findOption(optDebugObjects)
 
   def filterObjects(name: String): Boolean = {
-    objects.isEmpty || objects.exists(_.exists(r => name matches r))
+    objects.isEmpty || objects.exists(_.exists(r => name `matches` r))
   }
 
   // We print debug output for this phase only if the user didn't specify
@@ -136,7 +136,8 @@ class NamedPipeline private(override val name: String, override val context: ino
   // `extract` is a wrapper around `super.extract` which outputs trees for
   // debugging and which outputs position checks
   override def extract(symbols: s.Symbols): (t.Symbols, ExtractionSummary) = debug { syms =>
-    context.reporter.emit(context.reporter.ProgressMessage(context.reporter.INFO, PhaseExtractionTag, s"Running phase $name"))
+    if !isCompactModeOn(using context) then
+      context.reporter.emit(context.reporter.ProgressMessage(context.reporter.INFO, PhaseExtractionTag, s"Running phase $name"))
     context.timers.extraction.get(name).run(underlying.extract(syms))
   } (symbols)
 }

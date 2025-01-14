@@ -18,7 +18,7 @@ object OpaqueMutation1 {
         unfold(oldBox.secretSauce(other))
         check(oldBox.secretSauce(other) + 1 == this.secretSauce(other))
       }
-    }.ensuring(_ => old(this).secretSauce(other) + 1 == this.secretSauce(other))
+   }.ensuring(_ => old(this).secretSauce(other) + 1 == this.secretSauce(other))
   }
 
   def test(b: Box): Unit = {

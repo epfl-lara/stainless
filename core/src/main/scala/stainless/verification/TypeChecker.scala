@@ -152,7 +152,7 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
   }
 
   case object SetEdge extends Edge {
-    def polarity(polarities: mutable.Map[(Identifier,Identifier),Polarity]) = Nothing
+    def polarity(polarities: mutable.Map[(Identifier,Identifier),Polarity]) = StrictlyPositive
   }
 
   case object BagEdge extends Edge {

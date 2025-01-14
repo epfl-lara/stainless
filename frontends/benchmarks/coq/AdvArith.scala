@@ -6,6 +6,6 @@ object AdvArithmetic {
   def test(a: BigInt, b: BigInt, c: BigInt): BigInt = {
     require(a > b && c > BigInt(0))
     c * a
-  } ensuring( _ > c * b )
+ }.ensuring( _ > c * b )
 
 }

@@ -7,7 +7,7 @@ object PostFailure {
 
   def put(pb: PostBox, l: Letter): PostBox = {
     pb
-  }.ensuring(_ == l :: pb.letters) // oh no, post fails :(
+ }.ensuring(_ == l :: pb.letters) // oh no, post fails :(
 
   def ohno: PostBox = put(
     PostBox(Nil()),

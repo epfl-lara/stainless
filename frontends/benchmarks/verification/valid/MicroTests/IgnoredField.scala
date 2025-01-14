@@ -22,7 +22,7 @@ object IgnoredField {
     @extern
     def insert(k: K, v: V): TrieMapWrapper[K, V] = {
       TrieMapWrapper(theMap += (k -> v))
-    } ensuring { _.contains(k) }
+   }.ensuring { _.contains(k) }
 
     @extern
     def apply(k: K): V = {
@@ -35,7 +35,7 @@ object IgnoredField {
     @extern
     def empty[K, V]: TrieMapWrapper[K, V] = {
       TrieMapWrapper(TrieMap.empty[K, V])
-    } ensuring { res =>
+   }.ensuring { res =>
       forall((k: K) => !res.contains(k))
     }
   }

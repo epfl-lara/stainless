@@ -379,8 +379,13 @@ trait VerificationChecker { self =>
               reporter.warning(vc.getPos, " => INVALID")
               reason match {
                 case VCStatus.CounterExample(cex) =>
-                  reporter.warning("Found counter-example:")
-                  reporter.warning("  " + cex.asString.replaceAll("\n", "\n  "))
+                  vc.kind match {
+                    case VCKind.MeasureMissing =>
+                      reporter.warning("Measure is missing, cannot check termination")
+                    case _ =>
+                      reporter.warning("Found counter-example:")
+                      reporter.warning("  " + cex.asString.replaceAll("\n", "\n  "))
+                  }
 
                 case VCStatus.Unsatisfiable =>
                   reporter.warning("Property wasn't satisfiable")
@@ -403,7 +408,10 @@ trait VerificationChecker { self =>
   }
 
   protected def infoReportVCProgress(curr: Int, total: Int): Unit = {
-    reporter.emit(reporter.ProgressMessage(reporter.INFO, VCReportTag, s"Verified: $curr / $total"))
+    if curr == 1 then
+      reporter.emit(reporter.ProgressMessage(reporter.INFO, VCReportTag, s"Verifying: $total verification conditions:"))
+    if !isCompactModeOn then
+      reporter.emit(reporter.ProgressMessage(reporter.INFO, VCReportTag, s" Verified: $curr / $total"))
   }
 
   protected def debugVC(simplifiedVC: VC, origVC: VC)(using inox.DebugSection): Unit = {
@@ -451,7 +459,7 @@ object VerificationChecker {
       val context = ctx
       val semantics = program.getSemantics
 
-      protected def createFactory(opts: Options) = solvers.SolverFactory(p, ctx.withOpts(opts.options: _*))
+      protected def createFactory(opts: Options) = solvers.SolverFactory(p, ctx.withOpts(opts.options*))
     }
 
     val checker = if (ctx.options.findOptionOrDefault(optVCCache)) {

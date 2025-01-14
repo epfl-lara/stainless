@@ -1,6 +1,6 @@
-# Stainless [![Release][release-img]][latest-release] [![Nightly Build Status][nightly-larabot-img]][nightly-larabot-ref] [![Build Status][larabot-img]][larabot-ref] [![Gitter chat][gitter-img]][gitter-ref] [![Apache 2.0 License][license-img]][license-ref]
+# Stainless [![Release][release-img]][latest-release] [![Nightly Status](https://github.com/epfl-lara/stainless/actions/workflows/stainless-nightly.yml/badge.svg)](https://github.com/epfl-lara/stainless/actions/workflows/stainless-nightly.yml) [![Build Status](https://github.com/epfl-lara/stainless/actions/workflows/stainless-CI.yml/badge.svg?branch=main)](https://github.com/epfl-lara/stainless/actions/workflows/stainless-CI.yml/?branch=main) [![Gitter chat][gitter-img]][gitter-ref] [![Apache 2.0 License][license-img]][license-ref]
 
-Hosted at https://github.com/epfl-lara/stainless ; mirrored at https://gitlab.epfl.ch/lara/stainless
+Hosted at https://github.com/epfl-lara/stainless ; mirrored at https://gitlab.epfl.ch/lara/stainless . Check out also [Inox](https://github.com/epfl-lara/inox) and [Bolts](https://github.com/epfl-lara/bolts/).
 
 Verification framework for a subset of the [Scala](http://scala-lang.org) programming language. See the [tutorial](https://epfl-lara.github.io/asplos2022tutorial/).
 
@@ -9,7 +9,7 @@ Please note that this repository uses `git submodules`, so you need to either:
 - clone it with the `--recursive` option, or
 - run `$ git submodule update --init --recursive` after cloning.
 
-Please note that Stainless does not support Scala 2 frontend anymore but only Scala 3.3. The latest release that does support Scala 2.13 frontend is the [v0.9.8.7](https://github.com/epfl-lara/stainless/releases/tag/v0.9.8.7).
+Please note that Stainless does not support Scala 2 frontend anymore, only Scala 3.5.0 and later. The latest release that  supports Scala 2.13 frontend is the [v0.9.8.7](https://github.com/epfl-lara/stainless/releases/tag/v0.9.8.7).
 
 ## Quick start
 
@@ -42,14 +42,14 @@ If all goes well, Stainless should report something along the lines:
 [  Info  ] ╚══════════════════════════════════════════════════════════════════════════════════════════╝
 [  Info  ] Shutting down executor service.
 ```
-If you see funny symbols instead of the beautiful ASCII art, run Stainless with `--no-colors` option for clean ASCII output with standardized error message format. 
+If you see funny symbols instead of beautiful ASCII art, run Stainless with the `--no-colors` option for clean ASCII output with a standardized error message format. 
 
 The release archive of Stainless only requires JDK17. In particular, it needs neither a Scala compiler nor SBT.
-It is shipped with Z3 4.12.2, cvc5 1.0.8 and Princess. If Z3 API is not found, use option `--solvers=smt-z3` to rely on the executable.
+It is shipped with Z3 4.12.2+, cvc5 1.0.8+ and Princess (branch compiled for Scala 3). If Z3 API is not found, use option `--solvers=smt-z3` to rely on the executable instead of API call to z3.
 
 ## SBT Stainless plugin
 
-Alternatively, one may integrate Stainless with SBT. The supported Scala versions is `3.3.3`.
+Alternatively, one may integrate Stainless with SBT. 
 To do so, download [sbt-stainless](https://github.com/epfl-lara/stainless/releases), and move it to the directory of the project.
 Assuming the project's structure is:
 ```
@@ -83,7 +83,7 @@ For instance:
 ```scala
 ThisBuild / version := "0.1.0"
 
-ThisBuild / scalaVersion := "3.3.3"
+ThisBuild / scalaVersion := "3.5.2"
 
 lazy val myTestProject = (project in file("."))
   .enablePlugins(StainlessPlugin) // <--------
@@ -121,6 +121,7 @@ To allow running Stainless with only a browser, we have provided a sample reposi
 ## Further Documentation and Learning Materials
 
 To get started, see videos:
+  * [Stainless Introduction for 2nd year EPFL BSc students](https://mediaspace.epfl.ch/media/%5BCS214+W13+FP%5D+Formal+Verification+%282024-12-09%29/0_g7v3qvjp)
   * [ASPLOS'22 tutorial](https://epfl-lara.github.io/asplos2022tutorial/)
   * [FMCAD'21 tutorial](https://github.com/epfl-lara/fmcad2021tutorial/)
   * [Formal Verification Course](https://tube.switch.ch/channels/f2d4e01d): [Getting Started](https://tube.switch.ch/videos/c7d203e8),  [Tutorial 1](https://tube.switch.ch/videos/03edee61) [Tutorial 2](https://tube.switch.ch/videos/c22ea3e8) [Tutorial 3](https://tube.switch.ch/videos/7f57f7a9) [Tutorial 4](https://tube.switch.ch/videos/2a9fd35c), [Assertions](https://tube.switch.ch/videos/44e8a0dc), [Unfolding](https://tube.switch.ch/videos/ada8a42c), [Dispenser Example](https://tube.switch.ch/videos/ded227dd)
@@ -152,9 +153,5 @@ on program transformations and soundness of both contract and termination checki
 [license-ref]: https://github.com/epfl-lara/stainless/blob/main/LICENSE
 [gitter-img]: https://img.shields.io/gitter/room/gitterHQ/gitter.svg?color=ed1965
 [gitter-ref]: https://gitter.im/epfl-lara/stainless
-[larabot-img]: http://laraquad4.epfl.ch:9000/epfl-lara/stainless/status/main
-[larabot-ref]: http://laraquad4.epfl.ch:9000/epfl-lara/stainless/builds
-[nightly-larabot-img]: http://laraquad4.epfl.ch:9000/epfl-lara/stainless/status/main?nightly=true
-[nightly-larabot-ref]: http://laraquad4.epfl.ch:9000/epfl-lara/stainless/builds
 [release-img]: https://img.shields.io/github/release-pre/epfl-lara/stainless.svg
 [tag-date-img]: https://img.shields.io/github/release-date-pre/epfl-lara/stainless.svg?style=popout

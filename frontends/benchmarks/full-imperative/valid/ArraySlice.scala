@@ -26,7 +26,7 @@ object ArraySliceExample {
       require(0 <= n)
       modifies(Set(this))
       content = List.fill(n)(default)
-    } ensuring { _ => content.size == n }
+   }.ensuring { _ => content.size == n }
 
     def apply(i: BigInt): T = {
       reads(Set(this))
@@ -40,7 +40,7 @@ object ArraySliceExample {
       modifies(Set(this))
       updateSizeLemma(content, i, v)
       content = content.updated(i, v)
-    } ensuring { _ => content.size == old(content.size) }
+   }.ensuring { _ => content.size == old(content.size) }
   }
 
   final case class ArraySlice[T](a: SArray[T], from: BigInt, until: BigInt) {
@@ -65,7 +65,7 @@ object ArraySliceExample {
       modifies(Set(a))
 
       a(i) = v
-    } ensuring { _ => valid }
+   }.ensuring { _ => valid }
 
     def reSlice(from1: BigInt, until1: BigInt): ArraySlice[T] = {
       reads(Set(a))

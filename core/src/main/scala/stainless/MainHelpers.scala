@@ -27,7 +27,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
     override def toString: String = "Equivalence checking"
   }
 
-  override protected def getOptions: Map[inox.OptionDef[_], Description] = super.getOptions - inox.solvers.optAssumeChecked ++ Map(
+  override protected def getOptions: Map[inox.OptionDef[?], Description] = super.getOptions - inox.solvers.optAssumeChecked ++ Map(
     optVersion -> Description(General, "Display the version number"),
     optConfigFile -> Description(General, "Path to configuration file, set to false to disable (default: stainless.conf or .stainless.conf)"),
     optFunctions -> Description(General, "Only consider functions f1,f2,..."),
@@ -74,7 +74,9 @@ trait MainHelpers extends inox.MainHelpers { self =>
     frontend.optKeep -> Description(General, "Keep library objects marked by @keepFor(g) for some g in g1,g2,... (implies --batched)"),
     frontend.optExtraDeps -> Description(General, "Fetch the specified extra source dependencies and add their source files to the session"),
     frontend.optExtraResolvers -> Description(General, "Extra resolvers to use to fetch extra source dependencies"),
+    frontend.optClasspath -> Description(General, "Add the specified directory to the classpath"),
     utils.Caches.optCacheDir -> Description(General, "Specify the directory in which cache files should be stored"),
+    utils.Caches.optBinaryCache -> Description(General, "Set Binary mode for the cache instead of Hash mode, i.e., the cache will contain the entire VC and program in serialized format. This is less space efficient."),
     testgen.optOutputFile -> Description(TestsGeneration, "Specify the output file"),
     testgen.optGenCIncludes -> Description(TestsGeneration, "(GenC variant only) Specify header includes"),
     equivchk.optCompareFuns -> Description(EquivChk, "Only consider functions f1,f2,... for equivalence checking"),
@@ -85,6 +87,8 @@ trait MainHelpers extends inox.MainHelpers { self =>
     equivchk.optInitScore -> Description(EquivChk, "Initial score for models"),
     equivchk.optInitWeights -> Description(EquivChk, "Initial weights for models, overriding the initial score"),
     equivchk.optMaxPerm -> Description(EquivChk, "Maximum number of permutations to be tested when matching auxiliary functions"),
+    equivchk.optMaxCtex -> Description(EquivChk, "Maximum number of counter-examples to collect"),
+    equivchk.optMeasureTransfer -> Description(EquivChk, "Enable measure transfer for candidate functions"),
     optSatPrecond -> Description(General, "Generate VCs to check that preconditions are SAT"),
   ) ++ MainHelpers.components.map { component =>
     val option = inox.FlagOptionDef(component.name, default = false)
@@ -149,7 +153,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
   protected def newReporter(debugSections: Set[inox.DebugSection]): inox.Reporter =
     new stainless.DefaultReporter(debugSections)
 
-  def getConfigOptions(options: inox.Options)(using inox.Reporter): Seq[inox.OptionValue[_]] = {
+  def getConfigOptions(options: inox.Options)(using inox.Reporter): Seq[inox.OptionValue[?]] = {
     Configuration.get(options, self.options.keys.toSeq)
   }
 
@@ -163,7 +167,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
   }
 
   override
-  protected def processOptions(files: Seq[File], cmdOptions: Seq[inox.OptionValue[_]])
+  protected def processOptions(files: Seq[File], cmdOptions: Seq[inox.OptionValue[?]])
                               (using inox.Reporter): inox.Context = {
     val configOptions = getConfigOptions(inox.Options(cmdOptions))
 
@@ -273,7 +277,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
   }
 
   /** Exports the reports to the given file in JSON format. */
-  private def exportJson(report: Option[AbstractReport[_]], file: String): Unit = {
+  private def exportJson(report: Option[AbstractReport[?]], file: String): Unit = {
     val json = Json.fromFields(report map { r => (r.name -> r.emitJson) })
     JsonUtils.writeFile(new File(file), json)
   }

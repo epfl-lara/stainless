@@ -67,7 +67,7 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
   private def ctorFieldsOf(clsInfo: ClassInfo): List[Symbol] = {
     // Note: we do filter over clsInfo.fields (defined in Types) because the order of the fields is not kept.
     // Instead, we employ decls because the order is preserved
-    clsInfo.decls.iterator.filter(s => !(s is Method) && ((s is ParamAccessor) || (s is CaseAccessor))).toList
+    clsInfo.decls.iterator.filter(s => !(s `is` Method) && ((s `is` ParamAccessor) || (s `is` CaseAccessor))).toList
   }
 
   // Note: we wrap Symbols into an Option to emphasize the fact that the symbol may not exist
@@ -116,7 +116,7 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
       // copy$default$n are synthetic methods that simply return the n-th (starting from 1) constructor field
       def isCopyDefault = sym.name match {
         case DerivedName(nme.copy, kind) =>
-          sym.name is NameKinds.DefaultGetterName
+          sym.name `is` NameKinds.DefaultGetterName
         case _ => false
       }
       def isProductAccessor = sym.name match {
@@ -126,10 +126,10 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
         case _ => false
       }
 
-      (sym is Synthetic) &&
+      (sym `is` Synthetic) &&
       (
         (
-          (sym.owner is CaseClass) &&
+          (sym.owner `is` CaseClass) &&
           (
             sym.name == nme.equals_ ||
             sym.name == nme.productElement ||
@@ -139,7 +139,7 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
           )
         ) ||
         (
-          (sym.owner.companionClass is CaseClass) &&
+          (sym.owner.companionClass `is` CaseClass) &&
           sym.name == nme.unapply
         )
       )
@@ -151,12 +151,12 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
     }
 
     def isCaseCopy(s: Symbol): Boolean = {
-      (s is Method) && (s.owner is Case) && (s is Synthetic) && s.name == nme.copy
+      (s `is` Method) && (s.owner `is` Case) && (s `is` Synthetic) && s.name == nme.copy
     }
 
     def isCaseApply(s: Symbol): Boolean = {
       // The apply method is to be found in the module class, so we need to check that its owner is indeed a ModuleClass
-      (s is Method) && (s.owner is ModuleClass) && (s is Synthetic) && s.name == nme.apply && s.owner.companionClass.exists
+      (s `is` Method) && (s.owner `is` ModuleClass) && (s `is` Synthetic) && s.name == nme.apply && s.owner.companionClass.exists
     }
 
     /**
@@ -184,7 +184,7 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
         sym.removeGhostAnnotation()
         val param = m.asInstanceOf[tpd.DefDef].termParamss.flatten.head
         param.symbol.addGhostAnnotation()
-      } else if (((sym is Module) || (sym is ModuleClass)) && sym.companionClass.hasGhostAnnotation) {
+      } else if (((sym `is` Module) || (sym `is` ModuleClass)) && sym.companionClass.hasGhostAnnotation) {
         sym.addGhostAnnotation()
         sym.moduleClass.addGhostAnnotation()
       }
@@ -201,7 +201,7 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
           traverseChildren(tree)
 
         case m: tpd.MemberDef  =>
-          if ((m.symbol is Synthetic) || (m.symbol is Accessor) || (m.symbol is Artifact))
+          if ((m.symbol `is` Synthetic) || (m.symbol `is` Accessor) || (m.symbol `is` Artifact))
             propagateGhostAnnotation(m)
 
           // We consider some synthetic methods values as being inside ghost
@@ -216,7 +216,7 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
           traverse(fun)
           withinGhostContext(args foreach traverse)
 
-        case UnApply(fun, _, args) if fun.symbol.name == nme.unapply && (fun.symbol is Synthetic) =>
+        case UnApply(fun, _, args) if fun.symbol.name == nme.unapply && (fun.symbol `is` Synthetic) =>
           traverse(fun)
 
           // The pattern match variables need to add the ghost annotation from their case class ctor fields
@@ -501,7 +501,7 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
         case cd @ ExClassDef() =>
           val isSupported =
             sym.isClass ||
-            (sym is Implicit) ||
+            (sym `is` Implicit) ||
             sym.isAnnotation
 
           if (!isSupported) {
@@ -525,7 +525,7 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
             reportError(tree.sourcePos, "Auxiliary constructors are not allowed in Stainless.")
           if (dd.termParamss.size > 1)
             reportError(tree.sourcePos, "Multi-clauses classes are not allowed in Stainless.")
-          if (dd.termParamss.flatten.nonEmpty && (sym.owner isOneOf AbstractOrTrait))
+          if (dd.termParamss.flatten.nonEmpty && (sym.owner `isOneOf` AbstractOrTrait))
             reportError(tree.sourcePos, "Abstract class and trait constructor parameters are not allowed in Stainless.")
           traverse(dd.rhs)
 
@@ -533,13 +533,13 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
           // recur only inside `dd.rhs`, as parameter/type parameters have been checked already in `checkType`
           traverse(dd.rhs)
 
-        case vd @ ValDef(_, _, _) if sym.exists && sym.owner.isClass && !(sym.owner isOneOf AbstractOrTrait) && (sym is Mutable) && !sym.isOneOf(CaseAccessor | ParamAccessor) =>
+        case vd @ ValDef(_, _, _) if sym.exists && sym.owner.isClass && !(sym.owner `isOneOf` AbstractOrTrait) && (sym `is` Mutable) && !sym.isOneOf(CaseAccessor | ParamAccessor) =>
           reportError(tree.sourcePos, "Variables are only allowed within functions and as constructor parameters in Stainless.")
 
         case Apply(fun, List(arg)) if StainlessOld.contains(sym) =>
           arg match {
             case This(_) => ()
-            case t if t.symbol.isTerm && (t.symbol is Mutable) && !(t.symbol is Method) => ()
+            case t if t.symbol.isTerm && (t.symbol `is` Mutable) && !(t.symbol `is` Method) => ()
             case t =>
               reportError(t.sourcePos, s"Stainless `old` is only defined on `this` and variables.")
           }
@@ -551,7 +551,7 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
           traverseChildren(tree)
 
         case ExCall(Some(s @ Select(Super(_, _), _)), _, _, _) =>
-          if ((s.symbol is Abstract) && !s.symbol.isConstructor)
+          if ((s.symbol `is` Abstract) && !s.symbol.isConstructor)
             reportError(tree.sourcePos, "Cannot issue a super call to an abstract method.")
           traverseChildren(tree)
 
@@ -576,7 +576,7 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
         case tpl @ Template(_, _, _, _) =>
           for (t <- tpl.body if !(t.isDef || t.isType || t.isEmpty || t.isInstanceOf[tpd.Import])) {
             // `require` is allowed inside classes, but not inside objects
-            if (RequireMethods(t.symbol) && (ctx.owner is ModuleClass))
+            if (RequireMethods(t.symbol) && (ctx.owner `is` ModuleClass))
               reportError(t.sourcePos, "`require` is not allowed inside object bodies.")
             else
               reportError(t.sourcePos, "Only definitions are allowed inside class bodies.")
@@ -599,7 +599,7 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
       //    -an anonymous function
       //    -an anonymous class
       // * We furthermore ignore ClassTag[T].apply() that appear for Array operations, which we can still extract.
-      isExtern || isIgnore || ((sym is Synthetic) && (sym ne ScalaEnsuringMethod) && !sym.isAnonymousFunction && !sym.isAnonymousFunction) ||
+      isExtern || isIgnore || ((sym `is` Synthetic) && (sym ne ScalaEnsuringMethod) && !sym.isAnonymousFunction && !sym.isAnonymousFunction) ||
         (sym.owner eq defn.ClassTagModule_apply) ||
         bvSpecialFunctions(sym) || StainlessBVClass.contains(sym)
     }

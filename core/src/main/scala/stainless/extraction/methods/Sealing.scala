@@ -20,7 +20,7 @@ class Sealing(override val s: Trees)(override val t: s.type)
   import s._
   import s.exprOps._
 
-  private[this] val extID = new utils.ConcurrentCached[Identifier, Identifier](id => FreshIdentifier(id.name + "Ext"))
+  private val extID = new utils.ConcurrentCached[Identifier, Identifier](id => FreshIdentifier(id.name + "Ext"))
 
   protected class TransformerContext(using symbols: Symbols) extends MutabilityAnalysis {
     def mustDuplicate(fd: FunDef): Boolean = {
@@ -62,7 +62,7 @@ class Sealing(override val s: Trees)(override val t: s.type)
 
     // Given a (non-sealed) class, we lookup in the ancestors all methods that are
     // not final and not invariants in order to override them in the dummy class
-    private[this] def latestNonFinalMethods(cd: ClassDef): Set[SymbolIdentifier] =
+    private def latestNonFinalMethods(cd: ClassDef): Set[SymbolIdentifier] =
       (cd +: cd.ancestors.map(_.cd)).reverse.foldLeft(Map[Symbol, SymbolIdentifier]()) {
         case (lnfm, cd) =>
           val methods = cd.methods
@@ -264,7 +264,7 @@ class Sealing(override val s: Trees)(override val t: s.type)
    *         Extraction of functions
    * ==================================== */
 
-  private[this] def duplicate(fd: FunDef): FunDef = {
+  private def duplicate(fd: FunDef): FunDef = {
     exprOps.freshenSignature(fd.copy(
       id = ast.SymbolIdentifier(fd.id.name),
       flags = (fd.flags :+ Derived(Some(fd.id))).distinct

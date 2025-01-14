@@ -21,8 +21,8 @@ object Countable2 {
   // (since there is no bijection between BigInt and BigInt => BigInt)
   def lemma(e: Empty) = {
     assert(e.isBijective)
-    val f: (BigInt => BigInt) => BigInt = e.f _
-    val g: BigInt => (BigInt => BigInt) = e.g _
+    val f: (BigInt => BigInt) => BigInt = e.f
+    val g: BigInt => (BigInt => BigInt) = e.g
     def d(x: BigInt): BigInt = g(x)(x) + 1
     assert(d(f(d)) == g(f(d))(f(d)) + 1)
     assert(d(f(d)) == d(f(d)) + 1)

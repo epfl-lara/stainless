@@ -18,7 +18,7 @@ object GhostAssert {
 
     def h(x: BigInt) = {
       f(x)
-    } ensuring { res => res + p > 0 }
+   }.ensuring { res => res + p > 0 }
 
     def i(x: BigInt) = {
       decreases(p + x)

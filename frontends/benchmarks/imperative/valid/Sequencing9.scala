@@ -10,7 +10,7 @@ object Sequencing9 {
 
     def head: Box = {
       require(!isEmpty)
-      val SomeMut(v) = this
+      val SomeMut(v) = this: @unchecked
       v
     }
 

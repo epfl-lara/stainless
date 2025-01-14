@@ -26,7 +26,7 @@ trait SolverProvider { self =>
 
   private[termination] def registerTransformer(
       transformer: SymbolTransformer { val s: trees.type; val t: trees.type }
-  ): Unit = transformers = transformers andThen transformer
+  ): Unit = transformers = transformers `andThen` transformer
 
   private val semanticsProvider: inox.SemanticsProvider { val trees: checker.program.trees.type } =
     encodingSemantics(trees)(encoder)
@@ -72,7 +72,7 @@ trait SolverProvider { self =>
 
   def getAPI(t: SymbolTransformer { val s: trees.type; val t: trees.type }): inox.solvers.SimpleSolverAPI {
     val program: inox.Program { val trees: checker.program.trees.type }
-  } = solverAPI(transformers andThen t)
+  } = solverAPI(transformers `andThen` t)
 
   def apiTransform(s: Symbols) = transformers.transform(s)
 

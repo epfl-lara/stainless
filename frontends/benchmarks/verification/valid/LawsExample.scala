@@ -24,6 +24,6 @@ object LawsExample {
     def somethingelse[T](ceci: A[T], y: T): Unit = {
       require(ceci.f(ceci.a,ceci.a) == ceci.f(ceci.a,y))
       assert(something(ceci, ceci.a,y))
-    }.ensuring(y == ceci.a)
+   }.ensuring(y == ceci.a)
   }
 }

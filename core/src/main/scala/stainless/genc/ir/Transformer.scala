@@ -121,7 +121,7 @@ abstract class Transformer[From <: IR, To <: IR](final val from: From, final val
       to.ArrayAllocVLA(to.ArrayType(rec(base), optLength), rec(length), rec(valueInit))
   }
 
-  protected final def rec(e: Expr)(using Env): to.Expr = recImpl(e)._1
+  protected def rec(e: Expr)(using Env): to.Expr = recImpl(e)._1
 
   protected final def recCallable(fun: Callable)(using Env): to.Callable = rec(fun).asInstanceOf[to.Callable]
 
@@ -141,6 +141,8 @@ abstract class Transformer[From <: IR, To <: IR](final val from: From, final val
         e
       }
       to.buildBlock(exprs) -> newEnv
+    case Labeled(name, expr) =>
+      to.Labeled(name, rec(expr)) -> env
 
     case MemSet(pointer, value, size) => to.MemSet(rec(pointer), rec(value), rec(size)) -> env
     case SizeOf(tpe) => to.SizeOf(rec(tpe)) -> env
@@ -159,6 +161,7 @@ abstract class Transformer[From <: IR, To <: IR](final val from: From, final val
     case If(cond, thenn) => to.If(rec(cond), rec(thenn)) -> env
     case IfElse(cond, thenn, elze) => to.IfElse(rec(cond), rec(thenn), rec(elze)) -> env
     case While(cond, body) => to.While(rec(cond), rec(body)) -> env
+    case Goto(label) => to.Goto(label) -> env
     case IsA(expr, ct) => to.IsA(rec(expr), to.ClassType(rec(ct.clazz))) -> env
     case AsA(expr, ct) => to.AsA(rec(expr), to.ClassType(rec(ct.clazz))) -> env
     case IntegralCast(expr, t) => to.IntegralCast(rec(expr), t) -> env

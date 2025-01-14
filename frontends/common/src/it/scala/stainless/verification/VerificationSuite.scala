@@ -101,6 +101,7 @@ class VerificationSuite extends VerificationComponentTestSuite {
       "verification/valid/IntSetInv",
       "verification/valid/Iterables",
       "verification/valid/LawTypeArgsElim",
+      "verification/valid/LeanMergeSort",
       "verification/valid/ListMonad",
       "verification/valid/ListOperations",
       "verification/valid/LiteralMaps",
@@ -156,6 +157,7 @@ class VerificationSuite extends VerificationComponentTestSuite {
       "verification/invalid/FiniteSort",
       "verification/invalid/Float8",
       "verification/invalid/ForallAssoc",
+      "verification/invalid/Generics2",
       "verification/invalid/HiddenOverride",
       "verification/invalid/HOInvocations",
       "verification/invalid/i497",
@@ -170,7 +172,9 @@ class VerificationSuite extends VerificationComponentTestSuite {
       "verification/invalid/LawsExampleInvalid",
       "verification/invalid/ListOperations",
       "verification/invalid/Lists",
+      "verification/invalid/MyTuple3",
       "verification/invalid/Nested15",
+      "verification/invalid/Overrides",
       "verification/invalid/PackedFloat8",
       "verification/invalid/PartialSplit",
       "verification/invalid/PositiveMap",
@@ -199,7 +203,7 @@ class VerificationSuite extends VerificationComponentTestSuite {
     "codegen=" + options.findOptionOrDefault(evaluators.optCodeGen)
   }
 
-  override def configurations: Seq[Seq[inox.OptionValue[_]]] = {
+  override def configurations: Seq[Seq[inox.OptionValue[?]]] = {
     // All configurations for all possible solvers and codegen / recursive evaluators
     // Note 1: For codegen, we only use Z3
     // Note 2: We opt-in for early counter-example discovery for codegen with the "feeling lucky" option

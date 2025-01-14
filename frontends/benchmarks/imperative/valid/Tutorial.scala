@@ -14,7 +14,7 @@ object Lists {
   //def sizeOverflow[A](l: List[A]): Int = (l match {
   //  case Nil() => 0
   //  case Cons(_, t) => 1 + sizeOverflow(t)
-  //}) ensuring(res => res >= 0)
+  //}).ensuring(res => res >= 0)
 
   def sizeSpec[A](l: List[A]): BigInt = (l match {
     case Nil() => BigInt(0)
@@ -28,9 +28,9 @@ object Lists {
       decreases(lst)
       lst = tail(lst)
       res += 1
-    }) invariant(res + sizeSpec(lst) == sizeSpec(l))
+    }).invariant(res + sizeSpec(lst) == sizeSpec(l))
     res
-  } ensuring(res => res == sizeSpec(l))
+ }.ensuring(res => res == sizeSpec(l))
 
 
   def isEmpty[A](l: List[A]): Boolean = l match {
@@ -71,20 +71,20 @@ object Banking {
 
     def balance: BigInt = {
       checking + savings
-    } ensuring(_ >= 0)
+   }.ensuring(_ >= 0)
 
     def save(amount: BigInt): Unit = {
       require(amount >= 0 && amount <= checking)
       checking = checking - amount
       savings = savings + amount
-    } ensuring(_ => balance == old(this).balance)
+   }.ensuring(_ => balance == old(this).balance)
   }
 
   def transfer(from: BankAccount, to: BankAccount, amount: BigInt): Unit = {
     require(amount >= 0 && from.checking >= amount)
     from.checking -= amount
     to.checking += amount
-  } ensuring(_ => from.balance + to.balance == old(from).balance + old(to).balance &&
+ }.ensuring(_ => from.balance + to.balance == old(from).balance + old(to).balance &&
                   from.checking == old(from).checking - amount &&
                   to.checking == old(to).checking + amount)
 
@@ -115,9 +115,9 @@ object Banking {
       decreases(times - i)
       success = transaction.execute()
       i += 1
-    }) invariant(i >= 0 && i <= times && success == transaction.executed)
+    }).invariant(i >= 0 && i <= times && success == transaction.executed)
     success
-  } ensuring(status => status == transaction.executed)
+ }.ensuring(status => status == transaction.executed)
 
   def execute(transaction1: Transaction, transaction2: Transaction): Boolean = {
     require(!transaction1.executed && !transaction2.executed)
@@ -127,7 +127,7 @@ object Banking {
         false
       }
     } else false
-  } ensuring(executed => (
+ }.ensuring(executed => (
     (executed ==> (transaction1.executed && transaction2.executed)) &&
     (!executed ==> (!transaction1.executed && !transaction2.executed))
   ))
@@ -158,7 +158,7 @@ object Banking {
                   to, amount, false)
     )
     assert(status)
-  } ensuring(_ =>
+ }.ensuring(_ =>
       from.balance + to.balance == old(from).balance + old(to).balance &&
       from.checking == old(from).checking - amount &&
       to.checking == old(to).checking + amount

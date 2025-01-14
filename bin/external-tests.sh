@@ -84,6 +84,7 @@ Usage: external-tests.sh [options]
 
   -h | -help         Print this message
   --skip-build       Do not build Stainless (saves time if the build is already up-to-date).
+  --bolts-dir        Directory where bolts is located (default: clones from GitHub)
 EOM
 }
 
@@ -99,6 +100,11 @@ while [[ $# -gt 0 ]]; do
     --skip-build)
       SKIP_BUILD=true
       shift # past argument
+      ;;
+    --bolts-dir)
+      BOLTS_DIR="$2"
+      shift # past argument
+      shift # past value
       ;;
     *)    # unknown option
       usage
@@ -139,10 +145,18 @@ fi
 export PATH="$BASE_DIR/frontends/scalac/target/universal/stage/bin:$PATH"
 export PATH="$BASE_DIR/frontends/dotty/target/universal/stage/bin:$PATH"
 
-# Create a directory for doing tests and move there
+# If the bolts directory is provided, TEST_DIR is set to its parent directory
+if [[ -n "$BOLTS_DIR" ]]; then
+  TEST_DIR=$(dirname "$BOLTS_DIR")
+else
+  # Create a directory for doing tests and move there
+  TEST_DIR="$BASE_DIR/.stainless-external-tests"
+  mkdir -p "$TEST_DIR"
+fi
 
-TEST_DIR="$BASE_DIR/.stainless-external-tests"
-mkdir -p "$TEST_DIR"
+echo "TEST_DIR = $TEST_DIR"
+
+
 
 # Stainless Actors are currently disabled: https://github.com/epfl-lara/stainless/issues/970
 # "$BIN_DIR/stainless-actors-tests.sh" "$TEST_DIR" "$STAINLESS_VERSION"

@@ -7,5 +7,5 @@ object SATPrecond4 {
     require(l.contains(x))
     ListSpecs.forallContained(l, y => y > 0, x)
     x
-  }.ensuring(res => res > 0)
+ }.ensuring(res => res > 0)
 }

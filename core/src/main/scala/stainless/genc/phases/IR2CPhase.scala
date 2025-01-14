@@ -4,22 +4,22 @@ package stainless
 package genc
 package phases
 
-import ir.IRs.{ SIR }
+import ir.IRs.{ TIR }
 
 import ir.PrimitiveTypes._
 import ir.Literals._
 import ir.Operators._
 
 import genc.{ CAST => C }
-import SIR._
+import TIR._
 
 import collection.mutable.{ Map => MutableMap, Set => MutableSet }
 
-class IR2CPhase(using override val context: inox.Context) extends LeonPipeline[SIR.Prog, CAST.Prog](context) {
+class IR2CPhase(using override val context: inox.Context) extends LeonPipeline[TIR.Prog, CAST.Prog](context) {
   val name = "CASTer"
   val description = "Translate the IR tree into the final C AST"
 
-  def run(ir: SIR.Prog): CAST.Prog = new IR2CImpl()(using context)(ir)
+  def run(ir: TIR.Prog): CAST.Prog = new IR2CImpl()(using context)(ir)
 }
 
 // This implementation is basically a Transformer that produce something which isn't an IR tree.
@@ -166,6 +166,9 @@ private class IR2CImpl()(using ctx: inox.Context) {
         }
         .map(rec(_))
     }
+
+    case Labeled(name, block) =>
+      C.Labeled(name, rec(block))
 
     case Decl(vd, None) => C.Decl(rec(vd.id), rec(vd.getType), None)
 
@@ -315,6 +318,7 @@ private class IR2CImpl()(using ctx: inox.Context) {
     case IfElse(cond, thenn, Lit(UnitLit)) => C.If(rec(cond), C.buildBlock(rec(thenn)))
     case IfElse(cond, thenn, elze) => C.IfElse(rec(cond), C.buildBlock(rec(thenn)), C.buildBlock(rec(elze)))
     case While(cond, body) => C.While(rec(cond), C.buildBlock(rec(body)))
+    case Goto(label) => C.Goto(label)
 
     // Find out if we can actually handle IsInstanceOf.
     case IsA(_, ClassType(cd)) if cd.parent.isEmpty => C.True // Since it has typechecked, it can only be true.
@@ -672,8 +676,8 @@ private class IR2CImpl()(using ctx: inox.Context) {
       case head :: tail => BinOp(op, head, fold(op, default)(tail))
     }
 
-    private def foldAnd = fold(And, Lit(BoolLit(true))) _
-    private def foldOr = fold(Or, Lit(BoolLit(false))) _
+    private def foldAnd = fold(And, Lit(BoolLit(true)))
+    private def foldOr = fold(Or, Lit(BoolLit(false)))
 
     private def buildLeafClassCmpBody(cd: ClassDef, lhs: Expr, rhs: Expr): Expr = {
       assert(lhs.getType == rhs.getType && ClassType(cd) == lhs.getType && cd.getDirectChildren.isEmpty)

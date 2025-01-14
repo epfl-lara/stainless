@@ -39,15 +39,15 @@ object SuperCall5 {
     def empty: Nat
     def append(x: Nat, y: Nat): Nat
 
-    def law_leftIdentity(x: Nat) = (??? : Boolean) ensuring { res =>
+    def law_leftIdentity(x: Nat) = (??? : Boolean).ensuring { res =>
       res && append(empty, x) == x
     }
 
-    def law_rightIdentity(x: Nat) = (??? : Boolean) ensuring { res =>
+    def law_rightIdentity(x: Nat) = (??? : Boolean).ensuring { res =>
       res && append(x, empty) == x
     }
 
-    def law_associativity(x: Nat, y: Nat, z: Nat) = (??? : Boolean) ensuring { res =>
+    def law_associativity(x: Nat, y: Nat, z: Nat) = (??? : Boolean).ensuring { res =>
       res && append(x, append(y, z)) == append(append(x, y), z)
     }
   }
@@ -60,11 +60,11 @@ object SuperCall5 {
     override def law_leftIdentity(x: Nat) = super.law_leftIdentity(x).holds
 
     override def law_rightIdentity(x: Nat) = {
-      super.law_rightIdentity(x) because lemma_rightIdentity_plus(x)
+      super.law_rightIdentity(x).because(lemma_rightIdentity_plus(x))
     }.holds
 
     override def law_associativity(x: Nat, y: Nat, z: Nat) = {
-      super.law_associativity(x, y, z) because lemma_associativity_plus(x, y, z)
+      super.law_associativity(x, y, z).because(lemma_associativity_plus(x, y, z))
     }.holds
   }
 

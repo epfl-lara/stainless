@@ -54,25 +54,25 @@ trait ComponentRun { self =>
       val transformer = new TransformerImpl(extraction.trees, extraction.trees)
       extraction.ExtractionPipeline(transformer)
     } else {
-      val transformer = otherComponents.map(_.lowering).reduceLeft(_ andThen _)
+      val transformer = otherComponents.map(_.lowering).reduceLeft(_ `andThen` _)
       extraction.ExtractionPipeline(transformer)
     }
   }
 
   /* Override point for pipeline extensions in certain components.
    * For example, the partial evaluator and measure inference pipeline in the verification component. */
-  def createPipeline: extraction.StainlessPipeline = pipeline andThen lowering
+  def createPipeline: extraction.StainlessPipeline = pipeline `andThen` lowering
 
-  private[this] final val extractionPipeline = createPipeline andThen extraction.completer(trees)
+  private final val extractionPipeline = createPipeline `andThen` extraction.completer(trees)
 
   /* Override point for filter extensions in certain components.
    * For example, the evaluating component only evaluates parameterless functions. */
   protected def createFilter: CheckFilter { val trees: self.trees.type } = CheckFilter(trees, context)
 
-  private[this] final val extractionFilter = createFilter
+  private final val extractionFilter = createFilter
 
   /** Sends the symbols through the extraction pipeline. */
-  def extract(symbols: xt.Symbols): (trees.Symbols, ExtractionSummary) = extractionPipeline extract symbols
+  def extract(symbols: xt.Symbols): (trees.Symbols, ExtractionSummary) = extractionPipeline `extract` symbols
 
   /** Sends the program's symbols through the extraction pipeline. */
   def extract(program: inox.Program { val trees: xt.type }): inox.Program {

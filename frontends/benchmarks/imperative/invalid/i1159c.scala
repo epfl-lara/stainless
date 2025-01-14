@@ -12,7 +12,7 @@ object i1159c {
       i = 41
       j = 0
       // Oh no, we are off-by-one to the answer to life :(
-    }.ensuring(_ =>
+   }.ensuring(_ =>
       isAnswerToLife
     )
 

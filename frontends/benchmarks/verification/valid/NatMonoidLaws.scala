@@ -58,11 +58,11 @@ object NatMonoidLaws {
     def append(x: Nat, y: Nat) = x + y
 
     override def law_rightIdentity(x: Nat) = {
-      super.law_rightIdentity(x) because lemma_rightIdentity_plus(x)
+      super.law_rightIdentity(x).because(lemma_rightIdentity_plus(x))
     }
 
     override def law_associativity(x: Nat, y: Nat, z: Nat) = {
-      super.law_associativity(x, y, z) because lemma_associativity_plus(x, y, z)
+      super.law_associativity(x, y, z).because(lemma_associativity_plus(x, y, z))
     }
   }
 

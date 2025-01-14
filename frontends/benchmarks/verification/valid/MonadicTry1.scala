@@ -11,7 +11,7 @@ object MonadicTry1 {
   def checkVal(b: Boolean): Try[Unit] = {
     if (b) Success[Unit](())
     else Failure[Unit](Exception("checkVal failed"))
-  } ensuring(res => res match {
+ }.ensuring(res => res match {
     case Success(_) => b
     case Failure(_) => !b
   })

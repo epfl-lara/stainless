@@ -13,7 +13,7 @@ object TreeImmutMapGenericExample {
       case Nil() =>
       case Cons(_, xs) => lemmaMapConcat(xs, ys, f)
     }
-  } ensuring (_ => xs.map(f) ++ ys.map(f) == (xs ++ ys).map(f))
+ }.ensuring(_ => xs.map(f) ++ ys.map(f) == (xs ++ ys).map(f))
 
   case class Cell[T](var value: T) extends AnyHeapRef
 
@@ -58,7 +58,7 @@ object TreeImmutMapGenericExample {
           right.map(f)
           ghost { lemmaMapConcat(oldList1, oldList2, f) }; ()
       }
-    } ensuring (_ => toList == old(toList.map(f)))
+   }.ensuring(_ => toList == old(toList.map(f)))
   }
 
   case class Leaf[T](data: Cell[T]) extends Tree[T]

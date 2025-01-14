@@ -52,7 +52,7 @@ case class ListMap[A, B](toList: List[(A, B)]) {
     assert(ListSpecs.noDuplicate(toList.filter(_._1 != keyValue._1).map(_._1)))
 
     ListMap(keyValue :: toList.filter(_._1 != keyValue._1))
-  }.ensuring(res => res.contains(keyValue._1) && res(keyValue._1) == keyValue._2)
+ }.ensuring(res => res.contains(keyValue._1) && res(keyValue._1) == keyValue._2)
 
   def ++(keyValues: List[(A, B)]): ListMap[A, B] = {
     decreases(keyValues)

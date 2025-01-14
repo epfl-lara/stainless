@@ -6,6 +6,6 @@ object AddingPositiveNumbers {
   def additionSound(x: BigInt, y: BigInt): BigInt = {
     require(x >= 0 && y >= 0)
     x + y
-  } ensuring(_ >= 0)
+ }.ensuring(_ >= 0)
 
 }

@@ -8,7 +8,7 @@ object ArrayParamMutation9 {
       decreases(a.length - i)
       a(i) = if (a(i) < 0) -a(i) else a(i)
       i = i + 1
-    }) invariant(i >= 0)
+    }).invariant(i >= 0)
   }
 
 

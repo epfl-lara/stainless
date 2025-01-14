@@ -53,7 +53,7 @@ class EquivChkSuite extends ComponentTestSuite {
           }
         }
         // Uncomment the `.copy(...)` to print equiv. chk. output
-        val ctx = ctx0.withOpts(opts: _*)//.copy(reporter = new inox.DefaultReporter(Set(DebugSectionEquivChk)))
+        val ctx = ctx0.withOpts(opts*)//.copy(reporter = new inox.DefaultReporter(Set(DebugSectionEquivChk)))
         given inox.Context = ctx
         val report = Await.result(component.run(extraction.pipeline).apply(ids, programSymbols2), Duration.Inf)
         val got = extractResults(conf.candidates, report)

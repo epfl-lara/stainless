@@ -65,13 +65,13 @@ object CellDataStructuresAndRepr {
     require(0 <= i && i < l.size)
     if (i > 0)
       lemmaListDropHead(l.tail, i - 1)
-  } ensuring (_ => l(i) == l.drop(i).head)
+ }.ensuring(_ => l(i) == l.drop(i).head)
 
   def lemmaListDropPlusOne[T](l: List[T], i: BigInt): Unit = {
     require(0 <= i && i < l.size)
     if (i > 0)
       lemmaListDropPlusOne(l.tail, i - 1)
-  } ensuring (_ => l.drop(i + 1) == l.drop(i).tail)
+ }.ensuring(_ => l.drop(i + 1) == l.drop(i).tail)
 
   def lemmaListDropTakeConcat[T](l: List[T], from: BigInt, until: BigInt, i: BigInt): Unit = {
     require(
@@ -86,7 +86,7 @@ object CellDataStructuresAndRepr {
 
     // FIXME: Complete the proof of `lemmaListDropTakeConcat`.
     lemmaListDropTakeConcat(l, from, until, i)
-  } ensuring { _ =>
+ }.ensuring { _ =>
     l.drop(from).take(i) ++ l.drop(from + i).take(until - (from + i)) ==
     l.drop(from).take(i + 1) ++ l.drop(from + i + 1).take(until - (from + i + 1))
   }
@@ -112,7 +112,7 @@ object CellDataStructuresAndRepr {
     def objectIndex(x: T, o: AnyHeapRef): BigInt = {
       require(objects(x).contains(o))
       objects(x).indexOf(o)
-    } ensuring (_ >= 0)
+   }.ensuring(_ >= 0)
 
     def objectValidProp(x: T, i: BigInt): Boolean = {
       require(validObjectIndex(x, i))
@@ -151,7 +151,7 @@ object CellDataStructuresAndRepr {
         assert(lemmaListContainsElem(objects(p), i))
         lemmaListContainsElem(objects(p), i)
       }
-    } ensuring (_ => validObjectIndex(p, i) ==> (objectIndex(p, objects(p)(i)) == i))
+   }.ensuring(_ => validObjectIndex(p, i) ==> (objectIndex(p, objects(p)(i)) == i))
   }
 
 
@@ -177,12 +177,12 @@ object CellDataStructuresAndRepr {
       case Nil() => Nil[AnyHeapRef]()
       case Cons(c, cs) => Cons(c, upcastCells(cs))
     }
-  } ensuring (_ == cs)
+ }.ensuring(_ == cs)
 
   case class CellArrayRepr() extends Repr[CellArray] {
     def objects(a: CellArray): List[AnyHeapRef] = {
       upcastCells(a.cells)
-    } ensuring (_ == a.cells)
+   }.ensuring(_ == a.cells)
 
     @opaque
     override def objectValidPropHolds(a: CellArray, i: BigInt): Boolean = {
@@ -195,7 +195,7 @@ object CellDataStructuresAndRepr {
           objectValidPropHolds(a.tail, i-1)
         }
       }
-    } ensuring (_ => validObjectIndex(a, i) ==> (objectIndex(a, objects(a)(i)) == i))
+   }.ensuring(_ => validObjectIndex(a, i) ==> (objectIndex(a, objects(a)(i)) == i))
   }
 
 
@@ -227,8 +227,8 @@ object CellDataStructuresAndRepr {
       require(0 <= i && i <= size)
       revealObjectSet
       (slice(0, i), slice(i, size))
-    } ensuring { case (s1, s2) =>
-      s1 * s2 && (s1.objectSet subsetOf objectSet) && (s2.objectSet subsetOf objectSet)
+   }.ensuring { case (s1, s2) =>
+      s1 * s2 && (s1.objectSet.subsetOf(objectSet)) && (s2.objectSet.subsetOf(objectSet))
     }
 
     // @opaque
@@ -238,7 +238,7 @@ object CellDataStructuresAndRepr {
     //     case Nil() => ()
     //     case Cons(c1, cs1) => lemmaCellValuesDistrib(cs1, cs2)
     //   }
-    // } ensuring (_ => cellValues(cs1) ++ cellValues(cs2) == cellValues(cs1 ++ cs2))
+    //}.ensuring(_ => cellValues(cs1) ++ cellValues(cs2) == cellValues(cs1 ++ cs2))
 
     @opaque
     def lemmaSplitAt(i: BigInt, s1: CellArraySlice, s2: CellArraySlice): Unit = {
@@ -267,7 +267,7 @@ object CellDataStructuresAndRepr {
       // FIXME: Complete the proof of `lemmaSplitAt`.
       lemmaSplitAt(i, s1, s2)
       ()
-    } ensuring (_ => toList == s1.toList ++ s2.toList)
+   }.ensuring(_ => toList == s1.toList ++ s2.toList)
 
     @inline
     def *(that: CellArraySlice): Boolean =
@@ -279,14 +279,14 @@ object CellDataStructuresAndRepr {
       repr.objectSet(this)
 
     @extern
-    def revealObjectSet: Unit = { () } ensuring (_ => objectSet == repr.objectSet(this))
+    def revealObjectSet: Unit = { ()}.ensuring(_ => objectSet == repr.objectSet(this))
 
     def validIndex(i: BigInt): Boolean = {
       val res = repr.validObjectIndex(this, i)
       revealObjectSet
       assert(res ==> lemmaValidIndexCell(cells, i))
       res
-    } ensuring (res => res ==> objectSet.contains(cell(i)))
+   }.ensuring(res => res ==> objectSet.contains(cell(i)))
 
     @opaque
     private def lemmaValidIndexCell(cs: List[IntCell], i: BigInt): Boolean = {
@@ -294,32 +294,32 @@ object CellDataStructuresAndRepr {
       if (i > 0)
         lemmaValidIndexCell(cs.tail, i - 1)
       true
-    } ensuring (res => res && cs.content.contains(cs(i)))
+   }.ensuring(res => res && cs.content.contains(cs(i)))
 
     def cells: List[IntCell] = {
       array.cells.drop(from).take(size)
-    } ensuring (_ == repr.objects(this))
+   }.ensuring(_ == repr.objects(this))
 
     def cell(i: BigInt): IntCell = {
       require(repr.validObjectIndex(this, i))
       cells(i)
-    } ensuring (_ == repr.objects(this)(i))
+   }.ensuring(_ == repr.objects(this)(i))
 
     def cellValues(cs: List[IntCell]): List[Int] = {
       reads(objectSet)
-      require(upcastCells(cs).content subsetOf objectSet)
+      require(upcastCells(cs).content.subsetOf(objectSet))
       cs match {
         case Nil() => Nil[Int]()
         case Cons(c, cs) => Cons(c.value, cellValues(cs))
       }
-    } ensuring (_.size == cs.size)
+   }.ensuring(_.size == cs.size)
 
     def toList: List[Int] = {
       reads(objectSet)
       revealObjectSet
 
       cellValues(cells)
-    } ensuring (_.size == size)
+   }.ensuring(_.size == size)
 
 
     // Indexing (`slice(i)`)
@@ -332,7 +332,7 @@ object CellDataStructuresAndRepr {
 
       lemmaApplyCell(cells, i)
       cell(i).value
-    } ensuring (_ == toList(i))
+   }.ensuring(_ == toList(i))
 
     @opaque
     private def lemmaApplyCell(cs: List[IntCell], i: BigInt): Unit = {
@@ -343,7 +343,7 @@ object CellDataStructuresAndRepr {
       )
       if (i > 0)
         lemmaApplyCell(cs.tail, i - 1)
-    } ensuring (_ => cs(i).value == cellValues(cs)(i))
+   }.ensuring(_ => cs(i).value == cellValues(cs)(i))
 
 
     // Updating (`slice(i) = v`)
@@ -356,7 +356,7 @@ object CellDataStructuresAndRepr {
       revealObjectSet
 
       update_(cells, 0, i, v) // effectively: `cell(i).value = v`
-    } ensuring (_ => toList == old(toList).updated(i, v))
+   }.ensuring(_ => toList == old(toList).updated(i, v))
 
     private def update_(cs: List[IntCell], j: BigInt, i: BigInt, v: Int): Unit = {
       reads(objectSet)
@@ -402,7 +402,7 @@ object CellDataStructuresAndRepr {
           }
           ()
       }
-    } ensuring { _ =>
+   }.ensuring { _ =>
       cell(i).value == v &&
       cellValues(cs) == (if (i - j >= 0) old(cellValues(cs)).updated(i - j, v) else old(cellValues(cs)))
     }
@@ -412,7 +412,7 @@ object CellDataStructuresAndRepr {
     def objects(s: CellArraySlice): List[AnyHeapRef] = {
       // reprCAT.objects(s.array).slice(s.from, s.until)
       reprCAT.objects(s.array).drop(s.from).take(s.size)
-    } ensuring (_.size == s.size)
+   }.ensuring(_.size == s.size)
 
     @opaque
     override def objectValidPropHolds(s: CellArraySlice, i: BigInt): Boolean = {
@@ -432,7 +432,7 @@ object CellDataStructuresAndRepr {
         check(objectIndex(s, objects(s)(i)) == i)
         true
       }
-    } ensuring (_ => validObjectIndex(s, i) ==> (objectIndex(s, objects(s)(i)) == i))
+   }.ensuring(_ => validObjectIndex(s, i) ==> (objectIndex(s, objects(s)(i)) == i))
 
     @opaque
     def lemmaArrayObject(s: CellArraySlice, i: BigInt) = {
@@ -442,7 +442,7 @@ object CellDataStructuresAndRepr {
       lemmaListTakeElem(os.drop(s.from), s.size, i)
       lemmaListDropElem(os, s.from, i)
       // --> os.drop(s.from).take(s.size)(i) == os(s.from + i)
-    } ensuring (_ => objects(s)(i) == reprCAT.objects(s.array)(s.from + i))
+   }.ensuring(_ => objects(s)(i) == reprCAT.objects(s.array)(s.from + i))
 
     @opaque
     def lemmaArrayObjectIndex(s: CellArraySlice, i: BigInt) = {
@@ -456,7 +456,7 @@ object CellDataStructuresAndRepr {
       // --> os.drop(s.from).indexOf(o) == os.drop(s.from).take(s.size).indexOf(o)
       lemmaListDropIndexOf(os, s.from, o)
       // --> os.indexOf(o) == os.drop(s.from).take(s.size).indexOf(o) + s.from
-    } ensuring (_ =>
+   }.ensuring(_ =>
       reprCAT.objects(s.array).indexOf(objects(s)(i)) == objects(s).indexOf(objects(s)(i)) + s.from
     )
   }
@@ -510,5 +510,5 @@ object CellDataStructuresAndRepr {
     }
     ()
 
-  } ensuring (_ => dst.toList == old(src.toList))
+ }.ensuring(_ => dst.toList == old(src.toList))
 }

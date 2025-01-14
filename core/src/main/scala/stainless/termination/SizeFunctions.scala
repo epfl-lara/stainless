@@ -85,7 +85,7 @@ class SizeFunctions(val trees: Trees) {
    *   1 + bvAbs2Integer(x - 1)
    * } else {
    *   1 + bvAbs2Integer(-(x + 1)) // avoids -Integer.MIN_VALUE overflow
-   * }) ensuring (_ >= 0)
+   * }).ensuring (_ >= 0)
    */
 
   def bvAbs2Integer(tpe: BVType)(using Symbols): FunDef = {

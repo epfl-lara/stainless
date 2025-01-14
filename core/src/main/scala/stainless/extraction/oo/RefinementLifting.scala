@@ -279,7 +279,7 @@ class RefinementLifting(override val s: Trees, override val t: Trees)
 
         case None =>
           import s.dsl._
-          mkFunDef(FreshIdentifier("inv"))(sort.typeArgs.map(_.id.name) : _*) {
+          mkFunDef(FreshIdentifier("inv"))(sort.typeArgs.map(_.id.name)*) {
             tparams => (
               Seq("thiss" :: s.ADTType(sort.id, tparams).copiedFrom(sort)),
               s.BooleanType().copiedFrom(sort), { case Seq(thiss) =>

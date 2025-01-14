@@ -64,7 +64,7 @@ object split {
       val qpa = transfers.find(_._1 == (q, p)).map(_._2)
       qpa.isDefined && (qpa.get == 0 || pqa == 0) && (pqa > 0 || qpa.get > 0)
     } && posConstraints(transfers) && negConstraints(transfers)
-  } ensuring { !_ }
+ }.ensuring { !_ }
 
   def fuzEq(a: BigInt, b: BigInt): Boolean = {
     a >= b - 50 && a <= b + 50

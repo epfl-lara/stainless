@@ -1,5 +1,48 @@
 # Release Notes
 
+## Version 0.9.9.0 (2024-12-09)
+
+- Scala version is now 3.5.2 
+- Update to Inox that supports Horn clause solving, https://github.com/epfl-lara/inox/pull/214
+- Fix an extraction bug with type synonym definitions (#1595)
+- Explicit measures in List library so termination checks are cached
+- More properties and methods on lists and sets
+- Set considered to have positive polarity (it is finite)
+- Internal solver errors are now silent by default
+
+## Version 0.9.8.9 (2024-10-19)
+
+- Default cache now only stores SHA-256 hash of formulas ( -binary-cache=true for old version)
+- Scala version is now 3.5.0
+- Inox now has a solver for ground assertions based on internal evaluator (Inox #218), called `eval`
+- Opaque Forall and ensures: help higher order contracts (#1567)
+- Option `--compact` also reduces progress messages (#1573)
+- Changed CI to use GitHub actions
+- Documented a limited use of `throw`
+- CI scripts as part of move to GitHub actions
+
+## Version 0.9.8.8 (2024-08-22)
+
+### Stainless frontend, library and internals
+
+- Remove Scala 2 frontend (#1517)
+- Transform `throw` into `assert(false)` (#1521)
+- Add measure transfer for equivalence checking (#1557)
+- Add further benchmarks for equivalence checking (#1538, #1554)
+- Add SAT Check for precondition (#1548)
+- Add various specifications to Stainless library (#1555, #1541)
+- Enhance unfold to work on bindings and imperative code as well (#1533)
+- Various bug fixes (#1531, #1532)
+
+### Build
+
+- Move Inox as a submodule instead of an http dependency (#1520)
+
+### Documentation
+
+- Add documentation for codespaces use and link to a sample repo (#1440)
+
+
 ## Version 0.9.8.7 (2024-05-06)
 
 ### Stainless frontend, library and internals
@@ -585,4 +628,3 @@
 ## Version 0.1-93dbd33 (14-01-2019)
 
 - First official release on GitHub
-

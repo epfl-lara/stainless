@@ -20,6 +20,6 @@ object HigherOrderFunctionsMutableParams4 {
       a2.x += 1
       a2.x
     }, a)
-  } ensuring(_ == 12)
+ }.ensuring(_ == 12)
 
 }

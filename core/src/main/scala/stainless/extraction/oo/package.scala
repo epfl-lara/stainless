@@ -35,14 +35,14 @@ package object oo {
     }
     val lowering = ExtractionPipeline(new LoweringImpl(trees, innerfuns.trees))
 
-    utils.NamedPipeline("AdtSpecialization", AdtSpecialization(trees, trees)) andThen
-    utils.NamedPipeline("RefinementLifting", RefinementLifting(trees, trees)) andThen
-    utils.NamedPipeline("TypeEncoding",      TypeEncoding(trees, trees))      andThen
-    utils.NamedPipeline("InvariantInitialization", InvariantInitialization(trees, trees)) andThen
+    utils.NamedPipeline("AdtSpecialization", AdtSpecialization(trees, trees)) `andThen`
+    utils.NamedPipeline("RefinementLifting", RefinementLifting(trees, trees)) `andThen`
+    utils.NamedPipeline("TypeEncoding",      TypeEncoding(trees, trees))      `andThen`
+    utils.NamedPipeline("InvariantInitialization", InvariantInitialization(trees, trees)) `andThen`
     lowering
   }
 
-  def fullExtractor(using inox.Context) = extractor andThen nextExtractor
+  def fullExtractor(using inox.Context) = extractor `andThen` nextExtractor
   def nextExtractor(using inox.Context) = innerfuns.fullExtractor
 
   def phaseSemantics(using inox.Context): inox.SemanticsProvider { val trees: oo.trees.type } = {

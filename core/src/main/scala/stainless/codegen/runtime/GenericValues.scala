@@ -6,10 +6,10 @@ package codegen.runtime
 import scala.collection.immutable.{Map => ScalaMap}
 
 object GenericValues {
-  private[this] var counter = 0
+  private var counter = 0
 
-  private[this] var gvToI = ScalaMap[ast.Trees#GenericValue, Int]()
-  private[this] var iTogv = ScalaMap[Int, ast.Trees#GenericValue]()
+  private var gvToI = ScalaMap[ast.Trees#GenericValue, Int]()
+  private var iTogv = ScalaMap[Int, ast.Trees#GenericValue]()
 
   def register(gv: ast.Trees#GenericValue): Int = synchronized {
     if (gvToI contains gv) {

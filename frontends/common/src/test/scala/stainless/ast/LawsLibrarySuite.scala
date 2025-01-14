@@ -53,9 +53,9 @@ class LawsLibrarySuite extends AnyFunSuite with InputUtils {
     .get
 
   def pipeline = {
-    extraction.xlang.extractor        andThen
-    extraction.innerclasses.extractor andThen
-    extraction.methods.Laws(extraction.methods.trees)
+    extraction.xlang.extractor.andThen(
+      extraction.innerclasses.extractor.andThen(
+        extraction.methods.Laws(extraction.methods.trees)))
   }
 
   val symbols = pipeline.extract(xlangProgram.symbols)._1

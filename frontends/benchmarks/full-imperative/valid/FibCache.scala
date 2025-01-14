@@ -28,7 +28,7 @@ object FibCacheExample {
           check(result == fibPure(n))
           result
       }
-    } ensuring (res => res == fibPure(n) && cache.forall(cacheProp))
+   }.ensuring(res => res == fibPure(n) && cache.forall(cacheProp))
 
     def lemmaHeapIsIrrelevant(h0: Heap, h1: Heap, n: BigInt): Unit = {
       require(
@@ -37,6 +37,6 @@ object FibCacheExample {
         h1.eval { cache.forall(cacheProp) }
       )
       ()
-    } ensuring (_ => h0.eval { apply(n) } == h1.eval { apply(n) })
+   }.ensuring(_ => h0.eval { apply(n) } == h1.eval { apply(n) })
   }
 }

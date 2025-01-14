@@ -21,6 +21,6 @@ object Filter {
   def filter_check(p: BigInt => Boolean, l: List[BigInt], n: BigInt): Unit = {
     require(l.size <= n)
     ()
-  } ensuring(filter1(p, l, n) == filter2(p, l, n))
+ }.ensuring(filter1(p, l, n) == filter2(p, l, n))
   
 }

@@ -13,7 +13,7 @@ trait TransformerWithPC extends transformers.TransformerWithPC {
       t.LetRec(
         defs map { case fd @ s.LocalFunDef(id, tparams, params, returnType, fullBody, flags) =>
           val (newEnv, newParams) = params.foldLeft((env, Seq.empty[t.ValDef])) {
-            case ((env, newParams), vd) => (env withBound vd, newParams :+ transform(vd, env))
+            case ((env, newParams), vd) => (env `withBound` vd, newParams :+ transform(vd, env))
           }
 
           t.LocalFunDef(

@@ -38,7 +38,7 @@ package object innerclasses {
     utils.NamedPipeline("InnerClasses", InnerClasses(trees, methods.trees))
   }
 
-  def fullExtractor(using inox.Context) = extractor andThen nextExtractor
+  def fullExtractor(using inox.Context) = extractor `andThen` nextExtractor
   def nextExtractor(using inox.Context) = methods.fullExtractor
 
   def phaseSemantics(using inox.Context): inox.SemanticsProvider { val trees: innerclasses.trees.type } = {

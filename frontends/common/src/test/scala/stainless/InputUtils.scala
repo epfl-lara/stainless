@@ -35,7 +35,7 @@ trait InputUtils {
     loadFiles(files, filterOpt, sanitize)
   }
 
-  /** Compile and extract the given files (& the library). */
+  /** Compile and extract the given files. */
   def loadFiles(files: Seq[String], filterOpt: Option[Filter] = None, sanitize: Boolean = true)
                (using ctx: inox.Context): (Seq[xt.UnitDef], Program { val trees: xt.type }) = {
 
@@ -61,7 +61,6 @@ trait InputUtils {
     val callback = new CallBack {
       override def join(): Unit = ()
       override def stop(): Unit = ()
-      override def failed(): Unit = ()
       override def getReport = None
 
       override def beginExtractions(): Unit = ()
@@ -102,7 +101,7 @@ trait InputUtils {
 
     if (sanitize) {
       // Check that extracted symbols are valid
-      TreeSanitizer(xt) enforce syms
+      TreeSanitizer(xt).enforce(syms)
       if (ctx.reporter.errorCount != 0) {
         throw SanitizationError(ctx.reporter.errorsOrNil)
       }

@@ -65,7 +65,7 @@ trait Printer extends inox.ast.Printer {
     case Ensuring(body, post) =>
       p"""|{
           |  $body
-          |} ensuring {
+          |}.ensuring {
           |  $post
           |}"""
 
@@ -109,6 +109,10 @@ trait Printer extends inox.ast.Printer {
       rec.foreach(e => p"$e.")
       printNameWithPath(id)
       p"(${nary(subs)})"
+
+    case AlternativePattern(ovd, subs) =>
+      ovd foreach (vd => p"${vd.toVariable} : ")
+      p"(${nary(subs, " | ")})"
 
     case Passes(in, out, cases) =>
       optP {

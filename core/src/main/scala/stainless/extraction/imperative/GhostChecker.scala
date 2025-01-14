@@ -105,12 +105,12 @@ trait GhostChecker { self: EffectsAnalyzer =>
 
     class Checker(inGhost: Boolean) extends ConcreteOOSelfTreeTraverser {
 
-      private[this] def isADT(e: Expr): Boolean = e.getType match {
+      private def isADT(e: Expr): Boolean = e.getType match {
         case _: ADTType => true
         case _ => false
       }
 
-      private[this] def isObject(e: Expr): Boolean = e.getType match {
+      private def isObject(e: Expr): Boolean = e.getType match {
         case _: ClassType => true
         case _ => false
       }

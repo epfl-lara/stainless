@@ -58,14 +58,14 @@ class VerificationRun private(override val component: VerificationComponent.type
   override def parse(json: Json): Report = VerificationReport.parse(json)
 
   override def createPipeline = {
-    pipeline andThen
-    extraction.utils.NamedPipeline("MeasureInference", MeasureInference(extraction.trees)) andThen
+    pipeline `andThen`
+    extraction.utils.NamedPipeline("MeasureInference", MeasureInference(extraction.trees)) `andThen`
     extraction.utils.NamedPipeline("PartialEvaluation", PartialEvaluation(extraction.trees))
   }
 
   given givenDebugSection: DebugSectionVerification.type = DebugSectionVerification
 
-  private[this] val debugAssertions = new DebugSymbols {
+  private val debugAssertions = new DebugSymbols {
     val name = "AssertionInjector"
     val context = self.context
     val s: self.trees.type = self.trees

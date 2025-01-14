@@ -49,5 +49,5 @@ object TreeImmutMapGenericExample {
     modifies(t.repr)
 
     t.tmap(x => y)
-  } ensuring(_ => c.value == old(c.value))
+ }.ensuring(_ => c.value == old(c.value))
 }

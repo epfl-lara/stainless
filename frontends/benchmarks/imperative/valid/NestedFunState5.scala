@@ -18,15 +18,15 @@ object NestedFunState5 {
       nestedIter()
       nestedIter()
 
-    } ensuring(_ => a == prevA + 2)
+   }.ensuring(_ => a == prevA + 2)
 
     var i = BigInt(0)
     (while(i < n) {
       decreases(n - i)
       i += 1
       iter(a)
-    }) invariant(i >= 0 && i <= n && a >= 2*i)
+    }).invariant(i >= 0 && i <= n && a >= 2*i)
 
     a
-  } ensuring(_ >= 2*n)
+ }.ensuring(_ >= 2*n)
 }

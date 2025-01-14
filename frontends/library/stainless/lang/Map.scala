@@ -15,7 +15,7 @@ object Map {
 
   @ignore
   def apply[A,B](elems: (A,B)*) = {
-    new Map[A,B](scala.collection.immutable.Map[A,B](elems : _*))
+    new Map[A,B](scala.collection.immutable.Map[A,B](elems*))
   }
 
   @library @extern @pure
@@ -42,7 +42,7 @@ object Map {
     @extern @pure
     def keysPost(a: A): Unit = {
       ()
-    } ensuring { _ =>
+   }.ensuring { _ =>
       map.contains(a) == keys.contains(a)
     }
 
@@ -55,7 +55,7 @@ object Map {
     @extern @pure
     def valuesPost1(a: A): Unit = {
       ()
-    } ensuring { _ =>
+   }.ensuring { _ =>
       !map.contains(a) || values.contains(map(a))
     }
 
@@ -63,7 +63,7 @@ object Map {
     def valuesPost2(b: B): A = {
       require(values.contains(b))
       (??? : A)
-    } ensuring ((a:A) => b == map(a) && map.contains(a))
+   }.ensuring((a:A) => b == map(a) && map.contains(a))
 
     @extern @pure
     def toList: List[(A, B)] = {
@@ -73,7 +73,7 @@ object Map {
     @extern @pure
     def toListPost(a: A): Unit = {
       ()
-    } ensuring (_ => map.contains(a) ==> toList.contains((a, map(a))))
+   }.ensuring(_ => map.contains(a) ==> toList.contains((a, map(a))))
 
     @extern @pure
     def toScala: ScalaMap[A, B] = {

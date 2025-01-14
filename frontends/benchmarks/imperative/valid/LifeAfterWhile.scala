@@ -13,5 +13,5 @@ object LifeAfterWhile {
     }).invariant(0 <= i && i <= N)
     i = i - 100
     i
-  } ensuring (res => res <= N - 100)
+ }.ensuring(res => res <= N - 100)
 }

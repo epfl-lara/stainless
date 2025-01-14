@@ -319,7 +319,7 @@ example:
     state.data(state.y) = 1
     state.stable = true
     if (state.y > 0) move()
-  }.ensuring(_ => state.stable)
+ }.ensuring(_ => state.stable)
 
 After compilation to C, we get the following function, with global declarations
 ``stable``, ``x``, ``y``, and ``data``.

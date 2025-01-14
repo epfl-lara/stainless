@@ -10,6 +10,6 @@ object ObjectParamMutation9 {
 
   def update(a: A): Unit = {
     foo(10, a)
-  } ensuring(_ => a.x == 10)
+ }.ensuring(_ => a.x == 10)
 
 }

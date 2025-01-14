@@ -181,7 +181,7 @@ class InnerClasses(override val s: Trees, override val t: methods.Trees)
 
       def merge(that: Context): Context =
         Context(
-          this.path merge that.path,
+          this.path `merge` that.path,
           this.substs ++ that.substs,
           that.currentClass,
           that.currentFunction
@@ -193,7 +193,7 @@ class InnerClasses(override val s: Trees, override val t: methods.Trees)
       def withCond(e: Expr): Context = this.copy(path = path.withCond(e))
 
       def withSubst(subst: ClassSubst) = copy(substs = substs.updated(subst.cd.id, subst))
-      def withSubsts(substs: Seq[ClassSubst]) = substs.foldLeft(this)(_ withSubst _)
+      def withSubsts(substs: Seq[ClassSubst]) = substs.foldLeft(this)(_ `withSubst` _)
       def withCurrentClass(cd: ClassDef) = copy(currentClass = Some(cd))
       def withCurrentFunction(fd: FunDef) = copy(currentFunction = Some(fd))
     }
@@ -278,7 +278,7 @@ class InnerClasses(override val s: Trees, override val t: methods.Trees)
             lifted
           }
 
-          transform(LetRec(localFunDefs, body).copiedFrom(e), ctx withSubsts lifted)
+          transform(LetRec(localFunDefs, body).copiedFrom(e), ctx `withSubsts` lifted)
 
         case LocalThis(lct) =>
           val subst = ctx.substs(lct.id)

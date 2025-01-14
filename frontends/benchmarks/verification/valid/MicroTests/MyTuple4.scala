@@ -9,8 +9,8 @@ object MyTuple4 {
 
   def foo(): Int = {
     val t = (1, (C(B(4)), 2), 3)
-    val (a1, (C(B(x)), a2), a3) = t
+    val (a1, (C(B(x)), a2), a3) = t: @unchecked
     x
-  } ensuring( _ == 4)
+ }.ensuring( _ == 4)
 
 }

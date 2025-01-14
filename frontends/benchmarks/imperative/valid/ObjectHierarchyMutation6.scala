@@ -13,6 +13,6 @@ object ObjectHierarchyMutation6 {
   def update(c: C): Int = {
     updateA(c.b2.a1)
     c.b2.a1.x
-  } ensuring(res => res == 43)
+ }.ensuring(res => res == 43)
 
 }

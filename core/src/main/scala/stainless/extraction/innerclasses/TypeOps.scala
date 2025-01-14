@@ -32,7 +32,7 @@ trait TypeOps extends methods.TypeOps {
     }
   }
 
-  private[this] def lub(ct1: ClassTypeAbs, ct2: ClassTypeAbs): Option[ClassTypeAbs] = {
+  private def lub(ct1: ClassTypeAbs, ct2: ClassTypeAbs): Option[ClassTypeAbs] = {
     val cd1Ans = ct1.ancestors.map(_.id).toSet + ct1.id
     val cd2Ans = ct2.ancestors.map(_.id).toSet + ct2.id
     val ans1 = (ct1 +: ct1.ancestors).find(ct => cd2Ans contains ct.id)
@@ -52,7 +52,7 @@ trait TypeOps extends methods.TypeOps {
     }
   }
 
-  private[this] def glb(ct1: ClassTypeAbs, ct2: ClassTypeAbs): Option[ClassTypeAbs] = {
+  private def glb(ct1: ClassTypeAbs, ct2: ClassTypeAbs): Option[ClassTypeAbs] = {
     val cd1Ans = ct1.ancestors.map(_.id).toSet + ct1.id
     val cd2Ans = ct2.ancestors.map(_.id).toSet + ct2.id
     val (desc1, desc2) = {

@@ -4,6 +4,6 @@ object Unit2 {
 
   def foo(u: Unit): Unit = {
     u
-  } ensuring(res => true)
+ }.ensuring(res => true)
 
 }

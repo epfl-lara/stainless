@@ -14,8 +14,8 @@ if [[ $(git diff --stat) != '' ]]; then
   STAINLESS_VERSION="$STAINLESS_VERSION-SNAPSHOT"
 fi
 
-SCALA_VERSION="3.3.3"
-LIB_SCALA_VERSION="3.3.3"
+SCALA_VERSION="3.5.2"
+LIB_SCALA_VERSION="3.5.2"
 LIB_SCALA_VERSION_JAR_NAME_PART=$(echo $LIB_SCALA_VERSION | cut -d '.' -f 1)
 Z3_VERSION="4.12.2"
 CVC5_VERSION="1.0.8"
@@ -255,8 +255,8 @@ info "$(tput bold)[] Assembling fat jar..."
 if [[ -f "$STAINLESS_DOTTY_JAR_PATH" && -f "$STAINLESS_LIB_BIN_JAR_PATH" && -f "$STAINLESS_LIB_SRC_JAR_PATH" ]]; then
   info "  (JAR already exists, skipping sbt assembly step.)" && okay
 else
-  $SBT_PACKAGE_DOTTY >> $LOG || fail
-  $SBT_PACKAGE_LIB >> $LOG && okay || fail
+  $SBT_PACKAGE_DOTTY | tee -a $LOG || fail
+  ($SBT_PACKAGE_LIB | tee -a $LOG) && okay || fail
 fi
 
 prepare_output_dir

@@ -15,17 +15,17 @@ class StainlessSerializer(override val trees: ast.Trees, serializeProducts: Bool
   extends InoxSerializer(trees, serializeProducts) {
   import trees._
 
-  final inline def stainlessClassSerializer[T: ClassTag](inline id: Int): (Class[_], Serializer[T]) =
+  final inline def stainlessClassSerializer[T: ClassTag](inline id: Int): (Class[?], Serializer[T]) =
     classTag[T].runtimeClass -> stainlessClassSerializerMacro[T](this, id).asInstanceOf[Serializer[T]]
 
   /** An extension to the set of registered classes in the `InoxSerializer`.
     * occur within Stainless programs.
     *
-    * The new identifiers in the mapping range from 120 to 172.
+    * The new identifiers in the mapping range from 120 to 173.
     *
-    * NEXT ID: 173
+    * NEXT ID: 174
     */
-  override protected def classSerializers: Map[Class[_], Serializer[_]] =
+  override protected def classSerializers: Map[Class[?], Serializer[?]] =
     super.classSerializers ++ Map(
       stainlessClassSerializer[NoTree]             (120),
       stainlessClassSerializer[Error]              (121),
@@ -40,6 +40,7 @@ class StainlessSerializer(override val trees: ast.Trees, serializeProducts: Bool
       stainlessClassSerializer[TuplePattern]       (130),
       stainlessClassSerializer[LiteralPattern[Any]](131),
       stainlessClassSerializer[UnapplyPattern]     (132),
+      stainlessClassSerializer[AlternativePattern] (173),
       stainlessClassSerializer[FiniteArray]        (133),
       stainlessClassSerializer[LargeArray]         (134),
       stainlessClassSerializer[ArraySelect]        (135),
@@ -103,7 +104,7 @@ class XLangSerializer(override val trees: extraction.xlang.Trees, serializeProdu
     *
     * NEXT ID: 263
     */
-  override protected def classSerializers: Map[Class[_], Serializer[_]] =
+  override protected def classSerializers: Map[Class[?], Serializer[?]] =
     super.classSerializers ++ Map(
       // Termination trees
       stainlessClassSerializer[Decreases](180),

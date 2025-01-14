@@ -7,5 +7,5 @@ object i1271b {
   def looping_f(x: BigInt): Unit = {
     require(x >= 0)
     looping_f(x + 1)
-  }.ensuring(_ => false)
+ }.ensuring(_ => false)
 }

@@ -3,10 +3,6 @@
 Stainless' Internals
 ====================
 
-The main component of Stainless and the dataflow in its pipeline:
-
-.. image:: static/images/pipeline.svg
-   :width: 90%
-
-
-
+For deeper understanding of Stainless and Inox, please
+consult the code on GitHub or GitLab, as well as papers and
+PhD dissertations.

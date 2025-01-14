@@ -2,7 +2,7 @@
 
 package stainless.codegen.runtime
 
-sealed abstract class Box { val array: Array[_] }
+sealed abstract class Box { val array: Array[?] }
 case class IntBox(array: Array[Int]) extends Box
 case class BooleanBox(array: Array[Boolean]) extends Box
 case class AnyRefBox(array: Array[AnyRef]) extends Box

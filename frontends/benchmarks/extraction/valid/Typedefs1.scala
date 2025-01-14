@@ -16,5 +16,5 @@ object Typedefs1 {
     require( a < 2147483647 )
     val res = a + 1
     res
-  } ensuring( res => res > a)
+ }.ensuring( res => res > a)
 }

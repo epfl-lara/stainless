@@ -11,5 +11,5 @@ object IndexOfInjective {
     if (!l.isEmpty && l.head != x1 && l.head != x2)
       indexOfInjective(l.tail, x1, x2)
 
-  } ensuring(_ => l.indexOf(x1) != l.indexOf(x2))
+ }.ensuring(_ => l.indexOf(x1) != l.indexOf(x2))
 }

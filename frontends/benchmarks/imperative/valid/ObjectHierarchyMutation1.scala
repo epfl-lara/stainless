@@ -8,6 +8,6 @@ object ObjectHierarchyMutation1 {
   def update(b: B): Int = {
     b.a.y = 17
     b.a.y
-  } ensuring(res => res == 17)
+ }.ensuring(res => res == 17)
 
 }

@@ -125,24 +125,24 @@ package object extraction {
     object printer extends Printer { val trees: extraction.trees.type = extraction.trees }
   }
 
-  case class ExtractionFailed() extends Exception
+  case class ExtractionFailed() extends Exception("Extraction failed")
   case class MalformedStainlessCode(tree: inox.ast.Trees#Tree, msg: String)
     extends Exception(msg)
 
   def pipeline(using inox.Context): StainlessPipeline = {
-    xlang.extractor        andThen
-    innerclasses.extractor andThen
-    methods.extractor      andThen
-    throwing.extractor     andThen
-    imperative.extractor   andThen
-    oo.extractor           andThen
-    innerfuns.extractor    andThen
-    inlining.extractor     andThen
-    trace.extractor        andThen
+    xlang.extractor        `andThen`
+    innerclasses.extractor `andThen`
+    methods.extractor      `andThen`
+    throwing.extractor     `andThen`
+    imperative.extractor   `andThen`
+    oo.extractor           `andThen`
+    innerfuns.extractor    `andThen`
+    inlining.extractor     `andThen`
+    trace.extractor        `andThen`
     termination.extractor
   }
 
-  private[this] def completeSymbols(symbols: trees.Symbols)(to: ast.Trees): to.Symbols = {
+  private def completeSymbols(symbols: trees.Symbols)(to: ast.Trees): to.Symbols = {
     class CompleteSymbolsImpl(override val s: extraction.trees.type, override val t: to.type) extends CheckingTransformer
     symbols.transform(new CompleteSymbolsImpl(extraction.trees, to))
   }
@@ -188,8 +188,8 @@ package object extraction {
         val program: Program { val trees: p.trees.type; val symbols: p.symbols.type } =
           p.asInstanceOf[Program { val trees: p.trees.type; val symbols: p.symbols.type }]
 
-        private[this] val targetSymbols = completeSymbols(processSymbols(symbols))(stainless.trees)
-        private[this] val targetProgram = inox.Program(stainless.trees)(targetSymbols)
+        private val targetSymbols = completeSymbols(processSymbols(symbols))(stainless.trees)
+        private val targetProgram = inox.Program(stainless.trees)(targetSymbols)
 
         private class ProgramEncoderImpl(override val sourceProgram: self.program.type,
                                          override val targetProgram: self.targetProgram.type )
