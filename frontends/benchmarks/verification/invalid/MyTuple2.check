@@ -1,0 +1,4 @@
+6:16;foo;postcondition;invalid
+10:10;foo;body assertion: Inner refinement lifting;valid
+11:5;foo;body assertion: match exhaustiveness;valid
+11:5;foo;postcondition;valid

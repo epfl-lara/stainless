@@ -1,0 +1,4 @@
+8:27;search;division by zero;valid
+9:19;search;array index within bounds;invalid
+11:23;search;precondition;inconclusive
+12:12;search;precondition;inconclusive

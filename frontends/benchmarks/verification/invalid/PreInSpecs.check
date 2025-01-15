@@ -1,0 +1,5 @@
+12:7;g;postcondition;valid
+17:7;invoke;postcondition;valid
+18:32;invoke;precondition;valid
+20:14;invoke;precondition;invalid
+23:13;invoke2;precondition;invalid

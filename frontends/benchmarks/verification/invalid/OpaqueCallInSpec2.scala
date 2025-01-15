@@ -7,7 +7,7 @@ object OpaqueCallInSpec2 {
   def f(x: BigInt): BigInt = {
     require(x >= 0)
     BigInt(42)
- }.ensuring(_ >= 0)
+  }.ensuring(_ >= 0)
 
   def ansertToLifeHowOriginal(x: BigInt, y: BigInt): Unit = {
     require(x >= 0)

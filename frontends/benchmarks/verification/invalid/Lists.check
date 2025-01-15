@@ -1,0 +1,6 @@
+10:60;forall;body assertion: match exhaustiveness;valid
+15:44;positive;body assertion: match exhaustiveness;valid
+27:5;failling_1;body assertion: match exhaustiveness;valid
+27:5;failling_1;postcondition;valid
+28:21;failling_1;postcondition;valid
+29:32;failling_1;postcondition;invalid

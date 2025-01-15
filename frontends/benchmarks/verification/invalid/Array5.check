@@ -1,0 +1,2 @@
+9:24;foo;array index within bounds;invalid
+10:8;foo;array index within bounds;valid

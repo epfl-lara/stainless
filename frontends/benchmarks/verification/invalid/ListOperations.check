@@ -1,0 +1,75 @@
+18:35;size;body assertion: match exhaustiveness;valid
+18:35;size;postcondition;valid
+19:23;size;postcondition;valid
+20:28;size;postcondition;valid
+23:45;iplSize;body assertion: match exhaustiveness;valid
+23:45;iplSize;postcondition;valid
+24:23;iplSize;postcondition;valid
+25:29;iplSize;postcondition;valid
+33:7;zip;body assertion: match exhaustiveness;valid
+33:7;zip;postcondition;valid
+34:23;zip;postcondition;valid
+35:29;zip;body assertion: match exhaustiveness;valid
+35:29;zip;postcondition;valid
+36:31;zip;postcondition;valid
+36:48;zip;precondition;valid
+41:41;sizeTailRec;precondition;valid
+44:6;sizeTailRecAcc;body assertion: match exhaustiveness;valid
+44:6;sizeTailRecAcc;postcondition;valid
+46:28;sizeTailRecAcc;postcondition;valid
+46:28;sizeTailRecAcc;precondition;valid
+48:39;sizeTailRecAcc;postcondition;valid
+50:9;sizesAreEquiv;postcondition;valid
+54:39;content;body assertion: match exhaustiveness;valid
+59:9;sizeAndContent;postcondition;valid
+63:35;drunk;body assertion: match exhaustiveness;valid
+63:35;drunk;postcondition;valid
+64:21;drunk;postcondition;valid
+65:26;drunk;postcondition;valid
+68:9;reverse;postcondition;valid
+69:48;reverse0;body assertion: match exhaustiveness;valid
+69:48;reverse0;postcondition;valid
+71:27;reverse0;postcondition;valid
+72:54;reverse0;postcondition;valid
+74:48;append;body assertion: match exhaustiveness;valid
+74:48;append;postcondition;valid
+76:26;append;postcondition;valid
+77:54;append;postcondition;valid
+80:19;nilAppend;non-negative measure;valid
+80:42;nilAppend;body assertion: match exhaustiveness;valid
+80:42;nilAppend;postcondition;valid
+80:42;nilAppend;postcondition;valid
+80:42;nilAppend;postcondition;valid
+83:21;appendAssoc;non-negative measure;valid
+84:8;appendAssoc;body assertion: match exhaustiveness;valid
+84:8;appendAssoc;postcondition;valid
+84:8;appendAssoc;postcondition;valid
+84:8;appendAssoc;postcondition;valid
+86:9;revAuxBroken;postcondition;invalid
+91:20;sizeAppend;non-negative measure;valid
+92:8;sizeAppend;body assertion: match exhaustiveness;valid
+92:8;sizeAppend;postcondition;valid
+92:8;sizeAppend;postcondition;valid
+92:8;sizeAppend;postcondition;valid
+95:16;concat;non-negative measure;valid
+96:7;concat;body assertion: match exhaustiveness;valid
+96:7;concat;postcondition;valid
+96:7;concat;postcondition;valid
+96:7;concat;postcondition;valid
+99:17;concat0;non-negative measure;valid
+99:57;concat0;body assertion: match exhaustiveness;valid
+99:57;concat0;body assertion: match exhaustiveness;valid
+99:57;concat0;body assertion: match exhaustiveness;valid
+99:57;concat0;postcondition;valid
+99:57;concat0;postcondition;valid
+99:57;concat0;postcondition;valid
+100:21;concat0;body assertion: match exhaustiveness;valid
+100:21;concat0;body assertion: match exhaustiveness;valid
+100:21;concat0;postcondition;valid
+100:21;concat0;postcondition;valid
+101:23;concat0;postcondition;valid
+101:23;concat0;postcondition;valid
+103:11;concat0;postcondition;valid
+103:11;concat0;postcondition;valid
+106:27;concat0;postcondition;valid
+106:27;concat0;postcondition;valid

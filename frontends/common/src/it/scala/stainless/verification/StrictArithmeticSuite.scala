@@ -15,9 +15,9 @@ class StrictArithmeticSuite extends VerificationComponentTestSuite {
 
   import StrictArithmeticSuite._
 
-  testPosAll("strictarithmetic/valid", valid._1, valid._2)
+  testPosAll("strictarithmetic/valid", valid)
 
-  testNegAll("strictarithmetic/invalid", invalid._1, invalid._2)
+  testNegAll("strictarithmetic/invalid", invalid)
 }
 object StrictArithmeticSuite {
   private lazy val valid = ComponentTestSuite.loadPrograms("strictarithmetic/valid")

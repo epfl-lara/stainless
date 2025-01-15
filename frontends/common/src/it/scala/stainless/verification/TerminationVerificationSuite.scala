@@ -19,7 +19,7 @@ class TerminationVerificationSuite extends VerificationComponentTestSuite {
 
   import TerminationVerificationSuite._
 
-  testPosAll("termination/valid", valid._1, valid._2)
+  testPosAll("termination/valid", valid)
 }
 object TerminationVerificationSuite {
   private lazy val valid = ComponentTestSuite.loadPrograms("termination/valid")

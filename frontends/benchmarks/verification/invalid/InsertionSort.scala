@@ -26,7 +26,7 @@ object InsertionSort {
     case Nil() => true
     case Cons(x, Nil()) => true
     case Cons(x, Cons(y, ys)) => x <= y && isSorted(Cons(y, ys))
-  }   
+  }
 
   /* Inserting element 'e' into a sorted list 'l' produces a sorted list with
    * the expected content and size */
@@ -35,8 +35,8 @@ object InsertionSort {
     l match {
       case Nil() => Cons(e,Nil())
       case Cons(x,xs) => if (x <= e) Cons(x,buggySortedIns(e, xs)) else Cons(e, l)
-    } 
- }.ensuring(res => contents(res) == contents(l) ++ Set(e) 
+    }
+ }.ensuring(res => contents(res) == contents(l) ++ Set(e)
                     && isSorted(res)
                     && size(res) == size(l) + 1
             )
