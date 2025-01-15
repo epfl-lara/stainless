@@ -1,0 +1,9 @@
+9:31;fooFailed1;class invariant: inv;invalid
+10:20;fooFailed2;class invariant: inv;invalid
+13:17;fooFailed3;class invariant: inv;invalid
+13:29;fooFailed3;class invariant: inv;valid
+16:16;fooOk1;class invariant: inv;valid
+19:5;fooOk2;class invariant: inv;valid
+26:25;barFailed1;class invariant: inv;invalid
+28:21;barOk1;class invariant: inv;valid
+29:21;barOk2;class invariant: inv;valid

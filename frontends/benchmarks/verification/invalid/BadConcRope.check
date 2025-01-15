@@ -1,0 +1,184 @@
+# This test is ignored for all solvers but this particular instance is successfully unsuccessful
+376:11;append;body assertion: Inner refinement lifting;valid
+377:5;append;body assertion: match exhaustiveness;valid
+381:9;append;postcondition;valid
+382:23;append;postcondition;valid
+383:25;append;postcondition;valid
+379:9;append;postcondition;valid
+377:5;append;postcondition;valid
+379:9;append;precondition;valid
+379:9;append;precondition;valid
+253:7;appendAssocInst;postcondition;valid
+422:17;appendAssocInst2;postcondition;trivial
+421:9;appendAssocInst2;postcondition;valid
+419:9;appendAssocInst2;postcondition;valid
+319:6;appendInsertIndex;body assertion: match exhaustiveness;valid
+317:7;appendInsertIndex;postcondition;valid
+321:49;appendInsertIndex;precondition;valid
+324:8;appendInsertIndex;precondition;valid
+325:26;appendInsertIndex;precondition;valid
+326:20;appendInsertIndex;precondition;valid
+402:13;appendPriv;body assertion: Inner refinement lifting;valid
+402:19;appendPriv;cast correctness;valid
+403:7;appendPriv;cast correctness;valid
+397:7;appendPriv;cast correctness;valid
+399:9;appendPriv;cast correctness;valid
+400:7;appendPriv;postcondition;valid
+408:11;appendPriv;postcondition;valid
+404:34;appendPriv;postcondition;valid
+406:11;appendPriv;postcondition;valid
+404:34;appendPriv;precondition;valid
+404:34;appendPriv;precondition;valid
+175:5;concat;precondition;valid
+175:22;concat;precondition;valid
+175:37;concat;precondition;valid
+230:13;concatNonEmpty;body assertion: match exhaustiveness;valid
+208:7;concatNonEmpty;body assertion: match exhaustiveness;valid
+225:7;concatNonEmpty;body assertion: match exhaustiveness;valid
+213:13;concatNonEmpty;body assertion: match exhaustiveness;valid
+213:13;concatNonEmpty;postcondition;valid
+205:7;concatNonEmpty;postcondition;valid
+208:7;concatNonEmpty;postcondition;valid
+217:19;concatNonEmpty;postcondition;valid
+225:7;concatNonEmpty;postcondition;valid
+228:13;concatNonEmpty;postcondition;valid
+211:13;concatNonEmpty;postcondition;valid
+236:19;concatNonEmpty;postcondition;valid
+234:19;concatNonEmpty;postcondition;valid
+219:19;concatNonEmpty;postcondition;valid
+230:13;concatNonEmpty;postcondition;valid
+215:27;concatNonEmpty;precondition;valid
+211:19;concatNonEmpty;precondition;valid
+228:16;concatNonEmpty;precondition;valid
+232:27;concatNonEmpty;precondition;valid
+189:9;concatNormalized;postcondition;valid
+189:9;concatNormalized;precondition;valid
+282:5;insert;body assertion: match exhaustiveness;valid
+282:5;insert;postcondition;valid
+283:23;insert;postcondition;valid
+292:8;insert;postcondition;valid
+290:9;insert;postcondition;valid
+288:11;insert;postcondition;valid
+286:11;insert;postcondition;valid
+292:8;insert;precondition;valid
+290:9;insert;precondition;valid
+294:20;insert;precondition;valid
+294:20;insert;precondition;valid
+294:20;insert;precondition;valid
+294:20;insert;precondition;valid
+294:20;insert;precondition;valid
+294:20;insert;precondition;valid
+297:19;insert;precondition;valid
+297:19;insert;precondition;valid
+297:19;insert;precondition;valid
+297:19;insert;precondition;valid
+297:19;insert;precondition;valid
+297:19;insert;precondition;valid
+290:24;insert;precondition;valid
+292:26;insert;precondition;valid
+332:24;insertAppendAxiomInst;postcondition;valid
+333:17;insertAppendAxiomInst;postcondition;valid
+332:24;insertAppendAxiomInst;precondition;valid
+306:5;insertAtIndex;body assertion: match exhaustiveness;valid
+312:20;insertAtIndex;precondition;valid
+136:9;instAppendIndexAxiom;postcondition;valid
+139:17;instAppendIndexAxiom;postcondition;valid
+138:9;instAppendIndexAxiom;postcondition;valid
+136:9;instAppendIndexAxiom;precondition;valid
+138:9;instAppendIndexAxiom;precondition;valid
+163:9;instAppendUpdateAxiom;postcondition;valid
+166:17;instAppendUpdateAxiom;postcondition;valid
+165:9;instAppendUpdateAxiom;postcondition;valid
+163:9;instAppendUpdateAxiom;precondition;valid
+165:9;instAppendUpdateAxiom;precondition;valid
+369:9;instSplitAxiom;postcondition;valid
+370:17;instSplitAxiom;postcondition;trivial
+79:8;level;body assertion: match exhaustiveness;trivial
+80:25;level;postcondition;valid
+79:8;level;postcondition;trivial
+83:11;level;postcondition;valid
+81:27;level;postcondition;valid
+85:11;level;postcondition;valid
+119:5;lookup;body assertion: match exhaustiveness;valid
+113:24;lookup;postcondition;valid
+123:14;lookup;postcondition;valid
+122:25;lookup;postcondition;valid
+125:25;lookup;postcondition;valid
+119:5;lookup;postcondition;valid
+126:14;lookup;postcondition;valid
+129:12;lookup;precondition;valid
+129:12;lookup;precondition;valid
+129:12;lookup;precondition;valid
+129:12;lookup;precondition;valid
+129:12;lookup;precondition;valid
+129:12;lookup;precondition;valid
+128:21;lookup;precondition;valid
+128:21;lookup;precondition;valid
+128:21;lookup;precondition;valid
+128:21;lookup;precondition;valid
+128:21;lookup;precondition;valid
+128:21;lookup;precondition;valid
+122:25;lookup;precondition;valid
+125:25;lookup;precondition;valid
+123:14;lookup;precondition;valid
+126:14;lookup;precondition;valid
+439:9;normalize;postcondition;valid
+437:9;normalize;postcondition;valid
+445:40;normalize;postcondition;valid
+439:9;normalize;precondition;valid
+437:9;normalize;precondition;valid
+437:9;normalize;precondition;valid
+428:28;numTrees;postcondition;valid
+429:17;numTrees;postcondition;valid
+90:8;size;body assertion: match exhaustiveness;trivial
+96:11;size;postcondition;valid
+90:8;size;postcondition;trivial
+94:11;size;postcondition;valid
+92:27;size;postcondition;valid
+91:25;size;postcondition;valid
+339:5;split;body assertion: match exhaustiveness;valid
+356:11;split;postcondition;valid
+346:11;split;postcondition;valid
+341:9;split;postcondition;valid
+339:5;split;postcondition;valid
+354:11;split;postcondition;valid
+351:11;split;postcondition;valid
+344:11;split;postcondition;valid
+354:12;split;precondition;valid
+351:16;split;precondition;valid
+350:26;split;precondition;valid
+353:26;split;precondition;valid
+101:7;toList;body assertion: match exhaustiveness;trivial
+107:11;toList;postcondition;valid
+101:7;toList;postcondition;trivial
+105:11;toList;postcondition;valid
+103:27;toList;postcondition;valid
+102:25;toList;postcondition;valid
+145:5;update;body assertion: match exhaustiveness;valid
+145:5;update;postcondition;valid
+146:25;update;postcondition;valid
+149:14;update;postcondition;valid
+151:9;update;postcondition;valid
+148:25;update;postcondition;valid
+153:20;update;precondition;valid
+153:20;update;precondition;valid
+153:20;update;precondition;valid
+153:20;update;precondition;valid
+153:20;update;precondition;valid
+151:16;update;precondition;invalid
+148:28;update;precondition;valid
+149:20;update;precondition;valid
+156:19;update;precondition;valid
+156:19;update;precondition;valid
+156:19;update;precondition;valid
+156:19;update;precondition;valid
+156:19;update;precondition;valid
+452:5;wrap;cast correctness;valid
+450:7;wrap;cast correctness;valid
+451:32;wrap;cast correctness;valid
+453:32;wrap;postcondition;valid
+455:9;wrap;postcondition;valid
+455:9;wrap;precondition;valid
+451:15;wrap;precondition;valid
+453:32;wrap;precondition;valid
+453:32;wrap;precondition;valid

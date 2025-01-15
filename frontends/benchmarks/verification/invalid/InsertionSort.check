@@ -1,0 +1,11 @@
+15:34;size;body assertion: match exhaustiveness;valid
+15:34;size;postcondition;valid
+16:19;size;postcondition;valid
+17:25;size;postcondition;valid
+20:37;contents;body assertion: match exhaustiveness;valid
+25:36;isSorted;body assertion: match exhaustiveness;valid
+35:5;buggySortedIns;body assertion: match exhaustiveness;valid
+35:5;buggySortedIns;postcondition;valid
+36:21;buggySortedIns;postcondition;valid
+37:38;buggySortedIns;postcondition;invalid
+37:73;buggySortedIns;postcondition;invalid

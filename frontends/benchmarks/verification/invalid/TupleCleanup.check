@@ -1,0 +1,4 @@
+7:16;test1;precondition;invalid
+13:5;test2;body assertion: match exhaustiveness;valid
+13:5;test2;non-negative measure;valid
+17:20;test2;precondition;invalid

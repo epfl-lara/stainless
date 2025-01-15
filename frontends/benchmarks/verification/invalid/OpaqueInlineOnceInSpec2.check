@@ -1,0 +1,4 @@
+8:7;f;postcondition;valid
+15:18;ansertToLifeHowOriginal;body assertion: Inlined precondition of f;valid
+15:18;ansertToLifeHowOriginal;precondition;valid
+16:12;ansertToLifeHowOriginal;body assertion;invalid

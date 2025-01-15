@@ -8,7 +8,7 @@ object ADTInitialization {
     require(
       0 <= x && x <= 100 &&
       0 <= y && y <= 100 &&
-      x + y == 100
+      x + y == 100 // Doesn't hold for the given default values
     )
   }
 

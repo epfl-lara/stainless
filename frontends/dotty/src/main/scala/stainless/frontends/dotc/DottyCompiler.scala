@@ -149,12 +149,12 @@ object DottyCompiler {
     override val libraryPaths: Seq[String]
   ) extends FrontendFactory {
 
-    /** Overriden to not include library sources. */
+    /** Overridden to not include library sources. */
     final override protected def allCompilerArguments(ctx: inox.Context, compilerArgs: Seq[String]): Seq[String] = {
       val extraSources = extraSourceFiles(ctx)
       extraCompilerArguments ++ extraSources ++ compilerArgs
     }
-    
+
     override def apply(ctx: inox.Context, compilerArgs: Seq[String], callback: CallBack): Frontend =
       new ThreadedFrontend(callback, ctx) {
         val args = {

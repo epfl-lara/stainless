@@ -1,0 +1,17 @@
+9:9;a;precondition;valid
+10:9;f;precondition;valid
+13:9;uniqueRight;postcondition;valid
+13:9;uniqueRight;postcondition;valid
+13:9;uniqueRight;precondition;valid
+17:9;something;postcondition;valid
+17:9;something;postcondition;valid
+17:9;something;precondition;valid
+17:9;something;precondition;valid
+20:7;something;postcondition;valid
+23:9;somethingelse;postcondition;valid
+23:9;somethingelse;postcondition;invalid
+23:9;somethingelse;postcondition;valid
+23:9;somethingelse;precondition;valid
+23:9;somethingelse;precondition;valid
+25:14;somethingelse;body assertion;valid
+25:14;somethingelse;precondition;valid
