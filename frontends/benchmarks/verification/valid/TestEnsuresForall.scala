@@ -2,7 +2,7 @@ import stainless.annotation.*
 import stainless.lang.{ghost => ghostExpr, *}
 import stainless.lang.StaticChecks.*
 import stainless.lang.Ensures.*
-import stainless.lang.Forall.*
+import stainless.lang.Quantifiers.*
 object TestEnsuresForall {
 
   // Opaque Forall test

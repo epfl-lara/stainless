@@ -7,7 +7,7 @@ stainless/lang/StaticChecks.scala
 stainless/lang/Real.scala
 stainless/lang/Either.scala
 stainless/lang/Ensures.scala
-stainless/lang/Forall.scala
+stainless/lang/Quantifiers.scala
 stainless/lang/Set.scala
 stainless/lang/MutableMap.scala
 stainless/lang/Rational.scala
