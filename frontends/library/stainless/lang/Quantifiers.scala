@@ -58,18 +58,23 @@ object Quantifiers {
   def pickWitness[T](p: T => Boolean): T = {
     require(Exists(p))
     (??? : T)
-  }.ensuring(p(_))
+  }.ensuring(p)
 
   @ghost @extern
   def notExists[T](p: T => Boolean): Unit = {
     require(!Exists(p))
-    // unfold(exists(p))
     ()
   }.ensuring(_ => Forall((x:T) => !p(x)))
+
+  @ghost @extern
+  def notExistsNot[T](p: T => Boolean): Unit = {
+    require(!Exists((x:T) => !p(x)))
+    ()
+  }.ensuring(_ => Forall(p))
 
   @ghost @extern 
   def notForall[T](p: T => Boolean): Unit = {
     require(!Forall(p))
-    (??? : Unit)
+    ()
   }.ensuring(_ => Exists((x:T) => !p(x)))
 }
