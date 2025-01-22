@@ -131,7 +131,7 @@ For quick reference, with `yay` (or other AUR helpers accordingly):
 yay -S stainless-git
 ```
 
-and manually, assuming `sbt`, `git`, and a `java` runtime are available:
+and manually:
 
 ```shell
 git clone https://aur.archlinux.org/stainless-git.git
@@ -139,7 +139,8 @@ cd stainless-git
 makepkg -si
 ```
 
-Omit the `-si` to avoid installing system-wide, and only perform a local build in the directory.
+The option `-s` acquires dependencies (`java`, `git`, `sbt`) using `pacman`, `-i` installs Stainless system-wide. 
+Omit `-i` to avoid installing system-wide, and only perform a local build in the directory.
 
 Issues with the package build should ideally be reported on the [AUR package page](https://aur.archlinux.org/packages/stainless-git) itself. 
 
