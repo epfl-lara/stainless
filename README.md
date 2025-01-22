@@ -142,6 +142,8 @@ makepkg -si
 The option `-s` acquires dependencies (`java`, `git`, `sbt`) using `pacman`, `-i` installs Stainless system-wide. 
 Omit `-i` to avoid installing system-wide, and only perform a local build in the directory.
 
+The solver packages `z3`, `cvc4`, and `cvc5`<sup>AUR</sup> can be added as optional dependencies, and having at least one is recommended for general use.
+
 Issues with the package build should ideally be reported on the [AUR package page](https://aur.archlinux.org/packages/stainless-git) itself. 
 
 ## Further Documentation and Learning Materials
