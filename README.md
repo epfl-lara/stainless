@@ -124,15 +124,16 @@ A package for Stainless is available on the Arch User Repository (AUR) for ArchL
 You can use your favorite AUR helper (we've tried `yay`, see [AUR Helpers](https://wiki.archlinux.org/title/AUR_helpers)), 
 or follow the [detailed instructions as on the ArchWiki](https://wiki.archlinux.org/title/Arch_User_Repository#Installing_and_upgrading_packages) to install the package.
 
-With `yay` (or other AUR helpers accordingly):
 
-```console
+For quick reference, with `yay` (or other AUR helpers accordingly):
+
+```shell
 yay -S stainless-git
 ```
 
-Manually, assuming `sbt`, `git`, and a `java` runtime are available:
+and manually, assuming `sbt`, `git`, and a `java` runtime are available:
 
-```console
+```shell
 git clone https://aur.archlinux.org/stainless-git.git
 cd stainless-git
 makepkg -si
