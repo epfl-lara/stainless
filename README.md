@@ -118,6 +118,34 @@ If you have access to a remote machine over SSH, this is the recommended way to 
 Github Codespaces
 To allow running Stainless with only a browser, we have provided a sample repository to use Stainless with Github Codespaces. Github Codespaces are cloud machines that can be access via Visual Studio Code locally or in the browser. In our experience (as of October 2023), this flow works well, given the provided Ubuntu Linux virtual machines with 16GB of RAM and substantial processing power. Please see [this repository](https://github.com/samuelchassot/Stainless-codespaces) for further details.
 
+### Arch User Repository
+
+A package for Stainless is available on the Arch User Repository (AUR) for ArchLinux as [`stainless-git`](https://aur.archlinux.org/packages/stainless-git), which follows the latest commit on the `main` branch.
+You can use your favorite AUR helper (we've tried `yay`, see [AUR Helpers](https://wiki.archlinux.org/title/AUR_helpers)), 
+or follow the [detailed instructions as on the ArchWiki](https://wiki.archlinux.org/title/Arch_User_Repository#Installing_and_upgrading_packages) to install the package.
+
+
+For quick reference, with `yay` (or other AUR helpers accordingly):
+
+```shell
+yay -S stainless-git
+```
+
+and manually:
+
+```shell
+git clone https://aur.archlinux.org/stainless-git.git
+cd stainless-git
+makepkg -si
+```
+
+The option `-s` acquires dependencies (`java`, `git`, `sbt`) using `pacman`, `-i` installs Stainless system-wide. 
+Omit `-i` to avoid installing system-wide, and only perform a local build in the directory.
+
+The solver packages `z3`, `cvc4`, and `cvc5`<sup>AUR</sup> can be added as optional dependencies, and having at least one is recommended for general use.
+
+Issues with the package build should ideally be reported on the [AUR package page](https://aur.archlinux.org/packages/stainless-git) itself. 
+
 ## Further Documentation and Learning Materials
 
 To get started, see videos:
