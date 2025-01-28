@@ -1,0 +1,88 @@
+title: Stainless
+name: stainless
+version: git # set corrrectly by `override-prime`
+summary: Program verifier and model checker for Scala 3
+description: |
+  Stainless is a program verifier and counterexample finder for Scala 3. It uses
+  SMT solvers (z3, cvc5, princess), function unfolding, and invariant inference to
+  prove and disprove program safety and termination.
+website: https://github.com/epfl-lara/stainless
+source-code: https://github.com/epfl-lara/stainless
+license: Apache-2.0
+
+# build metadata and dependencies
+type: app
+base: core24
+adopt-info: stainless # the build part `stainless` below
+platforms:
+  amd64:
+
+grade: devel
+confinement: strict
+
+# exposed commands and what they refer to internally
+apps:
+  stainless:
+    command: stainless
+    plugs: [home]
+    environment:
+      JAVA_HOME: $SNAP/usr/lib/jvm/java-17-openjdk-amd64
+      PATH: $JAVA_HOME/bin:$PATH
+  cli:
+    command: stainless-cli
+    plugs: [home, network, network-bind]
+    environment:
+      JAVA_HOME: $SNAP/usr/lib/jvm/java-17-openjdk-amd64
+      PATH: $JAVA_HOME/bin:$PATH
+
+# actual build
+parts:
+  wrapper:
+    plugin: dump
+    source: snap/local
+    source-type: local
+
+  scala-cli:
+    plugin: nil
+    override-pull: |
+      wget -c https://github.com/VirtusLab/scala-cli/releases/download/v1.6.1/scala-cli.jar
+    override-build: |
+      install -Dm644 scala-cli.jar "$CRAFT_PART_INSTALL/usr/share/java/scala-cli/scala-cli.jar"
+
+  stainless:
+    plugin: nil
+    source: https://github.com/epfl-lara/stainless.git
+    source-branch: main
+    source-type: git
+
+    build-packages: [git, wget, unzip, openjdk-17-jdk]
+    stage-packages: [openjdk-17-jre-headless, z3, cvc5]
+
+    override-pull: |
+      craftctl default
+
+      # just need a recent enough version of sbt to kickstart the build
+      wget -c https://github.com/sbt/sbt/releases/download/v1.10.7/sbt-1.10.7.zip
+      unzip sbt-1.10.7.zip
+
+    override-build: |
+      ./sbt/bin/sbt universal:stage # make sure stainless-library jars are compiled
+      ./sbt/bin/sbt assembly # pack uber jars
+
+      # set snap package version
+      craftctl set version="$(git describe --long | sed 's/\([^-]*-\)g/r\1/;s/-/./g')"
+
+      SCALA_VER="$(grep "val stainlessScalaVersion = " build.sbt | awk '{gsub(/"/, "", $4); print $4}')" # get scala version from build, remove quotes
+      STAINLESS_VER="$(git describe --abbrev=7 | sed 's/^v//')" # trim and strip v from git versioning e.g. v0.9.1... -> 0.9.1...
+
+      mkdir -p $CRAFT_PART_INSTALL/usr/share/java/stainless
+      cp "./frontends/dotty/target/scala-$SCALA_VER/stainless-dotty-assembly-$STAINLESS_VER.jar" stainless.jar
+
+      cp "./frontends/library/target/scala-3.5.2/stainless-library_3-$STAINLESS_VER.jar" stainless-library.jar
+      cp "./frontends/library/target/scala-3.5.2/stainless-library_3-$STAINLESS_VER-sources.jar" stainless-library-sources.jar
+
+      install -Dm644 stainless.jar "$CRAFT_PART_INSTALL/usr/share/java/stainless/stainless.jar"
+      install -Dm644 stainless-library.jar "$CRAFT_PART_INSTALL/usr/lib/stainless/stainless-library.jar"
+      install -Dm644 stainless-library-sources.jar "$CRAFT_PART_INSTALL/usr/lib/stainless/stainless-library-sources.jar"
+      install -Dm644 LICENSE "$CRAFT_PART_INSTALL/usr/share/licenses/stainless/LICENSE"
+

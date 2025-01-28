@@ -1,0 +1,14 @@
+#!/bin/sh
+
+set -e
+
+export HOME=$SNAP_USER_DATA
+export SCALA_CLI_ROOT="$SNAP/usr/share/java/scala-cli"
+export STAINLESS_LIB="$SNAP/usr/lib/stainless"
+
+export SCALA_VER=3.5.2
+
+export STAINLESS_SOURCES="$STAINLESS_LIB/stainless-library.jar"
+
+java -jar -Duser.home=$SNAP_USER_DATA $SCALA_CLI_ROOT/scala-cli.jar -S $SCALA_VER --jar $STAINLESS_SOURCES $@
+ 
