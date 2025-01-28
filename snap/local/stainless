@@ -1,0 +1,5 @@
+#!/bin/sh
+
+export HOME=$SNAP_USER_DATA
+
+java -jar -Duser.home=$SNAP_USER_DATA $SNAP/usr/share/java/stainless/stainless.jar $@
