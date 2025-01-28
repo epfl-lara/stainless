@@ -118,6 +118,20 @@ If you have access to a remote machine over SSH, this is the recommended way to 
 Github Codespaces
 To allow running Stainless with only a browser, we have provided a sample repository to use Stainless with Github Codespaces. Github Codespaces are cloud machines that can be access via Visual Studio Code locally or in the browser. In our experience (as of October 2023), this flow works well, given the provided Ubuntu Linux virtual machines with 16GB of RAM and substantial processing power. Please see [this repository](https://github.com/samuelchassot/Stainless-codespaces) for further details.
 
+### Snap Store
+
+A package for Stainless is available on the Snap store as [`stainless`](https://snapcraft.io/stainless) with an experimental edge release. It can be used to install and run Stainless on any Snap enabled system (e.g. Ubuntu).
+
+In a terminal, you can type:
+
+```shell
+sudo snap install stainless --release
+```
+
+This exposes two commands, the tool `stainless`, as well as `stainless.cli`, running `scala-cli` with Stainless libraries loaded.
+
+Running the commands the first time may take some time as some Scala libraries are downloaded.
+
 ### Arch User Repository
 
 A package for Stainless is available on the Arch User Repository (AUR) for ArchLinux as [`stainless-git`](https://aur.archlinux.org/packages/stainless-git), which follows the latest commit on the `main` branch.
