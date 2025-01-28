@@ -125,7 +125,7 @@ A package for Stainless is available on the Snap store as [`stainless`](https://
 In a terminal, you can type:
 
 ```shell
-sudo snap install stainless --release
+sudo snap install stainless --edge
 ```
 
 This exposes two commands, the tool `stainless`, as well as `stainless.cli`, running `scala-cli` with Stainless libraries loaded.
