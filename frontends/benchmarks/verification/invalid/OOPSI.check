@@ -1,0 +1,5 @@
+3:9;test;precondition;valid
+3:9;test;precondition;valid
+4:9;check;precondition;valid
+5:14;check;body assertion;invalid
+5:14;check;body assertion;invalid

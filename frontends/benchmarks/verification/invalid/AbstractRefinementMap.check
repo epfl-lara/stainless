@@ -1,0 +1,7 @@
+9:9;apply;postcondition;invalid
+17:5;map;body assertion: match exhaustiveness;valid
+17:5;map;postcondition;valid
+18:27;map;postcondition;valid
+18:35;map;precondition;valid
+18:41;map;precondition;valid
+19:21;map;postcondition;valid

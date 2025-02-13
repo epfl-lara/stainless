@@ -1,0 +1,4 @@
+8:14;isTree;non-negative measure;valid
+10:5;isTree;body assertion: match exhaustiveness;valid
+13:9;isTree;precondition;valid
+13:30;isTree;precondition;invalid

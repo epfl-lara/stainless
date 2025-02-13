@@ -1,0 +1,5 @@
+7:3;testCompound;postcondition;invalid
+16:13;testCompound;precondition;valid
+18:5;testCompound;body assertion: match exhaustiveness;valid
+18:5;testCompound;postcondition;valid
+18:5;testCompound;precondition;valid

@@ -27,8 +27,8 @@ class SatPrecondVerificationSuite extends VerificationComponentTestSuite {
     "solvr=" + options.findOptionOrDefault(inox.optSelectedSolvers).head + " " +
     "lucky=" + options.findOptionOrDefault(inox.solvers.unrolling.optFeelingLucky) + " " +
     "check=" + options.findOptionOrDefault(inox.solvers.optCheckModels) + " " +
-    "codegen=" + options.findOptionOrDefault(evaluators.optCodeGen) + " " + 
-    "sat-precond=" + options.findOptionOrDefault(stainless.optSatPrecond) 
+    "codegen=" + options.findOptionOrDefault(evaluators.optCodeGen) + " " +
+    "sat-precond=" + options.findOptionOrDefault(stainless.optSatPrecond)
   }
 
   override def configurations: Seq[Seq[inox.OptionValue[?]]] = {
@@ -48,7 +48,7 @@ class SatPrecondVerificationSuite extends VerificationComponentTestSuite {
             evaluators.optCodeGen(codeGen),
             inox.optTimeout(3.seconds),
             inox.solvers.unrolling.optFeelingLucky(codeGen)) ++ seq
-            
+
       }
     } yield conf
   }
@@ -68,9 +68,9 @@ class SatPrecondVerificationSuite extends VerificationComponentTestSuite {
 
   import SatPrecondVerificationSuite._
 
-  testPosAll(s"$directory/valid", valid._1, valid._2)
+  testPosAll(s"$directory/valid", valid)
 
-  testNegAll(s"$directory/invalid", invalid._1, invalid._2)
+  testNegAll(s"$directory/invalid", invalid)
 }
 object SatPrecondVerificationSuite {
   private val directory = "sat-precondition"

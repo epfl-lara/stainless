@@ -1,0 +1,5 @@
+10:17;f;postcondition;valid
+12:15;f;precondition;valid
+12:17;f;non-negative measure;valid
+13:14;f;body assertion;invalid
+14:7;f;postcondition;valid

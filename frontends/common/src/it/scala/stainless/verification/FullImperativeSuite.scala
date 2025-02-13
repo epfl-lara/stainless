@@ -40,9 +40,9 @@ class FullImperativeSuite extends VerificationComponentTestSuite with inox.MainH
   // TODO: when allocation is supported, remove the identifierFilter
   import FullImperativeSuite._
 
-  testPosAll("full-imperative/valid", valid._1, valid._2, identifierFilter = i => !i.name.startsWith("copy"))
+  testPosAll("full-imperative/valid", valid, identifierFilter = i => !i.name.startsWith("copy"))
 
-  testNegAll("full-imperative/invalid", invalid._1, invalid._2, identifierFilter = i => !i.name.startsWith("copy"))
+  testNegAll("full-imperative/invalid", invalid, identifierFilter = i => !i.name.startsWith("copy"))
 }
 object FullImperativeSuite {
   private lazy val valid = ComponentTestSuite.loadPrograms("full-imperative/valid")

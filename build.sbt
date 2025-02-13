@@ -406,6 +406,15 @@ lazy val `sbt-stainless` = (project in file("sbt-plugin"))
     }
   )
 
+lazy val `check-files-util` = (project in file("check-files-utils"))
+  .disablePlugins(AssemblyPlugin)
+  .settings(noPublishSettings)
+  .settings(name := "check-files-utils")
+  .settings(commonSettings)
+// Uncomment if you wish to attach a debugger at 5006. Note that the process will wait for the debugger to attach
+//  .settings(run / javaOptions += "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5006")
+  .dependsOn(`stainless-core`, `stainless-dotty`)
+
 lazy val root = (project in file("."))
   .disablePlugins(AssemblyPlugin)
   .settings(artifactSettings, noPublishSettings)

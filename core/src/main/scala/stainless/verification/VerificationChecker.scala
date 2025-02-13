@@ -304,7 +304,7 @@ trait VerificationChecker { self =>
           s.check(Model)
         }
       }
-      
+
       val vcres = tryRes match {
         case _ if interruptManager.isInterrupted =>
           VCResult(VCStatus.Cancelled, Some(s.name), Some(time), s.getSmtLibFileId)

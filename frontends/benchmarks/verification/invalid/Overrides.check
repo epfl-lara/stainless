@@ -1,0 +1,10 @@
+5:9;x;precondition;valid
+5:9;x;precondition;valid
+5:9;x;precondition;invalid
+9:9;x;precondition;valid
+9:9;x;precondition;valid
+9:9;x;precondition;valid
+9:9;x;precondition;valid
+19:12;x;cast correctness;valid
+19:16;x;precondition;valid
+19:16;x;precondition;valid

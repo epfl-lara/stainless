@@ -11,7 +11,7 @@ object Asserts1 {
     val b = a
     assert(b > 0, "Hey now")
     b + bar(1)
- }.ensuring { res =>
+  }.ensuring { res =>
     res > a && res < 2
   }
 
@@ -20,7 +20,7 @@ object Asserts1 {
     val b = a
     assert(b > 0, "Hey now")
     b + 2
- }.ensuring { res =>
+  }.ensuring { res =>
     res > a && res > 2
   }
 }

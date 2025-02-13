@@ -11,9 +11,9 @@ class DottyVerificationSuite extends VerificationComponentTestSuite {
 
   import DottyVerificationSuite._
 
-  testPosAll("dotty-specific/valid", valid._1, valid._2)
+  testPosAll("dotty-specific/valid", valid)
 
-  testNegAll("dotty-specific/invalid", invalid._1, invalid._2)
+  testNegAll("dotty-specific/invalid", invalid)
 }
 object DottyVerificationSuite {
   private def keepOnly(f: String): Boolean = {

@@ -5,7 +5,9 @@ import stainless.lang._
 object Array5 {
 
   def foo(a: Array[Int]): Int = {
-    a(2)
+    require(a.length > 0)
+    val a2 = a.updated(1, 2)
+    a2(0)
   }
 
 }

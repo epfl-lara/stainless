@@ -8,7 +8,7 @@ object ADTWithArray1 {
     def contains(y: Int): Boolean = {
       require(content.length > 0)
       content(0).x == y
-   }.ensuring(res => res)
+    }.ensuring(res => res)
   }
 
 }
