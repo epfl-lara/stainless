@@ -1,4 +1,4 @@
 [submodule "inox"]
 	path = inox
-	url = https://github.com/epfl-lara/inox.git
-	branch = main
+	url = https://github.com/iswoqqe/inox.git
+	branch = floating_points

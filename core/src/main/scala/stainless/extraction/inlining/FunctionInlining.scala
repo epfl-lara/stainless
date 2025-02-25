@@ -52,6 +52,7 @@ class FunctionInlining(override val s: Trees, override val t: trace.Trees)
         case BooleanLiteral(_) => true
         case IntegerLiteral(_) => true
         case BVLiteral(_, _, _) => true
+        case FPLiteral(_, _, _) => true
         case Tuple(es) => es.forall(isValue)
         case FiniteArray(args, base) => args.forall(isValue)
         case LargeArray(elems, default, _, _) => elems.map(_._2).forall(isValue) && isValue(default)

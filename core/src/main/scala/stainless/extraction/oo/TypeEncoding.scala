@@ -100,6 +100,7 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
     case _ => None
   } (tpe)
 
+  // TODO: float?
   private def wrap(e: t.Expr, tpe: s.Type)(using Scope): t.Expr = (tpe match {
     case s.AnyType() => e
     case s.ClassType(id, tps) => e
@@ -484,6 +485,7 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
         (e `is` map).copiedFrom(e) &&
         instanceOf(getRefField(e, mapValue), erased(tpe), tpe)
 
+        // TODO: float?
       case (_, s.BVType(signed, size)) if isObject(in) => e `is` bv(signed -> size)
       case (_, s.IntegerType()) if isObject(in) => e `is` int
       case (_, s.BooleanType()) if isObject(in) => e `is` bool
@@ -1143,6 +1145,7 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
       var funSizes: Set[Int] = Set.empty
       var bvSizes: Set[(Boolean, Int)] = Set.empty
 
+      // TODO: should something be implemented for floating points here?
       object traverser extends s.ConcreteOOSelfTreeTraverser {
         override def traverse(pat: s.Pattern): Unit = pat match {
           case s.TuplePattern(_, subs) => tplSizes += subs.size; super.traverse(pat)
@@ -1172,6 +1175,7 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
       (tplSizes, funSizes, bvSizes)
     }
 
+    // TODO: float references
     val refSort = new t.ADTSort(refID, Seq(),
       symbols.classes.values.toSeq.filterNot(_.flags contains s.IsAbstract).map { cd =>
         val anys = cd.typeArgs.map(tp => s.AnyType().copiedFrom(tp))

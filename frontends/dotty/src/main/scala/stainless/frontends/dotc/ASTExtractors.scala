@@ -146,6 +146,9 @@ trait ASTExtractors {
   protected lazy val bigIntSym          = classFromName("scala.math.BigInt")
   protected lazy val stringSym          = classFromName("java.lang.String")
 
+  protected lazy val richFloatSym  = classFromName("scala.runtime.RichFloat")
+  protected lazy val richDoubleSym = classFromName("scala.runtime.RichDouble")
+
   protected def functionTraitSym(i:Int) = {
     require(0 <= i && i <= 22)
     classFromName("scala.Function" + i)
@@ -179,6 +182,9 @@ trait ASTExtractors {
 
     def unapply(tree: tpd.Tree): Option[Int] = unapply(tree.tpe)
   }
+
+  def isRichFloatSym(sym: Symbol) : Boolean = getResolvedTypeSym(sym) == richFloatSym
+  def isRichDoubleSym(sym: Symbol) : Boolean = getResolvedTypeSym(sym) == richDoubleSym
 
   def isBigIntSym(sym: Symbol) : Boolean = getResolvedTypeSym(sym) == bigIntSym
 
@@ -259,7 +265,11 @@ trait ASTExtractors {
 
   def hasBVType(t: tpd.Tree) = bvtypes.exists(bv => t.tpe frozen_<:< bv)
 
-  def hasNumericType(t: tpd.Tree): Boolean = hasBigIntType(t) || hasBVType(t) || hasRealType(t)
+  private lazy val fptypes = Set(defn.FloatType, defn.DoubleType)
+
+  def hasFPType(t: tpd.Tree) = fptypes.exists(fp => t.tpe frozen_<:< fp)
+
+  def hasNumericType(t: tpd.Tree): Boolean = hasBigIntType(t) || hasBVType(t) || hasRealType(t) || hasFPType(t)
 
   def hasRealType(t: tpd.Tree) = isRealSym(t.tpe.typeSymbol)
 
@@ -356,6 +366,20 @@ trait ASTExtractors {
       def unapply(tree: tpd.Literal): Option[Boolean] = tree match {
         case Literal(Constant(true)) => Some(true)
         case Literal(Constant(false)) => Some(false)
+        case _ => None
+      }
+    }
+
+    object ExFloatLiteral {
+      def unapply(tree: tpd.Literal): Option[Float] = tree match {
+        case Literal(c @ Constant(f)) if c.tpe.classSymbol == defn.FloatClass => Some(c.floatValue)
+        case _ => None
+      }
+    }
+
+    object ExDoubleLiteral {
+      def unapply(tree: tpd.Literal): Option[Double] = tree match {
+        case Literal(c @ Constant(f)) if c.tpe.classSymbol == defn.DoubleClass => Some(c.doubleValue)
         case _ => None
       }
     }
@@ -468,6 +492,18 @@ trait ASTExtractors {
           Some(tree)
         case _ =>
           None
+      }
+    }
+
+    /** Matches calls converting to 'rich' types, e.g. floatWrapper converting from Float to RichFloat. */
+    object ExWrapperCall {
+      def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
+        case Apply(Ident(name), List(arg)) => name.toString match {
+          case "floatWrapper" | "doubleWrapper" => Some(arg)
+          case _ => None
+        }
+        // can also be implemented for other types
+        case _ => None
       }
     }
 
