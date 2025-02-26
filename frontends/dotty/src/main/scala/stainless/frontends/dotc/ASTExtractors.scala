@@ -495,11 +495,12 @@ trait ASTExtractors {
       }
     }
 
-    /** Matches calls converting to 'rich' types, e.g. floatWrapper converting from Float to RichFloat. */
-    object ExWrapperCall {
+    /** Matches calls converting to types which do not have a distinct representation in xlang,
+     * e.g. Float and RichFloat are both represented by FPType, so we ignore conversions to RichFloat. */
+    object ExIgnoredCastCall {
       def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
         case Apply(Ident(name), List(arg)) => name.toString match {
-          case "floatWrapper" | "doubleWrapper" => Some(arg)
+          case "floatWrapper" | "doubleWrapper" | "float2Float" | "double2Double" => Some(arg)
           case _ => None
         }
         // can also be implemented for other types
@@ -516,21 +517,31 @@ trait ASTExtractors {
       def unapply(tree: tpd.Tree): Option[(tpd.Tree, Type, Type)] = tree match {
         case Apply(Ident(name), List(arg)) =>
           val tmp: Option[(Symbol, Symbol)] = name.toString match {
-            case "byte2short" => Some(defn.ByteClass, defn.ShortClass)
-            case "byte2int"   => Some(defn.ByteClass, defn.IntClass)
-            case "byte2long"  => Some(defn.ByteClass, defn.LongClass)
+            case "byte2short"   => Some(defn.ByteClass, defn.ShortClass)
+            case "byte2int"     => Some(defn.ByteClass, defn.IntClass)
+            case "byte2long"    => Some(defn.ByteClass, defn.LongClass)
+            case "byte2float"   => Some(defn.ByteClass, defn.FloatClass)
+            case "byte2double"  => Some(defn.ByteClass, defn.DoubleClass)
 
-            case "short2byte" => Some(defn.ShortClass, defn.ByteClass)
-            case "short2int"  => Some(defn.ShortClass, defn.IntClass)
-            case "short2long" => Some(defn.ShortClass, defn.LongClass)
+            case "short2byte"   => Some(defn.ShortClass, defn.ByteClass)
+            case "short2int"    => Some(defn.ShortClass, defn.IntClass)
+            case "short2long"   => Some(defn.ShortClass, defn.LongClass)
+            case "short2float"  => Some(defn.ShortClass, defn.FloatClass)
+            case "short2double" => Some(defn.ShortClass, defn.DoubleClass)
 
-            case "int2byte"   => Some(defn.IntClass, defn.ByteClass)
-            case "int2short"  => Some(defn.IntClass, defn.ShortClass)
-            case "int2long"   => Some(defn.IntClass, defn.LongClass)
+            case "int2byte"     => Some(defn.IntClass, defn.ByteClass)
+            case "int2short"    => Some(defn.IntClass, defn.ShortClass)
+            case "int2long"     => Some(defn.IntClass, defn.LongClass)
+            case "int2float"    => Some(defn.IntClass, defn.FloatClass)
+            case "int2double"   => Some(defn.IntClass, defn.DoubleClass)
 
-            case "long2byte"  => Some(defn.LongClass, defn.ByteClass)
-            case "long2short" => Some(defn.LongClass, defn.ShortClass)
-            case "long2int"   => Some(defn.LongClass, defn.IntClass)
+            case "long2byte"    => Some(defn.LongClass, defn.ByteClass)
+            case "long2short"   => Some(defn.LongClass, defn.ShortClass)
+            case "long2int"     => Some(defn.LongClass, defn.IntClass)
+            case "long2float"   => Some(defn.LongClass, defn.FloatClass)
+            case "long2double"  => Some(defn.LongClass, defn.DoubleClass)
+
+            case "float2double" => Some(defn.FloatClass, defn.DoubleClass)
 
             case _ => None
           }
