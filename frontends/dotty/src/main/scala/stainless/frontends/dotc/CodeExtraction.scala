@@ -2209,15 +2209,30 @@ class CodeExtraction(inoxCtx: inox.Context,
         case (_, "&&",  Seq(rhs)) => xt.And(extractTree(lhs), extractTree(rhs))
         case (_, "||",  Seq(rhs)) => xt.Or(extractTree(lhs), extractTree(rhs))
 
-        // TODO: avoid duplicate subexpressions [extractTree(lhs)]
-        case (xt.FPType(_,_), "isFinite", Seq()) =>
-          xt.And(xt.Not(xt.FPIsInfinite(extractTree(lhs))), xt.Not(xt.FPIsNaN(extractTree(lhs))))
-        case (xt.FPType(_,_), "isInfinity" | "isInfinite", Seq()) => xt.FPIsInfinite(extractTree(lhs))
-        case (xt.FPType(_,_), "isNaN", Seq()) => xt.FPIsNaN(extractTree(lhs))
+        case (tpe @ xt.FPType(_,_), "isFinite", Seq()) =>
+          val pos = tr.sourcePos
+          val vd = xt.ValDef.fresh("fp", tpe).setPos(pos)
+          val notInf = xt.Not(xt.FPIsInfinite(vd.toVariable).setPos(pos)).setPos(pos)
+          val notNaN = xt.Not(xt.FPIsNaN(vd.toVariable).setPos(pos)).setPos(pos)
+          val body = xt.And(notInf, notNaN).setPos(pos)
+          xt.Let(vd, extractTree(lhs), body)
+        case (xt.FPType(_,_), "isInfinity" | "isInfinite", Seq()) =>
+          xt.FPIsInfinite(extractTree(lhs)).setPos(tr.sourcePos)
+        case (xt.FPType(_,_), "isNaN", Seq()) => xt.FPIsNaN(extractTree(lhs)).setPos(tr.sourcePos)
         case (xt.FPType(_,_), "isPosInfinity", Seq()) =>
-          xt.And(xt.FPIsPositive(extractTree(lhs)), xt.FPIsInfinite(extractTree(lhs)))
+          val pos = tr.sourcePos
+          val vd = xt.ValDef.fresh("fp", tpe).setPos(pos)
+          val isPos = xt.FPIsPositive(vd.toVariable).setPos(pos)
+          val isInf = xt.FPIsInfinite(vd.toVariable).setPos(pos)
+          val body = xt.And(isPos, isInf).setPos(pos)
+          xt.Let(vd, extractTree(lhs), body)
         case (xt.FPType(_,_), "isNegInfinity", Seq()) =>
-          xt.And(xt.FPIsNegative(extractTree(lhs)), xt.FPIsInfinite(extractTree(lhs)))
+          val pos = tr.sourcePos
+          val vd = xt.ValDef.fresh("fp", tpe).setPos(pos)
+          val isNeg = xt.FPIsNegative(vd.toVariable).setPos(pos)
+          val isInf = xt.FPIsInfinite(vd.toVariable).setPos(pos)
+          val body = xt.And(isNeg, isInf).setPos(pos)
+          xt.Let(vd, extractTree(lhs), body)
 
         case (tpe, "toByte", Seq()) => tpe match {
           case xt.BVType(true, 8) => extractTree(lhs)
