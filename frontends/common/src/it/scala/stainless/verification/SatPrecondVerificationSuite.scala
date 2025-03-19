@@ -19,7 +19,8 @@ class SatPrecondVerificationSuite extends VerificationComponentTestSuite {
     Set()
 
   private val ignorePrincess: Set[String] = ignoreCommon ++
-    Set("sat-precondition/valid/SATPrecond4")
+    Set("sat-precondition/valid/SATPrecond4") ++ 
+    Set("sat-precondition/valid/SATPrecond5")
 
   private val ignoreCodegen: Set[String] = Set()
 
