@@ -2643,11 +2643,11 @@ class CodeExtraction(inoxCtx: inox.Context,
     }
   }
 
-  // TODO: implement floating point zero after creating test
   private def mkZeroForPrimitive(tp: xt.Type): Option[xt.Expr] = tp match {
     case xt.BooleanType() => Some(xt.BooleanLiteral(false))
     case xt.BVType(signed, size) => Some(xt.BVLiteral(signed, 0, size))
     case xt.CharType() => Some(xt.CharLiteral(0.toChar))
+    case xt.FPType(exponent, significand) => Some(xt.FPLiteral.plusZero(exponent, significand))
     case _ => None
   }
 

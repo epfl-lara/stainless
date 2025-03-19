@@ -131,4 +131,11 @@ object FloatingPoints1 {
     assert(dl == l && l == dl)
     assert(df == f && f == df)
   }
+
+  def testArrayZeros() = {
+    val floatArray: Array[Float] = new Array(10)
+    val doubleArray: Array[Double] = new Array(10)
+    assert(floatArray(4) == 0.0f) // arbitrary index
+    assert(doubleArray(5) == 0.0d) // arbitrary index
+  }
 }
