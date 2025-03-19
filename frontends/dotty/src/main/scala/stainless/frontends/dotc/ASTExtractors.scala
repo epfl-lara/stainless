@@ -717,7 +717,7 @@ trait ASTExtractors {
     object ExFancyObjectDef {
       def unapply(td: tpd.TypeDef): Boolean = td match {
         case ExObjectDef() =>
-          val template = td.rhs.asInstanceOf[tpd.Template]
+          val template: Template[Type] = td.rhs.asInstanceOf[tpd.Template]
           template.parents.exists(p => !isIgnored(p.tpe))
         case _ => false
       }
