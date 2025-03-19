@@ -259,20 +259,21 @@ class CodeExtraction(inoxCtx: inox.Context,
         // ignore
 
       case vd@ExFancyObjectCreation(sym, tpe) =>
-        val ct = extractType(tpe)(using dctx, NoSourcePosition) match {
-          case ct: xt.ClassType => ct
-          case t => outOfSubsetError(vd, "Unexpected type")
-        }
-        val fd = new xt.FunDef(
-          getIdentifier(sym),
-          Seq.empty,
-          Seq.empty,
-          ct,
-          xt.ClassConstructor(ct, Seq.empty),
-          annotationsOf(sym)
-        )
-        functions :+= fd.id
-        allFunctions :+= fd
+        // val ct = extractType(tpe)(using dctx, NoSourcePosition) match {
+        //   case ct: xt.ClassType => ct
+        //   case t => outOfSubsetError(vd, "Unexpected type")
+        // }
+        // val fd = new xt.FunDef(
+        //   getIdentifier(sym),
+        //   Seq.empty,
+        //   Seq.empty,
+        //   ct,
+        //   xt.ClassConstructor(ct, Seq.empty),
+        //   annotationsOf(sym)
+        // )
+        // functions :+= fd.id
+        // allFunctions :+= fd
+        outOfSubsetError(vd, "Fancy objects are not supported, use a case object instead!")
 
       case ExPlainObjectCreation() =>
         // Ignore, because plain objects are eliminated (their content is hoisted).
