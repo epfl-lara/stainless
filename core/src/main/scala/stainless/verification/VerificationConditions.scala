@@ -28,7 +28,7 @@ case class VC[T <: ast.Trees](val trees: T)(val condition: trees.Expr, val fid: 
     state.map(_.hashCode()).foldLeft(0)((a, b) => 31 * a + b)
   }
 
-  override def toString(): String =  s"VC($condition)"
+  override def toString(): String =  s"VC($getPos, $condition, $fid, $kind, $satisfiability)"
 }
 
 sealed abstract class VCKind(val name: String, val abbrv: String) {
@@ -69,10 +69,10 @@ object VCKind {
   case object InvariantSat                  extends VCKind("invariant satisfiability", "inv. sat")
   case object RefinementSubtype             extends VCKind("refinements checks for subtyping", "refinements")
   case object RecursiveSubtype              extends VCKind("recursive types indices checks for subtyping", "rec. types")
-  case class  AssertErr(err: String)        extends VCKind("body assertion: " + err, "assert.")
+  case class  AssertErr(err: String)        extends VCKind(s"body assertion: $err", "assert.")
   case object CoqMethod                     extends VCKind("coq function", "coq fun.")
-  case class  Error(err: String)            extends VCKind(err, "error")
-  case class  AdtInvariant(inv: Identifier) extends VCKind("class invariant", "class inv.")
+  case class  Error(err: String)            extends VCKind(s"error: $err", "error")
+  case class  AdtInvariant(inv: Identifier) extends VCKind(s"class invariant: ${inv.name}", "class inv.")
   case object SATPrecondCheck               extends VCKind("precondition satisfiability", "sat precond.")
 
   def fromErr(optErr: Option[String]) = {

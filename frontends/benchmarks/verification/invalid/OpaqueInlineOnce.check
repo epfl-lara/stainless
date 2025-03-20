@@ -1,0 +1,4 @@
+8:7;f;postcondition;valid
+15:13;g;body assertion: Inlined precondition of f;valid
+15:13;g;precondition;valid
+16:12;g;body assertion;invalid

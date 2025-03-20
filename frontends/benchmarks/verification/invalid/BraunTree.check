@@ -1,0 +1,7 @@
+12:5;insert;body assertion: match exhaustiveness;valid
+12:5;insert;postcondition;valid
+14:9;insert;postcondition;invalid
+14:21;insert;precondition;valid
+15:22;insert;postcondition;valid
+20:5;height;body assertion: match exhaustiveness;valid
+31:5;isBraun;body assertion: match exhaustiveness;valid

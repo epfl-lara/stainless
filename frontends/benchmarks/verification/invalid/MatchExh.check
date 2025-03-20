@@ -1,0 +1,4 @@
+14:29;exh2;body assertion: match exhaustiveness;valid
+20:22;err1;body assertion: match exhaustiveness;invalid
+25:29;err2;body assertion: match exhaustiveness;invalid
+31:31;err3;body assertion: match exhaustiveness;invalid

@@ -1,0 +1,5 @@
+10:38;size;body assertion: match exhaustiveness;valid
+10:38;size;postcondition;valid
+11:19;size;postcondition;valid
+12:24;size;postcondition;valid
+22:5;bar;precondition;invalid

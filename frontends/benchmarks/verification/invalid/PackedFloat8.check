@@ -1,0 +1,10 @@
+15:17;+;non-negative measure;valid
+19:24;+;precondition;valid
+19:24;+;precondition;valid
+22:26;+;precondition;valid
+22:26;+;precondition;valid
+22:46;+;division by zero;valid
+23:16;+;precondition;valid
+23:16;+;precondition;valid
+35:7;apply;postcondition;valid
+39:7;plusAssoc;postcondition;invalid

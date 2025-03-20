@@ -1,0 +1,13 @@
+9:9;value;precondition;valid
+9:9;value;precondition;valid
+9:9;value;precondition;valid
+12:9;lawNotZero;postcondition;valid
+12:9;lawNotZero;postcondition;valid
+12:9;lawNotZero;postcondition;valid
+12:9;lawNotZero;precondition;valid
+12:9;lawNotZero;precondition;valid
+18:18;lawNotZero;law;invalid
+18:18;lawNotZero;law;valid
+18:18;lawNotZero;law;valid
+18:18;lawNotZero;precondition;valid
+19:7;lawNotZero;law;invalid

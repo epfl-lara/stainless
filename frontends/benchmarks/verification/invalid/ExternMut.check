@@ -1,0 +1,2 @@
+20:5;isSameImpure;postcondition;invalid
+26:5;isSamePure;postcondition;valid

@@ -3,15 +3,16 @@
 package stainless
 
 import scala.concurrent.Await
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import org.scalatest.time.Span
 import org.scalatest.FixedThreadPoolParallelExecution
-
 import stainless.utils.YesNoOnly
-
 import extraction.ExtractionSummary
-import extraction.xlang.{ TreeSanitizer, trees => xt }
+import extraction.xlang.{trees as xt}
 import extraction.utils.DebugSymbols
+import stainless.ComponentTestSuite.LoadedPrograms
+
+import java.io.File
 
 // Note: this class extends FixedThreadPoolParallelExecution which extends ParallelTestExecution.
 // When extending ParallelTestExecution, scalatest will create a new instance for each parallel test,
@@ -19,6 +20,8 @@ import extraction.utils.DebugSymbols
 // Therefore, to avoid duplicating work, one should instead load the program (with loadPrograms)
 // in the companion object and save it to a lazy val, and then call testAll with the program symbols
 // (or other relevant functions). See for instance ImperativeSuite.
+// Note that loadProgramsWithResource allows for arbitrary computation when desired.
+// See for instance VerificationComponentTestSuite which loads check files.
 //
 // When a custom logic is necessary without involving testAll, care must be again taken to not
 // run "heavy work" in the test class itself but rather in its companion object, saved in a lazy val.
@@ -53,21 +56,21 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
 
   protected def filter(ctx: inox.Context, name: String): FilterStatus = Test
 
-  def testAll(dir: String, structure: Seq[xt.UnitDef], programSymbols: xt.Symbols, identifierFilter: Identifier => Boolean = _ => true)
-              (block: (component.Analysis, inox.Reporter, xt.UnitDef) => Unit): Unit = {
+  def testAll(dir: String, lp: LoadedPrograms, identifierFilter: Identifier => Boolean = _ => true)
+             (block: inox.Context ?=> (component.Analysis, inox.Reporter, xt.UnitDef, File) => Unit): Unit = {
     for {
-      unit <- structure
+      (unit, file) <- lp.unitsWithFile
       if unit.isMain
       name = unit.id.name
     } {
       test(s"$dir/$name", ctx => filter(ctx, s"$dir/$name")) { ctx ?=>
-        val defs = (unit.allFunctions(using programSymbols).toSet ++ unit.allClasses).filter(identifierFilter)
+        val defs = (unit.allFunctions(using lp.programSymbols).toSet ++ unit.allClasses).filter(identifierFilter)
 
-        val deps = defs.flatMap(id => programSymbols.dependencies(id) + id)
+        val deps = defs.flatMap(id => lp.programSymbols.dependencies(id) + id)
         val symbols = extraction.xlang.trees.NoSymbols
-          .withClasses(programSymbols.classes.values.filter(cd => deps(cd.id)).toSeq)
-          .withFunctions(programSymbols.functions.values.filter(fd => deps(fd.id)).toSeq)
-          .withTypeDefs(programSymbols.typeDefs.values.filter(td => deps(td.id)).toSeq)
+          .withClasses(lp.programSymbols.classes.values.filter(cd => deps(cd.id)).toSeq)
+          .withFunctions(lp.programSymbols.functions.values.filter(fd => deps(fd.id)).toSeq)
+          .withTypeDefs(lp.programSymbols.typeDefs.values.filter(td => deps(td.id)).toSeq)
 
         val run = component.run(extraction.pipeline)
         val exSymbols = run.extract(symbols)._1
@@ -82,22 +85,26 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
           defs ++
             exSymbols.functions.values.filter(fd => derived(fd.flags)).map(_.id) ++
             exSymbols.sorts.values.filter(sort => derived(sort.flags)).map(_.id)
-        } (defs).toSeq.filter(exSymbols.functions contains _)
+        }(defs).toSeq.filter(exSymbols.functions.contains)
 
         val report = Await.result(run.execute(funs, exSymbols, ExtractionSummary.NoSummary), Duration.Inf)
-        block(report, ctx.reporter, unit)
+        block(report, ctx.reporter, unit, file)
       }
     }
   }
 }
 object ComponentTestSuite extends inox.ResourceUtils with InputUtils {
+  case class LoadedPrograms(unitsWithFile: Seq[(xt.UnitDef, File)], programSymbols: xt.Symbols)
+  case class LoadedProgramsWithResource[R](lp: LoadedPrograms, resource: R)
+
   // Note: Scala files that are not kept will not even be loaded and extracted.
-  def loadPrograms(dir: String, recursive: Boolean = false, keepOnly: String => Boolean = _ => true): (Seq[xt.UnitDef], xt.Symbols) = {
+  def loadProgramsWithResource[R](dir: String, recursive: Boolean = false, keepOnly: String => Boolean = _ => true)
+                                 (mkResource: LoadedPrograms => R): LoadedProgramsWithResource[R] = {
     val fs = resourceFiles(dir, f => f.endsWith(".scala") && keepOnly(f), recursive).toList
     val ctx: inox.Context = inox.TestContext.empty
     import ctx.given
 
-    val (structure, program) = loadFiles(fs.map(_.getPath))
+    val (unitsWithFile, program) = loadFiles(fs.map(_.getPath))
     assert(ctx.reporter.errorCount == 0, "There should be no error while loading the files")
 
     val userFiltering = new DebugSymbols {
@@ -109,6 +116,11 @@ object ComponentTestSuite extends inox.ResourceUtils with InputUtils {
 
     val programSymbols = userFiltering.debugWithoutSummary(frontend.UserFiltering().transform)(program.symbols)._1
     programSymbols.ensureWellFormed
-    (structure, programSymbols)
+    val lp = LoadedPrograms(unitsWithFile, programSymbols)
+    val resource = mkResource(lp)
+    LoadedProgramsWithResource(lp, resource)
   }
+
+  def loadPrograms(dir: String, recursive: Boolean = false, keepOnly: String => Boolean = _ => true): LoadedPrograms =
+    loadProgramsWithResource(dir, recursive, keepOnly)(_ => ()).lp
 }

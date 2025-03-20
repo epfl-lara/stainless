@@ -20,8 +20,8 @@ class UncheckedSuite extends VerificationComponentTestSuite {
   }
 
   import UncheckedSuite._
-  testUncheckedAll("verification/unchecked-invalid", uncheckedInvalid._1, uncheckedInvalid._2)
-  testUncheckedAll("verification/unchecked-valid", uncheckedValid._1, uncheckedValid._2)
+  testUncheckedAll("verification/unchecked-invalid", uncheckedInvalid)
+  testUncheckedAll("verification/unchecked-valid", uncheckedValid)
 }
 object UncheckedSuite {
   private lazy val uncheckedInvalid = ComponentTestSuite.loadPrograms("verification/unchecked-invalid")
