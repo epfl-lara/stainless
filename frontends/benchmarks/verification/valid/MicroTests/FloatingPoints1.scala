@@ -77,7 +77,7 @@ object FloatingPoints1 {
     assert(!d.isNegInfinity || !d.isFinite)
   }
 
-  def testImplicitCasting() = {
+  def testImplicitCastingValues() = {
     val b: Byte = 1
     val s: Short = 2
     val i: Int = 3
@@ -106,7 +106,7 @@ object FloatingPoints1 {
     assert(df == f && f == df)
   }
 
-  def testExplicitCasting() = {
+  def testExplicitCastingValues() = {
     val b: Byte = 1
     val s: Short = 2
     val i: Int = 3
