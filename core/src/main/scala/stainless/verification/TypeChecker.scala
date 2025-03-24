@@ -711,7 +711,11 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
         (BooleanType(), tr1 ++ tr2)
 
       case FPCast(exponent, significand, roundingMode, e2) =>
-        (FPType(exponent, significand), TyperResult.valid) // TODO: any "invalid" cases like for e.g. BVWideningCast?
+        val (tpe, tr) = inferType(tc, e2)
+        tpe match {
+          case FPType(_, _) | BVType(true, _) | RealType => (FPType(exponent, significand), tr)
+          case _ => reporter.fatalError(e.getPos, s"Cannot convert type ${tpe.asString} to a floating point number")
+        }
 
       case RoundNearestTiesToEven | RoundNearestTiesToAway | RoundTowardZero | RoundTowardNegative | RoundTowardPositive =>
         (RoundingMode, TyperResult.valid)
