@@ -2342,11 +2342,15 @@ class CodeExtraction(inoxCtx: inox.Context,
 
     val (lctor, rctor) = (ltpe, rtpe) match {
       case (xt.FPType(11, 53), xt.FPType(11, 53)) => (id, id)
-      case (xt.FPType(11, 53), _)                 => (id, toDouble)
-      case (_, xt.FPType(11, 53))                 => (toDouble, id)
+      case (xt.FPType(11, 53), xt.FPType(_, _))   => (id, toDouble)
+      case (xt.FPType(11, 53), xt.BVType(_, _))   => (id, toDouble)
+      case (xt.FPType(_, _), xt.FPType(11, 53))   => (toDouble, id)
+      case (xt.BVType(_, _), xt.FPType(11, 53))   => (toDouble, id)
       case (xt.FPType(8, 24), xt.FPType(8, 24))   => (id, id)
-      case (xt.FPType(8, 24), _)                  => (id, toFloat)
-      case (_, xt.FPType(8, 24))                  => (toFloat, id)
+      case (xt.FPType(8, 24), xt.FPType(_, _))    => (id, toFloat)
+      case (xt.FPType(8, 24), xt.BVType(_, _))    => (id, toFloat)
+      case (xt.FPType(_, _), xt.FPType(8, 24))    => (toFloat, id)
+      case (xt.BVType(_, _), xt.FPType(8, 24))    => (toFloat, id)
 
       case (xt.BVType(true, 64), xt.BVType(true, 64))          => (id, id)
       case (xt.BVType(true, 64), xt.BVType(true, _))           => (id, widen64)
