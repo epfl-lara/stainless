@@ -1738,11 +1738,6 @@ class CodeExtraction(inoxCtx: inox.Context,
         if (tpeL == tpeR) xt.Equals(l2, r2)
         else outOfSubsetError(tr, "Bitvectors can only be compared with bitvectors of the same type.")
 
-      case (_, xt.FPType(_, _), _, _) =>
-        injectCasts(xt.FPEquals.apply)(l, r)
-      case (_, _, _, xt.FPType(_, _)) =>
-        injectCasts(xt.FPEquals.apply)(l, r)
-
       case _ => injectCasts(xt.Equals.apply)(l, r)
     }).setPos(tr.sourcePos))
 
@@ -1765,11 +1760,6 @@ class CodeExtraction(inoxCtx: inox.Context,
       case (l2, tpeL, r2, tpeR @ StrictBVType(_, _)) =>
         if (tpeL == tpeR) xt.Equals(l2, r2)
         else outOfSubsetError(tr, "Bitvectors can only be compared with bitvectors of the same type.")
-
-      case (_, xt.FPType(_, _), _, _) =>
-        injectCasts(xt.FPEquals.apply)(l, r)
-      case (_, _, _, xt.FPType(_, _)) =>
-        injectCasts(xt.FPEquals.apply)(l, r)
 
       case _ => injectCasts(xt.Equals.apply)(l, r)
     }
@@ -2298,7 +2288,8 @@ class CodeExtraction(inoxCtx: inox.Context,
       xt.BVUnsignedToSigned(e).copiedFrom(e)
   }
 
-  /** Inject implicit widening casts according to the Java semantics (5.6.2. Binary Numeric Promotion) */
+  /** Inject implicit widening casts according to the Java semantics (5.6.2. Binary Numeric Promotion).
+   *  Also converts to floating-point versions of operators when necessary. */
   private def injectCasts(ctor: (xt.Expr, xt.Expr) => xt.Expr)
                          (lhs0: tpd.Tree, rhs0: tpd.Tree)
                          (using dctx: DefContext): xt.Expr = {
@@ -2346,34 +2337,47 @@ class CodeExtraction(inoxCtx: inox.Context,
     val toFloat = { (e: xt.Expr) => xt.FPCast(8, 24, xt.RoundNearestTiesToEven.copiedFrom(e), e).copiedFrom(e) }
     val toDouble = { (e: xt.Expr) => xt.FPCast(11, 53, xt.RoundNearestTiesToEven.copiedFrom(e), e).copiedFrom(e) }
 
-    val (lctor, rctor) = (ltpe, rtpe) match {
-      case (xt.FPType(11, 53), xt.FPType(11, 53)) => (id, id)
-      case (xt.FPType(11, 53), xt.FPType(_, _))   => (id, toDouble)
-      case (xt.FPType(11, 53), xt.BVType(_, _))   => (id, toDouble)
-      case (xt.FPType(_, _), xt.FPType(11, 53))   => (toDouble, id)
-      case (xt.BVType(_, _), xt.FPType(11, 53))   => (toDouble, id)
-      case (xt.FPType(8, 24), xt.FPType(8, 24))   => (id, id)
-      case (xt.FPType(8, 24), xt.FPType(_, _))    => (id, toFloat)
-      case (xt.FPType(8, 24), xt.BVType(_, _))    => (id, toFloat)
-      case (xt.FPType(_, _), xt.FPType(8, 24))    => (toFloat, id)
-      case (xt.BVType(_, _), xt.FPType(8, 24))    => (toFloat, id)
+    val (lctor, rctor, tpe) = (ltpe, rtpe) match {
+      case (xt.FPType(11, 53), xt.FPType(11, 53)) => (id, id, xt.FPType(11, 53))
+      case (xt.FPType(11, 53), xt.FPType(_, _))   => (id, toDouble, xt.FPType(11, 53))
+      case (xt.FPType(11, 53), xt.BVType(_, _))   => (id, toDouble, xt.FPType(11, 53))
+      case (xt.FPType(_, _), xt.FPType(11, 53))   => (toDouble, id, xt.FPType(11, 53))
+      case (xt.BVType(_, _), xt.FPType(11, 53))   => (toDouble, id, xt.FPType(11, 53))
+      case (xt.FPType(8, 24), xt.FPType(8, 24))   => (id, id, xt.FPType(8, 24))
+      case (xt.FPType(8, 24), xt.FPType(_, _))    => (id, toFloat, xt.FPType(8, 24))
+      case (xt.FPType(8, 24), xt.BVType(_, _))    => (id, toFloat, xt.FPType(8, 24))
+      case (xt.FPType(_, _), xt.FPType(8, 24))    => (toFloat, id, xt.FPType(8, 24))
+      case (xt.BVType(_, _), xt.FPType(8, 24))    => (toFloat, id, xt.FPType(8, 24))
 
-      case (xt.BVType(true, 64), xt.BVType(true, 64))          => (id, id)
-      case (xt.BVType(true, 64), xt.BVType(true, _))           => (id, widen64)
+      case (xt.BVType(true, 64), xt.BVType(true, 64))          => (id, id, xt.BVType(true, 64))
+      case (xt.BVType(true, 64), xt.BVType(true, _))           => (id, widen64, xt.BVType(true, 64))
       case (xt.BVType(true, _),  xt.BVType(true, 64)) if shift => outOfSubsetError(rhs0, s"Unsupported shift")
-      case (xt.BVType(true, _),  xt.BVType(true, 64))          => (widen64, id)
-      case (xt.BVType(true, 32), xt.BVType(true, 32))          => (id, id)
-      case (xt.BVType(true, 32), xt.BVType(true, _))           => (id, widen32)
-      case (xt.BVType(true, _),  xt.BVType(true, 32))          => (widen32, id)
-      case (xt.BVType(true, _),  xt.BVType(true, _))           => (widen32, widen32)
+      case (xt.BVType(true, _),  xt.BVType(true, 64))          => (widen64, id, xt.BVType(true, 64))
+      case (xt.BVType(true, 32), xt.BVType(true, 32))          => (id, id, xt.BVType(true, 32))
+      case (xt.BVType(true, 32), xt.BVType(true, _))           => (id, widen32, xt.BVType(true, 32))
+      case (xt.BVType(true, _),  xt.BVType(true, 32))          => (widen32, id, xt.BVType(true, 32))
+      case (xt.BVType(true, _),  xt.BVType(true, _))           => (widen32, widen32, xt.BVType(true, 32))
 
       case (xt.BVType(_,_), _) | (_, xt.BVType(_,_)) | (xt.FPType(_,_), _) | (_, xt.FPType(_,_)) =>
         outOfSubsetError(lhs0, s"Unexpected combination of types: $ltpe and $rtpe")
 
-      case (_, _) => (id, id)
+      case (_, _) => (id, id, ltpe)
     }
 
-    ctor(lctor(lhs), rctor(rhs))
+    (ctor(lctor(lhs), rctor(rhs)), tpe) match {
+      case (xt.Plus(lhs, rhs),           xt.FPType(_, _)) => xt.FPAdd(xt.RoundNearestTiesToEven, lhs, rhs)
+      case (xt.Minus(lhs, rhs),          xt.FPType(_, _)) => xt.FPSub(xt.RoundNearestTiesToEven, lhs, rhs)
+      case (xt.Times(lhs, rhs),          xt.FPType(_, _)) => xt.FPMul(xt.RoundNearestTiesToEven, lhs, rhs)
+      case (xt.Division(lhs, rhs),       xt.FPType(_, _)) => xt.FPDiv(xt.RoundNearestTiesToEven, lhs, rhs)
+      case (rem @ xt.Remainder(lhs, rhs),xt.FPType(_, _)) =>
+        outOfSubsetError(lhs0, "Floating point remainders are not supported.")
+      case (xt.LessThan(lhs, rhs),       xt.FPType(_, _)) => xt.FPLessThan(lhs, rhs)
+      case (xt.LessEquals(lhs, rhs),     xt.FPType(_, _)) => xt.FPLessEquals(lhs, rhs)
+      case (xt.GreaterThan(lhs, rhs),    xt.FPType(_, _)) => xt.FPGreaterThan(lhs, rhs)
+      case (xt.GreaterEquals(lhs, rhs),  xt.FPType(_, _)) => xt.FPGreaterEquals(lhs, rhs)
+      case (xt.Equals(lhs, rhs),         xt.FPType(_, _)) => xt.FPEquals(lhs, rhs)
+      case (e, _) => e
+    }
   }
 
   /** Inject implicit widening cast according to the Java semantics (5.6.1. Unary Numeric Promotion) */
@@ -2384,14 +2388,19 @@ class CodeExtraction(inoxCtx: inox.Context,
     val id = { (e: xt.Expr) => e }
     val widen32 = { (e: xt.Expr) => xt.BVWideningCast(e, xt.Int32Type().copiedFrom(e)).copiedFrom(e) }
 
-    val ector = etpe match {
-      case xt.BVType(true, 8 | 16) => widen32
-      case xt.BVType(true, 32 | 64) => id
+    val (ector, tpe) = etpe match {
+      case xt.BVType(true, 8 | 16) => (widen32, xt.BVType(true, 32))
+      case xt.BVType(true, 32 | 64) => (id, etpe)
       case xt.BVType(_, s) => outOfSubsetError(e0, s"Unexpected integer type of $s bits")
-      case _ => id
+      case xt.FPType(8, 24) | xt.FPType(11, 53) => (id, etpe)
+      case xt.FPType(e, s) => outOfSubsetError(e0, s"Unexpected float of $e bit exponent and $s bit significand")
+      case _ => (id, etpe)
     }
 
-    ctor(ector(e))
+    (ctor(ector(e)), tpe) match {
+      case (xt.UMinus(e), xt.FPType(_, _)) => xt.FPUMinus(e)
+      case (e, _) => e
+    }
   }
 
   private def extractLocalClassType(tr: TypeRef, cid: Identifier, tps: List[xt.Type])

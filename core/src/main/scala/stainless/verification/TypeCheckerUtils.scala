@@ -170,7 +170,6 @@ object TypeCheckerUtils {
     case IntegerType() => true
     case RealType() => true
     case BVType(_, _) => true
-    case FPType(_, _) => true
     case _ => false
   }
 
@@ -179,6 +178,10 @@ object TypeCheckerUtils {
     case CharType() => true
     case RealType() => true
     case BVType(_, _) => true
+    case _ => false
+  }
+
+  def isFloatType(t: Type): Boolean = t match {
     case FPType(_, _) => true
     case _ => false
   }
