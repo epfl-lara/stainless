@@ -1883,9 +1883,9 @@ class CodeExtraction(inoxCtx: inox.Context,
     case ex @ ExIdentifier(sym, tpt) if dctx.vars contains sym => dctx.vars(sym)().setPos(ex.sourcePos)
     case ex @ ExIdentifier(sym, tpt) if dctx.mutableVars contains sym => dctx.mutableVars(sym)().setPos(ex.sourcePos)
 
-    // We ignore conversion to 'Rich' types (e.g. RichFloat) and boxed java types (e.g. java.lang.Float).
-    // They have the same Inox representations as the base types (e.g. Float).
-    // When doing this, we also need to ensure that getType() also returns the base type.
+    // We ignore some conversions (e.g. to 'Rich' types like RichFloat).
+    // They have the same Inox representations as the basic types (like Float).
+    // When doing this, we also need to ensure that getType() also returns the basic type.
     case ExIgnoredCastCall(expr) => extractTree(expr)
 
     case ExThisCall(tt, sym, tps, args) =>
@@ -1961,8 +1961,11 @@ class CodeExtraction(inoxCtx: inox.Context,
 
     case None =>
       dctx.localFuns.get(sym) match {
-        case None =>
-          xt.FunctionInvocation(getIdentifier(sym), tps map extractType, extractArgs(sym, args)).setPos(tr.sourcePos)
+        case None => (sym, args) match {
+          case (ExSymbol("stainless", "math", "package$", "sqrt"), Seq(rhs)) =>
+            xt.Sqrt(xt.RoundNearestTiesToEven, extractTree(rhs))
+          case _ => xt.FunctionInvocation (getIdentifier (sym), tps map extractType, extractArgs (sym, args) ).setPos (tr.sourcePos)
+        }
         case Some((id, tparams, tpe)) =>
           xt.ApplyLetRec(id, tparams.map(_.tp), tpe, tps map extractType, extractArgs(sym, args)).setPos(tr.sourcePos)
       }
@@ -2209,6 +2212,9 @@ class CodeExtraction(inoxCtx: inox.Context,
         case (_, "&&",  Seq(rhs)) => xt.And(extractTree(lhs), extractTree(rhs))
         case (_, "||",  Seq(rhs)) => xt.Or(extractTree(lhs), extractTree(rhs))
 
+        case (tpe @ xt.FPType(_,_), "isPositive", Seq()) => xt.FPIsPositive(extractTree(lhs)).setPos(tr.sourcePos)
+        case (tpe @ xt.FPType(_,_), "isNegative", Seq()) => xt.FPIsNegative(extractTree(lhs)).setPos(tr.sourcePos)
+        case (tpe @ xt.FPType(_,_), "isZero", Seq()) => xt.FPIsZero(extractTree(lhs)).setPos(tr.sourcePos)
         case (tpe @ xt.FPType(_,_), "isFinite", Seq()) =>
           val pos = tr.sourcePos
           val vd = xt.ValDef.fresh("fp", tpe).setPos(pos)
@@ -2441,11 +2447,13 @@ class CodeExtraction(inoxCtx: inox.Context,
         xt.TypeBounds(extractType(lo), extractType(hi), Seq.empty)
       case cet: ExprType => extractType(cet.resultType)
 
-      case tpe if isRichFloatSym(tpe.typeSymbol)  => xt.Float32Type()
-      case tpe if isRichDoubleSym(tpe.typeSymbol) => xt.Float64Type()
-      case tpe if isBigIntSym(tpe.typeSymbol)     => xt.IntegerType()
-      case tpe if isRealSym(tpe.typeSymbol)       => xt.RealType()
-      case tpe if isStringSym(tpe.typeSymbol)     => xt.StringType()
+      case tpe if isRichFloatSym(tpe.typeSymbol)           => xt.Float32Type()
+      case tpe if isStainlessMathFloatSym(tpe.typeSymbol)  => xt.Float32Type()
+      case tpe if isRichDoubleSym(tpe.typeSymbol)          => xt.Float64Type()
+      case tpe if isStainlessMathDoubleSym(tpe.typeSymbol) => xt.Float64Type()
+      case tpe if isBigIntSym(tpe.typeSymbol)              => xt.IntegerType()
+      case tpe if isRealSym(tpe.typeSymbol)                => xt.RealType()
+      case tpe if isStringSym(tpe.typeSymbol)              => xt.StringType()
 
       case AppliedType(tr: TypeRef, Seq(tp)) if isSetSym(tr.symbol) =>
         // We know the underlying is a set, but it may be hidden under an alias
