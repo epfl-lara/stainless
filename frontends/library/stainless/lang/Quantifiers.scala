@@ -77,4 +77,15 @@ object Quantifiers {
     require(!Forall(p))
     ()
   }.ensuring(_ => Exists((x:T) => !p(x)))
+
+  // Functions relationship
+  @ghost 
+  def partialInverse[A, B](f: A => B, g: B => A): Boolean = Forall((b: B) => f(g(b)) == b) 
+
+  case class Bijection[A, B](f: A => B, g: B => A):
+    require(partialInverse(f, g))
+    require(partialInverse(g, f))
+  end Bijection
+
+  
 }
