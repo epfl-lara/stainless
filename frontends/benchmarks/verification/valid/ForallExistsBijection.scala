@@ -12,15 +12,13 @@ object ForallExistsBijection:
   val bijectionBigIntBigInt = {
     ghostExpr{
       assert({
-        unfold(Forall((x: BigInt) => ff(gg(x)) == x))
-        Forall((x: BigInt) => ff(gg(x)) == x)
+        unfold(partialInverse(ff, gg))
+        partialInverse(ff, gg)
       })
       assert({
-        unfold(Forall((x: BigInt) => gg(ff(x)) == x))
-        Forall((x: BigInt) => gg(ff(x)) == x)
+        unfold(partialInverse(gg, ff))
+        partialInverse(gg, ff)
       })
-      unfold(validInj(ff, gg))
-      unfold(validInj(gg, ff))
     }
     Bijection[BigInt, BigInt](ff, gg)
   }
