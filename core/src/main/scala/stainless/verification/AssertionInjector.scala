@@ -210,15 +210,19 @@ class AssertionInjector(override val s: ast.Trees, override val t: ast.Trees, va
 
         }
 
-        t.Assert(
-          t.Not(t.Equals(dx, d.getType match {
-            case s.IntegerType() => t.IntegerLiteral(0).copiedFrom(d)
-            case s.BVType(signed, i) => t.BVLiteral(signed, 0, i).copiedFrom(d)
-            case s.RealType() => t.FractionLiteral(0, 1).copiedFrom(d)
-          }).copiedFrom(d)).copiedFrom(d),
-          Some("Division by zero"),
-          rest
-        ).copiedFrom(e)
+        d.getType match {
+          case s.FPType(_, _) => rest
+          case _ =>
+            t.Assert(
+              t.Not(t.Equals(dx, d.getType match {
+                case s.IntegerType() => t.IntegerLiteral(0).copiedFrom(d)
+                case s.BVType(signed, i) => t.BVLiteral(signed, 0, i).copiedFrom(d)
+                case s.RealType() => t.FractionLiteral(0, 1).copiedFrom(d)
+              }).copiedFrom(d)).copiedFrom(d),
+              Some("Division by zero"),
+              rest
+            ).copiedFrom(e)
+        }
       }}
 
     case s.Remainder(n, d) =>
