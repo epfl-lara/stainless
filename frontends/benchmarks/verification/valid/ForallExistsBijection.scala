@@ -19,6 +19,8 @@ object ForallExistsBijection:
         unfold(partialInverse(gg, ff))
         partialInverse(gg, ff)
       })
+      unfold(partialInverse(ff, gg))
+      unfold(partialInverse(gg, ff))
     }
     Bijection[BigInt, BigInt](ff, gg)
   }
