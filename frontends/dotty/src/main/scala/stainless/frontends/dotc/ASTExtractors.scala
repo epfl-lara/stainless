@@ -148,6 +148,8 @@ trait ASTExtractors {
 
   protected lazy val richFloatSym  = classFromName("scala.runtime.RichFloat")
   protected lazy val richDoubleSym = classFromName("scala.runtime.RichDouble")
+  protected lazy val stainlessMathFloatSym = classFromName("stainless.math.StainlessMathFloat")
+  protected lazy val stainlessMathDoubleSym = classFromName("stainless.math.StainlessMathDouble")
 
   protected def functionTraitSym(i:Int) = {
     require(0 <= i && i <= 22)
@@ -184,7 +186,9 @@ trait ASTExtractors {
   }
 
   def isRichFloatSym(sym: Symbol) : Boolean = getResolvedTypeSym(sym) == richFloatSym
+  def isStainlessMathFloatSym(sym: Symbol) : Boolean = getResolvedTypeSym(sym) == stainlessMathFloatSym
   def isRichDoubleSym(sym: Symbol) : Boolean = getResolvedTypeSym(sym) == richDoubleSym
+  def isStainlessMathDoubleSym(sym: Symbol): Boolean = getResolvedTypeSym(sym) == stainlessMathDoubleSym
 
   def isBigIntSym(sym: Symbol) : Boolean = getResolvedTypeSym(sym) == bigIntSym
 
@@ -499,10 +503,12 @@ trait ASTExtractors {
      * e.g. Float and RichFloat are both represented by FPType, so we ignore conversions to RichFloat. */
     object ExIgnoredCastCall {
       def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
-        case Apply(Ident(name), List(arg)) => name.toString match {
-          case "floatWrapper" | "doubleWrapper" | "float2Float" | "double2Double" => Some(arg)
-          case _ => None
-        }
+        case Apply(ExSymbol("stainless", "math", "package$", "StainlessMathFloat"), Seq(arg)) => Some(arg)
+        case Apply(ExSymbol("stainless", "math", "package$", "StainlessMathDouble"), Seq(arg)) => Some(arg)
+        case Apply(ExSymbol("scala", "LowPriorityImplicits", "floatWrapper"), List(arg)) => Some(arg)
+        case Apply(ExSymbol("scala", "LowPriorityImplicits", "doubleWrapper"), List(arg)) => Some(arg)
+        case Apply(ExSymbol("scala", "Predef$", "float2Float"), List(arg)) => Some(arg)
+        case Apply(ExSymbol("scala", "Predef$", "double2Double"), List(arg)) => Some(arg)
         // can also be implemented for other types
         case _ => None
       }

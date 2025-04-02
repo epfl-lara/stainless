@@ -111,6 +111,8 @@ trait TransformerWithType extends TreeTransformer {
     case s.FPCast(exponent, significand, roundingMode, e) =>
       t.FPCast(exponent, significand, transform(roundingMode), transform(e)).copiedFrom(expr)
 
+    case s.Sqrt(rm, e) => t.Sqrt(transform(rm), transform(e)).copiedFrom(expr)
+
     case s.RoundNearestTiesToEven => t.RoundNearestTiesToEven.copiedFrom(expr)
     case s.RoundNearestTiesToAway => t.RoundNearestTiesToAway.copiedFrom(expr)
     case s.RoundTowardZero => t.RoundTowardZero.copiedFrom(expr)
