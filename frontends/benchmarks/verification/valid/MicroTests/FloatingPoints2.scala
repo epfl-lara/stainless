@@ -1,4 +1,4 @@
-import stainless.math._
+import stainless.lang._
 
 object FloatingPoints2 {
   def testStainlessMathFloatMethods() = {

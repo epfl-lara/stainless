@@ -1,3 +1,5 @@
+import stainless.lang._
+
 object FloatingPoints1 {
   def testFloatMethods() = {
     val nan = Float.NaN
@@ -6,25 +8,21 @@ object FloatingPoints1 {
     val one = 1f
     assert(nan.isNaN)
     assert(!nan.isInfinity)
-    assert(!nan.isInfinite)
     assert(!nan.isNegInfinity)
     assert(!nan.isPosInfinity)
     assert(!nan.isFinite)
     assert(!inf.isNaN)
     assert(inf.isInfinity)
-    assert(inf.isInfinite)
     assert(!inf.isNegInfinity)
     assert(inf.isPosInfinity)
     assert(!inf.isFinite)
     assert(!ninf.isNaN)
     assert(ninf.isInfinity)
-    assert(ninf.isInfinite)
     assert(ninf.isNegInfinity)
     assert(!ninf.isPosInfinity)
     assert(!ninf.isFinite)
     assert(!one.isNaN)
     assert(!one.isInfinity)
-    assert(!one.isInfinite)
     assert(!one.isNegInfinity)
     assert(!one.isPosInfinity)
     assert(one.isFinite)
@@ -37,25 +35,21 @@ object FloatingPoints1 {
     val one = 1d
     assert(nan.isNaN)
     assert(!nan.isInfinity)
-    assert(!nan.isInfinite)
     assert(!nan.isNegInfinity)
     assert(!nan.isPosInfinity)
     assert(!nan.isFinite)
     assert(!inf.isNaN)
     assert(inf.isInfinity)
-    assert(inf.isInfinite)
     assert(!inf.isNegInfinity)
     assert(inf.isPosInfinity)
     assert(!inf.isFinite)
     assert(!ninf.isNaN)
     assert(ninf.isInfinity)
-    assert(ninf.isInfinite)
     assert(ninf.isNegInfinity)
     assert(!ninf.isPosInfinity)
     assert(!ninf.isFinite)
     assert(!one.isNaN)
     assert(!one.isInfinity)
-    assert(!one.isInfinite)
     assert(!one.isNegInfinity)
     assert(!one.isPosInfinity)
     assert(one.isFinite)
@@ -64,7 +58,6 @@ object FloatingPoints1 {
   def testFloatIsFiniteIdentities(f: Float) = {
     assert(!f.isNaN || !f.isFinite)
     assert(!f.isInfinity || !f.isFinite)
-    assert(!f.isInfinite || !f.isFinite)
     assert(!f.isPosInfinity || !f.isFinite)
     assert(!f.isNegInfinity || !f.isFinite)
   }
@@ -72,7 +65,6 @@ object FloatingPoints1 {
   def testDoubleIsFiniteIdentities(d: Double) = {
     assert(!d.isNaN || !d.isFinite)
     assert(!d.isInfinity || !d.isFinite)
-    assert(!d.isInfinite || !d.isFinite)
     assert(!d.isPosInfinity || !d.isFinite)
     assert(!d.isNegInfinity || !d.isFinite)
   }

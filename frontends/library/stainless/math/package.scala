@@ -3,7 +3,7 @@
 package stainless
 
 import stainless.annotation.*
-import stainless.lang.BooleanDecorations
+import stainless.lang.*
 
 import scala.language.implicitConversions
 
@@ -47,20 +47,6 @@ package object math {
   }
 
   @ignore
-  final implicit class StainlessMathDouble(val d: Double) extends AnyVal {
-    def isPositive: Boolean = d > 0d || d.equals(+0d)
-    def isNegative: Boolean = d < 0d || d.equals(-0d)
-    def isZero: Boolean = d.equals(+0d) || d.equals(-0d)
-  }
-
-  @ignore
-  final implicit class StainlessMathFloat(val f: Float) extends AnyVal {
-    def isPositive: Boolean = f > 0f || f.equals(+0f)
-    def isNegative: Boolean = f < 0f || f.equals(-0f)
-    def isZero: Boolean = f.equals(+0f) || f.equals(-0f)
-  }
-
-  @ignore
   def sqrt(a: Double): Double = {
     java.lang.Math.sqrt(a)
   }
@@ -71,7 +57,7 @@ package object math {
   def sin(x: Double): Double = {
     java.lang.Math.sin(x)
   }.ensuring(res =>
-    ((x.isNaN || x.isInfinite) == res.isNaN)
+    ((x.isNaN || x.isInfinity) == res.isNaN)
     && ((x.isPositive && x.isZero) ==> (res.isPositive && res.isZero))
     && ((x.isNegative && x.isZero) ==> (res.isNegative && res.isZero))
     && (-1.0d <= res && res <= 1.0d || res.isNaN)
@@ -81,7 +67,7 @@ package object math {
   def cos(x: Double): Double = {
     java.lang.Math.cos(x)
   }.ensuring(res =>
-    ((x.isNaN || x.isInfinite) == res.isNaN)
+    ((x.isNaN || x.isInfinity) == res.isNaN)
     && (-1.0d <= res && res <= 1.0d || res.isNaN)
   )
 
@@ -107,7 +93,7 @@ package object math {
   def tan(x: Double): Double = {
     java.lang.Math.tan(x)
   }.ensuring(res =>
-    ((x.isNaN || x.isInfinite) ==> res.isNaN)
+    ((x.isNaN || x.isInfinity) ==> res.isNaN)
     && ((x.isPositive && x.isZero) ==> (res.isPositive && res.isZero))
     && ((x.isNegative && x.isZero) ==> (res.isNegative && res.isZero))
   )
