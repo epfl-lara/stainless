@@ -170,6 +170,10 @@ trait TransformerWithType extends TreeTransformer {
       val atpe = getArithmeticType(e, tpe)
       t.UMinus(transform(e, atpe)).copiedFrom(expr)
 
+    case s.FPUMinus(e) =>
+      val atpe = getArithmeticType(e, tpe)
+      t.FPUMinus(transform(e, atpe)).copiedFrom(expr)
+
     case s.Times(lhs, rhs) =>
       val atpe = getArithmeticType(lhs, tpe)
       t.Times(transform(lhs, atpe), transform(rhs, atpe)).copiedFrom(expr)
