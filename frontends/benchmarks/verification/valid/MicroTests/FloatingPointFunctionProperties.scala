@@ -1,4 +1,5 @@
 import stainless.math.*
+import stainless.lang.*
 
 object FloatingPointFunctionProperties {
   def signedZeros1() = { sin(-0.0d) }.ensuring(_ == -0.0d)

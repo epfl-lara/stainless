@@ -145,11 +145,8 @@ trait ASTExtractors {
   protected lazy val someClassSym       = classFromName("scala.Some")
   protected lazy val bigIntSym          = classFromName("scala.math.BigInt")
   protected lazy val stringSym          = classFromName("java.lang.String")
-
-  protected lazy val richFloatSym  = classFromName("scala.runtime.RichFloat")
-  protected lazy val richDoubleSym = classFromName("scala.runtime.RichDouble")
-  protected lazy val stainlessMathFloatSym = classFromName("stainless.math.StainlessMathFloat")
-  protected lazy val stainlessMathDoubleSym = classFromName("stainless.math.StainlessMathDouble")
+  protected lazy val wrappedFloatSym    = classFromName("stainless.lang.WrappedFloat")
+  protected lazy val wrappedDoubleSym   = classFromName("stainless.lang.WrappedDouble")
 
   protected def functionTraitSym(i:Int) = {
     require(0 <= i && i <= 22)
@@ -185,14 +182,13 @@ trait ASTExtractors {
     def unapply(tree: tpd.Tree): Option[Int] = unapply(tree.tpe)
   }
 
-  def isRichFloatSym(sym: Symbol) : Boolean = getResolvedTypeSym(sym) == richFloatSym
-  def isStainlessMathFloatSym(sym: Symbol) : Boolean = getResolvedTypeSym(sym) == stainlessMathFloatSym
-  def isRichDoubleSym(sym: Symbol) : Boolean = getResolvedTypeSym(sym) == richDoubleSym
-  def isStainlessMathDoubleSym(sym: Symbol): Boolean = getResolvedTypeSym(sym) == stainlessMathDoubleSym
-
   def isBigIntSym(sym: Symbol) : Boolean = getResolvedTypeSym(sym) == bigIntSym
 
   def isStringSym(sym: Symbol) : Boolean = getResolvedTypeSym(sym) match { case `stringSym` => true case _ => false }
+
+  def isWrappedFloatSym(sym: Symbol): Boolean = getResolvedTypeSym(sym) == wrappedFloatSym
+
+  def isWrappedDoubleSym(sym: Symbol): Boolean = getResolvedTypeSym(sym) == wrappedDoubleSym
 
   // Resolve type aliases
   def getResolvedTypeSym(sym: Symbol): Symbol = {
@@ -499,21 +495,6 @@ trait ASTExtractors {
       }
     }
 
-    /** Matches calls converting to types which do not have a distinct representation in xlang,
-     * e.g. Float and RichFloat are both represented by FPType, so we ignore conversions to RichFloat. */
-    object ExIgnoredCastCall {
-      def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
-        case Apply(ExSymbol("stainless", "math", "package$", "StainlessMathFloat"), Seq(arg)) => Some(arg)
-        case Apply(ExSymbol("stainless", "math", "package$", "StainlessMathDouble"), Seq(arg)) => Some(arg)
-        case Apply(ExSymbol("scala", "LowPriorityImplicits", "floatWrapper"), List(arg)) => Some(arg)
-        case Apply(ExSymbol("scala", "LowPriorityImplicits", "doubleWrapper"), List(arg)) => Some(arg)
-        case Apply(ExSymbol("scala", "Predef$", "float2Float"), List(arg)) => Some(arg)
-        case Apply(ExSymbol("scala", "Predef$", "double2Double"), List(arg)) => Some(arg)
-        // can also be implemented for other types
-        case _ => None
-      }
-    }
-
     // Dotc seems slightly less consistent than scalac: it uses to format for
     // casts. Like scalac, it uses Select for `.toByte`, but it also uses
     // Apply("byte2int", arg) for implicit conversions (and perhaps for other
@@ -636,6 +617,8 @@ trait ASTExtractors {
             ExSymbol("stainless", "lang", "StaticChecks$", "Ensuring"),
             Seq(arg)) => Some(arg)
 
+        case Apply(ExSymbol("stainless", "lang", "package$", "WrappedFloat"), Seq(arg)) => Some(arg)
+        case Apply(ExSymbol("stainless", "lang", "package$", "WrappedDouble"), Seq(arg)) => Some(arg)
         case Apply(ExSymbol("stainless", "lang", "package$", "Throwing"), Seq(arg)) => Some(arg)
         case Apply(ExSymbol("stainless", "lang", "package$", "BooleanDecorations"), Seq(arg)) => Some(arg)
         case Apply(ExSymbol("stainless", "lang", "package$", "SpecsDecorations"), Seq(arg)) => Some(arg)

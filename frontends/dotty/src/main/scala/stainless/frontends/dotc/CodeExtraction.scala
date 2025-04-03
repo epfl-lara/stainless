@@ -1873,11 +1873,6 @@ class CodeExtraction(inoxCtx: inox.Context,
     case ex @ ExIdentifier(sym, tpt) if dctx.vars contains sym => dctx.vars(sym)().setPos(ex.sourcePos)
     case ex @ ExIdentifier(sym, tpt) if dctx.mutableVars contains sym => dctx.mutableVars(sym)().setPos(ex.sourcePos)
 
-    // We ignore some conversions (e.g. to 'Rich' types like RichFloat).
-    // They have the same Inox representations as the basic types (like Float).
-    // When doing this, we also need to ensure that getType() also returns the basic type.
-    case ExIgnoredCastCall(expr) => extractTree(expr)
-
     case ExThisCall(tt, sym, tps, args) =>
       extractCall(tr, Some(tpd.This(tt.cls)), sym, tps, args)
 
@@ -2212,7 +2207,7 @@ class CodeExtraction(inoxCtx: inox.Context,
           val notNaN = xt.Not(xt.FPIsNaN(vd.toVariable).setPos(pos)).setPos(pos)
           val body = xt.And(notInf, notNaN).setPos(pos)
           xt.Let(vd, extractTree(lhs), body)
-        case (xt.FPType(_,_), "isInfinity" | "isInfinite", Seq()) =>
+        case (xt.FPType(_,_), "isInfinity", Seq()) =>
           xt.FPIsInfinite(extractTree(lhs)).setPos(tr.sourcePos)
         case (xt.FPType(_,_), "isNaN", Seq()) => xt.FPIsNaN(extractTree(lhs)).setPos(tr.sourcePos)
         case (xt.FPType(_,_), "isPosInfinity", Seq()) =>
@@ -2435,9 +2430,7 @@ class CodeExtraction(inoxCtx: inox.Context,
       case NoType => xt.Untyped
 
       case tpe if tpe.typeSymbol == defn.FloatClass       => xt.Float32Type()
-      case tpe if tpe.typeSymbol == defn.BoxedFloatClass  => xt.Float32Type()
       case tpe if tpe.typeSymbol == defn.DoubleClass      => xt.Float64Type()
-      case tpe if tpe.typeSymbol == defn.BoxedDoubleClass => xt.Float64Type()
       case tpe if tpe.typeSymbol == defn.CharClass        => xt.CharType()
       case tpe if tpe.typeSymbol == defn.ByteClass        => xt.Int8Type()
       case tpe if tpe.typeSymbol == defn.ShortClass       => xt.Int16Type()
@@ -2456,13 +2449,11 @@ class CodeExtraction(inoxCtx: inox.Context,
         xt.TypeBounds(extractType(lo), extractType(hi), Seq.empty)
       case cet: ExprType => extractType(cet.resultType)
 
-      case tpe if isRichFloatSym(tpe.typeSymbol)           => xt.Float32Type()
-      case tpe if isStainlessMathFloatSym(tpe.typeSymbol)  => xt.Float32Type()
-      case tpe if isRichDoubleSym(tpe.typeSymbol)          => xt.Float64Type()
-      case tpe if isStainlessMathDoubleSym(tpe.typeSymbol) => xt.Float64Type()
-      case tpe if isBigIntSym(tpe.typeSymbol)              => xt.IntegerType()
-      case tpe if isRealSym(tpe.typeSymbol)                => xt.RealType()
-      case tpe if isStringSym(tpe.typeSymbol)              => xt.StringType()
+      case tpe if isBigIntSym(tpe.typeSymbol)        => xt.IntegerType()
+      case tpe if isRealSym(tpe.typeSymbol)          => xt.RealType()
+      case tpe if isStringSym(tpe.typeSymbol)        => xt.StringType()
+      case tpe if isWrappedFloatSym(tpe.typeSymbol)  => xt.Float32Type()
+      case tpe if isWrappedDoubleSym(tpe.typeSymbol) => xt.Float64Type()
 
       case AppliedType(tr: TypeRef, Seq(tp)) if isSetSym(tr.symbol) =>
         // We know the underlying is a set, but it may be hidden under an alias
