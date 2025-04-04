@@ -593,7 +593,7 @@ class CodeExtraction(inoxCtx: inox.Context,
     }
 
     val optInv = if (invariants.isEmpty) None else Some({
-      val id = symbolMapping `fetchInvIdForClass` sym
+      val id = symbolMapping.fetchInvIdForClass(sym)
       val pos = inox.utils.Position.between(invariants.map(_.getPos).min, invariants.map(_.getPos).max)
       new xt.FunDef(id, Seq.empty, Seq.empty, xt.BooleanType().setPos(pos),
         if (invariants.size == 1) invariants.head else xt.And(invariants).setPos(pos),

@@ -81,9 +81,13 @@ object Quantifiers {
   // Functions relationship
   // Needs to be inlined, otherwise we would need to be able to unfold twice to 
   // make the forall (lowercase) visible
-  @ghost 
-  inline def partialInverse[A, B](f: A => B, g: B => A): Boolean = Forall((b: B) => f(g(b)) == b) 
+  // But by doing so, we then lose the relationship between this inlined body and the "function" given as invariant
+  // in the class below. So we need both the body (inline def) and a function
+  @ghost
+  inline def partialInverseBody[A, B](f: A => B, g: B => A): Boolean = Forall((b: B) => f(g(b)) == b)
 
+  @ghost
+  def partialInverse[A, B](f: A => B, g: B => A): Boolean = partialInverseBody(f, g)
   case class Bijection[A, B](f: A => B, g: B => A):
     StaticChecks.require(partialInverse(f, g))
     StaticChecks.require(partialInverse(g, f))
