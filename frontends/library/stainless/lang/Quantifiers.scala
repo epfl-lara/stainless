@@ -79,6 +79,9 @@ object Quantifiers {
   }.ensuring(_ => Exists((x:T) => !p(x)))
 
   // Functions relationship
+
+  // To see an example of its use, see frontends/benchmarks/verification/valid/ForallExistsBijection.scala
+
   // Needs to be inlined, otherwise we would need to be able to unfold twice to 
   // make the forall (lowercase) visible
   // But by doing so, we then lose the relationship between this inlined body and the "function" given as invariant
