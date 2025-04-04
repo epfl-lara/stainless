@@ -84,6 +84,8 @@ trait CodeGeneration { self: CompilationUnit =>
   private[codegen] val BoxedShortClass           = "java/lang/Short"
   private[codegen] val BoxedIntClass             = "java/lang/Integer"
   private[codegen] val BoxedLongClass            = "java/lang/Long"
+  private[codegen] val BoxedFloatClass           = "java/lang/Float"
+  private[codegen] val BoxedDoubleClass          = "java/lang/Double"
   private[codegen] val BoxedBoolClass            = "java/lang/Boolean"
   private[codegen] val BoxedCharClass            = "java/lang/Character"
   private[codegen] val BoxedArrayClass           = "stainless/codegen/runtime/BoxedArray"
@@ -207,6 +209,9 @@ trait CodeGeneration { self: CompilationUnit =>
     case Int64Type() => "J"
     case BVType(_, _) => "L" + BitVectorClass + ";"
 
+    case Float32Type() => "F"
+    case Float64Type() => "D"
+
     case BooleanType() => "Z"
 
     case CharType() => "C"
@@ -257,6 +262,8 @@ trait CodeGeneration { self: CompilationUnit =>
     case Int16Type()                => s"L$BoxedShortClass;"
     case Int32Type()                => s"L$BoxedIntClass;"
     case Int64Type()                => s"L$BoxedLongClass;"
+    case Float32Type()              => s"L$BoxedFloatClass;"
+    case Float64Type()              => s"L$BoxedDoubleClass;"
     case BooleanType() | UnitType() => s"L$BoxedBoolClass;"
     case CharType()                 => s"L$BoxedCharClass;"
     case other                      => typeToJVM(other)
@@ -289,20 +296,20 @@ trait CodeGeneration { self: CompilationUnit =>
 
     val newMapping: Map[Identifier, Int] = {
       var nextFreeSlot = 0
-      def getSlot(isLong: Boolean) = {
+      def getSlot(isCategory2: Boolean) = {
         val slot = nextFreeSlot
-        nextFreeSlot += (if (isLong) 2 else 1) // Longs take more room!
+        nextFreeSlot += (if (isCategory2) 2 else 1) // Longs and doubles take more room!
         slot
       }
 
       val monitor = monitorID -> getSlot(false)
       val tpsOpt = if (funDef.tparams.nonEmpty) Some(tpsID -> getSlot(false)) else None
       val params = funDef.params map { p =>
-        val isLong = p.getType match {
-          case Int64Type() => true
+        val isCategory2 = p.getType match {
+          case Int64Type() | Float64Type() => true
           case _ => false
         }
-        p.id -> getSlot(isLong)
+        p.id -> getSlot(isCategory2)
       }
 
       Seq(monitor) ++ tpsOpt ++ params
@@ -337,6 +344,10 @@ trait CodeGeneration { self: CompilationUnit =>
         ch << IRETURN
       case Int64Type() =>
         ch << LRETURN
+      case Float32Type() =>
+        ch << FRETURN
+      case Float64Type() =>
+        ch << DRETURN
       case _ =>
         ch << ARETURN
     }
@@ -429,6 +440,8 @@ trait CodeGeneration { self: CompilationUnit =>
             cch << (jvmt match {
               case "B" | "S" | "I" | "Z" => ILoad(c)
               case "J" => LLoad(c)
+              case "F" => FLoad(c)
+              case "D" => DLoad(c)
               case _ => ALoad(c)
             })
             cch << PutField(afName, id.uniqueName, jvmt)
@@ -645,6 +658,8 @@ trait CodeGeneration { self: CompilationUnit =>
       ch << (vd.getType match {
         case JvmIType() => IStore(slot)
         case Int64Type() => LStore(slot)
+        case Float32Type() => FStore(slot)
+        case Float64Type() => DStore(slot)
         case _ => AStore(slot)
       })
       mkExpr(b, ch)(using locals.withVar(vd.id -> slot))
@@ -659,6 +674,12 @@ trait CodeGeneration { self: CompilationUnit =>
       ch << Ldc(v)
 
     case Int64Literal(v) =>
+      ch << Ldc(v)
+
+    case Float32Literal(v) =>
+      ch << Ldc(v)
+
+    case Float64Literal(v) =>
       ch << Ldc(v)
 
     case bi @ BVLiteral(signed, _, size) =>
@@ -927,11 +948,16 @@ trait CodeGeneration { self: CompilationUnit =>
       ch << InvokeStatic(StringOpsClass, "substring", s"(L$JavaStringClass;L$BigIntClass;L$BigIntClass;)L$JavaStringClass;")
 
     // Arithmetic
-    case Plus(l, r)      => mkArithmeticBinary(l, r, ch, IADD, LADD, "add", bvOnly = false)
-    case Minus(l, r)     => mkArithmeticBinary(l, r, ch, ISUB, LSUB, "sub", bvOnly = false)
-    case Times(l, r)     => mkArithmeticBinary(l, r, ch, IMUL, LMUL, "mult", bvOnly = false)
-    case Division(l, r)  => mkArithmeticBinary(l, r, ch, IDIV, LDIV, "div", bvOnly = false)
-    case Remainder(l, r) => mkArithmeticBinary(l, r, ch, IREM, LREM, "rem", bvOnly = false)
+    case Plus(l, r)      => mkArithmeticBinary(l, r, ch, IADD, LADD, FADD, DADD, "add", bvOnly = false)
+    case Minus(l, r)     => mkArithmeticBinary(l, r, ch, ISUB, LSUB, FSUB, DSUB, "sub", bvOnly = false)
+    case Times(l, r)     => mkArithmeticBinary(l, r, ch, IMUL, LMUL, FMUL, DMUL, "mult", bvOnly = false)
+    case Division(l, r)  => mkArithmeticBinary(l, r, ch, IDIV, LDIV, FDIV, DDIV, "div", bvOnly = false)
+    case Remainder(l, r) => mkArithmeticBinary(l, r, ch, IREM, LREM, FREM, DREM, "rem", bvOnly = false)
+
+    case FPAdd(RoundNearestTiesToEven, l, r) => mkArithmeticBinary(l, r, ch, IADD, LADD, FADD, DADD, "add", bvOnly = false)
+    case FPSub(RoundNearestTiesToEven, l, r) => mkArithmeticBinary(l, r, ch, ISUB, LSUB, FSUB, DSUB, "sub", bvOnly = false)
+    case FPMul(RoundNearestTiesToEven, l, r) => mkArithmeticBinary(l, r, ch, IMUL, LMUL, FMUL, DMUL, "mult", bvOnly = false)
+    case FPDiv(RoundNearestTiesToEven, l, r) => mkArithmeticBinary(l, r, ch, IDIV, LDIV, FDIV, DDIV, "div", bvOnly = false)
 
     case Modulo(l, r) =>
       ch << Comment(s"Modulo")
@@ -978,7 +1004,9 @@ trait CodeGeneration { self: CompilationUnit =>
           ch << InvokeVirtual(BitVectorClass, op, opSign)
       }
 
-    case UMinus(e) => mkArithmeticUnary(e, ch, INEG, LNEG, "neg", bvOnly = false)
+    case UMinus(e) => mkArithmeticUnary(e, ch, INEG, LNEG, FNEG, DNEG, "neg", bvOnly = false)
+    case FPUMinus(e) => mkArithmeticUnary(e, ch, INEG, LNEG, FNEG, DNEG, "neg", bvOnly = false)
+
     case BVNot(e) =>
       val iopGen: AbstractByteCodeGenerator = { ch =>
         mkExpr(Int32Literal(-1), ch)
@@ -990,11 +1018,11 @@ trait CodeGeneration { self: CompilationUnit =>
         ch << LXOR
       }
 
-      mkArithmeticUnaryImpl(e, ch, iopGen, lopGen, "not", bvOnly = true)
+      mkArithmeticUnaryImpl(e, ch, iopGen, lopGen, null, null, "not", bvOnly = true)
 
-    case BVAnd(l, r) => mkArithmeticBinary(l, r, ch, IAND, LAND, "and", bvOnly = true)
-    case BVOr(l, r)  => mkArithmeticBinary(l, r, ch, IOR, LOR, "or", bvOnly = true)
-    case BVXor(l, r) => mkArithmeticBinary(l, r, ch, IXOR, LXOR, "xor", bvOnly = true)
+    case BVAnd(l, r) => mkArithmeticBinary(l, r, ch, IAND, LAND, null, null, "and", bvOnly = true)
+    case BVOr(l, r)  => mkArithmeticBinary(l, r, ch, IOR, LOR, null, null, "or", bvOnly = true)
+    case BVXor(l, r) => mkArithmeticBinary(l, r, ch, IXOR, LXOR, null, null, "xor", bvOnly = true)
     case BVShiftLeft(l, r)   => mkBVShift(l, r, ch, ISHL,  LSHL,  "shiftLeft")
     case BVLShiftRight(l, r) => mkBVShift(l, r, ch, IUSHR, LUSHR, "lShiftLeft")
     case BVAShiftRight(l, r) => mkBVShift(l, r, ch, ISHR,  LSHR,  "aShiftRight")
@@ -1027,6 +1055,20 @@ trait CodeGeneration { self: CompilationUnit =>
         case (from, to) => mkBVCast(from, to, ch)
       }
 
+    case FPCast(exponent, significand, RoundNearestTiesToEven, e) =>
+      mkExpr(e, ch)
+      (e.getType, FPType(exponent, significand)) match {
+        case (Int8Type() | Int16Type() | Int32Type(), Float32Type()) => ch << I2F
+        case (Int64Type(), Float32Type()) => ch << L2F
+        case (Int8Type() | Int16Type() | Int32Type(), Float64Type()) => ch << I2D
+        case (Int64Type(), Float64Type()) => ch << L2D
+        case (Float32Type(), Float64Type()) => ch << F2D
+        case (Float64Type(), Float32Type()) => ch << D2F
+        case (Float32Type(), Float32Type) => ch << NOP
+        case (Float64Type(), Float64Type) => ch << NOP
+        case (t1, t2) => throw CompilationException(s"Cannot cast ${t1} to ${t2}.")
+      }
+
     case ArrayLength(a) =>
       mkExpr(a, ch)
       if (smallArrays) {
@@ -1046,6 +1088,8 @@ trait CodeGeneration { self: CompilationUnit =>
           case Int16Type() => SALOAD
           case Int32Type() => IALOAD
           case Int64Type() => LALOAD
+          case Float32Type() => FALOAD
+          case Float64Type() => DALOAD
           case BooleanType() => BALOAD
           case _ => AALOAD
         })
@@ -1118,6 +1162,8 @@ trait CodeGeneration { self: CompilationUnit =>
         ch << (base match {
           case JvmIType() => IStore(dfltSlot)
           case Int64Type() => LStore(dfltSlot)
+          case Float32Type() => FStore(dfltSlot)
+          case Float64Type() => DStore(dfltSlot)
           case _ => AStore(dfltSlot)
         })
 
@@ -1133,6 +1179,8 @@ trait CodeGeneration { self: CompilationUnit =>
         ch << (base match {
           case JvmIType() => ILoad(dfltSlot)
           case Int64Type() => LLoad(dfltSlot)
+          case Float32Type() => FLoad(dfltSlot)
+          case Float64Type() => DLoad(dfltSlot)
           case _ => ALoad(dfltSlot)
         })
         ch << storeInstr
@@ -1281,6 +1329,8 @@ trait CodeGeneration { self: CompilationUnit =>
           ch << (dep.getType match {
             case JvmIType() => IStore(slot)
             case Int64Type() => LStore(slot)
+            case Float32Type() => FStore(slot)
+            case Float64Type() => DStore(slot)
             case _ => AStore(slot)
           })
           depsSlot += id -> slot
@@ -1308,6 +1358,8 @@ trait CodeGeneration { self: CompilationUnit =>
     case ArrayType(Int16Type()) => ch << NewArray.primitive("T_SHORT"); SASTORE
     case ArrayType(Int32Type()) => ch << NewArray.primitive("T_INT"); IASTORE
     case ArrayType(Int64Type()) => ch << NewArray.primitive("T_LONG"); LASTORE
+    case ArrayType(Float32Type()) => ch << NewArray.primitive("T_FLOAT"); LASTORE
+    case ArrayType(Float64Type()) => ch << NewArray.primitive("T_DOUBLE"); LASTORE
     case ArrayType(BooleanType()) => ch << NewArray.primitive("T_BOOLEAN"); BASTORE
     case ArrayType(base) =>
       val jvmt = typeToJVM(base)
@@ -1341,6 +1393,16 @@ trait CodeGeneration { self: CompilationUnit =>
       mkExpr(e, ch)
       ch << InvokeSpecial(BoxedLongClass, constructorName, "(J)V")
 
+    case Float32Type() =>
+      ch << New(BoxedFloatClass) << DUP
+      mkExpr(e, ch)
+      ch << InvokeSpecial(BoxedFloatClass, constructorName, "(F)V")
+
+    case Float64Type() =>
+      ch << New(BoxedDoubleClass) << DUP
+      mkExpr(e, ch)
+      ch << InvokeSpecial(BoxedDoubleClass, constructorName, "(D)V")
+
     case BooleanType() | UnitType() =>
       ch << New(BoxedBoolClass) << DUP
       mkExpr(e, ch)
@@ -1373,7 +1435,13 @@ trait CodeGeneration { self: CompilationUnit =>
       ch << New(BoxedIntClass) << DUP_X1 << SWAP << InvokeSpecial(BoxedIntClass, constructorName, "(I)V")
 
     case Int64Type() =>
-      ch << New(BoxedLongClass) << DUP_X1 << SWAP << InvokeSpecial(BoxedLongClass, constructorName, "(J)V")
+      ch << New(BoxedLongClass) << DUP_X2 << DUP_X2 << POP << InvokeSpecial(BoxedLongClass, constructorName, "(J)V")
+
+    case Float32Type() =>
+      ch << New(BoxedFloatClass) << DUP_X1 << SWAP << InvokeSpecial(BoxedFloatClass, constructorName, "(F)V")
+
+    case Float64Type() =>
+      ch << New(BoxedDoubleClass) << DUP_X2 << DUP_X2 << POP << InvokeSpecial(BoxedDoubleClass, constructorName, "(D)V")
 
     case BooleanType() | UnitType() =>
       ch << New(BoxedBoolClass) << DUP_X1 << SWAP << InvokeSpecial(BoxedBoolClass, constructorName, "(Z)V")
@@ -1400,6 +1468,12 @@ trait CodeGeneration { self: CompilationUnit =>
 
     case Int64Type() =>
       ch << CheckCast(BoxedLongClass) << InvokeVirtual(BoxedLongClass, "longValue", "()J")
+
+    case Float32Type() =>
+      ch << CheckCast(BoxedFloatClass) << InvokeVirtual(BoxedFloatClass, "floatValue", "()F")
+
+    case Float64Type() =>
+      ch << CheckCast(BoxedDoubleClass) << InvokeVirtual(BoxedDoubleClass, "doubleValue", "()D")
 
     case BooleanType() | UnitType() =>
       ch << CheckCast(BoxedBoolClass) << InvokeVirtual(BoxedBoolClass, "booleanValue", "()Z")
@@ -1502,15 +1576,78 @@ trait CodeGeneration { self: CompilationUnit =>
         case Int64Type() =>
           ch << LCMP << IfEq(thenn) << Goto(elze)
 
+        case Float32Type() =>
+          ch << InvokeStatic(BoxedFloatClass, "compare", s"(FF)I") << IfEq(thenn) << Goto(elze)
+
+        case Float64Type() =>
+          ch << InvokeStatic(BoxedDoubleClass, "compare", s"(DD)I") << IfEq(thenn) << Goto(elze)
+
         case _ =>
           ch << InvokeVirtual(ObjectClass, "equals", s"(L$ObjectClass;)Z")
           ch << IfEq(elze) << Goto(thenn)
+      }
+
+    case FPEquals(l,r) =>
+      mkExpr(l, ch)
+      mkExpr(r, ch)
+      l.getType match {
+        case Float32Type() =>
+          ch << FCMPL << IfEq(thenn) << Goto(elze)
+
+        case Float64Type() =>
+          ch << DCMPL << IfEq(thenn) << Goto(elze)
       }
 
     case LessThan(l,r)      => mkCmpJump(cond, thenn, elze, l, r, ch, If_ICmpLt, IfLt, "lessThan")
     case GreaterThan(l,r)   => mkCmpJump(cond, thenn, elze, l, r, ch, If_ICmpGt, IfGt, "greaterThan")
     case LessEquals(l,r)    => mkCmpJump(cond, thenn, elze, l, r, ch, If_ICmpLe, IfLe, "lessEquals")
     case GreaterEquals(l,r) => mkCmpJump(cond, thenn, elze, l, r, ch, If_ICmpGe, IfGe, "greaterEquals")
+
+    case FPLessThan(l,r)      => mkCmpJump(cond, thenn, elze, l, r, ch, If_ICmpLt, IfLt, "FPLessThan", cmpLtOnNaN = false)
+    case FPGreaterThan(l,r)   => mkCmpJump(cond, thenn, elze, l, r, ch, If_ICmpGt, IfGt, "FPGreaterThan", cmpLtOnNaN = true)
+    case FPLessEquals(l,r)    => mkCmpJump(cond, thenn, elze, l, r, ch, If_ICmpLe, IfLe, "FPLessEquals", cmpLtOnNaN = false)
+    case FPGreaterEquals(l,r) => mkCmpJump(cond, thenn, elze, l, r, ch, If_ICmpGe, IfGe, "FPGreaterEquals", cmpLtOnNaN = true)
+
+    case FPIsInfinite(e) =>
+      mkExpr(e, ch)
+      e.getType match {
+        case Float32Type() => ch << InvokeStatic(BoxedFloatClass, "isInfinite", s"(F)Z")
+        case Float64Type() => ch << InvokeStatic(BoxedDoubleClass, "isInfinite", s"(D)Z")
+      }
+      ch << IfEq(elze) << Goto(thenn)
+
+    case FPIsNaN(e) =>
+      mkExpr(e, ch)
+      e.getType match {
+        case Float32Type() => ch << InvokeStatic(BoxedFloatClass, "isNaN", s"(F)Z")
+        case Float64Type() => ch << InvokeStatic(BoxedDoubleClass, "isNaN", s"(D)Z")
+      }
+      ch << IfEq(elze) << Goto(thenn)
+
+    case FPIsZero(e) =>
+      mkExpr(e, ch)
+      e.getType match {
+        case Float32Type() =>
+          ch << Ldc(0f) << FCMPL << IfEq(thenn) << Goto(elze)
+        case Float64Type() =>
+          ch << Ldc(0d) << DCMPL << IfEq(thenn) << Goto(elze)
+      }
+
+    case FPIsPositive(e) =>
+      mkExpr(e, ch)
+      e.getType match {
+        case Float32Type() => ch << InvokeStatic("stainless/codegen/runtime/FloatOps", "isPositive", s"(F)Z")
+        case Float64Type() => ch << InvokeStatic("stainless/codegen/runtime/FloatOps", "isPositive", s"(D)Z")
+      }
+      ch << IfEq(elze) << Goto(thenn)
+
+    case FPIsNegative(e) =>
+      mkExpr(e, ch)
+      e.getType match {
+        case Float32Type() => ch << InvokeStatic("stainless/codegen/runtime/FloatOps", "isNegative", s"(F)Z")
+        case Float64Type() => ch << InvokeStatic("stainless/codegen/runtime/FloatOps", "isNegative", s"(D)Z")
+      }
+      ch << IfEq(elze) << Goto(thenn)
 
     case IfExpr(c, t, e) =>
       val innerThen = ch.getFreshLabel("then")
@@ -1611,11 +1748,11 @@ trait CodeGeneration { self: CompilationUnit =>
       ch << opcode
     }
 
-    mkArithmeticBinaryImpl(l, r, ch, opGen(iop), opGen(lop), op, bvOnly = true)
+    mkArithmeticBinaryImpl(l, r, ch, opGen(iop), opGen(lop), null, null, op, bvOnly = true)
   }
 
   private def mkCmpJump(cond: Expr, thenn: String, elze: String, l: Expr, r: Expr, ch: CodeHandler,
-                        iop: String => ControlOperator, lop: String => ControlOperator, op: String)
+                        icmp: String => ControlOperator, cmp: String => ControlOperator, op: String, cmpLtOnNaN: Boolean = true)
                        (using locals: Locals, contractsCtx: ContractsCtx): Unit = {
     mkExpr(l, ch)
     mkExpr(r, ch)
@@ -1624,9 +1761,17 @@ trait CodeGeneration { self: CompilationUnit =>
         // Here we assume the user really wants to use BitVector even for Int8/16Types.
         // Fortunately, for comparison operations, using regular Int32Type will do fine
         // as Int8/16Type are represented as Int32Type on the JVM anyway.
-        ch << iop(thenn) << Goto(elze)
+        ch << icmp(thenn) << Goto(elze)
       case Int64Type() =>
-        ch << LCMP << lop(thenn) << Goto(elze)
+        ch << LCMP << cmp(thenn) << Goto(elze)
+      case Float32Type() if cmpLtOnNaN =>
+        ch << FCMPL << cmp(thenn) << Goto(elze)
+      case Float32Type() if !cmpLtOnNaN =>
+        ch << FCMPG << cmp(thenn) << Goto(elze)
+      case Float64Type() if cmpLtOnNaN =>
+        ch << DCMPL << cmp(thenn) << Goto(elze)
+      case Float64Type() if !cmpLtOnNaN =>
+        ch << DCMPG << cmp(thenn) << Goto(elze)
       case BVType(_, _) =>
         ch << InvokeVirtual(BitVectorClass, op, s"(L$BitVectorClass;)Z")
         ch << IfEq(elze) << Goto(thenn)
@@ -1640,13 +1785,16 @@ trait CodeGeneration { self: CompilationUnit =>
   }
 
   private def mkArithmeticBinary(l: Expr, r: Expr, ch: CodeHandler,
-                                 iop: ByteCode, lop: ByteCode, op: String, bvOnly: Boolean)
+                                 iop: ByteCode, lop: ByteCode, fop: ByteCode, dop: ByteCode,
+                                 op: String, bvOnly: Boolean)
                                 (using locals: Locals, contractsCtx: ContractsCtx): Unit = {
-    mkArithmeticBinaryImpl(l, r, ch, { ch => ch << iop }, { ch => ch << lop }, op, bvOnly)
+    mkArithmeticBinaryImpl(l, r, ch, { ch => ch << iop }, { ch => ch << lop }, { ch => ch << fop }, { ch => ch << dop }, op, bvOnly)
   }
 
   private def mkArithmeticBinaryImpl(l: Expr, r: Expr, ch: CodeHandler,
-                                     iopGen: AbstractByteCodeGenerator, lopGen: AbstractByteCodeGenerator, op: String, bvOnly: Boolean)
+                                     iopGen: AbstractByteCodeGenerator, lopGen: AbstractByteCodeGenerator,
+                                     fopGen: AbstractByteCodeGenerator, dopGen: AbstractByteCodeGenerator,
+                                     op: String, bvOnly: Boolean)
                                     (using locals: Locals, contractsCtx: ContractsCtx): Unit = {
     ch << Comment(s"mkArithmeticBinary($op)")
     mkExpr(l, ch)
@@ -1690,6 +1838,12 @@ trait CodeGeneration { self: CompilationUnit =>
       case Int64Type() =>
         lopGen(ch)
 
+      case Float32Type() =>
+        fopGen(ch)
+
+      case Float64Type() =>
+        dopGen(ch)
+
       case BVType(_, _) =>
         val opSign = s"(L$BitVectorClass;)L$BitVectorClass;"
         ch << Comment(s"[binary, bitvector] Calling $op: $opSign")
@@ -1703,13 +1857,15 @@ trait CodeGeneration { self: CompilationUnit =>
   }
 
   private def mkArithmeticUnary(e: Expr, ch: CodeHandler,
-                                iop: ByteCode, lop: ByteCode, op: String, bvOnly: Boolean)
+                                iop: ByteCode, lop: ByteCode, fop: ByteCode, dop: ByteCode, op: String, bvOnly: Boolean)
                                (using locals: Locals, contractsCtx: ContractsCtx): Unit = {
-    mkArithmeticUnaryImpl(e, ch, { ch => ch << iop }, { ch => ch << lop }, op, bvOnly)
+    mkArithmeticUnaryImpl(e, ch, { ch => ch << iop }, { ch => ch << lop }, { ch => ch << fop }, { ch => ch << dop }, op, bvOnly)
   }
 
   private def mkArithmeticUnaryImpl(e: Expr, ch: CodeHandler,
-                                    iopGen: AbstractByteCodeGenerator, lopGen: AbstractByteCodeGenerator, op: String, bvOnly: Boolean)
+                                    iopGen: AbstractByteCodeGenerator, lopGen: AbstractByteCodeGenerator,
+                                    fopGen: AbstractByteCodeGenerator, dopGen: AbstractByteCodeGenerator,
+                                    op: String, bvOnly: Boolean)
                                    (using locals: Locals, contractsCtx: ContractsCtx): Unit = {
     ch << Comment(s"mkArithmeticUnary($op)")
     mkExpr(e, ch)
@@ -1745,6 +1901,12 @@ trait CodeGeneration { self: CompilationUnit =>
       case Int64Type() =>
         lopGen(ch)
 
+      case Float32Type() =>
+        lopGen(ch)
+
+      case Float64Type() =>
+        lopGen(ch)
+
       case BVType(_, _) =>
         val opSign = s"()L$BitVectorClass;"
         ch << Comment(s"[unary, bitvector] Calling $op: $opSign")
@@ -1773,6 +1935,8 @@ trait CodeGeneration { self: CompilationUnit =>
             ch << (tpe match {
               case Some(JvmIType()) => ILoad(slot)
               case Some(Int64Type()) => LLoad(slot)
+              case Some(Float32Type()) => FLoad(slot)
+              case Some(Float64Type()) => DLoad(slot)
               case _ => ALoad(slot)
             })
           case None => throw CompilationException("Unknown variable : " + id)

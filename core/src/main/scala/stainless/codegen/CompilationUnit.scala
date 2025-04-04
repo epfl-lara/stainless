@@ -121,6 +121,8 @@ class CompilationUnit(val program: Program, val context: inox.Context)(using val
     case Int16Literal(v) => java.lang.Short.valueOf(v)
     case Int32Literal(v) => java.lang.Integer.valueOf(v)
     case Int64Literal(v) => java.lang.Long.valueOf(v)
+    case Float32Literal(v) => java.lang.Float.valueOf(v)
+    case Float64Literal(v) => java.lang.Double.valueOf(v)
     case bi @ BVLiteral(_, _, size) => sys.error(s"NOT IMPLEMENTED");
 
     case BooleanLiteral(v) =>
@@ -287,10 +289,12 @@ class CompilationUnit(val program: Program, val context: inox.Context)(using val
 
   /** Translates JVM objects back to Stainless values of the appropriate type */
   def jvmToValue(e: AnyRef, tpe: Type): Expr = (e, tpe) match {
-    case (b: java.lang.Byte,    Int8Type())  => Int8Literal(b.toByte)
-    case (s: java.lang.Short,   Int16Type()) => Int16Literal(s.toShort)
-    case (i: java.lang.Integer, Int32Type()) => Int32Literal(i.toInt)
-    case (l: java.lang.Long,    Int64Type()) => Int64Literal(l.toLong)
+    case (b: java.lang.Byte,     Int8Type())    => Int8Literal(b.toByte)
+    case (s: java.lang.Short,    Int16Type())   => Int16Literal(s.toShort)
+    case (i: java.lang.Integer,  Int32Type())   => Int32Literal(i.toInt)
+    case (l: java.lang.Long,     Int64Type())   => Int64Literal(l.toLong)
+    case (f: java.lang.Float,    Float32Type()) => Float32Literal(f.toFloat)
+    case (d: java.lang.Double,   Float64Type()) => Float64Literal(d.toDouble)
     case (bv: runtime.BitVector, BVType(signed, size)) => BVLiteral(signed, BigInt(bv.toBigInteger), size)
 
     case (c: runtime.BigInt, IntegerType()) =>
@@ -440,9 +444,15 @@ class CompilationUnit(val program: Program, val context: inox.Context)(using val
 
     val ch = m.codeHandler
 
-    val newMapping = Map(monitorID -> 0) ++ args.zipWithIndex.map {
-      case (v, i) => v.id -> (i + 1)
-    }.toMap
+    var nextFree = 1
+    val newMapping = Map(monitorID -> 0) ++ args.map(v =>
+      val slot = nextFree
+      v.getType match {
+        case Int64Type() | Float64Type() => nextFree += 2
+        case _ => nextFree += 1
+      }
+      v.id -> slot
+    ).toMap
 
     mkExpr(e, ch)(using NoLocals.withVars(newMapping), ContractsCtx(locallyIgnored = false))
 
@@ -451,6 +461,10 @@ class CompilationUnit(val program: Program, val context: inox.Context)(using val
         ch << IRETURN
       case Int64Type() =>
         ch << LRETURN
+      case Float32Type() =>
+        ch << FRETURN
+      case Float64Type() =>
+        ch << DRETURN
       case _ =>
         ch << ARETURN
     }
