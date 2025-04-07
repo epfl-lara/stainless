@@ -61,6 +61,9 @@ class VerificationSuite extends VerificationComponentTestSuite {
       "verification/valid/Sets1",
       "verification/valid/Sets2",
       "verification/valid/Subtyping1",
+      "verification/valid/FloatingPoints1",
+      "verification/valid/FloatingPoints2",
+      "verification/valid/FloatingPointFunctionProperties",
 
       // valid/
       "verification/valid/ArraySlice",
@@ -127,6 +130,7 @@ class VerificationSuite extends VerificationComponentTestSuite {
       "verification/valid/TransitiveQuantification",
       "verification/valid/Trees1",
       "verification/valid/ValueClasses",
+      "verification/valid/FloatProperties",
 
       // invalid/
       "verification/invalid/AbstractRefinementMap",
@@ -184,6 +188,8 @@ class VerificationSuite extends VerificationComponentTestSuite {
       "verification/invalid/RedBlackTree2",
       "verification/invalid/SimpleQuantification2",
       "verification/invalid/SpecWithExtern",
+      "verification/invalid/FloatNonProperties",
+      "verification/invalid/FloatingPointFunctionsContradiction",
 
       // false-valid/ (for greater good...)
       "verification/false-valid/ForestNothing2",
