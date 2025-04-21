@@ -42,14 +42,14 @@ If all goes well, Stainless should report something along the lines:
 [  Info  ] ╚══════════════════════════════════════════════════════════════════════════════════════════╝
 [  Info  ] Shutting down executor service.
 ```
-If you see funny symbols instead of beautiful ASCII art, run Stainless with the `--no-colors` option for clean ASCII output with a standardized error message format. 
+If you see funny symbols instead of beautiful ASCII art, run Stainless with the `--no-colors` option for clean ASCII output with a standardized error message format.
 
 The release archive of Stainless only requires JDK17. In particular, it needs neither a Scala compiler nor SBT.
 It is shipped with Z3 4.12.2+, cvc5 1.0.8+ and Princess (branch compiled for Scala 3). If Z3 API is not found, use option `--solvers=smt-z3` to rely on the executable instead of API call to z3.
 
 ## SBT Stainless plugin
 
-Alternatively, one may integrate Stainless with SBT. 
+Alternatively, one may integrate Stainless with SBT.
 To do so, download [sbt-stainless](https://github.com/epfl-lara/stainless/releases), and move it to the directory of the project.
 Assuming the project's structure is:
 ```
@@ -135,7 +135,7 @@ Running the commands the first time may take some time as some Scala libraries a
 ### Arch User Repository
 
 A package for Stainless is available on the Arch User Repository (AUR) for ArchLinux as [`stainless-git`](https://aur.archlinux.org/packages/stainless-git), which follows the latest commit on the `main` branch.
-You can use your favorite AUR helper (we've tried `yay`, see [AUR Helpers](https://wiki.archlinux.org/title/AUR_helpers)), 
+You can use your favorite AUR helper (we've tried `yay`, see [AUR Helpers](https://wiki.archlinux.org/title/AUR_helpers)),
 or follow the [detailed instructions as on the ArchWiki](https://wiki.archlinux.org/title/Arch_User_Repository#Installing_and_upgrading_packages) to install the package.
 
 
@@ -153,12 +153,12 @@ cd stainless-git
 makepkg -si
 ```
 
-The option `-s` acquires dependencies (`java`, `git`, `sbt`) using `pacman`, `-i` installs Stainless system-wide. 
+The option `-s` acquires dependencies (`java`, `git`, `sbt`) using `pacman`, `-i` installs Stainless system-wide.
 Omit `-i` to avoid installing system-wide, and only perform a local build in the directory.
 
 The solver packages `z3`, `cvc4`, and `cvc5`<sup>AUR</sup> can be added as optional dependencies, and having at least one is recommended for general use.
 
-Issues with the package build should ideally be reported on the [AUR package page](https://aur.archlinux.org/packages/stainless-git) itself. 
+Issues with the package build should ideally be reported on the [AUR package page](https://aur.archlinux.org/packages/stainless-git) itself.
 
 ## Further Documentation and Learning Materials
 
@@ -166,8 +166,13 @@ To get started, see videos:
   * [Stainless Introduction for 2nd year EPFL BSc students](https://mediaspace.epfl.ch/media/%5BCS214+W13+FP%5D+Formal+Verification+%282024-12-09%29/0_g7v3qvjp)
   * [ASPLOS'22 tutorial](https://epfl-lara.github.io/asplos2022tutorial/)
   * [FMCAD'21 tutorial](https://github.com/epfl-lara/fmcad2021tutorial/)
-  * [Formal Verification Course](https://tube.switch.ch/channels/f2d4e01d): [Getting Started](https://tube.switch.ch/videos/c7d203e8),  [Tutorial 1](https://tube.switch.ch/videos/03edee61) [Tutorial 2](https://tube.switch.ch/videos/c22ea3e8) [Tutorial 3](https://tube.switch.ch/videos/7f57f7a9) [Tutorial 4](https://tube.switch.ch/videos/2a9fd35c), [Assertions](https://tube.switch.ch/videos/44e8a0dc), [Unfolding](https://tube.switch.ch/videos/ada8a42c), [Dispenser Example](https://tube.switch.ch/videos/ded227dd)
-  * [Keynote at Lambda Days'20](https://www.youtube.com/watch?v=dkO59PTcNxA)  
+  * [Formal Verification Course](https://mediaspace.epfl.ch/channel/CS-550+Formal+Verification/30542):
+    * [Getting Started](https://mediaspace.epfl.ch/media/01-02%2C+First+Steps+with+Stainless/0_tghlsgep/30542)
+    * Four part tutorial: [1](https://mediaspace.epfl.ch/playlist/dedicated/30542/0_hrhu33vg/0_h1bv5a7v), [2](https://mediaspace.epfl.ch/playlist/dedicated/30542/0_hrhu33vg/0_io2c8cnl), [3](https://mediaspace.epfl.ch/playlist/dedicated/30542/0_hrhu33vg/0_j7fgd1oc), [4](https://mediaspace.epfl.ch/playlist/dedicated/30542/0_hrhu33vg/0_4soh944h)
+    * [Assertions](https://mediaspace.epfl.ch/playlist/dedicated/30542/0_vw42tr2d/0_54yx91xi)
+    * [Unfolding](https://mediaspace.epfl.ch/playlist/dedicated/30542/0_vw42tr2d/0_4byxmv9i)
+    * [Dispenser Example](https://mediaspace.epfl.ch/playlist/dedicated/30542/0_hrhu33vg/0_omextd9i)
+  * [Keynote at Lambda Days'20](https://www.youtube.com/watch?v=dkO59PTcNxA)
   * [Keynote at ScalaDays'17 Copenhagen](https://www.youtube.com/watch?v=d4VeFa0z_Lo)
 
  or see local [documentation](https://epfl-lara.github.io/stainless/) chapters, such as:
@@ -176,7 +181,7 @@ To get started, see videos:
   * [Getting Started](https://epfl-lara.github.io/stainless/gettingstarted.html)
   * [Command-line Options](https://epfl-lara.github.io/stainless/options.html)
   * [Mini Tutorial](https://epfl-lara.github.io/stainless/tutorial.html)
-  
+
 There is also a [Stainless EPFL Page](https://stainless.epfl.ch).
 
 ## License
