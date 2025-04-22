@@ -2224,6 +2224,9 @@ class CodeExtraction(inoxCtx: inox.Context,
           val isInf = xt.FPIsInfinite(vd.toVariable).setPos(pos)
           val body = xt.And(isNeg, isInf).setPos(pos)
           xt.Let(vd, extractTree(lhs), body)
+        case (xt.FPType(_,_), "equiv", Seq(rhs)) =>
+          if tpe == extractType(rhs) then xt.Equals(extractTree(lhs), extractTree(rhs))
+          else outOfSubsetError(lhs, "The .equiv() method can only compare floats of the same type.")
 
         case (tpe, "toByte", Seq()) => tpe match {
           case xt.BVType(true, 8) => extractTree(lhs)
