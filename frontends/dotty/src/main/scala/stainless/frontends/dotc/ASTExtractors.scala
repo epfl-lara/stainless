@@ -495,6 +495,13 @@ trait ASTExtractors {
       }
     }
 
+    object ExSqrtCall {
+      def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
+        case Apply(ExSymbol("stainless", "math", "package$", "sqrt"), Seq(rhs)) => Some(rhs)
+        case _ => None
+      }
+    }
+
     // Dotc seems slightly less consistent than scalac: it uses to format for
     // casts. Like scalac, it uses Select for `.toByte`, but it also uses
     // Apply("byte2int", arg) for implicit conversions (and perhaps for other

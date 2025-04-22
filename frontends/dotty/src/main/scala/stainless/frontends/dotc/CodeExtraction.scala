@@ -1873,6 +1873,9 @@ class CodeExtraction(inoxCtx: inox.Context,
     case ex @ ExIdentifier(sym, tpt) if dctx.vars contains sym => dctx.vars(sym)().setPos(ex.sourcePos)
     case ex @ ExIdentifier(sym, tpt) if dctx.mutableVars contains sym => dctx.mutableVars(sym)().setPos(ex.sourcePos)
 
+    case ExSqrtCall(rhs) =>
+      xt.Sqrt(xt.RoundNearestTiesToEven, extractTree(rhs))
+
     case ExThisCall(tt, sym, tps, args) =>
       extractCall(tr, Some(tpd.This(tt.cls)), sym, tps, args)
 
@@ -1946,11 +1949,8 @@ class CodeExtraction(inoxCtx: inox.Context,
 
     case None =>
       dctx.localFuns.get(sym) match {
-        case None => (sym, args) match {
-          case (ExSymbol("stainless", "math", "package$", "sqrt"), Seq(rhs)) =>
-            xt.Sqrt(xt.RoundNearestTiesToEven, extractTree(rhs))
-          case _ => xt.FunctionInvocation (getIdentifier (sym), tps map extractType, extractArgs (sym, args) ).setPos (tr.sourcePos)
-        }
+        case None =>
+          xt.FunctionInvocation (getIdentifier (sym), tps map extractType, extractArgs (sym, args) ).setPos(tr.sourcePos)
         case Some((id, tparams, tpe)) =>
           xt.ApplyLetRec(id, tparams.map(_.tp), tpe, tps map extractType, extractArgs(sym, args)).setPos(tr.sourcePos)
       }
