@@ -2283,13 +2283,16 @@ class CodeExtraction(inoxCtx: inox.Context,
         }
 
         case (tpe, "toFloat", Seq()) => tpe match {
-          case xt.BVType(true, 8 | 16 | 32 | 64 ) => xt.FPCast(8, 24, xt.RoundNearestTiesToEven, extractTree(lhs))
+          case xt.BVType(true, 8 | 16 | 32 | 64 ) | xt.FPType(11, 53) =>
+            xt.FPCast(8, 24, xt.RoundNearestTiesToEven, extractTree(lhs))
+          case xt.FPType(8, 24) => extractTree(lhs)
           case tpe => outOfSubsetError(tr, s"Unexpected cast .toFloat from $tpe")
         }
 
         case (tpe, "toDouble", Seq()) => tpe match {
           case xt.BVType(true, 8 | 16 | 32 | 64 ) | xt.FPType(8, 24) =>
             xt.FPCast(11, 53, xt.RoundNearestTiesToEven, extractTree(lhs))
+          case xt.FPType(11, 53) => extractTree(lhs)
           case tpe => outOfSubsetError(tr, s"Unexpected cast .toDouble from $tpe")
         }
 
