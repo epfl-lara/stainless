@@ -25,14 +25,18 @@ object FloatTypeCasting {
     val i: Int = 3
     val l: Long = 4
     val f: Float = 5
+    val d: Double = 6
     val fb: Float = b.toFloat
     val fs: Float = s.toFloat
     val fi: Float = i.toFloat
     val fl: Float = l.toFloat
+    val ff: Float = f.toFloat
+    val fd: Float = d.toFloat
     val db: Double = b.toDouble
     val ds: Double = s.toDouble
     val di: Double = i.toDouble
     val dl: Double = l.toDouble
     val df: Double = f.toDouble
+    val dd: Double = d.toDouble
   }
 }
