@@ -63,6 +63,7 @@ class VerificationSuite extends VerificationComponentTestSuite {
       "verification/valid/Subtyping1",
       "verification/valid/FloatingPoints1",
       "verification/valid/FloatingPoints2",
+      "verification/valid/FloatingPoints4",
       "verification/valid/FloatingPointFunctionProperties",
 
       // valid/
