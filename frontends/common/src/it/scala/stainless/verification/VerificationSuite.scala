@@ -191,6 +191,7 @@ class VerificationSuite extends VerificationComponentTestSuite {
       "verification/invalid/SimpleQuantification2",
       "verification/invalid/SpecWithExtern",
       "verification/invalid/FloatNonProperties",
+      "verification/invalid/FloatNonAssociativity",
       "verification/invalid/FloatingPointFunctionsContradiction",
 
       // false-valid/ (for greater good...)
