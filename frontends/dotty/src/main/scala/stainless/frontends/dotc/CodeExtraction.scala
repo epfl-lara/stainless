@@ -2398,7 +2398,7 @@ class CodeExtraction(inoxCtx: inox.Context,
       case (xt.Minus(lhs, rhs),          xt.FPType(_, _)) => xt.FPSub(xt.RoundNearestTiesToEven, lhs, rhs)
       case (xt.Times(lhs, rhs),          xt.FPType(_, _)) => xt.FPMul(xt.RoundNearestTiesToEven, lhs, rhs)
       case (xt.Division(lhs, rhs),       xt.FPType(_, _)) => xt.FPDiv(xt.RoundNearestTiesToEven, lhs, rhs)
-      case (rem @ xt.Remainder(lhs, rhs),xt.FPType(_, _)) =>
+      case (xt.Remainder(lhs, rhs),      xt.FPType(_, _)) =>
         outOfSubsetError(lhs0, "Floating point remainders are not supported.")
       case (xt.LessThan(lhs, rhs),       xt.FPType(_, _)) => xt.FPLessThan(lhs, rhs)
       case (xt.LessEquals(lhs, rhs),     xt.FPType(_, _)) => xt.FPLessEquals(lhs, rhs)
