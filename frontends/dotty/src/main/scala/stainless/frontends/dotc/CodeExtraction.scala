@@ -1939,24 +1939,28 @@ class CodeExtraction(inoxCtx: inox.Context,
 
   private def castFPToInt(expr: xt.Expr, tpe: xt.FPType): xt.Expr = {
     val xt.FPType(exponent, significand) = tpe
-    val isNaN = xt.FPIsNaN(expr)
-    val isLarge = xt.FPGreaterThan(expr, xt.FPCast(exponent, significand, xt.RoundTowardZero, xt.Int32Literal(Int.MaxValue)))
-    val isSmall = xt.FPLessThan(expr, xt.FPCast(exponent, significand, xt.RoundTowardZero, xt.Int32Literal(Int.MinValue)))
-    xt.IfExpr(isNaN, xt.Int32Literal(0),
-      xt.IfExpr(isLarge, xt.Int32Literal(Int.MaxValue),
-        xt.IfExpr(isSmall, xt.Int32Literal(Int.MinValue),
-          xt.FPToBV(32, true, xt.RoundTowardZero, expr))))
+    val vd = xt.ValDef.fresh("fp", tpe)
+    val isNaN = xt.FPIsNaN(vd.toVariable)
+    val isLarge = xt.FPGreaterThan(vd.toVariable, xt.FPCast(exponent, significand, xt.RoundTowardZero, xt.Int32Literal(Int.MaxValue)))
+    val isSmall = xt.FPLessThan(vd.toVariable, xt.FPCast(exponent, significand, xt.RoundTowardZero, xt.Int32Literal(Int.MinValue)))
+    xt.Let(vd, expr,
+      xt.IfExpr(isNaN, xt.Int32Literal(0),
+        xt.IfExpr(isLarge, xt.Int32Literal(Int.MaxValue),
+          xt.IfExpr(isSmall, xt.Int32Literal(Int.MinValue),
+            xt.FPToBV(32, true, xt.RoundTowardZero, vd.toVariable)))))
   }
 
   private def castFPToLong(expr: xt.Expr, tpe: xt.FPType): xt.Expr = {
     val xt.FPType(exponent, significand) = tpe
-    val isNaN = xt.FPIsNaN(expr)
-    val isLarge = xt.FPGreaterThan(expr, xt.FPCast(exponent, significand, xt.RoundTowardZero, xt.Int64Literal(Long.MaxValue)))
-    val isSmall = xt.FPLessThan(expr, xt.FPCast(exponent, significand, xt.RoundTowardZero, xt.Int64Literal(Long.MinValue)))
-    xt.IfExpr(isNaN, xt.Int64Literal(0),
-      xt.IfExpr(isLarge, xt.Int64Literal(Long.MaxValue),
-        xt.IfExpr(isSmall, xt.Int64Literal(Long.MinValue),
-          xt.FPToBV(64, true, xt.RoundTowardZero, expr))))
+    val vd = xt.ValDef.fresh("fp", tpe)
+    val isNaN = xt.FPIsNaN(vd.toVariable)
+    val isLarge = xt.FPGreaterThan(vd.toVariable, xt.FPCast(exponent, significand, xt.RoundTowardZero, xt.Int64Literal(Long.MaxValue)))
+    val isSmall = xt.FPLessThan(vd.toVariable, xt.FPCast(exponent, significand, xt.RoundTowardZero, xt.Int64Literal(Long.MinValue)))
+    xt.Let(vd, expr,
+      xt.IfExpr(isNaN, xt.Int64Literal(0),
+        xt.IfExpr(isLarge, xt.Int64Literal(Long.MaxValue),
+          xt.IfExpr(isSmall, xt.Int64Literal(Long.MinValue),
+            xt.FPToBV(64, true, xt.RoundTowardZero, vd.toVariable)))))
   }
 
   private def extractCall(tr: tpd.Tree, rec: Option[tpd.Tree], sym: Symbol, tps: Seq[tpd.Tree], args: Seq[tpd.Tree])(using dctx: DefContext): xt.Expr = rec match {
