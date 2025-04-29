@@ -1,0 +1,7 @@
+8:7;f_throw_reachable;body assertion: throw IllegalArgumentException("x should not be negative") unreachable;invalid
+14:5;g_throw_unreachable_in_while;precondition;valid
+14:5;g_throw_unreachable_in_whileWhile;postcondition;valid
+14:5;g_throw_unreachable_in_whileWhile;postcondition;valid
+14:5;g_throw_unreachable_in_whileWhile;precondition;valid
+15:17;g_throw_unreachable_in_whileWhile;non-negative measure;valid
+21:9;g_throw_unreachable_in_whileWhile;body assertion: throw IllegalArgumentException("i and acc should not be negative") unreachable;invalid

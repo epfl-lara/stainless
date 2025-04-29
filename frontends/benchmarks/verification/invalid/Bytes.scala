@@ -13,7 +13,7 @@ object Bytes {
 
   def gun(b: Byte, c: Byte) = {
     b + c
- }.ensuring { res => -128 <= res && res <= 127 }
+  }.ensuring { res => -128 <= res && res <= 127 } // Invalid, because b + c is promoted to an Int
 
 }
 

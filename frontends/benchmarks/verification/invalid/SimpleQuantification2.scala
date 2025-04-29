@@ -7,5 +7,5 @@ object SimpleQuantification2 {
   def failling(f: BigInt => BigInt) = {
     require(forall((a: BigInt) => a > 0 ==> f(a) > 1))
     f(1) + f(2)
- }.ensuring { res => res > 4 }
+  }.ensuring { res => res > 4 }
 }

@@ -5,10 +5,11 @@ package termination
 
 import org.scalatest.funsuite.AnyFunSuite
 import stainless.utils.YesNoOnly
-import stainless.verification._
-import extraction.xlang.{trees => xt}
+import stainless.verification.*
+import extraction.xlang.trees as xt
+import stainless.ComponentTestSuite.LoadedPrograms
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.util.{Failure, Success, Try}
 
 class TerminationSuite extends VerificationComponentTestSuite {
@@ -50,13 +51,13 @@ class TerminationSuite extends VerificationComponentTestSuite {
 
   import TerminationSuite._
 
-  testAllTerminating("termination/valid", terminationValid._1, terminationValid._2)
+  testAllTerminating("termination/valid", terminationValid)
 
-  testAllTerminating("verification/valid", verificationValid._1, verificationValid._2)
+  testAllTerminating("verification/valid", verificationValid)
 
-  testAllTerminating("imperative/valid", imperativeValid._1, imperativeValid._2)
+  testAllTerminating("imperative/valid", imperativeValid)
 
-  testAll("termination/looping", terminationLooping._1, terminationLooping._2) { (analysis, reporter, _) =>
+  testAll("termination/looping", terminationLooping) { (analysis, reporter, _, _) =>
     import analysis.program.symbols
     import analysis.program.trees._
 
@@ -81,10 +82,10 @@ class TerminationSuite extends VerificationComponentTestSuite {
     reporter.terminateIfError()
   }
 
-  testUncheckedAll("termination/unchecked-invalid", terminationUncheckedInvalid._1, terminationUncheckedInvalid._2)
+  testUncheckedAll("termination/unchecked-invalid", terminationUncheckedInvalid)
 
   // Tests that should be verified, but aren't (not compatible with System FR type-checker, or needs more inference)
-  testNegAll("termination/false-invalid", terminationFalseInvalid._1, terminationFalseInvalid._2)
+  testNegAll("termination/false-invalid", terminationFalseInvalid)
 
   // Looping programs that are already correctly rejected by the type-checker
   // Since these are rejected at extraction (and not due to invalid VCs), we need
@@ -112,8 +113,8 @@ class TerminationSuite extends VerificationComponentTestSuite {
     }}
   }
 
-  private def testAllTerminating(dir: String, structure: Seq[xt.UnitDef], programSymbols: xt.Symbols): Unit = {
-    testAll(dir, structure, programSymbols) { (analysis, reporter, _) =>
+  private def testAllTerminating(dir: String, lp: LoadedPrograms): Unit = {
+    testAll(dir, lp) { (analysis, reporter, _, _) =>
       val failures = getResults(analysis).collect {
         case (fd, Some(status)) if !status.isTerminating => fd
       }

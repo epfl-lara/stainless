@@ -6,7 +6,7 @@ object AndTest {
 
    def nonterm(x: BigInt) : BigInt = {
      nonterm(x + 1)
-  }.ensuring(res => false)
+   }.ensuring(res => false)
 
    def precond(y : BigInt) = y < 0
 

@@ -1,0 +1,3 @@
+7:7;f;postcondition;valid
+14:18;ansertToLifeHowOriginal;precondition;valid
+15:12;ansertToLifeHowOriginal;body assertion;invalid

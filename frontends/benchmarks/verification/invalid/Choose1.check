@@ -1,0 +1,13 @@
+11:32;size;body assertion: match exhaustiveness;valid
+11:32;size;postcondition;valid
+12:19;size;postcondition;valid
+13:24;size;postcondition;valid
+16:36;content;body assertion: match exhaustiveness;valid
+25:7;listOfSize;postcondition;valid
+27:14;listOfSize;body assertion;valid
+27:19;listOfSize;precondition;valid
+28:7;listOfSize;body assertion: Choose satisfiability;valid
+28:7;listOfSize;postcondition;invalid
+37:7;listOfSize2;postcondition;valid
+37:15;listOfSize2;precondition;valid
+39:7;listOfSize2;postcondition;valid

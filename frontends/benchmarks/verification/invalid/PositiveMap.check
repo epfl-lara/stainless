@@ -1,0 +1,5 @@
+11:39;positive;body assertion: match exhaustiveness;valid
+17:5;positiveMap_failling_1;body assertion: match exhaustiveness;valid
+17:5;positiveMap_failling_1;postcondition;valid
+21:9;positiveMap_failling_1;postcondition;invalid
+22:21;positiveMap_failling_1;postcondition;valid

@@ -32,12 +32,13 @@ trait InputUtils {
       file.getAbsolutePath
     }
 
-    loadFiles(files, filterOpt, sanitize)
+    val (unitsWithFile, program) = loadFiles(files, filterOpt, sanitize)
+    (unitsWithFile.map(_._1), program)
   }
 
   /** Compile and extract the given files. */
   def loadFiles(files: Seq[String], filterOpt: Option[Filter] = None, sanitize: Boolean = true)
-               (using ctx: inox.Context): (Seq[xt.UnitDef], Program { val trees: xt.type }) = {
+               (using ctx: inox.Context): (Seq[(xt.UnitDef, File)], Program { val trees: xt.type }) = {
 
     val preprocessing = new DebugSymbols {
       val name = "Preprocessing"
@@ -47,7 +48,7 @@ trait InputUtils {
     }
 
     // Use the callback to collect the trees.
-    val units = ListBuffer[xt.UnitDef]()
+    val units = ListBuffer[(xt.UnitDef, File)]()
     val cls = ListBuffer[xt.ClassDef]()
     val funs = ListBuffer[xt.FunDef]()
     val tpds = ListBuffer[xt.TypeDef]()
@@ -72,7 +73,7 @@ trait InputUtils {
         functions: Seq[xt.FunDef],
         typeDefs: Seq[xt.TypeDef]
       ): Unit = {
-        units += unit
+        units += ((unit, File(file)))
         cls ++= classes
         funs ++= functions
         tpds ++= typeDefs
@@ -115,7 +116,7 @@ trait InputUtils {
         throw extraction.MalformedStainlessCode(defn, e.getMessage)
     }
 
-    (units.sortBy(_.id.name).toSeq, inox.Program(xt)(syms))
+    (units.sortBy(_._1.id.name).toSeq, inox.Program(xt)(syms))
   }
 
   extension (rep: inox.Reporter) {

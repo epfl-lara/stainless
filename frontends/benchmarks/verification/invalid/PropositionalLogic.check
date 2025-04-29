@@ -1,0 +1,5 @@
+16:31;simplify;postcondition;valid
+17:15;simplify;postcondition;invalid
+20:43;isSimplified;body assertion: match exhaustiveness;valid
+28:36;isNNF;body assertion: match exhaustiveness;valid
+43:6;simplifyBreaksNNF;postcondition;invalid

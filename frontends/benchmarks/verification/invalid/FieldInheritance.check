@@ -1,0 +1,12 @@
+8:9;foo;cast correctness;valid
+8:9;foo;cast correctness;valid
+8:9;y;cast correctness;valid
+8:9;y;cast correctness;valid
+9:9;weird;cast correctness;valid
+9:9;weird;cast correctness;valid
+9:9;weird;cast correctness;valid
+10:9;y;precondition;valid
+10:9;y;precondition;valid
+10:9;y;precondition;valid
+14:18;y;cast correctness;valid
+22:28;foo;postcondition;invalid
