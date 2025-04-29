@@ -37,8 +37,8 @@ object ForallExistsPartialBijection:
         unfold(semiPartialInverseBody(gg, ff))
         semiPartialInverseBody(gg, ff)
       })
-      unfold(semiInverse(ff, gg))
-      unfold(semiInverse(gg, ff))
+      unfold(semiPartialInverse(ff, gg))
+      unfold(semiPartialInverse(gg, ff))
     }
     PartialBijection[BigInt, TokenValue](ff, gg)
   }
