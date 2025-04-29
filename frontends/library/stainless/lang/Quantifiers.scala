@@ -78,7 +78,7 @@ object Quantifiers {
     ()
   }.ensuring(_ => Exists((x:T) => !p(x)))
 
-  // Functions relationship
+  // Functions relationships
 
   // To see an example of its use, see frontends/benchmarks/verification/valid/ForallExistsBijection.scala
 
@@ -97,5 +97,19 @@ object Quantifiers {
   end Bijection
 
 
+  @ghost inline def semiPartialInverseBody[A, B](f: A => Option[B], g: B => Option[A]): Boolean = Forall((b: B) => g(b) match {
+    case Some(a) => f(a) match {
+      case Some(b2) => b == b2
+      case _ => true
+    }
+    case _ => true
+  }) 
+
+  @ghost def semiPartialInverse[A, B](f: A => Option[B], g: B => Option[A]): Boolean = semiPartialInverseBody(f, g)
+
+  case class PartialBijection[A, B](f: A => Option[B], g: B => Option[A]):
+    require(semiPartialInverse(f, g))
+    require(semiPartialInverse(g, f))
+  end PartialBijection
   
 }
