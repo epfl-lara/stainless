@@ -44,4 +44,3 @@ object ForallExistsPartialBijection:
   }
 
 end ForallExistsPartialBijection
-  

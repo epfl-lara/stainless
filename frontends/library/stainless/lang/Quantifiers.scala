@@ -108,8 +108,8 @@ object Quantifiers {
   @ghost def semiPartialInverse[A, B](f: A => Option[B], g: B => Option[A]): Boolean = semiPartialInverseBody(f, g)
 
   case class PartialBijection[A, B](f: A => Option[B], g: B => Option[A]):
-    require(semiPartialInverse(f, g))
-    require(semiPartialInverse(g, f))
+    StaticChecks.require(semiPartialInverse(f, g))
+    StaticChecks.require(semiPartialInverse(g, f))
   end PartialBijection
   
 }
