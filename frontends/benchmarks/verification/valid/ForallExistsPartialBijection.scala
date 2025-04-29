@@ -7,6 +7,9 @@ import stainless.lang.unfold
 import stainless.lang.Option
 import stainless.lang.Some
 import stainless.lang.None
+import stainless.collection.List
+import stainless.collection.Cons
+import stainless.collection.Nil
 
 object ForallExistsPartialBijection:
   trait TokenValue
