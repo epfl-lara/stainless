@@ -8,11 +8,11 @@ import io.circe.syntax._
 import stainless.extraction.ExtractionSummary
 
 trait StainlessReports {
-  protected trait RunReport { val run: ComponentRun; val report: run.component.Report }
-  protected def RunReport(r: ComponentRun)(re: r.component.Report): RunReport { val run: r.type; val report: re.type } =
+  trait RunReport { val run: ComponentRun; val report: run.component.Report }
+  def RunReport(r: ComponentRun)(re: r.component.Report): RunReport { val run: r.type; val report: re.type } =
     new RunReport { val run: r.type = r; val report: re.type = re }
 
-  protected case class Report(reports: Seq[RunReport]) extends AbstractReport[Report] {
+  case class Report(reports: Seq[RunReport]) extends AbstractReport[Report] {
     val name = "stainless"
 
     override lazy val extractionSummary: ExtractionSummary = reports.foldLeft(ExtractionSummary.NoSummary) {

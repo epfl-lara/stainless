@@ -3,9 +3,8 @@
 package stainless
 package verification
 
-import scala.concurrent.duration._
-
-import org.scalatest._
+import org.scalatest.*
+import stainless.Utils.Solver
 
 class VerificationSuite extends VerificationComponentTestSuite {
   private val solvers = Seq("smt-z3", "smt-cvc5", "princess")
@@ -13,6 +12,7 @@ class VerificationSuite extends VerificationComponentTestSuite {
   private val ignoreCommon = Set(
     // Hangs
     "verification/invalid/ForallAssoc",
+    "verification/invalid/i1295",
     // unknown/timeout VC but counter-example not found
     "verification/invalid/BadConcRope",
     // Lemmas used in one equation can leak in other equations due to https://github.com/epfl-lara/inox/issues/139
@@ -162,6 +162,7 @@ class VerificationSuite extends VerificationComponentTestSuite {
       "verification/invalid/HOInvocations",
       "verification/invalid/i497",
       "verification/invalid/i1295",
+      "verification/invalid/i1379c",
       "verification/invalid/InductTacticTest",
       "verification/invalid/InsertionSort",
       "verification/invalid/IntSet",
@@ -196,8 +197,14 @@ class VerificationSuite extends VerificationComponentTestSuite {
     "verification/valid/GodelNumbering"
   )
 
+  private val ignoreCheckFiles = Map(
+    // The test is correctly classified as invalid (at least 1 invalid VC),
+    // but other VCs are sometimes classified as unknown and sometimes invalid
+    Solver.cvc5 -> Set("verification/invalid/PreInPre")
+  )
+
   override protected def optionsString(options: inox.Options): String = {
-    "solvr=" + options.findOptionOrDefault(inox.optSelectedSolvers).head + " " +
+    "solver=" + options.findOptionOrDefault(inox.optSelectedSolvers).head + " " +
     "lucky=" + options.findOptionOrDefault(inox.solvers.unrolling.optFeelingLucky) + " " +
     "check=" + options.findOptionOrDefault(inox.solvers.optCheckModels) + " " +
     "codegen=" + options.findOptionOrDefault(evaluators.optCodeGen)
@@ -206,7 +213,7 @@ class VerificationSuite extends VerificationComponentTestSuite {
   override def configurations: Seq[Seq[inox.OptionValue[?]]] = {
     // All configurations for all possible solvers and codegen / recursive evaluators
     // Note 1: For codegen, we only use Z3
-    // Note 2: We opt-in for early counter-example discovery for codegen with the "feeling lucky" option
+    // Note 2: We opt in for early counter-example discovery for codegen with the "feeling lucky" option
     for {
       solver <- solvers
       codeGen <- Seq(false, true)
@@ -237,15 +244,15 @@ class VerificationSuite extends VerificationComponentTestSuite {
 
   import VerificationSuite._
 
-  testPosAll("verification/valid", valid._1, valid._2)
+  testPosAll("verification/valid", valid)
 
-  testNegAll("verification/invalid", invalid._1, invalid._2)
+  testNegAllWithCheckFiles("verification/invalid", invalid, checkFileFilter = checkFileMapIgnore2Filter(ignoreCheckFiles))
 
   // Tests that should be rejected, but aren't
-  testPosAll("verification/false-valid", falseValid._1, falseValid._2)
+  testPosAll("verification/false-valid", falseValid)
 }
 object VerificationSuite {
   private lazy val valid = ComponentTestSuite.loadPrograms("verification/valid", recursive = true)
-  private lazy val invalid = ComponentTestSuite.loadPrograms("verification/invalid")
+  private lazy val invalid = VerificationComponentTestSuite.loadProgramsWithCheckFiles("verification/invalid")
   private lazy val falseValid = ComponentTestSuite.loadPrograms("verification/false-valid")
 }

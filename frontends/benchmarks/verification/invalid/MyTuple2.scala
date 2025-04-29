@@ -11,6 +11,6 @@ object MyTuple2 {
     t match {
       case (B(x), C(y)) => x
     }
- }.ensuring( _ == 3)
+  }.ensuring(_ == 3)
 
 }

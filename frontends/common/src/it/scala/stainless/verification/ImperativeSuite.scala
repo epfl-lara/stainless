@@ -20,9 +20,9 @@ class ImperativeSuite extends VerificationComponentTestSuite {
 
   import ImperativeSuite._
 
-  testPosAll("imperative/valid", valid._1, valid._2)
+  testPosAll("imperative/valid", valid)
 
-  testNegAll("imperative/invalid", invalid._1, invalid._2)
+  testNegAll("imperative/invalid", invalid)
 }
 object ImperativeSuite {
   private lazy val valid = ComponentTestSuite.loadPrograms("imperative/valid")
