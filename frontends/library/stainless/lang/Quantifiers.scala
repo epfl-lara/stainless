@@ -87,14 +87,15 @@ object Quantifiers {
   // But by doing so, we then lose the relationship between this inlined body and the "function" given as invariant
   // in the class below. So we need both the body (inline def) and a function
   @ghost
-  inline def partialInverseBody[A, B](f: A => B, g: B => A): Boolean = Forall((b: B) => f(g(b)) == b)
+  inline def semiInverseBody[A, B](f: A => B, g: B => A): Boolean = Forall((b: B) => f(g(b)) == b)
 
   @ghost
-  def partialInverse[A, B](f: A => B, g: B => A): Boolean = partialInverseBody(f, g)
+  def semiInverse[A, B](f: A => B, g: B => A): Boolean = semiInverseBody(f, g)
   case class Bijection[A, B](f: A => B, g: B => A):
-    StaticChecks.require(partialInverse(f, g))
-    StaticChecks.require(partialInverse(g, f))
+    StaticChecks.require(semiInverse(f, g))
+    StaticChecks.require(semiInverse(g, f))
   end Bijection
+
 
   
 }

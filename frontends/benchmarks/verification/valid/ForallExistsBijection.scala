@@ -11,15 +11,15 @@ object ForallExistsBijection:
   val bijectionBigIntBigInt = {
     ghostExpr{
       assert({
-        unfold(partialInverseBody(ff, gg))
-        partialInverseBody(ff, gg)
+        unfold(semiInverseBody(ff, gg))
+        semiInverseBody(ff, gg)
       })
       assert({
-        unfold(partialInverseBody(gg, ff))
-        partialInverseBody(gg, ff)
+        unfold(semiInverseBody(gg, ff))
+        semiInverseBody(gg, ff)
       })
-      unfold(partialInverse(ff, gg))
-      unfold(partialInverse(gg, ff))
+      unfold(semiInverse(ff, gg))
+      unfold(semiInverse(gg, ff))
     }
     Bijection[BigInt, BigInt](ff, gg)
   }
