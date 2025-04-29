@@ -111,5 +111,22 @@ object Quantifiers {
     StaticChecks.require(semiPartialInverse(f, g))
     StaticChecks.require(semiPartialInverse(g, f))
   end PartialBijection
+
+  @ghost inline def imageInverseBody[A, B](f: A => B, g: B => A): Boolean = Forall((a: A) => f(g(f(a))) == f(a))
+
+  @ghost def imageInverse[A, B](f: A => B, g: B => A): Boolean = imageInverseBody(f, g)
+
+  /**
+    * We want that f always produces a "valid" value, but g can work only on values produced by f
+    * 
+    * So 
+    * 1. g(f(a)) == a
+    * 2. f(g(b)) == b where b = f(a) so f(b(f(a))) == f(a)
+    */ 
+  case class OneWayBijection[A, B](f: A => B, g: B => A):
+    StaticChecks.require(semiInverse(g, f)) // g(f(a)) == a
+    StaticChecks.require(imageInverse(f, g)) // f(g(f(a))) == f(a)
+  end OneWayBijection
+  
   
 }
