@@ -29,7 +29,7 @@ object ForallExistsInjection:
     ghostExpr{
       assert({
         unfold(semiInverseBody(gg, ff))
-        semiInverseBody(ff, gg)
+        semiInverseBody(gg, ff)
       })
       unfold(semiInverse(gg, ff))
     }
