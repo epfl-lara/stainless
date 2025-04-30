@@ -80,7 +80,9 @@ object Quantifiers {
 
   // Functions relationships
 
-  // To see an example of its use, see frontends/benchmarks/verification/valid/ForallExistsBijection.scala
+  // To see an example of its use, see 
+  // - frontends/benchmarks/verification/valid/ForallExistsBijection.scala
+  // - frontends/benchmarks/verification/valid/ForallExistsInjection.scala
 
   // Needs to be inlined, otherwise we would need to be able to unfold twice to 
   // make the forall (lowercase) visible
