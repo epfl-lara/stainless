@@ -111,14 +111,7 @@ object Quantifiers {
     StaticChecks.require(semiPartialInverse(f, g))
     StaticChecks.require(semiPartialInverse(g, f))
   end PartialBijection
-
-  /**
-    * We want that f always produces a "valid" value, but g can work only on values produced by f
-    * 
-    * So 
-    * 1. g(f(a)) == a
-    * 2. f(g(b)) == b where b = f(a) so f(b(f(a))) == f(a)
-    */ 
+  
   case class Injection[A, B](f: A => B, g: B => A):
     StaticChecks.require(semiInverse(g, f)) // g(f(a)) == a
   end Injection
