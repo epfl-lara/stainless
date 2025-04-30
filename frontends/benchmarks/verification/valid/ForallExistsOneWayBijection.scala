@@ -11,7 +11,7 @@ import stainless.collection.List
 import stainless.collection.Cons
 import stainless.collection.Nil
 
-object ForallExistsOneWayBijection:
+object ForallExistsInjection:
   trait TokenValue
   case class PositiveInt(i: BigInt) extends TokenValue
   case class StringValue(s: List[Char]) extends TokenValue
@@ -31,14 +31,9 @@ object ForallExistsOneWayBijection:
         unfold(semiInverseBody(gg, ff))
         semiInverseBody(ff, gg)
       })
-      assert({
-        unfold(imageInverseBody(ff, gg))
-        imageInverseBody(ff, gg)
-      })
       unfold(semiInverse(gg, ff))
-      unfold(imageInverse(ff, gg))
     }
     OneWayBijection[BigInt, TokenValue](ff, gg)
   }
 
-end ForallExistsOneWayBijection
+end ForallExistsInjection
