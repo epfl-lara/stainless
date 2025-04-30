@@ -86,34 +86,34 @@ object Quantifiers {
   // make the forall (lowercase) visible
   // But by doing so, we then lose the relationship between this inlined body and the "function" given as invariant
   // in the class below. So we need both the body (inline def) and a function
-  @ghost
-  inline def semiInverseBody[A, B](f: A => B, g: B => A): Boolean = Forall((b: B) => f(g(b)) == b)
 
   @ghost
-  def semiInverse[A, B](f: A => B, g: B => A): Boolean = semiInverseBody(f, g)
+  inline def semiInverseBody[X, Y](f: X => Y, g: Y => X): Boolean = Forall((y: Y) => f(g(y)) == y)
+
+  /**
+    * https://en.wikipedia.org/wiki/Section_%28category_theory%29
+    * 
+    * It implies that g is injective and f is surjective
+    * 
+    *  g is a section of f, 
+    *  and f is a retraction of g.
+    *
+    * @param f
+    * @param g
+    * @return
+    */
+  @ghost
+  def semiInverse[X, Y](f: X => Y, g: Y => X): Boolean = semiInverseBody(f, g)
+
   case class Bijection[A, B](f: A => B, g: B => A):
     StaticChecks.require(semiInverse(f, g))
     StaticChecks.require(semiInverse(g, f))
   end Bijection
 
-
-  @ghost inline def semiPartialInverseBody[A, B](f: A => Option[B], g: B => Option[A]): Boolean = Forall((b: B) => g(b) match {
-    case Some(a) => f(a) match {
-      case Some(b2) => b == b2
-      case _ => true
-    }
-    case _ => true
-  }) 
-
-  @ghost def semiPartialInverse[A, B](f: A => Option[B], g: B => Option[A]): Boolean = semiPartialInverseBody(f, g)
-
-  case class PartialBijection[A, B](f: A => Option[B], g: B => Option[A]):
-    StaticChecks.require(semiPartialInverse(f, g))
-    StaticChecks.require(semiPartialInverse(g, f))
-  end PartialBijection
   
-  case class Injection[A, B](f: A => B, g: B => A):
-    StaticChecks.require(semiInverse(g, f)) // g(f(a)) == a
+  case class Injection[A, B](f: A => B, witness: B => A):
+    StaticChecks.require(semiInverse(witness, f)) // witness(f(a)) == a
+    def apply(a: A): B = f(a)
   end Injection
 
 
