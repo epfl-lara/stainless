@@ -25,7 +25,7 @@ object ForallExistsInjection:
     }
   }
 
-  val oneWayBijectionTokenValue = {
+  val injectionTokenValue = {
     ghostExpr{
       assert({
         unfold(semiInverseBody(gg, ff))
@@ -33,7 +33,7 @@ object ForallExistsInjection:
       })
       unfold(semiInverse(gg, ff))
     }
-    OneWayBijection[BigInt, TokenValue](ff, gg)
+    Injection[BigInt, TokenValue](ff, gg)
   }
 
 end ForallExistsInjection
