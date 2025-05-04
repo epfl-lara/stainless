@@ -19,12 +19,12 @@ object UnfoldOpaqueMutate {
 
   def test1(wb: WrappedBox, x: BigInt): Unit = {
     @ghost val oldWb = snapshot(wb)
-    unfold(wb.opaqueMutMeth1(x))
+    unfolding(wb.opaqueMutMeth1(x))
     assert(wb.box.cnt == oldWb.box.cnt + x)
   }
 
   def test2(wb: WrappedBox, x: BigInt): Unit = {
-    unfold(wb.opaqueMutMeth2(x))
+    unfolding(wb.opaqueMutMeth2(x))
     assert(wb.box == Box(x * 2))
   }
 }

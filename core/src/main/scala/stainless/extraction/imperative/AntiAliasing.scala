@@ -261,7 +261,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
         // * `selectResult` selects the first element of the tuple returned by the transformed function
         // (the others elements are the "updated" version of the mutated parameters).
         // By default, it should be set to `true`.
-        // However, in the particular case of `unfold(fn(...))`, we would like *not* to have this selection be performed
+        // However, in the particular case of `unfolding(fn(...))`, we would like *not* to have this selection be performed
         // due to the following. `AntiAliasing` will transform this call to:
         //   unfold {
         //      val res = fn(...)
@@ -1055,7 +1055,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
 
         object UnfoldOpaque {
           def unapply(e: Expr): Option[(Identifier, FunctionInvocation)] = e match {
-            case FunctionInvocation(id @ ast.SymbolIdentifier("stainless.lang.unfold"), Seq(_), Seq(fi: s.FunctionInvocation)) =>
+            case FunctionInvocation(id @ ast.SymbolIdentifier("stainless.lang.unfolding"), Seq(_), Seq(fi: s.FunctionInvocation)) =>
               Some((id, fi))
             case _ => None
           }
