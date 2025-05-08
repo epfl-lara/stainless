@@ -110,12 +110,18 @@ object Quantifiers {
   case class Bijection[A, B](f: A => B, g: B => A):
     StaticChecks.require(semiInverse(f, g))
     StaticChecks.require(semiInverse(g, f))
+    def lemmaInv(): Unit = {
+      ()
+    }.ensuring(_ => semiInverse(f, g) && semiInverse(g, f))
   end Bijection
 
   
   case class Injection[A, B](f: A => B, witness: B => A):
     StaticChecks.require(semiInverse(witness, f)) // witness(f(a)) == a
     def apply(a: A): B = f(a)
+    def lemmaInv(): Unit = {
+      ()
+    }.ensuring(_ => semiInverse(f, witness))
   end Injection
 
 
