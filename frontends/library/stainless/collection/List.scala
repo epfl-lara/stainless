@@ -13,6 +13,14 @@ import scala.annotation.tailrec
 @library
 @isabelle.typ(name = "List.list")
 sealed abstract class List[T] {
+  
+  @isabelle.function(term = "Int.int o List.length")
+  lazy val size: BigInt = {
+    ghostExpr(lemmaSizeTr(this, 0))
+    unfold(this.fSize)
+    sizeTr()
+  }.ensuring(res => res == fSize)
+
   @tailrec
   private def sizeTr(acc: BigInt = 0): BigInt = 
     this match {
@@ -21,25 +29,17 @@ sealed abstract class List[T] {
     }
   
   def lemmaSizeTr(thiss: List[T], acc: BigInt): Unit = {
-    decreases(thiss.fSize)
     thiss match {
       case Nil() => ()
       case Cons(h, t) =>
         lemmaSizeTr(t, acc + 1)
     }
-  }.ensuring(_ => thiss.sizeTr(acc) == acc + thiss.size)
+  }.ensuring(_ => thiss.sizeTr(acc) == acc + thiss.fSize)
   
   def fSize: BigInt = (this match {
     case Nil() => BigInt(0)
     case Cons(h, t) => 1 + t.size
-  }).ensuring (res => res >= 0 && res == sizeTr(0))
-  
-  @isabelle.function(term = "Int.int o List.length")
-  lazy val size: BigInt = {
-    ghostExpr(lemmaSizeTr(this, 0))
-    unfold(this.fSize)
-    sizeTr()
-  }.ensuring(res => res == fSize)
+  }).ensuring (res => res >= 0)
 
   def length = size
 
