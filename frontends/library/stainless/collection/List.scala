@@ -39,7 +39,7 @@ sealed abstract class List[T] {
   def fSize: BigInt = (this match {
     case Nil() => BigInt(0)
     case Cons(h, t) => 1 + t.size
-  }).ensuring (res => res >= 0)
+  }).ensuring (_ => _ >= 0)
 
   def length = size
 
