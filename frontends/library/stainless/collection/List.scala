@@ -14,7 +14,7 @@ import stainless.annotation._
 sealed abstract class List[T] {
 
   @isabelle.function(term = "Int.int o List.length")
-  def size: BigInt = (this match {
+  lazy val size: BigInt = (this match {
     case Nil() => BigInt(0)
     case Cons(h, t) => 1 + t.size
   }).ensuring (_ >= 0)
