@@ -14,10 +14,21 @@ import stainless.annotation._
 sealed abstract class List[T] {
 
   @isabelle.function(term = "Int.int o List.length")
-  val size: BigInt = (this match {
+  def sizeTr(acc: BigInt = 0): BigInt = {
+    this match {
+      case Nil() => acc
+      case Cons(h, t) => t.sizeTr(acc + 1)
+    }
+  }.ensuring(res => res == acc + this.size)
+
+  def size: BigInt = (this match {
     case Nil() => BigInt(0)
     case Cons(h, t) => 1 + t.size
-  }).ensuring (_ >= 0)
+  }).ensuring (res => res >= 0 && res == sizeTr(0))
+
+  lazy val lazySize: BigInt = {
+    sizeTr()
+  }.ensuring(res => res == size)
 
   def length = size
 
