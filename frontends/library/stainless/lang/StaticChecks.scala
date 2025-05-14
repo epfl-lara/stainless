@@ -39,5 +39,11 @@ object StaticChecks {
   @library
   def assert(@ghost pred: => Boolean, msg: => String): Unit = ()
 
+  @ignore def decreases(@ghost r1: => Any): Unit = ()
+  @ignore def decreases(@ghost r1: => Any, @ghost r2: => Any): Unit = ()
+  @ignore def decreases(@ghost r1: => Any, @ghost r2: => Any, @ghost r3: => Any): Unit = ()
+  @ignore def decreases(@ghost r1: => Any, @ghost r2: => Any, @ghost r3: => Any, @ghost r4: => Any): Unit = ()
+  @ignore def decreases(@ghost r1: => Any, @ghost r2: => Any, @ghost r3: => Any, @ghost r4: => Any, @ghost r5: => Any): Unit = ()
+
 }
 
