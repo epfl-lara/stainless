@@ -8,7 +8,6 @@ import scala.collection.immutable.{List => ScalaList}
 import stainless.lang.{ghost => ghostExpr, _}
 import stainless.lang.StaticChecks._
 import stainless.annotation._
-
 import scala.annotation.tailrec
 
 @library
@@ -29,16 +28,17 @@ sealed abstract class List[T] {
     }
   }.ensuring(_ => thiss.sizeTr(acc) == acc + thiss.size)
   
-  @isabelle.function(term = "Int.int o List.length")
-  def size: BigInt = (this match {
+  def fSize: BigInt = (this match {
     case Nil() => BigInt(0)
     case Cons(h, t) => 1 + t.size
   }).ensuring (res => res >= 0 && res == sizeTr(0))
-
-  lazy val lazySize: BigInt = {
+  
+  @isabelle.function(term = "Int.int o List.length")
+  lazy val size: BigInt = {
     ghostExpr(lemmaSizeTr(this, 0))
+    unfold(this.fSize)
     sizeTr()
-  }.ensuring(res => res == size)
+  }.ensuring(res => res == fSize)
 
   def length = size
 
