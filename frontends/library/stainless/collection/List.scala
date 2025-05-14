@@ -21,6 +21,7 @@ sealed abstract class List[T] {
     }
   
   def lemmaSizeTr(thiss: List[T], acc: BigInt): Unit = {
+    decreases(thiss.fSize)
     thiss match {
       case Nil() => ()
       case Cons(h, t) =>
