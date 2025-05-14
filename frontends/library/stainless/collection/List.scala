@@ -5,16 +5,38 @@ package collection
 
 import scala.collection.immutable.{List => ScalaList}
 
-import stainless.lang._
+import stainless.lang.{ghost => ghostExpr, _}
 import stainless.lang.StaticChecks._
 import stainless.annotation._
+import scala.annotation.tailrec
 
 @library
 @isabelle.typ(name = "List.list")
 sealed abstract class List[T] {
-
+  
   @isabelle.function(term = "Int.int o List.length")
-  lazy val size: BigInt = (this match {
+  lazy val size: BigInt = {
+    ghostExpr(lemmaSizeTr(this, 0))
+    unfold(this.fSize)
+    sizeTr()
+  }.ensuring(res => res == fSize)
+
+  @tailrec
+  private def sizeTr(acc: BigInt = 0): BigInt = 
+    this match {
+      case Nil() => acc
+      case Cons(h, t) => t.sizeTr(acc + 1)
+    }
+  
+  def lemmaSizeTr(thiss: List[T], acc: BigInt): Unit = {
+    thiss match {
+      case Nil() => ()
+      case Cons(h, t) =>
+        lemmaSizeTr(t, acc + 1)
+    }
+  }.ensuring(_ => thiss.sizeTr(acc) == acc + thiss.fSize)
+  
+  def fSize: BigInt = (this match {
     case Nil() => BigInt(0)
     case Cons(h, t) => 1 + t.size
   }).ensuring (_ >= 0)
