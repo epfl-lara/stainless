@@ -133,6 +133,7 @@ class VerificationSuite extends VerificationComponentTestSuite {
       "verification/valid/ValueClasses",
       "verification/valid/FloatProperties",
       "verification/valid/FloatEquiv",
+      "verification/valid/FloatsToBits",
 
       // invalid/
       "verification/invalid/AbstractRefinementMap",

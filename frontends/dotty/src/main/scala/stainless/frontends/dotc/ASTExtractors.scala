@@ -502,6 +502,34 @@ trait ASTExtractors {
       }
     }
 
+    object ExDoubleToLongBits {
+      def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
+        case Apply(ExSymbol("java", "lang", "Double$", "doubleToLongBits"), Seq(rhs)) => Some(rhs)
+        case _ => None
+      }
+    }
+
+    object ExFloatToIntBits {
+      def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
+        case Apply(ExSymbol("java", "lang", "Float$", "floatToIntBits"), Seq(rhs)) => Some(rhs)
+        case _ => None
+      }
+    }
+
+    object ExLongBitsToDouble {
+      def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
+        case Apply(ExSymbol("java", "lang", "Double$", "longBitsToDouble"), Seq(rhs)) => Some(rhs)
+        case _ => None
+      }
+    }
+
+    object ExIntBitsToFloat {
+      def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
+        case Apply(ExSymbol("java", "lang", "Float$", "intBitsToFloat"), Seq(rhs)) => Some(rhs)
+        case _ => None
+      }
+    }
+
     // Dotc seems slightly less consistent than scalac: it uses to format for
     // casts. Like scalac, it uses Select for `.toByte`, but it also uses
     // Apply("byte2int", arg) for implicit conversions (and perhaps for other

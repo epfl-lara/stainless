@@ -732,6 +732,10 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
         }
         (BooleanType(), tr1 ++ tr2)
 
+      case FPFromBinary(exponent, significand, expr) =>
+        val tr = checkType(tc0, expr, BVType(true, exponent + significand))
+        (FPType(exponent, significand), tr)
+
       case FPCast(exponent, significand, roundingMode, e2) =>
         val (tpe, tr) = inferType(tc, e2)
         tpe match {
