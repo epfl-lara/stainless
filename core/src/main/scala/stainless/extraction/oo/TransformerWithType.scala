@@ -114,6 +114,9 @@ trait TransformerWithType extends TreeTransformer {
     case s.FPToBV(size, signed, rm, e) =>
       t.FPToBV(size, signed, transform(rm), transform(e)).copiedFrom(expr)
 
+    case s.FPFromBinary(e, s, expr) =>
+      t.FPFromBinary(e, s, transform(expr)).copiedFrom(expr)
+
     case s.Sqrt(rm, e) => t.Sqrt(transform(rm), transform(e)).copiedFrom(expr)
 
     case s.RoundNearestTiesToEven => t.RoundNearestTiesToEven.copiedFrom(expr)
