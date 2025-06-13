@@ -1418,13 +1418,13 @@ object EquivalenceChecker {
 
   // To be compatible:
   // -norm's first n-1 params must be compatible with the model params
-  // -norm return type must be compatible with return type of model
-  // -norm last param must be the same as its return type (i.e. compatible with the return type of model)
+  // -norm's last param must be compatible with the return type of model
+  // -norm's return type does **not** need to be compatible with return type of model
   private def checkArgsNorm(ts: Trees)(symbols: ts.Symbols, model: Identifier, norm: Identifier): Boolean = {
     val m = symbols.functions(model)
     val n = symbols.functions(norm)
-    n.params.nonEmpty && n.params.last.tpe == n.returnType &&
-      areSignaturesCompatibleModuloPerm(ts)(m.params, m.tparams, m.returnType, n.params.init, n.tparams, n.returnType, ArgPermutation(m.params.indices))
+    n.params.nonEmpty &&
+      areSignaturesCompatibleModuloPerm(ts)(m.params, m.tparams, m.returnType, n.params.init, n.tparams, n.params.last.tpe, ArgPermutation(m.params.indices))
   }
 
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
