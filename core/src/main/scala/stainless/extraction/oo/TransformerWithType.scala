@@ -114,6 +114,9 @@ trait TransformerWithType extends TreeTransformer {
     case s.FPToBV(size, signed, rm, e) =>
       t.FPToBV(size, signed, transform(rm), transform(e)).copiedFrom(expr)
 
+    case s.FPToBVJVM(exponent, significand, toSize, e) =>
+      t.FPToBVJVM(exponent, significand, toSize, transform(e)).copiedFrom(expr)
+
     case s.FPFromBinary(e, s, expr) =>
       t.FPFromBinary(e, s, transform(expr)).copiedFrom(expr)
 
