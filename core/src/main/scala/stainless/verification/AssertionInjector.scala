@@ -35,6 +35,7 @@ class AssertionInjector(override val s: ast.Trees, override val t: ast.Trees, va
     case _: s.IntegerLiteral => true
     case _: s.StringLiteral => true
     case _: s.Variable => true
+    case _: s.FPLiteral => true
     case s.Tuple(es) => es.forall(canDuplicate)
     case _ => false
   }
@@ -295,6 +296,26 @@ class AssertionInjector(override val s: ast.Trees, override val t: ast.Trees, va
             ).copiedFrom(e)
           ).copiedFrom(e)
         }
+      }
+
+    case s.FPToBVJVM(exponent, significand, toSize, expr) if strictArithmetic =>
+      bindIfCannotDuplicate(expr, "expr") { expr =>
+        // a FP -> BV cast of the value `f` is considered safe iff `f` is not NaN and `bvLb < f < bvUb`.
+        val bvLb = t.BVLiteral(true, -BigInt(2).pow(toSize-1) - 1, toSize + 1).copiedFrom(e)
+        val bvUb = t.BVLiteral(true, BigInt(2).pow(toSize-1), toSize + 1).copiedFrom(e)
+        t.Assert(
+          t.Not(t.FPIsNaN(expr)).copiedFrom(e),
+          Some("Safe floating-point to integer cast non-NaN check"),
+          t.Assert( // For this assertion and the next one, we may assume that `expr` is not `NaN`.
+            t.FPGreaterThan(expr, t.FPCast(exponent, significand, t.RoundTowardNegative, bvLb)).copiedFrom(e),
+            Some("Safe floating-point to integer cast lower bound"),
+            t.Assert(
+              t.FPLessThan(expr, t.FPCast(exponent, significand, t.RoundTowardPositive, bvUb)).copiedFrom(e),
+              Some("Safe floating-point to integer cast upper bound"),
+              t.FPToBVJVM(exponent, significand, toSize, expr).copiedFrom(e)
+            ).copiedFrom(e)
+          ).copiedFrom(e)
+        ).copiedFrom(e)
       }
 
     case BVTyped(signed, size, BVShift(rhs, recons)) if strictArithmetic =>
