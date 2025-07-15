@@ -1971,32 +1971,6 @@ class CodeExtraction(inoxCtx: inox.Context,
       )
   }
 
-  private def castFPToInt(expr: xt.Expr, tpe: xt.FPType): xt.Expr = {
-    val xt.FPType(exponent, significand) = tpe
-    val vd = xt.ValDef.fresh("fp", tpe)
-    val isNaN = xt.FPIsNaN(vd.toVariable)
-    val isLarge = xt.FPGreaterThan(vd.toVariable, xt.FPCast(exponent, significand, xt.RoundTowardZero, xt.Int32Literal(Int.MaxValue)))
-    val isSmall = xt.FPLessThan(vd.toVariable, xt.FPCast(exponent, significand, xt.RoundTowardZero, xt.Int32Literal(Int.MinValue)))
-    xt.Let(vd, expr,
-      xt.IfExpr(isNaN, xt.Int32Literal(0),
-        xt.IfExpr(isLarge, xt.Int32Literal(Int.MaxValue),
-          xt.IfExpr(isSmall, xt.Int32Literal(Int.MinValue),
-            xt.FPToBV(32, true, xt.RoundTowardZero, vd.toVariable)))))
-  }
-
-  private def castFPToLong(expr: xt.Expr, tpe: xt.FPType): xt.Expr = {
-    val xt.FPType(exponent, significand) = tpe
-    val vd = xt.ValDef.fresh("fp", tpe)
-    val isNaN = xt.FPIsNaN(vd.toVariable)
-    val isLarge = xt.FPGreaterThan(vd.toVariable, xt.FPCast(exponent, significand, xt.RoundTowardZero, xt.Int64Literal(Long.MaxValue)))
-    val isSmall = xt.FPLessThan(vd.toVariable, xt.FPCast(exponent, significand, xt.RoundTowardZero, xt.Int64Literal(Long.MinValue)))
-    xt.Let(vd, expr,
-      xt.IfExpr(isNaN, xt.Int64Literal(0),
-        xt.IfExpr(isLarge, xt.Int64Literal(Long.MaxValue),
-          xt.IfExpr(isSmall, xt.Int64Literal(Long.MinValue),
-            xt.FPToBV(64, true, xt.RoundTowardZero, vd.toVariable)))))
-  }
-
   private def extractCall(tr: tpd.Tree, rec: Option[tpd.Tree], sym: Symbol, tps: Seq[tpd.Tree], args: Seq[tpd.Tree])(using dctx: DefContext): xt.Expr = rec match {
     case None if (sym.owner `is` ModuleClass) && (sym.owner `is` Case) =>
       val ct = extractType(sym.owner.thisType)(using dctx, tr.sourcePos).asInstanceOf[xt.ClassType]
@@ -2291,8 +2265,8 @@ class CodeExtraction(inoxCtx: inox.Context,
         case (tpe, "toByte", Seq()) => tpe match {
           case xt.BVType(true, 8) => extractTree(lhs)
           case xt.BVType(true, 16 | 32 | 64) => xt.BVNarrowingCast(extractTree(lhs), xt.BVType(true, 8))
-          case tpe @ (xt.FPType(8, 24) | xt.FPType(11, 53)) =>
-            xt.BVNarrowingCast(castFPToInt(extractTree(lhs), tpe), xt.BVType(true, 8))
+          case xt.FPType(8, 24) => xt.FPToBVJVM(8, 24, 8, extractTree(lhs))
+          case xt.FPType(11, 53) => xt.FPToBVJVM(11, 53, 8, extractTree(lhs))
           case tpe => outOfSubsetError(tr, s"Unexpected cast .toByte from $tpe")
         }
 
@@ -2300,8 +2274,8 @@ class CodeExtraction(inoxCtx: inox.Context,
           case xt.BVType(true, 8) => xt.BVWideningCast(extractTree(lhs), xt.BVType(true, 16))
           case xt.BVType(true, 16) => extractTree(lhs)
           case xt.BVType(true, 32 | 64) => xt.BVNarrowingCast(extractTree(lhs), xt.BVType(true, 16))
-          case tpe @ (xt.FPType(8, 24) | xt.FPType(11, 53)) =>
-            xt.BVNarrowingCast(castFPToInt(extractTree(lhs), tpe), xt.BVType(true, 16))
+          case xt.FPType(8, 24) => xt.FPToBVJVM(8, 24, 16, extractTree(lhs))
+          case xt.FPType(11, 53) => xt.FPToBVJVM(11, 53, 16, extractTree(lhs))
           case tpe => outOfSubsetError(tr, s"Unexpected cast .toShort from $tpe")
         }
 
@@ -2309,14 +2283,16 @@ class CodeExtraction(inoxCtx: inox.Context,
           case xt.BVType(true, 8 | 16) => xt.BVWideningCast(extractTree(lhs), xt.BVType(true, 32))
           case xt.BVType(true, 32) => extractTree(lhs)
           case xt.BVType(true, 64) => xt.BVNarrowingCast(extractTree(lhs), xt.BVType(true, 32))
-          case tpe @ (xt.FPType(8, 24) | xt.FPType(11, 53)) => castFPToInt(extractTree(lhs), tpe)
+          case xt.FPType(8, 24) => xt.FPToBVJVM(8, 24, 32, extractTree(lhs))
+          case xt.FPType(11, 53) => xt.FPToBVJVM(11, 53, 32, extractTree(lhs))
           case tpe => outOfSubsetError(tr, s"Unexpected cast .toInt from $tpe")
         }
 
         case (tpe, "toLong", Seq()) => tpe match {
           case xt.BVType(true, 8 | 16 | 32 ) => xt.BVWideningCast(extractTree(lhs), xt.BVType(true, 64))
           case xt.BVType(true, 64) => extractTree(lhs)
-          case tpe @ (xt.FPType(8, 24) | xt.FPType(11, 53)) => castFPToLong(extractTree(lhs), tpe)
+          case xt.FPType(8, 24) => xt.FPToBVJVM(8, 24, 64, extractTree(lhs))
+          case xt.FPType(11, 53) => xt.FPToBVJVM(11, 53, 64, extractTree(lhs))
           case tpe => outOfSubsetError(tr, s"Unexpected cast .toLong from $tpe")
         }
 

@@ -750,6 +750,13 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
           case _ => reporter.fatalError(e.getPos, s"Cannot convert type ${tpe.asString} using FPToBV")
         }
 
+      case FPToBVJVM(exponent, significand, toSize, e2) =>
+        val (tpe, tr) = inferType(tc, e2)
+        tpe match {
+          case FPType(_, _) => (BVType(true, toSize), tr)
+          case _ => reporter.fatalError(e.getPos, s"Cannot convert type ${tpe.asString} using FPToBV")
+        }
+
       case RoundNearestTiesToEven | RoundNearestTiesToAway | RoundTowardZero | RoundTowardNegative | RoundTowardPositive =>
         (RoundingMode, TyperResult.valid)
 
