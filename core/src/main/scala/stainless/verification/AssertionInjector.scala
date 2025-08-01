@@ -3,6 +3,8 @@
 package stainless
 package verification
 
+import smtlib.theories.FloatingPoint.FPLit
+
 /**
  * Transform trees by inserting assertions. Those verify that all array access are valid,
  * casts are legal, no division by zero occur and, when using the [[strictArithmetic]] mode,
@@ -327,6 +329,76 @@ class AssertionInjector(override val s: ast.Trees, override val t: ast.Trees, va
         val range = if (signed && checkOverflow) t.And(pos, leq).copiedFrom(rhs) else leq
         // Ensure the operation doesn't shift more bits than there are.
         t.Assert(range, Some("Shift semantics"), recons(rhsx)).copiedFrom(e)
+      }
+
+    case s.FPGreaterEquals(e1, e2) if strictArithmetic =>
+      bindIfCannotDuplicate(e1, "e1") { e1x =>
+        bindIfCannotDuplicate(e2, "e2") { e2x =>
+          t.Assert(
+            t.And(
+              t.Not(t.FPIsNaN(e1x).copiedFrom(e)).copiedFrom(e),
+              t.Not(t.FPIsNaN(e2x).copiedFrom(e)).copiedFrom(e)
+            ).copiedFrom(e),
+            Some("Comparison with NaN"),
+            t.FPGreaterEquals(e1x, e2x).copiedFrom(e)
+          ).copiedFrom(e)
+        }
+      }
+
+    case s.FPLessEquals(e1, e2) if strictArithmetic =>
+      bindIfCannotDuplicate(e1, "e1") { e1x =>
+        bindIfCannotDuplicate(e2, "e2") { e2x =>
+          t.Assert(
+            t.And(
+              t.Not(t.FPIsNaN(e1x).copiedFrom(e)).copiedFrom(e),
+              t.Not(t.FPIsNaN(e2x).copiedFrom(e)).copiedFrom(e)
+            ).copiedFrom(e),
+            Some("Comparison with NaN"),
+            t.FPLessEquals(e1x, e2x).copiedFrom(e)
+          ).copiedFrom(e)
+        }
+      }
+
+    case s.FPGreaterThan(e1, e2) if strictArithmetic =>
+      bindIfCannotDuplicate(e1, "e1") { e1x =>
+        bindIfCannotDuplicate(e2, "e2") { e2x =>
+          t.Assert(
+            t.And(
+              t.Not(t.FPIsNaN(e1x).copiedFrom(e)).copiedFrom(e),
+              t.Not(t.FPIsNaN(e2x).copiedFrom(e)).copiedFrom(e)
+            ).copiedFrom(e),
+            Some("Comparison with NaN"),
+            t.FPGreaterThan(e1x, e2x).copiedFrom(e)
+          ).copiedFrom(e)
+        }
+      }
+
+    case s.FPLessThan(e1, e2) if strictArithmetic =>
+      bindIfCannotDuplicate(e1, "e1") { e1x =>
+        bindIfCannotDuplicate(e2, "e2") { e2x =>
+          t.Assert(
+            t.And(
+              t.Not(t.FPIsNaN(e1x).copiedFrom(e)).copiedFrom(e),
+              t.Not(t.FPIsNaN(e2x).copiedFrom(e)).copiedFrom(e)
+            ).copiedFrom(e),
+            Some("Comparison with NaN"),
+            t.FPLessThan(e1x, e2x).copiedFrom(e)
+          ).copiedFrom(e)
+        }
+      }
+
+    case s.FPEquals(e1, e2) if strictArithmetic =>
+      bindIfCannotDuplicate(e1, "e1") { e1x =>
+        bindIfCannotDuplicate(e2, "e2") { e2x =>
+          t.Assert(
+            t.And(
+              t.Not(t.FPIsNaN(e1x).copiedFrom(e)).copiedFrom(e),
+              t.Not(t.FPIsNaN(e2x).copiedFrom(e)).copiedFrom(e)
+            ).copiedFrom(e),
+            Some("Comparison with NaN"),
+            t.FPEquals(e1x, e2x).copiedFrom(e)
+          ).copiedFrom(e)
+        }
       }
 
     case _ => super.transform(e)

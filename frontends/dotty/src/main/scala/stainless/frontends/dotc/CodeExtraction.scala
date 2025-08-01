@@ -1873,8 +1873,13 @@ class CodeExtraction(inoxCtx: inox.Context,
     case ex @ ExIdentifier(sym, tpt) if dctx.vars contains sym => dctx.vars(sym)().setPos(ex.sourcePos)
     case ex @ ExIdentifier(sym, tpt) if dctx.mutableVars contains sym => dctx.mutableVars(sym)().setPos(ex.sourcePos)
 
-    case ExSqrtCall(rhs) =>
-      xt.Sqrt(xt.RoundNearestTiesToEven, extractTree(rhs))
+    case ExSqrtCall(rhs) => xt.Sqrt(xt.RoundNearestTiesToEven.setPos(tr.sourcePos), extractTree(rhs)).setPos(tr.sourcePos)
+    case ExFloorCall(rhs) => xt.FPRound(xt.RoundTowardNegative.setPos(tr.sourcePos), extractTree(rhs)).setPos(tr.sourcePos)
+    case ExCeilCall(rhs) => xt.FPRound(xt.RoundTowardPositive.setPos(tr.sourcePos), extractTree(rhs)).setPos(tr.sourcePos)
+    case ExRintCall(rhs) => xt.FPRound(xt.RoundNearestTiesToEven.setPos(tr.sourcePos), extractTree(rhs)).setPos(tr.sourcePos)
+    case ExFPAbsCall(rhs) => xt.FPAbs(extractTree(rhs)).setPos(tr.sourcePos)
+    case ExFPMaxCall(lhs, rhs) => xt.FPMax(extractTree(lhs), extractTree(rhs)).setPos(tr.sourcePos)
+    case ExFPMinCall(lhs, rhs) => xt.FPMin(extractTree(lhs), extractTree(rhs)).setPos(tr.sourcePos)
 
     case ExDoubleToLongBits(arg) =>
       val pos = tr.sourcePos
@@ -2241,7 +2246,7 @@ class CodeExtraction(inoxCtx: inox.Context,
           val notNaN = xt.Not(xt.FPIsNaN(vd.toVariable).setPos(pos)).setPos(pos)
           val body = xt.And(notInf, notNaN).setPos(pos)
           xt.Let(vd, extractTree(lhs), body)
-        case (xt.FPType(_,_), "isInfinity", Seq()) =>
+        case (xt.FPType(_,_), "isInfinity" | "isInfinite", Seq()) =>
           xt.FPIsInfinite(extractTree(lhs)).setPos(tr.sourcePos)
         case (xt.FPType(_,_), "isNaN", Seq()) => xt.FPIsNaN(extractTree(lhs)).setPos(tr.sourcePos)
         case (xt.FPType(_,_), "isPosInfinity", Seq()) =>

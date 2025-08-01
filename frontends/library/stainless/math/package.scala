@@ -23,6 +23,24 @@ package object math {
   def max(i1: Int, i2: Int) = if (i1 >= i2) i1 else i2
 
   @library
+  def min(i1: Long, i2: Long) = if (i1 <= i2) i1 else i2
+
+  @library
+  def max(i1: Long, i2: Long) = if (i1 >= i2) i1 else i2
+
+  @library
+  def min(x: Float, y: Float): Float = scala.math.min(x, y)
+
+  @library
+  def max(x: Float, y: Float): Float = scala.math.max(x, y)
+
+  @library
+  def min(x: Double, y: Double): Double = scala.math.min(x, y)
+
+  @library
+  def max(x: Double, y: Double): Double = scala.math.max(x, y)
+
+  @library
   def min(i1: BigInt, i2: BigInt) = if (i1 <= i2) i1 else i2
 
   @library
@@ -39,6 +57,25 @@ package object math {
 
   @library
   def abs(n: BigInt) = if(n < 0) -n else n
+
+  @library
+  def abs(x: Float) = scala.math.abs(x)
+
+  @library
+  def abs(x: Double) = scala.math.abs(x)
+
+  @library
+  def floor(x: Double) = scala.math.floor(x)
+
+  @library
+  def ceil(x: Double) = scala.math.ceil(x)
+
+  @library
+  def rint(x: Double) = scala.math.rint(x)
+
+  val E: Double = 2.7182818284590452354
+
+  val Pi: Double = 3.14159265358979323846
 
   @library
   implicit def bigIntToNat(b: BigInt): Nat = {
@@ -99,6 +136,16 @@ package object math {
   )
 
   @extern @pure @library
+  def log(x: Double): Double = {
+    scala.math.log(x)
+  }.ensuring( res =>
+    if x.isNaN || x < 0 then res.isNaN
+    else if x.isZero then res.isNegInfinity
+    else if x == 1.0 then res.isZero && res.isPositive
+    else !res.isNaN
+  )
+
+  @extern @pure @library
   def atan2(y: Double, x: Double): Double = {
     java.lang.Math.atan2(y, x)
   }.ensuring(res =>
@@ -123,15 +170,29 @@ package object math {
     && ((a.isPositive && a.isInfinity && b < 0) ==> (res.isPositive && res.isZero))
     && ((a.isPositive && a.isZero && b < 0) ==> (res.isPositive && res.isInfinity))
     && ((a.isPositive && a.isInfinity && b > 0) ==> (res.isPositive && res.isInfinity))
+    && ((a.isPositive && b.isFinite) ==> res.isPositive)
+    && ((!a.isNaN && b == 2) ==> res.isPositive)
   )
 
   @extern @pure @library
   def exp(a: Double): Double = {
     java.lang.Math.exp(a)
   }.ensuring(res =>
-    (a.isNaN ==> res.isNaN)
+    (a.isNaN == res.isNaN)
     && ((a.isPositive && a.isInfinity) ==> (res.isPositive && res.isInfinity))
     && ((a.isNegative && a.isInfinity) ==> (res.isPositive && res.isZero))
+    && (!a.isNaN ==> res.isPositive)
+  )
+
+  @extern @pure @library
+  def log1p(x: Double): Double = {
+    scala.math.log1p(x)
+  }.ensuring(res =>
+    ((x.isNaN || x < -1) == res.isNaN)
+    && (x.isPosInfinity ==> res.isPosInfinity)
+    && (x == -1 ==> res.isNegInfinity)
+    && (x.isZero ==> (res == x))
+    && (x.isPositive ==> res.isPositive)
   )
 
   @extern @pure @library
@@ -142,6 +203,15 @@ package object math {
     && ((x.isPositive && x.isZero) ==> (res.isPositive && res.isZero))
     && ((x.isNegative && x.isZero) ==> (res.isNegative && res.isZero))
     && (-1.5707963267948966d <= res && res <= 1.5707963267948966d || x.isNaN)
+  )
+
+  @extern @pure @library
+  def hypot(x: Double, y: Double): Double = {
+    scala.math.hypot(x, y)
+  }.ensuring(res =>
+    ((x.isInfinity || y.isInfinity) ==> res.isPosInfinity)
+    && (((x.isNaN && y.isFinite) || (x.isNaN && y.isNaN) || (x.isFinite && y.isNaN)) == res.isNaN)
+    && ((x.isFinite && y.isFinite) ==> res.isPositive)
   )
 }
 
