@@ -216,6 +216,7 @@ package object lang {
   implicit final class WrappedDouble(d: Double) extends AnyVal {
     def isNaN: Boolean = java.lang.Double.isNaN(d)
     def isInfinity: Boolean = java.lang.Double.isInfinite(d)
+    def isInfinite: Boolean = java.lang.Double.isInfinite(d)
     def isPosInfinity: Boolean = d == Double.PositiveInfinity
     def isNegInfinity: Boolean = d == Double.NegativeInfinity
     def isFinite: Boolean = java.lang.Double.isFinite(d)
@@ -229,6 +230,7 @@ package object lang {
   implicit final class WrappedFloat(f: Float) extends AnyVal {
     def isNaN: Boolean = java.lang.Float.isNaN(f)
     def isInfinity: Boolean = java.lang.Float.isInfinite(f)
+    def isInfinite: Boolean = java.lang.Float.isInfinite(f)
     def isPosInfinity: Boolean = f == Float.PositiveInfinity
     def isNegInfinity: Boolean = f == Float.NegativeInfinity
     def isFinite: Boolean = java.lang.Float.isFinite(f)
