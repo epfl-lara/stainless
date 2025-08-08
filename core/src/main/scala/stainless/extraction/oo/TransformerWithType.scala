@@ -212,6 +212,14 @@ trait TransformerWithType extends TreeTransformer {
       val atpe = getArithmeticType(lhs, tpe)
       t.Modulo(transform(lhs, atpe), transform(rhs, atpe)).copiedFrom(expr)
 
+    case s.FPMin(lhs, rhs) =>
+      val atpe = getArithmeticType(lhs, tpe)
+      t.FPMin(transform(lhs, atpe), transform(rhs, atpe)).copiedFrom(expr)
+
+    case s.FPMax(lhs, rhs) =>
+      val atpe = getArithmeticType(lhs, tpe)
+      t.FPMax(transform(lhs, atpe), transform(rhs, atpe)).copiedFrom(expr)
+
     case s.LessThan(lhs, rhs) =>
       val tp = widen(lhs.getType)
       t.LessThan(transform(lhs, tp), transform(rhs, tp)).copiedFrom(expr)

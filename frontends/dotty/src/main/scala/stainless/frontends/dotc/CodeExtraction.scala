@@ -2266,6 +2266,23 @@ class CodeExtraction(inoxCtx: inox.Context,
         case (xt.FPType(_,_), "equiv", Seq(rhs)) =>
           if tpe == extractType(rhs) then xt.Equals(extractTree(lhs), extractTree(rhs))
           else outOfSubsetError(lhs, "The .equiv() method can only compare floats of the same type.")
+        case (xt.FPType(e,s), "toDegrees", Seq()) =>
+          val arg = xt.FPCast(11, 53, xt.RoundNearestTiesToEven, extractTree(lhs))
+          val res = xt.FPDiv(
+            xt.RoundNearestTiesToEven,
+            xt.FPMul(xt.RoundNearestTiesToEven, arg, xt.Float64Literal(180)),
+            xt.Float64Literal(scala.math.Pi)
+          )
+          xt.FPCast(e, s, xt.RoundNearestTiesToEven, res).setPos(tr.sourcePos)
+        case (xt.FPType(e,s), "toRadians", Seq()) =>
+          val arg = xt.FPCast(11, 53, xt.RoundNearestTiesToEven, extractTree(lhs))
+          val res = xt.FPMul(
+            xt.RoundNearestTiesToEven,
+            xt.FPDiv(xt.RoundNearestTiesToEven, arg, xt.Float64Literal(180)),
+            xt.Float64Literal(scala.math.Pi)
+          )
+          xt.FPCast(e, s, xt.RoundNearestTiesToEven, res).setPos(tr.sourcePos)
+
 
         case (tpe, "toByte", Seq()) => tpe match {
           case xt.BVType(true, 8) => extractTree(lhs)

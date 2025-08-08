@@ -149,7 +149,7 @@ package object math {
   def atan2(y: Double, x: Double): Double = {
     java.lang.Math.atan2(y, x)
   }.ensuring(res =>
-    ((y.isNaN || x.isNaN) ==> res.isNaN)
+    ((y.isNaN || x.isNaN) == res.isNaN)
     && (y.isNaN || x.isNaN || -3.14159265358979323846d <= res && res <= 3.14159265358979323846d)
   )
 

@@ -224,6 +224,8 @@ package object lang {
     def isNegative: Boolean = d < 0d || d.equals(-0d)
     def isZero: Boolean = d == 0d
     def equiv(that: Double): Boolean = java.lang.Double.compare(d, that) == 0
+    def toDegrees: Double = scala.math.toDegrees(d)
+    def toRadians: Double = scala.math.toRadians(d)
   }
 
   @ignore
@@ -238,6 +240,8 @@ package object lang {
     def isNegative: Boolean = f < 0f || f.equals(-0f)
     def isZero: Boolean = f == 0f
     def equiv(that: Float): Boolean = java.lang.Float.compare(f, that) == 0
+    def toDegrees: Float = scala.math.toDegrees(f.toDouble).toFloat
+    def toRadians: Float = scala.math.toRadians(f.toDouble).toFloat
   }
 
   // This --full-imperative stuff should perhaps move to a separate object.
