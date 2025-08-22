@@ -331,75 +331,11 @@ class AssertionInjector(override val s: ast.Trees, override val t: ast.Trees, va
         t.Assert(range, Some("Shift semantics"), recons(rhsx)).copiedFrom(e)
       }
 
-    case s.FPGreaterEquals(e1, e2) if strictArithmetic =>
-      bindIfCannotDuplicate(e1, "e1") { e1x =>
-        bindIfCannotDuplicate(e2, "e2") { e2x =>
-          t.Assert(
-            t.And(
-              t.Not(t.FPIsNaN(e1x).copiedFrom(e)).copiedFrom(e),
-              t.Not(t.FPIsNaN(e2x).copiedFrom(e)).copiedFrom(e)
-            ).copiedFrom(e),
-            Some("Comparison with NaN"),
-            t.FPGreaterEquals(e1x, e2x).copiedFrom(e)
-          ).copiedFrom(e)
-        }
-      }
-
-    case s.FPLessEquals(e1, e2) if strictArithmetic =>
-      bindIfCannotDuplicate(e1, "e1") { e1x =>
-        bindIfCannotDuplicate(e2, "e2") { e2x =>
-          t.Assert(
-            t.And(
-              t.Not(t.FPIsNaN(e1x).copiedFrom(e)).copiedFrom(e),
-              t.Not(t.FPIsNaN(e2x).copiedFrom(e)).copiedFrom(e)
-            ).copiedFrom(e),
-            Some("Comparison with NaN"),
-            t.FPLessEquals(e1x, e2x).copiedFrom(e)
-          ).copiedFrom(e)
-        }
-      }
-
-    case s.FPGreaterThan(e1, e2) if strictArithmetic =>
-      bindIfCannotDuplicate(e1, "e1") { e1x =>
-        bindIfCannotDuplicate(e2, "e2") { e2x =>
-          t.Assert(
-            t.And(
-              t.Not(t.FPIsNaN(e1x).copiedFrom(e)).copiedFrom(e),
-              t.Not(t.FPIsNaN(e2x).copiedFrom(e)).copiedFrom(e)
-            ).copiedFrom(e),
-            Some("Comparison with NaN"),
-            t.FPGreaterThan(e1x, e2x).copiedFrom(e)
-          ).copiedFrom(e)
-        }
-      }
-
-    case s.FPLessThan(e1, e2) if strictArithmetic =>
-      bindIfCannotDuplicate(e1, "e1") { e1x =>
-        bindIfCannotDuplicate(e2, "e2") { e2x =>
-          t.Assert(
-            t.And(
-              t.Not(t.FPIsNaN(e1x).copiedFrom(e)).copiedFrom(e),
-              t.Not(t.FPIsNaN(e2x).copiedFrom(e)).copiedFrom(e)
-            ).copiedFrom(e),
-            Some("Comparison with NaN"),
-            t.FPLessThan(e1x, e2x).copiedFrom(e)
-          ).copiedFrom(e)
-        }
-      }
-
-    case s.FPEquals(e1, e2) if strictArithmetic =>
-      bindIfCannotDuplicate(e1, "e1") { e1x =>
-        bindIfCannotDuplicate(e2, "e2") { e2x =>
-          t.Assert(
-            t.And(
-              t.Not(t.FPIsNaN(e1x).copiedFrom(e)).copiedFrom(e),
-              t.Not(t.FPIsNaN(e2x).copiedFrom(e)).copiedFrom(e)
-            ).copiedFrom(e),
-            Some("Comparison with NaN"),
-            t.FPEquals(e1x, e2x).copiedFrom(e)
-          ).copiedFrom(e)
-        }
-      }
+    case s.FPGreaterEquals(e1, e2) if strictArithmetic => checkNaNBinop(e)(t.FPGreaterEquals.apply, e1, e2)
+    case s.FPLessEquals(e1, e2) if strictArithmetic => checkNaNBinop(e)(t.FPLessEquals.apply, e1, e2)
+    case s.FPGreaterThan(e1, e2) if strictArithmetic => checkNaNBinop(e)(t.FPGreaterThan.apply, e1, e2)
+    case s.FPLessThan(e1, e2) if strictArithmetic => checkNaNBinop(e)(t.FPLessThan.apply, e1, e2)
+    case s.FPEquals(e1, e2) if strictArithmetic => checkNaNBinop(e)(t.FPEquals.apply, e1, e2)
 
     case _ => super.transform(e)
   }
@@ -418,6 +354,21 @@ class AssertionInjector(override val s: ast.Trees, override val t: ast.Trees, va
       case s.BVAShiftRight(lhs, rhs) => Some((rhs, (r: t.Expr) => t.BVAShiftRight(transform(lhs), r).copiedFrom(e)))
       case s.BVLShiftRight(lhs, rhs) => Some((rhs, (r: t.Expr) => t.BVLShiftRight(transform(lhs), r).copiedFrom(e)))
       case _ => None
+    }
+  }
+
+  private def checkNaNBinop(e: s.Expr)(binop: (t.Expr, t.Expr) => t.Expr, e1: s.Expr, e2: s.Expr): t.Expr = {
+    bindIfCannotDuplicate(e1, "e1") { e1x =>
+      bindIfCannotDuplicate(e2, "e2") { e2x =>
+        t.Assert(
+          t.And(
+            t.Not(t.FPIsNaN(e1x).copiedFrom(e)).copiedFrom(e),
+            t.Not(t.FPIsNaN(e2x).copiedFrom(e)).copiedFrom(e)
+          ).copiedFrom(e),
+          Some("Comparison with NaN"),
+          binop(e1x, e2x).copiedFrom(e)
+        ).copiedFrom(e)
+      }
     }
   }
 
