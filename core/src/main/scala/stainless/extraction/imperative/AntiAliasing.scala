@@ -214,6 +214,8 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
             select(pos, to, MutableMapApply(expr, idx).setPos(pos), xs)
 
           case (_, Nil) => (BooleanLiteral(true).setPos(pos), expr)
+          
+          case (_, _) => throw MatchError(s"Cannot select $path on type $tpe", pos)
         }
 
         // Utility function that essentially create an expression representing the update of `target` with `resSelect`

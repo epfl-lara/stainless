@@ -2476,6 +2476,7 @@ class CodeExtraction(inoxCtx: inox.Context,
         (extractType(prefix), idx) match {
           case (xt.MapType(from, ct @ xt.ClassType(id, Seq(to))), 1) => to
           case (tp @ xt.NAryType(tps, _), _) => tps(idx)
+          case (_, _) => throw MatchError(s"Cannot extract type ref $name with prefix $prefix", pos)
         }
 
       ///////////////
@@ -2500,6 +2501,7 @@ class CodeExtraction(inoxCtx: inox.Context,
             xt.MapType(from, xt.ClassType(id, Seq(extractType(tpe))).copiedFrom(ct))
           case (xt.NAryType(tps, recons), _) =>
             recons(tps.updated(idx, extractType(tpe)))
+          case (_, _) => throw MatchError(s"Cannot extract refined type $name in $p", pos)
         }
 
       case at @ AppliedType(tr: TypeRef, args) if tr.symbol.info.isTypeAlias && dctx.resolveTypes =>
