@@ -52,6 +52,7 @@ abstract class RecursiveEvaluator(override val program: Program,
       case (LargeArray(elems, default, Int32Literal(size), _), Int32Literal(i)) =>
         if (i < 0 || i >= size) throw RuntimeError("Index out of bounds @" + expr.getPos)
         elems.getOrElse(i, default)
+      case (_, _) => throw RuntimeError("ArraySelect on non-array or non-integer index @" + expr.getPos)
     }
 
     case ArrayUpdated(array, index, value) => (e(array), e(index)) match {
@@ -61,6 +62,7 @@ abstract class RecursiveEvaluator(override val program: Program,
       case (LargeArray(elems, default, s @ Int32Literal(size), base), Int32Literal(i)) =>
         if (i < 0 || i >= size) throw RuntimeError("Index out of bounds @" + expr.getPos)
         LargeArray(elems + (i -> e(value)), default, s, base)
+      case (_, _) => throw RuntimeError("ArrayUpdated on non-array or non-integer index @" + expr.getPos)
     }
 
     case ArrayLength(array) => e(array) match {
