@@ -28,12 +28,12 @@ apps:
     environment:
       JAVA_HOME: $SNAP/usr/lib/jvm/java-17-openjdk-amd64
       PATH: $JAVA_HOME/bin:$PATH
-  cli:
-    command: stainless-cli
-    plugs: [home, network, network-bind]
-    environment:
-      JAVA_HOME: $SNAP/usr/lib/jvm/java-17-openjdk-amd64
-      PATH: $JAVA_HOME/bin:$PATH
+  # cli:
+  #   command: stainless-cli
+  #   plugs: [home, network, network-bind]
+  #   environment:
+  #     JAVA_HOME: $SNAP/usr/lib/jvm/java-17-openjdk-amd64
+  #     PATH: $JAVA_HOME/bin:$PATH
 
 # actual build
 parts:
@@ -42,12 +42,12 @@ parts:
     source: snap/local
     source-type: local
 
-  scala-cli:
-    plugin: nil
-    override-pull: |
-      wget -c https://github.com/VirtusLab/scala-cli/releases/download/v1.6.1/scala-cli.jar
-    override-build: |
-      install -Dm644 scala-cli.jar "$CRAFT_PART_INSTALL/usr/share/java/scala-cli/scala-cli.jar"
+  # scala-cli:
+  #   plugin: nil
+  #   override-pull: |
+  #     wget -c https://github.com/VirtusLab/scala-cli/releases/download/v1.6.1/scala-cli.jar
+  #   override-build: |
+  #     install -Dm644 scala-cli.jar "$CRAFT_PART_INSTALL/usr/share/java/scala-cli/scala-cli.jar"
 
   stainless:
     plugin: nil
