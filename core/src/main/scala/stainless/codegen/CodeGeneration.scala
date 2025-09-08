@@ -1507,10 +1507,10 @@ trait CodeGeneration { self: CompilationUnit =>
           ch << IfEq(elze) << Goto(thenn)
       }
 
-    case LessThan(l,r)      => mkCmpJump(cond, thenn, elze, l, r, ch, If_ICmpLt, IfLt, "lessThan")
-    case GreaterThan(l,r)   => mkCmpJump(cond, thenn, elze, l, r, ch, If_ICmpGt, IfGt, "greaterThan")
-    case LessEquals(l,r)    => mkCmpJump(cond, thenn, elze, l, r, ch, If_ICmpLe, IfLe, "lessEquals")
-    case GreaterEquals(l,r) => mkCmpJump(cond, thenn, elze, l, r, ch, If_ICmpGe, IfGe, "greaterEquals")
+    case LessThan(l,r)      => mkCmpJump(cond, thenn, elze, l, r, ch, If_ICmpLt.apply, IfLt.apply, "lessThan")
+    case GreaterThan(l,r)   => mkCmpJump(cond, thenn, elze, l, r, ch, If_ICmpGt.apply, IfGt.apply, "greaterThan")
+    case LessEquals(l,r)    => mkCmpJump(cond, thenn, elze, l, r, ch, If_ICmpLe.apply, IfLe.apply, "lessEquals")
+    case GreaterEquals(l,r) => mkCmpJump(cond, thenn, elze, l, r, ch, If_ICmpGe.apply, IfGe.apply, "greaterEquals")
 
     case IfExpr(c, t, e) =>
       val innerThen = ch.getFreshLabel("then")
