@@ -15,7 +15,7 @@ Please note that Stainless does not support Scala 2 frontend anymore, only Scala
 
 We test mostly on [Ubuntu](https://ubuntu.com/download); on [Windows](https://www.microsoft.com/eb-gb/software-download/windows10), you can get sufficient text-based Ubuntu environment by installing [Windows Subsystem for Linux](https://learn.microsoft.com/en-us/windows/wsl/install) (e.g. `wsl --install`, then `wsl --install -d ubuntu`). Ensure you have a [Java](https://openjdk.org/projects/jdk/17/) version ready (it can be headless); on Ubuntu `sudo apt install openjdk-17-jdk-headless` suffices.
 
-Once ready, [Download the latest `stainless-dotty-standalone` release](https://github.com/epfl-lara/stainless/releases) for your platform. Unzip the archive, and run Stainless through the `stainless` script. Stainless expects a list of space-separated Scala files to verify but also has other [Command-line Options](https://epfl-lara.github.io/stainless/options.html).
+Once ready, [download the latest `stainless-dotty-standalone` release](https://github.com/epfl-lara/stainless/releases) for your platform. Unzip the archive, and run Stainless through the `stainless` script. Stainless expects a list of space-separated Scala files to verify but also has other [Command-line Options](https://epfl-lara.github.io/stainless/options.html).
 
 To check if everything works, you may create a file named `HelloStainless.scala` next to the `stainless` script with the following content:
 ```scala
@@ -32,7 +32,7 @@ object HelloStainless {
 ```
 and run `stainless HelloStainless.scala`.
 If all goes well, Stainless should report something along the lines:
-```
+```log
 [  Info  ]   ┌───────────────────┐
 [  Info  ] ╔═╡ stainless summary ╞════════════════════════════════════════════════════════════════════╗
 [  Info  ] ║ └───────────────────┘                                                                    ║
@@ -44,12 +44,13 @@ If all goes well, Stainless should report something along the lines:
 ```
 If you see funny symbols instead of beautiful ASCII art, run Stainless with the `--no-colors` option for clean ASCII output with a standardized error message format.
 
-The release archive of Stainless only requires JDK17. In particular, it needs neither a Scala compiler nor SBT.
-It is shipped with Z3 4.12.2+, cvc5 1.0.8+ and Princess (branch compiled for Scala 3). If Z3 API is not found, use option `--solvers=smt-z3` to rely on the executable instead of API call to z3.
+The release archive of Stainless only requires JDK 17. In particular, it needs neither a Scala compiler nor SBT.
+It is shipped with Z3 4.12.2+, cvc5 1.0.8+ and Princess (branch compiled for Scala 3). 
+If the Z3 native API is not found, use option `--solvers=smt-z3` to rely on the executable instead of API call to z3.
 
 ## SBT Stainless plugin
 
-Alternatively, one may integrate Stainless with SBT.
+Alternatively, one can use Stainless with SBT.
 To do so, download [sbt-stainless](https://github.com/epfl-lara/stainless/releases), and move it to the directory of the project.
 Assuming the project's structure is:
 ```
@@ -98,12 +99,45 @@ Note that this method only ships the Princess SMT solver. Z3 and cvc5 can still 
 
 ## Build and Use
 
-To start quickly, install a JVM and use a [recent release](https://github.com/epfl-lara/stainless/releases). To build the project, run `sbt universal:stage`. If all goes well, scripts are generated for the front end:
-  * `frontends/dotty/target/universal/stage/bin/stainless-dotty`
+### From Release
 
-Use one of these scripts as you would use `scalac` to compile Scala files.
+You can download the latest release of Stainless from the [releases page][latest-release], and unzip the archive for your platform. Linux and macOS used as below. Replace the download URL and zip file name accordingly for your platform.
+
+```shell
+curl -L -O <release-url-from-github>
+unzip <release-archive-name>.zip -d stainless
+cd stainless
+./stainless --version
+```
+
+The `stainless` script can be used as the main entry point and added to PATH if
+desired. 
+
+### From Source
+
+To build Stainless from source, you need:
+  * [Java JDK 17](https://openjdk.org/projects/jdk/17/)
+  * [sbt 1.6.0+](https://www.scala-sbt.org)
+  * [git](https://git-scm.com)
+
+For Java and sbt, you can follow their individual installation instructions for your platform, or
+use the [standard Scala setup guide here, which uses
+Coursier](https://docs.scala-lang.org/getting-started/install-scala.html).
+
+With dependencies in place, you can clone the repository (**recursively**) and build Stainless:
+
+```shell
+git clone --recursive https://github.com/epfl-lara/stainless
+cd stainless
+sbt Universal/stage
+```
+
+If all goes well, a script is generated for the front end at `frontends/dotty/target/universal/stage/bin/stainless-dotty`
+
+Use this script as you would use the Scala compiler `scalac` to compile Scala files.
 The default behavior of Stainless is to formally verify files, instead of generating JVM class files.
-See [frontends/benchmarks/verification/valid/](frontends/benchmarks/verification/valid/) and related directories for some benchmarks and
+See [frontends/benchmarks/verification/valid/](frontends/benchmarks/verification/valid/) 
+and related directories for some benchmarks and the
 [bolts repository](https://github.com/epfl-lara/bolts/) for a larger collection.
 More information is available in the documentation links.
 
@@ -115,7 +149,6 @@ If you have access to a remote machine over SSH, this is the recommended way to 
 
 ### Github Codespaces
 
-Github Codespaces
 To allow running Stainless with only a browser, we have provided a sample repository to use Stainless with Github Codespaces. Github Codespaces are cloud machines that can be access via Visual Studio Code locally or in the browser. In our experience (as of October 2023), this flow works well, given the provided Ubuntu Linux virtual machines with 16GB of RAM and substantial processing power. Please see [this repository](https://github.com/samuelchassot/Stainless-codespaces) for further details.
 
 ### Snap Store
@@ -128,15 +161,21 @@ In a terminal, you can type:
 sudo snap install stainless --edge
 ```
 
-This exposes two commands, the tool `stainless`, as well as `stainless.cli`, running `scala-cli` with Stainless libraries loaded.
-
-Running the commands the first time may take some time as some Scala libraries are downloaded.
+This exposes the `stainless` command and comes packaged with z3, cvc5, and
+princess as SMT solvers. The edge build follows the latest commit on the `main`
+branch.
 
 ### Arch User Repository
 
-A package for Stainless is available on the Arch User Repository (AUR) for ArchLinux as [`stainless-git`](https://aur.archlinux.org/packages/stainless-git), which follows the latest commit on the `main` branch.
-You can use your favorite AUR helper (we've tried `yay`, see [AUR Helpers](https://wiki.archlinux.org/title/AUR_helpers)),
-or follow the [detailed instructions as on the ArchWiki](https://wiki.archlinux.org/title/Arch_User_Repository#Installing_and_upgrading_packages) to install the package.
+A package for Stainless is available on the Arch User Repository (AUR) for
+ArchLinux as
+[`stainless-git`](https://aur.archlinux.org/packages/stainless-git), which
+follows the latest commit on the `main` branch. You can use your favorite AUR
+helper (we've tried `yay`, see [AUR
+Helpers](https://wiki.archlinux.org/title/AUR_helpers)), or follow the [detailed
+instructions as on the
+ArchWiki](https://wiki.archlinux.org/title/Arch_User_Repository#Installing_and_upgrading_packages)
+to install the package.
 
 
 For quick reference, with `yay` (or other AUR helpers accordingly):
@@ -186,10 +225,9 @@ There is also a [Stainless EPFL Page](https://stainless.epfl.ch).
 
 ## License
 
-Stainless is released under the Apache 2.0 license. See the [LICENSE]() file for more information.
----
+Stainless is released under the Apache 2.0 license. See the [LICENSE](LICENSE) file for more information.
 
-### Relation to [Inox](https://github.com/epfl-lara/inox)
+## Relation to [Inox](https://github.com/epfl-lara/inox)
 
 Stainless relies on Inox to solve the various queries stemming from program verification.
 Inox supports model-complete queries in a feature-rich fragment that lets Stainless focus
