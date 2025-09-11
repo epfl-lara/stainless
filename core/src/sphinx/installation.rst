@@ -249,6 +249,28 @@ in experimenting with Stainless. The ``stainlessEnabled`` setting is set to
 stainlessEnabled := false`` while inside the sbt interactive shell to
 temporarily bypass checking.
 
+
+If you need to run your code with the Stainless SBT plugin, you can create a
+``Main.scala`` file as follows in the correct source directory (e.g.
+``src/main/scala/your/package/example/Main.scala``):
+
+.. code-block:: scala
+
+  package your.package.example
+  
+  object Main:
+    def main(args: Array[String]): Unit =
+      println("Hello, World!")
+
+
+and then you can run it with:
+
+.. code-block:: bash
+
+  $ sbt "runMain your.package.example.Main"
+
+Note that you `Main` object cannot extend `App` and the `main` function must 
+take `args: Array[String]` as parameter.
 .. TODO: should we mention more about these dependencies? Given that actors and algebra are not maintained.
 .. 6. It is possible to specify extra source dependencies to be added to the set of
 ..    files processed by Stainless via the ``stainlessExtraDeps`` setting. For
