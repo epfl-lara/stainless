@@ -131,7 +131,7 @@ Let us look at the post-condition violations:
 Stainless tells us that it found an input pair for which the ``ensuring`` clause
 of the ``max`` function evaluates to ``false``. The other branch is similar.
 
-We can attempt to evaluate this in our worksheet: 
+We can attempt to evaluate this with Stainless as before: 
 
 .. code-block:: scala
 
