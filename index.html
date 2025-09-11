@@ -5,7 +5,7 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Stainless documentation &mdash; Stainless 0.9.1 documentation</title>
-      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
 
   
@@ -14,9 +14,8 @@
   <![endif]-->
   
         <script src="_static/documentation_options.js?v=9dc39874"></script>
-        <script src="_static/doctools.js?v=9a2dae69"></script>
+        <script src="_static/doctools.js?v=9bcbadda"></script>
         <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
-        <script async="async" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -53,7 +52,7 @@
 <li class="toctree-l1"><a class="reference internal" href="options.html">Specifying Options</a></li>
 <li class="toctree-l1"><a class="reference internal" href="verification.html">Verification conditions</a></li>
 <li class="toctree-l1"><a class="reference internal" href="laws.html">Specifying Algebraic Properties</a></li>
-<li class="toctree-l1"><a class="reference internal" href="imperative.html">Imperative</a></li>
+<li class="toctree-l1"><a class="reference internal" href="imperative.html">Imperative and Other Effects</a></li>
 <li class="toctree-l1"><a class="reference internal" href="equivalence.html">Equivalence Checking</a></li>
 <li class="toctree-l1"><a class="reference internal" href="ghost.html">Ghost Context</a></li>
 <li class="toctree-l1"><a class="reference internal" href="wrap.html">Working With Existing Code</a></li>
@@ -106,11 +105,14 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installing Stainless</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="installation.html#general-requirement">General Requirement</a></li>
-<li class="toctree-l2"><a class="reference internal" href="installation.html#use-standalone-release-recommended">Use Standalone Release (recommended)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#obtain-from-a-package-manager">Obtain From A Package Manager</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#github-codespaces">Github Codespaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#use-standalone-release">Use Standalone Release</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#usage-within-an-existing-project">Usage Within An Existing Project</a></li>
 <li class="toctree-l2"><a class="reference internal" href="installation.html#running-code-with-stainless-dependencies">Running Code with Stainless dependencies</a></li>
 <li class="toctree-l2"><a class="reference internal" href="installation.html#external-solver-binaries">External Solver Binaries</a></li>
 <li class="toctree-l2"><a class="reference internal" href="installation.html#build-from-source-on-linux-macos">Build from Source on Linux &amp; macOS</a></li>
-<li class="toctree-l2"><a class="reference internal" href="installation.html#build-from-source-on-windows-10">Build from Source on Windows 10</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#build-from-source-on-windows">Build from Source on Windows</a></li>
 <li class="toctree-l2"><a class="reference internal" href="installation.html#running-tests">Running Tests</a></li>
 <li class="toctree-l2"><a class="reference internal" href="installation.html#building-stainless-documentation">Building Stainless Documentation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="installation.html#using-ides-with-no-colors-option-emacs-illustration">Using IDEs with –no-colors option. Emacs illustration</a></li>
@@ -158,7 +160,7 @@
 <li class="toctree-l2"><a class="reference internal" href="laws.html#under-the-hood">Under the hood</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="imperative.html">Imperative</a><ul>
+<li class="toctree-l1"><a class="reference internal" href="imperative.html">Imperative and Other Effects</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="imperative.html#imperative-code">Imperative Code</a></li>
 <li class="toctree-l2"><a class="reference internal" href="imperative.html#while-loops">While loops</a></li>
 <li class="toctree-l2"><a class="reference internal" href="imperative.html#arrays">Arrays</a></li>
@@ -168,6 +170,7 @@
 <li class="toctree-l2"><a class="reference internal" href="imperative.html#extern-functions-and-abstract-methods">Extern functions and abstract methods</a></li>
 <li class="toctree-l2"><a class="reference internal" href="imperative.html#trait-variables">Trait Variables</a></li>
 <li class="toctree-l2"><a class="reference internal" href="imperative.html#return-keyword">Return keyword</a></li>
+<li class="toctree-l2"><a class="reference internal" href="imperative.html#exceptions">Exceptions</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="equivalence.html">Equivalence Checking</a><ul>
@@ -273,7 +276,7 @@
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2021 EPFL, Lausanne.
-      <span class="lastupdated">Last updated on Aug 22, 2024.
+      <span class="lastupdated">Last updated on Sep 11, 2025.
       </span></p>
   </div>
 

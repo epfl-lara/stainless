@@ -4,8 +4,8 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Imperative &mdash; Stainless 0.9.1 documentation</title>
-      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+  <title>Imperative and Other Effects &mdash; Stainless 0.9.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
 
   
@@ -14,7 +14,7 @@
   <![endif]-->
   
         <script src="_static/documentation_options.js?v=9dc39874"></script>
-        <script src="_static/doctools.js?v=9a2dae69"></script>
+        <script src="_static/doctools.js?v=9bcbadda"></script>
         <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
@@ -53,7 +53,7 @@
 <li class="toctree-l1"><a class="reference internal" href="options.html">Specifying Options</a></li>
 <li class="toctree-l1"><a class="reference internal" href="verification.html">Verification conditions</a></li>
 <li class="toctree-l1"><a class="reference internal" href="laws.html">Specifying Algebraic Properties</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Imperative</a><ul>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Imperative and Other Effects</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#imperative-code">Imperative Code</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#while-loops">While loops</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#arrays">Arrays</a></li>
@@ -63,6 +63,7 @@
 <li class="toctree-l2"><a class="reference internal" href="#extern-functions-and-abstract-methods">Extern functions and abstract methods</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#trait-variables">Trait Variables</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#return-keyword">Return keyword</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#exceptions">Exceptions</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="equivalence.html">Equivalence Checking</a></li>
@@ -94,7 +95,7 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">Imperative</li>
+      <li class="breadcrumb-item active">Imperative and Other Effects</li>
       <li class="wy-breadcrumbs-aside">
             <a href="_sources/imperative.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -104,8 +105,8 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="imperative">
-<span id="id1"></span><h1>Imperative<a class="headerlink" href="#imperative" title="Link to this heading">¶</a></h1>
+  <section id="imperative-and-other-effects">
+<span id="imperative"></span><h1>Imperative and Other Effects<a class="headerlink" href="#imperative-and-other-effects" title="Link to this heading">¶</a></h1>
 <p>To complement the core <a class="reference internal" href="purescala.html"><span class="doc">Pure Scala</span></a> language, Stainless
 proposes a few extensions to that core language.</p>
 <p>On the technical side, these extensions do not have specific treatment in the
@@ -221,6 +222,7 @@ transform the above on the following equivalent implementation:</p>
 <div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">swap</span><span class="p">[</span><span class="nd">@mutable</span><span class="w"> </span><span class="nc">T</span><span class="p">](</span><span class="n">a1</span><span class="p">:</span><span class="w"> </span><span class="nc">Array</span><span class="p">[</span><span class="nc">T</span><span class="p">],</span><span class="w"> </span><span class="n">i1</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">,</span><span class="w"> </span><span class="n">a2</span><span class="p">:</span><span class="w"> </span><span class="nc">Array</span><span class="p">[</span><span class="nc">T</span><span class="p">],</span><span class="w"> </span><span class="n">i2</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">):</span><span class="w"> </span><span class="nc">Unit</span>
 </pre></div>
 </div>
+<p>We recommend avoiding the use of arrays of mutable structures.</p>
 </section>
 <section id="mutable-objects">
 <h2>Mutable Objects<a class="headerlink" href="#mutable-objects" title="Link to this heading">¶</a></h2>
@@ -237,6 +239,8 @@ arguments:</p>
 <p>Mutable case classes are behaving similarly to <code class="docutils literal notranslate"><span class="pre">Array</span></code>, and are handled with a
 rewriting, where each field updates becomes essentially a copy of the object with
 the modified parameter changed.</p>
+<p>First class functions may accept mutable classes as declared
+type parameters, but they may not capture mutable objects.</p>
 </section>
 <section id="aliasing">
 <h2>Aliasing<a class="headerlink" href="#aliasing" title="Link to this heading">¶</a></h2>
@@ -588,6 +592,21 @@ the postcondition of the top-level holds (see comment).</p>
 <p>Finally, <code class="docutils literal notranslate"><span class="pre">return</span></code> is also supported for local function definitions, with the same transformation.
 It is however not supported for anonymous functions.</p>
 </section>
+<section id="exceptions">
+<h2>Exceptions<a class="headerlink" href="#exceptions" title="Link to this heading">¶</a></h2>
+<p>As an alternative to exceptions, we recommend specifying
+appropriate preconditions for functions using <cite>require</cite> or
+using richer return types (e.g. <cite>Option</cite>, <cite>Either</cite>, or a
+class such as <cite>Try</cite>).</p>
+<p>It is possible to use <cite>throw</cite> to document reasons why
+certain situation would not be desirable.  However,
+stainless currently requires the <cite>throw</cite> to be provably
+unreachable, given the <cite>require</cite> specifications, so it will
+never be executed. There is no support for <cite>try</cite>. To use
+<cite>throw</cite> for such documentation purposes, it is necessary to
+use a simple exception class that extends
+<cite>stainless.lang.Exception</cite>.</p>
+</section>
 </section>
 
 
@@ -602,7 +621,7 @@ It is however not supported for anonymous functions.</p>
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2021 EPFL, Lausanne.
-      <span class="lastupdated">Last updated on Aug 22, 2024.
+      <span class="lastupdated">Last updated on Sep 11, 2025.
       </span></p>
   </div>
 

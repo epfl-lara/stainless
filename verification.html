@@ -5,7 +5,7 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Verification conditions &mdash; Stainless 0.9.1 documentation</title>
-      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
 
   
@@ -14,7 +14,7 @@
   <![endif]-->
   
         <script src="_static/documentation_options.js?v=9dc39874"></script>
-        <script src="_static/doctools.js?v=9a2dae69"></script>
+        <script src="_static/doctools.js?v=9bcbadda"></script>
         <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
         <script async="async" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
     <script src="_static/js/theme.js"></script>
@@ -64,7 +64,7 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="laws.html">Specifying Algebraic Properties</a></li>
-<li class="toctree-l1"><a class="reference internal" href="imperative.html">Imperative</a></li>
+<li class="toctree-l1"><a class="reference internal" href="imperative.html">Imperative and Other Effects</a></li>
 <li class="toctree-l1"><a class="reference internal" href="equivalence.html">Equivalence Checking</a></li>
 <li class="toctree-l1"><a class="reference internal" href="ghost.html">Ghost Context</a></li>
 <li class="toctree-l1"><a class="reference internal" href="wrap.html">Working With Existing Code</a></li>
@@ -111,7 +111,7 @@ it is a tool that takes as input the source code of a program with
 specifications as annotations and attempt to prove — or disprove — their
 validity.</p>
 <p>One of the core modules of Stainless is a verifier for the subset of Scala described
-in the sections <a class="reference internal" href="purescala.html"><span class="doc">Pure Scala</span></a> and <a class="reference internal" href="imperative.html"><span class="doc">Imperative</span></a>. In this
+in the sections <a class="reference internal" href="purescala.html"><span class="doc">Pure Scala</span></a> and <a class="reference internal" href="imperative.html"><span class="doc">Imperative and Other Effects</span></a>. In this
 section, we describe the specification language that can be used to declare
 properties of programs, as well as the safety properties automatically checked
 by Stainless. We also discuss how Stainless can be used to prove mathematical theorems.</p>
@@ -231,7 +231,7 @@ shows how to share a <cite>val</cite> binding between precondition, postconditio
 </section>
 <section id="loop-invariants">
 <h2>Loop invariants<a class="headerlink" href="#loop-invariants" title="Link to this heading">¶</a></h2>
-<p>Stainless supports annotations for loop invariants in <a class="reference internal" href="imperative.html"><span class="doc">Imperative</span></a>. To
+<p>Stainless supports annotations for loop invariants in <a class="reference internal" href="imperative.html"><span class="doc">Imperative and Other Effects</span></a>. To
 simplify the presentation we will assume a single variable <span class="math notranslate nohighlight">\(x\)</span> is in
 scope, but the definitions generalize to any number of variables. Given the
 following program:</p>
@@ -348,7 +348,7 @@ relying on the given precondition.</p>
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2021 EPFL, Lausanne.
-      <span class="lastupdated">Last updated on Aug 22, 2024.
+      <span class="lastupdated">Last updated on Sep 11, 2025.
       </span></p>
   </div>
 

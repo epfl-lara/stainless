@@ -5,7 +5,7 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Tutorial: Sorting &mdash; Stainless 0.9.1 documentation</title>
-      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
 
   
@@ -14,7 +14,7 @@
   <![endif]-->
   
         <script src="_static/documentation_options.js?v=9dc39874"></script>
-        <script src="_static/doctools.js?v=9a2dae69"></script>
+        <script src="_static/doctools.js?v=9bcbadda"></script>
         <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
@@ -66,7 +66,7 @@
 <li class="toctree-l1"><a class="reference internal" href="options.html">Specifying Options</a></li>
 <li class="toctree-l1"><a class="reference internal" href="verification.html">Verification conditions</a></li>
 <li class="toctree-l1"><a class="reference internal" href="laws.html">Specifying Algebraic Properties</a></li>
-<li class="toctree-l1"><a class="reference internal" href="imperative.html">Imperative</a></li>
+<li class="toctree-l1"><a class="reference internal" href="imperative.html">Imperative and Other Effects</a></li>
 <li class="toctree-l1"><a class="reference internal" href="equivalence.html">Equivalence Checking</a></li>
 <li class="toctree-l1"><a class="reference internal" href="ghost.html">Ghost Context</a></li>
 <li class="toctree-l1"><a class="reference internal" href="wrap.html">Working With Existing Code</a></li>
@@ -111,191 +111,216 @@
 <p>This tutorial shows how to:</p>
 <blockquote>
 <div><ul class="simple">
-<li><p>use <cite>ensuring</cite>, <cite>require</cite>, and <cite>holds</cite> constructs</p></li>
-<li><p>learn the difference between <cite>Int</cite> and <cite>BigInt</cite></p></li>
+<li><p>use <code class="docutils literal notranslate"><span class="pre">ensuring</span></code>, <code class="docutils literal notranslate"><span class="pre">require</span></code>, and <code class="docutils literal notranslate"><span class="pre">holds</span></code> constructs</p></li>
+<li><p>learn the difference between <code class="docutils literal notranslate"><span class="pre">Int</span></code> and <code class="docutils literal notranslate"><span class="pre">BigInt</span></code></p></li>
 <li><p>define lists as algebraic data types</p></li>
-<li><p>use sets and recursive function to specify data structures</p></li>
+<li><p>use sets and recursive functions to specify data structures</p></li>
 </ul>
 </div></blockquote>
-<p>See <a class="reference internal" href="gettingstarted.html"><span class="doc">Verifying and Compiling Examples</span></a> about how to setup the command line
-tool.</p>
+<p>See <a class="reference internal" href="gettingstarted.html"><span class="doc">Verifying and Compiling Examples</span></a> about how to set up the command line tool.</p>
 <section id="warm-up-max">
 <h2>Warm-up: Max<a class="headerlink" href="#warm-up-max" title="Link to this heading">¶</a></h2>
-<p>As a warm-up illustrating verification, we define and debug a <cite>max</cite> function
-and specify its properties. Stainless uses Scala constructs
-<cite>require</cite> and <cite>ensuring</cite> to document preconditions and
-postconditions of functions. Note that, in addition to
-checking these conditions at run-time (which standard Scala
-does), Stainless can analyze the specifications statically and
-prove them for <em>all</em> executions, or, if they are wrong, automatically find
-inputs for which the conditions fail.</p>
-<p>Consider the following definition inside of an object <cite>TestMax</cite>.</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">object</span><span class="w"> </span><span class="nc">TestMax</span><span class="w"> </span><span class="p">{</span>
-<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">max</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">):</span><span class="w"> </span><span class="nc">Int</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="kd">val</span><span class="w"> </span><span class="n">d</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">y</span>
-<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">d</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="n">x</span>
-<span class="w">    </span><span class="k">else</span><span class="w"> </span><span class="n">y</span>
-<span class="w"> </span><span class="p">}.</span><span class="n">ensuring</span><span class="p">(</span><span class="n">res</span><span class="w"> </span><span class="o">=&gt;</span>
-<span class="w">    </span><span class="n">x</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">res</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">res</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="p">(</span><span class="n">res</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">res</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">y</span><span class="p">))</span>
-<span class="p">}</span>
+<p>As a warm-up illustrating verification, we define and debug a <code class="docutils literal notranslate"><span class="pre">max</span></code> function
+and specify its properties. Stainless uses Scala constructs <code class="docutils literal notranslate"><span class="pre">require</span></code> and
+<code class="docutils literal notranslate"><span class="pre">ensuring</span></code> to document pre-conditions and post-conditions of functions.</p>
+<p>Note that in addition to checking these conditions at run-time (which standard
+Scala does), Stainless can analyze the specifications <em>statically</em> and prove
+them for <em>all</em> executions. Or, if they are wrong, automatically find inputs for
+which the conditions fail.</p>
+<p>Consider the following function definition. Paste it into a file called
+<code class="docutils literal notranslate"><span class="pre">test.scala</span></code>.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="linenos">1</span><span class="k">def</span><span class="w"> </span><span class="nf">max</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">):</span><span class="w"> </span><span class="nc">Int</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="linenos">2</span><span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">d</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">y</span>
+<span class="linenos">3</span><span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="n">d</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="k">then</span><span class="w"> </span><span class="n">x</span>
+<span class="linenos">4</span><span class="w">  </span><span class="k">else</span><span class="w"> </span><span class="n">y</span>
+<span class="linenos">5</span><span class="p">}.</span><span class="n">ensuring</span><span class="p">(</span><span class="n">res</span><span class="w"> </span><span class="o">=&gt;</span>
+<span class="linenos">6</span><span class="w">  </span><span class="n">x</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">res</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">res</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="p">(</span><span class="n">res</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">res</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">y</span><span class="p">)</span>
+<span class="linenos">7</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>A Stainless program consists of one or more modules delimited by
-<cite>object</cite> and <cite>class</cite> declarations.
-The code of <cite>max</cite> attempts to compute the maximum of two given arguments
-by subtracting them. If the result is positive, it returns
+<p>A Stainless program consists of one or more modules delimited by <code class="docutils literal notranslate"><span class="pre">object</span></code> and
+<code class="docutils literal notranslate"><span class="pre">class</span></code> declarations. The function <code class="docutils literal notranslate"><span class="pre">max</span></code> attempts to compute the maximum of
+two given arguments by subtracting them. If the result is positive, it returns
 the first one, otherwise, it returns the second one.</p>
-<p>To specify the correctness of the computed result, we use
-the <cite>ensuring</cite> clause.  In this case, the clause specifies
-that the result is larger than <cite>x</cite> and than <cite>y</cite>, and that it
-equals to one of them. The construct <cite>ensuring(res =&gt; P)</cite>
-denotes that, if we denote by <cite>res</cite> the return value of the
-function, then <cite>res</cite> satisfies the boolean-valued expression
-<cite>P</cite>.  The name <cite>res</cite> we chose is an arbitrary bound variable
-(even though we often tend to use <cite>res</cite>).</p>
-<p>We can evaluate this code on some values by writing
-parameterless functions and inspecting what they evaluate
-to. The web interface will display these results for us.</p>
+<p>To specify the correctness of the computed result, we use the <code class="docutils literal notranslate"><span class="pre">ensuring</span></code>
+clause at the end of the function body. In this case, the clause specifies that
+the result is larger than both <code class="docutils literal notranslate"><span class="pre">x</span></code> and <code class="docutils literal notranslate"><span class="pre">y</span></code>, and that it equals (at least)
+one of them. The construct <code class="docutils literal notranslate"><span class="pre">ensuring(res</span> <span class="pre">=&gt;</span> <span class="pre">P)</span></code> denotes that, if we denote by
+<code class="docutils literal notranslate"><span class="pre">res</span></code> the return value of the function, then <code class="docutils literal notranslate"><span class="pre">res</span></code> satisfies the
+boolean-valued expression <code class="docutils literal notranslate"><span class="pre">P</span></code>.  The name <code class="docutils literal notranslate"><span class="pre">res</span></code> we chose is an arbitrary
+bound variable (even though we often tend to use <code class="docutils literal notranslate"><span class="pre">res</span></code>, for <em>result</em>).</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">ensuring</span></code> clause is called the <em>post-condition</em> of the function.</p>
+<p>We can evaluate this code on some values by writing parameter-less functions and
+asking Stainless to additionally evaluate them.</p>
 <div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">test1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">max</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="mi">5</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">test2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">max</span><span class="p">(</span><span class="o">-</span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="mi">5</span><span class="p">)</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">test3</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">max</span><span class="p">(</span><span class="o">-</span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="o">-</span><span class="mi">7</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>The code seems to work correctly on the example values.
-However, Stainless automatically finds that it is not correct:</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>[  Info  ]  - Now solving &#39;postcondition&#39; VC for max @6:16...
-[  Info  ]  - Result for &#39;postcondition&#39; VC for max @6:16:
-[Warning ]  =&gt; INVALID
-[Warning ] Found counter-example:
-[Warning ]   y: Int -&gt; 2147483647
-[Warning ]   x: Int -&gt; -2147483648
-
-[  Info  ]  - Now solving &#39;postcondition&#39; VC for max @7:10...
-[  Info  ]  - Result for &#39;postcondition&#39; VC for max @7:10:
-[Warning ]  =&gt; INVALID
-[Warning ] Found counter-example:
-[Warning ]   y: Int -&gt; -2147483648
-[Warning ]   x: Int -&gt; 1
-
-[  Info  ]  - Now solving &#39;body assertion: Subtraction overflow&#39; VC for max @5:13...
-[  Info  ]  - Result for &#39;body assertion: Subtraction overflow&#39; VC for max @5:13:
-[Warning ]  =&gt; INVALID
-[Warning ] Found counter-example:
-[Warning ]   y: Int -&gt; -2147483648
-[Warning ]   x: Int -&gt; 0
+<p>To evaluate them, we run Stainless as:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>stainless<span class="w"> </span>test.scala<span class="w"> </span>--eval
+</pre></div>
+</div>
+<p>The code seems to work correctly on the example values. However, Stainless
+automatically finds that it is not correct:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><span class="hll"><span class="linenos"> 1</span>[Warning ]  - Result for &#39;body assertion: Subtraction overflow&#39; VC for max @3:13:
+</span><span class="linenos"> 2</span>[Warning ] (x &amp; -2147483648) == (y &amp; -2147483648) || (x &amp; -2147483648) == (x - y &amp; -2147483648)
+<span class="linenos"> 3</span>[Warning ] testMax.scala:3:13:  =&gt; INVALID
+<span class="linenos"> 4</span>              val d = x - y
+<span class="linenos"> 5</span>                      ^^^^^
+<span class="linenos"> 6</span>[Warning ] Found counter-example:
+<span class="linenos"> 7</span>[Warning ]   x: Int -&gt; 0
+<span class="linenos"> 8</span>[Warning ]   y: Int -&gt; -2147483648
+<span class="linenos"> 9</span>[  Info  ]  Verified: 0 / 3
+<span class="hll"><span class="linenos">10</span>[Warning ]  - Result for &#39;postcondition&#39; VC for max @7:37:
+</span><span class="linenos">11</span>[Warning ] !(x - y &gt; 0) || x &lt;= x &amp;&amp; y &lt;= x
+<span class="linenos">12</span>[Warning ] testMax.scala:7:37:  =&gt; INVALID
+<span class="linenos">13</span>              x &lt;= res &amp;&amp; y &lt;= res &amp;&amp; (res == x || res == y)
+<span class="linenos">14</span>                                              ^
+<span class="linenos">15</span>[Warning ] Found counter-example:
+<span class="linenos">16</span>[Warning ]   x: Int -&gt; -1361256659
+<span class="linenos">17</span>[Warning ]   y: Int -&gt; 1543503872
+<span class="linenos">18</span>[  Info  ]  Verified: 0 / 3
+<span class="hll"><span class="linenos">19</span>[Warning ]  - Result for &#39;postcondition&#39; VC for max @7:49:
+</span><span class="linenos">20</span>[Warning ] x - y &gt; 0 || x &lt;= y &amp;&amp; y &lt;= y
+<span class="linenos">21</span>[Warning ] testMax.scala:7:49:  =&gt; INVALID
+<span class="linenos">22</span>              x &lt;= res &amp;&amp; y &lt;= res &amp;&amp; (res == x || res == y)
+<span class="linenos">23</span>                                                          ^
+<span class="linenos">24</span>[Warning ] Found counter-example:
+<span class="linenos">25</span>[Warning ]   x: Int -&gt; 1879048191
+<span class="linenos">26</span>[Warning ]   y: Int -&gt; -2147483646
 </pre></div>
 </div>
 <p>Here, Stainless emits three distinct verification conditions:</p>
 <ul class="simple">
-<li><p>One which corresponds to the postcondition of <code class="docutils literal notranslate"><span class="pre">max</span></code> when we take the <cite>then</cite> branch
-of the <code class="docutils literal notranslate"><span class="pre">if</span></code> statement, on line 6.</p></li>
-<li><p>Another one for the postcondition of <code class="docutils literal notranslate"><span class="pre">max</span></code> when we take the <cite>else</cite> branch
-of the <code class="docutils literal notranslate"><span class="pre">if</span></code> statement, on line 7.</p></li>
-<li><p>A last one with an overflow check for the subtraction on line 5.</p></li>
+<li><p>One with an overflow check for the subtraction on line 1 of the report,</p></li>
+<li><p>another one for the post-condition of <code class="docutils literal notranslate"><span class="pre">max</span></code> when we take the <code class="docutils literal notranslate"><span class="pre">else</span></code> branch
+of the <code class="docutils literal notranslate"><span class="pre">if</span></code> statement, on line 10 of the report, and</p></li>
+<li><p>a final one which corresponds to the post-condition of <code class="docutils literal notranslate"><span class="pre">max</span></code> when we take
+the <code class="docutils literal notranslate"><span class="pre">then</span></code> branch of the <code class="docutils literal notranslate"><span class="pre">if</span></code> statement, on line 19 of the report.</p></li>
 </ul>
-<p>Let us look at the first verification condition:</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span> - Now solving &#39;postcondition&#39; VC for max @6:16...
- - Result for &#39;postcondition&#39; VC for max @6:16:
- =&gt; INVALID
-Found counter-example:
-  y: Int -&gt; 2147483647
-  x: Int -&gt; -2147483648
+<p>Let us look at the post-condition violations:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>[Warning ]  - Result for &#39;postcondition&#39; VC for max @7:49:
+[Warning ] x - y &gt; 0 || x &lt;= y &amp;&amp; y &lt;= y
+[Warning ] testMax.scala:7:49:  =&gt; INVALID
+              x &lt;= res &amp;&amp; y &lt;= res &amp;&amp; (res == x || res == y)
+                                                          ^
+[Warning ] Found counter-example:
+[Warning ]   x: Int -&gt; 1879048191
+[Warning ]   y: Int -&gt; -2147483646
 </pre></div>
 </div>
-<p>Stainless tells us that it found two input for which the <code class="docutils literal notranslate"><span class="pre">ensuring</span></code> clause of the
-<code class="docutils literal notranslate"><span class="pre">max</span></code> function evaluates to <code class="docutils literal notranslate"><span class="pre">false</span></code>. The second verification is similar.</p>
-<p>We may wish to define a test method</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">test4</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">max</span><span class="p">(</span><span class="o">-</span><span class="mi">1639624704</span><span class="p">,</span><span class="w"> </span><span class="mi">1879048192</span><span class="p">)</span>
+<p>Stainless tells us that it found an input pair for which the <code class="docutils literal notranslate"><span class="pre">ensuring</span></code> clause
+of the <code class="docutils literal notranslate"><span class="pre">max</span></code> function evaluates to <code class="docutils literal notranslate"><span class="pre">false</span></code>. The other branch is similar.</p>
+<p>We can attempt to evaluate this with Stainless as before:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">testCounter</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">max</span><span class="p">(</span><span class="mi">1879048191</span><span class="p">,</span><span class="w"> </span><span class="o">-</span><span class="mi">2147483646</span><span class="p">)</span>
+<span class="c1">// =&gt; CRASHED</span>
+<span class="c1">// Postcondition @5:32</span>
 </pre></div>
 </div>
-<p>whose evaluation indeed results in <code class="docutils literal notranslate"><span class="pre">ensuring</span></code> condition being violated.
-The problem is due to overflow of 32-bit integers, due to which
-the value <cite>d</cite> becomes positive, even though <cite>x</cite> is negative and thus smaller than
-the large positive value <cite>y</cite>.</p>
-<p>In fact, Stainless alerts us of this very problem in the third verification condition,
-to help us pin point the place where the overflow occured.</p>
+<p>and the evaluation indeed results in the <code class="docutils literal notranslate"><span class="pre">ensuring</span></code> condition being violated.
+The problem is due to overflow of 32-bit integers, due to which the value <code class="docutils literal notranslate"><span class="pre">d</span></code>
+becomes negative, even though <code class="docutils literal notranslate"><span class="pre">x</span></code> is positive and thus larger than the
+negative value <code class="docutils literal notranslate"><span class="pre">y</span></code>.</p>
+<p>In fact, Stainless alerts us of this very problem in the final verification
+condition we can look at, to help us pinpoint the place where the overflow
+occurred.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>As in Scala, the <cite>Int</cite> type denotes 32-bit integers with the usual signed arithmetic
-operations from computer architecture and the JVM specification.</p>
+<p>As in standard Scala, here, the <code class="docutils literal notranslate"><span class="pre">Int</span></code> type denotes 32-bit integers with the
+usual signed arithmetic operations from computer’s architecture and the JVM
+specification.</p>
 </div>
-<p>To use unbounded integers, we simply change the types to
-<cite>BigInt</cite>, obtaining a program that verifies (and, as
+<p>To use <em>unbounded</em> integers, we simply change the types to
+<code class="docutils literal notranslate"><span class="pre">BigInt</span></code>, obtaining a program that verifies (and, as
 expected, passes all the test cases).</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="w"> </span><span class="k">def</span><span class="w"> </span><span class="nf">max</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">):</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">   </span><span class="kd">val</span><span class="w"> </span><span class="n">d</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">y</span>
-<span class="w">   </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">d</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="n">x</span>
-<span class="w">   </span><span class="k">else</span><span class="w"> </span><span class="n">y</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">max</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">):</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">d</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">y</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="n">d</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="k">then</span><span class="w"> </span><span class="n">x</span>
+<span class="w">  </span><span class="k">else</span><span class="w"> </span><span class="n">y</span>
 <span class="p">}.</span><span class="n">ensuring</span><span class="p">(</span><span class="n">res</span><span class="w"> </span><span class="o">=&gt;</span>
-<span class="w">   </span><span class="n">x</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">res</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">res</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="p">(</span><span class="n">res</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">res</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">y</span><span class="p">))</span>
+<span class="w">  </span><span class="n">x</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">res</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">res</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="p">(</span><span class="n">res</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">res</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">y</span><span class="p">)</span>
+<span class="p">)</span>
 </pre></div>
 </div>
+<p>Note that the “subtraction overflow” verification condition vanishes altogether!
+Arithmetic operations over <code class="docutils literal notranslate"><span class="pre">BigInt</span></code>, i.e., mathematical integers, cannot
+overflow.</p>
 <p>As a possibly simpler specification, we could have also
 defined the reference implementation</p>
 <div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">rmax</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">x</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">y</span><span class="p">)</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="n">x</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="k">then</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="n">x</span>
 <span class="p">}</span>
 </pre></div>
 </div>
-<p>and then used as the postcondition of <cite>max</cite> simply</p>
+<p>and then used as the post-condition of <code class="docutils literal notranslate"><span class="pre">max</span></code> simply</p>
 <div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="n">ensuring</span><span class="w"> </span><span class="p">(</span><span class="n">res</span><span class="w"> </span><span class="o">=&gt;</span><span class="w">  </span><span class="n">res</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">rmax</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">))</span>
 </pre></div>
 </div>
-<p>In general, Stainless uses both function body and function
-specification when reasoning about the function and its
-uses. Thus, we need not repeat in the postcondition those
-aspects of function body that follow directly through
-inlining the function, but we may wish to state those
-that require induction to prove.</p>
-<p>The fact that we can use functions in preconditions
-and postconditions allows us to state fairly general
-properties. For example, the following lemma verifies
-a number of algebraic properties of <cite>max</cite>.</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">max_lemma</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">,</span><span class="w"> </span><span class="n">z</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">):</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<p>In general, Stainless uses both a function’s body and its specification when
+reasoning about the function and its applications. Thus, we need not repeat
+aspects of function body that follow directly through inlining the function in
+the post-condition, but we may wish to state more complex properties that
+require <em>induction</em> to prove.</p>
+<p>The fact that we can use functions in preconditions and post-conditions allows
+us to state fairly general properties. For example, the following lemma verifies
+a number of algebraic properties of <code class="docutils literal notranslate"><span class="pre">max</span></code>.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">max_lemma</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">,</span><span class="w"> </span><span class="n">z</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">):</span><span class="w"> </span><span class="nc">Unit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="p">()</span>
+<span class="p">}.</span><span class="n">ensuring</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">_</span><span class="w"> </span><span class="o">=&gt;</span>
 <span class="w">  </span><span class="n">max</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">x</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">&amp;&amp;</span>
 <span class="w">  </span><span class="n">max</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">max</span><span class="p">(</span><span class="n">y</span><span class="p">,</span><span class="n">x</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span>
 <span class="w">  </span><span class="n">max</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">max</span><span class="p">(</span><span class="n">y</span><span class="p">,</span><span class="n">z</span><span class="p">))</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">max</span><span class="p">(</span><span class="n">max</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">),</span><span class="w"> </span><span class="n">z</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span>
 <span class="w">  </span><span class="n">max</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">z</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">max</span><span class="p">(</span><span class="n">x</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">z</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">z</span><span class="p">)</span>
-<span class="p">}</span><span class="w"> </span><span class="n">holds</span>
+<span class="p">}</span>
 </pre></div>
 </div>
-<p>Here <cite>holds</cite> operator on the function body is an
-abbreviation for the postcondition stating that the returned
-result is always true, that is, for</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="n">ensuring</span><span class="p">(</span><span class="n">res</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">res</span><span class="o">==</span><span class="kc">true</span><span class="p">)</span>
-</pre></div>
-</div>
-<p>As a guideline, we typically use <cite>holds</cite> to express such
-algebraic properties that relate multiple invocations of
-functions, whereas we use <cite>ensuring</cite> to document property of
-an arbitrary single invocation of a function. Stainless is more likely to automatically
-use the property of a function if it is associated with it using
-<cite>ensuring</cite> than using an external lemma.</p>
-<p>Going back to our buggy implementation of <cite>max</cite> on <cite>Int</cite>-s,
-an alternative to using <cite>BigInt</cite>-s is to decide that
-the method should only be used under certain conditions,
-such as <cite>x</cite> and <cite>y</cite> being non-negative. To specify the
-conditions on input, we use the <cite>require</cite> clause.</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="w"> </span><span class="k">def</span><span class="w"> </span><span class="nf">max</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">):</span><span class="w"> </span><span class="nc">Int</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">   </span><span class="n">require</span><span class="p">(</span><span class="mi">0</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">y</span><span class="p">)</span>
-<span class="w">   </span><span class="kd">val</span><span class="w"> </span><span class="n">d</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">y</span>
-<span class="w">   </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">d</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="n">x</span>
-<span class="w">   </span><span class="k">else</span><span class="w"> </span><span class="n">y</span>
+<p>Here, the function does not compute <em>anything</em>. It simply states that some
+properties must hold, independent of this function’s result (note the underscore
+in the <code class="docutils literal notranslate"><span class="pre">ensuring</span></code> clause argument).</p>
+<p>As a guideline, we typically use such a lemma to express algebraic properties
+that relate multiple invocations of functions, whereas we add directly to the
+function definition properties of an arbitrary single invocation of a function,
+which define its behavior.</p>
+<p>Stainless is more likely to automatically use properties of a function in
+further reasoning if they are associated with the <code class="docutils literal notranslate"><span class="pre">ensuring</span></code> clause in its
+body rather than in an external lemma.</p>
+<p>Going back to our buggy implementation of <code class="docutils literal notranslate"><span class="pre">max</span></code> on <code class="docutils literal notranslate"><span class="pre">Int</span></code>-s, an alternative
+to using <code class="docutils literal notranslate"><span class="pre">BigInt</span></code>-s is to decide that the method should only be used under
+certain conditions, such as <code class="docutils literal notranslate"><span class="pre">x</span></code> and <code class="docutils literal notranslate"><span class="pre">y</span></code> being non-negative. To specify the
+conditions on input, we use the <code class="docutils literal notranslate"><span class="pre">require</span></code> clause.</p>
+<p>Properties appearing in a <code class="docutils literal notranslate"><span class="pre">require</span></code> clause are called the
+<em>pre-condition</em> of the function.</p>
+<p>The pre-condition and post-condition of a function together form its
+<em>specification</em>.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">max</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">,</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">):</span><span class="w"> </span><span class="nc">Int</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">require</span><span class="p">(</span><span class="mi">0</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">y</span><span class="p">)</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">d</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">y</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="n">d</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="k">then</span><span class="w"> </span><span class="n">x</span>
+<span class="w">  </span><span class="k">else</span><span class="w"> </span><span class="n">y</span>
 <span class="p">}.</span><span class="n">ensuring</span><span class="p">(</span><span class="n">res</span><span class="w"> </span><span class="o">=&gt;</span>
-<span class="w">   </span><span class="n">x</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">res</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">res</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="p">(</span><span class="n">res</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">res</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">y</span><span class="p">))</span>
+<span class="w">  </span><span class="n">x</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">res</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">res</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="p">(</span><span class="n">res</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">res</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">y</span><span class="p">)</span>
+<span class="p">)</span>
 </pre></div>
 </div>
 <p>This program verifies and indeed works correctly on
 non-negative 32-bit integers as inputs.</p>
-<p><strong>Question:</strong> What if we restrict the inputs to <cite>max</cite> to be
-<cite>a)</cite> non-positive, or <cite>b)</cite> strictly negative? Modify the
-<cite>require</cite> clause for each case accordingly and explain the
-behavior of Stainless. See the note below, as well.</p>
+<div class="tip admonition">
+<p class="admonition-title">Question</p>
+<p>What if we restrict the inputs to <code class="docutils literal notranslate"><span class="pre">max</span></code> to be</p>
+<ol class="loweralpha simple">
+<li><p>non-positive, or</p></li>
+<li><p>strictly negative?</p></li>
+</ol>
+<p>Modify the <code class="docutils literal notranslate"><span class="pre">require</span></code> clause for each case accordingly and predict the
+behavior of Stainless’ verification. Does it match the returned report?</p>
+<p>See the note below, as well.</p>
+</div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>By default, Stainless will emit verification conditions to
 check that arithmetic operations on sized integers such as
-<cite>Int</cite> cannot overflow. To opt-out of this behavior, eg. when
+<cite>Int</cite> cannot overflow. To opt-out of this behavior, e.g. when
 such wrapping semantics are desired, one can wrap the offending
 expression in a call to <cite>stainless.math.wrapping</cite>:</p>
 <div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">import</span><span class="w"> </span><span class="nn">stainless</span><span class="p">.</span><span class="nn">math</span><span class="p">.</span><span class="n">wrapping</span>
@@ -317,9 +342,9 @@ lists, see <a class="reference internal" href="library.html"><span class="doc">S
 our own variant instead.</p>
 <section id="lists">
 <h3>Lists<a class="headerlink" href="#lists" title="Link to this heading">¶</a></h3>
-<p>We use a recursive algebraic data type
-definition, expressed using Scala’s <strong>case classes</strong>.</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">sealed</span><span class="w"> </span><span class="k">abstract</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">List</span>
+<p>We use a recursive algebraic data type definition, expressed using Scala’s
+<strong>case classes</strong>.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">sealed</span><span class="w"> </span><span class="k">trait</span><span class="w"> </span><span class="nc">List</span>
 <span class="k">case</span><span class="w"> </span><span class="k">object</span><span class="w"> </span><span class="nc">Nil</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">List</span>
 <span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">head</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">,</span><span class="w"> </span><span class="n">tail</span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="p">)</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">List</span>
 </pre></div>
@@ -328,9 +353,9 @@ definition, expressed using Scala’s <strong>case classes</strong>.</p>
 defined as the least set that satisfies them:</p>
 <blockquote>
 <div><ul class="simple">
-<li><p>empty list <cite>Nil</cite> is a list</p></li>
-<li><p>if <cite>head</cite> is an integer and <cite>tail</cite> is a <cite>List</cite>, then
-<cite>Cons(head,tail)</cite> is a <cite>List</cite>.</p></li>
+<li><p>empty list <code class="docutils literal notranslate"><span class="pre">Nil</span></code> is a list</p></li>
+<li><p>if <code class="docutils literal notranslate"><span class="pre">head</span></code> is an integer and <code class="docutils literal notranslate"><span class="pre">tail</span></code> is a <code class="docutils literal notranslate"><span class="pre">List</span></code>, then
+<code class="docutils literal notranslate"><span class="pre">Cons(head,tail)</span></code> is a <code class="docutils literal notranslate"><span class="pre">List</span></code>.</p></li>
 </ul>
 </div></blockquote>
 <p>Each list is constructed by applying the above two rules
@@ -339,99 +364,94 @@ finitely many times.  A concrete list containing elements 5,
 <div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="nc">Cons</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="mi">7</span><span class="p">,</span><span class="w"> </span><span class="nc">Nil</span><span class="p">)))</span>
 </pre></div>
 </div>
-<p>Having defined the structure of lists, we can move on to
-define some semantic properties of lists that are of
-interests. For this purpose, we use recursive functions
-defined on lists.</p>
+<p>Having defined the structure of lists, we can move on to define some semantic
+properties of lists that are of interest. For this purpose, we use recursive
+functions defined on lists.</p>
 </section>
 <section id="size-of-a-list">
 <h3>Size of a List<a class="headerlink" href="#size-of-a-list" title="Link to this heading">¶</a></h3>
 <p>As the starting point, we define the size of a list.</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">size</span><span class="p">(</span><span class="n">l</span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="p">)</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">l</span><span class="w"> </span><span class="k">match</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nc">Nil</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="mi">0</span>
-<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">rest</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">size</span><span class="p">(</span><span class="n">rest</span><span class="p">)</span>
-<span class="p">})</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">size</span><span class="p">(</span><span class="n">l</span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="p">)</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">l</span><span class="w"> </span><span class="k">match</span>
+<span class="w">      </span><span class="k">case</span><span class="w"> </span><span class="nc">Nil</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">      </span><span class="k">case</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">rest</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">size</span><span class="p">(</span><span class="n">rest</span><span class="p">)</span>
+<span class="p">}</span>
 </pre></div>
 </div>
-<p>The definition uses <em>pattern matching</em> to define size of the
-list in the case it is empty (where it is zero) and when it
-is non-empty, or, if it’s non-empty, then it has a head <cite>x</cite>
-and the rest of the list <cite>rest</cite>, so the size is one plus the
-size of the rest. Thus <cite>size</cite> is a recursive function.  A
-strength of Stainless is that it allows using such recursive
-functions in specifications.</p>
-<p>It makes little sense to try to write a complete
-specification of <cite>size</cite>, given that its recursive definition
-is already a pretty clear description of its
-meaning. However, it is useful to add a consequence of this
-definition, namely that the size is non-negative. The reason
-is that Stainless most of the time reasons by unfolding <cite>size</cite>,
-and the property of size being non-negative is not revealed
-by such unfolding. Once specified, the non-negativity is
+<p>The definition uses <em>pattern matching</em> to define size of the list in the case it
+is empty (where it is zero) and when it is non-empty, or, if it’s non-empty,
+then it has a head <code class="docutils literal notranslate"><span class="pre">x</span></code> and the rest of the list <code class="docutils literal notranslate"><span class="pre">rest</span></code>, so the size is one
+plus the size of the rest. Thus, <code class="docutils literal notranslate"><span class="pre">size</span></code> is a recursive function.  A strength
+of Stainless is that it allows using such recursive functions in specifications.</p>
+<p>It makes little sense to try to write a complete specification of <code class="docutils literal notranslate"><span class="pre">size</span></code>,
+given that its recursive definition is already a pretty clear description of its
+meaning. However, it is useful to add a consequence of this definition, namely
+that the size is non-negative. The reason is that Stainless most of the time
+reasons by unfolding <code class="docutils literal notranslate"><span class="pre">size</span></code>, and the property of size being non-negative is
+not revealed by such unfolding sequences. Once specified, the non-negativity is
 easily proven and Stainless will make use of it.</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">isize</span><span class="p">(</span><span class="n">l</span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="p">)</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">l</span><span class="w"> </span><span class="k">match</span><span class="w"> </span><span class="p">{</span>
-<span class="w">  </span><span class="k">case</span><span class="w"> </span><span class="nc">Nil</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="mi">0</span>
-<span class="w">  </span><span class="k">case</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">rest</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="kd">val</span><span class="w"> </span><span class="n">rSize</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">isize</span><span class="p">(</span><span class="n">rest</span><span class="p">)</span>
-<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">rSize</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nc">Int</span><span class="p">.</span><span class="nc">MaxValue</span><span class="p">)</span><span class="w"> </span><span class="n">rSize</span>
-<span class="w">    </span><span class="k">else</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">rSize</span>
-<span class="w">  </span><span class="p">}</span>
-<span class="p">}).</span><span class="n">ensuring</span><span class="p">(</span><span class="n">res</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">res</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">size</span><span class="p">(</span><span class="n">l</span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="p">)</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">l</span><span class="w"> </span><span class="k">match</span>
+<span class="w">      </span><span class="k">case</span><span class="w"> </span><span class="nc">Nil</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">      </span><span class="k">case</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">rest</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">size</span><span class="p">(</span><span class="n">rest</span><span class="p">)</span>
+<span class="p">}.</span><span class="n">ensuring</span><span class="p">(</span><span class="n">res</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">res</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>In some cases, it may be helpful to define a size function
-that returns a bounded integer type, such as the 32-bit signed integer <code class="docutils literal notranslate"><span class="pre">`Int</span></code>.
-One useful way to do this is to define function as follows:</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">isize</span><span class="p">(</span><span class="n">l</span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="p">)</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">l</span><span class="w"> </span><span class="k">match</span><span class="w"> </span><span class="p">{</span>
+<p>In some cases, it may be helpful to define a size function that returns a
+bounded integer type, such as the 32-bit signed integer type <code class="docutils literal notranslate"><span class="pre">Int</span></code>. One useful
+way to do this is to define a function as follows:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">isize</span><span class="p">(</span><span class="n">l</span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="p">)</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">l</span><span class="w"> </span><span class="k">match</span>
 <span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nc">Nil</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="mi">0</span>
-<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">rest</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">rest</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span>
 <span class="w">      </span><span class="kd">val</span><span class="w"> </span><span class="n">rSize</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">isize</span><span class="p">(</span><span class="n">rest</span><span class="p">)</span>
-<span class="w">      </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">rSize</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nc">Int</span><span class="p">.</span><span class="nc">Max</span><span class="p">)</span><span class="w"> </span><span class="n">rSize</span>
+<span class="w">      </span><span class="k">if</span><span class="w"> </span><span class="n">rSize</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nc">Int</span><span class="p">.</span><span class="nc">MaxValue</span><span class="w"> </span><span class="k">then</span><span class="w"> </span><span class="n">rSize</span>
 <span class="w">      </span><span class="k">else</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">rSize</span>
-<span class="w">    </span><span class="p">}</span>
-<span class="p">}).</span><span class="n">ensuring</span><span class="p">(</span><span class="n">res</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">res</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
+<span class="p">}.</span><span class="n">ensuring</span><span class="p">(</span><span class="n">res</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">res</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>The above <code class="docutils literal notranslate"><span class="pre">isize</span></code> function satisfies the usual recursive definition for all but a huge
-lists, returns a non-negative integer, and ensures that if isize returns a small
-number, then the list is indeed small.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">isize</span></code> function above satisfies the usual recursive definition for all
+but huge lists, returns a non-negative integer, and further ensures that if
+<code class="docutils literal notranslate"><span class="pre">isize</span></code> returns a small number, then the list is indeed small.</p>
 </section>
 <section id="sorted-lists">
 <h3>Sorted Lists<a class="headerlink" href="#sorted-lists" title="Link to this heading">¶</a></h3>
-<p>We define properties of values simply as executable
-predicates that check if the property holds. The following
-is a property that a list is sorted in a strictly ascending
-order.</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">isSorted</span><span class="p">(</span><span class="n">l</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="p">)</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">l</span><span class="w"> </span><span class="k">match</span><span class="w"> </span><span class="p">{</span>
-<span class="w">  </span><span class="k">case</span><span class="w"> </span><span class="nc">Nil</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="kc">true</span>
-<span class="w">  </span><span class="k">case</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">_</span><span class="p">,</span><span class="nc">Nil</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="kc">true</span>
-<span class="w">  </span><span class="k">case</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">x1</span><span class="p">,</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">x2</span><span class="p">,</span><span class="w"> </span><span class="n">rest</span><span class="p">))</span><span class="w"> </span><span class="o">=&gt;</span>
-<span class="w">    </span><span class="n">x1</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">x2</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">isSorted</span><span class="p">(</span><span class="nc">Cons</span><span class="p">(</span><span class="n">x2</span><span class="p">,</span><span class="n">rest</span><span class="p">))</span>
-<span class="p">}</span>
+<p>We can define properties of values simply as executable predicates that check if
+the property holds.</p>
+<p>The following is a property that a list is sorted in a strictly ascending order.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">isSorted</span><span class="p">(</span><span class="n">l</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="p">)</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span>
+<span class="w">  </span><span class="n">l</span><span class="w"> </span><span class="k">match</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nc">Nil</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">_</span><span class="p">,</span><span class="nc">Nil</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">x1</span><span class="p">,</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">x2</span><span class="p">,</span><span class="w"> </span><span class="n">rest</span><span class="p">))</span><span class="w"> </span><span class="o">=&gt;</span>
+<span class="w">      </span><span class="n">x1</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">x2</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">isSorted</span><span class="p">(</span><span class="nc">Cons</span><span class="p">(</span><span class="n">x2</span><span class="p">,</span><span class="n">rest</span><span class="p">))</span>
 </pre></div>
 </div>
 </section>
 </section>
 <section id="insertion-into-sorted-list">
 <h2>Insertion into Sorted List<a class="headerlink" href="#insertion-into-sorted-list" title="Link to this heading">¶</a></h2>
-<p>Consider the following specification of insertion into a sorted list. It’s a
-building block for an insertion sort.</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="w"> </span><span class="k">def</span><span class="w"> </span><span class="nf">sInsert</span><span class="p">(</span><span class="n">x</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">,</span><span class="w"> </span><span class="n">l</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="p">)</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">   </span><span class="n">require</span><span class="p">(</span><span class="n">isSorted</span><span class="p">(</span><span class="n">l</span><span class="p">))</span>
-<span class="w">   </span><span class="n">l</span><span class="w"> </span><span class="k">match</span><span class="w"> </span><span class="p">{</span>
-<span class="w">     </span><span class="k">case</span><span class="w"> </span><span class="nc">Nil</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="nc">Nil</span><span class="p">)</span>
-<span class="w">     </span><span class="k">case</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">e</span><span class="p">,</span><span class="w"> </span><span class="n">rest</span><span class="p">)</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">x</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">e</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">l</span>
-<span class="w">     </span><span class="k">case</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">e</span><span class="p">,</span><span class="w"> </span><span class="n">rest</span><span class="p">)</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">x</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">e</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">e</span><span class="p">,</span><span class="n">rest</span><span class="p">))</span>
-<span class="w">     </span><span class="k">case</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">e</span><span class="p">,</span><span class="w"> </span><span class="n">rest</span><span class="p">)</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">x</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">e</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">e</span><span class="p">,</span><span class="w"> </span><span class="n">sInsert</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">rest</span><span class="p">))</span>
-<span class="w">   </span><span class="p">}</span>
-<span class="p">}.</span><span class="n">ensuring</span><span class="w"> </span><span class="p">{(</span><span class="n">res</span><span class="p">:</span><span class="nc">List</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">isSorted</span><span class="p">(</span><span class="n">res</span><span class="p">)}</span>
+<p>Now that we have defined what it means for a list to be sorted, we can write
+functions <em>on sorted lists</em> and check their properties. Consider the following
+specification of insertion into a sorted list. It’s a building block for an
+insertion sort.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">sInsert</span><span class="p">(</span><span class="n">x</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">,</span><span class="w"> </span><span class="n">l</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="p">)</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">require</span><span class="p">(</span><span class="n">isSorted</span><span class="p">(</span><span class="n">l</span><span class="p">))</span>
+<span class="w">  </span><span class="n">l</span><span class="w"> </span><span class="k">match</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nc">Nil</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="nc">Nil</span><span class="p">)</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">e</span><span class="p">,</span><span class="w"> </span><span class="n">rest</span><span class="p">)</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">x</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">e</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">l</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">e</span><span class="p">,</span><span class="w"> </span><span class="n">rest</span><span class="p">)</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">x</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">e</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">e</span><span class="p">,</span><span class="n">rest</span><span class="p">))</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">e</span><span class="p">,</span><span class="w"> </span><span class="n">rest</span><span class="p">)</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">x</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">e</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">e</span><span class="p">,</span><span class="w"> </span><span class="n">sInsert</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">rest</span><span class="p">))</span>
+<span class="p">}.</span><span class="n">ensuring</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">res</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">isSorted</span><span class="p">(</span><span class="n">res</span><span class="p">)</span><span class="w"> </span><span class="p">}</span>
 </pre></div>
 </div>
-<p>Stainless verifies that the returned list is indeed sorted. Note
-how we are again using a recursively defined function to
-specify another function. We can introduce a bug into the
-definition above and examine the counterexamples that Stainless
-finds.</p>
+<p>Stainless verifies that the returned list is indeed sorted. Note how we are once
+again using a recursively defined function to specify another function.</p>
+<div class="important admonition">
+<p class="admonition-title">Experiment</p>
+<p>Introduce a bug in the definition of <code class="docutils literal notranslate"><span class="pre">sInsert</span></code> to make it violate its
+post-condition. What kind of counterexamples do you get from Stainless?</p>
+</div>
 </section>
 <section id="being-sorted-is-not-enough">
 <h2>Being Sorted is Not Enough<a class="headerlink" href="#being-sorted-is-not-enough" title="Link to this heading">¶</a></h2>
@@ -439,52 +459,54 @@ finds.</p>
 <div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="w"> </span><span class="k">def</span><span class="w"> </span><span class="nf">fsInsert</span><span class="p">(</span><span class="n">x</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">,</span><span class="w"> </span><span class="n">l</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="p">)</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
 <span class="w">   </span><span class="n">require</span><span class="p">(</span><span class="n">isSorted</span><span class="p">(</span><span class="n">l</span><span class="p">))</span>
 <span class="w">   </span><span class="nc">Nil</span>
-<span class="p">}.</span><span class="n">ensuring</span><span class="w"> </span><span class="p">{(</span><span class="n">res</span><span class="p">:</span><span class="nc">List</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">isSorted</span><span class="p">(</span><span class="n">res</span><span class="p">)}</span>
+<span class="p">}.</span><span class="n">ensuring</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">res</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">isSorted</span><span class="p">(</span><span class="n">res</span><span class="p">)</span><span class="w"> </span><span class="p">}</span>
 </pre></div>
 </div>
-<p>So, our specification may be considered weak, because it does
-not say anything about the elements.</p>
+<p>So, while our specification is <em>valid</em>, it is too <em>weak</em> to specify insertion,
+because it does not say anything about the elements.</p>
 </section>
 <section id="using-size-in-specification">
 <h2>Using Size in Specification<a class="headerlink" href="#using-size-in-specification" title="Link to this heading">¶</a></h2>
-<p>Consider a stronger additional postcondition property:</p>
+<p>Consider a stronger additional post-condition property:</p>
 <div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="n">size</span><span class="p">(</span><span class="n">res</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">size</span><span class="p">(</span><span class="n">l</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span>
 </pre></div>
 </div>
-<p>Does it hold? If we try to add it, we obtain a counterexample.
-A correct strengthening, taking into account that the element
-may or may not already be in the list, is the following.</p>
+<p>Does it hold? If we try to add it to <code class="docutils literal notranslate"><span class="pre">sInsert</span></code>, we obtain a counterexample. A
+correct strengthening, taking into account that the element may or may not
+already be in the list, is the following.</p>
 <div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="n">size</span><span class="p">(</span><span class="n">l</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">size</span><span class="p">(</span><span class="n">res</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">size</span><span class="p">(</span><span class="n">res</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">size</span><span class="p">(</span><span class="n">l</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span>
 </pre></div>
 </div>
 </section>
 <section id="using-content-in-specification">
 <h2>Using Content in Specification<a class="headerlink" href="#using-content-in-specification" title="Link to this heading">¶</a></h2>
-<p>A stronger specification needs to talk about the <cite>content</cite>
-of the list.</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="w"> </span><span class="k">def</span><span class="w"> </span><span class="nf">sInsert</span><span class="p">(</span><span class="n">x</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">,</span><span class="w"> </span><span class="n">l</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="p">)</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">   </span><span class="n">require</span><span class="p">(</span><span class="n">isSorted</span><span class="p">(</span><span class="n">l</span><span class="p">))</span>
-<span class="w">   </span><span class="n">l</span><span class="w"> </span><span class="k">match</span><span class="w"> </span><span class="p">{</span>
-<span class="w">     </span><span class="k">case</span><span class="w"> </span><span class="nc">Nil</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="nc">Nil</span><span class="p">)</span>
-<span class="w">     </span><span class="k">case</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">e</span><span class="p">,</span><span class="w"> </span><span class="n">rest</span><span class="p">)</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">x</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">e</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">l</span>
-<span class="w">     </span><span class="k">case</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">e</span><span class="p">,</span><span class="w"> </span><span class="n">rest</span><span class="p">)</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">x</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">e</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">e</span><span class="p">,</span><span class="n">rest</span><span class="p">))</span>
-<span class="w">     </span><span class="k">case</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">e</span><span class="p">,</span><span class="w"> </span><span class="n">rest</span><span class="p">)</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">x</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">e</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">e</span><span class="p">,</span><span class="w"> </span><span class="n">sInsert</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">rest</span><span class="p">))</span>
-<span class="w">   </span><span class="p">}</span>
-<span class="p">}.</span><span class="n">ensuring</span><span class="w"> </span><span class="p">{(</span><span class="n">res</span><span class="p">:</span><span class="nc">List</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span>
-<span class="w">    </span><span class="n">isSorted</span><span class="p">(</span><span class="n">res</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">content</span><span class="p">(</span><span class="n">res</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">content</span><span class="p">(</span><span class="n">l</span><span class="p">)</span><span class="w"> </span><span class="o">++</span><span class="w"> </span><span class="nc">Set</span><span class="p">(</span><span class="n">x</span><span class="p">)}</span>
-</pre></div>
-</div>
-<p>To compute <cite>content</cite>, in this example we use sets (even
-though in general, it might be better to use bags
-i.e. multisets).</p>
-<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">content</span><span class="p">(</span><span class="n">l</span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="p">):</span><span class="w"> </span><span class="nc">Set</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">l</span><span class="w"> </span><span class="k">match</span><span class="w"> </span><span class="p">{</span>
-<span class="w">  </span><span class="k">case</span><span class="w"> </span><span class="nc">Nil</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Set</span><span class="p">()</span>
-<span class="w">  </span><span class="k">case</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="w"> </span><span class="n">t</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Set</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="o">++</span><span class="w"> </span><span class="n">content</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+<p>A stronger specification needs to talk about the <code class="docutils literal notranslate"><span class="pre">content</span></code> of the list.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">sInsert</span><span class="p">(</span><span class="n">x</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">,</span><span class="w"> </span><span class="n">l</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="p">)</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">require</span><span class="p">(</span><span class="n">isSorted</span><span class="p">(</span><span class="n">l</span><span class="p">))</span>
+<span class="w">  </span><span class="n">l</span><span class="w"> </span><span class="k">match</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nc">Nil</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="nc">Nil</span><span class="p">)</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">e</span><span class="p">,</span><span class="w"> </span><span class="n">rest</span><span class="p">)</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">x</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">e</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">l</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">e</span><span class="p">,</span><span class="w"> </span><span class="n">rest</span><span class="p">)</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">x</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">e</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">e</span><span class="p">,</span><span class="n">rest</span><span class="p">))</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">e</span><span class="p">,</span><span class="w"> </span><span class="n">rest</span><span class="p">)</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">x</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">e</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">e</span><span class="p">,</span><span class="w"> </span><span class="n">sInsert</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">rest</span><span class="p">))</span>
+<span class="p">}.</span><span class="n">ensuring</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">res</span><span class="w"> </span><span class="o">=&gt;</span>
+<span class="w">   </span><span class="n">isSorted</span><span class="p">(</span><span class="n">res</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">content</span><span class="p">(</span><span class="n">res</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">content</span><span class="p">(</span><span class="n">l</span><span class="p">)</span><span class="w"> </span><span class="o">++</span><span class="w"> </span><span class="nc">Set</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
 <span class="p">}</span>
 </pre></div>
 </div>
-<p>This completes the tutorial. To learn more, check the rest of this
-documentation and browse the examples provided with Stainless.</p>
+<p>Of course, we need to define what the “content” of a list is. In this example,
+we use sets (even though in general, it might be better to use bags i.e.
+multisets).</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">import</span><span class="w"> </span><span class="nn">stainless</span><span class="p">.</span><span class="nn">lang</span><span class="p">.</span><span class="n">*</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">content</span><span class="p">(</span><span class="n">l</span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="p">):</span><span class="w"> </span><span class="nc">Set</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">]</span><span class="w"> </span><span class="o">=</span>
+<span class="w">  </span><span class="n">l</span><span class="w"> </span><span class="k">match</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nc">Nil</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Set</span><span class="p">.</span><span class="n">empty</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="nc">Cons</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="w"> </span><span class="n">t</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">content</span><span class="p">(</span><span class="n">t</span><span class="p">)</span><span class="w"> </span><span class="o">++</span><span class="w"> </span><span class="nc">Set</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>This completes the tutorial. To learn more, check the rest of this documentation
+and browse the examples provided with Stainless, as well as the <a class="reference external" href="https://github.com/epfl-lara/bolts">epfl-lara/bolts
+library</a>.</p>
 </section>
 </section>
 
@@ -500,7 +522,7 @@ documentation and browse the examples provided with Stainless.</p>
 
   <div role="contentinfo">
     <p>&#169; Copyright 2009-2021 EPFL, Lausanne.
-      <span class="lastupdated">Last updated on Aug 22, 2024.
+      <span class="lastupdated">Last updated on Sep 11, 2025.
       </span></p>
   </div>
 
