@@ -311,7 +311,8 @@ You can package the Stainless library into a jar like this:
 
 .. code-block:: bash
 
-    $ cd path/to/stainless/ $ sbt stainless-library/packageBin
+    $ cd path/to/stainless/ 
+    $ sbt stainless-library/packageBin
 
 Add the generated Stainless library jar file when invoking the compiler with
 ``scalac`` and the JVM with ``scala`` or ``java``. For instance:
