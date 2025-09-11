@@ -54,6 +54,7 @@ serve:
 	cd _build/html/ && httplz
 
 html:
+	mkdir static # in case it doesn't exist
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
 	rm -rf $(BUILDDIR)/html/static
 	cp -r static $(BUILDDIR)/html/
