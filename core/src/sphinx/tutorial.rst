@@ -481,4 +481,4 @@ multisets).
 
 This completes the tutorial. To learn more, check the rest of this documentation
 and browse the examples provided with Stainless, as well as the `epfl-lara/bolts
-library <https://github.com/epfl-lara/bolts>`.
+library <https://github.com/epfl-lara/bolts>`__.
