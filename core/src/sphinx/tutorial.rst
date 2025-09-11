@@ -107,12 +107,11 @@ Here, Stainless emits three distinct verification conditions:
 
 * One with an overflow check for the subtraction on line 1 of the report,
 
-* another one which corresponds to the post-condition of
-  ``max`` when we take the ``then`` branch of the ``if`` statement, on line 19
-  of the report,
+* another one for the post-condition of ``max`` when we take the ``else`` branch
+  of the ``if`` statement, on line 10 of the report, and
 
-* and a final one for the post-condition of ``max`` when we take the ``else``
-  branch of the ``if`` statement, on line 10 of the report.
+* a final one which corresponds to the post-condition of ``max`` when we take
+  the ``then`` branch of the ``if`` statement, on line 19 of the report.
 
 
 Let us look at the post-condition violations:
