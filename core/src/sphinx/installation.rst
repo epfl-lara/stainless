@@ -271,6 +271,7 @@ and then you can run it with:
 
 Note that you `Main` object cannot extend `App` and the `main` function must 
 take `args: Array[String]` as parameter.
+
 .. TODO: should we mention more about these dependencies? Given that actors and algebra are not maintained.
 .. 6. It is possible to specify extra source dependencies to be added to the set of
 ..    files processed by Stainless via the ``stainlessExtraDeps`` setting. For
