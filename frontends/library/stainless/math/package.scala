@@ -500,7 +500,42 @@ package object math {
       else java.lang.Float.intBitsToFloat(java.lang.Float.floatToIntBits(f) + (if f > 0.0 then -1 else +1));
   }
 
-  //MISSING: scalb
+  private val twoToTheDoubleScaleUp: Double = powerOfTwoD(512)
+  private val twoToTheDoubleScaleDown: Double = powerOfTwoD(-512)
+
+  @library
+  def scalb(d: Double, scaleFactor: Int): Double = {
+    val MAX_SCALE = DoubleConsts.MAX_EXPONENT + -DoubleConsts.MIN_EXPONENT + DoubleConsts.SIGNIFICAND_WIDTH + 1
+    val scale_increment: Int = if scaleFactor < 0 then -512 else 512
+    val exp_delta =  if scaleFactor < 0 then twoToTheDoubleScaleDown else twoToTheDoubleScaleUp
+    val newScaleFactor = if scaleFactor < 0 then max(scaleFactor, -MAX_SCALE) else min(scaleFactor, MAX_SCALE)
+    val t = (newScaleFactor >> 9 - 1) >>> 32 - 9
+    val exp_adjust = ((newScaleFactor + t) & (512 - 1)) - t
+    var dVar: Double = d * powerOfTwoD(exp_adjust)
+    var scaleFactorVar = newScaleFactor - exp_adjust
+    (while (scaleFactorVar != 0) {
+      decreases(abs(scaleFactorVar))
+      dVar = dVar * exp_delta
+      scaleFactorVar = scaleFactorVar - scale_increment
+    }).invariant(
+      (dVar.isNaN == d.isNaN)
+      && (scaleFactorVar % 512 == 0)
+      && (scale_increment < 0 ==> scaleFactorVar <= 0)
+      && (scale_increment > 0 ==> scaleFactorVar >= 0)
+      && (-MAX_SCALE <= scaleFactorVar && scaleFactorVar <= MAX_SCALE)
+    )
+    dVar
+  }.ensuring( res =>
+    res.isNaN == d.isNaN
+    && (d.isPosInfinity ==> res.isPosInfinity)
+    && (d.isNegInfinity ==> res.isNegInfinity)
+    && (d.isZero ==> (res == d))
+    && (d.isPositive == res.isPositive)
+    && (d.isNegative == res.isNegative)
+    && ((scaleFactor == 0 && !d.isNaN) ==> (d == res))
+    && ((scaleFactor >= 0 && !d.isNaN) ==> (math.abs(res) >= math.abs(d)))
+    && ((scaleFactor <= 0 && !d.isNaN) ==> (math.abs(res) <= math.abs(d)))
+  )
 
   // -----------------------------------------------------------------------
   // root functions
@@ -549,25 +584,24 @@ package object math {
    * @param y the exponent.
    * @return the value `x^y^`.
    */
-  @extern @pure @library
-  def pow(a: Double, b: Double) = {
-    java.lang.Math.pow(a, b)
-  }.ensuring(res =>
-    (b.isZero ==> (res == 1.0))
-    && ((!a.isNaN && b.isFinite && b == 1.0) ==> (res == a))
-    && (b.isNaN ==> res.isNaN)
-    && ((a.isNaN && !b.isZero) ==> res.isNaN)
-    && (((a.isFinite && (a < -1.0d || a > 1.0d)) && b.isPositive && b.isInfinity) ==> (res.isPositive && res.isInfinity))
-    && ((a.isFinite && -1.0d < a && a < 1.0d && b.isNegative && b.isInfinity) ==> (res.isPositive && res.isInfinity))
-    && (((a.isFinite && (a < -1.0d || a > 1.0d)) && b.isNegative && b.isInfinity) ==> (res.isPositive && res.isZero))
-    && ((a.isFinite && -1.0d < a && a < 1.0d && b.isPositive && b.isInfinity) ==> (res.isPositive && res.isZero))
-    && (((a.isFinite && (a == 1.0d || a == -1.0d)) && b.isInfinity) ==> res.isNaN)
-    && ((a.isPositive && a.isZero && !b.isNaN &&b > 0) ==> (res.isPositive && res.isZero))
-    && ((a.isPositive && a.isInfinity && !b.isNaN && b < 0) ==> (res.isPositive && res.isZero))
-    && ((a.isPositive && a.isZero && !b.isNaN && b < 0) ==> (res.isPositive && res.isInfinity))
-    && ((a.isPositive && a.isInfinity && !b.isNaN && b > 0) ==> (res.isPositive && res.isInfinity))
-    && ((a.isPositive && b.isFinite) ==> res.isPositive)
-    && ((!a.isNaN && b.isFinite && b == 2) ==> res.isPositive)
+  @library
+  def pow(x: Double, y: Double) = {
+    FdLibm.Pow.compute(x, y)
+  }.ensuring( res =>
+    (y.isZero ==> (res == 1.0))
+    && ((!x.isNaN && y.isFinite && y == 1.0) ==> (res == x))
+    && (y.isNaN ==> res.isNaN)
+    && ((x.isNaN && !y.isZero) ==> res.isNaN)
+    && (((x.isFinite && (x < -1.0d || x > 1.0d)) && y.isPositive && y.isInfinity) ==> (res.isPositive && res.isInfinity))
+    && ((x.isFinite && -1.0d < x && x < 1.0d && y.isNegative && y.isInfinity) ==> (res.isPositive && res.isInfinity))
+    && (((x.isFinite && (x < -1.0d || x > 1.0d)) && y.isNegative && y.isInfinity) ==> (res.isPositive && res.isZero))
+    && ((x.isFinite && -1.0d < x && x < 1.0d && y.isPositive && y.isInfinity) ==> (res.isPositive && res.isZero))
+    && (((x.isFinite && (x == 1.0d || x == -1.0d)) && y.isInfinity) ==> res.isNaN)
+    && ((x.isPositive && x.isZero && !y.isNaN &&y > 0) ==> (res.isPositive && res.isZero))
+    && ((x.isPositive && x.isInfinity && !y.isNaN && y < 0) ==> (res.isPositive && res.isZero))
+    && ((x.isPositive && x.isZero && !y.isNaN && y < 0) ==> (res.isPositive && res.isInfinity))
+    && ((x.isPositive && x.isInfinity && !y.isNaN && y > 0) ==> (res.isPositive && res.isInfinity))
+    && ((!x.isNaN && y.isFinite && y == 2) ==> res.isPositive)
   )
 
 
