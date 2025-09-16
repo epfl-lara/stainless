@@ -22,6 +22,7 @@ import inox.DebugSection
 import java.io.File
 import java.net.URL
 import DottyReporter.NoReporter
+import stainless.frontend.DebugSectionFrontend
 
 class DottyCompiler(ctx: inox.Context, callback: CallBack) extends Compiler {
   override def phases: List[List[Phase]] = {
@@ -79,7 +80,10 @@ private class DottyDriver(args: Seq[String], compiler: DottyCompiler, reporter: 
   lazy val files: List[String] =
     setup(args.toArray, initCtx.fresh.setReporter(NoReporter))
       .map(_._1.map(_.path))
-      .getOrElse(reporter.reporter.internalError(f"Error parsing arguments from ${args.toList}"))
+      .getOrElse {
+        reporter.reporter.debug(f"No input file found in given argument list ${args.toList}")(using DebugSectionFrontend)
+        reporter.reporter.fatalError(f"No input file given.")
+      }
 
   def run(): Unit = process(args.toArray, reporter)
 }
