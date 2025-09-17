@@ -216,6 +216,7 @@ package object lang {
   implicit final class WrappedDouble(d: Double) extends AnyVal {
     def isNaN: Boolean = java.lang.Double.isNaN(d)
     def isInfinity: Boolean = java.lang.Double.isInfinite(d)
+    def isInfinite: Boolean = java.lang.Double.isInfinite(d)
     def isPosInfinity: Boolean = d == Double.PositiveInfinity
     def isNegInfinity: Boolean = d == Double.NegativeInfinity
     def isFinite: Boolean = java.lang.Double.isFinite(d)
@@ -223,12 +224,15 @@ package object lang {
     def isNegative: Boolean = d < 0d || d.equals(-0d)
     def isZero: Boolean = d == 0d
     def equiv(that: Double): Boolean = java.lang.Double.compare(d, that) == 0
+    def toDegrees: Double = scala.math.toDegrees(d)
+    def toRadians: Double = scala.math.toRadians(d)
   }
 
   @ignore
   implicit final class WrappedFloat(f: Float) extends AnyVal {
     def isNaN: Boolean = java.lang.Float.isNaN(f)
     def isInfinity: Boolean = java.lang.Float.isInfinite(f)
+    def isInfinite: Boolean = java.lang.Float.isInfinite(f)
     def isPosInfinity: Boolean = f == Float.PositiveInfinity
     def isNegInfinity: Boolean = f == Float.NegativeInfinity
     def isFinite: Boolean = java.lang.Float.isFinite(f)
@@ -236,6 +240,8 @@ package object lang {
     def isNegative: Boolean = f < 0f || f.equals(-0f)
     def isZero: Boolean = f == 0f
     def equiv(that: Float): Boolean = java.lang.Float.compare(f, that) == 0
+    def toDegrees: Float = scala.math.toDegrees(f.toDouble).toFloat
+    def toRadians: Float = scala.math.toRadians(f.toDouble).toFloat
   }
 
   // This --full-imperative stuff should perhaps move to a separate object.
