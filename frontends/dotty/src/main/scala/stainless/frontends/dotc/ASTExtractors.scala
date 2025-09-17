@@ -558,9 +558,23 @@ trait ASTExtractors {
       }
     }
 
+    object ExDoubleToRawLongBits {
+      def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
+        case Apply(ExSymbol("java", "lang", "Double$", "doubleToRawLongBits"), Seq(rhs)) => Some(rhs)
+        case _ => None
+      }
+    }
+
     object ExFloatToIntBits {
       def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
         case Apply(ExSymbol("java", "lang", "Float$", "floatToIntBits"), Seq(rhs)) => Some(rhs)
+        case _ => None
+      }
+    }
+
+    object ExFloatToRawIntBits {
+      def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
+        case Apply(ExSymbol("java", "lang", "Float$", "floatToRawIntBits"), Seq(rhs)) => Some(rhs)
         case _ => None
       }
     }

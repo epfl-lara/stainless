@@ -1895,6 +1895,19 @@ class CodeExtraction(inoxCtx: inox.Context,
       val body = xt.IfExpr(isNaN, canonicalNaN, toBinary).setPos(pos)
       xt.Let(fp, extractTree(arg), body).setPos(pos)
 
+    case ExDoubleToRawLongBits(arg) =>
+      val pos = tr.sourcePos
+      val fp = xt.ValDef.fresh("fp", extractType(arg)).setPos(pos)
+      val bv = xt.ValDef.fresh("toBinary", xt.BVType(true, 64)).setPos(pos)
+      val isNaN = xt.FPIsNaN(fp.toVariable).setPos(pos)
+      val canonicalNaN = xt.Int64Literal(0x7ff8000000000000L).setPos(pos)
+      // TODO: do something about the explicit choose error message
+      val toBinary = xt.Annotated(
+        xt.Choose(bv, xt.Equals(xt.FPFromBinary(11, 53, bv.toVariable).setPos(pos), fp.toVariable)).setPos(pos),
+        Seq(xt.DropVCs)
+      ).setPos(pos)
+      xt.Let(fp, extractTree(arg), toBinary).setPos(pos)
+
     case ExLongBitsToDouble(arg) =>
       xt.FPFromBinary(11, 53, extractTree(arg)).setPos(tr.sourcePos)
 
@@ -1911,6 +1924,18 @@ class CodeExtraction(inoxCtx: inox.Context,
       ).setPos(pos)
       val body = xt.IfExpr(isNaN, canonicalNaN, toBinary).setPos(pos)
       xt.Let(fp, extractTree(arg), body).setPos(pos)
+
+    case ExFloatToRawIntBits(arg) =>
+      val pos = tr.sourcePos
+      val fp = xt.ValDef.fresh("fp", extractType(arg)).setPos(pos)
+      val bv = xt.ValDef.fresh("toBinary", xt.BVType(true, 32)).setPos(pos)
+      val isNaN = xt.FPIsNaN(fp.toVariable).setPos(pos)
+      val canonicalNaN = xt.Int32Literal(0x7fc00000).setPos(pos)
+      val toBinary = xt.Annotated(
+        xt.Choose(bv, xt.Equals(xt.FPFromBinary(8, 24, bv.toVariable).setPos(pos), fp.toVariable)).setPos(pos),
+        Seq(xt.DropVCs)
+      ).setPos(pos)
+      xt.Let(fp, extractTree(arg), toBinary).setPos(pos)
 
     case ExIntBitsToFloat(arg) =>
       xt.FPFromBinary(8, 24, extractTree(arg)).setPos(tr.sourcePos)
