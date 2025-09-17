@@ -1873,8 +1873,13 @@ class CodeExtraction(inoxCtx: inox.Context,
     case ex @ ExIdentifier(sym, tpt) if dctx.vars contains sym => dctx.vars(sym)().setPos(ex.sourcePos)
     case ex @ ExIdentifier(sym, tpt) if dctx.mutableVars contains sym => dctx.mutableVars(sym)().setPos(ex.sourcePos)
 
-    case ExSqrtCall(rhs) =>
-      xt.Sqrt(xt.RoundNearestTiesToEven, extractTree(rhs))
+    case ExSqrtCall(rhs) => xt.Sqrt(xt.RoundNearestTiesToEven.setPos(tr.sourcePos), extractTree(rhs)).setPos(tr.sourcePos)
+    case ExFloorCall(rhs) => xt.FPRound(xt.RoundTowardNegative.setPos(tr.sourcePos), extractTree(rhs)).setPos(tr.sourcePos)
+    case ExCeilCall(rhs) => xt.FPRound(xt.RoundTowardPositive.setPos(tr.sourcePos), extractTree(rhs)).setPos(tr.sourcePos)
+    case ExRintCall(rhs) => xt.FPRound(xt.RoundNearestTiesToEven.setPos(tr.sourcePos), extractTree(rhs)).setPos(tr.sourcePos)
+    case ExFPAbsCall(rhs) => xt.FPAbs(extractTree(rhs)).setPos(tr.sourcePos)
+    case ExFPMaxCall(lhs, rhs) => xt.FPMax(extractTree(lhs), extractTree(rhs)).setPos(tr.sourcePos)
+    case ExFPMinCall(lhs, rhs) => xt.FPMin(extractTree(lhs), extractTree(rhs)).setPos(tr.sourcePos)
 
     case ExDoubleToLongBits(arg) =>
       val pos = tr.sourcePos
@@ -1889,6 +1894,19 @@ class CodeExtraction(inoxCtx: inox.Context,
       ).setPos(pos)
       val body = xt.IfExpr(isNaN, canonicalNaN, toBinary).setPos(pos)
       xt.Let(fp, extractTree(arg), body).setPos(pos)
+
+    case ExDoubleToRawLongBits(arg) =>
+      val pos = tr.sourcePos
+      val fp = xt.ValDef.fresh("fp", extractType(arg)).setPos(pos)
+      val bv = xt.ValDef.fresh("toBinary", xt.BVType(true, 64)).setPos(pos)
+      val isNaN = xt.FPIsNaN(fp.toVariable).setPos(pos)
+      val canonicalNaN = xt.Int64Literal(0x7ff8000000000000L).setPos(pos)
+      // TODO: do something about the explicit choose error message
+      val toBinary = xt.Annotated(
+        xt.Choose(bv, xt.Equals(xt.FPFromBinary(11, 53, bv.toVariable).setPos(pos), fp.toVariable)).setPos(pos),
+        Seq(xt.DropVCs)
+      ).setPos(pos)
+      xt.Let(fp, extractTree(arg), toBinary).setPos(pos)
 
     case ExLongBitsToDouble(arg) =>
       xt.FPFromBinary(11, 53, extractTree(arg)).setPos(tr.sourcePos)
@@ -1906,6 +1924,18 @@ class CodeExtraction(inoxCtx: inox.Context,
       ).setPos(pos)
       val body = xt.IfExpr(isNaN, canonicalNaN, toBinary).setPos(pos)
       xt.Let(fp, extractTree(arg), body).setPos(pos)
+
+    case ExFloatToRawIntBits(arg) =>
+      val pos = tr.sourcePos
+      val fp = xt.ValDef.fresh("fp", extractType(arg)).setPos(pos)
+      val bv = xt.ValDef.fresh("toBinary", xt.BVType(true, 32)).setPos(pos)
+      val isNaN = xt.FPIsNaN(fp.toVariable).setPos(pos)
+      val canonicalNaN = xt.Int32Literal(0x7fc00000).setPos(pos)
+      val toBinary = xt.Annotated(
+        xt.Choose(bv, xt.Equals(xt.FPFromBinary(8, 24, bv.toVariable).setPos(pos), fp.toVariable)).setPos(pos),
+        Seq(xt.DropVCs)
+      ).setPos(pos)
+      xt.Let(fp, extractTree(arg), toBinary).setPos(pos)
 
     case ExIntBitsToFloat(arg) =>
       xt.FPFromBinary(8, 24, extractTree(arg)).setPos(tr.sourcePos)
@@ -2241,7 +2271,7 @@ class CodeExtraction(inoxCtx: inox.Context,
           val notNaN = xt.Not(xt.FPIsNaN(vd.toVariable).setPos(pos)).setPos(pos)
           val body = xt.And(notInf, notNaN).setPos(pos)
           xt.Let(vd, extractTree(lhs), body)
-        case (xt.FPType(_,_), "isInfinity", Seq()) =>
+        case (xt.FPType(_,_), "isInfinity" | "isInfinite", Seq()) =>
           xt.FPIsInfinite(extractTree(lhs)).setPos(tr.sourcePos)
         case (xt.FPType(_,_), "isNaN", Seq()) => xt.FPIsNaN(extractTree(lhs)).setPos(tr.sourcePos)
         case (xt.FPType(_,_), "isPosInfinity", Seq()) =>
@@ -2261,6 +2291,23 @@ class CodeExtraction(inoxCtx: inox.Context,
         case (xt.FPType(_,_), "equiv", Seq(rhs)) =>
           if tpe == extractType(rhs) then xt.Equals(extractTree(lhs), extractTree(rhs))
           else outOfSubsetError(lhs, "The .equiv() method can only compare floats of the same type.")
+        case (xt.FPType(e,s), "toDegrees", Seq()) =>
+          val arg = xt.FPCast(11, 53, xt.RoundNearestTiesToEven, extractTree(lhs))
+          val res = xt.FPDiv(
+            xt.RoundNearestTiesToEven,
+            xt.FPMul(xt.RoundNearestTiesToEven, arg, xt.Float64Literal(180)),
+            xt.Float64Literal(scala.math.Pi)
+          )
+          xt.FPCast(e, s, xt.RoundNearestTiesToEven, res).setPos(tr.sourcePos)
+        case (xt.FPType(e,s), "toRadians", Seq()) =>
+          val arg = xt.FPCast(11, 53, xt.RoundNearestTiesToEven, extractTree(lhs))
+          val res = xt.FPMul(
+            xt.RoundNearestTiesToEven,
+            xt.FPDiv(xt.RoundNearestTiesToEven, arg, xt.Float64Literal(180)),
+            xt.Float64Literal(scala.math.Pi)
+          )
+          xt.FPCast(e, s, xt.RoundNearestTiesToEven, res).setPos(tr.sourcePos)
+
 
         case (tpe, "toByte", Seq()) => tpe match {
           case xt.BVType(true, 8) => extractTree(lhs)

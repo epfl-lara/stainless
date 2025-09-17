@@ -121,6 +121,9 @@ trait TransformerWithType extends TreeTransformer {
       t.FPFromBinary(e, s, transform(expr)).copiedFrom(expr)
 
     case s.Sqrt(rm, e) => t.Sqrt(transform(rm), transform(e)).copiedFrom(expr)
+    case s.FPAbs(e) => t.FPAbs(transform(e)).copiedFrom(expr)
+    case s.FPRound(rm, e) => t.FPRound(transform(rm), transform(e)).copiedFrom(expr)
+    case s.FPToReal(e) => t.FPToReal(transform(e)).copiedFrom(expr)
 
     case s.RoundNearestTiesToEven => t.RoundNearestTiesToEven.copiedFrom(expr)
     case s.RoundNearestTiesToAway => t.RoundNearestTiesToAway.copiedFrom(expr)
@@ -133,6 +136,8 @@ trait TransformerWithType extends TreeTransformer {
     case s.FPIsZero(e) => t.FPIsZero(transform(e)).copiedFrom(expr)
     case s.FPIsPositive(e) => t.FPIsPositive(transform(e)).copiedFrom(expr)
     case s.FPIsNegative(e) => t.FPIsNegative(transform(e)).copiedFrom(expr)
+    case s.FPIsNormal(e)   => t.FPIsNormal(transform(e)).copiedFrom(expr)
+    case s.FPIsSubnormal(e) => t.FPIsSubnormal(transform(e)).copiedFrom(expr)
 
     case s.And(es) =>
       t.And(es map (transform(_, s.BooleanType()))).copiedFrom(expr)
@@ -206,6 +211,14 @@ trait TransformerWithType extends TreeTransformer {
     case s.Modulo(lhs, rhs) =>
       val atpe = getArithmeticType(lhs, tpe)
       t.Modulo(transform(lhs, atpe), transform(rhs, atpe)).copiedFrom(expr)
+
+    case s.FPMin(lhs, rhs) =>
+      val atpe = getArithmeticType(lhs, tpe)
+      t.FPMin(transform(lhs, atpe), transform(rhs, atpe)).copiedFrom(expr)
+
+    case s.FPMax(lhs, rhs) =>
+      val atpe = getArithmeticType(lhs, tpe)
+      t.FPMax(transform(lhs, atpe), transform(rhs, atpe)).copiedFrom(expr)
 
     case s.LessThan(lhs, rhs) =>
       val tp = widen(lhs.getType)

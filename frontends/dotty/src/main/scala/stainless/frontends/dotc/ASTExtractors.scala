@@ -502,6 +502,55 @@ trait ASTExtractors {
       }
     }
 
+    object ExCeilCall {
+      def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
+        case Apply(ExSymbol("stainless", "math", "package$", "ceil"), Seq(rhs)) => Some(rhs)
+        case _ => None
+      }
+    }
+
+    object ExFloorCall {
+      def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
+        case Apply(ExSymbol("stainless", "math", "package$", "floor"), Seq(rhs)) => Some(rhs)
+        case _ => None
+      }
+    }
+
+    object ExRintCall {
+      def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
+        case Apply(ExSymbol("stainless", "math", "package$", "rint"), Seq(rhs)) => Some(rhs)
+        case _ => None
+      }
+    }
+
+    object ExFPAbsCall {
+      def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
+        case Apply(ExSymbol("stainless", "math", "package$", "abs"), Seq(rhs)) if hasFPType(tree) => Some(rhs)
+        case _ => None
+      }
+    }
+
+    object ExFPMinCall {
+      def unapply(tree: tpd.Tree): Option[(tpd.Tree, tpd.Tree)] = tree match {
+        case Apply(ExSymbol("stainless", "math", "package$", "min"), Seq(lhs, rhs)) if hasFPType(tree) => Some((lhs, rhs))
+        case _ => None
+      }
+    }
+
+    object ExFPMaxCall {
+      def unapply(tree: tpd.Tree): Option[(tpd.Tree, tpd.Tree)] = tree match {
+        case Apply(ExSymbol("stainless", "math", "package$", "max"), Seq(lhs, rhs)) if hasFPType(tree) => Some((lhs, rhs))
+        case _ => None
+      }
+    }
+
+    object ExFloatNaN {
+      def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
+        case s@ExSymbol("scala", "Float", "NaN") => Some(s)
+        case _ => None
+      }
+    }
+
     object ExDoubleToLongBits {
       def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
         case Apply(ExSymbol("java", "lang", "Double$", "doubleToLongBits"), Seq(rhs)) => Some(rhs)
@@ -509,9 +558,23 @@ trait ASTExtractors {
       }
     }
 
+    object ExDoubleToRawLongBits {
+      def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
+        case Apply(ExSymbol("java", "lang", "Double$", "doubleToRawLongBits"), Seq(rhs)) => Some(rhs)
+        case _ => None
+      }
+    }
+
     object ExFloatToIntBits {
       def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
         case Apply(ExSymbol("java", "lang", "Float$", "floatToIntBits"), Seq(rhs)) => Some(rhs)
+        case _ => None
+      }
+    }
+
+    object ExFloatToRawIntBits {
+      def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
+        case Apply(ExSymbol("java", "lang", "Float$", "floatToRawIntBits"), Seq(rhs)) => Some(rhs)
         case _ => None
       }
     }
