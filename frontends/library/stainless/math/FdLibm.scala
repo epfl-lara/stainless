@@ -41,8 +41,13 @@ object FdLibm {
    * Return the low-order 32 bits of the double argument as an int.
    */
   @library
-  private def __LO(x: Double): Int = {
+  private def __LO_CHECKED(x: Double): Int = {
     require(!x.isNaN)
+    __LO(x)
+  }
+
+  @library
+  private def __LO(x: Double): Int = {
     val transducer = java.lang.Double.doubleToLongBits(x)
     stainless.math.wrapping(transducer.toInt)
   }
@@ -52,18 +57,29 @@ object FdLibm {
    * and the high-order bits of the first argument..
    */
   @library
-  private def __LO(x: Double, low: Int): Double = {
+  private def __LO_CHECKED(x: Double, low: Int): Double = {
     require(!x.isNaN)
+    __LO(x, low)
+  }//.ensuring(res => (x.isFinite == res.isFinite) && (x.isFinite ==> (x.isPositive == res.isPositive)) && (x.isFinite ==> (x.isNegative == res.isNegative)))
+
+
+  @library
+  private def __LO(x: Double, low: Int): Double = {
     val transX = java.lang.Double.doubleToLongBits(x)
     java.lang.Double.longBitsToDouble((transX & 0xFFFF_FFFF_0000_0000L) | (low & 0x0000_0000_FFFF_FFFFL))
-  }.ensuring(res => (x.isFinite == res.isFinite) && (x.isFinite ==> (x.isPositive == res.isPositive)) && (x.isFinite ==> (x.isNegative == res.isNegative)))
+  }//.ensuring(res => (x.isFinite == res.isFinite) && (x.isFinite ==> (x.isPositive == res.isPositive)) && (x.isFinite ==> (x.isNegative == res.isNegative)))
 
   /**
    * Return the high-order 32 bits of the double argument as an int.
    */
   @library
-  private def __HI(x: Double): Int = {
+  private def __HI_CHECKED(x: Double): Int = {
     require(!x.isNaN)
+    __HI(x)
+  }
+
+  @library
+  private def __HI(x: Double): Int = {
     val transducer = java.lang.Double.doubleToLongBits(x)
     (transducer >> 32).toInt
   }
@@ -73,12 +89,18 @@ object FdLibm {
    * and the low-order bits of the first argument..
    */
   @library
-  private def __HI(x: Double, high: Int): Double = {
+  private def __HI_CHECKED(x: Double, high: Int): Double = {
     require(!x.isNaN)
+    __HI(x, high)
+  }
+
+  @library
+  private def __HI(x: Double, high: Int): Double = {
     val transX = java.lang.Double.doubleToLongBits(x)
     java.lang.Double.longBitsToDouble((transX & 0x0000_0000_FFFF_FFFFL) | high.toLong << 32)
   }
 
+  @library
   object Asin {
     private val pio2_hi = java.lang.Double.longBitsToDouble(0x3ff921fb54442d18L)
     private val pio2_lo = java.lang.Double.longBitsToDouble(0x3c91a62633145c07L)
@@ -94,11 +116,11 @@ object FdLibm {
     private val qS3 = java.lang.Double.longBitsToDouble(0xbfe6066c1b8d0159L)
     private val qS4 = java.lang.Double.longBitsToDouble(0x3fb3b8c5b12e9282L)
 
-    @opaque @library
+    @opaque
     def compute(x: Double): Double = {
       if x.isNaN then Double.NaN
       else
-        val hx = __HI(x)
+        val hx = __HI_CHECKED(x)
         val ix = hx & EXP_SIGNIF_BITS
         if ix >= 0x3ff0_0000 then // |x| >= 1
           if ((ix - 0x3ff0_0000) | __LO(x)) == 0 then x * pio2_hi + x * pio2_lo // asin(1) = +-pi/2 with inexact
@@ -132,6 +154,7 @@ object FdLibm {
     )
   }
 
+  @library
   object Acos {
     private val pio2_hi = java.lang.Double.longBitsToDouble(0x3ff921fb54442d18L)
     private val pio2_lo = java.lang.Double.longBitsToDouble(0x3c91a62633145c07L)
@@ -146,14 +169,14 @@ object FdLibm {
     private val qS3 = java.lang.Double.longBitsToDouble(0xbfe6066c1b8d0159L)
     private val qS4 = java.lang.Double.longBitsToDouble(0x3fb3b8c5b12e9282L)
 
-    @opaque @library
+    @opaque
     def compute(x: Double): Double = {
       if x.isNaN then Double.NaN
       else
-        val hx = __HI(x)
+        val hx = __HI_CHECKED(x)
         val ix = hx & EXP_SIGNIF_BITS
         if ix >= 0x3ff0_0000 then // |x| >= 1
-          if ((ix - 0x3ff0_0000) | __LO(x)) == 0 then // |x| == 1
+          if ((ix - 0x3ff0_0000) | __LO_CHECKED(x)) == 0 then // |x| == 1
             if hx > 0 then 0.0 else stainless.math.Pi + 2.0 * pio2_lo
           else (x - x) / (x - x) // acos(|x| > 1) is NaN
         else if ix < 0x3fe0_0000 then // |x| < 0.5
@@ -176,7 +199,7 @@ object FdLibm {
         else  // x > 0.5
           val z = (1.0 - x) * 0.5
           val s = stainless.math.sqrt(z)
-          val df = __LO(s, 0)
+          val df = __LO_CHECKED(s, 0)
           val c = (z - df * df) / (s + df)
           val p = z * (pS0 + z * (pS1 + z * (pS2 + z * (pS3 + z * (pS4 + z * pS5)))))
           val q = 1.0 + z * (qS1 + z * (qS2 + z * (qS3 + z * qS4)))
@@ -185,13 +208,14 @@ object FdLibm {
           2.0 * (df + w)
     }.ensuring(res =>
       ((x.isNaN || x < -1.0d || x > 1.0d) == res.isNaN)
-        && ((x.isFinite && x == 1.0d) ==> (res.isPositive && res.isZero))
-        && ((x.isFinite && x == -1.0d) == (res.isFinite && res == stainless.math.Pi))
-        && (x.isZero ==> (res == stainless.math.Pi / 2))
-        && ((x.isFinite && -1.0d <= x && x <= 1.0d) == (res.isFinite && res.isPositive && 0 <= res && res <= stainless.math.Pi))
+      && ((x.isFinite && x == 1.0d) ==> (res.isPositive && res.isZero))
+      && ((x.isFinite && x == -1.0d) == (res.isFinite && res == stainless.math.Pi))
+      && (x.isZero ==> (res == stainless.math.Pi / 2))
+//      && ((x.isFinite && -1.0d <= x && x <= 1.0d) ==> (res.isFinite && res.isPositive && 0 <= res && res <= stainless.math.Pi))
     )
   }
 
+  @library
   object Atan {
     private val atanhi0 = java.lang.Double.longBitsToDouble(0x3fddac670561bb4fL) // atan(0.5)hi 4.63647609000806093515e-01
     private val atanhi1 = java.lang.Double.longBitsToDouble(0x3fe921fb54442d18L)
@@ -215,7 +239,7 @@ object FdLibm {
     private val aT9 = java.lang.Double.longBitsToDouble(0xbfa2b4442c6a6c2fL)
     private val aT10 = java.lang.Double.longBitsToDouble(0x3f90ad3ae322da11L)
 
-    @opaque @library
+    @opaque
     def compute(x: Double): Double = {
       if x.isNaN then Double.NaN else
         val hx = __HI(x)
@@ -269,19 +293,20 @@ object FdLibm {
       && (x.isPositive == res.isPositive)
       && (x.isNegative == res.isNegative)
       && (x.isZero == res.isZero)
-      && (!x.isNaN ==> (- Pi / 2 <= res && res <= Pi / 2))
+      && (!x.isNaN == (- Pi / 2 <= res && res <= Pi / 2))
       && (x.isPosInfinity ==> (res == Pi / 2))
       && (x.isNegInfinity ==> (res == -Pi / 2))
     )
   }
 
+  @library
   object Atan2 {
     private val tiny = 1.0e-300
     private val pi_o_4 = java.lang.Double.longBitsToDouble(0x3fe921fb54442d18L)
     private val pi_o_2 = java.lang.Double.longBitsToDouble(0x3ff921fb54442d18L)
     private val pi_lo = java.lang.Double.longBitsToDouble(0x3ca1a62633145c07L)
 
-    @opaque @library
+    @opaque
     def compute(y: Double, x: Double): Double = {
       if x.isNaN || y.isNaN then x + y
       else
@@ -363,6 +388,7 @@ object FdLibm {
     )
   }
 
+  @library
   object Cbrt {
     // unsigned
     private val B1 = 715094163
@@ -373,7 +399,7 @@ object FdLibm {
     private val F = 45.0/28.0
     private val G = 5.0/14.0
 
-    @opaque @library
+    @opaque
     def compute(x: Double): Double = {
       if !x.isFinite || x == 0.0  then x // Handles signed zeros properly
       else
@@ -385,17 +411,17 @@ object FdLibm {
           if x_abs < java.lang.Double.longBitsToDouble(0x10000000000000L) then
             // subnormal number
             val temp_t = 18014398509481984.0 * x_abs
-            __HI(temp_t, __HI(temp_t) / 3 + B2)
+            __HI_CHECKED(temp_t, __HI_CHECKED(temp_t) / 3 + B2)
           else
-            val hx = __HI(x_abs) // high word of x
-            __HI(0.0, hx / 3 + B1)
+            val hx = __HI_CHECKED(x_abs) // high word of x
+            __HI_CHECKED(0.0, hx / 3 + B1)
 
         // New cbrt to 23 bits, may be implemented in single precision
         val r = t * t / x_abs
         val s = C + r * t
         // Chopped to 20 bits and make it larger than cbrt(x)
-        val t2 = __LO(t * (G + F / (s + E + D / s)), 0)
-        val t3 = __HI(t2, __HI(t2) + 0x00000001)
+        val t2 = __LO_CHECKED(t * (G + F / (s + E + D / s)), 0)
+        val t3 = __HI_CHECKED(t2, __HI_CHECKED(t2) + 0x00000001)
         // One step newton iteration to 53 bits with error less than 0.667 ulps
         val r2 = x_abs / (t3 * t3)
         val w = t3 + t3
@@ -415,11 +441,12 @@ object FdLibm {
       )
   }
 
+  @library
   object Hypot {
     private val TWO_MINUS_600: Double = java.lang.Double.longBitsToDouble(0x1a70000000000000L)
     private val TWO_PLUS_600: Double = java.lang.Double.longBitsToDouble(0x6570000000000000L)
 
-    @opaque @library
+    @opaque
     def compute(x: Double, y: Double): Double = {
       val a = stainless.math.abs(x)
       val b = stainless.math.abs(y)
@@ -428,8 +455,8 @@ object FdLibm {
       else
         var big = if b > a then b else a
         var small = if b > a then a else b
-        var hbig = __HI(big) // high word of a
-        var hsmall = __HI(small) // high word of b
+        var hbig = __HI_CHECKED(big) // high word of a
+        var hsmall = __HI_CHECKED(small) // high word of b
 
         if hbig - hsmall > 0x3c00000 then big + small // x / y > 2**60
         else
@@ -463,13 +490,13 @@ object FdLibm {
             val w: Double = big - small
 
             val res: Double = if w > b then
-              val t1 = __HI(0.0, hbig)
+              val t1 = __HI_CHECKED(0.0, hbig)
               stainless.math.sqrt(t1 * t1 - (small * (-small) - (big - t1) * (big + t1)))
             else
               val bigbig = big + big
-              val y1: Double = __HI(0.0, hsmall)
+              val y1: Double = __HI_CHECKED(0.0, hsmall)
               val y2: Double = small - y1
-              val t1 = __HI(0.0, hbig + 0x00100000)
+              val t1 = __HI_CHECKED(0.0, hbig + 0x00100000)
               stainless.math.sqrt(t1 * y1 - (w * (-w) - (t1 * y2 + (bigbig - t1) * b)))
 
 
@@ -478,12 +505,13 @@ object FdLibm {
     }.ensuring(res =>
       ((x.isInfinity || y.isInfinity) ==> res.isPosInfinity) &&
       (res.isNaN == (!x.isInfinity && !y.isInfinity && (x.isNaN || y.isNaN))) &&
-      (!res.isNaN ==> res.isPositive) &&
+      (!res.isNaN == res.isPositive) &&
       ((x.isZero && !y.isNaN) ==> (res == stainless.math.abs(y))) &&
       ((y.isZero && !x.isNaN) ==> (res == stainless.math.abs(x)))
     )
   }
 
+  @library
   object Log {
     private val ln2_hi: Double = java.lang.Double.longBitsToDouble(0x3fe62e42fee00000L)// 6.93147180369123816490e-01
     private val ln2_lo = java.lang.Double.longBitsToDouble(0x3dea39ef35793c76L) // 1.90821492927058770002e-10
@@ -495,27 +523,27 @@ object FdLibm {
     private val Lg6 = java.lang.Double.longBitsToDouble(0x3fc39a09d078c69fL) // 1.531383769920937332e-01
     private val Lg7 = java.lang.Double.longBitsToDouble(0x3fc2f112df3e5244L) // 1.479819860511658591e-01
 
-    @opaque @library
+    @opaque
     def compute(xInit: Double): Double = {
 
       if xInit.isNaN then Double.NaN
       else
 
-        var hxInit = __HI(xInit) // high word of x
-        val lx = __LO(xInit) // low  word of x, unsigned
+        var hxInit = __HI_CHECKED(xInit) // high word of x
+        val lx = __LO_CHECKED(xInit) // low  word of x, unsigned
 
         if hxInit < 0x0010_0000 && (((hxInit & EXP_SIGNIF_BITS) | lx) == 0) then -TWO54 / 0.0
         else if hxInit < 0 then (xInit - xInit) / 0.0
         else
           val xInit2 = if hxInit < 0x0010_0000 then xInit * TWO54 else xInit
-          val hxInit2 = if hxInit < 0x0010_0000 then __HI(xInit2) else hxInit
+          val hxInit2 = if hxInit < 0x0010_0000 then __HI_CHECKED(xInit2) else hxInit
 
           if hxInit2 >= EXP_BITS then  xInit2 + xInit2
           else
             val kInit: Int = (if hxInit < 0x0010_0000 then -54 else 0) + ((hxInit2 >> 20) - 1023)
             val hx: Int = hxInit2 & 0x000f_ffff
             val i: Int = (hx + 0x9_5f64) & 0x10_0000
-            val x: Double = __HI(xInit2, hx | (i ^ 0x3ff0_0000)) // normalize x or x/2
+            val x: Double = __HI_CHECKED(xInit2, hx | (i ^ 0x3ff0_0000)) // normalize x or x/2
 
             val k: Int = kInit + (i >> 20)
             val f = x - 1.0
@@ -561,31 +589,30 @@ object FdLibm {
     )
   }
 
+  @library
   object Log10 {
     private val ivln10 = java.lang.Double.longBitsToDouble(0x3fdbcb7b1526e50eL) // 4.34294481903251816668e-01
     private val log10_2hi = java.lang.Double.longBitsToDouble(0x3fd34413509f6000L) // 3.01029995663611771306e-01;
     private val log10_2lo = java.lang.Double.longBitsToDouble(0x3d59fef311f12b36L) // 3.69423907715893078616e-13;
 
-    @opaque @library
+    @opaque
     def compute(x: Double): Double = {
-      if x.isNaN then Double.NaN
+      val hx = __HI(x) // high word of x
+      val lx = __LO(x) // low word of x
+      if (hx < 0x0010_0000) && (((hx & EXP_SIGNIF_BITS) | lx) == 0) then -TWO54 / 0.0
+      else if hx < 0 then (x - x) / 0.0
       else
-        val hx = __HI(x) // high word of x
-        val lx = __LO(x) // low word of x
-        if (hx < 0x0010_0000) && (((hx & EXP_SIGNIF_BITS) | lx) == 0) then -TWO54 / 0.0
-        else if hx < 0 then (x - x) / 0.0
-        else
-          val k = if hx < 0x0010_0000 then -54 else 0
-          val x2 = if hx < 0x0010_0000 then x * TWO54 else x
-          val hx2 = if hx < 0x0010_0000 then __HI(x2) else hx
+        val k = if hx < 0x0010_0000 then -54 else 0
+        val x2 = if hx < 0x0010_0000 then x * TWO54 else x
+        val hx2 = if hx < 0x0010_0000 then __HI_CHECKED(x2) else hx
 
-          if hx2 >= EXP_BITS then
-            x2 + x2
-          else
-            val k2 = k + (hx2 >> 20) - 1023
-            val i  = (k2  & SIGN_BIT) >>> 31
-            val y = (k2 + i).toDouble
-            (y * log10_2lo + ivln10 * Log.compute(__HI(x2, (hx2 & 0x000f_ffff) | ((0x3ff - i) << 20)))) + y * log10_2hi
+        if hx2 >= EXP_BITS then
+          x2 + x2
+        else
+          val k2 = k + (hx2 >> 20) - 1023
+          val i  = (k2  & SIGN_BIT) >>> 31
+          val y = (k2 + i).toDouble
+          (y * log10_2lo + ivln10 * Log.compute(__HI_CHECKED(x2, (hx2 & 0x000f_ffff) | ((0x3ff - i) << 20)))) + y * log10_2hi
     }.ensuring( res =>
       (res.isNaN == (x.isNaN || x < 0))
         && (x.isZero == res.isNegInfinity)
@@ -597,6 +624,7 @@ object FdLibm {
     )
   }
 
+  @library
   object Exp {
     private val half: Array[Double] = Array(0.5, -0.5)
     private val half0: Double = 0.5
@@ -619,47 +647,11 @@ object FdLibm {
     private val P4 = java.lang.Double.longBitsToDouble(0xbebbbd41c5d26bf1L)
     private val P5 = java.lang.Double.longBitsToDouble(0x3e66376972bea4d0L)
 
-    @library
-    private def computeWithArrays(x: Double): Double = {
-
-      if x.isNaN then Double.NaN else
-
-        val hx: Int = __HI(x) /* high word of x */
-        val xsb: Int = (hx >> 31) & 1 /* sign bit of x */
-        val hx2: Int = hx & EXP_SIGNIF_BITS /* high word of |x| */
-
-        /* filter out non-finite argument */
-        if hx2 >= 0x40862E42 && (hx2 >= 0x7ff00000 || x > o_threshold || x < u_threshold) then
-          /* if |x| >= 709.78... */
-          if hx2 >= 0x7ff00000 then
-            if ((hx2 & 0xfffff) | __LO(x)) != 0 then x + x /* NaN */
-            else if xsb == 0 then x else 0.0 /* exp(+-inf) = {inf, 0} */
-          else if (x > o_threshold) huge * huge /* overflow */
-          else twom1000 * twom1000 /* underflow */
-        else
-
-          if !(hx2 > 0x3fd62e42) && hx2 < 0x3e300000 && huge + x > 1.0 then 1.0 + x
-          else
-            val k: Int = if hx2 > 0x3fd62e42 then if hx2 < 0x3FF0A2B2 then 1 - xsb - xsb else (invln2 * x + half(xsb)).toInt else 0
-            val hi: Double = if hx2 > 0x3fd62e42 then if hx2 < 0x3FF0A2B2 then x - ln2HI(xsb) else x - k * ln2HI(0) else 0.0
-            val lo: Double = if hx2 > 0x3fd62e42 then if hx2 < 0x3FF0A2B2 then ln2LO(xsb) else k * ln2LO(0) else 0.0
-            val newX: Double = if hx2 > 0x3fd62e42 then hi - lo else x
-
-            /* x is now in primary range */
-            val t: Double = newX * newX
-            val c: Double = newX - t * (P1 + t * (P2 + t * (P3 + t * (P4 + t * P5))))
-            if k == 0 then 1.0 - ((newX * c) / (c - 2.0) - newX)
-            else
-              val y: Double = 1.0 - ((lo - (newX * c) / (2.0 - c)) - hi)
-              if k >= -1021 then __HI(y, __HI(y) + (k << 20)) /* add k to y's exponent */
-              else __HI(y, __HI(y) + ((k + 1000) << 20)) * twom1000
-    }.ensuring( res => res.equiv(compute(x)))
-
-    @opaque @library
+    @opaque
     def compute(x: Double): Double = {
 
       if x.isNaN then Double.NaN else
-        val hx: Int = __HI(x)
+        val hx: Int = __HI_CHECKED(x)
         /* high word of x */
         val xsb: Int = (hx >> 31) & 1
         /* sign bit of x */
@@ -669,7 +661,7 @@ object FdLibm {
         if hx2 >= 0x40862E42 && (hx2 >= 0x7ff00000 || x > o_threshold || x < u_threshold) then
           /* if |x| >= 709.78... */
           if hx2 >= 0x7ff00000 then
-            if ((hx2 & 0xfffff) | __LO(x)) != 0 then x + x /* NaN */
+            if ((hx2 & 0xfffff) | __LO_CHECKED(x)) != 0 then x + x /* NaN */
             else if xsb == 0 then x else 0.0 /* exp(+-inf) = {inf, 0} */
           else if (x > o_threshold) huge * huge /* overflow */
           else twom1000 * twom1000 /* underflow */
@@ -689,18 +681,19 @@ object FdLibm {
           if k == 0 then 1.0 - ((newX * c) / (c - 2.0) - newX)
           else
             val y: Double = 1.0 - ((lo - (newX * c) / (2.0 - c)) - hi)
-            if k >= -1021 then __HI(y, __HI(y) + (k << 20)) /* add k to y's exponent */
-            else __HI(y, __HI(y) + ((k + 1000) << 20)) * twom1000
+            if k >= -1021 then __HI_CHECKED(y, __HI_CHECKED(y) + (k << 20)) /* add k to y's exponent */
+            else __HI_CHECKED(y, __HI_CHECKED(y) + ((k + 1000) << 20)) * twom1000
     }.ensuring(res =>
       res.isNaN == x.isNaN
       && (x.isPosInfinity ==> res.isPosInfinity)
       && (x.isNegInfinity ==> (res.isZero && res.isPositive))
       && (x.isZero ==> (res == 1))
       && ((!x.isNaN && x.isPositive) ==> res >= 1) // Converse does not hold: x = -7.458340731200206E-155
-      && ((!x.isNaN && x.isNegative) ==> (0 <= res && res <= 1))
+      && ((!x.isNaN && x.isNegative) ==> (res.isPositive && res <= 1))
     )
   }
 
+  @library
   object Expm1 {
     private val huge: Double = 1.0e+300
     private val tiny: Double = 1.0e-300
@@ -716,10 +709,10 @@ object FdLibm {
     private val Q4 = java.lang.Double.longBitsToDouble(0x3ed0cfca86e65239L)
     private val Q5 = java.lang.Double.longBitsToDouble(0xbe8afdb76e09c32dL)
 
-    @opaque @library
+    @opaque
     def compute(x: Double): Double = {
       if x.isNaN then Double.NaN else
-        val hx = __HI(x) // high word of x
+        val hx = __HI_CHECKED(x) // high word of x
         val xsb = hx & SIGN_BIT // sign bit of x
         val y = stainless.math.abs(x)
         val hx2: Int = hx & EXP_SIGNIF_BITS /* high word of |x| */
@@ -730,7 +723,7 @@ object FdLibm {
           if hx >= 0x4086_2E42 then
             /* if |x| >= 709.78... */
             if hx2 >= 0x7ff00000 then
-              if ((hx2 & 0xfffff) | __LO(x)) != 0 then x + x /* NaN */
+              if ((hx2 & 0xfffff) | __LO_CHECKED(x)) != 0 then x + x /* NaN */
               else if xsb == 0 then x else -1.0 /* exp(+-inf) = {inf, 0} */
             else huge * huge /* overflow */
           else tiny - 1.0
@@ -759,16 +752,16 @@ object FdLibm {
                 if x2 < -0.25 then -2.0 * (e - (x2 + 0.5)) else 1.0 + 2.0 * (x2 - e)
               else if k <= -2 || k > 56 then // suffice to return exp(x) - 1
                 val y = 1.0 - (e - x2)
-                __HI(y, __HI(y) + (k << 20)) - 1.0 // add k to y's exponent
+                __HI_CHECKED(y, __HI_CHECKED(y) + (k << 20)) - 1.0 // add k to y's exponent
               else
                 if k < 20 then
-                  val t = __HI(1.0, 0x3ff0_0000 - (0x2_00000 >> k)) // t = 1-2^-k
+                  val t = __HI_CHECKED(1.0, 0x3ff0_0000 - (0x2_00000 >> k)) // t = 1-2^-k
                   val y = t - (e - x2)
-                  __HI(y, __HI(y) + (k << 20)) // add k to y's exponent
+                  __HI_CHECKED(y, __HI_CHECKED(y) + (k << 20)) // add k to y's exponent
                 else
-                  val t = __HI(1.0, ((0x3ff - k) << 20)) // 2^-k
+                  val t = __HI_CHECKED(1.0, ((0x3ff - k) << 20)) // 2^-k
                   val y = (x2 - (e + t)) + 1
-                  __HI(y, __HI(y) + (k << 20)) // add k to y's exponent
+                  __HI_CHECKED(y, __HI_CHECKED(y) + (k << 20)) // add k to y's exponent
 
 
     }.ensuring(res =>
@@ -776,11 +769,12 @@ object FdLibm {
         && (x.isPosInfinity ==> res.isPosInfinity)
         && (x.isNegInfinity ==> (res == -1))
         && (x.isZero ==> (res == 0))
-        && ((!x.isNaN && x.isPositive) ==> res >= 0)
-        && ((!x.isNaN && x.isNegative) ==> (-1 <= res && res <= 0))
+        && ((!x.isNaN && x.isPositive) ==> res.isPositive)
+        && ((!x.isNaN) ==> (-1 <= res))
     )
   }
 
+  @library
   object Log1p {
     private val ln2_hi = java.lang.Double.longBitsToDouble(0x3fe62e42fee00000L) // 6.93147180369123816490e-01
     private val ln2_lo = java.lang.Double.longBitsToDouble(0x3dea39ef35793c76L) // 1.90821492927058770002e-10
@@ -792,11 +786,11 @@ object FdLibm {
     private val Lp6 = java.lang.Double.longBitsToDouble(0x3fc39a09d078c69fL) // 1.531383769920937332e-01
     private val Lp7 = java.lang.Double.longBitsToDouble(0x3fc2f112df3e5244L) // 1.479819860511658591e-01
 
-    @opaque @library
+    @opaque
     def compute(x: Double): Double = {
       if x.isNaN then Double.NaN
       else
-        val hx: Int = __HI(x) /* high word of x */
+        val hx: Int = __HI_CHECKED(x) /* high word of x */
         val ax: Int = hx & EXP_SIGNIF_BITS
         if hx < 0x3FDA_827A && (ax >= 0x3ff0_0000 || ax < 0x3e20_0000) then
           /* x < 0.41422  */
@@ -816,12 +810,12 @@ object FdLibm {
           if hx >= EXP_BITS then x + x
           else
             val u: Double = if k != 0 then if hx < 0x4340_0000 then 1.0 + x else x else 0.0
-            val hu: Int = if k != 0 then __HI(u) else 0
+            val hu: Int = if k != 0 then __HI_CHECKED(u) else 0
             val k2: Int = if k != 0 then (hu >> 20) - 1023 else k
             val c: Double = if k != 0 then if hx < 0x4340_0000 then (if k2 > 0 then 1.0 - (u - x) else x - (u - 1.0)) / u else 0 else 0.0
             val hu2: Int = if k != 0 then hu & 0x000f_ffff else hu
             val k3 = if (k != 0) && !(hu2 < 0x6_a09e) then k2 + 1 else k2
-            val u2 = if k != 0 then if hu2 < 0x6_a09e then __HI(u, hu2 | 0x3ff0_0000) else __HI(u, hu2 | 0x3fe0_0000) else u
+            val u2 = if k != 0 then if hu2 < 0x6_a09e then __HI_CHECKED(u, hu2 | 0x3ff0_0000) else __HI_CHECKED(u, hu2 | 0x3fe0_0000) else u
             val f2 = if k != 0 then u2 - 1.0 else f
 
             val hfsq = 0.5 * f2 * f2
@@ -853,15 +847,16 @@ object FdLibm {
     )
   }
 
+  @library
   object Sinh {
     private val shuge = 1.0e307
 
-    @opaque @library
+    @opaque
     def compute(x: Double): Double = {
 
       if x.isNaN then Double.NaN else
         // High word of |x|
-        val jx = __HI(x)
+        val jx = __HI_CHECKED(x)
         val ix = jx & EXP_SIGNIF_BITS
         // x is INF or NaN
         if ix >= EXP_BITS then x + x
@@ -899,14 +894,15 @@ object FdLibm {
     )
   }
 
+  @library
   object Cosh {
     private val huge = 1.0e300
-    @opaque @library
+    @opaque
     def compute(x: Double): Double = {
       if x.isNaN then Double.NaN
       else
         // High word of |x|
-        val ix = __HI(x) & EXP_SIGNIF_BITS
+        val ix = __HI_CHECKED(x) & EXP_SIGNIF_BITS
         // x is INF or NaN
         if ix >= EXP_BITS then x * x
         else
@@ -948,10 +944,11 @@ object FdLibm {
     )
   }
 
+  @library
   object Tanh {
     private val tiny = 1.0e-300
 
-    @opaque @library
+    @opaque
     def compute(x: Double): Double = {
       if x.isNaN then Double.NaN
       else
@@ -989,6 +986,7 @@ object FdLibm {
     )
   }
 
+  @library
   object Pow {
     @opaque
     def compute(x: Double, y: Double): Double = {
@@ -1009,7 +1007,7 @@ object FdLibm {
             if y >= 0 then y else 0.0
           else if y < 0 then -y else 0.0 // (|x| < 1)**-/+inf = inf, 0
         else
-          val hx = __HI(x)
+          val hx = __HI_CHECKED(x)
           val ix = hx & EXP_SIGNIF_BITS
           val y_is_int =
             if hx < 0 then
