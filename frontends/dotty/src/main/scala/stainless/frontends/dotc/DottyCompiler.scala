@@ -82,10 +82,13 @@ private class DottyDriver(args: Seq[String], compiler: DottyCompiler, reporter: 
       .map(_._1.map(_.path))
       .getOrElse {
         reporter.reporter.debug(f"No input file found in given argument list ${args.toList}")(using DebugSectionFrontend)
-        reporter.reporter.fatalError(f"No input file given.")
+        reporter.reporter.warning(f"No input file given. Will produce no verfication conditions.")
+        Nil
       }
 
-  def run(): Unit = process(args.toArray, reporter)
+  def run(): Unit = 
+    if files.isEmpty then ()
+    else process(args.toArray, reporter)
 }
 
 private class SimpleReporter(val reporter: inox.Reporter) extends DottyReporter {
