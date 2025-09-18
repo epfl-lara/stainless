@@ -243,7 +243,10 @@ private class TreeDecoder[Prog <: Program](val sourceProgram: Prog)
 
     case s.ADT(arrayCons.id, Seq(base), Seq(s.FiniteMap(elems, dflt, _, _), size)) =>
       t.LargeArray(
-        elems.map { case (s.Int32Literal(i), e) => i -> transform(e) }.toMap,
+        elems.map { 
+          case (s.Int32Literal(i), e) => i -> transform(e)
+          case (_, _) => throw MatchError(s"Cannot transform elements of array $arrayCons")
+        }.toMap,
         transform(dflt),
         transform(size),
         transform(base)

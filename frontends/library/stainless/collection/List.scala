@@ -104,15 +104,18 @@ sealed abstract class List[T] {
     }
  }.ensuring(res => (res.size == size) && (res.isize == isize) && (res.content == content))
 
-  def take(i: BigInt): List[T] = { (this, i) match {
-    case (Nil(), _) => Nil[T]()
-    case (Cons(h, t), i) =>
-      if (i <= BigInt(0)) {
-        Nil[T]()
-      } else {
-        Cons(h, t.take(i-1))
-      }
-  }}.ensuring { res =>
+  def take(i: BigInt): List[T] = { 
+    decreases(this.length)
+    (this, i) match {
+      case (Nil(), _) => Nil[T]()
+      case (Cons(h, t), i) =>
+        if (i <= BigInt(0)) {
+          Nil[T]()
+        } else {
+          Cons(h, t.take(i-1))
+        }
+    }
+  }.ensuring { res =>
     res.content.subsetOf(this.content) && (res.size == (
       if      (i <= 0)         BigInt(0)
       else if (i >= this.size) this.size
@@ -242,12 +245,15 @@ sealed abstract class List[T] {
   }
 
   @isabelle.function(term = "List.zip")
-  def zip[B](that: List[B]): List[(T, B)] = { (this, that) match {
-    case (Cons(h1, t1), Cons(h2, t2)) =>
-      Cons((h1, h2), t1.zip(t2))
-    case _ =>
-      Nil[(T, B)]()
-  }}.ensuring { _.size == (
+  def zip[B](that: List[B]): List[(T, B)] = { 
+    decreases(that.size)
+    (this, that) match {
+      case (Cons(h1, t1), Cons(h2, t2)) =>
+        Cons((h1, h2), t1.zip(t2))
+      case _ =>
+        Nil[(T, B)]()
+    }
+  }.ensuring { _.size == (
     if (this.size <= that.size) this.size else that.size
   )}
 
