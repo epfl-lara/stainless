@@ -7,8 +7,9 @@ import stainless.lang.*
 private object LongHelpers {
   @library
   def compare(x: Long, y: Long): Int = if x < y then -1 else if x == y then 0 else 1
+
   @library
-  def compareUnsigned(x: Long, y: Long): Int = compare(x + Long.MinValue, y + Long.MinValue)
+  def compareUnsigned(x: Long, y: Long): Int = math.wrapping(compare(x + Long.MinValue, y + Long.MinValue))
 }
 
 private object IntHelpers {
@@ -16,7 +17,7 @@ private object IntHelpers {
   def compare(x: Int, y: Int): Int = if x < y then -1 else if x == y then 0 else 1
 
   @library
-  def compareUnsigned(x: Int, y: Int): Int = compare(x + Int.MinValue, y + Int.MinValue)
+  def compareUnsigned(x: Int, y: Int): Int = math.wrapping(compare(x + Int.MinValue, y + Int.MinValue))
 }
 
 object FdLibm {
@@ -293,7 +294,7 @@ object FdLibm {
       && (x.isPositive == res.isPositive)
       && (x.isNegative == res.isNegative)
       && (x.isZero == res.isZero)
-      && (!x.isNaN == (- Pi / 2 <= res && res <= Pi / 2))
+      && (!x.isNaN == (!res.isNaN && (- Pi / 2 <= res && res <= Pi / 2)))
       && (x.isPosInfinity ==> (res == Pi / 2))
       && (x.isNegInfinity ==> (res == -Pi / 2))
     )
@@ -318,7 +319,7 @@ object FdLibm {
         val ly = __LO(y)
 
 
-        if ((hx - 0x3ff0_0000) | lx) == 0 then Atan.compute(y) // x = 1.0
+        if (math.wrapping(hx - 0x3ff0_0000) | lx) == 0 then Atan.compute(y) // x = 1.0
         else
 
           val m = ((hy >> 31) & 1) | ((hx >> 30) & 2) // 2*sign(x) + sign(y)
@@ -432,8 +433,8 @@ object FdLibm {
         (x.isPosInfinity ==> res.isPosInfinity) &&
         (x.isNegInfinity ==> res.isNegInfinity) &&
         (x.isZero == res.isZero) &&
-        ((x == 1) ==> (res == 1)) &&
-        ((x == -1) ==> (res == -1)) &&
+        ((!x.isNaN && x == 1) ==> (res == 1)) &&
+        ((!x.isNaN && x == -1) ==> (res == -1)) &&
         (x.isPositive == res.isPositive) &&
         (x.isNegative == res.isNegative) &&
         ((x.isFinite && stainless.math.abs(x) > 1) ==> stainless.math.abs(res) < stainless.math.abs(x)) &&
@@ -616,8 +617,8 @@ object FdLibm {
     }.ensuring( res =>
       (res.isNaN == (x.isNaN || x < 0))
         && (x.isZero == res.isNegInfinity)
-        && ((x == 1.0) ==> (res.isZero && res.isPositive))
-        && ((x >= 1.0) == res.isPositive)
+        && ((!x.isNaN && x == 1.0) ==> (res.isZero && res.isPositive))
+        && ((!x.isNaN && x >= 1.0) == res.isPositive)
         && (res.isNegative ==> (x < 1.0))
         && ((x.isFinite && x >= 0) ==> res < x)
         && (x.isPosInfinity == res.isPosInfinity)
@@ -762,14 +763,12 @@ object FdLibm {
                   val t = __HI_CHECKED(1.0, ((0x3ff - k) << 20)) // 2^-k
                   val y = (x2 - (e + t)) + 1
                   __HI_CHECKED(y, __HI_CHECKED(y) + (k << 20)) // add k to y's exponent
-
-
     }.ensuring(res =>
       (res.isNaN == x.isNaN)
         && (x.isPosInfinity ==> res.isPosInfinity)
         && (x.isNegInfinity ==> (res == -1))
         && (x.isZero ==> (res == 0))
-        && ((!x.isNaN && x.isPositive) ==> res.isPositive)
+        && (x.isPositive == res.isPositive)
         && ((!x.isNaN) ==> (-1 <= res))
     )
   }
@@ -917,26 +916,26 @@ object FdLibm {
             // |x| in [0.5*ln2, 22], return (exp(|x|) + 1/exp(|x|)/2
             if ix < 0x4036_0000 then
               val t = Exp.compute(stainless.math.abs(x))
-              unfold(Exp.compute(stainless.math.abs(x)))
+//              unfold(Exp.compute(stainless.math.abs(x)))
               0.5 * t + 0.5 / t
             else
               // |x| in [22, log(maxdouble)] return 0.5*exp(|x|)
               if ix < 0x4086_2E42 then {
-                unfold(Exp.compute(stainless.math.abs(x)))
+//                unfold(Exp.compute(stainless.math.abs(x)))
                 0.5 * Exp.compute(stainless.math.abs(x))
               } else
                 // |x| in [log(maxdouble), overflowthreshold]
                 val lx = __LO(x)
                 if ix < 0x4086_33CE || ((ix == 0x4086_33ce) && (IntHelpers.compareUnsigned(lx, 0x8fb9_f87d) <= 0)) then
                   val w = Exp.compute(0.5 * stainless.math.abs(x))
-                  unfold(Exp.compute(0.5 * stainless.math.abs(x)))
+//                  unfold(Exp.compute(0.5 * stainless.math.abs(x)))
                   val t = 0.5 * w
                   t * w
                 else
                   // |x| > overflowthreshold, cosh(x) overflow
                   huge * huge
     }.ensuring(res =>
-      res.isNaN == x.isNaN
+      (x.isNaN == res.isNaN)
 //        && (!x.isNaN ==> (res >= 1))
         && (!x.isNaN ==> res.isPositive)
         && (x.isInfinity ==> res.isPosInfinity)
@@ -976,8 +975,8 @@ object FdLibm {
                 1.0 - tiny // raised inexact flag
             if jx >= 0 then z else -z
     }.ensuring(res =>
-      (x.isNaN == x.isNaN)
-      && (!x.isNaN ==> (-1 <= res && res <= 1))
+      (x.isNaN == res.isNaN)
+      && (!x.isNaN ==> (!res.isNaN && -1 <= res && res <= 1))
       && (x.isPositive ==> res >= 0)
       && (x.isNegative ==> res <= 0)
       && (x.isNegInfinity ==> (res == -1))
@@ -991,7 +990,7 @@ object FdLibm {
     @opaque
     def compute(x: Double, y: Double): Double = {
       // y == zero: x**0 = 1
-      if y == 0.0 then 1.0
+      if y.isZero then 1.0
       else if x.isNaN || y.isNaN then x + y
       else
         val y_abs = stainless.math.abs(y)
@@ -1193,13 +1192,14 @@ object FdLibm {
                 // assert(y1.isFinite)
 
                 val p_l: Double = (y - y1) * t1 + y * t2
-                // assert(!p_l.isNaN)
                 val p_h2: Double = y1 * t1
                 val z: Double = p_l + p_h2
-                // assert(!z.isNaN)
                 val j2: Int = __HI(z)
                 val i: Int = __LO(z)
 
+                // the two asserts below yield better strict-arithmetic verification times
+                // assert(!p_l.isNaN)
+                // assert(!(z - p_h2).isNaN)
                 if j2 >= 0x40900000 && (((j2 - 0x40900000) | i) != 0 || p_l + 8.0085662595372944372e-0017 > z - p_h2) then s * Double.PositiveInfinity // Overflow
                 else if (j2 & EXP_SIGNIF_BITS) >= 0x4090cc00 && (((j2 - 0xc090cc00) | i) != 0 || p_l <= z - p_h2) then s * 0.0
                 else
@@ -1231,7 +1231,8 @@ object FdLibm {
                   val z3 = 1.0 - (((z2 * t1Final) / (t1Final - 2.0) - (wFinal + z2 * wFinal)) - z2)
                   // assert(!z3.isNaN)
                   val hi_z3 = __HI(z3)
-                  val j3 = hi_z3 + (m3 << 20)
+                  val j3 = hi_z3 + (m3 << 20) // addition overflow check slow
+                  // substituting j3 for hi_z3 + (m3 << 20) in the line below yields better strict-arithmetic performance
                   val z4 =
                     if (j3 >> 20) <= 0 then stainless.math.scalb(z3, m3) else __HI(z3, hi_z3 + (m3 << 20))
                   s * z4
