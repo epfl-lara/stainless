@@ -500,7 +500,10 @@ package object math {
       else java.lang.Float.intBitsToFloat(java.lang.Float.floatToIntBits(f) + (if f > 0.0 then -1 else +1));
   }
 
+  @library
   private val twoToTheDoubleScaleUp: Double = powerOfTwoD(512)
+
+  @library
   private val twoToTheDoubleScaleDown: Double = powerOfTwoD(-512)
 
   @library
