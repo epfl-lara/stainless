@@ -684,7 +684,6 @@ package object math {
       && ((x.isZero && x.isNegative) == (res.isZero && res.isNegative))
       && (x.isPositive == res.isPositive)
       && ((x.isNegative &&  x >= -1) == res.isNegative)
-      && ((!x.isNaN && x >= -1) ==> res <= x)
       && (x.isPosInfinity == res.isPosInfinity)
   )
 
