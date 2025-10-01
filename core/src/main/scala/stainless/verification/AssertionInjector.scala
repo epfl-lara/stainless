@@ -309,10 +309,10 @@ class AssertionInjector(override val s: ast.Trees, override val t: ast.Trees, va
           t.Not(t.FPIsNaN(expr)).copiedFrom(e),
           Some("Safe floating-point to integer cast non-NaN check"),
           t.Assert( // For this assertion and the next one, we may assume that `expr` is not `NaN`.
-            t.FPGreaterThan(expr, t.FPCast(exponent, significand, t.RoundTowardNegative, bvLb)).copiedFrom(e),
+            t.FPGreaterEquals(expr, t.FPCast(exponent, significand, t.RoundTowardNegative, bvLb)).copiedFrom(e),
             Some("Safe floating-point to integer cast lower bound"),
             t.Assert(
-              t.FPLessThan(expr, t.FPCast(exponent, significand, t.RoundTowardPositive, bvUb)).copiedFrom(e),
+              t.FPLessEquals(expr, t.FPCast(exponent, significand, t.RoundTowardPositive, bvUb)).copiedFrom(e),
               Some("Safe floating-point to integer cast upper bound"),
               t.FPToBVJVM(exponent, significand, toSize, expr).copiedFrom(e)
             ).copiedFrom(e)
