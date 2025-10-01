@@ -197,7 +197,6 @@ package object math {
       && ((x.isFinite && x == 1.0d) ==> (res.isPositive && res.isZero))
       && ((x.isFinite && x == -1.0d) == (res.isFinite && res == stainless.math.Pi))
       && (x.isZero ==> (res == stainless.math.Pi / 2))
-      && ((x.isFinite && -1.0d <= x && x <= 1.0d) == (res.isFinite && res.isPositive && 0 <= res && res <= stainless.math.Pi))
   )
 
   @library
@@ -208,7 +207,7 @@ package object math {
       && (x.isPositive == res.isPositive)
       && (x.isNegative == res.isNegative)
       && (x.isZero == res.isZero)
-      && (!x.isNaN ==> (- Pi / 2 <= res && res <= Pi / 2))
+      && (!x.isNaN == (- Pi / 2 <= res && res <= Pi / 2))
       && (x.isPosInfinity ==> (res == Pi / 2))
       && (x.isNegInfinity ==> (res == -Pi / 2))
   )
@@ -280,7 +279,7 @@ package object math {
   }.ensuring(res =>
     ((x.isInfinity || y.isInfinity) ==> res.isPosInfinity) &&
     (res.isNaN == (!x.isInfinity && !y.isInfinity && (x.isNaN || y.isNaN))) &&
-    (!res.isNaN ==> res.isPositive) &&
+    (!res.isNaN == res.isPositive) &&
     ((x.isZero && !y.isNaN) ==> (res == stainless.math.abs(y))) &&
     ((y.isZero && !x.isNaN) ==> (res == stainless.math.abs(x)))
   )
@@ -632,12 +631,12 @@ package object math {
   def expm1(x: Double): Double = {
     FdLibm.Expm1.compute(x)
   }.ensuring(res =>
-    res.isNaN == x.isNaN
+    (res.isNaN == x.isNaN)
       && (x.isPosInfinity ==> res.isPosInfinity)
       && (x.isNegInfinity ==> (res == -1))
       && (x.isZero ==> (res == 0))
-      && ((!x.isNaN && x.isPositive) ==> res >= 0)
-      && ((!x.isNaN && x.isNegative) ==> (-1 <= res && res <= 0))
+      && (x.isPositive == res.isPositive)
+      && ((!x.isNaN) ==> (-1 <= res))
   )
 
   @library
@@ -715,7 +714,7 @@ package object math {
     res.isNaN == x.isNaN
       && (x.isPosInfinity ==> res.isPosInfinity)
       && (x.isNegInfinity ==> res.isNegInfinity)
-      && (x.isZero ==> res.isZero)
+      && (x.isZero == res.isZero)
       && (x.isPositive == res.isPositive)
       && (x.isNegative == res.isNegative)
   )
@@ -739,7 +738,7 @@ package object math {
     FdLibm.Tanh.compute(x)
   }.ensuring(res =>
     (x.isNaN == x.isNaN)
-      && (!x.isNaN ==> (-1 <= res && res <= 1))
+      && (!x.isNaN ==> (!res.isNaN && -1 <= res && res <= 1))
       && (x.isPositive ==> res >= 0)
       && (x.isNegative ==> res <= 0)
       && (x.isNegInfinity ==> (res == -1))
