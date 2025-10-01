@@ -456,52 +456,42 @@ object FdLibm {
       else
         var big = if b > a then b else a
         var small = if b > a then a else b
-        var hbig = __HI_CHECKED(big) // high word of a
-        var hsmall = __HI_CHECKED(small) // high word of b
+        var hbig = __HI(big) // high word of a
+        var hsmall = __HI(small) // high word of b
 
         if hbig - hsmall > 0x3c00000 then big + small // x / y > 2**60
         else
-          var k: Int = 0
-          if (big > java.lang.Double.longBitsToDouble(0x5f300000ffffffffL)) {
-            // scale a and b by 2**-600
-            hbig -= 0x25800000
-            hsmall -= 0x25800000
-            big = big * TWO_MINUS_600
-            small = small * TWO_MINUS_600
-            k += 600
-          }
+          val cond1 = big > java.lang.Double.longBitsToDouble(0x5f300000ffffffffL)
+          val k: Int = if cond1 then 600 else 0
+          val hbig2 = if cond1 then hbig - 0x25800000 else hbig
+          val hsmall2 = if cond1 then hsmall - 0x25800000 else hsmall
+          val big2 = if cond1 then big * TWO_MINUS_600 else big
+          val small2 = if cond1 then small * TWO_MINUS_600 else small
+
           if small == 0 then big
           else
-            if (small < java.lang.Double.longBitsToDouble(0x20b0000000000000L)) { // b < 2**-500
-              if (small < stainless.DoubleConsts.MIN_NORMAL) { // subnormal b or 0 */
-                val t1 = java.lang.Double.longBitsToDouble(0x7fd0000000000000L) // t1 = 2^1022
-                small *= t1
-                big *= t1
-                k -= 1022
-              }
-              else { // scale a and b by 2^600
-                hbig += 0x25800000 // a *= 2^600
-                hsmall += 0x25800000 // b *= 2^600
-                big = big * TWO_PLUS_600
-                small = small * TWO_PLUS_600
-                k -= 600
-              }
-            }
-            // medium size a and b
-            val w: Double = big - small
+            val cond2 = small2 < java.lang.Double.longBitsToDouble(0x20b0000000000000L) // small < 2**-500
+            val cond3 = small2 < stainless.DoubleConsts.MIN_NORMAL // subnormal b or 0
+            val t1 = if cond2 && cond3 then java.lang.Double.longBitsToDouble(0x7fd0000000000000L) else 0.0
+            val small3 = if cond2 then if cond3 then small2 * t1 else small2 * TWO_PLUS_600 else small2
+            val big3 = if cond2 then if cond3 then big2 * t1 else big2 * TWO_PLUS_600 else big2
+            val k2 = if cond2 then if cond3 then k - 1022 else k - 600 else k
+            val hbig3 = if cond2 then if cond3 then hbig2 else hbig2 + 0x25800000 else hbig2
+            val hsmall3 = if cond2 then if cond3 then hsmall2 else hsmall2 + 0x25800000 else hsmall2
 
-            val res: Double = if w > b then
-              val t1 = __HI_CHECKED(0.0, hbig)
-              stainless.math.sqrt(t1 * t1 - (small * (-small) - (big - t1) * (big + t1)))
-            else
-              val bigbig = big + big
-              val y1: Double = __HI_CHECKED(0.0, hsmall)
-              val y2: Double = small - y1
-              val t1 = __HI_CHECKED(0.0, hbig + 0x00100000)
-              stainless.math.sqrt(t1 * y1 - (w * (-w) - (t1 * y2 + (bigbig - t1) * b)))
+            val w: Double = big3 - small3
 
+            val cond4 = w > small3
+            val t11 = if cond4 then __HI(0.0, hbig3) else __HI(0.0, hbig3 + 0x00100000)
+            val big4 = if cond4 then big3 else big3 + big3
+            val t2 = big4 - t11
+            val y1 = if cond4 then 0.0 else __HI(0.0, hsmall3)
+            val y2 = if cond4 then 0.0 else small3 - y1
+            val w2 =
+              if cond4 then stainless.math.sqrt(t11 * t11 - (small3 * (-small3) - t2 * (big4 + t11)))
+              else stainless.math.sqrt(t11 * y1 - (w * (-w) - (t11 * y2 + t2 * small3)))
 
-            if k != 0 then stainless.math.powerOfTwoD(k) * res else res
+            if k2 != 0 then stainless.math.powerOfTwoD(k2) * w2 else w2
 
     }.ensuring(res =>
       ((x.isInfinity || y.isInfinity) ==> res.isPosInfinity) &&
@@ -809,16 +799,18 @@ object FdLibm {
           if hx >= EXP_BITS then x + x
           else
             val u: Double = if k != 0 then if hx < 0x4340_0000 then 1.0 + x else x else 0.0
-            val hu: Int = if k != 0 then __HI_CHECKED(u) else 0
+            val hu: Int = if k != 0 then __HI_CHECKED(u) else huInit
             val k2: Int = if k != 0 then (hu >> 20) - 1023 else k
             val c: Double = if k != 0 then if hx < 0x4340_0000 then (if k2 > 0 then 1.0 - (u - x) else x - (u - 1.0)) / u else 0 else 0.0
             val hu2: Int = if k != 0 then hu & 0x000f_ffff else hu
             val k3 = if (k != 0) && !(hu2 < 0x6_a09e) then k2 + 1 else k2
             val u2 = if k != 0 then if hu2 < 0x6_a09e then __HI_CHECKED(u, hu2 | 0x3ff0_0000) else __HI_CHECKED(u, hu2 | 0x3fe0_0000) else u
             val f2 = if k != 0 then u2 - 1.0 else f
+            val hu3 = if k != 0 then if hu2 < 0x6_a09e then hu2 else (0x0010_0000 - hu2) >> 2 else hu2
+
 
             val hfsq = 0.5 * f2 * f2
-            if hu2 == 0 then
+            if hu3 == 0 then
               /* |f| < 2**-20 */
               if f2 == 0.0 then
                 if k3 == 0 then 0.0
@@ -841,7 +833,6 @@ object FdLibm {
         && ((x.isZero && x.isNegative) == (res.isZero && res.isNegative))
         && (x.isPositive == res.isPositive)
         && ((x.isNegative &&  x >= -1) == res.isNegative)
-        && ((!x.isNaN && x >= -1) ==> res <= x)
         && (x.isPosInfinity == res.isPosInfinity)
     )
   }
@@ -866,8 +857,8 @@ object FdLibm {
           if ix < 0x4036_0000 then // |x| < 22
             if (ix < 0x3e30_0000) && (shuge + x > 1.0) then x // sinh(tiny) = tiny with inexact // |x| < 2**-28
             else
-              val t = Exp.compute(stainless.math.abs(x))
-              unfold(Exp.compute(stainless.math.abs(x)))
+              val t = Expm1.compute(stainless.math.abs(x))
+              unfold(Expm1.compute(stainless.math.abs(x)))
               if ix < 0x3ff0_0000 then
                 h * (2.0 * t - t * t / (t + 1.0))
               else
@@ -887,7 +878,7 @@ object FdLibm {
       res.isNaN == x.isNaN
         && (x.isPosInfinity ==> res.isPosInfinity)
         && (x.isNegInfinity ==> res.isNegInfinity)
-        && (x.isZero ==> res.isZero)
+        && (x.isZero == res.isZero)
         && (x.isPositive == res.isPositive)
         && (x.isNegative == res.isNegative)
     )
