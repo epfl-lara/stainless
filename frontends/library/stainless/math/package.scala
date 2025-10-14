@@ -150,9 +150,9 @@ package object math {
 
   // MISSING: random()
 
-  @extern @pure @library
+  @library
   def sin(x: Double): Double = {
-    scala.math.sin(x)
+    FdLibm.Sin.compute(x)
   }.ensuring(res =>
     ((x.isNaN || x.isInfinity) == res.isNaN)
       && ((x.isPositive && x.isZero) ==> (res.isPositive && res.isZero))
@@ -160,17 +160,17 @@ package object math {
       && (res.isNaN || -1.0d <= res && res <= 1.0d)
   )
 
-  @extern @pure @library
+  @library
   def cos(x: Double): Double = {
-    scala.math.cos(x)
+    FdLibm.Cos.compute(x)
   }.ensuring(res =>
     ((x.isNaN || x.isInfinity) == res.isNaN)
       && (res.isNaN || -1.0d <= res && res <= 1.0d)
   )
 
-  @extern @pure @library
+  @library
   def tan(x: Double): Double = {
-    scala.math.tan(x)
+    FdLibm.Tan.compute(x)
   }.ensuring(res =>
     ((x.isNaN || x.isInfinity) ==> res.isNaN)
       && ((x.isPositive && x.isZero) ==> (res.isPositive && res.isZero))
