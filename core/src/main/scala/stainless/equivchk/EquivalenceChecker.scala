@@ -923,9 +923,9 @@ class EquivalenceChecker(override val trees: Trees,
   // Note: does not perform pruning by counter-example evaluation
   private def allSubFnsMatches(model: Identifier, cand: Identifier): LazyList[SubFnsMatching] = {
     import math.Ordering.Implicits.seqOrdering
-    // Get all the (non-library) function transitive calls in the body of fd - excluding fd itself
+    // Get all the (non-library) function transitive calls in the body of fd - including fd itself
     def getTransitiveCalls(f: Identifier): Set[FunDef] =
-      symbols.transitiveCallees(f).filter(_ != f).map(symbols.functions(_))
+      symbols.transitiveCallees(f).map(symbols.functions(_))
         .filter(!_.flags.exists(_.name == "library"))
 
     def compatibleRetTpe(mod: FunDef, cand: FunDef): Boolean = {
