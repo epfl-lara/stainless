@@ -134,14 +134,20 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
 
 
           if (isCopy || isApply) {
-            val clsInfo =
-              if (isCopy) sym.owner.denot.asClass.classInfo
+            val ownerSymbol = 
+              if (isCopy) sym.owner
               // The apply method is in the module class; we get the actual case class using companionClass
-              else sym.owner.companionClass.denot.asClass.classInfo
+              else sym.owner.companionClass
+            val clsInfo = ownerSymbol.denot.asClass.classInfo
+              
             val ctorFields = ctorFieldsOf(clsInfo)
             val params = m.asInstanceOf[tpd.DefDef].termParamss.flatten.map(_.symbol)
             for ((ctorField, param) <- ctorFields.zip(params) if ctorField.hasGhostAnnotation)
               param.addGhostAnnotation()
+              
+            // We also propagate the ghost annotation on the class to apply method
+            if isApply && ownerSymbol.hasGhostAnnotation then
+              sym.addGhostAnnotation()
           } else if (sym.isSetter && sym.hasGhostAnnotation) {
             // make the setter parameter ghost but the setter itself stays non-ghost. this allows it
             // to be called from non-ghost code and at the same time allows assigning ghost state via the ghost argument
