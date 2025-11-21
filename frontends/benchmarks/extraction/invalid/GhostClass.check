@@ -1,3 +1,6 @@
+[ Error  ] GhostClass.scala:6:31: Cannot access a ghost symbol outside of a ghost context. [ GhostClass.MyClass.apply in method buildClass ]
+             def buildClass(x: BigInt) = MyClass(x, x)
+                                         ^^^^^^^
 [ Error  ] GhostClass.scala:6:31: Cannot access a ghost symbol outside of a ghost context. [ GhostClass.MyClass in method buildClass ]
              def buildClass(x: BigInt) = MyClass(x, x)
                                          ^^^^^^^
