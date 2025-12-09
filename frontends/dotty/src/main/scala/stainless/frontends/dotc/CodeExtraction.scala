@@ -503,7 +503,9 @@ class CodeExtraction(inoxCtx: inox.Context,
       case vd: tpd.ValDef if !vd.symbol.is(Accessor) && (vd.symbol.is(ParamAccessor) || vd.symbol.is(CaseAccessor)) => vd
     }
 
-    val fields = vds map { case vd =>
+    val filteredVds = vds.filter(vd => !isIgnoredParameterType(vd.tpe))
+
+    val fields = filteredVds map { case vd =>
       val vdSym = vd.symbol
       val id = getIdentifier(vdSym)
       val flags = annotationsOf(vdSym, ignoreOwner = true)
@@ -514,7 +516,7 @@ class CodeExtraction(inoxCtx: inox.Context,
       (if (isMutable) xt.VarDef(id, tpe, flags) else xt.ValDef(id, tpe, flags)).setPos(vd.sourcePos)
     }
 
-    val fieldsMap = vds.zip(fields).map {
+    val fieldsMap = filteredVds.zip(fields).map {
       case (vd, field) => (vd.symbol, field.tpe)
     }.toMap
 
@@ -537,7 +539,7 @@ class CodeExtraction(inoxCtx: inox.Context,
       case _: tpd.Import =>
         // ignore
 
-      case vd: tpd.ValDef =>
+      case vd: tpd.ValDef if !isIgnoredParameterType(vd.tpe) =>
         methods ++= extractAccessor(classType, isAbstractClass, vd, i)(using tpCtx)
 
       case t if t.symbol.is(Synthetic) && !canExtractSynthetic(t.symbol) =>
