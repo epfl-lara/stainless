@@ -40,6 +40,15 @@ trait ASTExtractors {
     defn.AnyValType,
   )
 
+  /** Values parameters of these are stripped when extracting code to Inox. */
+  lazy val ignoredParameterTypes = Set(
+    defn.ClassTagClass
+  )
+
+  def isIgnoredParameterType(tp: Type): Boolean = {
+    ignoredParameterTypes.exists(tp.derivesFrom(_))
+  }
+
   // Annotations that are propagated to symbols owned by an owner containing these.
   // Note: we do not necessarily want @opaque/@inlineOnce function to have their inner functions
   // automatically annotated with @opaque/@inlineOnce, we therefore leave them out

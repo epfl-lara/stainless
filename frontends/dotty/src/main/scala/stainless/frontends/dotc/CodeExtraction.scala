@@ -781,7 +781,9 @@ class CodeExtraction(inoxCtx: inox.Context,
 
     val tctx = dctx.copy(tparams = dctx.tparams ++ (extparams zip ntparams).toMap)
 
-    val (newParams, nctx) = vparams.foldLeft((Seq.empty[xt.ValDef], tctx)) {
+    val filteredVParams = vparams.filter(param => !isIgnoredParameterType(param.tpe))
+
+    val (newParams, nctx) = filteredVParams.foldLeft((Seq.empty[xt.ValDef], tctx)) {
       case ((vds, vctx), param) =>
         val paramSym: Symbol = param.symbol
         val byName = isByName(param)
@@ -1255,7 +1257,9 @@ class CodeExtraction(inoxCtx: inox.Context,
   }
 
   private def extractArgs(sym: Symbol, args: Seq[tpd.Tree])(using dctx: DefContext): Seq[xt.Expr] = {
-    (args zip sym.info.paramInfoss.flatten) map {
+    (args zip sym.info.paramInfoss.flatten).filter {
+      case (_, tpe) => !isIgnoredParameterType(tpe)
+    }.map {
       case (arg, ExprType(_)) => xt.Lambda(Seq(), extractTree(arg)).setPos(arg.sourcePos)
       case (arg, _) => extractTree(arg)
     }
