@@ -539,8 +539,12 @@ class CodeExtraction(inoxCtx: inox.Context,
       case _: tpd.Import =>
         // ignore
 
-      case vd: tpd.ValDef if !isIgnoredParameterType(vd.tpe) =>
-        methods ++= extractAccessor(classType, isAbstractClass, vd, i)(using tpCtx)
+      case vd: tpd.ValDef =>
+        if isIgnoredParameterType(vd.tpe) then
+          // ignore
+          ()
+        else
+          methods ++= extractAccessor(classType, isAbstractClass, vd, i)(using tpCtx)
 
       case t if t.symbol.is(Synthetic) && !canExtractSynthetic(t.symbol) =>
         // ignore

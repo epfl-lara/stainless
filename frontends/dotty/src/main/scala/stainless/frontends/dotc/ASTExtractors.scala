@@ -2,6 +2,7 @@ package stainless
 package frontends.dotc
 
 import scala.language.implicitConversions
+import scala.annotation.tailrec
 import dotty.tools.dotc._
 import ast.tpd
 import ast.Trees._
@@ -537,18 +538,41 @@ trait ASTExtractors {
     }
 
     object ExClassConstruction {
-      def unapply(tree: tpd.Tree): Option[(Type, Seq[tpd.Tree])] = tree match {
-        case Apply(Select(New(tpt), nme.CONSTRUCTOR), args) =>
-          Some((tpt.tpe, args))
+      /**
+        * Unnests a series of Apply nodes into a function and its arguments.
+        * The arguments are returned in the order they were applied, and all arguments are in one
+        * flattened list.
+        *
+        * @param tree
+        * @param allArgs
+        * @return
+        */
+      @tailrec def unnestApply(tree: tpd.Tree, allArgs: List[tpd.Tree]): (tpd.Tree, List[tpd.Tree]) = tree match {
+          case Apply(fn, args) => unnestApply(fn, args ++ allArgs)
+          case Block(Nil, expr) => unnestApply(expr, allArgs)
+          case _ => (tree, allArgs)
+      }
+      // Here we need the unnest apply to properly handle multiple argument lists.
+      // By the fragment checker, we know that at most one of these argument lists will be non empty
+      // after filtering out the ignored parameters (e.g., ClassTag).
+      def unapply(tree: tpd.Tree): Option[(Type, Seq[tpd.Tree])] =  tree match {
+        case Apply(_, _) =>
+          val (fun, args) = unnestApply(tree, Nil)
+          (fun, args.filter(arg => !isIgnoredParameterType(arg.tpe))) match {
+            case (Select(New(tpt), nme.CONSTRUCTOR), args) =>
+              Some((tpt.tpe, args))
 
-        case Apply(TypeApply(Select(New(tpt), nme.CONSTRUCTOR), _), args) =>
-          Some((tree.tpe, args))
+            case (TypeApply(Select(New(tpt), nme.CONSTRUCTOR), _), args) =>
+              Some((tree.tpe, args))
 
-        case Apply(e, args) if (
-          (e.symbol.owner `is` Module) &&
-          (e.symbol `is` Synthetic) &&
-          (e.symbol.name.toString == "apply")
-        ) => Some((tree.tpe, args))
+            case (e, args) if (
+              (e.symbol.owner `is` Module) &&
+              (e.symbol `is` Synthetic) &&
+              (e.symbol.name.toString == "apply")
+            ) => Some((tree.tpe, args))
+            case _ =>
+              None
+          }
 
         case Select(s, _) if (tree.symbol `is` Case) && (tree.symbol `is` Module) =>
           Some((tree.tpe, Seq()))
