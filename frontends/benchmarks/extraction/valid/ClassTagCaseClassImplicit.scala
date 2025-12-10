@@ -3,7 +3,7 @@ import scala.reflect.ClassTag
 /** Tests that Stainless accepts `ClassTag` parameters. It should strip them
   * from the extracted code, as they are not needed for verification.
   */
-object ClassTagInnerArray {
+object ClassTagCaseClassImplicit {
   case class Datastructure[T: ClassTag](size: Int, default: T) {
     val a = 0
     require(size > 0)
