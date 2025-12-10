@@ -13,7 +13,7 @@ object ClassTagCaseClassImplicit {
 
   }
 
-  @main def main() = 
+  @main def mainClassTagCaseClassImplicit() = 
     val c = Datastructure[Int](10, 42)
     val c1 = Datastructure[Int](10, 42)
     assert(c1.f() == c.f())

@@ -10,7 +10,7 @@ object ClassTagInnerArray {
       val data: Array[T] = Array.fill[T](size)(default)(using ct)
       data(0)
   }
-  @main def main() = 
+  @main def mainClassTagInnerArray() = 
     val c = Datastructure[Int](10, ClassTag.Int, 42)
     val c1 = Datastructure[Int](10, ClassTag.Int, 42)
     assert(c1.f() == c.f())
