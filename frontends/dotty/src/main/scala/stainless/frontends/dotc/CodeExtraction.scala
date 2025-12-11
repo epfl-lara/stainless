@@ -570,6 +570,12 @@ class CodeExtraction(inoxCtx: inox.Context,
         if hasExternFields && (isCopyMethod(fsym) || isDefaultGetter(fsym)) =>
           () // ignore
 
+      // We also need to ignore copy methods for ignored parameter types
+      // as they might mention types we do not want to extract, e.g., ClassTag
+      case ExFunctionDef(fsym, tyParams, params, retTy, _)
+        if (params.exists(vd => isIgnoredParameterType(vd.tpe)) || isIgnoredParameterType(retTy)) && (isCopyMethod(fsym) || isDefaultGetter(fsym)) =>
+          () // ignore
+
       case ExFunctionDef(fsym, _, _, _, _) if fsym `is` Exported =>
         // ignore
 
