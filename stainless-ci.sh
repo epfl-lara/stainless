@@ -85,8 +85,8 @@ done
 
 # Download the solvers
 if [ -n "$SOLVERS_DIR" ]; then
-  rm -rf "$TEMP_DIR"
   TEMP_DIR="temp"
+  rm -rf "$TEMP_DIR"
   mkdir -p "$SOLVERS_DIR"
   mkdir -p "$TEMP_DIR"
   # cvc5
