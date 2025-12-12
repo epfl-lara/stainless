@@ -1,5 +1,14 @@
 # Release Notes
 
+## Version 0.9.9.2 (2024-12-12)
+
+- Fix crashing on receiving no input files
+- Add measures in library
+- Consider top-level functions in function call matching for equivalence checking
+- Fix ghost checker by splitting ghost annotation propagation and checks in two phases
+- Allow ignored fields
+- Ignore `ClassTag` parameters in extraction
+
 ## Version 0.9.9.1 (2024-09-08)
 - Scala version is now 3.7.2
 - Improved reporting for `ExtractionFailed`
