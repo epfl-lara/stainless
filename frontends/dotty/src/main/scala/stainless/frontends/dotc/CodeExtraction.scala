@@ -995,8 +995,7 @@ class CodeExtraction(inoxCtx: inox.Context,
 
     case t @ Typed(un@UnApply(f, _, pats), tp) =>
       val subPatTps = resolveUnapplySubPatternsTps(un)
-      
-      assert(subPatTps.size == pats.size, f"Got ${subPatTps.size} sub-pattern types but ${pats.size} sub-patterns")
+      assert(subPatTps.size == pats.size, s"Got ${subPatTps.size} sub-pattern types but ${pats.size} sub-patterns")
       val (subPatterns, subDctx) = pats.zip(subPatTps).map { case (pat, tp) => extractPattern(pat, Some(tp)) }.unzip
       val nctx = subDctx.foldLeft(dctx)(_ `union` _)
 

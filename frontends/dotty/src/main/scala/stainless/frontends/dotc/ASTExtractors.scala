@@ -543,9 +543,9 @@ trait ASTExtractors {
         * The arguments are returned in the order they were applied, and all arguments are in one
         * flattened list.
         *
-        * @param tree
-        * @param allArgs
-        * @return
+        * @param tree The tree to unnest, typically an application chain (possibly nested Apply nodes).
+        * @param allArgs The list of arguments accumulated so far (should be Nil for initial call).
+        * @return A tuple containing the function tree and the flattened list of all arguments.
         */
       @tailrec def unnestApply(tree: tpd.Tree, allArgs: List[tpd.Tree]): (tpd.Tree, List[tpd.Tree]) = tree match {
           case Apply(fn, args) => unnestApply(fn, args ++ allArgs)
