@@ -16,7 +16,7 @@ object ClassTagPatternMatch {
     inst match 
       case Datastructure(size, default) => default
 
-  @main def mainClassTagCaseClassImplicit() = 
+  @main def mainClassTagPatternMatch() = 
     val c = Datastructure[Int](10, 42)
     val c1 = Datastructure[Int](10, 42)
     assert(patt(c1) == patt(c))
