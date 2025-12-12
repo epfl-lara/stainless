@@ -553,7 +553,8 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
         case dd @ DefDef(_, _, _, _) if sym.isConstructor =>
           if (!dd.rhs.isEmpty)
             reportError(tree.sourcePos, "Auxiliary constructors are not allowed in Stainless.")
-          if (dd.termParamss.filter(termParams => termParams.exists(vdef => !isIgnoredParameterType(vdef.tpe))).size > 1)
+          val nonIgnoredParameterLists = dd.termParamss.filter(termParams => termParams.exists(vdef => !isIgnoredParameterType(vdef.tpe)))
+          if (nonIgnoredParameterLists.size > 1)
               reportError(tree.sourcePos, "Multi-clauses classes are not allowed in Stainless.")
           if (dd.termParamss.flatten.filter(vdef => !isIgnoredParameterType(vdef.tpe)).nonEmpty && (sym.owner `isOneOf` AbstractOrTrait))
             reportError(tree.sourcePos, "Abstract class and trait constructor parameters are not allowed in Stainless.")
