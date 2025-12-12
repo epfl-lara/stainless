@@ -1,5 +1,4 @@
 import scala.reflect.ClassTag
-import javax.xml.crypto.Data
 
 /** Tests that Stainless accepts `ClassTag` parameters. It should strip them
   * from the extracted code, as they are not needed for verification.
