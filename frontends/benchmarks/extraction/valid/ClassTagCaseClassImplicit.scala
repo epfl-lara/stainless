@@ -10,7 +10,6 @@ object ClassTagCaseClassImplicit {
     def f(): T = 
       val data: Array[T] = Array.fill[T](size)(default)
       data(0)
-
   }
 
   @main def mainClassTagCaseClassImplicit() = 

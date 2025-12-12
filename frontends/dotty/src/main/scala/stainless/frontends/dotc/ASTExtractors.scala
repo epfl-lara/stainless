@@ -41,14 +41,17 @@ trait ASTExtractors {
     defn.AnyValType,
   )
 
-  /** Values parameters of these are stripped when extracting code to Inox. */
+  /** Values parameters and arguments of these types are stripped when
+    * extracting code to Inox.
+    */
   lazy val ignoredParameterTypes = Set(
-    defn.ClassTagClass
+    defn.ClassTagClass,
   )
 
-  def isIgnoredParameterType(tp: Type): Boolean = {
+  /** Should parameters and arguments of type `tp` be ignored during extraction?
+    */
+  def isIgnoredParameterType(tp: Type): Boolean =
     ignoredParameterTypes.exists(tp.derivesFrom(_))
-  }
 
   // Annotations that are propagated to symbols owned by an owner containing these.
   // Note: we do not necessarily want @opaque/@inlineOnce function to have their inner functions
@@ -538,8 +541,8 @@ trait ASTExtractors {
     }
 
     object ExClassConstruction {
-      /**
-        * Unnests a series of Apply nodes into a function and its arguments.
+      /** Unnests a series of Apply nodes into a function and its arguments.
+        *
         * The arguments are returned in the order they were applied, and all arguments are in one
         * flattened list.
         *
