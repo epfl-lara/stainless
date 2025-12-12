@@ -503,7 +503,9 @@ class CodeExtraction(inoxCtx: inox.Context,
       case vd: tpd.ValDef if !vd.symbol.is(Accessor) && (vd.symbol.is(ParamAccessor) || vd.symbol.is(CaseAccessor)) => vd
     }
 
-    val fields = vds map { case vd =>
+    val filteredVds = vds.filter(vd => !isIgnoredParameterType(vd.tpe))
+
+    val fields = filteredVds map { case vd =>
       val vdSym = vd.symbol
       val id = getIdentifier(vdSym)
       val flags = annotationsOf(vdSym, ignoreOwner = true)
@@ -514,7 +516,7 @@ class CodeExtraction(inoxCtx: inox.Context,
       (if (isMutable) xt.VarDef(id, tpe, flags) else xt.ValDef(id, tpe, flags)).setPos(vd.sourcePos)
     }
 
-    val fieldsMap = vds.zip(fields).map {
+    val fieldsMap = filteredVds.zip(fields).map {
       case (vd, field) => (vd.symbol, field.tpe)
     }.toMap
 
@@ -538,7 +540,11 @@ class CodeExtraction(inoxCtx: inox.Context,
         // ignore
 
       case vd: tpd.ValDef =>
-        methods ++= extractAccessor(classType, isAbstractClass, vd, i)(using tpCtx)
+        if isIgnoredParameterType(vd.tpe) then
+          // ignore
+          ()
+        else
+          methods ++= extractAccessor(classType, isAbstractClass, vd, i)(using tpCtx)
 
       case t if t.symbol.is(Synthetic) && !canExtractSynthetic(t.symbol) =>
         // ignore
@@ -562,6 +568,12 @@ class CodeExtraction(inoxCtx: inox.Context,
       // cannot extract.
       case ExFunctionDef(fsym, _, _, _, _)
         if hasExternFields && (isCopyMethod(fsym) || isDefaultGetter(fsym)) =>
+          () // ignore
+
+      // We also need to ignore copy methods for ignored parameter types
+      // as they might mention types we do not want to extract, e.g., ClassTag
+      case ExFunctionDef(fsym, tyParams, params, retTy, _)
+        if (params.exists(vd => isIgnoredParameterType(vd.tpe)) || isIgnoredParameterType(retTy)) && (isCopyMethod(fsym) || isDefaultGetter(fsym)) =>
           () // ignore
 
       case ExFunctionDef(fsym, _, _, _, _) if fsym `is` Exported =>
@@ -781,7 +793,9 @@ class CodeExtraction(inoxCtx: inox.Context,
 
     val tctx = dctx.copy(tparams = dctx.tparams ++ (extparams zip ntparams).toMap)
 
-    val (newParams, nctx) = vparams.foldLeft((Seq.empty[xt.ValDef], tctx)) {
+    val filteredVParams = vparams.filter(param => !isIgnoredParameterType(param.tpe))
+
+    val (newParams, nctx) = filteredVParams.foldLeft((Seq.empty[xt.ValDef], tctx)) {
       case ((vds, vctx), param) =>
         val paramSym: Symbol = param.symbol
         val byName = isByName(param)
@@ -981,7 +995,7 @@ class CodeExtraction(inoxCtx: inox.Context,
 
     case t @ Typed(un@UnApply(f, _, pats), tp) =>
       val subPatTps = resolveUnapplySubPatternsTps(un)
-      assert(subPatTps.size == pats.size)
+      assert(subPatTps.size == pats.size, s"Got ${subPatTps.size} sub-pattern types but ${pats.size} sub-patterns")
       val (subPatterns, subDctx) = pats.zip(subPatTps).map { case (pat, tp) => extractPattern(pat, Some(tp)) }.unzip
       val nctx = subDctx.foldLeft(dctx)(_ `union` _)
 
@@ -1027,7 +1041,8 @@ class CodeExtraction(inoxCtx: inox.Context,
         val sym = denot.symbol
         !sym.is(Accessor) && (sym.is(ParamAccessor) || sym.is(CaseAccessor))
       }
-      fields.map(_.info)
+      // We need to filter out ignored parameter types (e.g., ClassTag)
+      fields.map(_.info).filter(tpe => !isIgnoredParameterType(tpe))
     }
     def resolve(resTpe: Type): Seq[xt.Type] = {
       val subPatTps = resTpe match {
@@ -1255,7 +1270,9 @@ class CodeExtraction(inoxCtx: inox.Context,
   }
 
   private def extractArgs(sym: Symbol, args: Seq[tpd.Tree])(using dctx: DefContext): Seq[xt.Expr] = {
-    (args zip sym.info.paramInfoss.flatten) map {
+    (args zip sym.info.paramInfoss.flatten).filter {
+      case (_, tpe) => !isIgnoredParameterType(tpe)
+    }.map {
       case (arg, ExprType(_)) => xt.Lambda(Seq(), extractTree(arg)).setPos(arg.sourcePos)
       case (arg, _) => extractTree(arg)
     }
