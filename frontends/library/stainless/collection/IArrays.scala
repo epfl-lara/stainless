@@ -19,7 +19,7 @@ case class IArray[T: ClassTag](@ghost private val innerList: List[T]):
   @ignore
 
   @ghost
-  def list = this.innerList
+  def list: List[T] = this.innerList
 
   @pure @extern 
   def size: BigInt = {
