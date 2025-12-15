@@ -10,6 +10,7 @@
 - Ignore `ClassTag` parameters in extraction
 
 ## Version 0.9.9.1 (2024-09-08)
+
 - Scala version is now 3.7.2
 - Improved reporting for `ExtractionFailed`
 - Add support for extracting from Tasty
