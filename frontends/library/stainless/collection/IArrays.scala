@@ -41,7 +41,8 @@ case class IArray[T: ClassTag](@ghost private val innerList: List[T]):
   @pure @extern
   def slice(from: BigInt, until: BigInt): IArray[T] = {
     require(0 <= from && from <= until && until <= size)
-    val res = IArray(list.slice(from, until))
+    @ghost val list = this.list.slice(from, until)
+    val res = IArray(list)
     res._arr = this._arr // _arr is never mutated
     res._offset = from.toInt
     res._size = until - from
