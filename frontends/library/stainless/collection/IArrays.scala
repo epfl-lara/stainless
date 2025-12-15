@@ -17,7 +17,6 @@ case class IArray[T: ClassTag](@ghost private val innerList: List[T]):
   @ignore
   var _size: BigInt = uninitialized    
   @ignore
-  var default: T = uninitialized
 
   @ghost
   def list = this.innerList
@@ -44,7 +43,7 @@ case class IArray[T: ClassTag](@ghost private val innerList: List[T]):
     @ghost val list = this.list.slice(from, until)
     val res = IArray(list)
     res._arr = this._arr // _arr is never mutated
-    res._offset = from.toInt
+    res._offset = this._offset + from.toInt
     res._size = until - from
     res
   }.ensuring(_ == IArray(list.slice(from, until)))
@@ -168,7 +167,7 @@ object IArray:
   
   @pure @extern
   def fill[T: ClassTag](n: BigInt)(x: T): IArray[T] = {
-    require(0 < n && n <= Int.MaxValue)
+    require(0 <= n && n <= Int.MaxValue)
     val res = IArray(List.fill(n)(x))      
     res._arr = Array.fill[T](n.toInt)(x)
     res._offset = 0
@@ -182,15 +181,13 @@ object IArray:
     decreases(until - from)
     if(until <= from) stainless.collection.Nil[BigInt]() 
     else 
-      val tl = 
-        if from == Int.MaxValue then stainless.collection.Nil[BigInt]() 
-        else range(from + 1, until)
+      val tl = range(from + 1, until)
       Cons(from, tl)
   }.ensuring(_.size == until - from)
 
   @pure @extern
   def tabulate[T: ClassTag](n: BigInt)(f: BigInt => T): IArray[T] = {
-    require(0 < n && n <= Int.MaxValue)
+    require(0 <= n && n <= Int.MaxValue)
     @ghost val list = range(0, n).map(f)
     val res: IArray[T] = IArray(list)
     res._arr = Array.tabulate[T](n.toInt)(i => f(BigInt(i)))
