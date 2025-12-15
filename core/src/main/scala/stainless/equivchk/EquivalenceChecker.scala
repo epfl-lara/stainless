@@ -62,7 +62,8 @@ class EquivalenceChecker(override val trees: Trees,
                          private val maxMatchingPermutation: Int,
                          private val maxCtex: Int,
                          private val maxStepsEval: Int,
-                         private val transferMeasure: Boolean)
+                         private val transferMeasure: Boolean,
+                         private val eqCache: Set[Identifier]) // TODO change to seq of sets
                         (private val tests: Map[Identifier, (Seq[trees.Expr], Seq[trees.Type])],
                          val symbols: trees.Symbols)
                         (using val context: inox.Context)
@@ -689,7 +690,10 @@ class EquivalenceChecker(override val trees: Trees,
     }
 
     val res = ValDef.fresh("res", UnitType())
-    val cond = Equals(normFun1, normFun2)
+    // check if fun1 and fun2 are in the equvialence cache
+    // if not, then cond is Equals(normFun1, normFun2)
+    // if yes, then cond is True 
+    val cond = if conf.topLevel || !eqCache.contains(fd1.id) || !eqCache.contains(fd2.id) then Equals(normFun1, normFun2) else BooleanLiteral(true)
     val post = Postcondition(Lambda(Seq(res), cond))
     val body = UnitLiteral()
     val withPre = exprOps.reconstructSpecs(pre, Some(body), UnitType())
@@ -1203,6 +1207,10 @@ object EquivalenceChecker {
     }
     val transfer = context.options.findOptionOrDefault(optMeasureTransfer)
 
+    val pathsOptEqCache: Option[Seq[Path]] = context.options.findOption(equivchk.optEqCache) map { functions =>
+      functions map CheckFilter.fullNameToPath
+    }
+
     val models = syms.functions.values.flatMap { fd =>
       if (fd.flags.exists(_.name == "library")) None
       else indexOfPath(pathsOptModels, fd.id).map(_ -> fd.id)
@@ -1242,6 +1250,11 @@ object EquivalenceChecker {
       }
     }
 
+    val eqCache = syms.functions.values.flatMap { fd =>
+      if (fd.flags.exists(_.name == "library")) None
+      else indexOfPath(pathsOptEqCache, fd.id).map(_ -> fd.id)
+    }.toSeq.distinct.sorted.map(_._2).toSet
+
     val (testsNok0, testsOk0) = syms.functions.values.filter(_.flags.exists(elem => elem.name == "mkTest")).partitionMap { fd =>
       extractTest(ts)(syms, models.head, fd.id) match {
         case success: ExtractedTest.Success =>
@@ -1264,7 +1277,7 @@ object EquivalenceChecker {
         .getOrElse(mod -> initScore)
     }.toMap
     class EquivalenceCheckerImpl(override val trees: ts.type, override val symbols: syms.type)
-      extends EquivalenceChecker(ts, models, functions, norm, n, initWeights, maxPerm, maxCtex, defaultMaxStepsEval, transfer)(testsOk, symbols)
+      extends EquivalenceChecker(ts, models, functions, norm, n, initWeights, maxPerm, maxCtex, defaultMaxStepsEval, transfer, eqCache)(testsOk, symbols)
     val ec = new EquivalenceCheckerImpl(ts, syms)
     class SuccessImpl(override val trees: ts.type, override val symbols: syms.type, override val equivChker: ec.type) extends Creation.Success
     new SuccessImpl(ts, syms, ec)
