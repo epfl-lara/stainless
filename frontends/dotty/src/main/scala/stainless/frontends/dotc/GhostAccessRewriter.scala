@@ -59,16 +59,13 @@ class GhostAccessRewriter(afterPhase: String) extends PluginPhase { self =>
         * Warning: this assumes all arguments for all parameter lists are given
         * at once; it does not handle partial applications.
         */
-      def formalParams(tree: tpd.Tree): List[List[Symbol]] =
-        tpd.unsplice(tree) match
-          case app: tpd.GenericApply =>
-            formalParams(app.fun) match
-              case _ :: nextParamss => nextParamss
-              case _ => Nil
-          case tpd.Block(_, expr) =>
-            formalParams(expr)
-          case tree =>
-            tree.symbol.paramSymss
+      def remainingFormalParams(tree: tpd.Tree): List[List[Symbol]] =
+        val paramSymss = tpd.funPart(tree).symbol.paramSymss
+        val argss = tpd.allArgss(tree)
+        if paramSymss.length >= argss.length then
+          paramSymss.drop(argss.length)
+        else
+          Nil
 
       // Inspired by Scalac mkZero method, though we do not special-case the NothingType and have it set to null instead.
       def mkZero(tp: Type)(using DottyContext): tpd.Tree = {
@@ -119,7 +116,7 @@ class GhostAccessRewriter(afterPhase: String) extends PluginPhase { self =>
 
         case tree@Apply(fun, args) =>
           val fun1 = super.transform(fun)
-          formalParams(fun1) match
+          remainingFormalParams(fun1) match
             case params :: _ =>
               val args1 =
                 for (param, arg) <- params.zip(args) yield
