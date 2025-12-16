@@ -1,3 +1,5 @@
+/* Copyright 2009-2025 EPFL, Lausanne */
+
 package stainless.collection
 
 import scala.reflect.ClassTag
