@@ -9,6 +9,7 @@ import stainless.lang.StaticChecks.*
 import stainless.lang.*
 import stainless.collection.{List, Cons, Nil}
 
+@library
 /**
  * An immutable, array-backed collection providing efficient slice operations.
  * 
@@ -167,6 +168,7 @@ case class IArray[T: ClassTag](@ghost private val innerList: List[T]):
     this.apply(this.size - 1)
   }.ensuring(_ == this.list.last)
   
+@library
 object IArray:
   @pure @extern
   def empty[T: ClassTag](): IArray[T] = {
