@@ -9,6 +9,16 @@ import stainless.lang.StaticChecks.*
 import stainless.lang.*
 import stainless.collection.{List, Cons, Nil}
 
+/**
+ * An immutable, array-backed collection providing efficient slice operations.
+ * 
+ * IArray is designed for use in verification, supporting reasoning via List semantics.
+ * It exposes a subset of array operations, but is immutable and safe for verification.
+ * Slicing and element access are efficient, and the underlying data is never mutated.
+ *
+ * @param innerList The underlying immutable list used as specification.
+ * @tparam T The type of elements contained in the array.
+ */
 case class IArray[T: ClassTag](@ghost private val innerList: List[T]):
   require(innerList.size <= Int.MaxValue)
 
