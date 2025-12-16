@@ -47,10 +47,28 @@ class GhostAccessRewriter(afterPhase: String) extends PluginPhase { self =>
         (!sym.denot.isConstructor &&
           sym.ownersIterator.exists(_.hasAnnotation(ghostAnnotation)))
 
-      def symbolIndex(tree: tpd.Tree): Int = tree match {
-        case Apply(fun, args) => symbolIndex(fun) + 1
-        case _ => 0
-      }
+      /** 
+        * Returns the remaining formal parameter lists of a method/function left
+        * to be applied.
+        *
+        * For instance, for a method `def m[A](x: Int)[B](y: String)`, this
+        * returns `List(List(type A), List(value x), List(type B), List(value
+        * y))` when called on `m`, or `List(List(type B), List(value y))` when
+        * called on `m[A](3)`.
+        *
+        * Warning: this assumes all arguments for all parameter lists are given
+        * at once; it does not handle partial applications.
+        */
+      def formalParams(tree: tpd.Tree): List[List[Symbol]] =
+        tpd.unsplice(tree) match
+          case app: tpd.GenericApply =>
+            formalParams(app.fun) match
+              case _ :: nextParamss => nextParamss
+              case _ => Nil
+          case tpd.Block(_, expr) =>
+            formalParams(expr)
+          case tree =>
+            tree.symbol.paramSymss
 
       // Inspired by Scalac mkZero method, though we do not special-case the NothingType and have it set to null instead.
       def mkZero(tp: Type)(using DottyContext): tpd.Tree = {
@@ -99,22 +117,19 @@ class GhostAccessRewriter(afterPhase: String) extends PluginPhase { self =>
         case ExWhile.WithInline(body) => transform(body)
         case ExWhile.WithOpaque(body) => transform(body)
 
-        case f@Apply(fun, args) =>
+        case tree@Apply(fun, args) =>
           val fun1 = super.transform(fun)
-
-          val params = f.symbol.denot.paramSymss
-          val leadingTypeParams = params.exists(_.exists(_.isType))
-          val allTermParams = if (leadingTypeParams) params.tail else params
-
-          val termParams = allTermParams(symbolIndex(fun))
-
-          val args1 = for ((param, arg) <- termParams.zip(args)) yield
-            if (param.hasAnnotation(ghostAnnotation))
-              mkZero(param.info)
-            else
-              transform(arg)
-
-          cpy.Apply(tree)(fun1, args1)
+          formalParams(fun1) match
+            case params :: _ =>
+              val args1 =
+                for (param, arg) <- params.zip(args) yield
+                  if param.hasAnnotation(ghostAnnotation) then
+                    mkZero(param.info)
+                  else
+                    transform(arg)
+              cpy.Apply(tree)(fun1, args1)
+            case _ =>
+              cpy.Apply(tree)(fun1, args.map(transform))
 
         case Assign(lhs, rhs) if effectivelyGhost(lhs.symbol) =>
           cpy.Assign(tree)(lhs, mkZero(rhs.tpe))
