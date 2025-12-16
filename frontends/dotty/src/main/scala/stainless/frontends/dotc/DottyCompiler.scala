@@ -28,7 +28,8 @@ class DottyCompiler(ctx: inox.Context, callback: CallBack) extends Compiler {
   override def phases: List[List[Phase]] = {
     val allOrigPhases = super.phases
     val extractionPhase = new ExtractionPhase
-    val scheduled = Plugins.schedule(allOrigPhases, List(extractionPhase))
+    val ghostAccessRewriterPhase = new GhostAccessRewriter(extractionPhase.phaseName)
+    val scheduled = Plugins.schedule(allOrigPhases, List(extractionPhase, ghostAccessRewriterPhase))
     // We only care about the phases preceding Stainless *plus* some phases that are after Stainless,
     // namely RefChecker, init.Checker and ForwardDepChecks.
     // Note that the Stainless phase is only about extracting the Scala tree into Stainless tree,
