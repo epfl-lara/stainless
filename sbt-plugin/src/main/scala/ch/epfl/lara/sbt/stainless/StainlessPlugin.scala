@@ -22,10 +22,11 @@ object StainlessPlugin extends sbt.AutoPlugin {
   override def trigger: PluginTrigger = noTrigger // This plugin needs to be manually enabled
 
   object autoImport {
-    val stainlessVersion        = settingKey[String]("The version of stainless to use")
-    val stainlessEnabled        = settingKey[Boolean]("Enable stainless")
-    val stainlessExtraDeps      = settingKey[Seq[sbt.librarymanagement.ModuleID]]("Extra source dependencies to pass along to Stainless")
-    val stainlessExtraResolvers = settingKey[Seq[sbt.librarymanagement.MavenRepository]]("Extra resolvers to pass along to Stainless")
+    val stainlessVersion                   = settingKey[String]("The version of stainless to use")
+    val stainlessEnabled                   = settingKey[Boolean]("Enable stainless")
+    val stainlessGhostEliminationEnabled   = settingKey[Boolean]("Enable ghost elimination")
+    val stainlessExtraDeps                 = settingKey[Seq[sbt.librarymanagement.ModuleID]]("Extra source dependencies to pass along to Stainless")
+    val stainlessExtraResolvers            = settingKey[Seq[sbt.librarymanagement.MavenRepository]]("Extra resolvers to pass along to Stainless")
   }
 
   import autoImport.*
@@ -213,7 +214,7 @@ object StainlessPlugin extends sbt.AutoPlugin {
           s"-P:stainless:verify:${stainlessEnabled.value}",
 
           // For now we always enable ghost elimination
-          "-P:stainless:ghost-elim:true",
+          s"-P:stainless:ghost-elim:${stainlessGhostEliminationEnabled.value}",
         )
 
         // FIXME: Properly merge possibly duplicate scalac options
