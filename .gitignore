@@ -121,4 +121,5 @@ decoded.txt
 encoded.txt
 
 # CI
-temp/cs
+temp/
+cs
