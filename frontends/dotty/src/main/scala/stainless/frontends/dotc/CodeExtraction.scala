@@ -1839,7 +1839,6 @@ class CodeExtraction(inoxCtx: inox.Context,
 
     case ExArrayUpdated(array, index, newValue) =>
       xt.ArrayUpdated(extractTree(array), extractTree(index), extractTree(newValue))
-  
     case ExArrayApplyBV(array, bvType, index) => bvType match {
       case FrontendBVType(signed, size) =>
         xt.ArraySelect(
