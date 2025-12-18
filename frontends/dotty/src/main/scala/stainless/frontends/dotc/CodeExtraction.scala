@@ -1359,6 +1359,7 @@ class CodeExtraction(inoxCtx: inox.Context,
         annotationsOf(vd.symbol)
       ).setPos(vd.sourcePos))
 
+      assert(vds.size == vparams.size)
       xt.Lambda(vds, extractTree(rhs)(using dctx.withNewVars((vparams zip vds).map {
         case (v, vd) => v.symbol -> (() => vd.toVariable)
       })))
@@ -2351,6 +2352,7 @@ class CodeExtraction(inoxCtx: inox.Context,
     val tparamsSyms = sym.typeParams.map(_.paramRef.typeSymbol)
     val tparams = extractTypeParams(tparamsSyms)
 
+    assert(tparamsSyms.size == tparams.size)
     val tpCtx = dctx.copy(tparams = dctx.tparams ++ (tparamsSyms zip tparams).toMap)
     val parents = tr.parents.filter(isValidParentType(_)).map(extractType(_)(using tpCtx, pos))
 
