@@ -75,10 +75,7 @@ class VerificationRun private(override val component: VerificationComponent.type
   override private[stainless] def execute(functions0: Seq[Identifier], symbols: trees.Symbols, exSummary: ExtractionSummary): Future[VerificationAnalysis] = {
     import context._
 
-    val functions = functions0.filterNot { fid =>
-      val flags = symbols.getFunction(fid).flags
-      flags.contains(trees.DropVCs) || flags.contains(trees.Extern)
-    }
+    val functions = functions0.filterNot(fid => symbols.getFunction(fid).flags.contains(trees.DropVCs))
     val p = inox.Program(trees)(symbols)
 
     if (context.options.findOptionOrDefault(optCoq)) {
