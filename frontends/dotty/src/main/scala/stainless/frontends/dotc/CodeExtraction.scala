@@ -794,6 +794,7 @@ class CodeExtraction(inoxCtx: inox.Context,
     val tctx = dctx.copy(tparams = dctx.tparams ++ (extparams zip ntparams).toMap)
 
     val filteredVParams = vparams.filter(param => !isIgnoredParameterType(param.tpe))
+    // vparams should never be used again, only filteredVParams
 
     val (newParams, nctx) = filteredVParams.foldLeft((Seq.empty[xt.ValDef], tctx)) {
       case ((vds, vctx), param) =>
@@ -815,7 +816,8 @@ class CodeExtraction(inoxCtx: inox.Context,
     val isAbstract = rhs == tpd.EmptyTree
     val flags = commonFunctionFlags(sym, isAbstract)
 
-    val paramsMap = (vparams zip newParams).map { case (param, vd) =>
+    assert(filteredVParams.length == newParams.length)
+    val paramsMap = (filteredVParams zip newParams).map { case (param, vd) =>
       param.symbol -> (if (isByName(param)) () => xt.Application(vd.toVariable, Seq()).setPos(vd.toVariable) else () => vd.toVariable)
     }.toMap
 
@@ -1269,13 +1271,19 @@ class CodeExtraction(inoxCtx: inox.Context,
     recOrNoTree(es)
   }
 
-  private def extractArgs(sym: Symbol, args: Seq[tpd.Tree])(using dctx: DefContext): Seq[xt.Expr] = {
-    (args zip sym.info.paramInfoss.flatten).filter {
+
+  private def extractArgs(tps: List[Type], args: Seq[tpd.Tree])(using dctx: DefContext): Seq[xt.Expr] = {
+    assert(args.size == tps.size)
+    (args zip tps).filter {
       case (_, tpe) => !isIgnoredParameterType(tpe)
     }.map {
       case (arg, ExprType(_)) => xt.Lambda(Seq(), extractTree(arg)).setPos(arg.sourcePos)
       case (arg, _) => extractTree(arg)
     }
+  }
+
+  private def extractArgs(sym: Symbol, args: Seq[tpd.Tree])(using dctx: DefContext): Seq[xt.Expr] = {
+    extractArgs(sym.info.paramInfoss.flatten, args)
   }
 
   def stripAnnotationsExceptStrictBV(tpe: xt.Type): xt.Type = tpe match {
@@ -1351,6 +1359,7 @@ class CodeExtraction(inoxCtx: inox.Context,
         annotationsOf(vd.symbol)
       ).setPos(vd.sourcePos))
 
+      assert(vds.size == vparams.size)
       xt.Lambda(vds, extractTree(rhs)(using dctx.withNewVars((vparams zip vds).map {
         case (v, vd) => v.symbol -> (() => vd.toVariable)
       })))
@@ -1830,7 +1839,6 @@ class CodeExtraction(inoxCtx: inox.Context,
 
     case ExArrayUpdated(array, index, newValue) =>
       xt.ArrayUpdated(extractTree(array), extractTree(index), extractTree(newValue))
-
     case ExArrayApplyBV(array, bvType, index) => bvType match {
       case FrontendBVType(signed, size) =>
         xt.ArraySelect(
@@ -1956,7 +1964,7 @@ class CodeExtraction(inoxCtx: inox.Context,
         xt.This(ct).setPos(tr.sourcePos),
         getIdentifier(sym),
         tps map extractType,
-        args map extractTree
+        extractArgs(sym, args)
       ).setPos(tr.sourcePos)
 
     case None =>
@@ -2343,6 +2351,7 @@ class CodeExtraction(inoxCtx: inox.Context,
     val tparamsSyms = sym.typeParams.map(_.paramRef.typeSymbol)
     val tparams = extractTypeParams(tparamsSyms)
 
+    assert(tparamsSyms.size == tparams.size)
     val tpCtx = dctx.copy(tparams = dctx.tparams ++ (tparamsSyms zip tparams).toMap)
     val parents = tr.parents.filter(isValidParentType(_)).map(extractType(_)(using tpCtx, pos))
 
