@@ -445,6 +445,7 @@ trait ASTExtractors {
         val optCall = tree match {
           case id @ Ident(_) => Some((id, Nil, Nil))
           case Apply(id @ Ident(_), args) => Some((id, Nil, args))
+          case Apply(Apply(id @ Ident(_), args), args2) => Some((id, Nil, args ++ args2))
           case TypeApply(id @ Ident(_), tps) => Some((id, tps, Nil))
           case Apply(TypeApply(id @ Ident(_), tps), args) => Some((id, tps, args))
           case _ => None
@@ -526,6 +527,7 @@ trait ASTExtractors {
           case tree @ Apply(select @ Select(qualifier, _), args) => Some((Some(qualifier), select.symbol, Nil, args))
           case tree @ TypeApply(id: tpd.Ident, tps) => Some((None, id.symbol, tps, Nil))
           case tree @ TypeApply(select @ Select(qualifier, _), tps) => Some((Some(qualifier), select.symbol, tps, Nil))
+          case tree @ Apply(ExThisCall(tt, sym, tps, args), newArgs) => Some((Some(tpd.This(tt.cls)), sym, tps, args ++ newArgs))
           case tree @ Apply(ExCall(caller, sym, tps, args), newArgs) => Some((caller, sym, tps, args ++ newArgs))
           case tree @ TypeApply(ExCall(caller, sym, tps, args), newTps) => Some((caller, sym, tps ++ newTps, args))
           case _ => None
