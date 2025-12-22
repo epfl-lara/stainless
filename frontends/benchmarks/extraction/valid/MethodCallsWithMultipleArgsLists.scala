@@ -11,8 +11,14 @@ object MethodCallsWithMultipleArgsLists:
       require(pred(l)(0)(0))
       l
     }
+
+    def g(l: List[Int]): List[Int] = {
+      require(pred[Int](l)(1)(2))
+      l
+    }
   end Impl
 
   @main def methodCallsWithMultipleArgsListsMain(): Unit =
     val res = Impl.f(List(1, 2, 3))
+    val res2 = Impl.g(List(4, 5, 6))
 end MethodCallsWithMultipleArgsLists
