@@ -29,7 +29,6 @@ case class IArray[T: ClassTag](@ghost private val innerList: List[T]):
   var _offset: Int = uninitialized
   @ignore
   var _size: BigInt = uninitialized    
-  @ignore
 
   @ghost
   def list: List[T] = this.innerList
