@@ -1,0 +1,5 @@
+9:44;smth;body assertion: match exhaustiveness;valid
+10:10;smth;precondition;valid
+10:10;smth;precondition;valid
+10:10;smth;precondition;valid
+15:12;test;body assertion;invalid

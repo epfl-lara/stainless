@@ -1,5 +1,27 @@
 # Release Notes
 
+## Version 0.9.9.2 (2024-12-12)
+
+- Fix crashing on receiving no input files
+- Add measures in library
+- Consider top-level functions in function call matching for equivalence checking
+- Fix ghost checker by splitting ghost annotation propagation and checks in two phases
+- Allow ignored fields
+- Ignore `ClassTag` parameters in extraction
+
+## Version 0.9.9.1 (2024-09-08)
+
+- Scala version is now 3.7.2
+- Improved reporting for `ExtractionFailed`
+- Add support for extracting from Tasty
+- Add support for pattern alternatives
+- Tail recursion elimination for GenC
+- Added an axiomatized Exists quantifier
+- Disable fancy objects (objects that extend traits) at the extraction level
+- Added check files for verification integration tests
+- Added PartialInverse and Bijection classes and lemmas in Quantifiers library
+- Equivalence: allow `norm` to change return type of candidate programs
+
 ## Version 0.9.9.0 (2024-12-09)
 
 - Scala version is now 3.5.2 

@@ -60,7 +60,8 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
 
   def hasErrors(): Boolean = errors.nonEmpty
 
-  def ghostChecker(tree: tpd.Tree): Unit = (new GhostAnnotationChecker)((), tree)
+  def ghostPropagater(tree: tpd.Tree): Unit = (new GhostManagement.GhostAnnotationPropagater)((), tree)
+  def ghostChecker(tree: tpd.Tree): Unit = (new GhostManagement.GhostAnnotationChecker)((), tree)
 
   def checker(tree: tpd.Tree): Unit = (new Checker)((), tree)
 
@@ -92,182 +93,211 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
     else None
   }
 
-  class GhostAnnotationChecker extends tpd.TreeTraverser {
-    private val ghostAnnotation = getClassIfDefinedOrNone("stainless.annotation.ghost")
-
-    private var ghostContext: Boolean = false
-
-    def withinGhostContext[A](body: => A): A = {
-      val old = ghostContext
-      ghostContext = true
-      val res = body
-      ghostContext = old
-      res
-    }
-
-    // Note: we not have a isGhostDefaultGetter because Dotty does not generate getters for fields
-
-    /**
-     * Methods that should be considered as part of a ghost context, even though they are not
-     * explicitly ghost. They are typically synthetic methods for case classes that are harmless
-     * if they touch ghost code
-     */
-    private def effectivelyGhost(sym: Symbol): Boolean = {
-      // copy$default$n are synthetic methods that simply return the n-th (starting from 1) constructor field
-      def isCopyDefault = sym.name match {
-        case DerivedName(nme.copy, kind) =>
-          sym.name `is` NameKinds.DefaultGetterName
-        case _ => false
+    object GhostManagement {
+      private val ghostAnnotation = getClassIfDefinedOrNone("stainless.annotation.ghost")
+      extension (sym: Symbol) {
+        private def hasGhostAnnotation(using DottyContext): Boolean = ghostAnnotation.exists(ghostClassSymbol => sym.hasAnnotation(ghostClassSymbol))
+        private def addGhostAnnotation()(using DottyContext): Unit = ghostAnnotation.foreach(ghostClassSymbol => sym.addAnnotation(ghostClassSymbol))
+        private def removeGhostAnnotation()(using DottyContext): Unit = ghostAnnotation.foreach(ghostClassSymbol => sym.removeAnnotation(ghostClassSymbol))
       }
-      def isProductAccessor = sym.name match {
-        case nme._1 | nme._2 | nme._3 | nme._4 | nme._5 | nme._6 | nme._7 | nme._8 | nme._9 | nme._10 |
-             nme._11 | nme._12 | nme._13 | nme._14 | nme._15 | nme._16 | nme._17 | nme._18 | nme._19 | nme._20 |
-             nme._21 | nme._22 => true
-        case _ => false
-      }
+      /**
+        * Tree traverser that propagates ghost annotations on synthesized members:
+          - copy and apply methods: propagates ghost parameter annotations
+          - unapply methods application
+          - setters
 
-      (sym `is` Synthetic) &&
-      (
-        (
-          (sym.owner `is` CaseClass) &&
-          (
-            sym.name == nme.equals_ ||
-            sym.name == nme.productElement ||
-            sym.name == nme.hashCode_ ||
-            isCopyDefault ||
-            isProductAccessor
-          )
-        ) ||
-        (
-          (sym.owner.companionClass `is` CaseClass) &&
-          sym.name == nme.unapply
-        )
-      )
-    }
+        * see inline comments for more information.
+        * 
+        * This has to run as a separate tree traversal to avoid cases where an application of a function is 
+        * checked for ghost validity before the annotations had been propagated. 
+        * See https://github.com/epfl-lara/stainless/issues/1670
+        */
+      class GhostAnnotationPropagater extends tpd.TreeTraverser {
+        def isCaseCopy(s: Symbol): Boolean = {
+          (s `is` Method) && (s.owner `is` Case) && (s `is` Synthetic) && s.name == nme.copy
+        }
 
-    private def symbolIndex(tree: tpd.Tree): Int = tree match {
-      case Apply(fun, args) => symbolIndex(fun) + 1
-      case _ => 0
-    }
+        def isCaseApply(s: Symbol): Boolean = {
+          // The apply method is to be found in the module class, so we need to check that its owner is indeed a ModuleClass
+          (s `is` Method) && (s.owner `is` ModuleClass) && (s `is` Synthetic) && s.name == nme.apply && s.owner.companionClass.exists
+        }
 
-    def isCaseCopy(s: Symbol): Boolean = {
-      (s `is` Method) && (s.owner `is` Case) && (s `is` Synthetic) && s.name == nme.copy
-    }
+        /**
+         * Synthetics introduced by typer for case classes won't propagate the @ghost annotation
+         * to the copy method or for default arguments, leading to invalid accesses from non-ghost
+         * code to ghost code. We fix it here by adding @ghost to these synthetics
+         */
+        private def propagateGhostAnnotation(m: tpd.MemberDef): Unit = {
+          val sym = m.symbol
+          lazy val isCopy = isCaseCopy(sym)
+          lazy val isApply = isCaseApply(sym)
 
-    def isCaseApply(s: Symbol): Boolean = {
-      // The apply method is to be found in the module class, so we need to check that its owner is indeed a ModuleClass
-      (s `is` Method) && (s.owner `is` ModuleClass) && (s `is` Synthetic) && s.name == nme.apply && s.owner.companionClass.exists
-    }
 
-    /**
-     * Synthetics introduced by typer for case classes won't propagate the @ghost annotation
-     * to the copy method or for default arguments, leading to invalid accesses from non-ghost
-     * code to ghost code. We fix it here by adding @ghost to these synthetics
-     */
-    private def propagateGhostAnnotation(m: tpd.MemberDef): Unit = {
-      val sym = m.symbol
-      lazy val isCopy = isCaseCopy(sym)
-      lazy val isApply = isCaseApply(sym)
+          if (isCopy || isApply) {
+            val ownerSymbol = 
+              if (isCopy) sym.owner
+              // The apply method is in the module class; we get the actual case class using companionClass
+              else sym.owner.companionClass
+            val clsInfo = ownerSymbol.denot.asClass.classInfo
+              
+            val ctorFields = ctorFieldsOf(clsInfo)
+            val params = m.asInstanceOf[tpd.DefDef].termParamss.flatten.map(_.symbol)
+            for ((ctorField, param) <- ctorFields.zip(params) if ctorField.hasGhostAnnotation)
+              param.addGhostAnnotation()
+              
+            // We also propagate the ghost annotation on the class to apply method
+            if isApply && ownerSymbol.hasGhostAnnotation then
+              sym.addGhostAnnotation()
+          } else if (sym.isSetter && sym.hasGhostAnnotation) {
+            // make the setter parameter ghost but the setter itself stays non-ghost. this allows it
+            // to be called from non-ghost code and at the same time allows assigning ghost state via the ghost argument
+            sym.removeGhostAnnotation()
+            val param = m.asInstanceOf[tpd.DefDef].termParamss.flatten.head
+            param.symbol.addGhostAnnotation()
+          } else if (((sym `is` Module) || (sym `is` ModuleClass)) && sym.companionClass.hasGhostAnnotation) {
+            sym.addGhostAnnotation()
+            sym.moduleClass.addGhostAnnotation()
+          }
+        }
 
-      if (isCopy || isApply) {
-        val clsInfo =
-          if (isCopy) sym.owner.denot.asClass.classInfo
-          // The apply method is in the module class; we get the actual case class using companionClass
-          else sym.owner.companionClass.denot.asClass.classInfo
-        val ctorFields = ctorFieldsOf(clsInfo)
-        val params = m.asInstanceOf[tpd.DefDef].termParamss.flatten.map(_.symbol)
-        for ((ctorField, param) <- ctorFields.zip(params) if ctorField.hasGhostAnnotation)
-          param.addGhostAnnotation()
-      } else if (sym.isSetter && sym.hasGhostAnnotation) {
-        // make the setter parameter ghost but the setter itself stays non-ghost. this allows it
-        // to be called from non-ghost code and at the same time allows assigning ghost state via the ghost argument
-        sym.removeGhostAnnotation()
-        val param = m.asInstanceOf[tpd.DefDef].termParamss.flatten.head
-        param.symbol.addGhostAnnotation()
-      } else if (((sym `is` Module) || (sym `is` ModuleClass)) && sym.companionClass.hasGhostAnnotation) {
-        sym.addGhostAnnotation()
-        sym.moduleClass.addGhostAnnotation()
-      }
-    }
+        override def traverse(tree: tpd.Tree)(using ctx: DottyContext): Unit = {
+          val sym = tree.symbol
+          tree match {
+            case m: tpd.MemberDef  =>
+              if ((m.symbol `is` Synthetic) || (m.symbol `is` Accessor) || (m.symbol `is` Artifact))
+                propagateGhostAnnotation(m)
+              traverseChildren(m)
 
-    override def traverse(tree: tpd.Tree)(using ctx: DottyContext): Unit = {
-      val sym = tree.symbol
-      tree match {
-        case Ident(_) if sym.hasGhostAnnotation && !ghostContext =>
-          reportError(tree.sourcePos, s"Cannot access a ghost symbol outside of a ghost context. [ ${tree.show} in ${ctx.owner} ]")
+            case UnApply(fun, _, args) if fun.symbol.name == nme.unapply && (fun.symbol `is` Synthetic) =>
+              traverse(fun)
 
-        case Select(qual, _) if sym.hasGhostAnnotation && !ghostContext =>
-          reportError(tree.sourcePos, s"Cannot access a ghost symbol outside of a ghost context. [ ${tree.show} in ${ctx.owner} ]")
-          traverseChildren(tree)
+              // The pattern match variables need to add the ghost annotation from their case class ctor fields
+              // We only do that for case classes synthesized unapply methods.
 
-        case m: tpd.MemberDef  =>
-          if ((m.symbol `is` Synthetic) || (m.symbol `is` Accessor) || (m.symbol `is` Artifact))
-            propagateGhostAnnotation(m)
-
-          // We consider some synthetic methods values as being inside ghost
-          // but don't auto-annotate as such because we don't want all code to be removed.
-          // They are synthetic case class methods that are harmless if they see some ghost nulls
-          if (m.symbol.hasGhostAnnotation || effectivelyGhost(sym))
-            withinGhostContext(traverseChildren(m))
-          else
-            traverseChildren(m)
-
-        case f @ Apply(fun, args) if fun.symbol.hasGhostAnnotation =>
-          traverse(fun)
-          withinGhostContext(args foreach traverse)
-
-        case UnApply(fun, _, args) if fun.symbol.name == nme.unapply && (fun.symbol `is` Synthetic) =>
-          traverse(fun)
-
-          // The pattern match variables need to add the ghost annotation from their case class ctor fields
-          // We only do that for case classes synthesized unapply methods.
-
-          val caseClassInfo = fun.symbol.denot.owner // The owner of the unapply method is the companion object
-            .denot.companionClass.asClass // We need the class itself to get the case class ctor fields
-            .classInfo
-          val ctorFields = ctorFieldsOf(caseClassInfo)
-          for ((param, arg) <- ctorFields.zip(args))
-            if (param.hasGhostAnnotation) {
-              arg match {
-                case b@Bind(_, body) =>
-                  b.symbol.addGhostAnnotation()
-                  traverse(body)
-                case _ =>
+              val caseClassInfo = fun.symbol.denot.owner // The owner of the unapply method is the companion object
+                .denot.companionClass.asClass // We need the class itself to get the case class ctor fields
+                .classInfo
+              val ctorFields = ctorFieldsOf(caseClassInfo)
+              for ((param, arg) <- ctorFields.zip(args))
+                if (param.hasGhostAnnotation) {
+                  arg match {
+                    case b@Bind(_, body) =>
+                      b.symbol.addGhostAnnotation()
+                      traverse(body)
+                    case _ =>
+                      traverse(arg)
+                  }
+                } else
                   traverse(arg)
-              }
-            } else
-              traverse(arg)
 
-        case f @ Apply(fun, args) =>
-          traverse(fun)
+            case _ =>
+              traverseChildren(tree)
+          }
+        }
+      }
 
-          val params = fun.symbol.denot.paramSymss
-          val leadingTypeParams = params.exists(_.exists(_.isType))
-          val termParams = if (leadingTypeParams) params.tail else params
+      class GhostAnnotationChecker extends tpd.TreeTraverser {
+        private var ghostContext: Boolean = false
 
-          for ((param, arg) <- termParams(symbolIndex(fun)).zip(args))
-            if (param.hasGhostAnnotation)
-              withinGhostContext(traverse(arg))
-            else
-              traverse(arg)
+        def withinGhostContext[A](body: => A): A = {
+          val old = ghostContext
+          ghostContext = true
+          val res = body
+          ghostContext = old
+          res
+        }
 
-        case Assign(lhs, rhs) =>
-          if (lhs.symbol.hasGhostAnnotation)
-            withinGhostContext(traverse(rhs))
-          else
-            traverseChildren(tree)
+        // Note: we not have a isGhostDefaultGetter because Dotty does not generate getters for fields
 
-        case _ =>
-          traverseChildren(tree)
+        /**
+         * Methods that should be considered as part of a ghost context, even though they are not
+         * explicitly ghost. They are typically synthetic methods for case classes that are harmless
+         * if they touch ghost code
+         */
+        private def effectivelyGhost(sym: Symbol): Boolean = {
+          // copy$default$n are synthetic methods that simply return the n-th (starting from 1) constructor field
+          def isCopyDefault = sym.name match {
+            case DerivedName(nme.copy, kind) =>
+              sym.name `is` NameKinds.DefaultGetterName
+            case _ => false
+          }
+          def isProductAccessor = sym.name match {
+            case nme._1 | nme._2 | nme._3 | nme._4 | nme._5 | nme._6 | nme._7 | nme._8 | nme._9 | nme._10 |
+                nme._11 | nme._12 | nme._13 | nme._14 | nme._15 | nme._16 | nme._17 | nme._18 | nme._19 | nme._20 |
+                nme._21 | nme._22 => true
+            case _ => false
+          }
+
+          (sym `is` Synthetic) &&
+          (
+            (
+              (sym.owner `is` CaseClass) &&
+              (
+                sym.name == nme.equals_ ||
+                sym.name == nme.productElement ||
+                sym.name == nme.hashCode_ ||
+                isCopyDefault ||
+                isProductAccessor
+              )
+            ) ||
+            (
+              (sym.owner.companionClass `is` CaseClass) &&
+              sym.name == nme.unapply
+            )
+          )
+        }
+
+        private def symbolIndex(tree: tpd.Tree): Int = tree match {
+          case Apply(fun, args) => symbolIndex(fun) + 1
+          case _ => 0
+        }
+
+        override def traverse(tree: tpd.Tree)(using ctx: DottyContext): Unit = {
+          val sym = tree.symbol
+          tree match {
+            case Ident(_) if sym.hasGhostAnnotation && !ghostContext =>
+              reportError(tree.sourcePos, s"Cannot access a ghost symbol outside of a ghost context. [ ${tree.show} in ${ctx.owner} ]")
+
+            case Select(qual, _) if sym.hasGhostAnnotation && !ghostContext =>
+              reportError(tree.sourcePos, s"Cannot access a ghost symbol outside of a ghost context. [ ${tree.show} in ${ctx.owner} ]")
+              traverseChildren(tree)
+
+            case m: tpd.MemberDef  =>
+              // We consider some synthetic methods values as being inside ghost
+              // but don't auto-annotate as such because we don't want all code to be removed.
+              // They are synthetic case class methods that are harmless if they see some ghost nulls
+              if (m.symbol.hasGhostAnnotation || effectivelyGhost(sym))
+                withinGhostContext(traverseChildren(m))
+              else
+                traverseChildren(m)
+
+            case f @ Apply(fun, args) if fun.symbol.hasGhostAnnotation =>
+              traverse(fun)
+              withinGhostContext(args foreach traverse)
+
+            case f @ Apply(fun, args) =>
+              val params = fun.symbol.denot.paramSymss
+              val leadingTypeParams = params.exists(_.exists(_.isType))
+              val termParams = if (leadingTypeParams) params.tail else params
+
+              for ((param, arg) <- termParams(symbolIndex(fun)).zip(args))
+                if (param.hasGhostAnnotation)
+                  withinGhostContext(traverse(arg))
+                else
+                  traverse(arg)
+
+            case Assign(lhs, rhs) =>
+              if (lhs.symbol.hasGhostAnnotation)
+                withinGhostContext(traverse(rhs))
+              else
+                traverseChildren(tree)
+
+            case _ =>
+              traverseChildren(tree)
+          }
+        }
       }
     }
-
-    extension (sym: Symbol) {
-      private def hasGhostAnnotation(using DottyContext): Boolean = ghostAnnotation.exists(sym.hasAnnotation)
-      private def addGhostAnnotation()(using DottyContext): Unit = ghostAnnotation.foreach(sym.addAnnotation)
-      private def removeGhostAnnotation()(using DottyContext): Unit = ghostAnnotation.foreach(sym.removeAnnotation)
-    }
-  }
 
   class Checker extends tpd.TreeTraverser {
     private val ScalaEnsuringMethod = requiredMethod("scala.Predef.Ensuring")
@@ -527,9 +557,10 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
         case dd @ DefDef(_, _, _, _) if sym.isConstructor =>
           if (!dd.rhs.isEmpty)
             reportError(tree.sourcePos, "Auxiliary constructors are not allowed in Stainless.")
-          if (dd.termParamss.size > 1)
-            reportError(tree.sourcePos, "Multi-clauses classes are not allowed in Stainless.")
-          if (dd.termParamss.flatten.nonEmpty && (sym.owner `isOneOf` AbstractOrTrait))
+          val nonIgnoredParameterLists = dd.termParamss.filter(termParams => termParams.exists(vdef => !isIgnoredParameterType(vdef.tpe)))
+          if (nonIgnoredParameterLists.size > 1)
+              reportError(tree.sourcePos, "Multi-clauses classes are not allowed in Stainless.")
+          if (dd.termParamss.flatten.filter(vdef => !isIgnoredParameterType(vdef.tpe)).nonEmpty && (sym.owner `isOneOf` AbstractOrTrait))
             reportError(tree.sourcePos, "Abstract class and trait constructor parameters are not allowed in Stainless.")
           traverse(dd.rhs)
 

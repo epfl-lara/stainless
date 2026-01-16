@@ -1,0 +1,13 @@
+5:9;a;cast correctness;valid
+5:9;a;cast correctness;valid
+6:9;b;cast correctness;valid
+6:9;b;cast correctness;valid
+12:9;id;cast correctness;valid
+12:9;id;precondition;valid
+16:44;smth;body assertion: match exhaustiveness;valid
+17:26;smth;precondition;valid
+17:29;smth;precondition;valid
+17:32;smth;precondition;valid
+18:26;smth;precondition;valid
+18:29;smth;precondition;valid
+23:12;test;body assertion;invalid

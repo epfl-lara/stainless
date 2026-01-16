@@ -2,7 +2,7 @@ object DisrespectfulOverride {
   abstract class A {
     def f(): BigInt = {
       ??? : BigInt
-   }.ensuring(_ > 0)
+    }.ensuring(_ > 0)
   }
 
   case class C() extends A {

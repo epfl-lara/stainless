@@ -19,7 +19,7 @@ object PositiveMap2 {
       case Cons(head, tail) => Cons(f(head), positiveMap_failling_1(f, tail))
       case Nil() => Nil()
     }
- }.ensuring { res => positive(res) }
+  }.ensuring { res => positive(res) }
 }
 
 // vim: set ts=4 sw=4 et:

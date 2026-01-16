@@ -2,6 +2,7 @@ package stainless
 package frontends.dotc
 
 import scala.language.implicitConversions
+import scala.annotation.tailrec
 import dotty.tools.dotc._
 import ast.tpd
 import ast.Trees._
@@ -39,6 +40,18 @@ trait ASTExtractors {
     defn.AnyRefType,
     defn.AnyValType,
   )
+
+  /** Values parameters and arguments of these types are stripped when
+    * extracting code to Inox.
+    */
+  lazy val ignoredParameterTypes = Set(
+    defn.ClassTagClass,
+  )
+
+  /** Should parameters and arguments of type `tp` be ignored during extraction?
+    */
+  def isIgnoredParameterType(tp: Type): Boolean =
+    ignoredParameterTypes.exists(tp.derivesFrom(_))
 
   // Annotations that are propagated to symbols owned by an owner containing these.
   // Note: we do not necessarily want @opaque/@inlineOnce function to have their inner functions
@@ -645,6 +658,7 @@ trait ASTExtractors {
           case tree @ Apply(select @ Select(qualifier, _), args) => Some((Some(qualifier), select.symbol, Nil, args))
           case tree @ TypeApply(id: tpd.Ident, tps) => Some((None, id.symbol, tps, Nil))
           case tree @ TypeApply(select @ Select(qualifier, _), tps) => Some((Some(qualifier), select.symbol, tps, Nil))
+          case tree @ Apply(ExThisCall(tt, sym, tps, args), newArgs) => Some((Some(tpd.This(tt.cls)), sym, tps, args ++ newArgs))
           case tree @ Apply(ExCall(caller, sym, tps, args), newArgs) => Some((caller, sym, tps, args ++ newArgs))
           case tree @ TypeApply(ExCall(caller, sym, tps, args), newTps) => Some((caller, sym, tps ++ newTps, args))
           case _ => None
@@ -660,18 +674,41 @@ trait ASTExtractors {
     }
 
     object ExClassConstruction {
-      def unapply(tree: tpd.Tree): Option[(Type, Seq[tpd.Tree])] = tree match {
-        case Apply(Select(New(tpt), nme.CONSTRUCTOR), args) =>
-          Some((tpt.tpe, args))
+      /** Unnests a series of Apply nodes into a function and its arguments.
+        *
+        * The arguments are returned in the order they were applied, and all arguments are in one
+        * flattened list.
+        *
+        * @param tree The tree to unnest, typically an application chain (possibly nested Apply nodes).
+        * @param allArgs The list of arguments accumulated so far (should be Nil for initial call).
+        * @return A tuple containing the function tree and the flattened list of all arguments.
+        */
+      @tailrec def unnestApply(tree: tpd.Tree, allArgs: List[tpd.Tree]): (tpd.Tree, List[tpd.Tree]) = tree match {
+          case Apply(fn, args) => unnestApply(fn, args ++ allArgs)
+          case Block(Nil, expr) => unnestApply(expr, allArgs)
+          case _ => (tree, allArgs)
+      }
+      // Here we need the unnest apply to properly handle multiple argument lists.
+      // By the fragment checker, we know that at most one of these argument lists will be non empty
+      // after filtering out the ignored parameters (e.g., ClassTag).
+      def unapply(tree: tpd.Tree): Option[(Type, Seq[tpd.Tree])] =  tree match {
+        case Apply(_, _) =>
+          val (fun, args) = unnestApply(tree, Nil)
+          (fun, args.filter(arg => !isIgnoredParameterType(arg.tpe))) match {
+            case (Select(New(tpt), nme.CONSTRUCTOR), args) =>
+              Some((tpt.tpe, args))
 
-        case Apply(TypeApply(Select(New(tpt), nme.CONSTRUCTOR), _), args) =>
-          Some((tree.tpe, args))
+            case (TypeApply(Select(New(tpt), nme.CONSTRUCTOR), _), args) =>
+              Some((tree.tpe, args))
 
-        case Apply(e, args) if (
-          (e.symbol.owner `is` Module) &&
-          (e.symbol `is` Synthetic) &&
-          (e.symbol.name.toString == "apply")
-        ) => Some((tree.tpe, args))
+            case (e, args) if (
+              (e.symbol.owner `is` Module) &&
+              (e.symbol `is` Synthetic) &&
+              (e.symbol.name.toString == "apply")
+            ) => Some((tree.tpe, args))
+            case _ =>
+              None
+          }
 
         case Select(s, _) if (tree.symbol `is` Case) && (tree.symbol `is` Module) =>
           Some((tree.tpe, Seq()))
@@ -851,7 +888,7 @@ trait ASTExtractors {
     object ExFancyObjectDef {
       def unapply(td: tpd.TypeDef): Boolean = td match {
         case ExObjectDef() =>
-          val template = td.rhs.asInstanceOf[tpd.Template]
+          val template: Template[Type] = td.rhs.asInstanceOf[tpd.Template]
           template.parents.exists(p => !isIgnored(p.tpe))
         case _ => false
       }

@@ -40,7 +40,7 @@ lazy val nTestSuiteParallelism = {
 
 // The Scala version with which Stainless is compiled.
 // Note: in case of version bump, do not forget to update the `test` files in `sbt-plugin` (for `sbt scripted`)!
-val stainlessScalaVersion = "3.5.2"
+val stainlessScalaVersion = "3.7.2"
 val frontendDottyVersion = stainlessScalaVersion
 // The Stainless libraries use Scala 2.13 and Scala 3.5, and is compatible only with Scala 3.5.
 val stainlessLibScalaVersion = stainlessScalaVersion
@@ -78,12 +78,6 @@ lazy val artifactSettings: Seq[Setting[_]] = baseSettings ++ Seq(
   buildInfoPackage := "stainless",
   buildInfoKeys := stainlessBuildInfoKeys,
   buildInfoOptions := Seq(BuildInfoOption.BuildTime),
-  excludeDependencies ++= Seq(
-    "org.scala-lang.modules" % "scala-parser-combinators_2.13",
-    "org.scala-lang.modules" % "scala-xml_3",
-    "org.scalactic" % "scalactic_2.13",
-  ),
-
 )
 
 lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
@@ -278,11 +272,10 @@ val scriptSettings: Seq[Setting[_]] = Seq(
   }
 )
 
-
 def ghProject(repo: String, version: String) = RootProject(uri(s"${repo}#${version}"))
 
 lazy val inox = RootProject(file("./inox"))
-lazy val cafebabe = ghProject("https://github.com/epfl-lara/cafebabe.git", "616e639b34379e12b8ac202849de3ebbbd0848bc")
+lazy val cafebabe = ghProject("https://github.com/epfl-lara/cafebabe.git", "8656f80ed6612161263612e9c35d14467006e451")
 
 // Allow integration test to use facilities from regular tests
 lazy val IntegrationTest = config("it") extend(Test)
@@ -405,6 +398,15 @@ lazy val `sbt-stainless` = (project in file("sbt-plugin"))
       (`stainless-dotty-plugin` / publishLocal).value
     }
   )
+
+lazy val `check-files-util` = (project in file("check-files-utils"))
+  .disablePlugins(AssemblyPlugin)
+  .settings(noPublishSettings)
+  .settings(name := "check-files-utils")
+  .settings(commonSettings)
+// Uncomment if you wish to attach a debugger at 5006. Note that the process will wait for the debugger to attach
+//  .settings(run / javaOptions += "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5006")
+  .dependsOn(`stainless-core`, `stainless-dotty`)
 
 lazy val root = (project in file("."))
   .disablePlugins(AssemblyPlugin)

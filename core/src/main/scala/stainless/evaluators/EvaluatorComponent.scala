@@ -88,6 +88,7 @@ class EvaluatorRun private(override val component: EvaluatorComponent.type,
       val body = pre.foldRight(nakedBody) {
         case (spec @ LetInSpec(vd, e0), acc) => Let(vd, e0, acc).setPos(spec)
         case (spec @ Precondition(cond), acc) => Require(cond, acc).setPos(spec)
+        case (_, _) => throw new MatchError("Unexpected pattern")
       }
       val postOpt = specced.getSpec(PostconditionKind)
 

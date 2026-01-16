@@ -22,6 +22,7 @@ import inox.DebugSection
 import java.io.File
 import java.net.URL
 import DottyReporter.NoReporter
+import stainless.frontend.DebugSectionFrontend
 
 class DottyCompiler(ctx: inox.Context, callback: CallBack) extends Compiler {
   override def phases: List[List[Phase]] = {
@@ -79,9 +80,15 @@ private class DottyDriver(args: Seq[String], compiler: DottyCompiler, reporter: 
   lazy val files: List[String] =
     setup(args.toArray, initCtx.fresh.setReporter(NoReporter))
       .map(_._1.map(_.path))
-      .getOrElse(reporter.reporter.internalError(f"Error parsing arguments from ${args.toList}"))
+      .getOrElse {
+        reporter.reporter.debug(f"No input file found in given argument list ${args.toList}")(using DebugSectionFrontend)
+        reporter.reporter.warning(f"No input file given. Will produce no verification conditions.")
+        Nil
+      }
 
-  def run(): Unit = process(args.toArray, reporter)
+  def run(): Unit = 
+    if files.isEmpty then ()
+    else process(args.toArray, reporter)
 }
 
 private class SimpleReporter(val reporter: inox.Reporter) extends DottyReporter {
@@ -149,12 +156,12 @@ object DottyCompiler {
     override val libraryPaths: Seq[String]
   ) extends FrontendFactory {
 
-    /** Overriden to not include library sources. */
+    /** Overridden to not include library sources. */
     final override protected def allCompilerArguments(ctx: inox.Context, compilerArgs: Seq[String]): Seq[String] = {
       val extraSources = extraSourceFiles(ctx)
       extraCompilerArguments ++ extraSources ++ compilerArgs
     }
-    
+
     override def apply(ctx: inox.Context, compilerArgs: Seq[String], callback: CallBack): Frontend =
       new ThreadedFrontend(callback, ctx) {
         val args = {

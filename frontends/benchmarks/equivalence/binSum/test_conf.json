@@ -1,0 +1,24 @@
+{
+  "models": [
+    "Model.binSum"
+  ],
+  "comparefuns": [
+    "Candidate.binSum"
+  ],
+  "norm": "Model.norm",
+  "outcome": {
+    "equivalent": [
+      {
+        "model": "Model.binSum",
+        "functions": [
+          "Candidate.binSum"
+        ]
+      }
+    ],
+    "unequivalent": [],
+    "unsafe": [],
+    "unknownSafety": [],
+    "unknownEquivalence": [],
+    "wrong": []
+  }
+}

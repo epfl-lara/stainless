@@ -40,7 +40,7 @@ class FileWatcher(ctx: inox.Context, files: Set[File], action: () => Unit) {
         ctx.reporter.info(s"Detected Enter key press")
         enterPressed = true
       }
-    } (stainless.multiThreadedExecutionContext)
+    } (using stainless.multiThreadedExecutionContext)
 
     while (loop) {
       // Wait for further changes, filtering out everything that is not of interest

@@ -59,6 +59,7 @@ class StainlessExtraction(val inoxCtx: inox.Context) {
     }
 
     val fragmentChecker = new FragmentChecker(inoxCtx)
+    fragmentChecker.ghostPropagater(tree)
     fragmentChecker.ghostChecker(tree)
     fragmentChecker.checker(tree)
 
