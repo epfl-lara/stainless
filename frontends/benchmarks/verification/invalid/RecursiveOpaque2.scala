@@ -13,5 +13,5 @@ object RecursiveOpaque2 {
       assert(y == 0) // No, because we only know y >= 0, we do not know f's body (even for recursive calls)
       y
     }
- }.ensuring(_ >= 0)
+  }.ensuring(_ >= 0)
 }

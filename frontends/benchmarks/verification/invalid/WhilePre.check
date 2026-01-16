@@ -1,0 +1,13 @@
+6:5;f;body assertion: Inlined precondition of fWhile;invalid
+6:5;f;body assertion: Inlined precondition of fWhile;valid
+6:5;f;precondition;valid
+6:5;f;precondition;valid
+6:5;fWhile;body assertion: Inlined precondition of fWhile;valid
+6:5;fWhile;body assertion: Inlined precondition of fWhile;valid
+6:5;fWhile;postcondition;valid
+6:5;fWhile;postcondition;valid
+6:5;fWhile;postcondition;valid
+6:5;fWhile;postcondition;valid
+6:5;fWhile;precondition;valid
+6:5;fWhile;precondition;valid
+6:13;fWhile;non-negative measure;valid

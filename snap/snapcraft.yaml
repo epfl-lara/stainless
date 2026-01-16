@@ -28,12 +28,12 @@ apps:
     environment:
       JAVA_HOME: $SNAP/usr/lib/jvm/java-17-openjdk-amd64
       PATH: $JAVA_HOME/bin:$PATH
-  cli:
-    command: stainless-cli
-    plugs: [home, network, network-bind]
-    environment:
-      JAVA_HOME: $SNAP/usr/lib/jvm/java-17-openjdk-amd64
-      PATH: $JAVA_HOME/bin:$PATH
+  # cli:
+  #   command: stainless-cli
+  #   plugs: [home, network, network-bind]
+  #   environment:
+  #     JAVA_HOME: $SNAP/usr/lib/jvm/java-17-openjdk-amd64
+  #     PATH: $JAVA_HOME/bin:$PATH
 
 # actual build
 parts:
@@ -42,12 +42,12 @@ parts:
     source: snap/local
     source-type: local
 
-  scala-cli:
-    plugin: nil
-    override-pull: |
-      wget -c https://github.com/VirtusLab/scala-cli/releases/download/v1.6.1/scala-cli.jar
-    override-build: |
-      install -Dm644 scala-cli.jar "$CRAFT_PART_INSTALL/usr/share/java/scala-cli/scala-cli.jar"
+  # scala-cli:
+  #   plugin: nil
+  #   override-pull: |
+  #     wget -c https://github.com/VirtusLab/scala-cli/releases/download/v1.6.1/scala-cli.jar
+  #   override-build: |
+  #     install -Dm644 scala-cli.jar "$CRAFT_PART_INSTALL/usr/share/java/scala-cli/scala-cli.jar"
 
   stainless:
     plugin: nil
@@ -76,10 +76,10 @@ parts:
       STAINLESS_VER="$(git describe --abbrev=7 | sed 's/^v//')" # trim and strip v from git versioning e.g. v0.9.1... -> 0.9.1...
 
       mkdir -p $CRAFT_PART_INSTALL/usr/share/java/stainless
-      cp "./frontends/dotty/target/scala-$SCALA_VER/stainless-dotty-assembly-$STAINLESS_VER.jar" stainless.jar
+      cp "./frontends/dotty/target/scala-${SCALA_VER}/stainless-dotty-assembly-${STAINLESS_VER}.jar" stainless.jar
 
-      cp "./frontends/library/target/scala-3.5.2/stainless-library_3-$STAINLESS_VER.jar" stainless-library.jar
-      cp "./frontends/library/target/scala-3.5.2/stainless-library_3-$STAINLESS_VER-sources.jar" stainless-library-sources.jar
+      cp "./frontends/library/target/scala-${SCALA_VER}/stainless-library_3-${STAINLESS_VER}.jar" stainless-library.jar
+      cp "./frontends/library/target/scala-${SCALA_VER}/stainless-library_3-${STAINLESS_VER}-sources.jar" stainless-library-sources.jar
 
       install -Dm644 stainless.jar "$CRAFT_PART_INSTALL/usr/share/java/stainless/stainless.jar"
       install -Dm644 stainless-library.jar "$CRAFT_PART_INSTALL/usr/lib/stainless/stainless-library.jar"

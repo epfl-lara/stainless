@@ -1,0 +1,5 @@
+11:24;+;class invariant: inv;valid
+14:26;+;class invariant: inv;valid
+14:40;+;division by zero;valid
+15:16;+;class invariant: inv;valid
+22:7;plusAssoc;postcondition;invalid

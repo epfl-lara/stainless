@@ -103,4 +103,3 @@ class VerificationReport(val results: Seq[VerificationReport.Record], val source
     ReportStats(totalConditions, totalTime, totalValid, totalValidFromCache, totalTrivial, totalInvalid, totalUnknown)
 
 }
-

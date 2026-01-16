@@ -1,0 +1,23 @@
+{
+  "models": [
+    "UnaryNat.isEven1"
+  ],
+  "comparefuns": [
+    "UnaryNat.isEven2"
+  ],
+  "outcome": {
+    "equivalent": [
+      {
+        "model": "UnaryNat.isEven1",
+        "functions": [
+          "UnaryNat.isEven2"
+        ]
+      }
+    ],
+    "unequivalent": [],
+    "unsafe": [],
+    "unknownSafety": [],
+    "unknownEquivalence": [],
+    "wrong": []
+  }
+}

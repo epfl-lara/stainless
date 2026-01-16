@@ -175,6 +175,7 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
       val (keys, values) = elems.toSeq.unzip
       (Seq(), Seq(), values :+ default :+ size, Seq(base), Seq(), {
         case (_, _, es :+ nd :+ ns, tps, _) => t.LargeArray((keys zip es).toMap, nd, ns, tps.head)
+        case (_, _, _, _, _) => throw new MatchError("Unexpected pattern")
       })
 
     case s.ArraySelect(array, index) =>

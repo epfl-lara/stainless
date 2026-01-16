@@ -1,0 +1,2 @@
+7:7;foo;postcondition;invalid
+9:7;foo;array index within bounds;valid

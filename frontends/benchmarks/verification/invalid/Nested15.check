@@ -1,0 +1,3 @@
+13:12;rec2;precondition;valid
+15:5;foo;postcondition;invalid
+15:5;foo;precondition;valid

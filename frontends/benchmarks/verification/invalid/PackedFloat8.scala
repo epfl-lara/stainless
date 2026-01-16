@@ -33,10 +33,10 @@ object PackedFloat8 {
       require(0 <= exp && exp <= 15)
       val underlying = ((mant << 4) | exp) & 0xFF
       PackedFloat8(wrapping(underlying.toByte))
-   }.ensuring(res => res.mant == mant && res.exp == exp)
+    }.ensuring(res => res.mant == mant && res.exp == exp)
   }
 
   def plusAssoc(x: PackedFloat8, y: PackedFloat8, z: PackedFloat8): Unit = {
     ()
- }.ensuring(_ => x + (y + z) == (x + y) + z)
+  }.ensuring(_ => x + (y + z) == (x + y) + z)
 }

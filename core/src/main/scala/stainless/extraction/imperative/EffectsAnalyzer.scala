@@ -398,6 +398,8 @@ trait EffectsAnalyzer extends oo.CachingPhase {
 
         case (_, Nil) =>
           true
+
+        case (_, _) => throw MatchError(s"Invalid target $path on type $tpe")
       }
 
       rec(receiver.getType, path.toSeq)
