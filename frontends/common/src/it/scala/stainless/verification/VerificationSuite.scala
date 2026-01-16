@@ -204,7 +204,11 @@ class VerificationSuite extends VerificationComponentTestSuite {
     // Does not work with --feeling-lucky. See #490
     "verification/valid/MsgQueue",
     // assertion failed in `compileLambda`
-    "verification/valid/GodelNumbering"
+    "verification/valid/GodelNumbering",
+    // codegen for floating-point <-> ieee bit-representation conversions not implemented
+    "verification/valid/FloatingPointFunctionProperties",
+    "verification/valid/FloatsToBits",
+    "verification/invalid/FloatingPointFunctionsContradiction",
   )
 
   private val ignoreCheckFiles = Map(
