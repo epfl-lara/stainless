@@ -117,10 +117,10 @@ trait TransformerWithType extends TreeTransformer {
     case s.RoundTowardPositive => t.RoundTowardPositive.copiedFrom(expr)
 
     case s.FPIsNaN(e) => t.FPIsNaN(transform(e)).copiedFrom(expr)
-    case s.FPIsInfinite(e) => t.FPIsNaN(transform(e)).copiedFrom(expr)
-    case s.FPIsZero(e) => t.FPIsNaN(transform(e)).copiedFrom(expr)
-    case s.FPIsPositive(e) => t.FPIsNaN(transform(e)).copiedFrom(expr)
-    case s.FPIsNegative(e) => t.FPIsNaN(transform(e)).copiedFrom(expr)
+    case s.FPIsInfinite(e) => t.FPIsInfinite(transform(e)).copiedFrom(expr)
+    case s.FPIsZero(e) => t.FPIsZero(transform(e)).copiedFrom(expr)
+    case s.FPIsPositive(e) => t.FPIsPositive(transform(e)).copiedFrom(expr)
+    case s.FPIsNegative(e) => t.FPIsNegative(transform(e)).copiedFrom(expr)
 
     // TODO: FPPlus & friends?
 

@@ -1738,10 +1738,10 @@ class CodeExtraction(inoxCtx: inox.Context,
         if (tpeL == tpeR) xt.Equals(l2, r2)
         else outOfSubsetError(tr, "Bitvectors can only be compared with bitvectors of the same type.")
 
-      case (l2, xt.FPType(_, _), r2, _) =>
-        xt.FPEquals(l2, r2)
-      case (l2, _, r2, xt.FPType(_, _)) =>
-        xt.FPEquals(l2, r2)
+      case (_, xt.FPType(_, _), _, _) =>
+        injectCasts(xt.FPEquals.apply)(l, r)
+      case (_, _, _, xt.FPType(_, _)) =>
+        injectCasts(xt.FPEquals.apply)(l, r)
 
       case _ => injectCasts(xt.Equals.apply)(l, r)
     }).setPos(tr.sourcePos))
@@ -1766,10 +1766,10 @@ class CodeExtraction(inoxCtx: inox.Context,
         if (tpeL == tpeR) xt.Equals(l2, r2)
         else outOfSubsetError(tr, "Bitvectors can only be compared with bitvectors of the same type.")
 
-      case (l2, xt.FPType(_, _), r2, _) =>
-        xt.FPEquals(l2, r2)
-      case (l2, _, r2, xt.FPType(_, _)) =>
-        xt.FPEquals(l2, r2)
+      case (_, xt.FPType(_, _), _, _) =>
+        injectCasts(xt.FPEquals.apply)(l, r)
+      case (_, _, _, xt.FPType(_, _)) =>
+        injectCasts(xt.FPEquals.apply)(l, r)
 
       case _ => injectCasts(xt.Equals.apply)(l, r)
     }
