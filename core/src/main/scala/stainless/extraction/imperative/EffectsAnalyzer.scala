@@ -322,6 +322,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     case BooleanLiteral(_) => true
     case IntegerLiteral(_) => true
     case BVLiteral(_, _, _) => true
+    case FPLiteral(_, _, _) => true
     case Tuple(es) => es.forall(isValue)
     case ADT(_, _, args) => args.forall(isValue)
     case _ => false

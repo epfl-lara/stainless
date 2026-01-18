@@ -104,6 +104,26 @@ trait TransformerWithType extends TreeTransformer {
       val lub = widen(leastUpperBound(lhs.getType, rhs.getType))
       t.Equals(transform(lhs, lub), transform(rhs, lub)).copiedFrom(expr)
 
+    case s.FPEquals(lhs, rhs) =>
+      t.FPEquals(transform(lhs), transform(rhs)).copiedFrom(expr) // TODO: probably correct?
+
+    case s.FPCast(exponent, significand, roundingMode, e) =>
+      t.FPCast(exponent, significand, transform(roundingMode), transform(e)).copiedFrom(expr)
+
+    case s.RoundNearestTiesToEven => t.RoundNearestTiesToEven.copiedFrom(expr)
+    case s.RoundNearestTiesToAway => t.RoundNearestTiesToAway.copiedFrom(expr)
+    case s.RoundTowardZero => t.RoundTowardZero.copiedFrom(expr)
+    case s.RoundTowardNegative => t.RoundTowardNegative.copiedFrom(expr)
+    case s.RoundTowardPositive => t.RoundTowardPositive.copiedFrom(expr)
+
+    case s.FPIsNaN(e) => t.FPIsNaN(transform(e)).copiedFrom(expr)
+    case s.FPIsInfinite(e) => t.FPIsNaN(transform(e)).copiedFrom(expr)
+    case s.FPIsZero(e) => t.FPIsNaN(transform(e)).copiedFrom(expr)
+    case s.FPIsPositive(e) => t.FPIsNaN(transform(e)).copiedFrom(expr)
+    case s.FPIsNegative(e) => t.FPIsNaN(transform(e)).copiedFrom(expr)
+
+    // TODO: FPPlus & friends?
+
     case s.And(es) =>
       t.And(es map (transform(_, s.BooleanType()))).copiedFrom(expr)
 
