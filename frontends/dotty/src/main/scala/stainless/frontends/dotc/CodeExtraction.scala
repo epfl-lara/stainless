@@ -1883,21 +1883,24 @@ class CodeExtraction(inoxCtx: inox.Context,
     case ex @ ExIdentifier(sym, tpt) if dctx.vars contains sym => dctx.vars(sym)().setPos(ex.sourcePos)
     case ex @ ExIdentifier(sym, tpt) if dctx.mutableVars contains sym => dctx.mutableVars(sym)().setPos(ex.sourcePos)
 
-    // We ignore conversion to 'Rich' types (e.g. RichFloat).
+    // We ignore conversion to 'Rich' types (e.g. RichFloat) and boxed java types (e.g. java.lang.Float).
     // They have the same Inox representations as the base types (e.g. Float).
     // When doing this, we also need to ensure that getType() also returns the base type.
-    case ExWrapperCall(expr) => extractTree(expr)
+    case ExIgnoredCastCall(expr) => extractTree(expr)
 
     case ExThisCall(tt, sym, tps, args) =>
       extractCall(tr, Some(tpd.This(tt.cls)), sym, tps, args)
 
-      // TODO: should maybe be implemented for floating point numbers (this case seems to trigger on assignments between different types e.g. assigning Int to Long)
     case ExCastCall(expr, from, to) =>
-      // Double check that we are dealing with regular integer types
-      val xt.BVType(true, size) = extractType(from)(using dctx, NoSourcePosition): @unchecked
-      val newType @ xt.BVType(true, newSize) = extractType(to)(using dctx, NoSourcePosition): @unchecked
-      if (size > newSize) xt.BVNarrowingCast(extractTree(expr), newType)
-      else                xt.BVWideningCast(extractTree(expr), newType)
+      (extractType(from)(using dctx, NoSourcePosition), extractType(to)(using dctx, NoSourcePosition)) match {
+        case (xt.BVType(true, size), newType @ xt.BVType(true, newSize)) =>
+          if (size > newSize) xt.BVNarrowingCast(extractTree(expr), newType)
+          else                xt.BVWideningCast(extractTree(expr), newType)
+        case (xt.BVType(true, _), xt.FPType(e, s)) =>
+          xt.FPCast(e, s, xt.RoundNearestTiesToEven, extractTree(expr))
+        case (xt.FPType(_, _), xt.FPType(e, s)) =>
+          xt.FPCast(e, s, xt.RoundNearestTiesToEven, extractTree(expr))
+      }
 
     case c@ExCall(rec, sym, tps, args) =>
       extractCall(c, rec, sym, tps, args)
@@ -2209,7 +2212,7 @@ class CodeExtraction(inoxCtx: inox.Context,
         // TODO: avoid duplicate subexpressions [extractTree(lhs)]
         case (xt.FPType(_,_), "isFinite", Seq()) =>
           xt.And(xt.Not(xt.FPIsInfinite(extractTree(lhs))), xt.Not(xt.FPIsNaN(extractTree(lhs))))
-        case (xt.FPType(_,_), "isInfinity", Seq()) => xt.FPIsInfinite(extractTree(lhs))
+        case (xt.FPType(_,_), "isInfinity" | "isInfinite", Seq()) => xt.FPIsInfinite(extractTree(lhs))
         case (xt.FPType(_,_), "isNaN", Seq()) => xt.FPIsNaN(extractTree(lhs))
         case (xt.FPType(_,_), "isPosInfinity", Seq()) =>
           xt.And(xt.FPIsPositive(extractTree(lhs)), xt.FPIsInfinite(extractTree(lhs)))
@@ -2242,7 +2245,16 @@ class CodeExtraction(inoxCtx: inox.Context,
           case tpe => outOfSubsetError(tr, s"Unexpected cast .toLong from $tpe")
         }
 
-        // TODO: toFloat and toDouble?
+        case (tpe, "toFloat", Seq()) => tpe match {
+          case xt.BVType(true, 8 | 16 | 32 | 64 ) => xt.FPCast(8, 24, xt.RoundNearestTiesToEven, extractTree(lhs))
+          case tpe => outOfSubsetError(tr, s"Unexpected cast .toFloat from $tpe")
+        }
+
+        case (tpe, "toDouble", Seq()) => tpe match {
+          case xt.BVType(true, 8 | 16 | 32 | 64 ) | xt.FPType(8, 24) =>
+            xt.FPCast(11, 53, xt.RoundNearestTiesToEven, extractTree(lhs))
+          case tpe => outOfSubsetError(tr, s"Unexpected cast .toDouble from $tpe")
+        }
 
         case (tpe, name, args) =>
           outOfSubsetError(tr, s"Unsupported call to $name on ${lhs.show}")
@@ -2388,16 +2400,18 @@ class CodeExtraction(inoxCtx: inox.Context,
     (tpt match {
       case NoType => xt.Untyped
 
-      case tpe if tpe.typeSymbol == defn.FloatClass   => xt.Float32Type()
-      case tpe if tpe.typeSymbol == defn.DoubleClass  => xt.Float64Type()
-      case tpe if tpe.typeSymbol == defn.CharClass    => xt.CharType()
-      case tpe if tpe.typeSymbol == defn.ByteClass    => xt.Int8Type()
-      case tpe if tpe.typeSymbol == defn.ShortClass   => xt.Int16Type()
-      case tpe if tpe.typeSymbol == defn.IntClass     => xt.Int32Type()
-      case tpe if tpe.typeSymbol == defn.LongClass    => xt.Int64Type()
-      case tpe if tpe.typeSymbol == defn.BooleanClass => xt.BooleanType()
-      case tpe if tpe.typeSymbol == defn.UnitClass    => xt.UnitType()
-      case tpe if tpe.typeSymbol == defn.NothingClass => xt.NothingType()
+      case tpe if tpe.typeSymbol == defn.FloatClass       => xt.Float32Type()
+      case tpe if tpe.typeSymbol == defn.BoxedFloatClass  => xt.Float32Type()
+      case tpe if tpe.typeSymbol == defn.DoubleClass      => xt.Float64Type()
+      case tpe if tpe.typeSymbol == defn.BoxedDoubleClass => xt.Float64Type()
+      case tpe if tpe.typeSymbol == defn.CharClass        => xt.CharType()
+      case tpe if tpe.typeSymbol == defn.ByteClass        => xt.Int8Type()
+      case tpe if tpe.typeSymbol == defn.ShortClass       => xt.Int16Type()
+      case tpe if tpe.typeSymbol == defn.IntClass         => xt.Int32Type()
+      case tpe if tpe.typeSymbol == defn.LongClass        => xt.Int64Type()
+      case tpe if tpe.typeSymbol == defn.BooleanClass     => xt.BooleanType()
+      case tpe if tpe.typeSymbol == defn.UnitClass        => xt.UnitType()
+      case tpe if tpe.typeSymbol == defn.NothingClass     => xt.NothingType()
 
       // `isRef` seems to be needed here instead of `==`, as the latter
       // seems to be too lax, and makes the whole test suite fail. - @romac
