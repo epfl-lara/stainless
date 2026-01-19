@@ -1603,10 +1603,10 @@ trait CodeGeneration { self: CompilationUnit =>
     case LessEquals(l,r)    => mkCmpJump(cond, thenn, elze, l, r, ch, If_ICmpLe.apply, IfLe.apply, "lessEquals")
     case GreaterEquals(l,r) => mkCmpJump(cond, thenn, elze, l, r, ch, If_ICmpGe.apply, IfGe.apply, "greaterEquals")
 
-    case FPLessThan(l,r)      => mkCmpJump(cond, thenn, elze, l, r, ch, If_ICmpLt, IfLt, "FPLessThan", cmpLtOnNaN = false)
-    case FPGreaterThan(l,r)   => mkCmpJump(cond, thenn, elze, l, r, ch, If_ICmpGt, IfGt, "FPGreaterThan", cmpLtOnNaN = true)
-    case FPLessEquals(l,r)    => mkCmpJump(cond, thenn, elze, l, r, ch, If_ICmpLe, IfLe, "FPLessEquals", cmpLtOnNaN = false)
-    case FPGreaterEquals(l,r) => mkCmpJump(cond, thenn, elze, l, r, ch, If_ICmpGe, IfGe, "FPGreaterEquals", cmpLtOnNaN = true)
+    case FPLessThan(l,r)      => mkCmpJump(cond, thenn, elze, l, r, ch, If_ICmpLt.apply, IfLt.apply, "FPLessThan", cmpLtOnNaN = false)
+    case FPGreaterThan(l,r)   => mkCmpJump(cond, thenn, elze, l, r, ch, If_ICmpGt.apply, IfGt.apply, "FPGreaterThan", cmpLtOnNaN = true)
+    case FPLessEquals(l,r)    => mkCmpJump(cond, thenn, elze, l, r, ch, If_ICmpLe.apply, IfLe.apply, "FPLessEquals", cmpLtOnNaN = false)
+    case FPGreaterEquals(l,r) => mkCmpJump(cond, thenn, elze, l, r, ch, If_ICmpGe.apply, IfGe.apply, "FPGreaterEquals", cmpLtOnNaN = true)
 
     case FPIsInfinite(e) =>
       mkExpr(e, ch)
