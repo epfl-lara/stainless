@@ -898,7 +898,7 @@ package object math {
 
   @library
   private def powerOfTwoF(n: Int): Float = {
-    assert(n >= FloatConsts.MIN_EXPONENT && n <= FloatConsts.MAX_EXPONENT)
+    require(FloatConsts.MIN_EXPONENT <= n && n <= FloatConsts.MAX_EXPONENT)
     java.lang.Float.intBitsToFloat(((n + FloatConsts.EXP_BIAS) << (FloatConsts.SIGNIFICAND_WIDTH - 1)) & FloatConsts.EXP_BIT_MASK)
   }
 
