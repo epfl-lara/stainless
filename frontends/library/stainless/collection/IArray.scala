@@ -181,7 +181,8 @@ object IArray:
   @pure @extern
   def fill[T: ClassTag](n: BigInt)(x: T): IArray[T] = {
     require(0 <= n && n <= Int.MaxValue)
-    val res = IArray(List.fill(n)(x))      
+    @ghost val list = List.fill(n)(x)
+    val res = IArray(list)      
     res._arr = Array.fill[T](n.toInt)(x)
     res._offset = 0
     res._size = n
