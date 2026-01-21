@@ -300,7 +300,7 @@ class AssertionInjector(override val s: ast.Trees, override val t: ast.Trees, va
         }
       }
 
-    case s.FPToBVJVM(exponent, significand, toSize, expr) if strictArithmetic =>
+    case s.FPToBVJVM(exponent, significand, toSize, expr) if checkOverflow =>
       bindIfCannotDuplicate(expr, "expr") { expr =>
         // a FP -> BV cast of the value `f` is considered safe iff `f` is not NaN and `bvLb < f < bvUb`.
         val bvLb = t.BVLiteral(true, -BigInt(2).pow(toSize-1) - 1, toSize + 1).copiedFrom(e)
@@ -331,11 +331,11 @@ class AssertionInjector(override val s: ast.Trees, override val t: ast.Trees, va
         t.Assert(range, Some("Shift semantics"), recons(rhsx)).copiedFrom(e)
       }
 
-    case s.FPGreaterEquals(e1, e2) if strictArithmetic => checkNaNBinop(e)(t.FPGreaterEquals.apply, e1, e2)
-    case s.FPLessEquals(e1, e2) if strictArithmetic => checkNaNBinop(e)(t.FPLessEquals.apply, e1, e2)
-    case s.FPGreaterThan(e1, e2) if strictArithmetic => checkNaNBinop(e)(t.FPGreaterThan.apply, e1, e2)
-    case s.FPLessThan(e1, e2) if strictArithmetic => checkNaNBinop(e)(t.FPLessThan.apply, e1, e2)
-    case s.FPEquals(e1, e2) if strictArithmetic => checkNaNBinop(e)(t.FPEquals.apply, e1, e2)
+    case s.FPGreaterEquals(e1, e2) if checkOverflow => checkNaNBinop(e)(t.FPGreaterEquals.apply, e1, e2)
+    case s.FPLessEquals(e1, e2) if checkOverflow => checkNaNBinop(e)(t.FPLessEquals.apply, e1, e2)
+    case s.FPGreaterThan(e1, e2) if checkOverflow => checkNaNBinop(e)(t.FPGreaterThan.apply, e1, e2)
+    case s.FPLessThan(e1, e2) if checkOverflow => checkNaNBinop(e)(t.FPLessThan.apply, e1, e2)
+    case s.FPEquals(e1, e2) if checkOverflow => checkNaNBinop(e)(t.FPEquals.apply, e1, e2)
 
     case _ => super.transform(e)
   }

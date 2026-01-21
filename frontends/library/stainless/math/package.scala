@@ -871,7 +871,7 @@ package object math {
   // -----------------------------------------------------------------------
 
 
-  /** Disable overflow checks within `body`.
+  /** Disable overflow checks, floating-point NaN checks, and floating-point to integer cast checks within `body`.
     *
     * This is equivalent to setting `--strict-arithmetic=false` for `body` only.
     */

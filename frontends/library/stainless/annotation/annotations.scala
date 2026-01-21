@@ -46,7 +46,8 @@ class invariant extends Annotation
 @ignore @field @getter @setter @param
 class pure extends Annotation
 
-/** Disable overflow checks for sized integer arithmetic operations within the annotated function. */
+/** Disable overflow checks for sized integer arithmetic operations within the annotated function.
+ *  Also disables floating-point NaN and integer cast checks. */
 @ignore
 class wrapping extends Annotation
 
