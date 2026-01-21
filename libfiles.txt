@@ -30,6 +30,8 @@ stainless/covcollection/Option.scala
 stainless/equations/package.scala
 stainless/math/BitVectors.scala
 stainless/math/Nat.scala
+stainless/math/Float.scala
+stainless/math/Double.scala
 stainless/math/package.scala
 stainless/io/FileOutputStream.scala
 stainless/io/StdOut.scala
