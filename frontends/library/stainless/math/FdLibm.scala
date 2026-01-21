@@ -20,6 +20,14 @@ private object IntHelpers {
   def compareUnsigned(x: Int, y: Int): Int = math.wrapping(compare(x + Int.MinValue, y + Int.MinValue))
 }
 
+// The FdLibm object is annotated with @extern to avoid running the verification in CI.
+// A full verification run of the FdLibm object will typically take multiple hours.
+// The flag `--strict-arithmetic=false` should be disabled for verification to succeed.
+// The verification has only been tested with `--solvers=smt-z3,smt-cvc5,smt-bitwuzla`.
+// Using `--solver:cvc5=--arrays-exp` improves performance significantly; Inox currently (2026-01-21) generates
+// array constraints that require experimental array features to be enabled in cvc5,
+// even though these features are disabled by default.
+@extern
 object FdLibm {
   // Constants used by multiple algorithms
   private val TWO24: Double = java.lang.Double.longBitsToDouble(0x4170000000000000L) // 1.67772160000000000000e+07

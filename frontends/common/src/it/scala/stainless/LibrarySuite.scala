@@ -17,7 +17,7 @@ abstract class AbstractLibrarySuite(opts: Seq[inox.OptionValue[?]]) extends AnyF
 
   protected val defaultOptions = Seq(inox.optSelectedSolvers(Set("smt-z3")))
 
-  protected val options = inox.Options(defaultOptions ++ opts)
+  protected val options = inox.Options(opts ++ defaultOptions)
 
   protected def symbolName(id: Identifier): String = id match {
     case si: SymbolIdentifier => si.symbol.name
@@ -79,6 +79,7 @@ abstract class AbstractLibrarySuite(opts: Seq[inox.OptionValue[?]]) extends AnyF
 class LibrarySuite extends AbstractLibrarySuite(Seq(
   termination.optInferMeasures(true),
   termination.optCheckMeasures(YesNoOnly.Yes),
+  inox.optSelectedSolvers(Set("smt-z3", "smt-cvc5")),
   inox.optTimeout(30.seconds),
 ))
 

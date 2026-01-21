@@ -207,7 +207,7 @@ package object math {
       && (x.isPositive == res.isPositive)
       && (x.isNegative == res.isNegative)
       && (x.isZero == res.isZero)
-      && (!x.isNaN == (- Pi / 2 <= res && res <= Pi / 2))
+      && (!x.isNaN == (!res.isNaN && - Pi / 2 <= res && res <= Pi / 2))
       && (x.isPosInfinity ==> (res == Pi / 2))
       && (x.isNegInfinity ==> (res == -Pi / 2))
   )
@@ -312,10 +312,16 @@ package object math {
   def abs(n: BigInt) = if (n < 0) -n else n
 
   @library
-  def abs(a: Int) = if (a < 0) -a else a
+  def abs(a: Int) = {
+    require(a != Int.MinValue)
+    if (a < 0) -a else a
+  }
 
   @library
-  def abs(a: Long) = if (a < 0) -a else a
+  def abs(a: Long) = {
+    require(a != Long.MinValue)
+    if (a < 0) -a else a
+  }
 
   @ignore
   def abs(x: Float) = scala.math.abs(x)
@@ -366,10 +372,14 @@ package object math {
   def min(x: Double, y: Double): Double = scala.math.min(x, y)
 
   @library
-  def signum(x: Int): Int = (x >> 31) | (-x >>> 31)
+  def signum(x: Int): Int = {
+    wrapping((x >> 31) | (-x >>> 31))
+  }.ensuring((res: Int) => (x < 0 ==> (res == -1)) && (x == 0 ==> (res == 0)) && (x > 0 ==> (res == 1)))
 
   @library
-  def signum(x: Long): Long = ((x >> 63) | (-x >>> 63)).toInt
+  def signum(x: Long): Long = {
+    wrapping((x >> 63) | (-x >>> 63))
+  }.ensuring(res => (x < 0 ==> (res == -1)) && (x == 0 ==> (res == 0)) && (x > 0 ==> (res == 1)))
 
   @library
   def signum(d: Double): Double = if d.isNaN || d == 0.0 then d
@@ -377,18 +387,20 @@ package object math {
 
   @library
   def floorDiv(x: Int, y: Int): Int = {
-    require(y != 0)
+    require(y != 0 && !(x == Int.MinValue && y == -1))
     val q = x / y
     // if the signs are different and modulo not zero, round down
-    if (x ^ y) < 0 && (q * y != x) then q - 1 else q
+    // the original implementation checks `q * y != x`, but that was challenging for smt solvers
+    if (x ^ y) < 0 && x % y != 0 then q - 1 else q
   }
 
   @library
   def floorDiv(x: Long, y: Long): Long = {
-    require(y != 0)
+    require(y != 0 && !(x == Long.MinValue && y == -1))
     val q: Long = x / y
     // if the signs are different and modulo not zero, round down
-    if (x ^ y) < 0 && (q * y != x) then q - 1 else q
+    // the original implementation checks `q * y != x`, but that was challenging for smt solvers
+    if (x ^ y) < 0 && x % y != 0 then q - 1 else q
   }
 
   @library
@@ -566,8 +578,8 @@ package object math {
     (x.isPosInfinity ==> res.isPosInfinity) &&
     (x.isNegInfinity ==> res.isNegInfinity) &&
     (x.isZero == res.isZero) &&
-    ((x == 1) ==> (res == 1)) &&
-    ((x == -1) ==> (res == -1)) &&
+    ((!x.isNaN && x == 1) ==> (res == 1)) &&
+    ((!x.isNaN && x == -1) ==> (res == -1)) &&
     (x.isPositive == res.isPositive) &&
     (x.isNegative == res.isNegative) &&
     ((x.isFinite && abs(x) > 1) ==> abs(res) < abs(x)) &&
@@ -694,8 +706,8 @@ package object math {
   }.ensuring( res =>
     (res.isNaN == (x.isNaN || x < 0))
       && (x.isZero == res.isNegInfinity)
-      && ((x == 1.0) ==> (res.isZero && res.isPositive))
-      && ((x >= 1.0) == res.isPositive)
+      && ((!x.isNaN && x == 1.0) ==> (res.isZero && res.isPositive))
+      && ((!x.isNaN && x >= 1.0) == res.isPositive)
       && (res.isNegative ==> (x < 1.0))
       && ((x.isFinite && x >= 0) ==> res < x)
       && (x.isPosInfinity == res.isPosInfinity)
