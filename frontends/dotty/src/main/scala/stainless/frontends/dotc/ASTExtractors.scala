@@ -1324,7 +1324,7 @@ trait ASTExtractors {
     object ExBigSubstringExpression {
       def unapply(tree: tpd.Apply) : Option[(tpd.Tree, tpd.Tree)] = tree match {
         case Apply(Select(
-          Apply(ExSelected("stainless", "lang", "package$", "StringDecorations"), stringExpr :: Nil),
+          Apply(ExSymbol("stainless", "lang", "package$", "StringDecorations"), stringExpr :: Nil),
           ExNamed("bigSubstring")), startExpr :: Nil)
           => Some(stringExpr, startExpr)
         case _ => None
@@ -1335,7 +1335,7 @@ trait ASTExtractors {
     object ExBigSubstring2Expression {
       def unapply(tree: tpd.Apply) : Option[(tpd.Tree, tpd.Tree, tpd.Tree)] = tree match {
         case Apply(Select(
-          Apply(ExSelected("stainless", "lang", "package$", "StringDecorations"), stringExpr :: Nil),
+          Apply(ExSymbol("stainless", "lang", "package$", "StringDecorations"), stringExpr :: Nil),
           ExNamed("bigSubstring")), startExpr :: endExpr :: Nil)
           => Some(stringExpr, startExpr, endExpr)
         case _ => None
