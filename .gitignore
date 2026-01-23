@@ -120,5 +120,8 @@ input.txt
 decoded.txt
 encoded.txt
 
+# Mac OS
+.DS_Store
+
 # CI
 temp/

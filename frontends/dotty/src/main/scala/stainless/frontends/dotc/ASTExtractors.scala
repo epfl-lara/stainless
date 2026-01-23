@@ -158,6 +158,8 @@ trait ASTExtractors {
   protected lazy val someClassSym       = classFromName("scala.Some")
   protected lazy val bigIntSym          = classFromName("scala.math.BigInt")
   protected lazy val stringSym          = classFromName("java.lang.String")
+  protected lazy val wrappedFloatSym    = classFromName("stainless.lang.WrappedFloat")
+  protected lazy val wrappedDoubleSym   = classFromName("stainless.lang.WrappedDouble")
 
   protected def functionTraitSym(i:Int) = {
     require(0 <= i && i <= 22)
@@ -196,6 +198,10 @@ trait ASTExtractors {
   def isBigIntSym(sym: Symbol) : Boolean = getResolvedTypeSym(sym) == bigIntSym
 
   def isStringSym(sym: Symbol) : Boolean = getResolvedTypeSym(sym) match { case `stringSym` => true case _ => false }
+
+  def isWrappedFloatSym(sym: Symbol): Boolean = getResolvedTypeSym(sym) == wrappedFloatSym
+
+  def isWrappedDoubleSym(sym: Symbol): Boolean = getResolvedTypeSym(sym) == wrappedDoubleSym
 
   // Resolve type aliases
   def getResolvedTypeSym(sym: Symbol): Symbol = {
@@ -272,7 +278,11 @@ trait ASTExtractors {
 
   def hasBVType(t: tpd.Tree) = bvtypes.exists(bv => t.tpe frozen_<:< bv)
 
-  def hasNumericType(t: tpd.Tree): Boolean = hasBigIntType(t) || hasBVType(t) || hasRealType(t)
+  private lazy val fptypes = Set(defn.FloatType, defn.DoubleType)
+
+  def hasFPType(t: tpd.Tree) = fptypes.exists(fp => t.tpe frozen_<:< fp)
+
+  def hasNumericType(t: tpd.Tree): Boolean = hasBigIntType(t) || hasBVType(t) || hasRealType(t) || hasFPType(t)
 
   def hasRealType(t: tpd.Tree) = isRealSym(t.tpe.typeSymbol)
 
@@ -369,6 +379,20 @@ trait ASTExtractors {
       def unapply(tree: tpd.Literal): Option[Boolean] = tree match {
         case Literal(Constant(true)) => Some(true)
         case Literal(Constant(false)) => Some(false)
+        case _ => None
+      }
+    }
+
+    object ExFloatLiteral {
+      def unapply(tree: tpd.Literal): Option[Float] = tree match {
+        case Literal(c @ Constant(f)) if c.tpe.classSymbol == defn.FloatClass => Some(c.floatValue)
+        case _ => None
+      }
+    }
+
+    object ExDoubleLiteral {
+      def unapply(tree: tpd.Literal): Option[Double] = tree match {
+        case Literal(c @ Constant(f)) if c.tpe.classSymbol == defn.DoubleClass => Some(c.doubleValue)
         case _ => None
       }
     }
@@ -484,6 +508,104 @@ trait ASTExtractors {
       }
     }
 
+    object ExSqrtCall {
+      def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
+        case Apply(ExSymbol("stainless", "math", "package$", "sqrt"), Seq(rhs)) => Some(rhs)
+        case _ => None
+      }
+    }
+
+    object ExCeilCall {
+      def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
+        case Apply(ExSymbol("stainless", "math", "package$", "ceil"), Seq(rhs)) => Some(rhs)
+        case _ => None
+      }
+    }
+
+    object ExFloorCall {
+      def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
+        case Apply(ExSymbol("stainless", "math", "package$", "floor"), Seq(rhs)) => Some(rhs)
+        case _ => None
+      }
+    }
+
+    object ExRintCall {
+      def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
+        case Apply(ExSymbol("stainless", "math", "package$", "rint"), Seq(rhs)) => Some(rhs)
+        case _ => None
+      }
+    }
+
+    object ExFPAbsCall {
+      def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
+        case Apply(ExSymbol("stainless", "math", "package$", "abs"), Seq(rhs)) if hasFPType(tree) => Some(rhs)
+        case _ => None
+      }
+    }
+
+    object ExFPMinCall {
+      def unapply(tree: tpd.Tree): Option[(tpd.Tree, tpd.Tree)] = tree match {
+        case Apply(ExSymbol("stainless", "math", "package$", "min"), Seq(lhs, rhs)) if hasFPType(tree) => Some((lhs, rhs))
+        case _ => None
+      }
+    }
+
+    object ExFPMaxCall {
+      def unapply(tree: tpd.Tree): Option[(tpd.Tree, tpd.Tree)] = tree match {
+        case Apply(ExSymbol("stainless", "math", "package$", "max"), Seq(lhs, rhs)) if hasFPType(tree) => Some((lhs, rhs))
+        case _ => None
+      }
+    }
+
+    object ExFloatNaN {
+      def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
+        case s@ExSymbol("scala", "Float", "NaN") => Some(s)
+        case _ => None
+      }
+    }
+
+    object ExDoubleToLongBits {
+      def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
+        case Apply(ExSymbol("java", "lang", "Double$", "doubleToLongBits"), Seq(rhs)) => Some(rhs)
+        case _ => None
+      }
+    }
+
+    object ExDoubleToRawLongBits {
+      def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
+        case Apply(ExSymbol("java", "lang", "Double$", "doubleToRawLongBits"), Seq(rhs)) => Some(rhs)
+        case _ => None
+      }
+    }
+
+    object ExFloatToIntBits {
+      def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
+        case Apply(ExSymbol("java", "lang", "Float$", "floatToIntBits"), Seq(rhs)) => Some(rhs)
+        case _ => None
+      }
+    }
+
+    object ExFloatToRawIntBits {
+      def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
+        case Apply(ExSymbol("java", "lang", "Float$", "floatToRawIntBits"), Seq(rhs)) => Some(rhs)
+        case _ => None
+      }
+    }
+
+    object ExLongBitsToDouble {
+      def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
+        case Apply(ExSymbol("java", "lang", "Double$", "longBitsToDouble"), Seq(rhs)) => Some(rhs)
+        case _ => None
+      }
+    }
+
+    object ExIntBitsToFloat {
+      def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
+        case Apply(ExSymbol("java", "lang", "Float$", "intBitsToFloat"), Seq(rhs)) => Some(rhs)
+        case _ => None
+      }
+    }
+
     // Dotc seems slightly less consistent than scalac: it uses to format for
     // casts. Like scalac, it uses Select for `.toByte`, but it also uses
     // Apply("byte2int", arg) for implicit conversions (and perhaps for other
@@ -493,21 +615,31 @@ trait ASTExtractors {
       def unapply(tree: tpd.Tree): Option[(tpd.Tree, Type, Type)] = tree match {
         case Apply(Ident(name), List(arg)) =>
           val tmp: Option[(Symbol, Symbol)] = name.toString match {
-            case "byte2short" => Some(defn.ByteClass, defn.ShortClass)
-            case "byte2int"   => Some(defn.ByteClass, defn.IntClass)
-            case "byte2long"  => Some(defn.ByteClass, defn.LongClass)
+            case "byte2short"   => Some(defn.ByteClass, defn.ShortClass)
+            case "byte2int"     => Some(defn.ByteClass, defn.IntClass)
+            case "byte2long"    => Some(defn.ByteClass, defn.LongClass)
+            case "byte2float"   => Some(defn.ByteClass, defn.FloatClass)
+            case "byte2double"  => Some(defn.ByteClass, defn.DoubleClass)
 
-            case "short2byte" => Some(defn.ShortClass, defn.ByteClass)
-            case "short2int"  => Some(defn.ShortClass, defn.IntClass)
-            case "short2long" => Some(defn.ShortClass, defn.LongClass)
+            case "short2byte"   => Some(defn.ShortClass, defn.ByteClass)
+            case "short2int"    => Some(defn.ShortClass, defn.IntClass)
+            case "short2long"   => Some(defn.ShortClass, defn.LongClass)
+            case "short2float"  => Some(defn.ShortClass, defn.FloatClass)
+            case "short2double" => Some(defn.ShortClass, defn.DoubleClass)
 
-            case "int2byte"   => Some(defn.IntClass, defn.ByteClass)
-            case "int2short"  => Some(defn.IntClass, defn.ShortClass)
-            case "int2long"   => Some(defn.IntClass, defn.LongClass)
+            case "int2byte"     => Some(defn.IntClass, defn.ByteClass)
+            case "int2short"    => Some(defn.IntClass, defn.ShortClass)
+            case "int2long"     => Some(defn.IntClass, defn.LongClass)
+            case "int2float"    => Some(defn.IntClass, defn.FloatClass)
+            case "int2double"   => Some(defn.IntClass, defn.DoubleClass)
 
-            case "long2byte"  => Some(defn.LongClass, defn.ByteClass)
-            case "long2short" => Some(defn.LongClass, defn.ShortClass)
-            case "long2int"   => Some(defn.LongClass, defn.IntClass)
+            case "long2byte"    => Some(defn.LongClass, defn.ByteClass)
+            case "long2short"   => Some(defn.LongClass, defn.ShortClass)
+            case "long2int"     => Some(defn.LongClass, defn.IntClass)
+            case "long2float"   => Some(defn.LongClass, defn.FloatClass)
+            case "long2double"  => Some(defn.LongClass, defn.DoubleClass)
+
+            case "float2double" => Some(defn.FloatClass, defn.DoubleClass)
 
             case _ => None
           }
@@ -620,6 +752,8 @@ trait ASTExtractors {
             ExSymbol("stainless", "lang", "StaticChecks$", "Ensuring"),
             Seq(arg)) => Some(arg)
 
+        case Apply(ExSymbol("stainless", "lang", "package$", "WrappedFloat"), Seq(arg)) => Some(arg)
+        case Apply(ExSymbol("stainless", "lang", "package$", "WrappedDouble"), Seq(arg)) => Some(arg)
         case Apply(ExSymbol("stainless", "lang", "package$", "Throwing"), Seq(arg)) => Some(arg)
         case Apply(ExSymbol("stainless", "lang", "package$", "BooleanDecorations"), Seq(arg)) => Some(arg)
         case Apply(ExSymbol("stainless", "lang", "package$", "SpecsDecorations"), Seq(arg)) => Some(arg)

@@ -61,6 +61,10 @@ class VerificationSuite extends VerificationComponentTestSuite {
       "verification/valid/Sets1",
       "verification/valid/Sets2",
       "verification/valid/Subtyping1",
+      "verification/valid/FloatingPoints1",
+      "verification/valid/FloatingPoints2",
+      "verification/valid/FloatingPoints4",
+      "verification/valid/FloatingPointFunctionProperties",
 
       // valid/
       "verification/valid/ArraySlice",
@@ -127,6 +131,9 @@ class VerificationSuite extends VerificationComponentTestSuite {
       "verification/valid/TransitiveQuantification",
       "verification/valid/Trees1",
       "verification/valid/ValueClasses",
+      "verification/valid/FloatProperties",
+      "verification/valid/FloatEquiv",
+      "verification/valid/FloatsToBits",
 
       // invalid/
       "verification/invalid/AbstractRefinementMap",
@@ -185,6 +192,9 @@ class VerificationSuite extends VerificationComponentTestSuite {
       "verification/invalid/RedBlackTree2",
       "verification/invalid/SimpleQuantification2",
       "verification/invalid/SpecWithExtern",
+      "verification/invalid/FloatNonProperties",
+      "verification/invalid/FloatNonAssociativity",
+      "verification/invalid/FloatingPointFunctionsContradiction",
 
       // false-valid/ (for greater good...)
       "verification/false-valid/ForestNothing2",
@@ -194,7 +204,11 @@ class VerificationSuite extends VerificationComponentTestSuite {
     // Does not work with --feeling-lucky. See #490
     "verification/valid/MsgQueue",
     // assertion failed in `compileLambda`
-    "verification/valid/GodelNumbering"
+    "verification/valid/GodelNumbering",
+    // codegen for floating-point <-> ieee bit-representation conversions not implemented
+    "verification/valid/FloatingPointFunctionProperties",
+    "verification/valid/FloatsToBits",
+    "verification/invalid/FloatingPointFunctionsContradiction",
   )
 
   private val ignoreCheckFiles = Map(

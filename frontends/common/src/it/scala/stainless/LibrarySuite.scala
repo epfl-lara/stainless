@@ -17,7 +17,16 @@ abstract class AbstractLibrarySuite(opts: Seq[inox.OptionValue[?]]) extends AnyF
 
   protected val defaultOptions = Seq(inox.optSelectedSolvers(Set("smt-z3")))
 
-  protected val options = inox.Options(defaultOptions ++ opts)
+  protected val options = inox.Options(opts ++ defaultOptions)
+
+  protected def libraryFiles(): Seq[String] = Main.libraryFiles
+
+  /* We need a solver with better floating-point performance than z3 for the math library, but want to keep z3 for the
+   * rest of the library.  Running each solver on a different subset of the library source files does not work, since
+   * other library files can import the math library.  Instead, we choose what functions to verify using what solver
+   * based on the full name of the function. */
+  protected final def isMathLibraryFunction(tr: ast.Trees)(fd: tr.FunDef): Boolean =
+    fd.id.fullName.startsWith("stainless.math.")
 
   protected def symbolName(id: Identifier): String = id match {
     case si: SymbolIdentifier => si.symbol.name
@@ -67,8 +76,8 @@ abstract class AbstractLibrarySuite(opts: Seq[inox.OptionValue[?]]) extends AnyF
   final def loadLibrary()(using inox.Context): Program { val trees: xlang.trees.type } = {
     val libFiles = keepOnly match {
       case Some(keepRelative) =>
-        Main.libraryFiles.filter(lib => keepRelative.exists(lib.endsWith))
-      case None => Main.libraryFiles
+        libraryFiles().filter(lib => keepRelative.exists(lib.endsWith))
+      case None => libraryFiles()
     }
     // This may throw an exception (e.g. if there are Extraction error),
     // which we let bubble up as it should give a detailed stacktrace
@@ -80,5 +89,30 @@ class LibrarySuite extends AbstractLibrarySuite(Seq(
   termination.optInferMeasures(true),
   termination.optCheckMeasures(YesNoOnly.Yes),
   inox.optTimeout(30.seconds),
-))
+)) {
+  // keep everything except math library functions
+  override protected def keep(tr: ast.Trees)(fd: tr.FunDef): Boolean =
+    !isMathLibraryFunction(tr)(fd) && super.keep(tr)(fd)
+}
 
+class MathLibrarySuite extends AbstractLibrarySuite(Seq(
+  termination.optInferMeasures(true),
+  termination.optCheckMeasures(YesNoOnly.Yes),
+  inox.optSelectedSolvers(Set("smt-cvc5")),
+  inox.optTimeout(30.seconds),
+)) {
+  // only keep math library functions
+  override protected def keep(tr: ast.Trees)(fd: tr.FunDef): Boolean =
+    isMathLibraryFunction(tr)(fd) && super.keep(tr)(fd)
+
+  /* Without this extra filtering, we will extract the full Stainless library for the math library suite.
+   * Extracting the full library does not affect the result of `MathLibrarySuite`,
+   * but seems to add ~45 seconds to the runtime (as of 2026-01-22). */
+  override protected def libraryFiles(): Seq[String] = {
+    val mathPrefix = Main.libraryFiles.find(_.endsWith(s"stainless${File.separator}math${File.separator}package.scala")) match {
+      case Some(path) => path.stripSuffix("package.scala")
+      case None => ""
+    }
+    super.libraryFiles().filter(_.startsWith(mathPrefix))
+  }
+}

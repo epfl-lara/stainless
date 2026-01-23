@@ -3,6 +3,8 @@
 package stainless
 package verification
 
+import smtlib.theories.FloatingPoint.FPLit
+
 /**
  * Transform trees by inserting assertions. Those verify that all array access are valid,
  * casts are legal, no division by zero occur and, when using the [[strictArithmetic]] mode,
@@ -35,6 +37,7 @@ class AssertionInjector(override val s: ast.Trees, override val t: ast.Trees, va
     case _: s.IntegerLiteral => true
     case _: s.StringLiteral => true
     case _: s.Variable => true
+    case _: s.FPLiteral => true
     case s.Tuple(es) => es.forall(canDuplicate)
     case _ => false
   }
@@ -210,15 +213,19 @@ class AssertionInjector(override val s: ast.Trees, override val t: ast.Trees, va
 
         }
 
-        t.Assert(
-          t.Not(t.Equals(dx, d.getType match {
-            case s.IntegerType() => t.IntegerLiteral(0).copiedFrom(d)
-            case s.BVType(signed, i) => t.BVLiteral(signed, 0, i).copiedFrom(d)
-            case s.RealType() => t.FractionLiteral(0, 1).copiedFrom(d)
-          }).copiedFrom(d)).copiedFrom(d),
-          Some("Division by zero"),
-          rest
-        ).copiedFrom(e)
+        d.getType match {
+          case s.FPType(_, _) => rest
+          case _ =>
+            t.Assert(
+              t.Not(t.Equals(dx, d.getType match {
+                case s.IntegerType() => t.IntegerLiteral(0).copiedFrom(d)
+                case s.BVType(signed, i) => t.BVLiteral(signed, 0, i).copiedFrom(d)
+                case s.RealType() => t.FractionLiteral(0, 1).copiedFrom(d)
+              }).copiedFrom(d)).copiedFrom(d),
+              Some("Division by zero"),
+              rest
+            ).copiedFrom(e)
+        }
       }}
 
     case s.Remainder(n, d) =>
@@ -293,6 +300,26 @@ class AssertionInjector(override val s: ast.Trees, override val t: ast.Trees, va
         }
       }
 
+    case s.FPToBVJVM(exponent, significand, toSize, expr) if checkOverflow =>
+      bindIfCannotDuplicate(expr, "expr") { expr =>
+        // a FP -> BV cast of the value `f` is considered safe iff `f` is not NaN and `bvLb < f < bvUb`.
+        val bvLb = t.BVLiteral(true, -BigInt(2).pow(toSize-1) - 1, toSize + 1).copiedFrom(e)
+        val bvUb = t.BVLiteral(true, BigInt(2).pow(toSize-1), toSize + 1).copiedFrom(e)
+        t.Assert(
+          t.Not(t.FPIsNaN(expr)).copiedFrom(e),
+          Some("Safe floating-point to integer cast non-NaN check"),
+          t.Assert( // For this assertion and the next one, we may assume that `expr` is not `NaN`.
+            t.FPGreaterEquals(expr, t.FPCast(exponent, significand, t.RoundTowardNegative, bvLb)).copiedFrom(e),
+            Some("Safe floating-point to integer cast lower bound"),
+            t.Assert(
+              t.FPLessEquals(expr, t.FPCast(exponent, significand, t.RoundTowardPositive, bvUb)).copiedFrom(e),
+              Some("Safe floating-point to integer cast upper bound"),
+              t.FPToBVJVM(exponent, significand, toSize, expr).copiedFrom(e)
+            ).copiedFrom(e)
+          ).copiedFrom(e)
+        ).copiedFrom(e)
+      }
+
     case BVTyped(signed, size, BVShift(rhs, recons)) if strictArithmetic =>
       bindIfCannotDuplicate(rhs, "rhs") { rhsx =>
         val leq = t.LessEquals(rhsx, t.BVLiteral(signed, size, size).copiedFrom(rhs)).copiedFrom(rhs)
@@ -303,6 +330,12 @@ class AssertionInjector(override val s: ast.Trees, override val t: ast.Trees, va
         // Ensure the operation doesn't shift more bits than there are.
         t.Assert(range, Some("Shift semantics"), recons(rhsx)).copiedFrom(e)
       }
+
+    case s.FPGreaterEquals(e1, e2) if checkOverflow => checkNaNBinop(e)(t.FPGreaterEquals.apply, e1, e2)
+    case s.FPLessEquals(e1, e2) if checkOverflow => checkNaNBinop(e)(t.FPLessEquals.apply, e1, e2)
+    case s.FPGreaterThan(e1, e2) if checkOverflow => checkNaNBinop(e)(t.FPGreaterThan.apply, e1, e2)
+    case s.FPLessThan(e1, e2) if checkOverflow => checkNaNBinop(e)(t.FPLessThan.apply, e1, e2)
+    case s.FPEquals(e1, e2) if checkOverflow => checkNaNBinop(e)(t.FPEquals.apply, e1, e2)
 
     case _ => super.transform(e)
   }
@@ -321,6 +354,21 @@ class AssertionInjector(override val s: ast.Trees, override val t: ast.Trees, va
       case s.BVAShiftRight(lhs, rhs) => Some((rhs, (r: t.Expr) => t.BVAShiftRight(transform(lhs), r).copiedFrom(e)))
       case s.BVLShiftRight(lhs, rhs) => Some((rhs, (r: t.Expr) => t.BVLShiftRight(transform(lhs), r).copiedFrom(e)))
       case _ => None
+    }
+  }
+
+  private def checkNaNBinop(e: s.Expr)(binop: (t.Expr, t.Expr) => t.Expr, e1: s.Expr, e2: s.Expr): t.Expr = {
+    bindIfCannotDuplicate(e1, "e1") { e1x =>
+      bindIfCannotDuplicate(e2, "e2") { e2x =>
+        t.Assert(
+          t.And(
+            t.Not(t.FPIsNaN(e1x).copiedFrom(e)).copiedFrom(e),
+            t.Not(t.FPIsNaN(e2x).copiedFrom(e)).copiedFrom(e)
+          ).copiedFrom(e),
+          Some("Comparison with NaN"),
+          binop(e1x, e2x).copiedFrom(e)
+        ).copiedFrom(e)
+      }
     }
   }
 

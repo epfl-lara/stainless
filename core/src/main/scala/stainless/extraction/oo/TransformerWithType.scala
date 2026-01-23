@@ -104,6 +104,41 @@ trait TransformerWithType extends TreeTransformer {
       val lub = widen(leastUpperBound(lhs.getType, rhs.getType))
       t.Equals(transform(lhs, lub), transform(rhs, lub)).copiedFrom(expr)
 
+    case s.FPEquals(lhs, rhs) =>
+      // no lub; FPEquals is only defined for floats of the same type (i.e. with the same exponent & significand).
+      t.FPEquals(transform(lhs), transform(rhs)).copiedFrom(expr)
+
+    case s.FPCast(exponent, significand, roundingMode, e) =>
+      t.FPCast(exponent, significand, transform(roundingMode), transform(e)).copiedFrom(expr)
+
+    case s.FPToBV(size, signed, rm, e) =>
+      t.FPToBV(size, signed, transform(rm), transform(e)).copiedFrom(expr)
+
+    case s.FPToBVJVM(exponent, significand, toSize, e) =>
+      t.FPToBVJVM(exponent, significand, toSize, transform(e)).copiedFrom(expr)
+
+    case s.FPFromBinary(e, s, expr) =>
+      t.FPFromBinary(e, s, transform(expr)).copiedFrom(expr)
+
+    case s.Sqrt(rm, e) => t.Sqrt(transform(rm), transform(e)).copiedFrom(expr)
+    case s.FPAbs(e) => t.FPAbs(transform(e)).copiedFrom(expr)
+    case s.FPRound(rm, e) => t.FPRound(transform(rm), transform(e)).copiedFrom(expr)
+    case s.FPToReal(e) => t.FPToReal(transform(e)).copiedFrom(expr)
+
+    case s.RoundNearestTiesToEven => t.RoundNearestTiesToEven.copiedFrom(expr)
+    case s.RoundNearestTiesToAway => t.RoundNearestTiesToAway.copiedFrom(expr)
+    case s.RoundTowardZero => t.RoundTowardZero.copiedFrom(expr)
+    case s.RoundTowardNegative => t.RoundTowardNegative.copiedFrom(expr)
+    case s.RoundTowardPositive => t.RoundTowardPositive.copiedFrom(expr)
+
+    case s.FPIsNaN(e) => t.FPIsNaN(transform(e)).copiedFrom(expr)
+    case s.FPIsInfinite(e) => t.FPIsInfinite(transform(e)).copiedFrom(expr)
+    case s.FPIsZero(e) => t.FPIsZero(transform(e)).copiedFrom(expr)
+    case s.FPIsPositive(e) => t.FPIsPositive(transform(e)).copiedFrom(expr)
+    case s.FPIsNegative(e) => t.FPIsNegative(transform(e)).copiedFrom(expr)
+    case s.FPIsNormal(e)   => t.FPIsNormal(transform(e)).copiedFrom(expr)
+    case s.FPIsSubnormal(e) => t.FPIsSubnormal(transform(e)).copiedFrom(expr)
+
     case s.And(es) =>
       t.And(es map (transform(_, s.BooleanType()))).copiedFrom(expr)
 
@@ -133,21 +168,41 @@ trait TransformerWithType extends TreeTransformer {
       val atpe = getArithmeticType(lhs, tpe)
       t.Plus(transform(lhs, atpe), transform(rhs, atpe)).copiedFrom(expr)
 
+    case s.FPAdd(rm, lhs, rhs) =>
+      val atpe = getArithmeticType(lhs, tpe)
+      t.FPAdd(transform(rm), transform(lhs, atpe), transform(rhs, atpe)).copiedFrom(expr)
+
     case s.Minus(lhs, rhs) =>
       val atpe = getArithmeticType(lhs, tpe)
       t.Minus(transform(lhs, atpe), transform(rhs, atpe)).copiedFrom(expr)
+
+    case s.FPSub(rm, lhs, rhs) =>
+      val atpe = getArithmeticType(lhs, tpe)
+      t.FPSub(transform(rm), transform(lhs, atpe), transform(rhs, atpe)).copiedFrom(expr)
 
     case s.UMinus(e) =>
       val atpe = getArithmeticType(e, tpe)
       t.UMinus(transform(e, atpe)).copiedFrom(expr)
 
+    case s.FPUMinus(e) =>
+      val atpe = getArithmeticType(e, tpe)
+      t.FPUMinus(transform(e, atpe)).copiedFrom(expr)
+
     case s.Times(lhs, rhs) =>
       val atpe = getArithmeticType(lhs, tpe)
       t.Times(transform(lhs, atpe), transform(rhs, atpe)).copiedFrom(expr)
 
+    case s.FPMul(rm, lhs, rhs) =>
+      val atpe = getArithmeticType(lhs, tpe)
+      t.FPMul(transform(rm), transform(lhs, atpe), transform(rhs, atpe)).copiedFrom(expr)
+
     case s.Division(lhs, rhs) =>
       val atpe = getArithmeticType(lhs, tpe)
       t.Division(transform(lhs, atpe), transform(rhs, atpe)).copiedFrom(expr)
+
+    case s.FPDiv(rm, lhs, rhs) =>
+      val atpe = getArithmeticType(lhs, tpe)
+      t.FPDiv(transform(rm), transform(lhs, atpe), transform(rhs, atpe)).copiedFrom(expr)
 
     case s.Remainder(lhs, rhs) =>
       val atpe = getArithmeticType(lhs, tpe)
@@ -157,21 +212,45 @@ trait TransformerWithType extends TreeTransformer {
       val atpe = getArithmeticType(lhs, tpe)
       t.Modulo(transform(lhs, atpe), transform(rhs, atpe)).copiedFrom(expr)
 
+    case s.FPMin(lhs, rhs) =>
+      val atpe = getArithmeticType(lhs, tpe)
+      t.FPMin(transform(lhs, atpe), transform(rhs, atpe)).copiedFrom(expr)
+
+    case s.FPMax(lhs, rhs) =>
+      val atpe = getArithmeticType(lhs, tpe)
+      t.FPMax(transform(lhs, atpe), transform(rhs, atpe)).copiedFrom(expr)
+
     case s.LessThan(lhs, rhs) =>
       val tp = widen(lhs.getType)
       t.LessThan(transform(lhs, tp), transform(rhs, tp)).copiedFrom(expr)
+
+    case s.FPLessThan(lhs, rhs) =>
+      val tp = widen(lhs.getType)
+      t.FPLessThan(transform(lhs, tp), transform(rhs, tp)).copiedFrom(expr)
 
     case s.GreaterThan(lhs, rhs) =>
       val tp = widen(lhs.getType)
       t.GreaterThan(transform(lhs, tp), transform(rhs, tp)).copiedFrom(expr)
 
+    case s.FPGreaterThan(lhs, rhs) =>
+      val tp = widen(lhs.getType)
+      t.FPGreaterThan(transform(lhs, tp), transform(rhs, tp)).copiedFrom(expr)
+
     case s.LessEquals(lhs, rhs) =>
       val tp = widen(lhs.getType)
       t.LessEquals(transform(lhs, tp), transform(rhs, tp)).copiedFrom(expr)
 
+    case s.FPLessEquals(lhs, rhs) =>
+      val tp = widen(lhs.getType)
+      t.FPLessEquals(transform(lhs, tp), transform(rhs, tp)).copiedFrom(expr)
+
     case s.GreaterEquals(lhs, rhs) =>
       val tp = widen(lhs.getType)
       t.GreaterEquals(transform(lhs, tp), transform(rhs, tp)).copiedFrom(expr)
+
+    case s.FPGreaterEquals(lhs, rhs) =>
+      val tp = widen(lhs.getType)
+      t.FPGreaterEquals(transform(lhs, tp), transform(rhs, tp)).copiedFrom(expr)
 
     case s.BVNot(e) =>
       val atpe = getArithmeticType(e, tpe)

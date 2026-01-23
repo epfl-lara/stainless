@@ -188,6 +188,7 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
           case StringType() => ()
           case CharType() => ()
           case BVType(_, _) => ()
+          case FPType(_, _) => ()
 
           case SetType(tpe) => explore(tpe, currentPath :+ SetEdge)
           case BagType(tpe) => explore(tpe, currentPath :+ BagEdge)
@@ -350,6 +351,7 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
       case StringType() => TyperResult.valid
       case CharType() => TyperResult.valid
       case BVType(_, _) => TyperResult.valid
+      case FPType(_, _) => TyperResult.valid
 
       case SetType(tpe) => isType(tc, tpe)
       case BagType(tpe) => isType(tc, tpe)
@@ -461,6 +463,7 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
       case CharLiteral(_) => (CharType(), TyperResult.valid)
       case FractionLiteral(_, _) => (RealType(), TyperResult.valid)
       case BVLiteral(signed, _, size) => (BVType(signed, size), TyperResult.valid)
+      case FPLiteral(exponent, significand, _) => (FPType(exponent, significand), TyperResult.valid)
 
       case UncheckedExpr(e) => inferType(tc.withEmitVCs(false), e)
       case Annotated(e, _) => inferType(tc, e)
@@ -473,6 +476,30 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
       case Times(lhs, rhs) => inferOperationType("times", e, tc, isArithmeticType, None, lhs, rhs)
       case Division(lhs, rhs) => inferOperationType("division", e, tc, isArithmeticType, None, lhs, rhs)
 
+      case FPAdd(rm, lhs, rhs) =>
+        val (tpe, tr) = inferOperationType("fp-add", e, tc, isFloatType, None, lhs, rhs)
+        (tpe, tr ++ checkType(tc, rm, RoundingMode))
+      case FPSub(rm, lhs, rhs) =>
+        val (tpe, tr) = inferOperationType("fp-sub", e, tc, isFloatType, None, lhs, rhs)
+        (tpe, tr ++ checkType(tc, rm, RoundingMode))
+      case FPUMinus(e2)        => inferOperationType("fp-uminus", e, tc, isFloatType, None, e2)
+      case FPMul(rm, lhs, rhs) =>
+        val (tpe, tr) = inferOperationType("fp-mul", e, tc, isFloatType, None, lhs, rhs)
+        (tpe, tr ++ checkType(tc, rm, RoundingMode))
+      case FPDiv(rm, lhs, rhs) =>
+        val (tpe, tr) = inferOperationType("fp-div", e, tc, isFloatType, None, lhs, rhs)
+        (tpe, tr ++ checkType(tc, rm, RoundingMode))
+      case FPFMA(rm, e1, e2, e3) =>
+        val (tpe, tr) = inferOperationType("fp-fma", e, tc, isFloatType, None, e1, e2, e3)
+        (tpe, tr ++ checkType(tc, rm, RoundingMode))
+      case FPMin(lhs, rhs) =>
+        val (tpe, tr) = inferOperationType("fp-min", e, tc, isFloatType, None, lhs, rhs)
+        (tpe, tr)
+      case FPMax(lhs, rhs) =>
+        val (tpe, tr) = inferOperationType("fp-max", e, tc, isFloatType, None, lhs, rhs)
+        (tpe, tr)
+
+
       case Remainder(lhs, rhs) => inferOperationType("remainer", e, tc, t => t.isInstanceOf[BVType] || t.isInstanceOf[IntegerType], None, lhs, rhs)
       case Modulo(lhs, rhs) => inferOperationType("modulo", e, tc, t => t.isInstanceOf[BVType] || t.isInstanceOf[IntegerType], None, lhs, rhs)
 
@@ -480,6 +507,11 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
       case LessEquals(lhs, rhs) => inferOperationType("<=", e, tc, isComparableType, Some(BooleanType()), lhs, rhs)
       case GreaterThan(lhs, rhs) => inferOperationType(">", e, tc, isComparableType, Some(BooleanType()), lhs, rhs)
       case LessThan(lhs, rhs) => inferOperationType("<", e, tc, isComparableType, Some(BooleanType()), lhs, rhs)
+
+      case FPGreaterEquals(lhs, rhs) => inferOperationType("(fp >=)", e, tc, isFloatType, Some(BooleanType()), lhs, rhs)
+      case FPLessEquals(lhs, rhs) => inferOperationType("(fp <=)", e, tc, isFloatType, Some(BooleanType()), lhs, rhs)
+      case FPGreaterThan(lhs, rhs) => inferOperationType("(fp >)", e, tc, isFloatType, Some(BooleanType()), lhs, rhs)
+      case FPLessThan(lhs, rhs) => inferOperationType("(fp <)", e, tc, isFloatType, Some(BooleanType()), lhs, rhs)
 
       case BVNot(e2) => inferOperationType("bvnot (~)", e, tc, _.isInstanceOf[BVType], None, e2)
       case BVAnd(lhs, rhs) => inferOperationType("bvand (&)", e, tc, _.isInstanceOf[BVType], None, lhs, rhs)
@@ -698,6 +730,122 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
           reporter.fatalError(e.getPos, s"Comparing elements of different types:\n${e1.asString} of type ${tpe1.asString} and\n${e2.asString} of type ${tpe2.asString}")
         }
         (BooleanType(), tr1 ++ tr2)
+
+      case FPEquals(e1, e2) =>
+        val (tpe1, tr1) = inferType(tc, e1)
+        val (tpe2, tr2) = inferType(tc, e2)
+        if (tpe1.getType != tpe2.getType) {
+          reporter.fatalError(e.getPos, s"Comparing incompatible floating point numbers:\n${e1.asString} of type ${tpe1.asString} and\n${e2.asString} of type ${tpe2.asString}")
+        }
+        if (!isFloatType(tpe1.getType)) {
+          reporter.fatalError(e.getPos, s"Cannot apply fp-equals to non-floats:\n${e1.asString} of type ${tpe1.asString} and\n${e2.asString} of type ${tpe2.asString}")
+        }
+        (BooleanType(), tr1 ++ tr2)
+
+      case FPFromBinary(exponent, significand, expr) =>
+        val tr = checkType(tc0, expr, BVType(true, exponent + significand))
+        (FPType(exponent, significand), tr)
+
+      case FPCast(exponent, significand, roundingMode, e2) =>
+        val (tpe, tr) = inferType(tc, e2)
+        stripRefinementsAndAnnotations(tpe) match {
+          case FPType(_, _) | BVType(true, _) | RealType => (FPType(exponent, significand), tr ++ checkType(tc, roundingMode, RoundingMode))
+          case _ => reporter.fatalError(e.getPos, s"Cannot convert type ${tpe.asString} to a floating point number")
+        }
+
+      case FPToBV(size, signed, roundingMode, e2) =>
+        val (tpe, tr) = inferType(tc, e2)
+        stripRefinementsAndAnnotations(tpe) match {
+          case FPType(_, _) => (BVType(signed, size), tr ++ checkType(tc, roundingMode, RoundingMode))
+          case _ => reporter.fatalError(e.getPos, s"Cannot convert type ${tpe.asString} using FPToBV")
+        }
+
+      case FPToBVJVM(eb, sb, size, e2) =>
+        val (tpe, tr) = inferType(tc, e2)
+        stripRefinementsAndAnnotations(tpe) match {
+          case FPType(_, _) => (BVType(true, size), tr)
+          case _ => reporter.fatalError(e.getPos, s"Cannot convert type ${tpe.asString} using FPToBVJVM")
+        }
+
+      case RoundNearestTiesToEven | RoundNearestTiesToAway | RoundTowardZero | RoundTowardNegative | RoundTowardPositive =>
+        (RoundingMode, TyperResult.valid)
+
+      case FPIsNaN(e2) =>
+        val (tpe, tr) = inferType(tc, e2)
+        stripRefinementsAndAnnotations(tpe) match {
+          case FPType(exponent, significand) => (BooleanType(), tr)
+          case _ => reporter.fatalError(e.getPos, s"Checking if non-floating point type ${e2.asString} is NaN")
+        }
+
+      case FPIsInfinite(e2) =>
+        val (tpe, tr) = inferType(tc, e2)
+        stripRefinementsAndAnnotations(tpe) match {
+          case FPType(exponent, significand) => (BooleanType(), tr)
+          case _ => reporter.fatalError(e.getPos, s"Checking if non-floating point type ${e2.asString} is infinite")
+        }
+
+      case FPIsZero(e2) =>
+        val (tpe, tr) = inferType(tc, e2)
+        stripRefinementsAndAnnotations(tpe) match {
+          case FPType(exponent, significand) => (BooleanType(), tr)
+          case _ => reporter.fatalError(e.getPos, s"Checking if non-floating point type ${e2.asString} is a floating-point zero")
+        }
+
+      case FPIsPositive(e2) =>
+        val (tpe, tr) = inferType(tc, e2)
+        stripRefinementsAndAnnotations(tpe) match {
+          case FPType(exponent, significand) => (BooleanType(), tr)
+          case _ => reporter.fatalError(e.getPos, s"Checking if non-floating point type ${e2.asString} is a positive floating point value")
+        }
+
+      case FPIsNegative(e2) =>
+        val (tpe, tr) = inferType(tc, e2)
+        stripRefinementsAndAnnotations(tpe) match {
+          case FPType(exponent, significand) => (BooleanType(), tr)
+          case _ => reporter.fatalError(e.getPos, s"Checking if non-floating point type ${e2.asString} is a negative floating point value")
+        }
+
+      case FPIsNormal(e2) =>
+        val (tpe, tr) = inferType(tc, e2)
+        stripRefinementsAndAnnotations(tpe) match {
+          case FPType(exponent, significand) => (BooleanType(), tr)
+          case _ => reporter.fatalError(e.getPos, s"Checking if non-floating point type ${e2.asString} is a normal floating point value")
+        }
+
+      case FPIsSubnormal(e2) =>
+        val (tpe, tr) = inferType(tc, e2)
+        stripRefinementsAndAnnotations(tpe) match {
+          case FPType(exponent, significand) => (BooleanType(), tr)
+          case _ => reporter.fatalError(e.getPos, s"Checking if non-floating point type ${e2.asString} is a subnormal floating point value")
+        }
+
+      case Sqrt(rm, e2) =>
+        val (tpe, tr) = inferType(tc, e2)
+        stripRefinementsAndAnnotations(tpe) match {
+          case FPType(_, _) => (tpe, tr ++ checkType(tc, rm, RoundingMode))
+          case _ => reporter.fatalError(e.getPos, s"Square root applied to non-floating type ${e2.asString}")
+        }
+
+      case FPAbs(e2) =>
+        val (tpe, tr) = inferType(tc, e2)
+        stripRefinementsAndAnnotations(tpe) match {
+          case FPType(_, _) => (tpe, tr)
+          case _ => reporter.fatalError(e.getPos, s"Square root applied to non-floating type ${e2.asString}")
+        }
+
+      case FPRound(rm, e2) =>
+        val (tpe, tr) = inferType(tc, e2)
+        stripRefinementsAndAnnotations(tpe) match {
+          case FPType(_, _) => (tpe, tr ++ checkType(tc, rm, RoundingMode))
+          case _ => reporter.fatalError(e.getPos, s"Round applied to non-floating type ${e2.asString}")
+        }
+
+      case FPToReal(e2) =>
+        val (tpe, tr) = inferType(tc, e2)
+        stripRefinementsAndAnnotations(tpe) match {
+          case FPType(_, _) => (RealType(), tr)
+          case _ => reporter.fatalError(e.getPos, s"Cast to Real applied to non-floating type ${e2.asString}")
+        }
 
       case Lambda(params, body) =>
         val trParams = areDependentTypes(tc, params)

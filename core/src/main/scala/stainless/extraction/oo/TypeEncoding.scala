@@ -46,6 +46,12 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
   private val bvValue: ((Boolean, Int)) => Identifier =
     new CachedID[(Boolean, Int)](_ => FreshIdentifier("value"))
 
+  private val fp: ((Int, Int)) => Identifier = new CachedID[(Int, Int)]({
+    case (exponent, significand) => FreshIdentifier("FloatE" + exponent + "S" + significand)
+  })
+  private val fpValue: ((Int, Int)) => Identifier =
+    new CachedID[(Int, Int)](_ => FreshIdentifier("value"))
+
   private val tpl: Int => Identifier = new CachedID[Int](i => FreshIdentifier("Tuple" + i))
   private val tplValue: Int => Identifier = new CachedID[Int](i => FreshIdentifier("value"))
 
@@ -114,6 +120,7 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
     case (_: s.BagType) => C(bag)(convert(e, tpe, erased(tpe)))
     case (_: s.MapType) => C(map)(convert(e, tpe, erased(tpe)))
     case s.BVType(signed, size) => C(bv(signed -> size))(e)
+    case s.FPType(exponent, significand) => C(fp(exponent -> significand))(e)
     case s.IntegerType() => C(int)(e)
     case s.BooleanType() => C(bool)(e)
     case s.CharType() => C(char)(e)
@@ -136,6 +143,7 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
     case (_: s.BagType) => convert(getRefField(e, bagValue), erased(tpe), tpe)
     case (_: s.MapType) => convert(getRefField(e, mapValue), erased(tpe), tpe)
     case s.BVType(signed, size) => getRefField(e, bvValue(signed -> size))
+    case s.FPType(exponent, significand) => getRefField(e, fpValue(exponent, significand))
     case s.IntegerType() => getRefField(e, intValue)
     case s.BooleanType() => getRefField(e, boolValue)
     case s.CharType() => getRefField(e, charValue)
@@ -1138,10 +1146,11 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
     import symbols.{given, _}
     given emptyScope: Scope = Scope.empty(using this)
 
-    private val (tplSizes, funSizes, bvSizes) = {
+    private val (tplSizes, funSizes, bvSizes, fpSizes) = {
       var tplSizes: Set[Int] = Set.empty
       var funSizes: Set[Int] = Set.empty
       var bvSizes: Set[(Boolean, Int)] = Set.empty
+      var fpSizes: Set[(Int, Int)] = Set.empty
 
       object traverser extends s.ConcreteOOSelfTreeTraverser {
         override def traverse(pat: s.Pattern): Unit = pat match {
@@ -1155,6 +1164,7 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
           case s.FunctionType(from, _) => funSizes += from.size; super.traverse(tpe)
           case s.PiType(params, _) => funSizes += params.size; super.traverse(tpe)
           case s.BVType(signed, size) => bvSizes += (signed -> size); super.traverse(tpe)
+          case s.FPType(exponent, significand) => fpSizes += (exponent -> significand); super.traverse(tpe)
           case _ => super.traverse(tpe)
         }
 
@@ -1162,6 +1172,7 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
           case s.Tuple(es) => tplSizes += es.size; super.traverse(expr)
           case s.Lambda(params, _) => funSizes += params.size; super.traverse(expr)
           case s.BVLiteral(signed, _, size) => bvSizes += (signed -> size); super.traverse(expr)
+          case s.FPLiteral(exponent, significand, _) => fpSizes += (exponent -> significand); super.traverse(expr)
           case s.ArrayLength(_) => bvSizes += (true -> 32); super.traverse(expr)
           case _ => super.traverse(expr)
         }
@@ -1169,7 +1180,7 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
 
       symbols.functions.values.foreach(traverser.traverse)
 
-      (tplSizes, funSizes, bvSizes)
+      (tplSizes, funSizes, bvSizes, fpSizes)
     }
 
     val refSort = new t.ADTSort(refID, Seq(),
@@ -1188,6 +1199,8 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
         new t.ADTConstructor(tpl(i), refID, Seq(t.ValDef(tplValue(i), t.TupleType((1 to i).map(_ => ref)))))
       } ++ bvSizes.map { case ss @ (signed, size) =>
         new t.ADTConstructor(bv(ss), refID, Seq(t.ValDef(bvValue(ss), t.BVType(signed, size))))
+      } ++ fpSizes.map { case es @ (exponent, significand) =>
+        new t.ADTConstructor(fp(es), refID, Seq(t.ValDef(fpValue(es), t.FPType(exponent, significand))))
       } ++ Seq(
         new t.ADTConstructor(int,  refID, Seq(t.ValDef(intValue,  t.IntegerType()))),
         new t.ADTConstructor(bool, refID, Seq(t.ValDef(boolValue, t.BooleanType()))),

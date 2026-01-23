@@ -181,6 +181,11 @@ object TypeCheckerUtils {
     case _ => false
   }
 
+  def isFloatType(t: Type): Boolean = t match {
+    case FPType(_, _) => true
+    case _ => false
+  }
+
   def lessThan(tpe: Type, e1: Expr, e2: Expr)(using ctx: inox.Context, opts: PrinterOptions): Expr = (tpe match {
     case IntegerType() => LessThan(e1, e2)
     case BVType(_, _) => LessThan(e1, e2)

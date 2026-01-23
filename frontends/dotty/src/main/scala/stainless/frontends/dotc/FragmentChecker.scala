@@ -328,6 +328,10 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
       Symbols.requiredClass("scala.collection.immutable.Map") -> "stainless.lang.Map",
       Symbols.requiredClass("scala.collection.Set") -> "stainless.lang.Set",
       Symbols.requiredClass("scala.collection.immutable.Set") -> "stainless.lang.Set",
+      Symbols.requiredClass("scala.runtime.RichFloat") -> "stainless.lang.WrappedFloat",
+      Symbols.requiredClass("scala.runtime.RichDouble") -> "stainless.lang.WrappedDouble",
+      Symbols.requiredClass("java.lang.Float") -> "stainless.lang.WrappedFloat",
+      Symbols.requiredClass("java.lang.Double") -> "stainless.lang.WrappedDouble",
     )
 
     // We do not in general support the types for these methods, but we do extract them.
@@ -408,7 +412,7 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
 
       val errs = tyAcc(Errors.empty, tpe)
       for ((sym, replacement) <- errs.libRepls) {
-        reportError(tree.sourcePos, s"Scala API `${sym.name.show}` is not directly supported, please use `$replacement` instead.")
+        reportError(tree.sourcePos, s"Scala API `${sym.fullName.show}` is not directly supported, please use `$replacement` instead.")
       }
 
       // Returns true if `needle` is in `hay` where the OrType in `needle` are replaced with their join, and return the transformed `needle` as well

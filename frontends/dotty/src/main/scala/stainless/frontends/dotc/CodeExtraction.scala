@@ -3,26 +3,26 @@
 package stainless
 package frontends.dotc
 
-import dotty.tools.dotc._
+import dotty.tools.dotc.*
 import ast.tpd
 import ast.untpd
-import ast.Trees._
+import ast.Trees.*
 import core.Contexts
-import core.Contexts.{Context => DottyContext}
-import core.Names._
-import core.StdNames._
-import core.Symbols._
-import core.Types._
-import core.Flags._
-import core.Constants._
+import core.Contexts.Context as DottyContext
+import core.Names.*
+import core.StdNames.*
+import core.Symbols.*
+import core.Types.*
+import core.Flags.*
+import core.Constants.*
 import core.NameKinds
-import core.NameOps._
+import core.NameOps.*
 import util.{NoSourcePosition, SourcePosition}
 import stainless.ast.SymbolIdentifier
-import extraction.xlang.{trees => xt}
-import Utils._
+import extraction.xlang.trees as xt
+import Utils.*
 
-import scala.collection.mutable.{Map => MutableMap}
+import scala.collection.mutable.Map as MutableMap
 import scala.collection.immutable.ListMap
 import scala.language.implicitConversions
 
@@ -987,6 +987,8 @@ class CodeExtraction(inoxCtx: inox.Context,
       val lit = xt.IntegerLiteral(BigInt(l.const.stringValue))
       (xt.LiteralPattern(binder, lit), dctx)
 
+    case ExFloatLiteral(f)   => (xt.LiteralPattern(binder, xt.Float32Literal(f)), dctx)
+    case ExDoubleLiteral(f)  => (xt.LiteralPattern(binder, xt.Float64Literal(f)), dctx)
     case ExInt8Literal(i)    => (xt.LiteralPattern(binder, xt.Int8Literal(i)),    dctx)
     case ExInt16Literal(i)   => (xt.LiteralPattern(binder, xt.Int16Literal(i)),   dctx)
     case ExInt32Literal(i)   => (xt.LiteralPattern(binder, xt.Int32Literal(i)),   dctx)
@@ -1622,6 +1624,8 @@ class CodeExtraction(inoxCtx: inox.Context,
       case _ => outOfSubsetError(tr, "Real not built from literals")
     }
 
+    case ExFloatLiteral(f) => xt.Float32Literal(f)
+    case ExDoubleLiteral(f) => xt.Float64Literal(f)
     case ExInt8Literal(v)  => xt.Int8Literal(v)
     case ExInt16Literal(v) => xt.Int16Literal(v)
     case ExInt32Literal(v) => xt.Int32Literal(v)
@@ -1900,15 +1904,86 @@ class CodeExtraction(inoxCtx: inox.Context,
     case ex @ ExIdentifier(sym, tpt) if dctx.vars contains sym => dctx.vars(sym)().setPos(ex.sourcePos)
     case ex @ ExIdentifier(sym, tpt) if dctx.mutableVars contains sym => dctx.mutableVars(sym)().setPos(ex.sourcePos)
 
+    case ExSqrtCall(rhs) => xt.Sqrt(xt.RoundNearestTiesToEven.setPos(tr.sourcePos), extractTree(rhs)).setPos(tr.sourcePos)
+    case ExFloorCall(rhs) => xt.FPRound(xt.RoundTowardNegative.setPos(tr.sourcePos), extractTree(rhs)).setPos(tr.sourcePos)
+    case ExCeilCall(rhs) => xt.FPRound(xt.RoundTowardPositive.setPos(tr.sourcePos), extractTree(rhs)).setPos(tr.sourcePos)
+    case ExRintCall(rhs) => xt.FPRound(xt.RoundNearestTiesToEven.setPos(tr.sourcePos), extractTree(rhs)).setPos(tr.sourcePos)
+    case ExFPAbsCall(rhs) => xt.FPAbs(extractTree(rhs)).setPos(tr.sourcePos)
+    case ExFPMaxCall(lhs, rhs) => xt.FPMax(extractTree(lhs), extractTree(rhs)).setPos(tr.sourcePos)
+    case ExFPMinCall(lhs, rhs) => xt.FPMin(extractTree(lhs), extractTree(rhs)).setPos(tr.sourcePos)
+
+    case ExDoubleToLongBits(arg) =>
+      val pos = tr.sourcePos
+      val fp = xt.ValDef.fresh("fp", extractType(arg)).setPos(pos)
+      val bv = xt.ValDef.fresh("toBinary", xt.BVType(true, 64)).setPos(pos)
+      val isNaN = xt.FPIsNaN(fp.toVariable).setPos(pos)
+      val canonicalNaN = xt.Int64Literal(0x7ff8000000000000L).setPos(pos)
+      // TODO: do something about the explicit choose error message
+      val toBinary = xt.Annotated(
+        xt.Choose(bv, xt.Equals(xt.FPFromBinary(11, 53, bv.toVariable).setPos(pos), fp.toVariable)).setPos(pos),
+        Seq(xt.DropVCs)
+      ).setPos(pos)
+      val body = xt.IfExpr(isNaN, canonicalNaN, toBinary).setPos(pos)
+      xt.Let(fp, extractTree(arg), body).setPos(pos)
+
+    case ExDoubleToRawLongBits(arg) =>
+      val pos = tr.sourcePos
+      val fp = xt.ValDef.fresh("fp", extractType(arg)).setPos(pos)
+      val bv = xt.ValDef.fresh("toBinary", xt.BVType(true, 64)).setPos(pos)
+      val isNaN = xt.FPIsNaN(fp.toVariable).setPos(pos)
+      val canonicalNaN = xt.Int64Literal(0x7ff8000000000000L).setPos(pos)
+      // TODO: do something about the explicit choose error message
+      val toBinary = xt.Annotated(
+        xt.Choose(bv, xt.Equals(xt.FPFromBinary(11, 53, bv.toVariable).setPos(pos), fp.toVariable)).setPos(pos),
+        Seq(xt.DropVCs)
+      ).setPos(pos)
+      xt.Let(fp, extractTree(arg), toBinary).setPos(pos)
+
+    case ExLongBitsToDouble(arg) =>
+      xt.FPFromBinary(11, 53, extractTree(arg)).setPos(tr.sourcePos)
+
+    case ExFloatToIntBits(arg) =>
+      val pos = tr.sourcePos
+      val fp = xt.ValDef.fresh("fp", extractType(arg)).setPos(pos)
+      val bv = xt.ValDef.fresh("toBinary", xt.BVType(true, 32)).setPos(pos)
+      val isNaN = xt.FPIsNaN(fp.toVariable).setPos(pos)
+      val canonicalNaN = xt.Int32Literal(0x7fc00000).setPos(pos)
+      // TODO: do something about the explicit choose error message
+      val toBinary = xt.Annotated(
+        xt.Choose(bv, xt.Equals(xt.FPFromBinary(8, 24, bv.toVariable).setPos(pos), fp.toVariable)).setPos(pos),
+        Seq(xt.DropVCs)
+      ).setPos(pos)
+      val body = xt.IfExpr(isNaN, canonicalNaN, toBinary).setPos(pos)
+      xt.Let(fp, extractTree(arg), body).setPos(pos)
+
+    case ExFloatToRawIntBits(arg) =>
+      val pos = tr.sourcePos
+      val fp = xt.ValDef.fresh("fp", extractType(arg)).setPos(pos)
+      val bv = xt.ValDef.fresh("toBinary", xt.BVType(true, 32)).setPos(pos)
+      val isNaN = xt.FPIsNaN(fp.toVariable).setPos(pos)
+      val canonicalNaN = xt.Int32Literal(0x7fc00000).setPos(pos)
+      val toBinary = xt.Annotated(
+        xt.Choose(bv, xt.Equals(xt.FPFromBinary(8, 24, bv.toVariable).setPos(pos), fp.toVariable)).setPos(pos),
+        Seq(xt.DropVCs)
+      ).setPos(pos)
+      xt.Let(fp, extractTree(arg), toBinary).setPos(pos)
+
+    case ExIntBitsToFloat(arg) =>
+      xt.FPFromBinary(8, 24, extractTree(arg)).setPos(tr.sourcePos)
+
     case ExThisCall(tt, sym, tps, args) =>
       extractCall(tr, Some(tpd.This(tt.cls)), sym, tps, args)
 
     case ExCastCall(expr, from, to) =>
-      // Double check that we are dealing with regular integer types
-      val xt.BVType(true, size) = extractType(from)(using dctx, NoSourcePosition): @unchecked
-      val newType @ xt.BVType(true, newSize) = extractType(to)(using dctx, NoSourcePosition): @unchecked
-      if (size > newSize) xt.BVNarrowingCast(extractTree(expr), newType)
-      else                xt.BVWideningCast(extractTree(expr), newType)
+      (extractType(from)(using dctx, NoSourcePosition), extractType(to)(using dctx, NoSourcePosition)) match {
+        case (xt.BVType(true, size), newType @ xt.BVType(true, newSize)) =>
+          if (size > newSize) xt.BVNarrowingCast(extractTree(expr), newType)
+          else                xt.BVWideningCast(extractTree(expr), newType)
+        case (xt.BVType(true, _), xt.FPType(e, s)) =>
+          xt.FPCast(e, s, xt.RoundNearestTiesToEven, extractTree(expr))
+        case (xt.FPType(_, _), xt.FPType(e, s)) =>
+          xt.FPCast(e, s, xt.RoundNearestTiesToEven, extractTree(expr))
+      }
 
     case c@ExCall(rec, sym, tps, args) =>
       extractCall(c, rec, sym, tps, args)
@@ -1970,7 +2045,7 @@ class CodeExtraction(inoxCtx: inox.Context,
     case None =>
       dctx.localFuns.get(sym) match {
         case None =>
-          xt.FunctionInvocation(getIdentifier(sym), tps map extractType, extractArgs(sym, args)).setPos(tr.sourcePos)
+          xt.FunctionInvocation (getIdentifier (sym), tps map extractType, extractArgs (sym, args) ).setPos(tr.sourcePos)
         case Some((id, tparams, tpe)) =>
           xt.ApplyLetRec(id, tparams.map(_.tp), tpe, tps map extractType, extractArgs(sym, args)).setPos(tr.sourcePos)
       }
@@ -2010,7 +2085,8 @@ class CodeExtraction(inoxCtx: inox.Context,
 
       case tpe => (tpe, sym.name.decode.toString, args) match {
         case (xt.StringType(), "+", Seq(rhs)) => xt.StringConcat(extractTree(lhs), extractTree(rhs))
-        case (xt.IntegerType() | xt.BVType(_,_) | xt.RealType(), "+", Seq(rhs)) => injectCasts(xt.Plus.apply)(lhs, rhs)
+        case (xt.IntegerType() | xt.BVType(_,_) | xt.RealType() | xt.FPType(_,_), "+", Seq(rhs)) =>
+          injectCasts(xt.Plus.apply)(lhs, rhs)
 
         case (xt.SetType(_), "+",  Seq(rhs)) => xt.SetAdd(extractTree(lhs), extractTree(rhs))
         case (xt.SetType(_), "++", Seq(rhs)) => xt.SetUnion(extractTree(lhs), extractTree(rhs))
@@ -2216,9 +2292,59 @@ class CodeExtraction(inoxCtx: inox.Context,
         case (_, "&&",  Seq(rhs)) => xt.And(extractTree(lhs), extractTree(rhs))
         case (_, "||",  Seq(rhs)) => xt.Or(extractTree(lhs), extractTree(rhs))
 
+        case (tpe @ xt.FPType(_,_), "isPositive", Seq()) => xt.FPIsPositive(extractTree(lhs)).setPos(tr.sourcePos)
+        case (tpe @ xt.FPType(_,_), "isNegative", Seq()) => xt.FPIsNegative(extractTree(lhs)).setPos(tr.sourcePos)
+        case (tpe @ xt.FPType(_,_), "isZero", Seq()) => xt.FPIsZero(extractTree(lhs)).setPos(tr.sourcePos)
+        case (tpe @ xt.FPType(_,_), "isFinite", Seq()) =>
+          val pos = tr.sourcePos
+          val vd = xt.ValDef.fresh("fp", tpe).setPos(pos)
+          val notInf = xt.Not(xt.FPIsInfinite(vd.toVariable).setPos(pos)).setPos(pos)
+          val notNaN = xt.Not(xt.FPIsNaN(vd.toVariable).setPos(pos)).setPos(pos)
+          val body = xt.And(notInf, notNaN).setPos(pos)
+          xt.Let(vd, extractTree(lhs), body)
+        case (xt.FPType(_,_), "isInfinity" | "isInfinite", Seq()) =>
+          xt.FPIsInfinite(extractTree(lhs)).setPos(tr.sourcePos)
+        case (xt.FPType(_,_), "isNaN", Seq()) => xt.FPIsNaN(extractTree(lhs)).setPos(tr.sourcePos)
+        case (xt.FPType(_,_), "isPosInfinity", Seq()) =>
+          val pos = tr.sourcePos
+          val vd = xt.ValDef.fresh("fp", tpe).setPos(pos)
+          val isPos = xt.FPIsPositive(vd.toVariable).setPos(pos)
+          val isInf = xt.FPIsInfinite(vd.toVariable).setPos(pos)
+          val body = xt.And(isPos, isInf).setPos(pos)
+          xt.Let(vd, extractTree(lhs), body)
+        case (xt.FPType(_,_), "isNegInfinity", Seq()) =>
+          val pos = tr.sourcePos
+          val vd = xt.ValDef.fresh("fp", tpe).setPos(pos)
+          val isNeg = xt.FPIsNegative(vd.toVariable).setPos(pos)
+          val isInf = xt.FPIsInfinite(vd.toVariable).setPos(pos)
+          val body = xt.And(isNeg, isInf).setPos(pos)
+          xt.Let(vd, extractTree(lhs), body)
+        case (xt.FPType(_,_), "equiv", Seq(rhs)) =>
+          if tpe == extractType(rhs) then xt.Equals(extractTree(lhs), extractTree(rhs))
+          else outOfSubsetError(lhs, "The .equiv() method can only compare floats of the same type.")
+        case (xt.FPType(e,s), "toDegrees", Seq()) =>
+          val arg = xt.FPCast(11, 53, xt.RoundNearestTiesToEven, extractTree(lhs))
+          val res = xt.FPDiv(
+            xt.RoundNearestTiesToEven,
+            xt.FPMul(xt.RoundNearestTiesToEven, arg, xt.Float64Literal(180)),
+            xt.Float64Literal(scala.math.Pi)
+          )
+          xt.FPCast(e, s, xt.RoundNearestTiesToEven, res).setPos(tr.sourcePos)
+        case (xt.FPType(e,s), "toRadians", Seq()) =>
+          val arg = xt.FPCast(11, 53, xt.RoundNearestTiesToEven, extractTree(lhs))
+          val res = xt.FPMul(
+            xt.RoundNearestTiesToEven,
+            xt.FPDiv(xt.RoundNearestTiesToEven, arg, xt.Float64Literal(180)),
+            xt.Float64Literal(scala.math.Pi)
+          )
+          xt.FPCast(e, s, xt.RoundNearestTiesToEven, res).setPos(tr.sourcePos)
+
+
         case (tpe, "toByte", Seq()) => tpe match {
           case xt.BVType(true, 8) => extractTree(lhs)
           case xt.BVType(true, 16 | 32 | 64) => xt.BVNarrowingCast(extractTree(lhs), xt.BVType(true, 8))
+          case xt.FPType(8, 24) => xt.FPToBVJVM(8, 24, 8, extractTree(lhs))
+          case xt.FPType(11, 53) => xt.FPToBVJVM(11, 53, 8, extractTree(lhs))
           case tpe => outOfSubsetError(tr, s"Unexpected cast .toByte from $tpe")
         }
 
@@ -2226,6 +2352,8 @@ class CodeExtraction(inoxCtx: inox.Context,
           case xt.BVType(true, 8) => xt.BVWideningCast(extractTree(lhs), xt.BVType(true, 16))
           case xt.BVType(true, 16) => extractTree(lhs)
           case xt.BVType(true, 32 | 64) => xt.BVNarrowingCast(extractTree(lhs), xt.BVType(true, 16))
+          case xt.FPType(8, 24) => xt.FPToBVJVM(8, 24, 16, extractTree(lhs))
+          case xt.FPType(11, 53) => xt.FPToBVJVM(11, 53, 16, extractTree(lhs))
           case tpe => outOfSubsetError(tr, s"Unexpected cast .toShort from $tpe")
         }
 
@@ -2233,13 +2361,31 @@ class CodeExtraction(inoxCtx: inox.Context,
           case xt.BVType(true, 8 | 16) => xt.BVWideningCast(extractTree(lhs), xt.BVType(true, 32))
           case xt.BVType(true, 32) => extractTree(lhs)
           case xt.BVType(true, 64) => xt.BVNarrowingCast(extractTree(lhs), xt.BVType(true, 32))
+          case xt.FPType(8, 24) => xt.FPToBVJVM(8, 24, 32, extractTree(lhs))
+          case xt.FPType(11, 53) => xt.FPToBVJVM(11, 53, 32, extractTree(lhs))
           case tpe => outOfSubsetError(tr, s"Unexpected cast .toInt from $tpe")
         }
 
         case (tpe, "toLong", Seq()) => tpe match {
           case xt.BVType(true, 8 | 16 | 32 ) => xt.BVWideningCast(extractTree(lhs), xt.BVType(true, 64))
           case xt.BVType(true, 64) => extractTree(lhs)
+          case xt.FPType(8, 24) => xt.FPToBVJVM(8, 24, 64, extractTree(lhs))
+          case xt.FPType(11, 53) => xt.FPToBVJVM(11, 53, 64, extractTree(lhs))
           case tpe => outOfSubsetError(tr, s"Unexpected cast .toLong from $tpe")
+        }
+
+        case (tpe, "toFloat", Seq()) => tpe match {
+          case xt.BVType(true, 8 | 16 | 32 | 64 ) | xt.FPType(11, 53) =>
+            xt.FPCast(8, 24, xt.RoundNearestTiesToEven, extractTree(lhs))
+          case xt.FPType(8, 24) => extractTree(lhs)
+          case tpe => outOfSubsetError(tr, s"Unexpected cast .toFloat from $tpe")
+        }
+
+        case (tpe, "toDouble", Seq()) => tpe match {
+          case xt.BVType(true, 8 | 16 | 32 | 64 ) | xt.FPType(8, 24) =>
+            xt.FPCast(11, 53, xt.RoundNearestTiesToEven, extractTree(lhs))
+          case xt.FPType(11, 53) => extractTree(lhs)
+          case tpe => outOfSubsetError(tr, s"Unexpected cast .toDouble from $tpe")
         }
 
         case (tpe, name, args) =>
@@ -2263,7 +2409,8 @@ class CodeExtraction(inoxCtx: inox.Context,
       xt.BVUnsignedToSigned(e).copiedFrom(e)
   }
 
-  /** Inject implicit widening casts according to the Java semantics (5.6.2. Binary Numeric Promotion) */
+  /** Inject implicit widening casts according to the Java semantics (5.6.2. Binary Numeric Promotion).
+   *  Also converts to floating-point versions of operators when necessary. */
   private def injectCasts(ctor: (xt.Expr, xt.Expr) => xt.Expr)
                          (lhs0: tpd.Tree, rhs0: tpd.Tree)
                          (using dctx: DefContext): xt.Expr = {
@@ -2292,6 +2439,8 @@ class CodeExtraction(inoxCtx: inox.Context,
     def checkBits(tr: tpd.Tree, tpe: xt.Type) = tpe match {
       case xt.BVType(_, 8 | 16 | 32 | 64) => // Byte, Short, Int or Long are ok
       case xt.BVType(_, s) => outOfSubsetError(tr, s"Unexpected integer of $s bits")
+      case xt.FPType(8, 24) | xt.FPType(11, 53) => // Floats and Doubles are ok
+      case xt.FPType(e, s) => outOfSubsetError(tr, s"Unexpected float of $e bit exponent and $s bit significand")
       case _ => // non-bitvector types are ok too
     }
 
@@ -2306,24 +2455,50 @@ class CodeExtraction(inoxCtx: inox.Context,
     val id = { (e: xt.Expr) => e }
     val widen32 = { (e: xt.Expr) => xt.BVWideningCast(e, xt.BVType(true, 32).copiedFrom(e)).copiedFrom(e) }
     val widen64 = { (e: xt.Expr) => xt.BVWideningCast(e, xt.BVType(true, 64).copiedFrom(e)).copiedFrom(e) }
+    val toFloat = { (e: xt.Expr) => xt.FPCast(8, 24, xt.RoundNearestTiesToEven.copiedFrom(e), e).copiedFrom(e) }
+    val toDouble = { (e: xt.Expr) => xt.FPCast(11, 53, xt.RoundNearestTiesToEven.copiedFrom(e), e).copiedFrom(e) }
 
-    val (lctor, rctor) = (ltpe, rtpe) match {
-      case (xt.BVType(true, 64), xt.BVType(true, 64))          => (id, id)
-      case (xt.BVType(true, 64), xt.BVType(true, _))           => (id, widen64)
+    val (lctor, rctor, tpe) = (ltpe, rtpe) match {
+      case (xt.FPType(11, 53), xt.FPType(11, 53)) => (id, id, xt.FPType(11, 53))
+      case (xt.FPType(11, 53), xt.FPType(_, _))   => (id, toDouble, xt.FPType(11, 53))
+      case (xt.FPType(11, 53), xt.BVType(_, _))   => (id, toDouble, xt.FPType(11, 53))
+      case (xt.FPType(_, _), xt.FPType(11, 53))   => (toDouble, id, xt.FPType(11, 53))
+      case (xt.BVType(_, _), xt.FPType(11, 53))   => (toDouble, id, xt.FPType(11, 53))
+      case (xt.FPType(8, 24), xt.FPType(8, 24))   => (id, id, xt.FPType(8, 24))
+      case (xt.FPType(8, 24), xt.FPType(_, _))    => (id, toFloat, xt.FPType(8, 24))
+      case (xt.FPType(8, 24), xt.BVType(_, _))    => (id, toFloat, xt.FPType(8, 24))
+      case (xt.FPType(_, _), xt.FPType(8, 24))    => (toFloat, id, xt.FPType(8, 24))
+      case (xt.BVType(_, _), xt.FPType(8, 24))    => (toFloat, id, xt.FPType(8, 24))
+
+      case (xt.BVType(true, 64), xt.BVType(true, 64))          => (id, id, xt.BVType(true, 64))
+      case (xt.BVType(true, 64), xt.BVType(true, _))           => (id, widen64, xt.BVType(true, 64))
       case (xt.BVType(true, _),  xt.BVType(true, 64)) if shift => outOfSubsetError(rhs0, s"Unsupported shift")
-      case (xt.BVType(true, _),  xt.BVType(true, 64))          => (widen64, id)
-      case (xt.BVType(true, 32), xt.BVType(true, 32))          => (id, id)
-      case (xt.BVType(true, 32), xt.BVType(true, _))           => (id, widen32)
-      case (xt.BVType(true, _),  xt.BVType(true, 32))          => (widen32, id)
-      case (xt.BVType(true, _),  xt.BVType(true, _))           => (widen32, widen32)
+      case (xt.BVType(true, _),  xt.BVType(true, 64))          => (widen64, id, xt.BVType(true, 64))
+      case (xt.BVType(true, 32), xt.BVType(true, 32))          => (id, id, xt.BVType(true, 32))
+      case (xt.BVType(true, 32), xt.BVType(true, _))           => (id, widen32, xt.BVType(true, 32))
+      case (xt.BVType(true, _),  xt.BVType(true, 32))          => (widen32, id, xt.BVType(true, 32))
+      case (xt.BVType(true, _),  xt.BVType(true, _))           => (widen32, widen32, xt.BVType(true, 32))
 
-      case (xt.BVType(_,_), _) | (_, xt.BVType(_,_)) =>
+      case (xt.BVType(_,_), _) | (_, xt.BVType(_,_)) | (xt.FPType(_,_), _) | (_, xt.FPType(_,_)) =>
         outOfSubsetError(lhs0, s"Unexpected combination of types: $ltpe and $rtpe")
 
-      case (_, _) => (id, id)
+      case (_, _) => (id, id, ltpe)
     }
 
-    ctor(lctor(lhs), rctor(rhs))
+    (ctor(lctor(lhs), rctor(rhs)), tpe) match {
+      case (xt.Plus(lhs, rhs),           xt.FPType(_, _)) => xt.FPAdd(xt.RoundNearestTiesToEven, lhs, rhs)
+      case (xt.Minus(lhs, rhs),          xt.FPType(_, _)) => xt.FPSub(xt.RoundNearestTiesToEven, lhs, rhs)
+      case (xt.Times(lhs, rhs),          xt.FPType(_, _)) => xt.FPMul(xt.RoundNearestTiesToEven, lhs, rhs)
+      case (xt.Division(lhs, rhs),       xt.FPType(_, _)) => xt.FPDiv(xt.RoundNearestTiesToEven, lhs, rhs)
+      case (xt.Remainder(lhs, rhs),      xt.FPType(_, _)) =>
+        outOfSubsetError(lhs0, "Floating point remainders are not supported.")
+      case (xt.LessThan(lhs, rhs),       xt.FPType(_, _)) => xt.FPLessThan(lhs, rhs)
+      case (xt.LessEquals(lhs, rhs),     xt.FPType(_, _)) => xt.FPLessEquals(lhs, rhs)
+      case (xt.GreaterThan(lhs, rhs),    xt.FPType(_, _)) => xt.FPGreaterThan(lhs, rhs)
+      case (xt.GreaterEquals(lhs, rhs),  xt.FPType(_, _)) => xt.FPGreaterEquals(lhs, rhs)
+      case (xt.Equals(lhs, rhs),         xt.FPType(_, _)) => xt.FPEquals(lhs, rhs)
+      case (e, _) => e
+    }
   }
 
   /** Inject implicit widening cast according to the Java semantics (5.6.1. Unary Numeric Promotion) */
@@ -2334,14 +2509,19 @@ class CodeExtraction(inoxCtx: inox.Context,
     val id = { (e: xt.Expr) => e }
     val widen32 = { (e: xt.Expr) => xt.BVWideningCast(e, xt.Int32Type().copiedFrom(e)).copiedFrom(e) }
 
-    val ector = etpe match {
-      case xt.BVType(true, 8 | 16) => widen32
-      case xt.BVType(true, 32 | 64) => id
+    val (ector, tpe) = etpe match {
+      case xt.BVType(true, 8 | 16) => (widen32, xt.BVType(true, 32))
+      case xt.BVType(true, 32 | 64) => (id, etpe)
       case xt.BVType(_, s) => outOfSubsetError(e0, s"Unexpected integer type of $s bits")
-      case _ => id
+      case xt.FPType(8, 24) | xt.FPType(11, 53) => (id, etpe)
+      case xt.FPType(e, s) => outOfSubsetError(e0, s"Unexpected float of $e bit exponent and $s bit significand")
+      case _ => (id, etpe)
     }
 
-    ctor(ector(e))
+    (ctor(ector(e)), tpe) match {
+      case (xt.UMinus(e), xt.FPType(_, _)) => xt.FPUMinus(e)
+      case (e, _) => e
+    }
   }
 
   private def extractLocalClassType(tr: TypeRef, cid: Identifier, tps: List[xt.Type])
@@ -2376,14 +2556,16 @@ class CodeExtraction(inoxCtx: inox.Context,
     (tpt match {
       case NoType => xt.Untyped
 
-      case tpe if tpe.typeSymbol == defn.CharClass    => xt.CharType()
-      case tpe if tpe.typeSymbol == defn.ByteClass    => xt.Int8Type()
-      case tpe if tpe.typeSymbol == defn.ShortClass   => xt.Int16Type()
-      case tpe if tpe.typeSymbol == defn.IntClass     => xt.Int32Type()
-      case tpe if tpe.typeSymbol == defn.LongClass    => xt.Int64Type()
-      case tpe if tpe.typeSymbol == defn.BooleanClass => xt.BooleanType()
-      case tpe if tpe.typeSymbol == defn.UnitClass    => xt.UnitType()
-      case tpe if tpe.typeSymbol == defn.NothingClass => xt.NothingType()
+      case tpe if tpe.typeSymbol == defn.FloatClass       => xt.Float32Type()
+      case tpe if tpe.typeSymbol == defn.DoubleClass      => xt.Float64Type()
+      case tpe if tpe.typeSymbol == defn.CharClass        => xt.CharType()
+      case tpe if tpe.typeSymbol == defn.ByteClass        => xt.Int8Type()
+      case tpe if tpe.typeSymbol == defn.ShortClass       => xt.Int16Type()
+      case tpe if tpe.typeSymbol == defn.IntClass         => xt.Int32Type()
+      case tpe if tpe.typeSymbol == defn.LongClass        => xt.Int64Type()
+      case tpe if tpe.typeSymbol == defn.BooleanClass     => xt.BooleanType()
+      case tpe if tpe.typeSymbol == defn.UnitClass        => xt.UnitType()
+      case tpe if tpe.typeSymbol == defn.NothingClass     => xt.NothingType()
 
       // `isRef` seems to be needed here instead of `==`, as the latter
       // seems to be too lax, and makes the whole test suite fail. - @romac
@@ -2394,9 +2576,11 @@ class CodeExtraction(inoxCtx: inox.Context,
         xt.TypeBounds(extractType(lo), extractType(hi), Seq.empty)
       case cet: ExprType => extractType(cet.resultType)
 
-      case tpe if isBigIntSym(tpe.typeSymbol) => xt.IntegerType()
-      case tpe if isRealSym(tpe.typeSymbol)   => xt.RealType()
-      case tpe if isStringSym(tpe.typeSymbol) => xt.StringType()
+      case tpe if isBigIntSym(tpe.typeSymbol)        => xt.IntegerType()
+      case tpe if isRealSym(tpe.typeSymbol)          => xt.RealType()
+      case tpe if isStringSym(tpe.typeSymbol)        => xt.StringType()
+      case tpe if isWrappedFloatSym(tpe.typeSymbol)  => xt.Float32Type()
+      case tpe if isWrappedDoubleSym(tpe.typeSymbol) => xt.Float64Type()
 
       case AppliedType(tr: TypeRef, Seq(tp)) if isSetSym(tr.symbol) =>
         // We know the underlying is a set, but it may be hidden under an alias
@@ -2604,6 +2788,7 @@ class CodeExtraction(inoxCtx: inox.Context,
     case xt.BooleanType() => Some(xt.BooleanLiteral(false))
     case xt.BVType(signed, size) => Some(xt.BVLiteral(signed, 0, size))
     case xt.CharType() => Some(xt.CharLiteral(0.toChar))
+    case xt.FPType(exponent, significand) => Some(xt.FPLiteral.plusZero(exponent, significand))
     case _ => None
   }
 
