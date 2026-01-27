@@ -68,6 +68,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
     genc.optOutputFile -> Description(General, "File name for GenC output"),
     genc.optIncludes -> Description(General, "Add includes in GenC output"),
     optWatch -> Description(General, "Re-run stainless upon file changes"),
+    optWatchJson -> Description(General, "In watch mode, export JSON verification after every file change"),
     optCompact -> Description(General, "Print only invalid elements of summaries"),
     optExtendedSummary -> Description(General, "Print an extended summary of all Stainless phases"),
     frontend.optBatchedProgram -> Description(General, "Process the whole program together, skip dependency analysis"),
@@ -217,7 +218,15 @@ trait MainHelpers extends inox.MainHelpers { self =>
         compiler.run()
         compiler.join()
 
-        compiler.getReport foreach { _.emit(ctx) }
+        val report = compiler.getReport
+
+        report foreach { _.emit(ctx) }
+
+        ctx.options.findOption(optWatchJson) foreach { file =>
+          val output = if (file.isEmpty) optJson.default else file
+          reporter.info(s"Printing JSON summary to $output")
+          exportJson(report, output)
+        }
       }
 
       def watchRunCycle() = try {
