@@ -183,7 +183,7 @@ package object lang {
   // typically used when `call` invokes an `opaque` function
   // this adds an equality between the call, and the inlined call
   @library
-  def unfold[T](call: T): Unit = ()
+  def unfolding[T](call: T): Unit = ()
 
   @ignore @library
   implicit class ArrayUpdating[T](a: Array[T]) {
