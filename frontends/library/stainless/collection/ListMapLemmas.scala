@@ -276,7 +276,7 @@ object ListMapLemmas {
         assert(t.forall(p => lm.contains(p._1)))
         assert(Cons(h, t).forall(p => lm.contains(p._1)))
       }
-      case Nil() =>
+      case Nil() => ()
 
   }.ensuring(_ => lm.toList.forall(p => lm.contains(p._1)))
 
