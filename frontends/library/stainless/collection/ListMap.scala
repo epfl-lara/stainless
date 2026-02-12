@@ -380,7 +380,6 @@ object TupleListOpsGenK {
 
   // ----------- LEMMAS -----------------------------------------------------
 
-    */
   @opaque
   @inlineOnce
   def lemmaRemoveFromListThenKeysSetRemove[K, B](l: List[(K, B)], key: K): Unit = {
