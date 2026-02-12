@@ -139,6 +139,7 @@ object ListMap {
   }
 }
 
+@library
 object TupleListOpsGenK {
 
   // @inline
