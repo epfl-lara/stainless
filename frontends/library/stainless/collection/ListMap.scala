@@ -664,7 +664,7 @@ object TupleListOpsGenK {
 
   @opaque
   @inlineOnce
-  def lemmaremovePresrvNoDuplicatedKeysCommutative[K, B](
+  def lemmaRemovePresrvNoDuplicatedKeysCommutative[K, B](
       l: List[(K, B)],
       key1: K,
       key2: K
@@ -674,7 +674,7 @@ object TupleListOpsGenK {
 
     l match {
       case Cons(head, tl) => {
-        lemmaremovePresrvNoDuplicatedKeysCommutative(tl, key1, key2)
+        lemmaRemovePresrvNoDuplicatedKeysCommutative(tl, key1, key2)
       }
       case _ => ()
     }
@@ -691,7 +691,7 @@ object TupleListOpsGenK {
 
   @opaque
   @inlineOnce
-  def lemmaremovePresrvNoDuplicatedKeysNotPresentPreserves[K, B](
+  def lemmaRemovePresrvNoDuplicatedKeysNotPresentPreserves[K, B](
       l: List[(K, B)],
       key: K
   ): Unit = {
@@ -702,7 +702,7 @@ object TupleListOpsGenK {
     l match {
       case Cons(head, tl) => {
         lemmaTailStillNotContainsKey(l, key)
-        lemmaremovePresrvNoDuplicatedKeysNotPresentPreserves(tl, key)
+        lemmaRemovePresrvNoDuplicatedKeysNotPresentPreserves(tl, key)
       }
       case _ => ()
     }
