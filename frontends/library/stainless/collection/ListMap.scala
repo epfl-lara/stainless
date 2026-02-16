@@ -39,14 +39,26 @@ case class ListMap[K, B](toList: List[(K, B)]) {
     if (res) {
       TupleListOpsGenK.lemmaContainsKeyImpliesGetValueByKeyDefined(toList, key)
       TupleListOpsGenK.lemmaInListThenGetKeysListContains(toList, key)
+      if(this.keys().contains(key)) {
+        TupleListOpsGenK.lemmaInGetKeysListThenContainsKey(toList, key)
+        // check(false)
+      }
     } else {
       if (this.keys().contains(key)) {
         TupleListOpsGenK.lemmaInGetKeysListThenContainsKey(toList, key)
+        TupleListOpsGenK.lemmaInListThenGetKeysListContains(toList, key)
+      }
+      if(this.get(key).isDefined) {
+        TupleListOpsGenK.lemmaGetValueByKeyIsDefinedImpliesContainsKey(toList, key)
+        // check(false)
       }
     }
     res
 
-  }.ensuring(res => (!res && !this.keys().contains(key)) || (this.get(key).isDefined && this.keys().contains(key)))
+  }.ensuring(res => 
+    (!res && !this.keys().contains(key) && !this.keys().contains(key) && this.get(key).isEmpty) 
+    || 
+    (res && this.get(key).isDefined && this.keys().contains(key)))
 
   @inline
   def get(key: K): Option[B] = {
