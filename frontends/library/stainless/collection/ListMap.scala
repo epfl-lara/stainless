@@ -29,12 +29,6 @@ case class ListMap[K, B](toList: List[(K, B)]) {
     TupleListOpsGenK.intSize(toList)
   }
 
-  @pure
-  def nKeys: Int = {
-    require(toList.size < Integer.MAX_VALUE)
-    TupleListOpsGenK.intSizeKeys(TupleListOpsGenK.getKeysList(toList))
-  }
-
   def tail: ListMap[K, B] = {
     require(!isEmpty)
     ListMap(toList.tail)
@@ -48,7 +42,6 @@ case class ListMap[K, B](toList: List[(K, B)]) {
     } else {
       if (this.keys().contains(key)) {
         TupleListOpsGenK.lemmaInGetKeysListThenContainsKey(toList, key)
-        assert(false)
       }
     }
     res
@@ -153,18 +146,11 @@ object TupleListOpsGenK {
     l match {
       case Cons(head, tl) =>
         if (containsKey(tl, head._1)) {
-          assert(false)
         }
         if (getKeysList(tl).contains(head._1)) {
           ListSpecs.forallContained(getKeysList(tl), k => containsKey(tl, k), head._1)
-          assert(false)
         }
-        assert(ListSpecs.noDuplicate(getKeysList(tl)) && getKeysList(tl).forall(k => containsKey(tl, k)))
-        assert(ListSpecs.noDuplicate(Cons(head._1, getKeysList(tl))))
-        assert(getKeysList(tl).forall(k => containsKey(tl, k)))
         lemmaForallContainsAddHeadPreserves(tl, getKeysList(tl), head)
-        assert(getKeysList(tl).forall(k => containsKey(Cons(head, tl), k)))
-        assert(Cons(head._1, getKeysList(tl)).forall(k => containsKey(Cons(head, tl), k)))
         Cons(head._1, getKeysList(tl))
       case Nil() => Nil[K]()
     }
@@ -174,17 +160,6 @@ object TupleListOpsGenK {
       && res.forall(k => containsKey(l, k))
       && res.content == l.map(_._1).content
   )
-
-  @pure
-  def intSizeKeys[K](l: List[K]): Int = {
-    require(l.length < Integer.MAX_VALUE)
-    decreases(l)
-
-    l match {
-      case Cons(head, tl) => 1 + intSizeKeys(tl)
-      case Nil()          => 0
-    }
-  }
 
   def intSize[K, B](l: List[(K, B)]): Int = {
     decreases(l)
@@ -244,17 +219,12 @@ object TupleListOpsGenK {
       case Cons(head, tl) if (head._2 == value) =>
         val res = head :: filterByValue(tl, value)
         if (containsKey(filterByValue(tl, value), head._1)) {
-          assert(ListSpecs.subseq(filterByValue(tl, value), tl))
           lemmaContainsKeyImpliesGetValueByKeyDefined(filterByValue(tl, value), head._1)
           val va = getValueByKey(filterByValue(tl, value), head._1).get
           lemmaGetValueByKeyImpliesContainsTuple(filterByValue(tl, value), head._1, va)
           ListSpecs.subseqContains(filterByValue(tl, value), tl, (head._1, va))
-          assert(tl.contains((head._1, va)))
           lemmaContainsTupleThenContainsKey(tl, head._1, va)
-          assert(containsKey(tl, head._1))
-          assert(false)
         }
-        assert(!containsKey(filterByValue(tl, value), head._1))
         res
       case Cons(head, tl) if (head._2 != value) =>
         val res = filterByValue(tl, value)
@@ -289,21 +259,11 @@ object TupleListOpsGenK {
         (newKey, newValue) :: tl
       case Cons(head, tl) if (!containsKey(l, newKey)) => (newKey, newValue) :: l
       case Cons(head, tl) =>
-        assert(containsKey(tl, newKey))
         val res = head :: insertNoDuplicatedKeys(tl, newKey, newValue)
         if (containsKey(insertNoDuplicatedKeys(tl, newKey, newValue), head._1)) {
-          assert(head._1 != newKey)
-          assert(getKeysList(tl).content ++ Set(newKey) == getKeysList(insertNoDuplicatedKeys(tl, newKey, newValue)).content)
           lemmaInListThenGetKeysListContains(insertNoDuplicatedKeys(tl, newKey, newValue), head._1)
-          assert(getKeysList(insertNoDuplicatedKeys(tl, newKey, newValue)).contains(head._1))
-          assert(getKeysList(tl).contains(head._1))
           lemmaInGetKeysListThenContainsKey(tl, head._1)
-          assert(containsKey(tl, head._1))
-          assert(false)
         }
-        assert(invariantList(res))
-        assert(containsKey(res, newKey))
-        assert(res.contains((newKey, newValue)))
         res
       case Nil() => (newKey, newValue) :: Nil()
     }
@@ -323,26 +283,19 @@ object TupleListOpsGenK {
       case Cons(head, tl) if (head._1 == key) =>
         if (containsKey(l, key)) {
           val h = (key, getValueByKey(l, key).get)
-          assert(l.head == (key, getValueByKey(l, key).get))
           if (tl.contains(h)) {
             lemmaContainsTupleThenContainsKey(tl, h._1, h._2)
-            assert(false)
           }
-          assert(!tl.contains(head))
-          assert(tl.content == l.content - (key, getValueByKey(l, key).get))
         } else {
-          assert(tl.content == l.content)
         }
         tl
       case Cons(head, tl) if (head._1 != key) =>
         val res = head :: removePresrvNoDuplicatedKeys(tl, key)
         if (getKeysList(tl).contains(head._1)) {
           lemmaInGetKeysListThenContainsKey(tl, head._1)
-          assert(false)
         }
         if (containsKey(removePresrvNoDuplicatedKeys(tl, key), head._1)) {
           lemmaInListThenGetKeysListContains(removePresrvNoDuplicatedKeys(tl, key), head._1)
-          assert(false)
         }
         res
       case Nil() => Nil[(K, B)]()
@@ -390,25 +343,18 @@ object TupleListOpsGenK {
       case Cons(head, tl) if (head._1 == key) =>
         if (containsKey(l, key)) {
           val h = (key, getValueByKey(l, key).get)
-          assert(l.head == (key, getValueByKey(l, key).get))
           if (tl.contains(h)) {
             lemmaContainsTupleThenContainsKey(tl, h._1, h._2)
-            assert(false)
           }
-          assert(!tl.contains(head))
-          assert(tl.content == l.content - (key, getValueByKey(l, key).get))
         } else {
-          assert(tl.content == l.content)
         }
       case Cons(head, tl) if (head._1 != key) =>
         lemmaRemoveFromListThenKeysSetRemove(tl, key)
         if (getKeysList(tl).contains(head._1)) {
           lemmaInGetKeysListThenContainsKey(tl, head._1)
-          assert(false)
         }
         if (containsKey(removePresrvNoDuplicatedKeys(tl, key), head._1)) {
           lemmaInListThenGetKeysListContains(removePresrvNoDuplicatedKeys(tl, key), head._1)
-          assert(false)
         }
       case Nil() => ()
     }
@@ -418,13 +364,10 @@ object TupleListOpsGenK {
   @inlineOnce
   def lemmaEqMapSameKeysSet[K, B](lm1: ListMap[K, B], lm2: ListMap[K, B]): Unit = {
     require(lm1.eq(lm2))
-    assert(lm1.toList.content == lm2.toList.content)
     ListSpecs.subsetRefl(lm1.toList)
     ListSpecs.subsetRefl(lm2.toList)
     lemmaSubsetThenKeysSubset(lm1.toList, lm2.toList)
     lemmaSubsetThenKeysSubset(lm2.toList, lm1.toList)
-    assert(lm1.keys().content.subsetOf(lm2.keys().content))
-    assert(lm2.keys().content.subsetOf(lm1.keys().content))
   }.ensuring(_ => lm1.keys().content == lm2.keys().content)
 
   @opaque
@@ -437,17 +380,10 @@ object TupleListOpsGenK {
     l1 match
       case Cons(hd, tl) =>
         lemmaSubsetThenKeysSubset(tl, l2)
-        assert(getKeysList(tl).content.subsetOf(getKeysList(l2).content))
-        assert(l2.contains(hd))
         lemmaMapFirstElmtContains(l2, hd)
-        assert(l2.map(_._1).contains(hd._1))
-        assert(getKeysList(l2).contains(hd._1))
-        assert(!containsKey(tl, hd._1))
         if (getKeysList(tl).contains(hd._1)) {
           lemmaInGetKeysListThenContainsKey(tl, hd._1)
-          assert(false)
         }
-        assert(!getKeysList(tl).contains(hd._1))
       case Nil() => ()
 
   }.ensuring(_ => getKeysList(l1).content.subsetOf(getKeysList(l2).content))
@@ -482,10 +418,7 @@ object TupleListOpsGenK {
         ListSpecs.subsetContains(l1, l2)
         ListSpecs.forallContained(l1, l2.contains, head)
         ListSpecs.forallContained(l2, p, head)
-        assert(l2.contains(head))
         lemmaForallSubset(tl, l2, p)
-        assert(tl.forall(p))
-        assert(p(head))
       case Nil() => ()
     }
   }.ensuring(_ => l1.forall(p))
@@ -530,18 +463,14 @@ object TupleListOpsGenK {
         if (head._2 == v1) {
           if (v1 != v2) {
             lemmaContainsTupleThenContainsKey(tl, key, v2)
-            assert(false)
           }
         } else {
           if (head._2 != v2) {
             lemmaContainsTupleThenContainsKey(tl, key, v2)
             lemmaContainsTupleThenContainsKey(tl, key, v1)
-            assert(false)
           }
-          assert(head._2 == v2)
           if (v1 != v2) {
             lemmaContainsTupleThenContainsKey(tl, key, v1)
-            assert(false)
           }
         }
       case _ => ()
@@ -761,7 +690,6 @@ object TupleListOpsGenK {
     l match {
       case Cons(head, tl) => {
         lemmaTailStillNotContainsKey(l, key)
-        assert(!containsKey(tl, key))
         lemmaremovePresrvNoDuplicatedKeysNotPresentPreserves(tl, key)
       }
       case _ => ()
@@ -816,7 +744,6 @@ object TupleListOpsGenK {
         lemmaAddNewKeyIncrementSize(tl, key, value)
 
       }
-      case Cons(head, tl) if (head._1 == key) => assert(false)
       case _                                  =>
     }
 
@@ -839,7 +766,6 @@ object TupleListOpsGenK {
         lemmaAddExistingKeyPreservesSize(tl, key, value)
       }
       case Cons(head, tl) if (head._1 == key) => {
-        assert(inserted == Cons((key, value), tl))
       }
       case _ =>
     }
@@ -941,7 +867,6 @@ object TupleListOpsGenK {
       case Cons(head, tl) if (head._1 != test) =>
         if (containsKey(tl, test)) {
           lemmaAddHeadStillContainsKey(tl, head._1, head._2, test)
-          assert(false)
         }
         lemmaTailStillNotContainsKey(tl, test)
       case _ => ()
@@ -1001,7 +926,6 @@ object TupleListOpsGenK {
     l match {
       case Cons(head, tl) =>
         lemmaTailStillNotContainsKey(l, otherKey)
-        assert(!containsKey(tl, otherKey))
         lemmainsertNoDuplicatedKeysDoesNotModifyOtherKeysNotContained(
           tl,
           newKey,

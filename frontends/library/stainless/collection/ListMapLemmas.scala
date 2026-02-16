@@ -171,7 +171,6 @@ object ListMapLemmas {
       a0: K
   ): Unit = {
     require(lm.contains(a0) && a0 != a)
-    assert(TupleListOpsGenK.containsKey(lm.toList, a0))
     TupleListOpsGenK.lemmainsertNoDuplicatedKeysDoesNotModifyOtherKeyValues(
       lm.toList,
       a,
@@ -268,13 +267,8 @@ object ListMapLemmas {
     lm.toList match
       case Cons(h, t) => {
         lemmaContainsAllItsOwnKeys(ListMap(t))
-        assert(t.forall(p => ListMap(t).contains(p._1)))
-        assert(lm == ListMap(t) + h)
         lemmaInsertPairStillContainsAll(ListMap(t), t, h._1, h._2)
         lemmaInsertPairStillContainsAllEq(ListMap(t), lm, t, h._1, h._2)
-        assert(t.forall(p => (ListMap(t) + (h._1, h._2)).contains(p._1)))
-        assert(t.forall(p => lm.contains(p._1)))
-        assert(Cons(h, t).forall(p => lm.contains(p._1)))
       }
       case Nil() => ()
 
@@ -345,7 +339,6 @@ object ListMapLemmas {
   @opaque
   def keysOfSound[K, B](@induct lm: ListMap[K, B], value: B): Unit = {
     // trivial by postcondition of getKeysOf
-    assert(TupleListOpsGenK.getKeysOf(lm.toList, value).forall(k => lm.get(k) == Some[B](value)))
   }.ensuring(_ => lm.keysOf(value).forall((key: K) => lm.get(key) == Some[B](value)))
 
   @opaque
@@ -379,10 +372,8 @@ object ListMapLemmas {
     require(lm1.eq(lm2))
     if (lm1.contains(key)) {
       lemmaAddToEqMapsPreservesEqIfContainsKey(lm1, lm2, key, value)
-      assert((lm1 + (key, value)).eq(lm2 + (key, value)))
     } else {
       lemmaAddToEqMapsPreservesEqIfDoesNotContainKey(lm1, lm2, key, value)
-      assert((lm1 + (key, value)).eq(lm2 + (key, value)))
     }
 
   }.ensuring(_ => (lm1 + (key, value)).eq(lm2 + (key, value)))
@@ -399,18 +390,12 @@ object ListMapLemmas {
     require(!lm1.contains(key))
     decreases(lm1.toList.size)
 
-    assert(!lm1.contains(key))
     if (lm2.contains(key)) {
       TupleListOpsGenK.lemmaContainsKeyImpliesGetValueByKeyDefined(lm2.toList, key)
       TupleListOpsGenK.lemmaGetValueByKeyImpliesContainsTuple(lm2.toList, key, lm2.apply(key))
-      assert(lm2.toList.contains((key, lm2.apply(key))))
-      assert(lm1.toList.contains((key, lm2.apply(key))))
       TupleListOpsGenK.lemmaContainsTupleThenContainsKey(lm1.toList, key, lm2.apply(key))
-      assert(false)
     }
-    assert(!lm2.contains(key))
 
-    assert((lm1 + (key, value)).eq(lm2 + (key, value)))
 
   }.ensuring(_ => (lm1 + (key, value)).eq(lm2 + (key, value)))
 
@@ -432,31 +417,20 @@ object ListMapLemmas {
     val v = lm1.apply(key)
     val v2 = lm2.apply(key)
     TupleListOpsGenK.lemmaGetValueByKeyImpliesContainsTuple(lm2.toList, key, v2)
-    assert(lm1.toList.contains((key, v)))
-    assert(lm2.toList.contains((key, v)))
-    assert(lm1.apply(key) == lm2.apply(key))
-    assert(lm1.apply(key) == v)
 
     val lm1WithoutKey = lm1 - key
     val lm2WithoutKey = lm2 - key
     lemmaRemovePreservesEq(lm1, lm2, key)
-    assert(lm1WithoutKey.eq(lm2WithoutKey))
-    assert(lm1WithoutKey.contains(key) == false)
-    assert(lm2WithoutKey.contains(key) == false)
 
     val lm1After = lm1WithoutKey + (key, value)
     val lm2After = lm2WithoutKey + (key, value)
     lemmaAddToEqMapsPreservesEqIfDoesNotContainKey(lm1WithoutKey, lm2WithoutKey, key, value)
 
-    assert(lm1After.eq(lm2After))
 
     removeThenAddForSameKeyIsSameAsAdd(lm1, key, value)
     removeThenAddForSameKeyIsSameAsAdd(lm2, key, value)
 
-    assert(lm1After.eq(lm1 + (key, value)))
-    assert(lm2After.eq(lm2 + (key, value)))
 
-    assert((lm1 + (key, value)).eq(lm2 + (key, value)))
 
   }.ensuring(_ => (lm1 + (key, value)).eq(lm2 + (key, value)))
 
@@ -471,24 +445,15 @@ object ListMapLemmas {
     if (lm1.contains(key)) {
       val v = lm1.apply(key)
       TupleListOpsGenK.lemmaGetValueByKeyImpliesContainsTuple(lm1.toList, key, v)
-      assert(lm1.toList.contains((key, v)))
-      assert(lm2.toList.contains((key, v)))
       TupleListOpsGenK.lemmaContainsTupleThenContainsKey(lm2.toList, key, v)
 
-      assert(lm1.contains(key) == true)
-      assert(lm2.contains(key) == true)
 
     } else {
       if (lm2.contains(key)) {
         TupleListOpsGenK.lemmaContainsKeyImpliesGetValueByKeyDefined(lm2.toList, key)
         TupleListOpsGenK.lemmaGetValueByKeyImpliesContainsTuple(lm2.toList, key, lm2.apply(key))
-        assert(lm2.toList.contains((key, lm2.apply(key))))
-        assert(lm1.toList.contains((key, lm2.apply(key))))
         TupleListOpsGenK.lemmaContainsTupleThenContainsKey(lm1.toList, key, lm2.apply(key))
-        assert(false)
       }
-      assert(lm1.contains(key) == false)
-      assert(lm2.contains(key) == false)
     }
   }.ensuring(_ => lm1.contains(key) == lm2.contains(key))
 
@@ -504,33 +469,21 @@ object ListMapLemmas {
     if (lm1.contains(key)) {
       val v = lm1.apply(key)
       TupleListOpsGenK.lemmaGetValueByKeyImpliesContainsTuple(lm1.toList, key, v)
-      assert(lm1.toList.contains((key, v)))
-      assert(lm2.toList.contains((key, v)))
       TupleListOpsGenK.lemmaContainsTupleThenContainsKey(lm2.toList, key, v)
-      assert(lm2.contains(key))
       val v2 = lm2.apply(key)
       TupleListOpsGenK.lemmaGetValueByKeyImpliesContainsTuple(lm2.toList, key, v2)
       if (v2 != v) {
-        assert(lm2.toList.contains((key, v2)))
-        assert(lm2.toList.contains((key, v)))
         TupleListOpsGenK.lemmaContainsTwoDifferentTuplesSameKeyImpossible(lm2.toList, key, v, v2)
-        assert(false)
       }
-      assert(lm1.get(key).get == v)
-      assert(lm2.get(key).get == v)
     } else {
       if (lm1.get(key).isDefined) {
         TupleListOpsGenK.lemmaGetValueByKeyImpliesContainsTuple(lm1.toList, key, lm1.get(key).get)
         TupleListOpsGenK.lemmaContainsTupleThenContainsKey(lm1.toList, key, lm1.get(key).get)
-        assert(false)
       }
       if (lm2.get(key).isDefined) {
         TupleListOpsGenK.lemmaGetValueByKeyImpliesContainsTuple(lm2.toList, key, lm2.get(key).get)
         TupleListOpsGenK.lemmaContainsTupleThenContainsKey(lm2.toList, key, lm2.get(key).get)
-        assert(false)
       }
-      assert(lm1.get(key).isEmpty)
-      assert(lm2.get(key).isEmpty)
     }
 
   }.ensuring(_ => lm1.get(key) == lm2.get(key))
@@ -548,11 +501,7 @@ object ListMapLemmas {
       val v = lm1.apply(key)
       val v2 = lm2.apply(key)
       lemmaEquivalentGetSameValue(lm1, lm2, key)
-      assert((lm1 - key).toList.content == lm1.toList.content -- Set((key, v)))
-      assert((lm2 - key).toList.content == lm2.toList.content -- Set((key, v2)))
     } else {
-      assert((lm1 - key).toList.content == lm1.toList.content)
-      assert((lm2 - key).toList.content == lm2.toList.content)
     }
 
   }.ensuring(_ => (lm1 - key).eq(lm2 - key))
