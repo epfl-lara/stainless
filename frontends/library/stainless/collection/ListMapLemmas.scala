@@ -26,7 +26,7 @@ object ListMapLemmas {
       b1: B,
       b2: B
   ): Unit = {
-    TupleListOpsGenK.lemmainsertNoDuplicatedKeysErasesIfSameKey(lm.toList, a, b1, b2)
+    TupleListOpsGenK.lemmaInsertNoDuplicatedKeysErasesIfSameKey(lm.toList, a, b1, b2)
   }.ensuring(_ => lm + (a, b2) == (lm + (a, b1) + (a, b2)))
 
   @opaque
@@ -38,7 +38,7 @@ object ListMapLemmas {
       a2: K
   ): Unit = {
     require(a1 != a2)
-    TupleListOpsGenK.lemmaInsertAndremovePresrvNoDuplicatedKeysCommutative(
+    TupleListOpsGenK.lemmaInsertAndRemovePresrvNoDuplicatedKeysCommutative(
       lm.toList,
       a1,
       b1,
@@ -54,7 +54,7 @@ object ListMapLemmas {
       b1: B
   ): Unit = {
     require(!lm.contains(a1))
-    TupleListOpsGenK.lemmainsertNoDuplicatedKeysThenRemoveIsSame(lm.toList, a1, b1)
+    TupleListOpsGenK.lemmaInsertNoDuplicatedKeysThenRemoveIsSame(lm.toList, a1, b1)
   }.ensuring(_ => lm + (a1, b1) - a1 == lm)
 
   @opaque
@@ -64,7 +64,7 @@ object ListMapLemmas {
       a1: K,
       b1: B
   ): Unit = {
-    TupleListOpsGenK.lemmaRemoveTheninsertNoDuplicatedKeysIsSameAsInsert(lm.toList, a1, b1)
+    TupleListOpsGenK.lemmaRemoveThenInsertNoDuplicatedKeysIsSameAsInsert(lm.toList, a1, b1)
   }.ensuring(_ => (lm - a1 + (a1, b1)).eq(lm + (a1, b1)))
 
   @opaque
@@ -171,7 +171,7 @@ object ListMapLemmas {
       a0: K
   ): Unit = {
     require(lm.contains(a0) && a0 != a)
-    TupleListOpsGenK.lemmainsertNoDuplicatedKeysDoesNotModifyOtherKeyValues(
+    TupleListOpsGenK.lemmaInsertNoDuplicatedKeysDoesNotModifyOtherKeyValues(
       lm.toList,
       a,
       b,
@@ -192,7 +192,7 @@ object ListMapLemmas {
     require(lm.contains(a0))
 
     if (a != a0)
-      TupleListOpsGenK.lemmainsertNoDuplicatedKeysDoesNotModifyOtherKeysContained(
+      TupleListOpsGenK.lemmaInsertNoDuplicatedKeysDoesNotModifyOtherKeysContained(
         lm.toList,
         a,
         b,
@@ -211,7 +211,7 @@ object ListMapLemmas {
   ): Unit = {
     require(!lm.contains(a0) && a != a0)
 
-    TupleListOpsGenK.lemmainsertNoDuplicatedKeysDoesNotModifyOtherKeysNotContained(
+    TupleListOpsGenK.lemmaInsertNoDuplicatedKeysDoesNotModifyOtherKeysNotContained(
       lm.toList,
       a,
       b,
@@ -282,7 +282,7 @@ object ListMapLemmas {
     l match {
       case Cons(h, t) =>
         if (h._1 != k) {
-          TupleListOpsGenK.lemmainsertNoDuplicatedKeysDoesNotModifyOtherKeyValues(lm.toList, k, v, h._1)
+          TupleListOpsGenK.lemmaInsertNoDuplicatedKeysDoesNotModifyOtherKeyValues(lm.toList, k, v, h._1)
         }
         lemmaInsertPairStillContainsAll(lm, t, k, v)
       case Nil() => ()
@@ -298,7 +298,7 @@ object ListMapLemmas {
     l match {
       case Cons(h, t) =>
         if (h._1 != k) {
-          TupleListOpsGenK.lemmainsertNoDuplicatedKeysDoesNotModifyOtherKeyValues(lm.toList, k, v, h._1)
+          TupleListOpsGenK.lemmaInsertNoDuplicatedKeysDoesNotModifyOtherKeyValues(lm.toList, k, v, h._1)
         }
         lemmaInsertPairStillContainsAllEq(lm, lm2, t, k, v)
       case Nil() => ()
@@ -349,7 +349,7 @@ object ListMapLemmas {
       value: B
   ): Unit = {
     require(!lm.contains(key))
-    TupleListOpsGenK.lemmainsertNoDuplicatedKeysNotContainedContent(
+    TupleListOpsGenK.lemmaInsertNoDuplicatedKeysNotContainedContent(
       lm.toList,
       key,
       value

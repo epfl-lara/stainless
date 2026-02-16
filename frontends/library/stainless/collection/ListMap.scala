@@ -15,7 +15,7 @@ case class ListMap[K, B](toList: List[(K, B)]) {
 
   def isEmpty: Boolean = {
     toList.isEmpty
-  }.ensuring(res => toList.size >= Int.MaxValue || res == (size == 0))
+  }.ensuring(res => toList.size >= Integer.MAX_VALUE || res == (size == 0))
 
   def eq(other: ListMap[K, B]): Boolean = toList.content == other.toList.content
 
@@ -560,7 +560,7 @@ object TupleListOpsGenK {
 
   @opaque
   @inlineOnce
-  def lemmaInsertAndremovePresrvNoDuplicatedKeysCommutative[K, B](
+  def lemmaInsertAndRemovePresrvNoDuplicatedKeysCommutative[K, B](
       l: List[(K, B)],
       key1: K,
       v1: B,
@@ -572,7 +572,7 @@ object TupleListOpsGenK {
 
     l match {
       case Cons(head, tl) => {
-        lemmaInsertAndremovePresrvNoDuplicatedKeysCommutative(tl, key1, v1, key2)
+        lemmaInsertAndRemovePresrvNoDuplicatedKeysCommutative(tl, key1, v1, key2)
       }
       case _ => ()
     }
@@ -590,7 +590,7 @@ object TupleListOpsGenK {
 
   @opaque
   @inlineOnce
-  def lemmainsertNoDuplicatedKeysThenRemoveIsSame[K, B](
+  def lemmaInsertNoDuplicatedKeysThenRemoveIsSame[K, B](
       l: List[(K, B)],
       key1: K,
       v1: B
@@ -602,7 +602,7 @@ object TupleListOpsGenK {
     l match {
       case Cons(head, tl) => {
         lemmaTailStillNotContainsKey(l, key1)
-        lemmainsertNoDuplicatedKeysThenRemoveIsSame(tl, key1, v1)
+        lemmaInsertNoDuplicatedKeysThenRemoveIsSame(tl, key1, v1)
       }
       case _ => ()
     }
@@ -611,7 +611,7 @@ object TupleListOpsGenK {
 
   @opaque
   @inlineOnce
-  def lemmaRemoveTheninsertNoDuplicatedKeysIsSameAsInsert[K, B](
+  def lemmaRemoveThenInsertNoDuplicatedKeysIsSameAsInsert[K, B](
       l: List[(K, B)],
       key1: K,
       v1: B
@@ -622,7 +622,7 @@ object TupleListOpsGenK {
     l match {
       case Cons(head, tl) if (head._1 == key1) => ()
       case Cons(head, tl) => {
-        lemmaRemoveTheninsertNoDuplicatedKeysIsSameAsInsert(tl, key1, v1)
+        lemmaRemoveThenInsertNoDuplicatedKeysIsSameAsInsert(tl, key1, v1)
       }
       case _ => ()
     }
@@ -711,7 +711,7 @@ object TupleListOpsGenK {
 
   @opaque
   @inlineOnce
-  def lemmainsertNoDuplicatedKeysErasesIfSameKey[K, B](
+  def lemmaInsertNoDuplicatedKeysErasesIfSameKey[K, B](
       l: List[(K, B)],
       key1: K,
       v1: B,
@@ -722,7 +722,7 @@ object TupleListOpsGenK {
 
     l match {
       case Cons(head, tl) => {
-        lemmainsertNoDuplicatedKeysErasesIfSameKey(tl, key1, v1, v2)
+        lemmaInsertNoDuplicatedKeysErasesIfSameKey(tl, key1, v1, v2)
       }
       case _ => ()
     }
@@ -888,7 +888,7 @@ object TupleListOpsGenK {
 
   @opaque
   @inlineOnce
-  def lemmainsertNoDuplicatedKeysDoesNotModifyOtherKeyValues[K, B](
+  def lemmaInsertNoDuplicatedKeysDoesNotModifyOtherKeyValues[K, B](
       l: List[(K, B)],
       newKey: K,
       newValue: B,
@@ -899,7 +899,7 @@ object TupleListOpsGenK {
 
     l match {
       case Cons(head, tl) if (head._1 != otherKey) =>
-        lemmainsertNoDuplicatedKeysDoesNotModifyOtherKeyValues(
+        lemmaInsertNoDuplicatedKeysDoesNotModifyOtherKeyValues(
           tl,
           newKey,
           newValue,
@@ -924,7 +924,7 @@ object TupleListOpsGenK {
 
   @opaque
   @inlineOnce
-  def lemmainsertNoDuplicatedKeysDoesNotModifyOtherKeysNotContained[K, B](
+  def lemmaInsertNoDuplicatedKeysDoesNotModifyOtherKeysNotContained[K, B](
       l: List[(K, B)],
       newKey: K,
       newValue: B,
@@ -938,7 +938,7 @@ object TupleListOpsGenK {
     l match {
       case Cons(head, tl) =>
         lemmaTailStillNotContainsKey(l, otherKey)
-        lemmainsertNoDuplicatedKeysDoesNotModifyOtherKeysNotContained(
+        lemmaInsertNoDuplicatedKeysDoesNotModifyOtherKeysNotContained(
           tl,
           newKey,
           newValue,
@@ -950,7 +950,7 @@ object TupleListOpsGenK {
 
   @opaque
   @inlineOnce
-  def lemmainsertNoDuplicatedKeysDoesNotModifyOtherKeysContained[K, B](
+  def lemmaInsertNoDuplicatedKeysDoesNotModifyOtherKeysContained[K, B](
       l: List[(K, B)],
       newKey: K,
       newValue: B,
@@ -961,7 +961,7 @@ object TupleListOpsGenK {
 
     l match {
       case Cons(head, tl) if (head._1 != otherKey) =>
-        lemmainsertNoDuplicatedKeysDoesNotModifyOtherKeysContained(
+        lemmaInsertNoDuplicatedKeysDoesNotModifyOtherKeysContained(
           tl,
           newKey,
           newValue,
@@ -973,7 +973,7 @@ object TupleListOpsGenK {
 
   @opaque
   @inlineOnce
-  def lemmainsertNoDuplicatedKeysNotContainedContent[K, B](
+  def lemmaInsertNoDuplicatedKeysNotContainedContent[K, B](
       l: List[(K, B)],
       newKey: K,
       newValue: B
@@ -985,7 +985,7 @@ object TupleListOpsGenK {
     l match {
       case Cons(head, tl) => {
         lemmaTailStillNotContainsKey(l, newKey)
-        lemmainsertNoDuplicatedKeysNotContainedContent(tl, newKey, newValue)
+        lemmaInsertNoDuplicatedKeysNotContainedContent(tl, newKey, newValue)
       }
       case _ => ()
     }
