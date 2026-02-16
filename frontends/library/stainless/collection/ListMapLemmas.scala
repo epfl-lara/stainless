@@ -15,7 +15,7 @@ object ListMapLemmas {
   @inlineOnce
   def removeNotPresentStillSame[K, B](lm: ListMap[K, B], a: K): Unit = {
     require(!lm.contains(a))
-    TupleListOpsGenK.lemmaremovePresrvNoDuplicatedKeysNotPresentPreserves(lm.toList, a)
+    TupleListOpsGenK.lemmaRemovePresrvNoDuplicatedKeysNotPresentPreserves(lm.toList, a)
   }.ensuring(_ => lm - a == lm)
 
   @opaque
@@ -70,7 +70,7 @@ object ListMapLemmas {
   @opaque
   @inlineOnce
   def removeCommutative[K, B](lm: ListMap[K, B], a1: K, a2: K): Unit = {
-    TupleListOpsGenK.lemmaremovePresrvNoDuplicatedKeysCommutative(lm.toList, a1, a2)
+    TupleListOpsGenK.lemmaRemovePresrvNoDuplicatedKeysCommutative(lm.toList, a1, a2)
   }.ensuring(_ => lm - a1 - a2 == lm - a2 - a1)
 
   @opaque
