@@ -7,6 +7,8 @@ import scala.collection.immutable.{Map => ScalaMap}
 import StaticChecks._
 import stainless.annotation._
 import stainless.collection.List
+import stainless.collection.ListMap
+import stainless.collection.TupleListOpsGenK
 
 object Map {
   @library @inline
@@ -68,6 +70,16 @@ object Map {
     @extern @pure
     def toList: List[(A, B)] = {
       List.fromScala(map.theMap.toList)
+    }.ensuring(res => TupleListOpsGenK.noDuplicatedKeys(res))
+
+    /**
+      * This enables induction on maps.
+      *
+      * @return
+      */
+    @pure @ghost
+    def toListMap: ListMap[A, B] = {
+      ListMap(map.toList)
     }
 
     @extern @pure
