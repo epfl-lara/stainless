@@ -92,6 +92,15 @@ object Set {
       ()
    }.ensuring(_ => withFilter(p).contains(a) == (p(a) && set.contains(a)))
 
+    /**
+      * This must stay annotated as ghost. Indeed, at runtime, `toList` could return different lists for 2 equal sets:
+      * `Set(1, 2, 3).toList` could return `List(1, 2, 3)` or `List(3, 2, 1)`,
+      * so s1 == s2 does not imply s1.toList == s2.toList, which would break soundness.
+      * In ghost code, we can rely on the fact that `toList` will always return the same list for a given set, 
+      * so we can use it to prove properties about sets.
+      *
+      * @return
+      */
     @library @extern @pure @ghost
     def toList: List[A] = {
       List.fromScala(set.theSet.toList)
