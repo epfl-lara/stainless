@@ -80,6 +80,8 @@ object ListMapLemmas {
     TupleListOpsGenK.lemmaForallSubset(mapAfter.toList, map.toList, p)
   }.ensuring(_ => (map - k).forall(p))
 
+  // end of caching lemmas
+
   @opaque
   @inlineOnce
   def removeNotPresentStillSame[K, B](lm: ListMap[K, B], a: K): Unit = {
