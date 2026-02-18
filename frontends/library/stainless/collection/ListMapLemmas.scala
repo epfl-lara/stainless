@@ -11,6 +11,74 @@ import stainless.collection.TupleListOpsGenK
 @library
 object ListMapLemmas {
 
+  // The 3 following lemmas are useful to build caches using ListMap, as they allow to show that a property that holds for all pairs of the map, also holds for a key and its value, and is preserved by insertion and removal of pairs.
+
+  /**
+    * This lemma proves that a property `p` that holds for all pairs of the map, holds for a key and its value.
+    * 
+    * Useful to build caches using this map.
+    *
+    * @param map
+    * @param k
+    * @param p
+    */
+  @opaque
+  @inlineOnce
+  @ghost
+  def lemmaForallPairsThenForLookup[K, B](map: ListMap[K, B], k: K, p: ((K, B)) => Boolean): Unit = {
+    require(TupleListOpsGenK.invariantList(map.toList))
+    require(map.forall(p))
+    require(map.contains(k))
+
+    TupleListOpsGenK.lemmaGetValueByKeyImpliesContainsTuple(map.toList, k, map.apply(k))
+    assert(map.toList.contains((k, map.apply(k))))
+    assert(map.toList.forall(p))
+    ListSpecs.forallContained(map.toList, p, (k, map.apply(k)))
+  }.ensuring(_ => p((k, map.apply(k))))
+
+
+  /**
+    * This lemma proves that inserting a new pair preserves the property `p` that holds for all pairs of the map.
+    * 
+    * Useful to build caches using this map.
+    *
+    * @param map
+    * @param k
+    * @param v
+    * @param p
+    */
+  @opaque
+  @inlineOnce
+  @ghost
+  def lemmaUpdatePreservesForallPairs[K, B](map: ListMap[K, B], k: K, v: B, p: ((K, B)) => Boolean): Unit = {
+    require(TupleListOpsGenK.invariantList(map.toList))
+    require(map.forall(p))
+    require(p((k, v)))
+
+    TupleListOpsGenK.lemmaInsertNoDuplicatedKeysPreservesForall(map.toList, k, v, p)
+  }.ensuring(_ => (map + (k, v)).forall(p))
+
+  /**
+    * This lemma proves that removing a pair preserves the property `p` that holds for all pairs of the map.
+    * 
+    * Useful to build caches using this map.
+    *
+    * @param map
+    * @param k
+    * @param p
+    */
+  @opaque
+  @inlineOnce
+  @ghost
+  def lemmaRemovePreservesForallPairs[K, B](map: ListMap[K, B], k: K, p: ((K, B)) => Boolean): Unit = {
+    require(TupleListOpsGenK.invariantList(map.toList))
+    require(map.forall(p))
+
+    TupleListOpsGenK.lemmaForallSubset((map - k).toList, map.toList, p)
+  }.ensuring(_ => (map - k).forall(p))
+
+  // end of caching lemmas
+
   @opaque
   @inlineOnce
   def removeNotPresentStillSame[K, B](lm: ListMap[K, B], a: K): Unit = {
