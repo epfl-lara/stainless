@@ -187,7 +187,7 @@ object DottyCompiler {
 
           val extraCps = ctx.options.findOptionOrDefault(frontend.optClasspath).toSeq
           val cps = (extraCps ++ Seq(stainlessLib, scala213Lib, scala3Lib)).distinct.mkString(java.io.File.pathSeparator)
-          val flags = Seq("-Yretain-trees", "-color:never", "-language:implicitConversions", "-Wsafe-init", s"-cp:$cps") // -Ysafe-init is deprecated (SAM 21.08.2024)
+          val flags = Seq("-Yretain-trees", "-color:never", "-language:implicitConversions", "-Wsafe-init", s"-cp:$cps", "-Xno-enrich-error-messages") // -Ysafe-init is deprecated (SAM 21.08.2024)
           allCompilerArguments(ctx, compilerArgs) ++ flags
         }
         val compiler: DottyCompiler = new DottyCompiler(ctx, this.callback)
