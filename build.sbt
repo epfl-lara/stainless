@@ -400,7 +400,9 @@ lazy val `sbt-stainless` = (project in file("sbt-plugin"))
       "stainlessScalaVersion" -> stainlessScalaVersion,
       "stainlessLibScalaVersion" -> stainlessLibScalaVersion,
     ),
+    // Compiled with Scala 2; don't use the custom scalaOrganization and scalaCompilerBridgeBinaryJar
     scalaOrganization := "org.scala-lang",
+    scalaCompilerBridgeBinaryJar := None,
   )
   .settings(
     scripted := scripted.tag(Tags.Test).evaluated,
