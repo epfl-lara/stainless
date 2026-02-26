@@ -21,7 +21,6 @@ import inox.DebugSection
 import extraction.xlang.{trees => xt}
 import frontend.{CallBack, Frontend, FrontendFactory, ThreadedFrontend, UnsupportedCodeException, DebugSectionFrontend}
 import Utils._
-import stainless.verification.CoqEncoder.m
 
 case class ExtractedUnit(file: String, unit: xt.UnitDef, classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef], typeDefs: Seq[xt.TypeDef])
 
@@ -144,7 +143,12 @@ class StainlessExtraction(val inoxCtx: inox.Context) {
     // case to be addressed later, either by making sure that the body of
     // `@extern` methods is not visited at all, or by not registering used Tasty
     // units for symbols accessed only from within `@extern` methods.
-    val unextractedPackages: Set[Symbol] = Set(defn.ScalaPackageClass)
+    //
+    // Note: we cannot use `defn.ScalaPackageClass` directly in a `Set[Symbol]`
+    // for the filter. Not exactly sure why. This might be due to symbols from
+    // the LARA Dotty fork differing from those that `defn` returns. We
+    // therefore compare by fully-qualified name instead.
+    val unextractedPackageNames: Set[String] = Set("scala")
 
     // Potential performance improvement: share the Map of extracted Tasty units
     // accross runs, so that we don't extract the same units multiple times in
@@ -156,12 +160,10 @@ class StainlessExtraction(val inoxCtx: inox.Context) {
 
     while depth < 100 do
       inoxCtx.reporter.debug(f"Extracting Tasty units at depth $depth:")
-      val newUnits =
-        symbolMapping
-          .popUsedTastyUnits()
-          .filterNot((tree, _) => extractedTastyUnits.contains(tree))
-          .filterNot((tree, _) => tree.symbol.ownersIterator.exists(unextractedPackages))
-          .map((tree, info) => tree -> extractTastyUnit(tree, info))
+      val newUnits = symbolMapping.popUsedTastyUnits()
+        .filterNot((tree, _) => extractedTastyUnits.contains(tree))
+        .filterNot((tree, _) => tree.symbol.ownersIterator.exists(s => unextractedPackageNames.contains(s.fullName.toString)))
+        .map((tree, info) => tree -> extractTastyUnit(tree, info))
       if newUnits.isEmpty then
         inoxCtx.reporter.debug(f"- No more units to extract.")
         return extractedTastyUnits.values.flatten.toSeq
