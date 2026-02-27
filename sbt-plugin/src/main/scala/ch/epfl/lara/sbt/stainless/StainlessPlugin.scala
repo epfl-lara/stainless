@@ -81,19 +81,6 @@ object StainlessPlugin extends sbt.AutoPlugin {
       else "org.scala-lang"
     },
 
-    // See https://github.com/sbt/sbt/issues/8731 for more details on the need to
-    // override scalaCompilerBridgeBinaryJar when using a custom scalaOrganization.
-    scalaCompilerBridgeBinaryJar := {
-      if (isLaraScalaVersion(scalaVersion.value)) {
-        val sv = scalaVersion.value
-        val log = streams.value.log
-        val module = laraOrganization % "scala3-sbt-bridge" % sv
-        dependencyResolution.value
-          .retrieve(module, None, csrCacheDirectory.value, log)
-          .fold(e => throw e.resolveException, _.find(_.getName.endsWith(".jar")))
-      } else None
-    },
-
     // Prevent org.scala-lang Scala artifacts from being pulled in via transitive
     // dependencies (e.g. cross-2.13 libraries), which would conflict with the
     // ch.epfl.lara versions.

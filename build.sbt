@@ -74,16 +74,6 @@ lazy val baseSettings: Seq[Setting[_]] = Seq(
   organization := laraOrganization,
   licenses := Seq("Apache-2.0" -> url("https://www.apache.org/licenses/LICENSE-2.0.html")),
   scalaOrganization := laraOrganization,
-  // See https://github.com/sbt/sbt/issues/8731 for more details on the need to override scalaCompilerBridgeBinaryJar when using a custom scalaOrganization.
-  // Fixed in SBT 2.
-  scalaCompilerBridgeBinaryJar := {
-    val sv = scalaVersion.value
-    val log = streams.value.log
-    val module = laraOrganization % "scala3-sbt-bridge" % sv
-    dependencyResolution.value
-      .retrieve(module, None, csrCacheDirectory.value, log)
-      .fold(e => throw e.resolveException, _.find(_.getName.endsWith(".jar")))
-  }
 )
 
 lazy val artifactSettings: Seq[Setting[_]] = baseSettings ++ Seq(
@@ -401,9 +391,8 @@ lazy val `sbt-stainless` = (project in file("sbt-plugin"))
       "stainlessScalaVersion" -> stainlessScalaVersion,
       "stainlessLibScalaVersion" -> stainlessLibScalaVersion,
     ),
-    // Compiled with Scala 2; don't use the custom scalaOrganization and scalaCompilerBridgeBinaryJar
+    // Compiled with Scala 2; don't use the custom scalaOrganization
     scalaOrganization := "org.scala-lang",
-    scalaCompilerBridgeBinaryJar := None,
   )
   .settings(
     scripted := scripted.tag(Tags.Test).evaluated,
