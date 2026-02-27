@@ -1,4 +1,4 @@
-package refinementAssignmentList
+package assignmentList
 
 sealed abstract class MyList[T]
 case class Nil[T]() extends MyList[T]
