@@ -1802,6 +1802,7 @@ class CodeExtraction(inoxCtx: inox.Context,
     case TypeApply(s @ Select(t, _), Seq(tpt)) if s.symbol == defn.Any_asInstanceOf =>
       extractType(tpt) match {
         case ct: xt.ClassType => xt.AsInstanceOf(extractTree(t), ct)
+        case rt: xt.RefinementType => xt.AsInstanceOf(extractTree(t), rt)
         case _ =>
           // XXX @nv: dotc generates spurious `asInstanceOf` casts for now, se
           //          we will have to rely on later type checks within Stainless
