@@ -1,3 +1,5 @@
+package refinementAssignmentList
+
 sealed abstract class MyList[T]
 case class Nil[T]() extends MyList[T]
 case class Cons[T](head: T, tail: MyList[T]) extends MyList[T]
