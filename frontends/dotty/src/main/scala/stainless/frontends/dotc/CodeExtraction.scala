@@ -2556,6 +2556,11 @@ class CodeExtraction(inoxCtx: inox.Context,
     (tpt match {
       case NoType => xt.Untyped
 
+      case AnnotatedType(tpe, ExQualified(qualifier)) =>
+        extractTree(qualifier) match
+          case xt.Lambda(Seq(arg), body) => xt.RefinementType(arg, body)
+          case _ => outOfSubsetError(tpt.typeSymbol.sourcePos, "Malformed refinement")
+
       case tpe if tpe.typeSymbol == defn.FloatClass       => xt.Float32Type()
       case tpe if tpe.typeSymbol == defn.DoubleClass      => xt.Float64Type()
       case tpe if tpe.typeSymbol == defn.CharClass        => xt.CharType()
