@@ -97,7 +97,7 @@ object StainlessPlugin extends sbt.AutoPlugin {
     val sourceDeps = (libraryRef +: stainlessExtraDeps.value).map { dep =>
       dep.intransitive().sources() % StainlessLibSources
     }
-    compilerPlugin(pluginRef) +: sourceDeps
+    compilerPlugin(pluginRef.intransitive()) +: sourceDeps
   }
 
   lazy val stainlessConfigSettings: Seq[Def.Setting[?]] =
