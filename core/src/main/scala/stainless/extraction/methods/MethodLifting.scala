@@ -135,7 +135,7 @@ class MethodLifting(override val s: Trees, override val t: oo.Trees)
       }
 
     for (td <- symbols.typeDefs.values) {
-      typeDefs += typeDefCache.cached(td, symbols)(identity.transform(td))
+      typeDefs += typeDefCache.cached(td, symbols)(default.transform(td))
     }
 
     (t.NoSymbols.withFunctions(functions.toSeq).withClasses(classes.toSeq).withTypeDefs(typeDefs.toSeq), ExtractionSummary.NoSummary)
