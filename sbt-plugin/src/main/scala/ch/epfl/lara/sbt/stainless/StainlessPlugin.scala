@@ -17,6 +17,7 @@ object StainlessPlugin extends sbt.AutoPlugin {
   private val stainlessScalaVersion = BuildInfo.stainlessScalaVersion
   // e.g. for 2.13.6, this would yield 2.13
   private val stainlessLibScalaBinaryVersion = CrossVersion.binaryScalaVersion(BuildInfo.stainlessLibScalaVersion)
+  private val laraOrganization = "ch.epfl.lara"
 
   override def requires: Plugins = plugins.JvmPlugin
   override def trigger: PluginTrigger = noTrigger // This plugin needs to be manually enabled
@@ -63,6 +64,9 @@ object StainlessPlugin extends sbt.AutoPlugin {
 
   override lazy val projectSettings: Seq[Def.Setting[?]] = stainlessSettings
 
+  private def isLaraScalaVersion(sv: String): Boolean =
+    BuildInfo.supportedScalaVersions.contains(sv)
+
   lazy val stainlessSettings: Seq[sbt.Def.Setting[?]] = Seq(
     stainlessVersion        := BuildInfo.stainlessVersion,
     stainlessEnabled        := true,
@@ -70,6 +74,37 @@ object StainlessPlugin extends sbt.AutoPlugin {
     autoCompilerPlugins     := true,
     ivyConfigurations       += StainlessLibSources,
     libraryDependencies    ++= stainlessModules.value,
+
+    // When using LARA Dotty, resolve Scala artifacts from ch.epfl.lara instead of org.scala-lang.
+    scalaOrganization := {
+      if (isLaraScalaVersion(scalaVersion.value)) laraOrganization
+      else "org.scala-lang"
+    },
+
+    // See https://github.com/sbt/sbt/issues/8731 for more details on the need to
+    // override scalaCompilerBridgeBinaryJar when using a custom scalaOrganization.
+    scalaCompilerBridgeBinaryJar := {
+      if (isLaraScalaVersion(scalaVersion.value)) {
+        val sv = scalaVersion.value
+        val log = streams.value.log
+        val module = laraOrganization % "scala3-sbt-bridge" % sv
+        dependencyResolution.value
+          .retrieve(module, None, csrCacheDirectory.value, log)
+          .fold(e => throw e.resolveException, _.find(_.getName.endsWith(".jar")))
+      } else None
+    },
+
+    // Prevent org.scala-lang Scala artifacts from being pulled in via transitive
+    // dependencies (e.g. cross-2.13 libraries), which would conflict with the
+    // ch.epfl.lara versions.
+    excludeDependencies ++= {
+      if (isLaraScalaVersion(scalaVersion.value)) Seq(
+        ExclusionRule("org.scala-lang", "scala3-library_3"),
+        ExclusionRule("org.scala-lang", "scala3-compiler_3"),
+        ExclusionRule("org.scala-lang", "scala-library"),
+      )
+      else Seq.empty
+    },
 
     resolvers ++= Seq(
       // https://stackoverflow.com/a/37604126
