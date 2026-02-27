@@ -127,6 +127,7 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
     // org.scala-lang library from transitive dependencies as well.
     ExclusionRule("org.scala-lang", "scala3-library_3"),
     ExclusionRule("org.scala-lang", "scala3-compiler_3"),
+    ExclusionRule("org.scala-lang", "scala-library"),
   ),
 
   // disable documentation packaging in universal:stage to speedup development
