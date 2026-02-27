@@ -1,4 +1,4 @@
-package refinementAssignmentPos
+package assignmentPos
 
 type Pos = {v: Int with v > 0}
 

@@ -1,4 +1,4 @@
-package refinementAssignmentListMethod
+package assignmentListMethod
 
 sealed abstract class MyList[T]:
   def nonEmpty: Boolean
