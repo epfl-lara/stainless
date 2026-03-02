@@ -45,7 +45,9 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
    * Report an error, unless there is already an error with the same message reported in an enclosing position.
    */
   private def reportError(pos: SourcePosition, msg: String): Unit = {
-    if (!errorsEnclosing(pos.start, pos.end)(msg)) {
+    if (!pos.span.exists) {
+      inoxCtx.reporter.error(pos, msg)
+    } else if (!errorsEnclosing(pos.start, pos.end)(msg)) {
       inoxCtx.reporter.error(pos, msg)
       errors += ((pos.start, pos.end, msg))
     }
