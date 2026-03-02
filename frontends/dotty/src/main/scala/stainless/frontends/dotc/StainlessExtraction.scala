@@ -122,11 +122,11 @@ class StainlessExtraction(val inoxCtx: inox.Context) {
   def extractTastyUnits(exportedSymsMapping: ExportedSymbolsMapping, inoxCtx: inox.Context)(using DottyContext): Seq[ExtractedUnit] = {
     given DebugSection = DebugSectionFrontend
 
-    def extractTastyUnit(tree: tpd.Tree, info: CompilationUnitInfo): Option[ExtractedUnit] = {
-      val res = extractUnit(tree, info.associatedFile, exportedSymsMapping, isFromSource = false)
+    def extractTastyUnit(file: AbstractFile, tree: tpd.Tree): Option[ExtractedUnit] = {
+      val res = extractUnit(tree, file, exportedSymsMapping, isFromSource = false)
       res match {
         case Some(extracted) => inoxCtx.reporter.debug(s"- Extracted ${extracted.unit.id}.")
-        case None => inoxCtx.reporter.debug(s"- Failed to extract Tasty unit from ${info.associatedFile.path}.")
+        case None => inoxCtx.reporter.debug(s"- Failed to extract Tasty unit from ${file.path}.")
       }
       res
     }
@@ -134,7 +134,7 @@ class StainlessExtraction(val inoxCtx: inox.Context) {
     // We avoid extracting Tasty units under `scala` because these are generally
     // not supported by Stainless, and because only a fragment of the Scala
     // standard library is available as Tasty files. Trying to extract units
-    // from `scala` would therefore cause missing dependencies errors.  
+    // from `scala` would therefore cause missing dependencies errors.
     //
     // TODO(mbovel): However, this is not a general fix. A similar situation
     // could happen for non-library files: extracting the Tasty unit of a symbol
@@ -154,16 +154,16 @@ class StainlessExtraction(val inoxCtx: inox.Context) {
     // accross runs, so that we don't extract the same units multiple times in
     // watch mode. However that could also cause a memory leak if the map is
     // never cleared. To be investigated.
-    val extractedTastyUnits = LinkedHashMap[tpd.Tree, Option[ExtractedUnit]]()
+    val extractedTastyUnits = LinkedHashMap[AbstractFile, Option[ExtractedUnit]]()
 
     var depth = 0
 
     while depth < 100 do
       inoxCtx.reporter.debug(f"Extracting Tasty units at depth $depth:")
       val newUnits = symbolMapping.popUsedTastyUnits()
-        .filterNot((tree, _) => extractedTastyUnits.contains(tree))
-        .filterNot((tree, _) => tree.symbol.ownersIterator.exists(s => unextractedPackageNames.contains(s.fullName.toString)))
-        .map((tree, info) => tree -> extractTastyUnit(tree, info))
+        .filterNot((file, _) => extractedTastyUnits.contains(file))
+        .filterNot((_, tree) => tree.symbol.ownersIterator.exists(s => unextractedPackageNames.contains(s.fullName.toString)))
+        .map((file, tree) => file -> extractTastyUnit(file, tree))
       if newUnits.isEmpty then
         inoxCtx.reporter.debug(f"- No more units to extract.")
         return extractedTastyUnits.values.flatten.toSeq
