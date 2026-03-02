@@ -138,17 +138,18 @@ class StainlessExtraction(val inoxCtx: inox.Context) {
     //
     // TODO(mbovel): However, this is not a general fix. A similar situation
     // could happen for non-library files: extracting the Tasty unit of a symbol
-    // accessed only from within an `@exern` method could yield failures when
+    // accessed only from within an `@extern` method could yield failures when
     // extracting the unit is not required in the first place. This is an edge
     // case to be addressed later, either by making sure that the body of
     // `@extern` methods is not visited at all, or by not registering used Tasty
     // units for symbols accessed only from within `@extern` methods.
     //
-    // Note: we cannot use `defn.ScalaPackageClass` directly in a `Set[Symbol]`
-    // for the filter. Not exactly sure why. This might be due to symbols from
-    // the LARA Dotty fork differing from those that `defn` returns. We
-    // therefore compare by fully-qualified name instead.
-    val unextractedPackageNames: Set[String] = Set("scala")
+    // Note: `tree.symbol` is a term symbol (the package value), so we
+    // compare it against `defn.ScalaPackageVal`. Its owners however are class
+    // symbols, so we compare those against `defn.ScalaPackageClass`.
+    def ignoreTastyUnit(tree: tpd.Tree): Boolean =
+      val sym = tree.symbol
+      sym.isEmptyPackage || sym == defn.ScalaPackageVal || sym.ownersIterator.exists(_ == defn.ScalaPackageClass)
 
     // Potential performance improvement: share the Map of extracted Tasty units
     // accross runs, so that we don't extract the same units multiple times in
@@ -162,7 +163,7 @@ class StainlessExtraction(val inoxCtx: inox.Context) {
       inoxCtx.reporter.debug(f"Extracting Tasty units at depth $depth:")
       val newUnits = symbolMapping.popUsedTastyUnits()
         .filterNot((file, _) => extractedTastyUnits.contains(file))
-        .filterNot((_, tree) => tree.symbol.ownersIterator.exists(s => unextractedPackageNames.contains(s.fullName.toString)))
+        .filterNot((_, tree) => ignoreTastyUnit(tree))
         .map((file, tree) => file -> extractTastyUnit(file, tree))
       if newUnits.isEmpty then
         inoxCtx.reporter.debug(f"- No more units to extract.")
