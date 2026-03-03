@@ -36,6 +36,7 @@ mkdir -p $JAVA_OPTS_TMP_DIR
 chmod 777 $JAVA_OPTS_TMP_DIR
 SBT_DIR=$ROOT_DIR/temp  # make better later
 SBT=${SBT_DIR}/sbt/bin/sbt 
+LITE_BOLTS=false
 
 # First parse the options
 while [[ $# -gt 0 ]]; do
