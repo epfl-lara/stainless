@@ -85,10 +85,12 @@ Usage: external-tests.sh [options]
   -h | -help         Print this message
   --skip-build       Do not build Stainless (saves time if the build is already up-to-date).
   --bolts-dir        Directory where bolts is located (default: clones from GitHub)
+  --lite-bolts       Only run a subset of the bolts tests
 EOM
 }
 
 SKIP_BUILD=false
+LITE_BOLTS=false
 while [[ $# -gt 0 ]]; do
   key="$1"
 
@@ -99,6 +101,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --skip-build)
       SKIP_BUILD=true
+      shift # past argument
+      ;;
+    --lite-bolts)
+      LITE_BOLTS=true
       shift # past argument
       ;;
     --bolts-dir)
@@ -161,4 +167,9 @@ echo "TEST_DIR = $TEST_DIR"
 # Stainless Actors are currently disabled: https://github.com/epfl-lara/stainless/issues/970
 # "$BIN_DIR/stainless-actors-tests.sh" "$TEST_DIR" "$STAINLESS_VERSION"
 echo "Running bolts test"
-"$BIN_DIR/bolts-tests.sh" "$TEST_DIR" "stainless-dotty"
+if [[ "$LITE_BOLTS" = true ]]; then
+  echo "Running with the --lite-bolts flag, only running a subset of the tests"
+  "$BIN_DIR/bolts-tests.sh" "--lite" "$TEST_DIR"
+else
+  "$BIN_DIR/bolts-tests.sh" "$TEST_DIR"
+fi

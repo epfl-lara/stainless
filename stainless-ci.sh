@@ -46,6 +46,10 @@ while [[ $# -gt 0 ]]; do
       usage
       exit 0
       ;;
+    --lite-bolts)
+      LITE_BOLTS=true
+      shift # past argument
+      ;;
     --bolts-dir)
       BOLTS_DIR="$2"
       shift # past argument
@@ -165,9 +169,19 @@ if [ "$SKIP_BOLTS" = true ]; then
   echo "************** Skipping Bolts tests **************"
 else
   if [ -z "$BOLTS_DIR" ]; then
-    bash bin/external-tests.sh --skip-build 
+    if [ "$LITE_BOLTS" = true ]; then
+      echo "Running with the --lite-bolts flag, only running a subset of the tests"
+      bash bin/external-tests.sh --lite-bolts --skip-build 
+    else
+      bash bin/external-tests.sh --skip-build
+    fi
   else
-    bash bin/external-tests.sh --skip-build --bolts-dir $BOLTS_DIR
+    if [ "$LITE_BOLTS" = true ]; then
+      echo "Running with the --lite-bolts flag, only running a subset of the tests"
+      bash bin/external-tests.sh --lite-bolts --skip-build --bolts-dir $BOLTS_DIR
+    else
+      bash bin/external-tests.sh --skip-build --bolts-dir $BOLTS_DIR
+    fi
   fi
   if [ $? -ne 0 ]; then
     echo "Bolts benchmarks failed"
