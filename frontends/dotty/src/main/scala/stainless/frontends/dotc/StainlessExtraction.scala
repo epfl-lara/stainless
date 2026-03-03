@@ -21,7 +21,6 @@ import inox.DebugSection
 import extraction.xlang.{trees => xt}
 import frontend.{CallBack, Frontend, FrontendFactory, ThreadedFrontend, UnsupportedCodeException, DebugSectionFrontend}
 import Utils._
-import stainless.verification.CoqEncoder.m
 
 case class ExtractedUnit(file: String, unit: xt.UnitDef, classes: Seq[xt.ClassDef], functions: Seq[xt.FunDef], typeDefs: Seq[xt.TypeDef])
 
@@ -123,11 +122,11 @@ class StainlessExtraction(val inoxCtx: inox.Context) {
   def extractTastyUnits(exportedSymsMapping: ExportedSymbolsMapping, inoxCtx: inox.Context)(using DottyContext): Seq[ExtractedUnit] = {
     given DebugSection = DebugSectionFrontend
 
-    def extractTastyUnit(tree: tpd.Tree, info: CompilationUnitInfo): Option[ExtractedUnit] = {
-      val res = extractUnit(tree, info.associatedFile, exportedSymsMapping, isFromSource = false)
+    def extractTastyUnit(file: AbstractFile, tree: tpd.Tree): Option[ExtractedUnit] = {
+      val res = extractUnit(tree, file, exportedSymsMapping, isFromSource = false)
       res match {
         case Some(extracted) => inoxCtx.reporter.debug(s"- Extracted ${extracted.unit.id}.")
-        case None => inoxCtx.reporter.debug(s"- Failed to extract Tasty unit from ${info.associatedFile.path}.")
+        case None => inoxCtx.reporter.debug(s"- Failed to extract Tasty unit from ${file.path}.")
       }
       res
     }
@@ -135,16 +134,22 @@ class StainlessExtraction(val inoxCtx: inox.Context) {
     // We avoid extracting Tasty units under `scala` because these are generally
     // not supported by Stainless, and because only a fragment of the Scala
     // standard library is available as Tasty files. Trying to extract units
-    // from `scala` would therefore cause missing dependencies errors.  
+    // from `scala` would therefore cause missing dependencies errors.
     //
     // TODO(mbovel): However, this is not a general fix. A similar situation
     // could happen for non-library files: extracting the Tasty unit of a symbol
-    // accessed only from within an `@exern` method could yield failures when
+    // accessed only from within an `@extern` method could yield failures when
     // extracting the unit is not required in the first place. This is an edge
     // case to be addressed later, either by making sure that the body of
     // `@extern` methods is not visited at all, or by not registering used Tasty
     // units for symbols accessed only from within `@extern` methods.
-    val unextractedPackages: Set[Symbol] = Set(defn.ScalaPackageClass)
+    //
+    // Note: `tree.symbol` is a term symbol (the package value), so we
+    // compare it against `defn.ScalaPackageVal`. Its owners however are class
+    // symbols, so we compare those against `defn.ScalaPackageClass`.
+    def ignoreTastyUnit(tree: tpd.Tree): Boolean =
+      val sym = tree.symbol
+      sym.isEmptyPackage || sym == defn.ScalaPackageVal || sym.ownersIterator.exists(_ == defn.ScalaPackageClass)
 
     // Potential performance improvement: share the Map of extracted Tasty units
     // accross runs, so that we don't extract the same units multiple times in
@@ -156,12 +161,10 @@ class StainlessExtraction(val inoxCtx: inox.Context) {
 
     while depth < 100 do
       inoxCtx.reporter.debug(f"Extracting Tasty units at depth $depth:")
-      val newUnits =
-        symbolMapping
-          .popUsedTastyUnits()
-          .filterNot((tree, _) => extractedTastyUnits.contains(tree))
-          .filterNot((tree, _) => tree.symbol.ownersIterator.exists(unextractedPackages))
-          .map((tree, info) => tree -> extractTastyUnit(tree, info))
+      val newUnits = symbolMapping.popUsedTastyUnits()
+        .filterNot((tree, _) => extractedTastyUnits.contains(tree))
+        .filterNot((tree, _) => ignoreTastyUnit(tree))
+        .map((tree, file) => tree -> extractTastyUnit(file, tree))
       if newUnits.isEmpty then
         inoxCtx.reporter.debug(f"- No more units to extract.")
         return extractedTastyUnits.values.flatten.toSeq

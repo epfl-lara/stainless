@@ -10,6 +10,7 @@ import dotty.tools.dotc.core.CompilationUnitInfo
 import dotty.tools.dotc.core.Flags._
 import dotty.tools.dotc.core.Symbols._
 import dotty.tools.dotc.core.Contexts._
+import dotty.tools.io.AbstractFile
 import stainless.ast.SymbolIdentifier
 
 import scala.collection.mutable.{ Map => MutableMap, LinkedHashMap }
@@ -27,40 +28,37 @@ class SymbolMapping {
   private val s2sAccessor = MutableMap[Symbol, SymbolIdentifier]()
   private val s2sEnumType = MutableMap[Symbol, SymbolIdentifier]()
 
-  /** Returns a mapping from used Dotty unit trees loaded from Tasty files to their
-    * [[CompilationUnitInfo]].
+  /** Returns a mapping from used Tasty root trees to their associated file.
     *
     * Everytime a [[Symbol]] is touched through [[fetch]], we check if it has an
     * associated Tasty file. If it does, we register the symbol's root tree
     * (which is the tree of the compilation unit containing the symbol's
-    * definition) and its associated compilation unit info (which contains the
-    * path to the Tasty file among other things).
+    * definition).
     *
     * We keep this information to later extract compilation units defined in
     * Tasty files, in [[StainlessExtraction.extractTastyUnits]].
+    *
+    * We key by tree so that each unique tree is extracted exactly once.
     *
     * This a [[LinkedHashMap]] to keep elements in insertion order (there is no
     * efficient immutable equivalent in the Scala standard library).
     *
     * Side-effect: calling this method clears the internal list of used Tasty
     * units.
-    *
-    * Potential performance improvement: `Tree.equals` and `Tree.hashCode` might
-    * be suboptimal. Comparing by reference sould be sufficient.
     */
-  def popUsedTastyUnits(): LinkedHashMap[tpd.Tree, CompilationUnitInfo] =
+  def popUsedTastyUnits(): LinkedHashMap[tpd.Tree, AbstractFile] =
     val res = usedTastyUnits
-    usedTastyUnits = LinkedHashMap[tpd.Tree, CompilationUnitInfo]()
+    usedTastyUnits = LinkedHashMap[tpd.Tree, AbstractFile]()
     res
-  
-  private var usedTastyUnits = LinkedHashMap[tpd.Tree, CompilationUnitInfo]()
+
+  private var usedTastyUnits = LinkedHashMap[tpd.Tree, AbstractFile]()
 
   private def maybeRegisterTastyUnit(sym: Symbol)(using Context): Unit = {
     if (sym.tastyInfo.isDefined) {
       val classSym = sym.topLevelClass.asClass
       // Below, `classSym.rootTree` returns the tree read from the Tasty file.
       // It works because we passed the `-Yretain-trees` option to the compiler.
-      usedTastyUnits += (classSym.rootTree -> classSym.compilationUnitInfo)
+      usedTastyUnits += (classSym.rootTree -> classSym.compilationUnitInfo.associatedFile)
     }
   }
 

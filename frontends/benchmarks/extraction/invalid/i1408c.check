@@ -1,3 +1,6 @@
 [ Error  ] i1408c.scala:7:7: Scala API `scala.Option` is not directly supported, please use `stainless.lang.Option` instead.
                  val x = scala.Option(2)
                  ^^^^^^^^^^^^^^^^^^^^^^^
+[ Error  ] i1408c.scala:7:15: Type `Matchable` is unsupported
+                 val x = scala.Option(2)
+                         ^^^^^^^^^^^^

@@ -40,10 +40,12 @@ lazy val nTestSuiteParallelism = {
 
 // The Scala version with which Stainless is compiled.
 // Note: in case of version bump, do not forget to update the `test` files in `sbt-plugin` (for `sbt scripted`)!
-val stainlessScalaVersion = "3.7.2"
+val stainlessScalaVersion = "3.8.3-RC1-bin-20260218-bb6fc60-NIGHTLY"
 val frontendDottyVersion = stainlessScalaVersion
 // The Stainless libraries use Scala 2.13 and Scala 3.5, and is compatible only with Scala 3.5.
 val stainlessLibScalaVersion = stainlessScalaVersion
+
+val laraOrganization = "ch.epfl.lara"
 
 scalaVersion := stainlessScalaVersion
 
@@ -69,8 +71,9 @@ lazy val noPublishSettings: Seq[Setting[_]] = Seq(
 )
 
 lazy val baseSettings: Seq[Setting[_]] = Seq(
-  organization := "ch.epfl.lara",
-  licenses := Seq("Apache-2.0" -> url("https://www.apache.org/licenses/LICENSE-2.0.html"))
+  organization := laraOrganization,
+  licenses := Seq("Apache-2.0" -> url("https://www.apache.org/licenses/LICENSE-2.0.html")),
+  scalaOrganization := laraOrganization,
 )
 
 lazy val artifactSettings: Seq[Setting[_]] = baseSettings ++ Seq(
@@ -108,7 +111,13 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
   // We can get away by excluding 3.0 and using the 2.13 version instead.
   // Note that we leverage excludeDependencies that also excludes the dependency brought by the dependsOn inox.
   excludeDependencies ++= Seq(
-    ExclusionRule("org.scala-lang.modules", "scala-xml_3")
+    ExclusionRule("org.scala-lang.modules", "scala-xml_3"),
+    // These are required because we use a custom scalaOrganization and want a single
+    // version of the Scala library in the classpath. Without it, SBT would pull an
+    // org.scala-lang library from transitive dependencies as well.
+    ExclusionRule("org.scala-lang", "scala3-library_3"),
+    ExclusionRule("org.scala-lang", "scala3-compiler_3"),
+    ExclusionRule("org.scala-lang", "scala-library"),
   ),
 
   // disable documentation packaging in universal:stage to speedup development
@@ -323,7 +332,7 @@ lazy val `stainless-dotty` = (project in file("frontends/dotty"))
   .settings(
     name := "stainless-dotty",
     frontendClass := "dotc.DottyCompiler",
-    libraryDependencies += "org.scala-lang" %% "scala3-compiler" % frontendDottyVersion,
+    libraryDependencies += laraOrganization %% "scala3-compiler" % frontendDottyVersion,
     buildInfoKeys ++= Seq[BuildInfoKey]("useJavaClassPath" -> false),
     // We include Scala library to be certain we also include scala-parser-combinators (which is not shipped with the Scala std library)
     assemblyPackageScala / assembleArtifact := true,
@@ -382,6 +391,8 @@ lazy val `sbt-stainless` = (project in file("sbt-plugin"))
       "stainlessScalaVersion" -> stainlessScalaVersion,
       "stainlessLibScalaVersion" -> stainlessLibScalaVersion,
     ),
+    // Compiled with Scala 2; don't use the custom scalaOrganization
+    scalaOrganization := "org.scala-lang",
   )
   .settings(
     scripted := scripted.tag(Tags.Test).evaluated,

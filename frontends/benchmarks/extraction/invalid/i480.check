@@ -1,6 +1,6 @@
-[ Error  ] i480.scala:3:13: x is a forward reference extending over the definition of y
+[ Error  ] i480.scala:3:13: forward reference to x (defined on line 4) extends over the definition of y (on line 3)
                val y = x
                        ^
-[ Error  ] i480.scala:3:13: x is a forward reference extending over the definition of x
+[ Error  ] i480.scala:3:13: forward reference to x extends over the definition of x (on line 4)
                val y = x
                        ^
