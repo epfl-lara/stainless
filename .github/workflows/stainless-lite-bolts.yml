@@ -6,7 +6,7 @@ on:
     branches:
       - main
 jobs:
-  bolts:
+  bolts-lite:
     runs-on: [self-hosted, linux]
     env:
       # define Java options for both official sbt and sbt-extras
