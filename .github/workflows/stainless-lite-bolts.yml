@@ -1,8 +1,10 @@
 name: Stainless Lite Bolts
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '0 1 * * *'
+  pull_request:
+  push:
+    branches:
+      - main
 jobs:
   bolts:
     runs-on: [self-hosted, linux]
