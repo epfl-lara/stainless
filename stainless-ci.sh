@@ -178,9 +178,9 @@ else
   else
     if [ "$LITE_BOLTS" = true ]; then
       echo "Running with the --lite-bolts flag, only running a subset of the tests"
-      bash bin/external-tests.sh --lite-bolts --skip-build --bolts-dir $BOLTS_DIR
+      bash bin/external-tests.sh --lite-bolts --skip-build --bolts-dir "$BOLTS_DIR"
     else
-      bash bin/external-tests.sh --skip-build --bolts-dir $BOLTS_DIR
+      bash bin/external-tests.sh --skip-build --bolts-dir "$BOLTS_DIR"
     fi
   fi
   if [ $? -ne 0 ]; then
