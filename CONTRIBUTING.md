@@ -77,7 +77,7 @@ runMain your.package.Main
 Run this script to build the sbt plugin
 
 ```bash
-stainless/bin/package-sbt-plugin.sh
+./bin/package-sbt-plugin.sh
 ```
 
 ---
