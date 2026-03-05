@@ -7,7 +7,7 @@
 ---
 
 ```bash
--jvm-debug <port>
+sbt -jvm-debug <port>
 ```
 
 ---
