@@ -18,7 +18,7 @@ package object termination {
     val usageRhs = "yes | no | only"
   }
 
-  object optYoloForever extends inox.FlagOptionDef("yolo-forever", false) // turns of infer-measures and check-measures
+  object optYoloForever extends inox.FlagOptionDef("yolo-forever", false) // turns off infer-measures and check-measures
 
 
   object DebugSectionTermination extends inox.DebugSection("termination")
