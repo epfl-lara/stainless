@@ -1,4 +1,4 @@
-5:13;inv;precondition;valid
+5:13;inv;error: argument types;valid
 13:19;bad0;class invariant: inv;invalid
 14:19;bad1;class invariant: inv;invalid
 15:19;ok2;class invariant: inv;valid

@@ -314,7 +314,7 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
   private val instanceID = new CachedID[Identifier](id => FreshIdentifier("is" + id.name))
 
   private def instanceOf(e: t.Expr, in: s.Type, tpe: s.Type)(using scope: Scope): t.Expr = {
-    ((in.getType(using scope.symbols), tpe.getType(using scope.symbols)) match {
+    ((in, tpe) match {
       case (tp1, tp2) if (
         tp1 == tp2 &&
         !s.typeOps.typeParamsOf(tp2).exists { t2 =>

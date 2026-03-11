@@ -1,5 +1,6 @@
 3:9;f;postcondition;invalid
 3:9;f;postcondition;valid
 3:9;f;postcondition;valid
-3:9;f;precondition;valid
-3:9;f;precondition;valid
+3:9;f;error: argument types;valid
+3:9;f;error: argument types;valid
+3:9;f;error: argument types;valid
