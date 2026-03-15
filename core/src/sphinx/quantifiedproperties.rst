@@ -20,6 +20,7 @@ All examples below assume the following imports:
 
 .. code-block:: scala
 
+   import stainless.lang._
    import stainless.lang.Quantifiers.*
    import stainless.annotation.*
    import stainless.lang.StaticChecks.*

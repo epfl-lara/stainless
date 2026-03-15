@@ -1,3 +1,4 @@
+import stainless.lang._
 import stainless.lang.Quantifiers.*
 import stainless.annotation.*
 import stainless.lang.StaticChecks.*
