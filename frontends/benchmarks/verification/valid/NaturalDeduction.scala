@@ -185,7 +185,7 @@ object NaturalDeduction:
   @ghost
   def existsElim(p: BigInt => Boolean): BigInt = {
     require(Exists(p))
-    val w: BigInt = pickWitness(p)
+    val w: BigInt = pickWitness[BigInt](p)
     assert(p(w))
     w
   }.ensuring(res => p(res))
@@ -250,7 +250,7 @@ object NaturalDeduction:
   @ghost
   def existsWeaken(p: BigInt => Boolean, q: BigInt => Boolean): Unit = {
     require(Exists(p))
-    val w = pickWitness(p)
+    val w = pickWitness[BigInt](p)
     // w satisfies p, so it satisfies p || q
     assert(p(w) || q(w))
     ExistsThe(w)((x: BigInt) => p(x) || q(x))
