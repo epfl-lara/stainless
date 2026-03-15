@@ -257,7 +257,7 @@ Combined Examples
 The following examples show how to combine multiple rules in one proof.
 
 **Conjunction of universals.** From ``Forall(p)`` and ``Forall(q)``,
-derive ``forall(x => p(x) && q(x))``.
+derive that ``p(x) && q(x)`` holds for all ``x``.
 
 .. code-block:: scala
 
@@ -284,7 +284,7 @@ derive ``Exists(x => p(x) || q(x))``.
    }.ensuring(_ => Exists((x: BigInt) => p(x) || q(x)))
 
 **Universal modus ponens.** From ``Forall(x => p(x) ==> q(x))`` and
-``Forall(p)``, derive ``forall(x => q(x))``.
+``Forall(p)``, derive that ``q(x)`` holds for all ``x``.
 
 .. code-block:: scala
 
