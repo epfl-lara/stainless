@@ -26,6 +26,7 @@ Contents:
    library
    genc
    neon
+   quantifiers
    limitations
    casestudies
    coq
