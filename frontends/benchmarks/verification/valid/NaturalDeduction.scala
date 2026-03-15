@@ -1,7 +1,7 @@
 import stainless.lang.Quantifiers.*
 import stainless.annotation.*
 import stainless.lang.StaticChecks.*
-import stainless.lang.unfold
+import stainless.lang.*
 
 /**
  * Comprehensive test cases demonstrating natural deduction in Stainless.
@@ -108,7 +108,7 @@ object NaturalDeduction:
    */
   @ghost
   def doubleNegElim(p: Boolean): Unit = {
-    require(!!p)
+    require(!(!p))
   }.ensuring(_ => p)
 
   /**
