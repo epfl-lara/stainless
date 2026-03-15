@@ -24,7 +24,7 @@ All examples below assume the following imports:
    import stainless.lang.Quantifiers.*
    import stainless.annotation.*
    import stainless.lang.StaticChecks.*
-   import stainless.lang.unfold
+   import stainless.lang.*
 
 The library provides the following key constructs:
 
@@ -209,7 +209,7 @@ satisfying ``p(w)`` by calling ``pickWitness(p)``.
    @ghost
    def existsElim(p: BigInt => Boolean): BigInt = {
      require(Exists(p))
-     val w: BigInt = pickWitness(p)
+     val w: BigInt = pickWitness[BigInt](p)
      assert(p(w))
      w
    }.ensuring(res => p(res))
@@ -279,7 +279,7 @@ derive ``Exists(x => p(x) || q(x))``.
    @ghost
    def existsWeaken(p: BigInt => Boolean, q: BigInt => Boolean): Unit = {
      require(Exists(p))
-     val w = pickWitness(p)
+     val w = pickWitness[BigInt](p)
      assert(p(w) || q(w))
      ExistsThe(w)((x: BigInt) => p(x) || q(x))
    }.ensuring(_ => Exists((x: BigInt) => p(x) || q(x)))
