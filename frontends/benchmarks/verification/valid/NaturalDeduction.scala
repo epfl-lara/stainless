@@ -2,7 +2,7 @@ import stainless.lang._
 import stainless.lang.Quantifiers.*
 import stainless.annotation.*
 import stainless.lang.StaticChecks.*
-import stainless.lang.unfold
+import stainless.lang.*
 
 /**
  * Natural deduction rules for propositional connectives and quantifiers.
@@ -30,21 +30,21 @@ object NaturalDeduction:
     require(p)
     require(q)
     ()
-  }.ensuring(_ => p && q)
+  }.ensuring((_:Unit) => p && q)
 
   /** Conjunction Elimination Left: from P && Q, derive P. */
   @ghost
   def conjElimLeft(p: Boolean, q: Boolean): Unit = {
     require(p && q)
     ()
-  }.ensuring(_ => p)
+  }.ensuring((_:Unit) => p)
 
   /** Conjunction Elimination Right: from P && Q, derive Q. */
   @ghost
   def conjElimRight(p: Boolean, q: Boolean): Unit = {
     require(p && q)
     ()
-  }.ensuring(_ => q)
+  }.ensuring((_:Unit) => q)
 
   // ===================================================================
   //  Disjunction (||)
@@ -55,14 +55,14 @@ object NaturalDeduction:
   def disjIntroLeft(p: Boolean, q: Boolean): Unit = {
     require(p)
     ()
-  }.ensuring(_ => p || q)
+  }.ensuring((_:Unit) => p || q)
 
   /** Disjunction Introduction Right: from Q, derive P || Q. */
   @ghost
   def disjIntroRight(p: Boolean, q: Boolean): Unit = {
     require(q)
     ()
-  }.ensuring(_ => p || q)
+  }.ensuring((_:Unit) => p || q)
 
   /** Disjunction Elimination: from P || Q, P ==> R, Q ==> R, derive R. */
   @ghost
@@ -71,7 +71,7 @@ object NaturalDeduction:
     require(p ==> r)
     require(q ==> r)
     ()
-  }.ensuring(_ => r)
+  }.ensuring((_:Unit) => r)
 
   // ===================================================================
   //  Negation (!)
@@ -82,14 +82,14 @@ object NaturalDeduction:
   def doubleNegElim(p: Boolean): Unit = {
     require(!(!p))
     ()
-  }.ensuring(_ => p)
+  }.ensuring((_:Unit) => p)
 
   /** Double Negation Introduction: from P, derive !!P. */
   @ghost
   def doubleNegIntro(p: Boolean): Unit = {
     require(p)
     ()
-  }.ensuring(_ => !(!p))
+  }.ensuring((_:Unit) => !(!p))
 
   // ===================================================================
   //  Implication (==>)
@@ -101,7 +101,7 @@ object NaturalDeduction:
     require(p ==> q)
     require(p)
     ()
-  }.ensuring(_ => q)
+  }.ensuring((_:Unit) => q)
 
   /** Modus Tollens: from P ==> Q and !Q, derive !P. */
   @ghost
@@ -109,7 +109,7 @@ object NaturalDeduction:
     require(p ==> q)
     require(!q)
     ()
-  }.ensuring(_ => !p)
+  }.ensuring((_:Unit) => !p)
 
   /** Hypothetical Syllogism: from P ==> Q and Q ==> R, derive P ==> R. */
   @ghost
@@ -117,7 +117,7 @@ object NaturalDeduction:
     require(p ==> q)
     require(q ==> r)
     ()
-  }.ensuring(_ => p ==> r)
+  }.ensuring((_:Unit) => p ==> r)
 
   // ===================================================================
   //  Universal Quantification (Forall)
@@ -146,7 +146,7 @@ object NaturalDeduction:
   def forallElim(p: BigInt => Boolean, a: BigInt): Unit = {
     require(Forall(p))
     ForallOf(p)(a)
-  }.ensuring(_ => p(a))
+  }.ensuring((_:Unit) => p(a))
 
   /**
    * Forall Elimination example with a concrete property:
@@ -176,7 +176,7 @@ object NaturalDeduction:
     val witness: BigInt = 5
     assert(p(witness))
     ExistsThe(witness)(p)
-  }.ensuring(_ => Exists((x: BigInt) => x > 0 && x < 10))
+  }.ensuring((_:Unit) => Exists((x: BigInt) => x > 0 && x < 10))
 
   /**
    * Exists Elimination: given Exists(p), obtain a witness w with p(w).
@@ -202,7 +202,7 @@ object NaturalDeduction:
   def notExistsToForallNot(p: BigInt => Boolean): Unit = {
     require(!Exists(p))
     notExists(p)
-  }.ensuring(_ => Forall((x: BigInt) => !p(x)))
+  }.ensuring((_:Unit) => Forall((x: BigInt) => !p(x)))
 
   /**
    * Not-Forall to Exists-Not: if !Forall(p), then Exists(x => !p(x)).
@@ -212,7 +212,7 @@ object NaturalDeduction:
   def notForallToExistsNot(p: BigInt => Boolean): Unit = {
     require(!Forall(p))
     notForall(p)
-  }.ensuring(_ => Exists((x: BigInt) => !p(x)))
+  }.ensuring((_:Unit) => Exists((x: BigInt) => !p(x)))
 
   /**
    * Not-Exists-Not to Forall: if !Exists(x => !p(x)), then Forall(p).
@@ -254,7 +254,7 @@ object NaturalDeduction:
     // w satisfies p, so it satisfies p || q
     assert(p(w) || q(w))
     ExistsThe(w)((x: BigInt) => p(x) || q(x))
-  }.ensuring(_ => Exists((x: BigInt) => p(x) || q(x)))
+  }.ensuring((_:Unit) => Exists((x: BigInt) => p(x) || q(x)))
 
   /**
    * Example: from Forall(x => p(x) ==> q(x)) and Forall(p), derive Forall(q).
