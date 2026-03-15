@@ -937,7 +937,7 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
           }
         }
 
-        val argsKind = VCKind.Error(s"argument types (call $fiS)")
+        val argsKind = VCKind.Info(VCKind.Error(s"argument types"), s"call $fiS")
         (insertFreshLets(calleeTfd.params, args, calleeTfd.returnType),
           checkDependentTypes(tc.withVCKind(argsKind), args, calleeTfd.params) ++
           trPre ++
@@ -1207,6 +1207,9 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
 
       case (Tuple(es), TupleType(tps)) =>
         checkTypes(tc, es, tps)
+
+      case (e, TupleType(tps)) =>
+        checkTypes(tc, (1 to tps.size).map(i => TupleSelect(e, i)), tps)
 
       case (Tuple(es), SigmaType(from, to)) =>
         checkDependentTypes(tc, es.init, from) ++

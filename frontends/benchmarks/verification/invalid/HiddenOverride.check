@@ -1,3 +1,5 @@
-4:7;f;precondition;valid
-6:7;g;precondition;valid
+4:7;f;error: argument types;valid
+4:7;f;error: argument types;valid
+6:7;g;error: argument types;valid
+6:7;g;error: argument types;valid
 9:12;g;body assertion;invalid
