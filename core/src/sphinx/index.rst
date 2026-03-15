@@ -17,6 +17,7 @@ Contents:
    tutorial
    options
    verification
+   quantifiedproperties
    laws
    imperative
    equivalence
