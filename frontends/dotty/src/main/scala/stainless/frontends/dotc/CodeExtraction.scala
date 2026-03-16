@@ -2553,7 +2553,7 @@ class CodeExtraction(inoxCtx: inox.Context,
   }
 
   private def extractType(tpt: Type)(using dctx: DefContext, pos: SourcePosition): xt.Type =
-    (tpt.dealias match {
+    (tpt match {
       case NoType => xt.Untyped
 
       case tpe if tpe.typeSymbol == defn.FloatClass       => xt.Float32Type()
