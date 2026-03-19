@@ -78,6 +78,13 @@ class law extends Annotation
 @ignore
 class mutable extends Annotation
 
+/**
+  * Used to mark a class field as mutable, but not observable from the outside. 
+  * This field must be private, and read/written only from pure or observationnally pure methods of the class.
+  */
+@ignore 
+class internallyMutable extends Annotation
+
 /** Can be used to mark a library function/class/object so that it is not
   * filtered out by the keep objects. Use the command-line option `--keep=g` to
   * keep all objects marked by `@keepFor(g)`
@@ -114,3 +121,13 @@ class anyHeapRef extends Annotation
 
 @ignore
 class refEq extends Annotation
+
+/**
+  * Used to mark functions observationally pure, meaning that they can have side effects but must be equivalent to a pure function. 
+  * The argument is the name of a pure function that is observationally equivalent to the annotated function.
+  * The observationally pure function is allowed to have effects only on internally mutable fields.
+  *
+  * @param toPureFunction
+  */
+@ignore 
+class observationallyPure(toPureFunction: String) extends Annotation
