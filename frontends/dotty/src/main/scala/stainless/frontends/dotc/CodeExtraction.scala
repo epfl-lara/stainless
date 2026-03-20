@@ -2389,6 +2389,9 @@ class CodeExtraction(inoxCtx: inox.Context,
           case tpe => outOfSubsetError(tr, s"Unexpected cast .toDouble from $tpe")
         }
 
+        case (tpe, "$asInstanceOf$", args) =>
+          xt.AsInstanceOf(extractTree(lhs), tpe)
+
         case (tpe, name, args) =>
           outOfSubsetError(tr, s"Unsupported call to $name on ${lhs.show}")
       }
