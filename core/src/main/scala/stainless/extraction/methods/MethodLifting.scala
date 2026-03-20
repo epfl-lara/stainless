@@ -72,10 +72,10 @@ class MethodLifting(override val s: Trees, override val t: oo.Trees)
     override def transform(e: s.Expr): t.Expr = e match {
       case s.MethodInvocation(rec, id, tps, args) =>
         given s.Symbols = symbols
-        val ct = rec.getType match {
+        val ct = rec.getTpe(stripRefinements = false).stripToplevelRefinement match {
           case ct: s.ClassType => ct
           case ta: s.TypeApply if ta.lookupTypeDef.isDefined && !ta.isAbstract =>
-            ta.resolve match {
+            ta.resolve.stripToplevelRefinement match {
               case ct: s.ClassType => ct
               case other => context.reporter.fatalError(rec.getPos, s"Unexpected type for method invocation receiver: got $other")
             }
