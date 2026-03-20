@@ -1,38 +1,38 @@
-9:9;empty;error: argument types;valid
-9:9;empty;error: argument types;valid
-9:9;empty;error: argument types;valid
-9:9;empty;error: argument types;valid
-10:9;append;error: argument types;valid
-10:9;append;error: argument types;valid
-10:9;append;error: argument types;valid
-10:9;append;error: argument types;valid
+9:9;empty;precondition;valid
+9:9;empty;precondition;valid
+9:9;empty;precondition;valid
+9:9;empty;precondition;valid
+10:9;append;precondition;valid
+10:9;append;precondition;valid
+10:9;append;precondition;valid
+10:9;append;precondition;valid
 13:9;law_leftIdentity;law;invalid
 13:9;law_leftIdentity;law;invalid
 13:9;law_leftIdentity;postcondition;valid
 13:9;law_leftIdentity;postcondition;valid
 13:9;law_leftIdentity;postcondition;valid
 13:9;law_leftIdentity;postcondition;valid
-13:9;law_leftIdentity;error: argument types;valid
-13:9;law_leftIdentity;error: argument types;valid
-13:9;law_leftIdentity;error: argument types;valid
-13:9;law_leftIdentity;error: argument types;valid
+13:9;law_leftIdentity;precondition;valid
+13:9;law_leftIdentity;precondition;valid
+13:9;law_leftIdentity;precondition;valid
+13:9;law_leftIdentity;precondition;valid
 18:9;law_rightIdentity;law;invalid
 18:9;law_rightIdentity;law;valid
 18:9;law_rightIdentity;postcondition;valid
 18:9;law_rightIdentity;postcondition;valid
 18:9;law_rightIdentity;postcondition;valid
 18:9;law_rightIdentity;postcondition;valid
-18:9;law_rightIdentity;error: argument types;valid
-18:9;law_rightIdentity;error: argument types;valid
-18:9;law_rightIdentity;error: argument types;valid
-18:9;law_rightIdentity;error: argument types;valid
+18:9;law_rightIdentity;precondition;valid
+18:9;law_rightIdentity;precondition;valid
+18:9;law_rightIdentity;precondition;valid
+18:9;law_rightIdentity;precondition;valid
 23:9;law_associativity;law;invalid
 23:9;law_associativity;law;valid
 23:9;law_associativity;postcondition;valid
 23:9;law_associativity;postcondition;valid
 23:9;law_associativity;postcondition;valid
 23:9;law_associativity;postcondition;valid
-23:9;law_associativity;error: argument types;valid
-23:9;law_associativity;error: argument types;valid
-23:9;law_associativity;error: argument types;valid
-23:9;law_associativity;error: argument types;valid
+23:9;law_associativity;precondition;valid
+23:9;law_associativity;precondition;valid
+23:9;law_associativity;precondition;valid
+23:9;law_associativity;precondition;valid
