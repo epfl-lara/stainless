@@ -15,6 +15,3 @@ case class MyCons[T](head: T, tail: MyList[T]) extends MyList[T]:
 type NonEmptyList[T] = {l: MyList[T] with l.nonEmpty}
 
 def mapOne[T](l: MyList[NonEmptyList[T]]) = l.map(_ => 1)
-
-// fails due to `getType` in `MethodLifting`, which produces:
-// def mapOne[T](l: MyList[NonEmptyList[T]]) = map[MyList[T], Int](l, _ => 1)
