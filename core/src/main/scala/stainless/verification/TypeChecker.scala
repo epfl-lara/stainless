@@ -1209,7 +1209,7 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
         checkTypes(tc, es, tps)
 
       case (e, TupleType(tps)) =>
-        checkTypes(tc, (1 to tps.size).map(i => TupleSelect(e, i)), tps)
+        checkTypes(tc, (1 to tps.size).map(i => TupleSelect(e, i).copiedFrom(e)), tps)
 
       case (Tuple(es), SigmaType(from, to)) =>
         checkDependentTypes(tc, es.init, from) ++
