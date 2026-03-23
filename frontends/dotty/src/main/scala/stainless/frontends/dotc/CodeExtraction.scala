@@ -1735,7 +1735,7 @@ class CodeExtraction(inoxCtx: inox.Context,
       case lct: xt.LocalClassType => xt.LocalClassConstructor(lct, args map extractTree)
       case ct: xt.ClassType => xt.ClassConstructor(ct, args map extractTree)
       case tt: xt.TupleType => xt.Tuple(args map extractTree)
-      case at: xt.ArrayType if args.size == 1 && extractType(args.head.tpe)(using dctx, tr.sourcePos) == xt.Int32Type() =>
+      case at: xt.ArrayType if args.size == 1 && extractType(args.head.tpe)(using dctx.setResolveTypes(true), tr.sourcePos) == xt.Int32Type() =>
         mkZeroForPrimitive(at.base) match {
           case Some(zero) =>
             val recArg = extractTree(args.head)
