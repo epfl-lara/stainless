@@ -39,7 +39,7 @@ import inox.FatalError
   * it will be detected as an effect by the EffectsAnalysis.
   * TODO: maybe we could have "conditional effects", effects depending on the effects of the lambda.
   *
-  * The EffectsAnalysis also provides functions to analyze the the mutability of a type and expression.
+  * The EffectsAnalysis also provides functions to analyze the mutability of a type and expression.
   * The isMutableType function needs to perform a graph traversal (explore all the fields recursively
   * to find if one is mutable)
   *
@@ -171,8 +171,8 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     def bind(x: ValDef, e: Expr): Accessor = this
   }
 
-  case class ClassFieldAccessor(selector: Identifier) extends Accessor {
-    def asString(using inox.Context) = s"ClassFieldAccessor(${selector.asString})"
+  case class ClassFieldAccessor(selector: ValDef) extends Accessor {
+    def asString(using inox.Context) = s"ClassFieldAccessor(${selector.id.asString})"
     def bind(x: ValDef, e: Expr): Accessor = this
   }
 
@@ -287,7 +287,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       case TupleFieldAccessor(idx) +: xs =>
         wrap(TupleSelect(expr, idx), xs)
 
-      case ClassFieldAccessor(id) +: xs =>
+      case ClassFieldAccessor(selector) +: xs =>
         def asClassType(tpe: Type): Option[ClassType] = tpe match {
           case ct: ClassType => Some(ct)
           case ta: TypeApply if !ta.isAbstract => asClassType(ta.resolve)
@@ -296,11 +296,11 @@ trait EffectsAnalyzer extends oo.CachingPhase {
 
         for {
           ct  <- asClassType(expr.getType)
-          tcd <- symbols.classForField(ct, id)
+          tcd <- symbols.classForField(ct, selector.id)
           res <- if (tcd.cd.parents.isEmpty && tcd.cd.children.isEmpty)
-            wrap(ClassSelector(expr, id), xs)
+            wrap(ClassSelector(expr, selector.id), xs)
           else
-            wrap(ClassSelector(AsInstanceOf(expr, tcd.toType), id), xs)
+            wrap(ClassSelector(AsInstanceOf(expr, tcd.toType), selector.id), xs)
         } yield res
 
       case ArrayAccessor(idx) +: xs =>
@@ -386,8 +386,8 @@ trait EffectsAnalyzer extends oo.CachingPhase {
           val field = constructor.flatMap(_.fields.find(_.id == id))
           field.isDefined && rec(field.get.getType, xs)
 
-        case (ct: ClassType, ClassFieldAccessor(id) +: xs) =>
-          val field = syms.classForField(ct, id).flatMap(_.fields.find(_.id == id))
+        case (ct: ClassType, ClassFieldAccessor(selector) +: xs) =>
+          val field = syms.classForField(ct, selector.id).flatMap(_.fields.find(_.id == selector.id))
           field.isDefined && rec(field.get.getType, xs)
 
         case (tt: TupleType, TupleFieldAccessor(idx) +: xs) =>
@@ -510,14 +510,18 @@ trait EffectsAnalyzer extends oo.CachingPhase {
 
     case v: Variable => Set(Target(v, None, Path(path)))
     case ADTSelector(e, id) => getTargets(e, kind, ADTFieldAccessor(id) +: path)
-    case ClassSelector(e, id) => getTargets(e, kind, ClassFieldAccessor(id) +: path)
+    case cs@ClassSelector(e, id) => 
+      val field = cs.field match 
+        case Some(f) => f
+        case None => throw MalformedStainlessCode(expr, s"Couldn't find field ${id.asString} in class selector ${expr.asString}")
+      getTargets(e, kind, ClassFieldAccessor(field) +: path)
     case TupleSelect(e, idx) => getTargets(e, kind, TupleFieldAccessor(idx) +: path)
     case ArraySelect(a, idx) => getTargets(a, kind, ArrayAccessor(idx) +: path)
     case MutableMapApply(a, idx) => getTargets(a, kind, MutableMapAccessor(idx) +: path)
     case MutableMapDuplicate(m) => getTargets(m, kind, path)
 
     case ADT(id, _, args) => path match {
-      case ADTFieldAccessor(fid) +: rest =>
+    case ADTFieldAccessor(fid) +: rest =>
         getTargets(args(symbols.getConstructor(id).fields.indexWhere(_.id == fid)), kind, rest)
       case _ =>
         if (kind != ReplacementKind)
@@ -830,10 +834,10 @@ trait EffectsAnalyzer extends oo.CachingPhase {
         effect(array2, env).map(_.precise(ArrayAccessor(index2)))
 
       case CellSwap(cell1, cell2) =>
-        val vFieldId = symbols.lookup.get[ClassDef]("stainless.lang.Cell").get.fields.head.id
+        val vField = symbols.lookup.get[ClassDef]("stainless.lang.Cell").get.fields.head
         rec(cell1, env) ++ rec(cell2, env) ++
-        effect(cell1, env).map(_.precise(ClassFieldAccessor(vFieldId))) ++
-        effect(cell2, env).map(_.precise(ClassFieldAccessor(vFieldId)))
+        effect(cell1, env).map(_.precise(ClassFieldAccessor(vField))) ++
+        effect(cell2, env).map(_.precise(ClassFieldAccessor(vField)))
 
       case ArrayUpdate(o, idx, v) =>
         rec(o, env) ++ rec(idx, env) ++ rec(v, env) ++

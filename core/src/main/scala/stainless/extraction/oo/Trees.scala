@@ -79,7 +79,11 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
 
   protected def getField(tpe: Type, selector: Identifier)(using Symbols): Option[ValDef] =
     tpe match {
-      case ct: ClassType => ct.getField(selector)
+      case ct: ClassType => {
+        val res = ct.getField(selector)
+        if res.isDefined then println(f"Field $selector found in class ${ct.id} with type ${res.get.tpe}, with flags ${res.get.flags.mkString(", ")}")
+        res
+      }
       case _ => None
     }
 

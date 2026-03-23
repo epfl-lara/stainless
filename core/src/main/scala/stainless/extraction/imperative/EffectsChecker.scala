@@ -343,13 +343,18 @@ trait EffectsChecker { self: EffectsAnalyzer =>
     }
 
     def checkEnforcedPurity(fd: FunAbstraction, effs: Set[Effect], callsToImpure: Seq[(Identifier, Set[Variable])]): Unit = {
-      val isPure = fd.flags contains IsPure
-      val isInv = fd.flags contains IsInvariant
+      val isPure = fd.flags.contains(IsPure)
+      val isObsPure = fd.flags.exists(f => f match {
+        case IsObservationallyPure(_) => true
+        case _ => false
+      })
+      val isInv = fd.flags.contains(IsInvariant)
+      println(f"\nEffects of ${fd.id.asString} (annotated as pure: $isPure): ${effs.map(_.asString).mkString(", ")}\n")
       if ((isPure || isInv) && effs.nonEmpty) {
-        val isInv = fd.flags contains IsInvariant
+        val isInv = fd.flags.contains(IsInvariant)
         val fnName = if (isInv) "the invariant" else fd.id.asString
         val head = Seq(if (isInv) "Invariants cannot have side-effects" else "Functions marked @pure cannot have side-effects")
-        val externs = callsToImpure.filter { case (id, _) => symbols.getFunction(id).flags contains Extern }.map(_._1).toSet
+        val externs = callsToImpure.filter { case (id, _) => symbols.getFunction(id).flags.contains(Extern) }.map(_._1).toSet
         val hint1 = {
           if (callsToImpure.isEmpty) Seq.empty[String]
           else Seq(s"Hint: $fnName calls the following impure functions:") ++
@@ -364,6 +369,25 @@ trait EffectsChecker { self: EffectsAnalyzer =>
         }
         throw ImperativeEliminationException(fd, (head ++ hint1 ++ hint2).mkString("\n"))
       }
+      if (isObsPure && effs.nonEmpty) {
+        effs.foreach(eff => {
+          val fieldIsInternallyMutable = eff.path.path.headOption match
+            case Some(value) => value match
+              case ADTFieldAccessor(selector) => 
+              case ClassFieldAccessor(selector) =>
+              case ArrayAccessor(index) =>
+              case UnknownArrayAccessor =>
+              case MutableMapAccessor(index) =>
+              case TupleFieldAccessor(index) =>
+            
+            case None => false // Illegal to modify this alone, need a field
+          if (!true) {
+            throw ImperativeEliminationException(fd, s"Functions marked @observationallyPure cannot have side-effects on: ${eff.receiver.asString}. " +
+              s"They can only have side-effects on fields marked @internallyMutable.")
+          }
+        })
+      }
+
     }
 
     def checkPureParameters(fd: FunAbstraction, effs: Set[Effect], callsToImpure: Seq[(Identifier, Set[Variable])]): Unit = {
@@ -372,7 +396,7 @@ trait EffectsChecker { self: EffectsAnalyzer =>
       if (mutatedPure.nonEmpty) {
         val head = Seq(s"Function `${fd.id.asString}` has effect on the following @pure parameters:",
           mutatedPure.map(_.id.asString).mkString("  -", ", ", ""))
-        val externs = callsToImpure.filter { case (id, _) => symbols.getFunction(id).flags contains Extern }.map(_._1).toSet
+        val externs = callsToImpure.filter { case (id, _) => symbols.getFunction(id).flags.contains(Extern) }.map(_._1).toSet
         val hint1 = mutatedPure.flatMap { v =>
           val fns = callsToImpure.filter(_._2(v)).map(_._1)
           if (fns.isEmpty) Seq.empty

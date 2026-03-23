@@ -193,15 +193,15 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
             val (recCond, recSelect) = select(pos, field.tpe, ADTSelector(expr, id).setPos(pos), xs)
             (and(condition, recCond), recSelect)
 
-          case (ct: ClassType, ClassFieldAccessor(id) +: xs) =>
-            val field = getClassField(ct, id).get
-            val fieldClassType = classForField(ct, id).get.toType
+          case (ct: ClassType, ClassFieldAccessor(selector) +: xs) =>
+            val field = getClassField(ct, selector.id).get
+            val fieldClassType = classForField(ct, selector.id).get.toType
             val condition = if (ct.tcd.cd.parents.isEmpty && ct.tcd.cd.children.isEmpty) BooleanLiteral(true).setPos(pos)
               else IsInstanceOf(expr, fieldClassType).setPos(pos)
             val casted = if (ct.tcd.cd.parents.isEmpty && ct.tcd.cd.children.isEmpty) expr
               else AsInstanceOf(expr, fieldClassType).setPos(expr)
 
-            val (recCond, recSelect) = select(pos, field.tpe, ClassSelector(casted, id).setPos(pos), xs)
+            val (recCond, recSelect) = select(pos, field.tpe, ClassSelector(casted, selector.id).setPos(pos), xs)
             (and(condition, recCond), recSelect)
 
           case (tt: TupleType, TupleFieldAccessor(idx) +: xs) =>
@@ -692,20 +692,20 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
             val base = recCell1.getType.asInstanceOf[ClassType].tps.head
 
             val cellClassDef = symbols.lookup.get[ClassDef]("stainless.lang.Cell").get
-            val vFieldId = cellClassDef.fields.head.id
+            val vField = cellClassDef.fields.head
 
             val temp = ValDef.fresh("temp", base).setPos(cellSwap)
-            val targets1 = getDirectTargetsDealiased(recCell1, ClassFieldAccessor(vFieldId), env)
+            val targets1 = getDirectTargetsDealiased(recCell1, ClassFieldAccessor(vField), env)
               .getOrElse(throw MalformedStainlessCode(cellSwap, "Unsupported cellSwap (first cell)"))
-            val targets2 = getDirectTargetsDealiased(recCell2, ClassFieldAccessor(vFieldId), env)
+            val targets2 = getDirectTargetsDealiased(recCell2, ClassFieldAccessor(vField), env)
               .getOrElse(throw MalformedStainlessCode(cellSwap, "Unsupported cellSwap (second cell)"))
 
-            val updates1 = updatedTargetsAndAliases(targets2, ClassSelector(cell1, vFieldId).setPos(cellSwap), env, cellSwap.getPos)
+            val updates1 = updatedTargetsAndAliases(targets2, ClassSelector(cell1, vField.id).setPos(cellSwap), env, cellSwap.getPos)
             val updates2 = updatedTargetsAndAliases(targets1, temp.toVariable, env, cellSwap.getPos)
             val updates = updates1 ++ updates2
             if (updates.isEmpty) UnitLiteral().setPos(cellSwap)
             else
-              Let(temp, transform(ClassSelector(recCell2, vFieldId).setPos(cellSwap), env),
+              Let(temp, transform(ClassSelector(recCell2, vField.id).setPos(cellSwap), env),
                 Block(updates.init, updates.last).setPos(cellSwap)
               ).setPos(cellSwap)
 
@@ -1092,9 +1092,9 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
             else freshenLocals(Annotated(ADTSelector(receiver, vd.id).copiedFrom(receiver), Seq(DropVCs)).copiedFrom(receiver))
           }).copiedFrom(newValue)
 
-        case ClassFieldAccessor(id) :: fs =>
+        case ClassFieldAccessor(selector) :: fs =>
           val optCd = receiver.getType match {
-            case ct: ClassType => classForField(ct, id)
+            case ct: ClassType => classForField(ct, selector.id)
             case tp => throw FatalError(s"Cannot apply ClassFieldAccessor to type $tp")
           }
 
@@ -1104,11 +1104,11 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
 
           val casted = if (cd.parents.isEmpty && cd.children.isEmpty) receiver
             else AsInstanceOf(receiver, cd.toType).copiedFrom(receiver)
-          val annotated = if (cd.parents.isEmpty && cd.children.isEmpty) rec(ClassSelector(casted, id), fs)
-            else rec(Annotated(ClassSelector(casted, id).copiedFrom(newValue), Seq(DropVCs)).copiedFrom(newValue), fs)
+          val annotated = if (cd.parents.isEmpty && cd.children.isEmpty) rec(ClassSelector(casted, selector.id), fs)
+            else rec(Annotated(ClassSelector(casted, selector.id).copiedFrom(newValue), Seq(DropVCs)).copiedFrom(newValue), fs)
 
           ClassConstructor(ct, ct.tcd.fields.map { vd =>
-            if (vd.id == id) freshenLocals(annotated)
+            if (vd.id == selector.id) freshenLocals(annotated)
             else if (cd.parents.isEmpty && cd.children.isEmpty) ClassSelector(freshenLocals(casted), vd.id)
             else freshenLocals(Annotated(ClassSelector(casted, vd.id).copiedFrom(receiver), Seq(DropVCs)).copiedFrom(receiver))
           }).copiedFrom(newValue)
