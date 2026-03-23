@@ -216,7 +216,7 @@ class FunctionClosure(override val s: Trees, override  val t: ast.Trees)
 
       val transFree: Map[Identifier, (Seq[Variable], Path)] =
         //transFreeWithBindings.map(p => (p._1, p._2 -- nestedWithPaths(p._1).bindings.map(_._1))).map(p => (p._1, p._2.toSeq))
-        transFreeWithBindings.map { case (id, (vars, pc)) => id -> (vars.toSeq.sortBy(_.id.name), pc) }
+        transFreeWithBindings.map { case (id, (vars, pc)) => id -> (vars.toSeq.sortBy(_.id.globalId), pc) }
 
       // Closed functions along with a map (old var -> new var).
       val closed = nestedFuns.map { inner =>
