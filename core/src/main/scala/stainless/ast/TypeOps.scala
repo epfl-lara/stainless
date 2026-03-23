@@ -78,7 +78,8 @@ trait TypeOps extends inox.ast.TypeOps {
   def replaceKeepPositions(subst: Map[Variable, Expr], tpe: Type): Type = {
     new ConcreteStainlessSelfTreeTransformer {
       override def transform(expr: Expr): Expr = expr match {
-        case v: Variable => subst.getOrElse(v, v).copiedFrom(v)
+        case v: Variable =>
+          subst.get(v).map(_.copiedFrom(v)).getOrElse(super.transform(v))
         case _ => super.transform(expr)
       }
     }.transform(tpe)
