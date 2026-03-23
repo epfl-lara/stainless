@@ -2557,6 +2557,17 @@ class CodeExtraction(inoxCtx: inox.Context,
   }
 
   private def extractType(tpt: Type)(using dctx: DefContext, pos: SourcePosition): xt.Type =
+
+    def restoreRefinements(base: xt.Type): xt.Type = {
+      tpt.dealiasKeepRefiningAnnots match {
+        case AnnotatedType(_, ExQualified(qualifier)) =>
+          extractTree(qualifier) match
+            case xt.Lambda(Seq(arg), body) => xt.RefinementType(arg.copy(tpe = base), body)
+            case _ => outOfSubsetError(tpt.typeSymbol.sourcePos, "Malformed refinement")
+        case _ => base
+      }
+    }
+
     (tpt match {
       case NoType => xt.Untyped
 
@@ -2585,11 +2596,11 @@ class CodeExtraction(inoxCtx: inox.Context,
         xt.TypeBounds(extractType(lo), extractType(hi), Seq.empty)
       case cet: ExprType => extractType(cet.resultType)
 
-      case tpe if isBigIntSym(tpe.typeSymbol)        => xt.IntegerType()
-      case tpe if isRealSym(tpe.typeSymbol)          => xt.RealType()
-      case tpe if isStringSym(tpe.typeSymbol)        => xt.StringType()
-      case tpe if isWrappedFloatSym(tpe.typeSymbol)  => xt.Float32Type()
-      case tpe if isWrappedDoubleSym(tpe.typeSymbol) => xt.Float64Type()
+      case tpe if isBigIntSym(tpe.typeSymbol)        => restoreRefinements(xt.IntegerType())
+      case tpe if isRealSym(tpe.typeSymbol)          => restoreRefinements(xt.RealType())
+      case tpe if isStringSym(tpe.typeSymbol)        => restoreRefinements(xt.StringType())
+      case tpe if isWrappedFloatSym(tpe.typeSymbol)  => restoreRefinements(xt.Float32Type())
+      case tpe if isWrappedDoubleSym(tpe.typeSymbol) => restoreRefinements(xt.Float64Type())
 
       case AppliedType(tr: TypeRef, Seq(tp)) if isSetSym(tr.symbol) =>
         // We know the underlying is a set, but it may be hidden under an alias
