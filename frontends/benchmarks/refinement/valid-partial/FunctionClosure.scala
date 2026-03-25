@@ -6,7 +6,7 @@
 //    def funWhile(f: ({ param0: BigInt | (from <= param0) }) => Unit, from: BigInt, i: BigInt): (Unit, BigInt)
 //  would be incorrect, since `f` type depends on `from`.
 def fun(from: BigInt)(f: {i: BigInt with from <= i} => Unit): Unit =
-  var i: BigInt = from
+  var i: (BigInt with from <= i) = from.asInstanceOf[{i: BigInt with from <= i}]
   while i < 10 do
-    f(i.asInstanceOf[{i: BigInt with from <= i}])
-    i = i + 1
+    f(i)
+    i = (i + 1).asInstanceOf[{i: BigInt with from <= i}]
