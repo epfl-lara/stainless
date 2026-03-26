@@ -2,7 +2,7 @@ package stainless
 package frontend
 
 import utils.{StringUtils, XLangDependenciesFinder}
-import extraction.xlang.trees as xt
+import extraction.skolems.trees as xt
 import inox.utils.Position
 import stainless.ast.SymbolIdentifier
 import stainless.extraction.oo.{DefinitionTraverser, Trees}

@@ -3,7 +3,7 @@
 package stainless
 
 import utils.{CheckFilter, DefinitionIdFinder, DependenciesFinder}
-import extraction.xlang.{trees => xt}
+import extraction.skolems.{trees => xt}
 import io.circe._
 import stainless.extraction.ExtractionSummary
 

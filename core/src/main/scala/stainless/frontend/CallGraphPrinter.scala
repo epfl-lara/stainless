@@ -3,7 +3,7 @@
 package stainless
 package frontend
 
-import stainless.extraction.xlang.{trees => xt}
+import stainless.extraction.skolems.{trees => xt}
 
 import inox.utils.Graphs._
 import inox.utils.GraphPrinters.DotPrinter

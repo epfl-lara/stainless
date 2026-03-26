@@ -18,7 +18,7 @@ import typer._
 
 import inox.DebugSection
 
-import extraction.xlang.{trees => xt}
+import extraction.skolems.{trees => xt}
 import frontend.{CallBack, Frontend, FrontendFactory, ThreadedFrontend, UnsupportedCodeException, DebugSectionFrontend}
 import Utils._
 

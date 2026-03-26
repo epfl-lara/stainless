@@ -2,7 +2,7 @@
 
 package stainless
 
-import stainless.extraction.xlang.{trees => xt}
+import stainless.extraction.skolems.{trees => xt}
 
 package object frontend {
 

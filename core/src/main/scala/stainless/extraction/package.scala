@@ -129,6 +129,7 @@ package object extraction {
     extends Exception(msg)
 
   def pipeline(using inox.Context): StainlessPipeline = {
+    skolems.extractor      `andThen`
     xlang.extractor        `andThen`
     innerclasses.extractor `andThen`
     methods.extractor      `andThen`
@@ -160,7 +161,7 @@ package object extraction {
   }
 
   type StainlessPipeline = ExtractionPipeline {
-    val s: xlang.trees.type
+    val s: skolems.trees.type
     val t: trees.type
   }
 

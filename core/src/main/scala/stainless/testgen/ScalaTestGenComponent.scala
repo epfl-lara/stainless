@@ -3,7 +3,7 @@ package testgen
 
 import io.circe.Json
 import stainless.extraction._
-import stainless.extraction.xlang.{trees => xt}
+import stainless.extraction.skolems.{trees => xt}
 import stainless.verification._
 import stainless.verification.VerificationComponent.{Analysis, Report}
 

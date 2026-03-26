@@ -4,7 +4,7 @@ package stainless
 package testgen
 
 import stainless.extraction.xlang
-import xlang.{trees => xt}
+import stainless.extraction.skolems.{trees => xt}
 import stainless.verification._
 
 import java.io.File

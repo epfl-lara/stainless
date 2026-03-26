@@ -5,7 +5,7 @@ package ast
 import scala.language.experimental.macros
 import org.scalatest.funspec.AnyFunSpec
 
-import stainless.extraction.xlang.{trees => xt, TreeSanitizer}
+import stainless.extraction.skolems.{TreeSanitizer, trees => xt}
 
 class TreeSanitizerSuite extends AnyFunSpec with InputUtils {
 

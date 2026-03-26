@@ -3,7 +3,7 @@
 package stainless
 package genc
 
-import extraction.xlang.trees as xt
+import extraction.skolems.trees as xt
 import stainless.extraction.ExtractionSummary
 
 trait GenCAnalysis extends AbstractAnalysis {

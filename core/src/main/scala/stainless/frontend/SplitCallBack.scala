@@ -4,7 +4,7 @@ package stainless
 package frontend
 
 import stainless.utils.LibraryFilter
-import extraction.xlang.{TreeSanitizer, trees as xt}
+import extraction.skolems.{TreeSanitizer, trees as xt}
 import extraction.utils.ConcurrentCache
 import extraction.utils.DebugSymbols
 import utils.{CheckFilter, JsonUtils}
@@ -23,7 +23,7 @@ import scala.concurrent.duration.*
 class SplitCallBack(components: Seq[Component])(using override val context: inox.Context)
   extends CallBack with CheckFilter with StainlessReports { self =>
 
-  protected final override val trees = extraction.xlang.trees
+  protected final override val trees = extraction.skolems.trees
 
   private val preprocessing = new DebugSymbols {
     val name = "Preprocessing"

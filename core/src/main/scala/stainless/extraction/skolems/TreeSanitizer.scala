@@ -2,14 +2,14 @@
 
 package stainless
 package extraction
-package xlang
+package skolems
 
 import scala.collection.mutable.ListBuffer
 
 /** Inspect trees, detecting illegal structures. */
 trait TreeSanitizer { self =>
 
-  val trees: xlang.Trees
+  val trees: skolems.Trees
   import trees._
 
   val TypeOperator: inox.ast.TreeExtractor {
@@ -454,7 +454,7 @@ trait TreeSanitizer { self =>
 }
 
 object TreeSanitizer {
-  def apply(tr: xlang.Trees)(using inox.Context): TreeSanitizer { val trees: tr.type } = {
+  def apply(tr: skolems.Trees)(using inox.Context): TreeSanitizer { val trees: tr.type } = {
     class Impl(override val trees: tr.type) extends TreeSanitizer
     new Impl(tr)
   }

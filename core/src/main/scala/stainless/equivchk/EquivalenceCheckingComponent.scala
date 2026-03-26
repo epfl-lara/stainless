@@ -4,7 +4,7 @@ package equivchk
 import inox.Context
 import io.circe.Json
 import stainless.extraction._
-import stainless.extraction.xlang.{trees => xt}
+import stainless.extraction.skolems.{trees => xt}
 import stainless.termination.MeasureInference
 import stainless.utils.{CheckFilter, JsonUtils}
 import stainless.verification._
@@ -101,7 +101,8 @@ class EquivalenceCheckingRun private(override val component: EquivalenceChecking
   override def createPipeline = underlyingRun.createPipeline
   given givenDebugSection: DebugSectionEquivChk.type = DebugSectionEquivChk
 
-  private val tracePrePipeline: ExtractionPipeline { val s: xlang.trees.type; val t: trace.trees.type } =
+  private val tracePrePipeline: ExtractionPipeline { val s: skolems.trees.type; val t: trace.trees.type } =
+    skolems.extractor `andThen`
     xlang.extractor `andThen`
     innerclasses.extractor `andThen`
     methods.extractor `andThen`

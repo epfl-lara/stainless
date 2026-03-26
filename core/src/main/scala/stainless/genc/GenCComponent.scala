@@ -6,7 +6,7 @@ package genc
 import inox.utils.{ Position, NoPosition }
 import utils.{CheckFilter, DefinitionIdFinder, DependenciesFinder}
 
-import extraction.xlang.{trees => xt}
+import extraction.skolems.{trees => xt}
 import extraction.throwing.{trees => tt}
 import extraction._
 
@@ -43,7 +43,8 @@ object GenCRun {
   case class Result(fd: xt.FunDef, status: GenCReport.Status, time: Long)
 
   def pipelineBegin(using inox.Context): ExtractionPipeline{val s: xt.type; val t: tt.type} =
-    xlang.extractor        `andThen`
+      skolems.extractor       `andThen`
+      xlang.extractor        `andThen`
       innerclasses.extractor `andThen`
       utils.NamedPipeline("Laws",            methods.Laws(methods.trees))            `andThen`
       utils.NamedPipeline("SuperInvariants", methods.SuperInvariants(methods.trees)) `andThen`

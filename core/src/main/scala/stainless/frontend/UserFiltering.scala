@@ -4,7 +4,7 @@ package stainless
 package frontend
 
 import extraction._
-import xlang.{ trees => xt }
+import skolems.{ trees => xt }
 
 import stainless.utils.CheckFilter
 

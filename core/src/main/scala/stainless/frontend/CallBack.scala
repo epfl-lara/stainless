@@ -3,7 +3,7 @@
 package stainless
 package frontend
 
-import extraction.xlang.{ trees => xt }
+import extraction.skolems.{ trees => xt }
 
 // Keep library objects marked by @keepFor(g) for some g in g1,...,gn
 object optKeep extends inox.OptionDef[Seq[String]] {

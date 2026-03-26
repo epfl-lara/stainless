@@ -2,7 +2,7 @@
 
 package stainless
 
-import extraction.xlang.{TreeSanitizer, trees as xt}
+import extraction.skolems.{TreeSanitizer, trees as xt}
 import extraction.utils.DebugSymbols
 import frontend.{CallBack, Recovery, RecoveryResult}
 import inox.TestSilentReporter

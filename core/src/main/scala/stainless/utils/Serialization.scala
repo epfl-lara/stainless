@@ -93,7 +93,7 @@ class StainlessSerializer(override val trees: ast.Trees, serializeProducts: Bool
     )
 }
 
-class XLangSerializer(override val trees: extraction.xlang.Trees, serializeProducts: Boolean = false)
+class XLangSerializer(override val trees: extraction.skolems.Trees, serializeProducts: Boolean = false)
   extends StainlessSerializer(trees, serializeProducts) {
   import trees._
 
@@ -102,10 +102,15 @@ class XLangSerializer(override val trees: extraction.xlang.Trees, serializeProdu
     *
     * The new identifiers in the mapping range from 180 to 262.
     *
-    * NEXT ID: 263
+    * NEXT ID: 264
     */
   override protected def classSerializers: Map[Class[?], Serializer[?]] =
     super.classSerializers ++ Map(
+
+      mappingSerializer[Skolem](263)
+        (s => (s.id, s.tpe))
+        (p => Skolem(p._1, p._2)),
+
       // Termination trees
       stainlessClassSerializer[Decreases](180),
 
@@ -215,7 +220,7 @@ class XLangSerializer(override val trees: extraction.xlang.Trees, serializeProdu
 object Serializer {
   def apply(t: ast.Trees, serializeProducts: Boolean = false): Serializer { val trees: t.type } =
     (t match {
-      case xt: extraction.xlang.Trees => new XLangSerializer(xt)
+      case xt: extraction.skolems.Trees => new XLangSerializer(xt)
       case _ => new StainlessSerializer(t)
     }).asInstanceOf[Serializer { val trees: t.type }]
 }

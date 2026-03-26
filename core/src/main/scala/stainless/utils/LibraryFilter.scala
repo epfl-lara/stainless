@@ -1,7 +1,7 @@
 package stainless
 package utils
 
-import stainless.extraction.xlang.{trees => xt}
+import stainless.extraction.skolems.{trees => xt}
 
 object LibraryFilter {
 

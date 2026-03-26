@@ -3,7 +3,7 @@
 package stainless
 package utils
 
-import extraction.xlang.trees as xt
+import extraction.skolems.trees as xt
 import inox.utils.{NoPosition, Position}
 
 import scala.collection.mutable.Map as MutableMap

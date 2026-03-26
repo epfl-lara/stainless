@@ -4,7 +4,7 @@ package stainless
 package frontend
 
 import stainless.extraction.ExtractionFailed
-import stainless.extraction.xlang.{TreeSanitizer, trees as xt}
+import stainless.extraction.skolems.{TreeSanitizer, trees as xt}
 import stainless.extraction.utils.DebugSymbols
 import stainless.utils.LibraryFilter
 

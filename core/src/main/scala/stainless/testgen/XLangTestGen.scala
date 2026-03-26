@@ -2,7 +2,7 @@ package stainless
 package testgen
 
 import stainless.ast.SymbolIdentifier
-import stainless.extraction.xlang.{trees => xt}
+import stainless.extraction.skolems.{trees => xt}
 import stainless.verification._
 
 object XLangTestGen extends utils.CtexRemapping {

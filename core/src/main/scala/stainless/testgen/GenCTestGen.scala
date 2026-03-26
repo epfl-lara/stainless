@@ -2,7 +2,7 @@ package stainless
 package testgen
 
 import stainless.extraction.throwing.{trees => tt}
-import stainless.extraction.xlang.{trees => xt}
+import stainless.extraction.skolems.{trees => xt}
 import stainless.genc._
 import stainless.genc.phases._
 import stainless.verification._

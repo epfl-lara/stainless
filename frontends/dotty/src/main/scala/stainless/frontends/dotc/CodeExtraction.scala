@@ -19,7 +19,7 @@ import core.NameKinds
 import core.NameOps.*
 import util.{NoSourcePosition, SourcePosition}
 import stainless.ast.SymbolIdentifier
-import extraction.xlang.trees as xt
+import extraction.skolems.trees as xt
 import Utils.*
 
 import scala.collection.mutable.Map as MutableMap
@@ -1647,6 +1647,12 @@ class CodeExtraction(inoxCtx: inox.Context,
 
     case ExSymbol("scala", "Predef$", "$qmark$qmark$qmark" | "???") => xt.NoTree(extractType(tr))
 
+    case Ident(name) if name.toString == "???" =>
+      println("CHRZAN")
+      println(tr.tpe)
+      println(tr.symbol)
+      xt.Skolem(FreshIdentifier("?", true), extractType(tr))
+
     case Typed(e, _) =>
       extractTree(e)
 
@@ -1902,6 +1908,7 @@ class CodeExtraction(inoxCtx: inox.Context,
 
     case NamedArg(name, arg) => extractTree(arg)
 
+    // Idents are handled here
     case ex @ ExIdentifier(sym, tpt) if dctx.vars contains sym => dctx.vars(sym)().setPos(ex.sourcePos)
     case ex @ ExIdentifier(sym, tpt) if dctx.mutableVars contains sym => dctx.mutableVars(sym)().setPos(ex.sourcePos)
 
