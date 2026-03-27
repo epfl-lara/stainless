@@ -830,6 +830,17 @@ trait ASTExtractors {
       }
     }
 
+    object ExSkolem {
+      def unapply(tree: tpd.Ident): Option[Name] = tree match {
+        case Ident(name) if name.toString == "???"=>
+          tree.tpe match {
+            case s: SkolemType => Some(s.repr)
+            case _ => None
+          }
+        case _ => None
+      }
+    }
+
   }
 
   object StructuralExtractors {

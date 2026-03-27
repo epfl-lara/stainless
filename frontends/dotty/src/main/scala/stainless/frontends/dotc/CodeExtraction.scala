@@ -144,6 +144,8 @@ class CodeExtraction(inoxCtx: inox.Context,
     }
   }
 
+  private var skolems: Map[Name, xt.Skolem] = Map.empty
+
   // This one never fails, on error, it returns Untyped
   private def stainlessType(tpt: Type)(using DefContext, SourcePosition): xt.Type = {
     try {
@@ -1647,11 +1649,14 @@ class CodeExtraction(inoxCtx: inox.Context,
 
     case ExSymbol("scala", "Predef$", "$qmark$qmark$qmark" | "???") => xt.NoTree(extractType(tr))
 
-    case Ident(name) if name.toString == "???" =>
-      println("CHRZAN")
-      println(tr.tpe)
-      println(tr.symbol)
-      xt.Skolem(FreshIdentifier("?", true), extractType(tr))
+    case ExSkolem(name) =>
+      skolems.get(name) match {
+        case Some(sk) => sk
+        case None =>
+          val sk = xt.Skolem(FreshIdentifier("?", true), extractType(tr))
+          skolems += (name -> sk)
+          sk
+      }
 
     case Typed(e, _) =>
       extractTree(e)
@@ -1908,7 +1913,6 @@ class CodeExtraction(inoxCtx: inox.Context,
 
     case NamedArg(name, arg) => extractTree(arg)
 
-    // Idents are handled here
     case ex @ ExIdentifier(sym, tpt) if dctx.vars contains sym => dctx.vars(sym)().setPos(ex.sourcePos)
     case ex @ ExIdentifier(sym, tpt) if dctx.mutableVars contains sym => dctx.mutableVars(sym)().setPos(ex.sourcePos)
 
@@ -2396,8 +2400,10 @@ class CodeExtraction(inoxCtx: inox.Context,
           case tpe => outOfSubsetError(tr, s"Unexpected cast .toDouble from $tpe")
         }
 
-        case (tpe, "$asInstanceOf$", args) =>
-          xt.AsInstanceOf(extractTree(lhs), tpe)
+        case (tpe, "$asInstanceOf$", args) if tps.size == 1 =>
+          // should this annotation be like this
+          // won't it drop verification for the whole lhs?
+          xt.Annotated(xt.AsInstanceOf(extractTree(lhs), extractType(tps(0))), Seq(xt.DropVCs))
 
         case (tpe, name, args) =>
           outOfSubsetError(tr, s"Unsupported call to $name on ${lhs.show}")
