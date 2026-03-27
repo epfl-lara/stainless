@@ -313,8 +313,13 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
 
   private val instanceID = new CachedID[Identifier](id => FreshIdentifier("is" + id.name))
 
+  def dealias(tp: s.Type)(using s.Symbols): s.Type = s.typeOps.preMap {
+    case ta: s.TypeApply if !ta.isAbstract => Some(ta.resolve)
+    case tp => None
+  } (tp)
+
   private def instanceOf(e: t.Expr, in: s.Type, tpe: s.Type)(using scope: Scope): t.Expr = {
-    ((in.getType(using scope.symbols), tpe.getType(using scope.symbols)) match {
+    ((dealias(in)(using scope.symbols), dealias(tpe)(using scope.symbols)) match {
       case (tp1, tp2) if (
         tp1 == tp2 &&
         !s.typeOps.typeParamsOf(tp2).exists { t2 =>
