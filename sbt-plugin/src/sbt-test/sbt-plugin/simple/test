@@ -1,5 +1,5 @@
 > assertLogMessage
 > + success/compile
 # check that a module on which stainless verification passes compiles fine (i.e., binaries are produced)
-$ exists success/target/scala-3.8.4-RC1-bin-20260325-e2afbcc-NIGHTLY/classes/Extern1.class
+$ exists success/target/scala-3.8.4-RC1-bin-20260327-ca312c4-NIGHTLY/classes/Extern1.class
 # > failure/checkScalaFailures
