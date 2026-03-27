@@ -29,7 +29,7 @@ class ImperativeCleanup(override val s: Trees, override val t: oo.Trees)
     import symbols._
 
     def isImperativeFlag(f: s.Flag): Boolean = f match {
-      case s.IsPure | s.IsVar | s.IsMutable | s.IsInternallyMutable | s.IsObservationallyPure(_) => true
+      case s.IsPure | s.IsVar | s.IsMutable | s.IsInternallyMutable => true
       case _ => false
     }
 

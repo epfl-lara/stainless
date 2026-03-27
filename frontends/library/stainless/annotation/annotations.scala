@@ -121,13 +121,3 @@ class anyHeapRef extends Annotation
 
 @ignore
 class refEq extends Annotation
-
-/**
-  * Used to mark functions observationally pure, meaning that they can have side effects but must be equivalent to a pure function. 
-  * The argument is the name of a pure function that is observationally equivalent to the annotated function.
-  * The observationally pure function is allowed to have effects only on internally mutable fields.
-  *
-  * @param toPureFunction
-  */
-@ignore 
-class observationallyPure(toPureFunction: String) extends Annotation

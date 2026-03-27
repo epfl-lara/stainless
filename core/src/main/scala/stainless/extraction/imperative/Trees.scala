@@ -233,7 +233,6 @@ trait Trees extends oo.Trees with Definitions { self =>
 
   case object IsVar extends Flag("var", Seq.empty)
   case object IsPure extends Flag("pure", Seq.empty)
-  case class IsObservationallyPure(pureFIdStr: String) extends Flag("observationallyPure", Seq(pureFIdStr))
   case object IsMutable extends Flag("mutable", Seq.empty)
   case object IsInternallyMutable extends Flag("internallyMutable", Seq.empty)
 
@@ -254,15 +253,6 @@ trait Trees extends oo.Trees with Definitions { self =>
 
   override def extractFlag(name: String, args: Seq[Expr]): Flag = (name, args) match {
     case ("pure", Seq()) => IsPure
-    case ("observationallyPure", Seq(pureFIdStr)) => 
-      val fname = pureFIdStr match {
-        case StringLiteral(n) => n
-        case _ => throw new IllegalArgumentException(s"Expected a string literal for the function name in @observationallyPure, got $pureFIdStr")
-      }
-      // val fdef: FunDef = s.lookup.get[FunDef](fname).getOrElse {
-      //   throw new NoSuchElementException(s"Could not find function ${fname} for @observationallyPure annotation")
-      // }
-      IsObservationallyPure(fname)
     case ("mutable", Seq()) => IsMutable
     case ("internallyMutable", Seq()) => IsInternallyMutable
     case _ => super.extractFlag(name, args)
@@ -505,7 +495,6 @@ trait TreeDeconstructor extends oo.TreeDeconstructor {
   override def deconstruct(f: s.Flag): DeconstructedFlag = f match {
     case s.IsVar => (Seq(), Seq(), Seq(), (_, _, _) => t.IsVar)
     case s.IsPure => (Seq(), Seq(), Seq(), (_, _, _) => t.IsPure)
-    case s.IsObservationallyPure(eqToF) => (Seq(), Seq(), Seq(), (_, _, _) => t.IsObservationallyPure(eqToF))
     case s.IsMutable => (Seq(), Seq(), Seq(), (_, _, _) => t.IsMutable)
     case s.IsInternallyMutable => (Seq(), Seq(), Seq(), (_, _, _) => t.IsInternallyMutable)
     case _ => super.deconstruct(f)

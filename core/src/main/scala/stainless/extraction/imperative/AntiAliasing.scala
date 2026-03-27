@@ -858,7 +858,8 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
             Block(updates, UnitLiteral().copiedFrom(up)).copiedFrom(up)
 
           case as @ FieldAssignment(o, id, v) =>
-            val accessor = typeToAccessor(o.getType, id)
+            val field = as.getField.getOrElse(throw MalformedStainlessCode(as, s"Unknown field ${id.name}"))
+            val accessor = typeToAccessor(o.getType, field)
             val targets = getDirectTargetsDealiased(o, accessor, env)
               .getOrElse(throw MalformedStainlessCode(as, "Unsupported form of field assignment"))
 

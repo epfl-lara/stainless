@@ -761,10 +761,10 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     rec(expr, Set.empty)
   }
 
-  protected def typeToAccessor(tpe: Type, id: Identifier)(using Symbols): Accessor = tpe match {
-    case at: ADTType   => ADTFieldAccessor(id)
-    case ct: ClassType => ClassFieldAccessor(id)
-    case ta: TypeApply => typeToAccessor(ta.getType, id)
+  protected def typeToAccessor(tpe: Type, field: ValDef)(using Symbols): Accessor = tpe match {
+    case at: ADTType   => ADTFieldAccessor(field.id)
+    case ct: ClassType => ClassFieldAccessor(field)
+    case ta: TypeApply => typeToAccessor(ta.getType, field)
     case _ => throw FatalError(s"Cannot have accessors over type $tpe")
   }
 
@@ -857,7 +857,8 @@ trait EffectsAnalyzer extends oo.CachingPhase {
         rec(map, env)
 
       case fa @ FieldAssignment(o, id, v) =>
-        val accessor = typeToAccessor(o.getType, id)
+        val field = fa.getField.getOrElse(throw MalformedStainlessCode(expr, s"Couldn't find field ${id.asString} in field assignment ${expr.asString}"))
+        val accessor = typeToAccessor(o.getType, field)
         rec(o, env) ++ rec(v, env) ++ effect(o, env).map(_.precise(accessor))
 
       case Application(callee, args) =>
@@ -914,8 +915,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
           val field = adt.getSort.constructors.flatMap(_.fields).find(_.id == id).get
           if (isInductive(field.getType, seen)) Seq()
           else fa +: rec(field.getType, xs, seen + adt.id)
-        case (ct: ClassType, (fa @ ClassFieldAccessor(id)) +: xs) =>
-          val field = getClassField(ct, id).get
+        case (ct: ClassType, (fa @ ClassFieldAccessor(field)) +: xs) =>
           if (isInductive(field.getType, seen)) Seq()
           else fa +: rec(field.getType, xs, seen + ct.id)
         case (tup: TupleType, (fa @ TupleFieldAccessor(idx)) +: xs) =>

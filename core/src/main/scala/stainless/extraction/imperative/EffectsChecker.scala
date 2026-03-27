@@ -345,7 +345,7 @@ trait EffectsChecker { self: EffectsAnalyzer =>
     def checkEnforcedPurity(fd: FunAbstraction, effs: Set[Effect], callsToImpure: Seq[(Identifier, Set[Variable])]): Unit = {
       val isPure = fd.flags.contains(IsPure)
       val isObsPure = fd.flags.exists(f => f match {
-        case IsObservationallyPure(_) => true
+        // case TODO
         case _ => false
       })
       val isInv = fd.flags.contains(IsInvariant)
