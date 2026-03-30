@@ -931,13 +931,13 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
       }
 
       case s.TuplePattern(Some(vd), _) =>
-        instanceOfPattern(super.transform(pat, vd.tpe), tpe, vd.tpe)
+        instanceOfPattern(super.transform(pat, vd.getType), tpe, vd.getType)
 
       case s.AlternativePattern(None, subs) =>
         t.AlternativePattern(None, subs.map(transform)).copiedFrom(pat)
 
       case s.AlternativePattern(Some(vd), subs) =>
-        instanceOfPattern(t.AlternativePattern(Some(transform(vd)), subs.map(transform)).copiedFrom(pat), tpe, vd.tpe)
+        instanceOfPattern(t.AlternativePattern(Some(transform(vd)), subs.map(transform)).copiedFrom(pat), tpe, vd.getType)
 
       case up @ s.UnapplyPattern(ob, recs, id, tps, subs) =>
         val funScope = this `in` id
