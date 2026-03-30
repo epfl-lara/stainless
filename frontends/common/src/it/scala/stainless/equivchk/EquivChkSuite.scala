@@ -4,7 +4,7 @@ package equivchk
 import org.scalatest.funsuite.AnyFunSuite
 import stainless.utils.{CheckFilter, JsonUtils, YesNoOnly}
 import stainless.verification.*
-import extraction.xlang.{TreeSanitizer, trees as xt}
+import extraction.skolems.{TreeSanitizer, trees as xt}
 import inox.{OptionValue, TestSilentReporter}
 import stainless.equivchk.EquivalenceCheckingReport.Status
 import stainless.extraction.utils.DebugSymbols

@@ -2,7 +2,7 @@ package stainless
 
 import _root_.io.circe.{Json, JsonObject}
 import stainless.extraction.utils.DebugSymbols
-import stainless.extraction.xlang.trees as xt
+import stainless.extraction.skolems.trees as xt
 import stainless.utils.CheckFilter
 
 import java.io.File

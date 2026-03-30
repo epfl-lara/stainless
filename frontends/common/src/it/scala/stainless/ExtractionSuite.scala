@@ -3,7 +3,7 @@
 package stainless
 
 import inox.utils.{Position, NoPosition}
-import stainless.extraction.xlang.trees as xt
+import stainless.extraction.skolems.trees as xt
 import stainless.extraction.utils.DebugSymbols
 import org.scalatest.funspec.AnyFunSpec
 

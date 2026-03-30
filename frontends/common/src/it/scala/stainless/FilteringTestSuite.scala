@@ -5,7 +5,7 @@ import org.scalatest.concurrent.*
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{CancelAfterFailure, Tag, exceptions}
-import stainless.extraction.xlang.{TreeSanitizer, trees as xt}
+import stainless.extraction.skolems.{TreeSanitizer, trees as xt}
 import stainless.utils.{CheckFilter, JsonUtils}
 import stainless.verification.VerificationComponent
 

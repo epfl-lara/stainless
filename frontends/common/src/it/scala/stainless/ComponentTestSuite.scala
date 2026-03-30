@@ -8,7 +8,7 @@ import org.scalatest.time.Span
 import org.scalatest.FixedThreadPoolParallelExecution
 import stainless.utils.YesNoOnly
 import extraction.ExtractionSummary
-import extraction.xlang.{trees as xt}
+import extraction.skolems.{trees as xt}
 import extraction.utils.DebugSymbols
 import stainless.ComponentTestSuite.LoadedPrograms
 
@@ -67,7 +67,7 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
         val defs = (unit.allFunctions(using lp.programSymbols).toSet ++ unit.allClasses).filter(identifierFilter)
 
         val deps = defs.flatMap(id => lp.programSymbols.dependencies(id) + id)
-        val symbols = extraction.xlang.trees.NoSymbols
+        val symbols = extraction.skolems.trees.NoSymbols
           .withClasses(lp.programSymbols.classes.values.filter(cd => deps(cd.id)).toSeq)
           .withFunctions(lp.programSymbols.functions.values.filter(fd => deps(fd.id)).toSeq)
           .withTypeDefs(lp.programSymbols.typeDefs.values.filter(td => deps(td.id)).toSeq)

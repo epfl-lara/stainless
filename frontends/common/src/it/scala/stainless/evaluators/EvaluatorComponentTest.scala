@@ -6,7 +6,7 @@ import inox.{OptionValue, TestSilentReporter}
 import org.scalatest.funsuite.AnyFunSuite
 import stainless.equivchk.EquivalenceCheckingReport.Status
 import stainless.extraction.utils.DebugSymbols
-import stainless.extraction.xlang.{TreeSanitizer, extractor, trees as xt}
+import stainless.extraction.skolems.{TreeSanitizer, extractor, trees as xt}
 import stainless.extraction.{ExtractionSummary, extractionSemantics}
 import stainless.utils.JsonUtils
 import stainless.verification.*

@@ -5,7 +5,7 @@ package verification
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
-import extraction.xlang.{ TreeSanitizer, trees => xt }
+import extraction.skolems.{ TreeSanitizer, trees => xt }
 
 class FullImperativeSuite extends VerificationComponentTestSuite with inox.MainHelpers {
 

@@ -4,7 +4,7 @@ package stainless
 
 import scala.concurrent.Await
 import scala.concurrent.duration.*
-import extraction.{ExtractionSummary, xlang}
+import extraction.{ExtractionSummary, skolems}
 import org.scalatest.funsuite.AnyFunSuite
 import stainless.Utils.prettyInvalidVCs
 import stainless.utils.YesNoOnly
@@ -73,7 +73,7 @@ abstract class AbstractLibrarySuite(opts: Seq[inox.OptionValue[?]]) extends AnyF
     assert(report.totalConditions == report.totalValid, errMsg)
   }
 
-  final def loadLibrary()(using inox.Context): Program { val trees: xlang.trees.type } = {
+  final def loadLibrary()(using inox.Context): Program { val trees: skolems.trees.type } = {
     val libFiles = keepOnly match {
       case Some(keepRelative) =>
         libraryFiles().filter(lib => keepRelative.exists(lib.endsWith))
