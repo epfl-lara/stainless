@@ -1492,6 +1492,8 @@ class CodeExtraction(inoxCtx: inox.Context,
 
     case ExOldExpression(e) => xt.Old(extractTree(e))
 
+    case ExSameAsExpression(e) => xt.SameAs(extractTree(e))
+
     case ExSnapshotExpression(e) => xt.Snapshot(extractTree(e))
 
     case ExFreshCopyExpression(t) => xt.FreshCopy(extractTree(t))

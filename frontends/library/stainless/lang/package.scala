@@ -267,6 +267,19 @@ package object lang {
   @extern @library
   def objectId[T <: AnyHeapRef](x: T): BigInt = ???
 
+  /**
+  * Used to mark functions observationally pure, meaning that they can have side effects but must be equivalent to a pure function. 
+  * The argument must be a call to a pure function that is observationally equivalent to the annotated function, with the same arguments.
+  * The observationally pure function is allowed to have effects only on internally mutable fields.
+  *
+  * @param toPureFunction
+  */
+  @ghost @library @pure @inlineOnce
+  def sameAs[B](v: B): B => Boolean = {
+    (res: B) => res == v
+  }
+
+
   @library
   case class Heap(/*opaque*/) {
     // Evaluates a value expression in the given heap.

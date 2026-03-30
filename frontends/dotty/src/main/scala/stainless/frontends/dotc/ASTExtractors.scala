@@ -1492,6 +1492,14 @@ trait ASTExtractors {
       }
     }
 
+    object ExSameAsExpression {
+      def unapply(tree: tpd.Apply): Option[tpd.Tree] = tree match {
+        case Apply(TypeApply(ExSymbol("stainless", "lang", "package$", "sameAs"), Seq(_)), Seq(arg)) => Some(arg)
+        case _ => None
+      }
+    }
+
+
     object ExSnapshotExpression {
       def unapply(tree: tpd.Apply): Option[tpd.Tree] = tree match {
         case Apply(TypeApply(ExSymbol("stainless", "lang", "package$", "snapshot"), Seq(_)), Seq(arg)) => Some(arg)

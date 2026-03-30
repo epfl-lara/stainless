@@ -133,6 +133,7 @@ class XLangSerializer(override val trees: extraction.xlang.Trees, serializeProdu
       stainlessClassSerializer[While]                       (192),
       stainlessClassSerializer[ArrayUpdate]                 (193),
       stainlessClassSerializer[Old]                         (194),
+      stainlessClassSerializer[SameAs]                      (263),
       stainlessClassSerializer[BoolBitwiseAnd]              (195),
       stainlessClassSerializer[BoolBitwiseOr]               (196),
       stainlessClassSerializer[BoolBitwiseXor]              (197),

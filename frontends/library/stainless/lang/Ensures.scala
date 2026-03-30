@@ -64,17 +64,4 @@ object Ensures {
     unfold(ensures4(f,post))
   }.ensuring(_ => post(a1, a2, a3, a4, f(a1,a2,a3,a4)))
 
-
-  /**
-  * Used to mark functions observationally pure, meaning that they can have side effects but must be equivalent to a pure function. 
-  * The argument must be a call to a pure function that is observationally equivalent to the annotated function, with the same arguments.
-  * The observationally pure function is allowed to have effects only on internally mutable fields.
-  *
-  * @param toPureFunction
-  */
-  @ghost @opaque @library @pure
-  def sameAs[B](v: B): B => Boolean = {
-    (res: B) => res == v
-  }
-
 }

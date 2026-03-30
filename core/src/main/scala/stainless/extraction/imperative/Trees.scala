@@ -148,6 +148,12 @@ trait Trees extends oo.Trees with Definitions { self =>
     protected def computeType(using Symbols): Type = e.getType
   }
 
+
+  /** $encodingof `sameAs(f(x, ..., z))` */
+  case class SameAs(e: Expr) extends Expr with CachingTyped {
+    protected def computeType(using Symbols): Type = e.getType
+  }
+
   /** $encodingof `snapshot(e)` */
   case class Snapshot(e: Expr) extends Expr with CachingTyped {
     protected def computeType(using Symbols): Type = e.getType
@@ -348,6 +354,9 @@ trait Printer extends oo.Printer {
     case Old(e) =>
       p"old($e)"
 
+    case SameAs(e) =>
+      p"sameAs($e)"
+
     case Snapshot(e) =>
       p"snapshot($e)"
 
@@ -447,6 +456,9 @@ trait TreeDeconstructor extends oo.TreeDeconstructor {
 
     case s.Old(e) =>
       (Seq(), Seq(), Seq(e), Seq(), Seq(), (_, _, es, _, _) => t.Old(es.head))
+
+    case s.SameAs(e) =>
+      (Seq(), Seq(), Seq(e), Seq(), Seq(), (_, _, es, _, _) => t.SameAs(es.head))
 
     case s.Return(e) =>
       (Seq(), Seq(), Seq(e), Seq(), Seq(), (_, _, es, _, _) => t.Return(es(0)))
