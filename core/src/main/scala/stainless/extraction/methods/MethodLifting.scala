@@ -64,6 +64,32 @@ class MethodLifting(override val s: Trees, override val t: oo.Trees)
 
   private val identity = new IdentityImpl(self.s, self.t)
 
+  private class AdtTransformer(override val s: self.s.type, override val t: self.t.type, symbols: s.Symbols)
+    extends BaseTransformer(s, t, symbols) {
+      def this(symbols: self.s.Symbols) = this(self.s, self.t, symbols)
+      var fieldsMap: Map[Identifier, t.ValDef] = Map.empty
+
+      override def transform(cd: s.ClassDef): t.ClassDef = {
+        val env = initEnv
+        val newFields = cd.fields.foreach { f => fieldsMap = fieldsMap + (f.id -> transform(f, env)) }
+
+        new t.ClassDef(
+          transform(cd.id, env),
+          cd.tparams.map(transform(_, env)),
+          cd.parents.map(ct => transform(ct, env).asInstanceOf[t.ClassType]),
+          fieldsMap.values.toSeq,
+          cd.flags.map(transform(_, env))
+        ).copiedFrom(cd)
+      }
+
+      override def transform(e: s.Expr): t.Expr = e match {
+        case s.ClassSelector(s.This(_), id) => 
+          assert(fieldsMap.contains(id), s"Field $id not found in previous ADT class fields")
+          fieldsMap(id).toVariable
+        case _ => super.transform(e)
+      }
+  }
+
   private class BaseTransformer(override val s: self.s.type,
                                 override val t: self.t.type,
                                 val symbols: s.Symbols) extends oo.ConcreteTreeTransformer(s, t) {
@@ -98,6 +124,7 @@ class MethodLifting(override val s: Trees, override val t: oo.Trees)
     val typeDefs = new scala.collection.mutable.ListBuffer[t.TypeDef]
 
     val default = new BaseTransformer(symbols)
+    val classTransformer = new AdtTransformer(symbols)
 
     for (cd <- symbols.classes.values) {
       val (invariants, functionToOverrides) = metadata(cd.id)(symbols)
@@ -120,7 +147,7 @@ class MethodLifting(override val s: Trees, override val t: oo.Trees)
       }
 
       val (cls, fun) = classCache.cached(cd, symbols) {
-        val cls = identity.transform(cd.copy(flags = cd.flags ++ invariants.map(fd => HasADTInvariant(fd.id))))
+        val cls = classTransformer.transform(cd.copy(flags = cd.flags ++ invariants.map(fd => HasADTInvariant(fd.id))))
         (cls, invs)
       }
 
