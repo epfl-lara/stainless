@@ -40,7 +40,7 @@ lazy val nTestSuiteParallelism = {
 
 // The Scala version with which Stainless is compiled.
 // Note: in case of version bump, do not forget to update the `test` files in `sbt-plugin` (for `sbt scripted`)!
-val stainlessScalaVersion = "3.8.3-RC1-bin-20260218-bb6fc60-NIGHTLY"
+val stainlessScalaVersion = "3.8.4-RC1-bin-20260327-ca312c4-NIGHTLY"
 val frontendDottyVersion = stainlessScalaVersion
 // The Stainless libraries use Scala 2.13 and Scala 3.5, and is compatible only with Scala 3.5.
 val stainlessLibScalaVersion = stainlessScalaVersion
