@@ -199,6 +199,12 @@ else
     echo "sbt scripted failed"
     exit 1
   fi
+  # Test packaging of the sbt plugin
+  bash bin/package-sbt-plugin.sh
+  if [ $? -ne 0 ]; then
+    echo "Packaging the sbt plugin failed"
+    exit 1
+  fi
 fi
 
 # bash bin/build-slc-lib.sh
