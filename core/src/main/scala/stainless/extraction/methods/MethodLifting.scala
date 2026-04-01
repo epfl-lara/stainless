@@ -67,7 +67,7 @@ class MethodLifting(override val s: Trees, override val t: oo.Trees)
   private class AdtTransformer(override val s: self.s.type, override val t: self.t.type, symbols: s.Symbols)
     extends oo.ConcreteTreeTransformer(s, t) {
       def this(symbols: self.s.Symbols) = this(self.s, self.t, symbols)
-      var fieldsMap: Map[Identifier, t.ValDef] = Map.empty
+      var fieldsMap: Map[Identifier, (t.ValDef, Int)] = Map.empty
 
       override def transform(cd: s.ClassDef): t.ClassDef = {
         val env = initEnv
@@ -75,8 +75,8 @@ class MethodLifting(override val s: Trees, override val t: oo.Trees)
         val newTpeParams = cd.tparams.map(transform(_, env))
         val newParents = cd.parents.map(ct => transform(ct, env).asInstanceOf[t.ClassType])
 
-        cd.fields.foreach { f => fieldsMap = fieldsMap + (f.id -> transform(f, env)) }
-        val newFields = fieldsMap.values.toSeq
+        cd.fields.zipWithIndex.foreach { case (f, i) => fieldsMap = fieldsMap + (f.id -> (transform(f, env), i)) }
+        val newFields = fieldsMap.values.toSeq.sortBy(_._2).map(_._1)
         fieldsMap = Map.empty
 
         val newFlags = cd.flags.map(transform(_, env))
@@ -87,7 +87,7 @@ class MethodLifting(override val s: Trees, override val t: oo.Trees)
       override def transform(e: s.Expr): t.Expr = e match {
         case s.ClassSelector(s.This(_), id) => 
           assert(fieldsMap.contains(id), s"Field $id not found in previous ADT class fields")
-          fieldsMap(id).toVariable
+          fieldsMap(id)._1.toVariable
         case _ => super.transform(e)
       }
   }
