@@ -894,7 +894,7 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
       vd.tpe match {
         case s.RefinementType(vd1, pred) => 
           withRefine(vd1) {
-            t.RefinementPattern(transform(vd1), body, transform(pred))
+            t.RefinementPattern(body, t.Lambda(Seq(transform(vd1)), transform(pred)))
           }
         case _ => body
       }
@@ -954,8 +954,8 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
           instanceOfPattern(t.AlternativePattern(Some(transform(vd)), subs.map(transform)).copiedFrom(pat), tpe, vd.getType)
         }.copiedFrom(pat)
 
-      case s.RefinementPattern(vd, pat, pred) =>
-        t.RefinementPattern(transform(vd), transform(pat, tpe.getType), transform(pred)).copiedFrom(pat)
+      case s.RefinementPattern(pat, pred) =>
+        t.RefinementPattern(transform(pat, tpe.getType), transform(pred).asInstanceOf[t.Lambda]).copiedFrom(pat)
 
       case up @ s.UnapplyPattern(ob, recs, id, tps, subs) =>
         val funScope = this `in` id
@@ -1069,7 +1069,7 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
               simple --= s.typeOps.typeParamsOf(in.getType)
               super.transform(pat, in)
 
-            case s.RefinementPattern(vd, pat, pred) =>
+            case s.RefinementPattern(pat, pred) =>
               simple --= s.typeOps.typeParamsOf(in.getType)
               super.transform(pat, in)
 

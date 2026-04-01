@@ -94,7 +94,8 @@ trait SymbolOps extends inox.ast.SymbolOps with TypeOps { self =>
         val disjunction = subps.map(p => apply(in, p).negate).reduce(_ `merge` _).negate
         bind(ob, in) `merge` disjunction
 
-      case RefinementPattern(vd, underlying, pred) =>
+      case RefinementPattern(underlying, Lambda(vds, pred)) =>
+        val Seq(vd) = vds: @unchecked
         val patCond = apply(in, underlying)
         bind(Some(vd), in) `merge` patCond `withCond` replaceFromSymbols(Map(vd -> in), pred)
 

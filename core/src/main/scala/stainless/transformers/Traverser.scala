@@ -22,13 +22,12 @@ trait Traverser extends inox.transformers.Traverser {
   }
 
   def traverse(pat: Pattern, env: Env): Unit = {
-    val (ids, vs, es, tps, pats, conds, _) = deconstructor.deconstruct(pat)
+    val (ids, vs, es, tps, pats, _) = deconstructor.deconstruct(pat)
     ids.foreach(traverse(_, env))
     vs.foreach(v => traverse(v.toVal, env))
     es.foreach(traverse(_, env))
     tps.foreach(traverse(_, env))
     pats.foreach(traverse(_, env))
-    conds.foreach(traverse(_, env))
   }
 }
 

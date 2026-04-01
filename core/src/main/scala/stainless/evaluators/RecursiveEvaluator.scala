@@ -145,7 +145,8 @@ abstract class RecursiveEvaluator(override val program: Program,
           case _ => None
         }
 
-      case (RefinementPattern(vd, underlying, pred), scrut) =>
+      case (RefinementPattern(underlying, Lambda(vds, pred)), scrut) =>
+        val Seq(vd) = vds: @unchecked
         matchesPattern(underlying, scrut).flatMap { mapping =>
           if (e(pred)(using rctx.withNewVar(vd, scrut), gctx) == BooleanLiteral(true)) {
             Some(mapping + (vd -> scrut))

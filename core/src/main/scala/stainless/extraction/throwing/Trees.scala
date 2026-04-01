@@ -181,13 +181,11 @@ trait TreeDeconstructor extends imperative.TreeDeconstructor {
       (Seq(), Seq(), Seq(ex), Seq(), Seq(), (_, _, es, _, _) => t.Throw(es.head))
 
     case s.Try(body, cases, fin) =>
-      val (cids, cvs, ces, ctps, conds, crecons) = deconstructCases(cases)
-      (cids, cvs, (body +: ces) ++ conds ++ fin, ctps, Seq(), (ids, vs, es, tps, _) => {
+      val (cids, cvs, ces, ctps, crecons) = deconstructCases(cases)
+      (cids, cvs, (body +: ces) ++ fin, ctps, Seq(), (ids, vs, es, tps, _) => {
         val newBody +: rest = es: @unchecked
-        val (nes0, newFin) = if (fin.isEmpty) (rest, None) else (rest.init, rest.lastOption)
-        val newConds = nes0.take(conds.size)
-        val nes = nes0.drop(conds.size)
-        t.Try(newBody, crecons(ids, vs, nes, tps, newConds), newFin)
+        val (nes, newFin) = if (fin.isEmpty) (rest, None) else (rest.init, rest.lastOption)
+        t.Try(newBody, crecons(ids, vs, nes, tps), newFin)
       })
 
     case _ => super.deconstruct(e)

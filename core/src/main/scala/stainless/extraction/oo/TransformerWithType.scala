@@ -49,11 +49,10 @@ trait TransformerWithType extends TreeTransformer {
       val rsubs = subs map (transform(_, tpe))
       t.AlternativePattern(ob map transform, rsubs).copiedFrom(pat)
 
-    case s.RefinementPattern(vd, underlying, pred) =>
+    case s.RefinementPattern(underlying, pred) =>
       t.RefinementPattern(
-        transform(vd),
         transform(underlying, tpe),
-        transform(pred)
+        transform(pred).asInstanceOf[t.Lambda]
       ).copiedFrom(pat)
 
     case up @ s.UnapplyPattern(ob, recs, id, tps, subs) =>

@@ -467,13 +467,11 @@ class ExprOps(override val trees: Trees) extends inox.ast.ExprOps(trees) { self 
           env ++ freshVdOpt.map(freshVd => vdOpt.get.id -> freshVd.id)
         )
 
-      case RefinementPattern(vd, underlying, pred) =>
-        val freshVd = transform(vd.freshen, env)
+      case RefinementPattern(underlying, pred) =>
         val newUnderlying = transformAndGetEnv(underlying, env)
-        val newEnv = env + (vd.id -> freshVd.id)
         (
-          RefinementPattern(freshVd, newUnderlying._1, transform(pred, newEnv)),
-          newEnv ++ newUnderlying._2
+          RefinementPattern(newUnderlying._1, transform(pred, env).asInstanceOf[Lambda]),
+          env ++ newUnderlying._2
         )
 
       case LiteralPattern(vdOpt, lit) =>

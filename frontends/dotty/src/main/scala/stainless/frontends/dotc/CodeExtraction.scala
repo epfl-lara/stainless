@@ -930,8 +930,6 @@ class CodeExtraction(inoxCtx: inox.Context,
       (dctx.copy(tparams = dctx.tparams + (sym -> tp)), tparams :+ tp)
     }._2
   }
-
-  //private def withRefine(tpe: xt.Type)(f: xt.Type => (xt.Pattern, DefContext)) =
     
   // Note: `expectedTpe` is used to check for redundant type checks that can appear in some patterns.
   // For instance, the following expression (assuming a: A and b: B) is a valid pattern:
@@ -957,8 +955,6 @@ class CodeExtraction(inoxCtx: inox.Context,
       extractPattern(pat, expectedTpe, Some(vd))(using pctx)
 
     case t @ Typed(Ident(nme.WILDCARD), tpt) =>
-      println(s"Expected type: ${expectedTpe}, actual type: $tpt; extracted: ${extractType(tpt)(using dctx.setResolveTypes(true))}")
-
       def rec(tpe: xt.Type): (xt.Pattern, DefContext) = tpe match {
         case ct: xt.ClassType =>
           (xt.InstanceOfPattern(binder, ct).setPos(p.sourcePos), dctx)
@@ -966,7 +962,7 @@ class CodeExtraction(inoxCtx: inox.Context,
           (xt.WildcardPattern(binder), dctx)
         case xt.RefinementType(vd, pred) =>
           val (pat, ctx) = rec(vd.tpe)
-          (xt.RefinementPattern(vd, pat, pred), ctx)
+          (xt.RefinementPattern(pat, xt.Lambda(Seq(vd), pred)), ctx)
         case lt =>
           outOfSubsetError(p, s"Unsupported pattern: ${p.show}")
       }
@@ -2040,7 +2036,8 @@ class CodeExtraction(inoxCtx: inox.Context,
       )
   }
 
-  private def extractCall(tr: tpd.Tree, rec: Option[tpd.Tree], sym: Symbol, tps: Seq[tpd.Tree], args: Seq[tpd.Tree])(using dctx: DefContext): xt.Expr = rec match {
+  private def extractCall(tr: tpd.Tree, rec: Option[tpd.Tree], sym: Symbol, tps: Seq[tpd.Tree], args: Seq[tpd.Tree])(using dctx: DefContext): xt.Expr = 
+    rec match {
     case None if (sym.owner `is` ModuleClass) && (sym.owner `is` Case) =>
       val ct = extractType(sym.owner.thisType)(using dctx, tr.sourcePos).asInstanceOf[xt.ClassType]
       xt.MethodInvocation(
@@ -2058,7 +2055,7 @@ class CodeExtraction(inoxCtx: inox.Context,
           xt.ApplyLetRec(id, tparams.map(_.tp), tpe, tps map extractType, extractArgs(sym, args)).setPos(tr.sourcePos)
       }
 
-    case Some(lhs) => stripAnnotationsExceptStrictBV(extractType(lhs)(using dctx.setResolveTypes(true))) match {
+    case Some(lhs) => stripAnnotationsExceptStrictBV(extractType(lhs)(using dctx.setResolveTypes(true))).stripToplevelRefinement match {
       case ct: (xt.ClassType | xt.LocalClassType) =>
         val isCtorField = (sym `is` ParamAccessor) || (sym `is` CaseAccessor)
         val isNonCtorField = sym.isField && !isCtorField
