@@ -51,6 +51,11 @@ trait TypeOps extends inox.ast.TypeOps {
         ob.forall(vd => isSubtypeOf(vd.getType, in)) &&
         (subs exists (patternIsTyped(in, _)))
 
+      case RefinementPattern(vd, underlying, pred) =>
+        patternIsTyped(in, underlying) &&
+        isSubtypeOf(vd.getType, in) &&
+        isSubtypeOf(pred.getType, BooleanType())
+
       case up @ UnapplyPattern(ob, recs, id, tps, subs) =>
         ob.forall(vd => isSubtypeOf(vd.getType, in)) &&
         lookupFunction(id).exists(_.tparams.size == tps.size) && {

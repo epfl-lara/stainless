@@ -260,6 +260,7 @@ trait TypeOps extends innerfuns.TypeOps { self =>
         .getOrElse(Untyped)
     case TuplePattern(_, subs) => TupleType(subs map patternInType)
     case AlternativePattern(_, subs) => leastUpperBound(subs map patternInType)
+    case RefinementPattern(vd, underlying, _) => vd.getType
     case ClassPattern(_, ct, subs) => ct
     case UnapplyPattern(_, recs, id, tps, _) =>
       lookupFunction(id)

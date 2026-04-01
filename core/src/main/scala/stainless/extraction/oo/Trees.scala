@@ -449,11 +449,11 @@ trait TreeDeconstructor extends innerfuns.TreeDeconstructor {
 
   override def deconstruct(pattern: s.Pattern): DeconstructedPattern = pattern match {
     case s.ClassPattern(binder, ct, subs) =>
-      (Seq(), binder.map(_.toVariable).toSeq, Seq(), Seq(ct), subs, (_, vs, _, tps, subs) => {
+      (Seq(), binder.map(_.toVariable).toSeq, Seq(), Seq(ct), subs, Seq(), (_, vs, _, tps, subs, _) => {
         t.ClassPattern(vs.headOption.map(_.toVal), tps.head.asInstanceOf[t.ClassType], subs)
       })
     case s.InstanceOfPattern(binder, ct) =>
-      (Seq(), binder.map(_.toVariable).toSeq, Seq(), Seq(ct), Seq(), (_, vs, _, tps, _) => {
+      (Seq(), binder.map(_.toVariable).toSeq, Seq(), Seq(ct), Seq(), Seq(), (_, vs, _, tps, _, _) => {
         t.InstanceOfPattern(vs.headOption.map(_.toVal), tps.head)
       })
     case _ => super.deconstruct(pattern)

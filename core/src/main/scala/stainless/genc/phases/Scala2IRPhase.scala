@@ -468,6 +468,9 @@ private class S2IRImpl(override val s: tt.type,
       case AlternativePattern(_, _) =>
         reporter.fatalError(pat.getPos, s"Alternative Pattern, a.k.a pattern disjunction, is not yet supported by GenC")
 
+      case RefinementPattern(vd, pat, pred) =>
+        reporter.fatalError(pat.getPos, s"Refinement Pattern, a.k.a pattern with a predicate, is not yet supported by GenC")
+
       case UnapplyPattern(_, _, _, _, _) =>
         reporter.fatalError(pat.getPos, s"Unapply Pattern, a.k.a. Extractor Objects, is not supported by GenC")
     }

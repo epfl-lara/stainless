@@ -227,6 +227,8 @@ trait CoqEncoder {
       CoqTuplePatternVd(ps.map(transformPattern), VariablePattern(Some(makeFresh(id))))
     case AlternativePattern(_, _) =>
       ctx.reporter.fatalError(s"The translation to Coq does not support disjunctive patterns such as `$p` (${p.getClass}) yet.")
+    case RefinementPattern(_, _, _) =>
+      ctx.reporter.fatalError(s"The translation to Coq does not support refinement patterns such as `$p` (${p.getClass}) yet.")
     case _ => ctx.reporter.fatalError(s"Coq does not support patterns such as `$p` (${p.getClass}) yet.")
   }
 

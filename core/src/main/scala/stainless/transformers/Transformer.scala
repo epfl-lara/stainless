@@ -64,7 +64,7 @@ trait Transformer extends inox.transformers.Transformer { self =>
   }
 
   def transform(pat: s.Pattern, env: Env): t.Pattern = {
-    val (ids, vs, es, tps, pats, builder) = deconstructor.deconstruct(pat)
+    val (ids, vs, es, tps, pats, conds, builder) = deconstructor.deconstruct(pat)
     var changed = false
 
     val newIds = for (id <- ids) yield {
@@ -98,8 +98,14 @@ trait Transformer extends inox.transformers.Transformer { self =>
       newPat
     }
 
+    val newConds = for (cond <- conds) yield {
+      val newCond = transform(cond, env)
+      if (cond ne newCond) changed = true
+      newCond
+    }
+
     if (changed || (s ne t)) {
-      builder(newIds, newVs, newEs, newTps, newPats).copiedFrom(pat)
+      builder(newIds, newVs, newEs, newTps, newPats, newConds).copiedFrom(pat)
     } else {
       pat.asInstanceOf[t.Pattern]
     }
