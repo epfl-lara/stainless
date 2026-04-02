@@ -13,4 +13,6 @@ extension (a:Nat)
 
 def cp[T](x: Nat): Nat =
   if x == 0 then x
-  else nat(1) +++ nat(x-1)
+  else 
+    val n1 = nat(1)
+    n1 +++ nat(x-1)
