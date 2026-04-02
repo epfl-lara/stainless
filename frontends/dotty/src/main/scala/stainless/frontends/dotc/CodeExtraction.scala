@@ -1799,7 +1799,7 @@ class CodeExtraction(inoxCtx: inox.Context,
     case If(t1,t2,t3) =>
       xt.IfExpr(extractTree(t1), extractTree(t2), extractTree(t3))
 
-    case TypeApply(s @ Select(t, _), Seq(tpt)) if s.symbol == defn.Any_asInstanceOf =>
+    case TypeApply(s @ Select(t, _), Seq(tpt)) if s.symbol == defn.Any_asInstanceOf || s.symbol == defn.Any_typeCast =>
       extractType(tpt) match {
         case ct: xt.ClassType => xt.AsInstanceOf(extractTree(t), ct)
         case rt: xt.RefinementType => xt.AsInstanceOf(extractTree(t), rt)
@@ -2388,9 +2388,6 @@ class CodeExtraction(inoxCtx: inox.Context,
           case xt.FPType(11, 53) => extractTree(lhs)
           case tpe => outOfSubsetError(tr, s"Unexpected cast .toDouble from $tpe")
         }
-
-        case (tpe, "$asInstanceOf$", args) =>
-          xt.AsInstanceOf(extractTree(lhs), tpe)
 
         case (tpe, name, args) =>
           outOfSubsetError(tr, s"Unsupported call to $name on ${lhs.show}")
