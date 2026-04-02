@@ -29,6 +29,24 @@ class FunctionClosure(override val s: Trees, override  val t: ast.Trees)
       tparamsMap: Map[TypeParameter, TypeParameter]
     )
 
+    // Keep captured variables ordered by their lexical definition in `fd`.
+    // This is important because types of later vars may depend on earlier ones.
+    lazy val definitionOrder: Map[Identifier, Int] = {
+      val order = scala.collection.mutable.LinkedHashMap.empty[Identifier, Int]
+      def record(vd: ValDef): Unit = {
+        if (!order.contains(vd.id)) order += (vd.id -> order.size)
+      }
+
+      fd.params.foreach(record)
+      exprOps.preTraversal {
+        case Let(vd, _, _) => record(vd)
+        case Lambda(args, _) => args.foreach(record)
+        case _ =>
+      }(fd.fullBody)
+
+      order.toMap
+    }
+
     def closeFd(inner: LocalFunDef, outer: FunDef, pc: Path, free: Seq[ValDef]): FunSubst = {
       val LocalFunDef(id, tparams, params, returnType, fullBody, flags) = inner
 
@@ -216,7 +234,10 @@ class FunctionClosure(override val s: Trees, override  val t: ast.Trees)
 
       val transFree: Map[Identifier, (Seq[Variable], Path)] =
         //transFreeWithBindings.map(p => (p._1, p._2 -- nestedWithPaths(p._1).bindings.map(_._1))).map(p => (p._1, p._2.toSeq))
-        transFreeWithBindings.map { case (id, (vars, pc)) => id -> (vars.toSeq.sortBy(_.id.globalId), pc) }
+        transFreeWithBindings.map { case (id, (vars, pc)) =>
+          val orderedVars = vars.toSeq.sortBy(v => definitionOrder.getOrElse(v.id, v.id.globalId))
+          id -> (orderedVars, pc)
+        }
 
       // Closed functions along with a map (old var -> new var).
       val closed = nestedFuns.map { inner =>
