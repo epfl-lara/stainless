@@ -68,6 +68,16 @@ class CodeExtraction(inoxCtx: inox.Context,
 
   def outOfSubsetError(t: tpd.Tree, msg: String): Nothing = outOfSubsetError(t.sourcePos, msg)
 
+  def skolemError(pos: SourcePosition): Nothing =
+    outOfSubsetError(
+      pos,
+      s"""|Skolems are not supported in Stainless.
+          |For a workaround:
+          | - rewrite code to ANF,
+          | - add an explicit type annotation (to avoid type inference).
+          |""".stripMargin
+    )
+
   private case class DefContext(
     tparams: ListMap[Symbol, xt.TypeParameter] = ListMap(),
     vars: Map[Symbol, () => xt.Expr] = Map(),
@@ -1650,6 +1660,8 @@ class CodeExtraction(inoxCtx: inox.Context,
 
     case ExSymbol("scala", "Predef$", "$qmark$qmark$qmark" | "???") => xt.NoTree(extractType(tr))
 
+    case ExSkolemTerm(name) => skolemError(tr.sourcePos)
+
     case Typed(e, _) =>
       extractTree(e)
 
@@ -2774,6 +2786,8 @@ class CodeExtraction(inoxCtx: inox.Context,
         xt.AnnotatedType(extractType(tpe), Seq(xt.IndexedAt(extractTree(n))))
 
       case AnnotatedType(tpe, _) => extractType(tpe)
+
+      case SkolemType(_) => skolemError(tpt.typeSymbol.sourcePos)
 
       case _ =>
         if (tpt ne null) {
