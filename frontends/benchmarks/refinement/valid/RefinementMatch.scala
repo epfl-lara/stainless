@@ -14,4 +14,4 @@ def checkNonNegative2(b: Boolean): Boolean =
   val box = Box(if b then 42 else 0)
   box match
     case Box(p : Pos) => true
-    case b @ Box(_ : {i: Int with i == 0}) => true
+    case b @ Box(i: Int with i == 0) => true
