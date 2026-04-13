@@ -40,6 +40,7 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
       })
     case s.RefinementPattern(underlying, pred) =>
       (Seq(), Seq(), Seq(pred), Seq(), Seq(underlying), (_, _, es, _, pats) => {
+        assert(es.head.isInstanceOf[t.Lambda], "Refinement pattern predicate should be a lambda")
         t.RefinementPattern(pats.head, es.head.asInstanceOf[t.Lambda])
       })
   }

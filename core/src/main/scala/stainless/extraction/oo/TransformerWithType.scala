@@ -50,9 +50,11 @@ trait TransformerWithType extends TreeTransformer {
       t.AlternativePattern(ob map transform, rsubs).copiedFrom(pat)
 
     case s.RefinementPattern(underlying, pred) =>
+      val newPred = transform(pred)
+      assert(newPred.isInstanceOf[t.Lambda], "Refinement pattern predicate should be a lambda")
       t.RefinementPattern(
         transform(underlying, tpe),
-        transform(pred).asInstanceOf[t.Lambda]
+        newPred.asInstanceOf[t.Lambda]
       ).copiedFrom(pat)
 
     case up @ s.UnapplyPattern(ob, recs, id, tps, subs) =>
