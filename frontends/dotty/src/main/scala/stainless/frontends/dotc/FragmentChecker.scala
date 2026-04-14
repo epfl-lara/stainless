@@ -293,7 +293,14 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
                 withinGhostContext(traverse(rhs))
               else
                 traverseChildren(tree)
+            
+            // Qualified types (i.e., extracted as Refinement types in Stainless)
+            case Annotated(tpt, annot) =>                                                                                                                                                                                                                                                                                                                                         
+              // The annot tree contains the qualifier lambda                                                                                                                                                                                                                                                                                                                   
+              withinGhostContext(traverse(annot))                                                                                                                                                                                                                                                                                                                                 
+              traverse(tpt)      
 
+            // TODO manage the cases where Qualified types occur in a pattern or isInstanceOF, where they should not allow ghost code.
             case _ =>
               traverseChildren(tree)
           }
