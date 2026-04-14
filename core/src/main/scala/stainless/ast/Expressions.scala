@@ -162,7 +162,13 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
     * 
     * If [[binder]] is empty, consider a wildcard `_` in its place.
     */
-  sealed case class AlternativePattern(binder: Option[ValDef], subPatterns: Seq[Pattern]) extends Pattern 
+  sealed case class AlternativePattern(binder: Option[ValDef], subPatterns: Seq[Pattern]) extends Pattern
+
+
+  sealed case class RefinementPattern(underlying: Pattern, pred: Lambda) extends Pattern {
+    override val subPatterns: Seq[Pattern] = Seq(underlying)
+    override val binder: Option[ValDef] = underlying.binder
+  }
 
   protected def unapplyScrut(scrut: Expr, up: UnapplyPattern)(using s: Symbols): Expr = {
     FunctionInvocation(up.id, up.tps, up.recs :+ scrut)

@@ -49,6 +49,14 @@ trait TransformerWithType extends TreeTransformer {
       val rsubs = subs map (transform(_, tpe))
       t.AlternativePattern(ob map transform, rsubs).copiedFrom(pat)
 
+    case s.RefinementPattern(underlying, pred) =>
+      val newPred = transform(pred)
+      assert(newPred.isInstanceOf[t.Lambda], "Refinement pattern predicate should be a lambda")
+      t.RefinementPattern(
+        transform(underlying, tpe),
+        newPred.asInstanceOf[t.Lambda]
+      ).copiedFrom(pat)
+
     case up @ s.UnapplyPattern(ob, recs, id, tps, subs) =>
       val rsubs = (subs zip up.subTypes(tpe)).map(p => transform(p._1, p._2))
       val rrecs = (recs zip getFunction(id, tps).params.init).map(p => transform(p._1, p._2.getType))

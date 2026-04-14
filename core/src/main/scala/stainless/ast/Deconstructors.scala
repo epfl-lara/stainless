@@ -38,6 +38,11 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
       (Seq(), binder.map(_.toVariable).toSeq, Seq(), Seq(), subs, (_, vs, _, _, pats) => {
         t.AlternativePattern(vs.headOption.map(_.toVal), pats)
       })
+    case s.RefinementPattern(underlying, pred) =>
+      (Seq(), Seq(), Seq(pred), Seq(), Seq(underlying), (_, _, es, _, pats) => {
+        assert(es.head.isInstanceOf[t.Lambda], "Refinement pattern predicate should be a lambda")
+        t.RefinementPattern(pats.head, es.head.asInstanceOf[t.Lambda])
+      })
   }
 
   /** Rebuild a match case from the given set of identifiers, variables, expressions and types */
