@@ -200,12 +200,21 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
 
       class GhostAnnotationChecker extends tpd.TreeTraverser {
         private var ghostContext: Boolean = false
+        private var patternContext: Boolean = false
 
         def withinGhostContext[A](body: => A): A = {
           val old = ghostContext
           ghostContext = true
           val res = body
           ghostContext = old
+          res
+        }
+
+        def withinPatternContext[A](body: => A): A = {
+          val old = patternContext
+          patternContext = true
+          val res = body
+          patternContext = old
           res
         }
 
@@ -295,12 +304,20 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
                 traverseChildren(tree)
             
             // Qualified types (i.e., extracted as Refinement types in Stainless)
-            case Annotated(tpt, annot) =>                                                                                                                                                                                                                                                                                                                                         
-              // The annot tree contains the qualifier lambda                                                                                                                                                                                                                                                                                                                   
-              withinGhostContext(traverse(annot))                                                                                                                                                                                                                                                                                                                                 
-              traverse(tpt)      
+            // In patterns, the predicate is executed at runtime, so ghost access is not allowed.
+            // In other positions (parameter types, return types), predicates are ghost.
+            case Annotated(tpt, annot) =>
+              if (patternContext)
+                traverse(annot)
+              else
+                withinGhostContext(traverse(annot))
+              traverse(tpt)
 
-            // TODO manage the cases where Qualified types occur in a pattern or isInstanceOF, where they should not allow ghost code.
+            case cd: tpd.CaseDef =>
+              withinPatternContext(traverse(cd.pat))
+              traverse(cd.guard)
+              traverse(cd.body)
+
             case _ =>
               traverseChildren(tree)
           }
