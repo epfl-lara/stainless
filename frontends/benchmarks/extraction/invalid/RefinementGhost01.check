@@ -1,0 +1,6 @@
+[ Error  ] RefinementGhost01.scala:10:36: Cannot access a ghost symbol outside of a ghost context. [ A.this.x in method $anonfun ]
+                 case _: {i: BigInt with i >= x} => true
+                                              ^
+[ Error  ] RefinementGhost01.scala:11:35: Cannot access a ghost symbol outside of a ghost context. [ A.this.x in method $anonfun ]
+                 case _: {i: BigInt with i < x} => false
+                                             ^

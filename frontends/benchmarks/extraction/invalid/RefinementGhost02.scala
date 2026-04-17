@@ -3,7 +3,7 @@ import stainless.annotation.ghost
 import stainless.lang._
 import stainless.lang.StaticChecks._
 
-case class ClassWithInvariant(@ghost val x: BigInt) {
+case class A(@ghost val x: BigInt) {
 
   def f(v: BigInt): Boolean = {
     require(v >= x)
