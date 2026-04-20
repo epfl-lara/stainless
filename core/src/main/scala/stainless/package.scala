@@ -16,12 +16,19 @@ package object stainless {
     val parser = inox.OptionParsers.stringParser
     val usageRhs = "file"
   }
-  
+
   object optSatPrecond extends inox.FlagOptionDef("sat-precond", false)
   def isoptSatPrecondOn(using ctx: inox.Context): Boolean = ctx.options.findOptionOrDefault(optSatPrecond)
 
   object optWatch extends inox.FlagOptionDef("watch", false)
   def isWatchModeOn(using ctx: inox.Context): Boolean = ctx.options.findOptionOrDefault(optWatch)
+
+  object optWatchJson extends inox.OptionDef[String] {
+    val name = "watch-json"
+    val default = "report.json"
+    val parser = inox.OptionParsers.stringParser
+    val usageRhs = "file"
+  }
 
   object optCompact extends inox.FlagOptionDef("compact", false)
   def isCompactModeOn(using ctx: inox.Context): Boolean = ctx.options.findOptionOrDefault(optCompact)
