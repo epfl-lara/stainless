@@ -881,8 +881,18 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
               case (vd, i) if ownEffects.contains(i) => Some(vd)
               case _ => None
             }
-            // Disallow capturing of variables of mutable type
-            val captured = varsOfExprDealiased(body, env).filter(vd => isMutableType(vd.tpe)) -- aliasedParams.map(_.toVariable).toSet
+            // Disallow capturing of variables of mutable type, but allow capturing
+            // of mutable objects when they are only accessed through immutable (val)
+            // fields whose types are also immutable (e.g., accessing a val BigInt field
+            // of a mutable class).
+            val allVarsInBody = exprOps.variablesOf(body)
+            val safeVars = allVarsInBody.filter(v => isMutableType(v.tpe) && isAccessedOnlyThroughImmutableFields(v, body))
+            val captured = (allVarsInBody -- safeVars).flatMap { v =>
+              env.targets.get(v.toVal) match {
+                case Some(targets) => targets.map(_.receiver)
+                case None => Set(v)
+              }
+            }.filter(vd => isMutableType(vd.tpe)) -- aliasedParams.map(_.toVariable).toSet
             if (captured.nonEmpty) {
               context.reporter.fatalError(l.getPos, "Illegal capturing of variables with mutable type: " + captured.mkString(", "))
             }
@@ -1003,6 +1013,22 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
 
           case Operator(es, recons) => recons(es.map(transform(_, env)))
         }).copiedFrom(e)
+
+        // Checks whether the given variable `v` (of mutable type) is only accessed
+        // through ClassSelector on `val` fields whose types are immutable.
+        // In such cases, the lambda does not effectively capture mutable state.
+        def isAccessedOnlyThroughImmutableFields(v: Variable, expr: Expr): Boolean = {
+          def check(e: Expr): Boolean = e match {
+            case cs @ ClassSelector(recv, _) if recv == v =>
+              cs.field match {
+                case Some(vd) if !(vd.flags contains IsVar) && !isMutableType(vd.tpe) => true
+                case _ => false
+              }
+            case w: Variable => w != v
+            case Operator(es, _) => es.forall(check)
+          }
+          check(expr)
+        }
 
         def varsOfExprDealiased(expr: Expr, env: Env): Set[Variable] = {
           exprOps.variablesOf(expr).flatMap { v =>
