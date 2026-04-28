@@ -1,3 +1,3 @@
 [ Error  ] RefinementGhost02.scala:11:44: Cannot access a ghost symbol outside of a ghost context. [ A.this.x in method $anonfun ]
                if(v.isInstanceOf[{i: BigInt with i >= x}]) then true else false
-                       
+                                                      ^
