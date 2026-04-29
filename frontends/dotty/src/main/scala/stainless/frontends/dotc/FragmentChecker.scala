@@ -200,12 +200,21 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
 
       class GhostAnnotationChecker extends tpd.TreeTraverser {
         private var ghostContext: Boolean = false
+        private var executedRefinementContext: Boolean = false
 
         def withinGhostContext[A](body: => A): A = {
           val old = ghostContext
           ghostContext = true
           val res = body
           ghostContext = old
+          res
+        }
+
+        def withinExecutedRefinementContext[A](body: => A): A = {
+          val old = executedRefinementContext
+          executedRefinementContext = true
+          val res = body
+          executedRefinementContext = old
           res
         }
 
@@ -293,6 +302,27 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
                 withinGhostContext(traverse(rhs))
               else
                 traverseChildren(tree)
+            
+            // Qualified types (i.e., extracted as Refinement types in Stainless)
+            // In patterns and isInstanceOf, the predicate is executed at runtime,
+            // so ghost access is not allowed.
+            // In other positions (parameter types, return types), predicates are ghost.
+            case Annotated(tpt, annot) =>
+              if (executedRefinementContext)
+                traverse(annot)
+              else
+                withinGhostContext(traverse(annot))
+              traverse(tpt)
+
+            case cd: tpd.CaseDef =>
+              withinExecutedRefinementContext(traverse(cd.pat))
+              traverse(cd.guard)
+              traverse(cd.body)
+
+            // isInstanceOf[T]: the type argument's refinement predicate is executed at runtime
+            case TypeApply(s @ Select(expr, _), targs) if s.symbol == defn.Any_isInstanceOf =>
+              traverse(expr)
+              targs.foreach(targ => withinExecutedRefinementContext(traverse(targ)))
 
             case _ =>
               traverseChildren(tree)
