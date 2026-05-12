@@ -111,11 +111,10 @@ final class TailRecTransformer(val ctx: inox.Context) extends Transformer(SIR, T
       val labelName = freshId("label")
       val bodyWithNewParams = replaceBindings(newParamMap, body)
       val bodyWithUnitReturn = bodyWithNewParams match {
-        case Block(stmts) =>
-          if fd.returnType.isUnitType then
-            Block(stmts :+ Return(Lit(UnitLit)))
-          else
-            bodyWithNewParams
+        case Block(stmts) if fd.returnType.isUnitType =>
+          Block(stmts :+ Return(Lit(UnitLit)))
+        case _ if fd.returnType.isUnitType =>
+          Block(Seq(bodyWithNewParams, Return(Lit(UnitLit))))
         case _ => bodyWithNewParams
       }
       val declarations = newParamMap.toList.map { case (old, nw) => Decl(nw, Some(Binding(old))) }
