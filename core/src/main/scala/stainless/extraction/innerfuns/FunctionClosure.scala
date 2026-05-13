@@ -11,6 +11,8 @@ class FunctionClosure(override val s: Trees, override  val t: ast.Trees)
      with SimplyCachedFunctions
      with IdentitySorts { self =>
 
+  type VarWithOptRhs[V] = (v: V, rhs: Option[s.Expr])
+
   override protected type FunctionResult = Seq[t.FunDef]
   override protected type TransformerContext = s.Symbols
   override protected def getContext(symbols: s.Symbols) = symbols
@@ -47,7 +49,7 @@ class FunctionClosure(override val s: Trees, override  val t: ast.Trees)
       order.toMap
     }
 
-    def closeFd(inner: LocalFunDef, outer: FunDef, pc: Path, free: Seq[ValDef]): FunSubst = {
+    def closeFd(inner: LocalFunDef, outer: FunDef, pc: Path, free: Seq[VarWithOptRhs[ValDef]]): FunSubst = {
       val LocalFunDef(id, tparams, params, returnType, fullBody, flags) = inner
 
       val tpFresh = outer.tparams map { _.freshen }
@@ -55,16 +57,22 @@ class FunctionClosure(override val s: Trees, override  val t: ast.Trees)
 
       val inst = new typeOps.TypeInstantiator(tparamsMap)
 
-      val (paramSubst, freshVals) = (free ++ params)
-        .foldLeft((Map[ValDef, Expr](), Seq[(ValDef, ValDef)]())) { case ((paramSubst, params), vdOld) =>
+      val (paramSubst, freshVals) = (free ++ params.map((_, None)))
+        .foldLeft((Map[ValDef, Expr](), Seq[(ValDef, ValDef)]())) { case ((paramSubst, params), (vdOld, rhs)) =>
           val vd = vdOld.copy(tpe = typeOps.instantiateType(vdOld.tpe, tparamsMap))
-          val ntpe = typeOps.replaceFromSymbols(paramSubst, vd.tpe)
+          val tpeWithRef = rhs match {
+            case Some(rhs) =>
+              val param = ValDef(FreshIdentifier("param"), vd.tpe)
+              RefinementType(param, Equals(param.toVariable, rhs))
+            case None => vd.tpe
+          }
+          val ntpe = typeOps.replaceFromSymbols(paramSubst, tpeWithRef)
           val nvd = ValDef(vd.id.freshen, ntpe, vd.flags).copiedFrom(vd)
           (paramSubst + (vd -> nvd.toVariable), params :+ (vdOld -> nvd))
         }
 
       val freeMap = freshVals.toMap
-      val freshParams = freshVals.filterNot(p => pc.bindings exists (_._1.id == p._1.id)).map(_._2)
+      val freshParams = freshVals.map(_._2)
 
       // We annotate outer path conditions with `DropConjunct` so that they are not checked when
       // calling the inner function (as we know they already hold at this point).
@@ -163,7 +171,7 @@ class FunctionClosure(override val s: Trees, override  val t: ast.Trees)
       // Also contains free vars from PC if the PC is relevant to the fundef.
       // Also contains the open and closed vars of the PC, these will be filtered out at some
       // later point when computing the relevant arguments (see `closeFd`).
-      val transFreeWithBindings: Map[Identifier, (Set[Variable], Path)] = {
+      val transFreeWithBindings: Map[Identifier, (Set[VarWithOptRhs[Variable]], Path)] = {
         def step(current: Map[Identifier, Set[Variable]]): Map[Identifier, Set[Variable]] = {
           nestedFuns.map { fd =>
             val transFreeVars = (callGraph(fd.id) + fd.id).flatMap(current)
@@ -208,7 +216,7 @@ class FunctionClosure(override val s: Trees, override  val t: ast.Trees)
               case _ => Set.empty[Variable]
             }
 
-            (fd.id, transFreeVars ++ fdFreeVars ++ picked)
+            (fd.id, fdsFreeVars ++ picked)
           }.toMap
         }
 
@@ -220,29 +228,33 @@ class FunctionClosure(override val s: Trees, override  val t: ast.Trees)
             // (which `closeFd` will do). We also remove path elements that are irrelevant to this fn.
             val path = nestedWithPaths.find(_._1.id == fid).get._2
             val boundVars = path.bindings.map(_._1.toVariable).toSet
+            val varsForPath: Seq[VarWithOptRhs[Variable]] = path.elements.collect {
+              case Path.CloseBound(vd, e) if allVars.contains(vd.toVariable) => (vd.toVariable, Some(e))
+            }
             val filteredPath = Path(path.elements.filter {
-              case Path.CloseBound(vd, e) => allVars.contains(vd.toVariable)
+              //case Path.CloseBound(vd, e) if allVars.contains(vd.toVariable) => true
               case Path.Condition(cond) =>
                 // Some constraints on some relevant variables (including PC-bound, which can transitively
                 // constrain the FVs in its definition).
                 exprOps.variablesOf(cond).intersect(allVars.toSet).nonEmpty
-              case Path.OpenBound(_) => false // These are unused in closeFd anyway
+              case _ => false
             })
-            fid -> (allVars.filterNot(boundVars), filteredPath)
+            val filteredVars: Set[VarWithOptRhs[Variable]] = allVars.filterNot(boundVars).map(v => (v, None))
+            fid -> (filteredVars ++ varsForPath, filteredPath)
         }
       }
 
-      val transFree: Map[Identifier, (Seq[Variable], Path)] =
+      val transFree: Map[Identifier, (Seq[VarWithOptRhs[Variable]], Path)] =
         //transFreeWithBindings.map(p => (p._1, p._2 -- nestedWithPaths(p._1).bindings.map(_._1))).map(p => (p._1, p._2.toSeq))
         transFreeWithBindings.map { case (id, (vars, pc)) =>
-          val orderedVars = vars.toSeq.sortBy(v => definitionOrder.getOrElse(v.id, v.id.globalId))
+          val orderedVars = vars.toSeq.sortBy{ case (v, _) => definitionOrder.getOrElse(v.id, v.id.globalId) }
           id -> (orderedVars, pc)
         }
 
       // Closed functions along with a map (old var -> new var).
       val closed = nestedFuns.map { inner =>
         val (fvs, pc) = transFree(inner.id)
-        inner.id -> closeFd(inner, fd, pc, fvs.map(_.toVal))
+        inner.id -> closeFd(inner, fd, pc, fvs.map{ case (v, rhs) => (v.toVal, rhs) })
       }.toMap
 
       class ClosingTransformer(override val s: self.s.type,
