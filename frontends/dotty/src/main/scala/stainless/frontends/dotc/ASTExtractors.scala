@@ -27,6 +27,12 @@ trait ASTExtractors {
   def classFromName(nameStr: String): ClassSymbol = requiredClass(typeName(nameStr))
   def moduleFromName(nameStr: String): TermSymbol = requiredModule(typeName(nameStr))
 
+  @tailrec
+  private def unwrapTree(tree: tpd.Tree): tpd.Tree = tree match {
+    case Typed(inner, _) => unwrapTree(inner)
+    case _ => tree
+  }
+
   // Classes we ignore when considering the parents of a given class.
   lazy val ignoredClasses = Set(
     defn.ObjectType,
@@ -1438,17 +1444,24 @@ trait ASTExtractors {
         case ExCall(Some(rec),
           ExSymbol("stainless", "lang", "package$", "Passes", "passes"),
           _,
-          Seq(ExLambda(_, Match(_, cases)))
+          Seq(lambda)
         ) =>
-          def extract(t: tpd.Tree): Option[tpd.Tree] = t match {
-            case Apply(TypeApply(ExSymbol("stainless", "lang", "package$", "Passes"), _), Seq(body)) =>
-              Some(body)
+          val extractedCases = unwrapTree(lambda) match {
+            case ExLambda(_, Match(_, cases)) => Some(cases)
             case _ => None
           }
 
-          extract(rec) flatMap {
-            case ExTuple(Seq(in, out)) => Some((in, out, cases))
-            case res => None
+          def extract(t: tpd.Tree): Option[tpd.Tree] = t match {
+            case Apply(TypeApply(ExSymbol("stainless", "lang", "package$", "Passes"), _), Seq(body)) =>
+              Some(unwrapTree(body))
+            case _ => None
+          }
+
+          extractedCases.flatMap { cases =>
+            extract(unwrapTree(rec)) flatMap {
+              case ExTuple(Seq(in, out)) => Some((in, out, cases))
+              case _ => None
+            }
           }
 
         case _ => None
