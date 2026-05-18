@@ -1268,6 +1268,7 @@ trait ASTExtractors {
           case WithInvariant(invariant, rest) => parseWhile(rest, Some(invariant), optWeakInv, inline, opaque)
           case WithWeakInvariant(invariant, rest) => parseWhile(rest, optInv, Some(invariant), inline, opaque)
           case WhileDo(cond, body) => Some((cond, body, optInv, optWeakInv, inline, opaque))
+          case Typed(rest, _) => parseWhile(rest, optInv, optWeakInv, inline, opaque)
           case _ => None
         }
       }
