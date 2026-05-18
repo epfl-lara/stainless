@@ -2562,8 +2562,8 @@ class CodeExtraction(inoxCtx: inox.Context,
       tpt.dealiasKeepRefiningAnnots match {
         case AnnotatedType(_, ExQualified(qualifier)) =>
           extractTree(qualifier) match
-            case xt.Lambda(Seq(arg), body) => xt.RefinementType(arg.copy(tpe = base), body)
-            case _ => outOfSubsetError(tpt.typeSymbol.sourcePos, "Malformed refinement")
+            case xt.ClassConstructor(xt.ClassType(id, _), List(xt.Lambda(Seq(arg), body))) => xt.RefinementType(arg.copy(tpe = base), body)
+            case t => outOfSubsetError(tpt.typeSymbol.sourcePos, s"Malformed refinement: $t")
         case _ => base
       }
     }
@@ -2573,8 +2573,8 @@ class CodeExtraction(inoxCtx: inox.Context,
 
       case AnnotatedType(tpe, ExQualified(qualifier)) =>
         extractTree(qualifier) match
-          case xt.Lambda(Seq(arg), body) => xt.RefinementType(arg, body)
-          case _ => outOfSubsetError(tpt.typeSymbol.sourcePos, "Malformed refinement")
+          case xt.ClassConstructor(xt.ClassType(id, _), List(xt.Lambda(Seq(arg), body))) => xt.RefinementType(arg, body)
+          case t => outOfSubsetError(tpt.typeSymbol.sourcePos, s"Malformed refinement: $t")
 
       case tpe if tpe.typeSymbol == defn.FloatClass       => xt.Float32Type()
       case tpe if tpe.typeSymbol == defn.DoubleClass      => xt.Float64Type()
