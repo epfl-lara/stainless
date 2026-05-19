@@ -1402,7 +1402,7 @@ trait ASTExtractors {
         case Select(
           Apply(ExSymbol("stainless", "lang", "package$", "BooleanDecorations"), realExpr :: Nil),
           ExNamed("holds")
-        ) => Some(unwrapTree(realExpr))
+        ) => Some(realExpr)
         case _ => None
       }
     }
@@ -1431,7 +1431,7 @@ trait ASTExtractors {
         case Apply(Select(
           Apply(ExSymbol("stainless", "proof" | "equations", "package$", "boolean2ProofOps"), body :: Nil),
           ExNamed("because")
-        ), proof :: Nil) => Some((unwrapTree(body), unwrapTree(proof)))
+        ), proof :: Nil) => Some((body, proof))
         case _ => None
       }
     }
