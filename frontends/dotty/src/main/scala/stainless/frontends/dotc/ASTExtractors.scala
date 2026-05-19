@@ -1391,7 +1391,7 @@ trait ASTExtractors {
 
     /** Matches the `holds` expression at the end of any boolean expression, and returns the boolean expression.*/
     object ExHoldsExpression {
-      def unapply(tree: tpd.Tree) : Option[tpd.Tree] = unwrapTree(tree) match {
+      def unapply(tree: tpd.Select) : Option[tpd.Tree] = tree match {
         case Select(
           Apply(ExSymbol("stainless", "lang", "package$", "BooleanDecorations"), realExpr :: Nil),
           ExNamed("holds")
@@ -1402,7 +1402,7 @@ trait ASTExtractors {
 
     /** Matches the `holds` expression at the end of any boolean expression with a proof as argument, and returns both of themn.*/
     object ExHoldsWithProofExpression {
-      def unapply(tree: tpd.Apply) : Option[(tpd.Tree, tpd.Tree)] = unwrapTree(tree) match {
+      def unapply(tree: tpd.Apply) : Option[(tpd.Tree, tpd.Tree)] = tree match {
         case Apply(Select(Apply(ExSymbol("stainless", "lang", "package$", "BooleanDecorations"), body :: Nil), ExNamed("holds")), proof :: Nil) =>
           Some((body, proof))
         case _ => None
@@ -1411,7 +1411,7 @@ trait ASTExtractors {
 
     /** Matches the `because` method at the end of any boolean expression, and return the assertion and the cause. If no "because" method, still returns the expression */
     object ExMaybeBecauseExpressionWrapper {
-      def unapply(tree: tpd.Tree) : Some[tpd.Tree] = unwrapTree(tree) match {
+      def unapply(tree: tpd.Tree) : Some[tpd.Tree] = tree match {
         case Apply(ExSymbol("stainless", "lang", "package$", "because"), body :: Nil) =>
           unapply(body)
         case body => Some(body)
@@ -1420,7 +1420,7 @@ trait ASTExtractors {
 
     /** Matches the `because` method at the end of any boolean expression, and return the assertion and the cause.*/
     object ExBecauseExpression {
-      def unapply(tree: tpd.Apply) : Option[(tpd.Tree, tpd.Tree)] = unwrapTree(tree) match {
+      def unapply(tree: tpd.Apply) : Option[(tpd.Tree, tpd.Tree)] = tree match {
         case Apply(Select(
           Apply(ExSymbol("stainless", "proof" | "equations", "package$", "boolean2ProofOps"), body :: Nil),
           ExNamed("because")
