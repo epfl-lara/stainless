@@ -309,7 +309,12 @@ class FunctionClosure(override val s: Trees, override  val t: ast.Trees)
       class ClosedFd(override val t: self.s.type, override val subst: FunSubst) extends ClosingTransformer(self.s, t, subst)
       val closedFds = closed.values.toList.map {
         case fs @ FunSubst(fd, _, _) =>
-          fd.copy(fullBody = new ClosedFd(self.s, fs).transform(fd.fullBody))
+          val tr = new ClosedFd(self.s, fs)
+          val transformedParams = fd.params.map(vd => vd.copy(tpe = tr.transform(vd.tpe)))
+          fd.copy(
+            params = transformedParams,
+            fullBody = tr.transform(fd.fullBody)
+          )
       }
 
       // Recursively close new functions
