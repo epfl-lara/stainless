@@ -11,7 +11,7 @@ class FunctionClosure(override val s: Trees, override  val t: ast.Trees)
      with SimplyCachedFunctions
      with IdentitySorts { self =>
 
-  type RefinementVar[V] = (v: V, refine: s.Type => s.Type)
+  type RefinementVar[V] = (v: V, refine: (s.Type, Map[s.TypeParameter, s.Type]) => s.Type)
 
   override protected type FunctionResult = Seq[t.FunDef]
   override protected type TransformerContext = s.Symbols
@@ -62,12 +62,12 @@ class FunctionClosure(override val s: Trees, override  val t: ast.Trees)
 
       val inst = new typeOps.TypeInstantiator(tparamsMap)
 
-      val (paramSubst, freshVals) = (free ++ params.map((_, identity[Type])))
-        .foldLeft((Map[ValDef, Expr](), Seq[(ValDef, ValDef)]())) { 
+      val (paramSubst, freshVals) = (free ++ params.map((_, (tpe: Type, tparamsMap: Map[s.TypeParameter, s.Type]) => tpe)))
+        .foldLeft((Map[ValDef, Expr](), Seq[(ValDef, ValDef)]())) {
           case ((paramSubst, params), (vdOld, refine)) =>
             val vd = vdOld.copy(tpe = typeOps.instantiateType(vdOld.tpe, tparamsMap))
             val newName = vd.id.freshen
-            val refined = refine(vd.tpe)
+            val refined = refine(vd.tpe, tparamsMap)
             val ntpe = typeOps.replaceFromSymbols(paramSubst, refined)
             val nvd = ValDef(vd.id.freshen, ntpe, vd.flags).copiedFrom(vd)
             (paramSubst + (vd -> nvd.toVariable), params :+ (vdOld -> nvd))
@@ -227,21 +227,21 @@ class FunctionClosure(override val s: Trees, override  val t: ast.Trees)
 
             val fromPath: Seq[RefinementVar[Variable]] = path.elements.collect {
               case Path.CloseBound(vd, e) if allVars.contains(vd.toVariable) => 
-                (vd.toVariable, (tpe: Type) => {
+                (vd.toVariable, (tpe: Type, tparamsMap: Map[s.TypeParameter, s.Type]) => {
                   val param = ValDef(FreshIdentifier("param"), tpe)
-                  RefinementType(param, Annotated(Equals(param.toVariable, e), Seq(DropVCs)))
+                  RefinementType(param, Annotated(Equals(param.toVariable, typeOps.instantiateType(e, tparamsMap)), Seq(DropVCs)))
                 })
               case Path.Condition(cond) if exprOps.variablesOf(cond).intersect(allVars.toSet).nonEmpty => 
                 val v = ValDef(FreshIdentifier("prop"), UnitType())
-                (v.toVariable, (tpe: Type) => {
+                (v.toVariable, (tpe: Type, tparamsMap: Map[s.TypeParameter, s.Type]) => {
                   val param = ValDef(FreshIdentifier("param"), tpe)
-                  RefinementType(param, Annotated(cond, Seq(DropVCs, DropConjunct)))
+                  RefinementType(param, Annotated(typeOps.instantiateType(cond, tparamsMap), Seq(DropVCs, DropConjunct)))
                 })
             }
             val filteredVars: Seq[RefinementVar[Variable]] = allVars
               .filterNot(boundVars).toSeq
               .sortBy(v => definitionOrder.getOrElse(v.id, v.id.globalId))
-              .map(v => (v, identity[Type]))
+              .map(v => (v, (tpe: Type, tparamsMap: Map[s.TypeParameter, s.Type]) => tpe))
             fid -> (filteredVars ++ fromPath)
         }
       }
