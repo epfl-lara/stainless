@@ -194,19 +194,7 @@ class CodeExtraction(inoxCtx: inox.Context,
     FreshIdentifier(refs.mkString("$"))
   }
 
-  /* This pass removes QualifierSkolemIndex annotations, which are irrelevant to Stainless,
-     but may make some extractors fail if not removed. */
-  def sanitize(stat: tpd.Tree): tpd.Tree = {
-    val transformer = new tpd.TreeMap {
-      override def transform(tree: tpd.Tree)(using DottyContext): tpd.Tree = tree match {
-        case ExQualifierSkolemIndex(expr) => transform(expr)
-        case _ => super.transform(tree)
-      }
-    }
-    transformer.transform(stat)(using dottyCtx)
-  }
-
-  def extractStatic(unsanitized: List[tpd.Tree]): (
+  def extractStatic(stats: List[tpd.Tree]): (
     Seq[xt.Import],
     Seq[Identifier],
     Seq[Identifier],
@@ -216,7 +204,6 @@ class CodeExtraction(inoxCtx: inox.Context,
     Seq[xt.FunDef],
     Seq[xt.TypeDef]
   ) = {
-    val stats = unsanitized.map(sanitize)
     given dctx: DefContext = DefContext()
     val classDefs = stats.collect {
       case cd@ExClassDef() => cd
