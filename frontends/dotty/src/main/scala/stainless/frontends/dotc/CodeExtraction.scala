@@ -17,6 +17,7 @@ import core.Flags.*
 import core.Constants.*
 import core.NameKinds
 import core.NameOps.*
+import core.Decorators.*
 import util.{NoSourcePosition, SourcePosition}
 import stainless.ast.SymbolIdentifier
 import extraction.xlang.trees as xt
@@ -25,6 +26,7 @@ import Utils.*
 import scala.collection.mutable.Map as MutableMap
 import scala.collection.immutable.ListMap
 import scala.language.implicitConversions
+import scala.collection.mutable
 
 class CodeExtraction(inoxCtx: inox.Context,
                      symbolMapping: SymbolMapping,
@@ -39,6 +41,16 @@ class CodeExtraction(inoxCtx: inox.Context,
   val reporter = inoxCtx.reporter
 
   given givenDebugSection: inox.DebugSection = frontend.DebugSectionExtraction
+
+  type SkolemId = (Symbol, Int)
+  val skolemFunctions: mutable.Map[SkolemId, (Identifier, xt.Type)] = mutable.Map()
+
+  private def getSkolem(sym: Symbol, tpe: xt.Type, id: Int)(using DottyContext): xt.FunctionInvocation = {
+    val (identifier, shouldCreateFunction) = symbolMapping.fetchSkolemSymbol(sym, id)
+    if shouldCreateFunction then
+      skolemFunctions += ((sym, id) -> (identifier, tpe))
+    xt.FunctionInvocation(identifier, List.empty, List.empty)
+  }
 
   private def getIdentifier(sym: Symbol): SymbolIdentifier = {
     symbolMapping.fetch(sym, SymbolMapping.FetchingMode.Plain)
@@ -88,6 +100,7 @@ class CodeExtraction(inoxCtx: inox.Context,
     isExtern: Boolean = false,
     resolveTypes: Boolean = false,
     wrappingArithmetic: Boolean = false,
+    skolemOwner: Option[Symbol] = None
   ) {
     def union(that: DefContext) = {
       copy(
@@ -152,6 +165,13 @@ class CodeExtraction(inoxCtx: inox.Context,
     def withExtern(extern: Boolean) = {
       copy(isExtern = isExtern || extern)
     }
+
+    def currentSkolemOwner: Symbol = 
+      assert(
+        skolemOwner.nonEmpty, 
+        "Trying to get the current skolem owner while there is no skolem owner in the context"
+      )
+      skolemOwner.get
   }
 
   // This one never fails, on error, it returns Untyped
@@ -420,6 +440,18 @@ class CodeExtraction(inoxCtx: inox.Context,
         reporter.warning(other.sourcePos, s"Stainless does not support the following tree in static containers:\n$other")
     }
 
+    skolemFunctions.foreach { case (_, (id, tpe)) =>
+      val fd = new xt.FunDef(
+        id,
+        Seq.empty,
+        Seq.empty,
+        tpe,
+        xt.Choose(xt.ValDef(FreshIdentifier("x", true), tpe), xt.BooleanLiteral(true)),
+        List(xt.IsPure)
+      )
+      allFunctions :+= fd
+    }
+
     (imports, classes, functions, typeDefs, subs, allClasses, allFunctions, allTypeDefs)
   }
 
@@ -498,7 +530,10 @@ class CodeExtraction(inoxCtx: inox.Context,
 
     val tparams = extractTypeParams(sym.asClass.typeParams)(using DefContext())
 
-    val tpCtx = dctx.copy(tparams = dctx.tparams ++ (sym.asClass.typeParams zip tparams))
+    val tpCtx = dctx.copy(
+      tparams = dctx.tparams ++ (sym.asClass.typeParams zip tparams),
+      skolemOwner = Some(sym)
+    )
 
     val inLibrary = flags exists (_.name == "library")
     val parents = template.parents
@@ -834,7 +869,10 @@ class CodeExtraction(inoxCtx: inox.Context,
     val fctx = nctx
       .withNewVars(paramsMap)
       .copy(tparams = dctx.tparams ++ (tparams.map(_.symbol) zip ntparams))
-      .copy(isExtern = dctx.isExtern || (flags contains xt.Extern))
+      .copy(
+        isExtern = dctx.isExtern || (flags contains xt.Extern),
+        skolemOwner = Some(sym)
+      )
 
     lazy val retType = extractType(tree.tpt)(using nctx)
     val (finalBody, returnType) = if (isAbstract) {
@@ -1250,10 +1288,18 @@ class CodeExtraction(inoxCtx: inox.Context,
         }
 
       case (v @ ValDef(name, tpt, _)) :: xs =>
+        val vd = vds(v.symbol)
+        def rest() =
+          v.symbol.annotations.collectFirst {
+            case ExSkolemIndexAnnot(id) => 
+              xt.Assume(xt.Equals(vd.toVariable, getSkolem(dctx.currentSkolemOwner, vd.tpe, id)), recOrNoTree(xs))
+          }.getOrElse(recOrNoTree(xs))
+
         if (v.symbol `is` Mutable) {
-          xt.LetVar(vds(v.symbol), extractTree(v.rhs)(using cctx), recOrNoTree(xs)).setPos(v.sourcePos)
+          xt.LetVar(vd, extractTree(v.rhs)(using cctx), rest()).setPos(v.sourcePos)
         } else {
-          xt.Let(vds(v.symbol), extractTree(v.rhs)(using cctx), recOrNoTree(xs)).setPos(v.sourcePos)
+          println(s"Extracting val ${v.symbol} in block with rhs ${v.rhs}; ${v.symbol.annotations}")
+          xt.Let(vd, extractTree(v.rhs)(using cctx), rest()).setPos(v.sourcePos)
         }
 
       case x :: Nil =>
@@ -1309,7 +1355,8 @@ class CodeExtraction(inoxCtx: inox.Context,
     case _ => tpe
   }
 
-  private def extractTree(tr: tpd.Tree)(using dctx: DefContext): xt.Expr = (tr match {
+  private def extractTree(tr: tpd.Tree)(using dctx: DefContext): xt.Expr = 
+    (tr match {
     case SingletonTypeTree(tree) => extractTree(tree)
 
     case ExExportedSymbol(path, recv0, tps, args) =>
@@ -1662,7 +1709,14 @@ class CodeExtraction(inoxCtx: inox.Context,
 
     case ExSkolemTerm(name) => skolemError(tr.sourcePos)
 
-    case Typed(e, _) =>
+    case ExSkolemIndexParam(e, idx, tpe) =>
+      val t = extractType(tpe)
+      val param = xt.ValDef(FreshIdentifier("param"), t)
+      val skolem = getSkolem(dctx.currentSkolemOwner, t, idx)
+      val skolemIndexType = xt.RefinementType(param, xt.Assume(xt.Equals(param.toVariable, skolem), xt.BooleanLiteral(true)))
+      xt.AsInstanceOf(extractTree(e), skolemIndexType)
+
+    case Typed(e, tpt) =>
       extractTree(e)
 
     case Inlined(call, members, body) =>
@@ -2036,7 +2090,14 @@ class CodeExtraction(inoxCtx: inox.Context,
       )
   }
 
-  private def extractCall(tr: tpd.Tree, rec: Option[tpd.Tree], sym: Symbol, tps: Seq[tpd.Tree], args: Seq[tpd.Tree])(using dctx: DefContext): xt.Expr = rec match {
+  private def extractCall(tr: tpd.Tree, rec: Option[tpd.Tree], sym: Symbol, tps: Seq[tpd.Tree], args: Seq[tpd.Tree])(using dctx: DefContext): xt.Expr = 
+    rec match {
+    case None if sym.fullName.toString == "scala.qualifiedTypes.internal$.skolem" =>
+      val id = args.head match {
+        case Literal(Constant(id: Int)) => id
+        case e => outOfSubsetError(e, "The argument to `skolem` function call is expected to be an integer literal")
+      }
+      getSkolem(tps.tail.head.symbol, extractType(tps.head), id).setPos(tr.sourcePos)
     case None if (sym.owner `is` ModuleClass) && (sym.owner `is` Case) =>
       val ct = extractType(sym.owner.thisType)(using dctx, tr.sourcePos).asInstanceOf[xt.ClassType]
       xt.MethodInvocation(

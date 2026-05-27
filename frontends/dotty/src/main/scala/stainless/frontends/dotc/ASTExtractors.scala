@@ -1868,6 +1868,30 @@ trait ASTExtractors {
         case _ => None
       }
     }
+
+    object ExSkolemIndexAnnot {
+      def unapply(annot: Annotation): Option[Int] =
+        annot.symbol match {
+          case ExSymbol("scala", "annotation","internal", "QualifierSkolemIndex") =>
+            annot.tree match {
+              case Literal(Constant(idx: Int)) => Some(idx)
+              case Apply(Select(New(_), _), List(Literal(Constant(idx: Int)))) => Some(idx)
+              case _ => None
+            }
+          case _ => None
+      }
+    }
+
+    object ExSkolemIndexParam {
+      def unapply(tree: tpd.Tree): Option[(tpd.Tree, Int, tpd.Tree)] = tree match {
+        case Typed(TypeApply(s @ Select(t, _), Seq(tpe)), tpt) if s.symbol == defn.Any_typeCast =>
+          tpt.tpe match {
+            case AnnotatedType(_, ExSkolemIndexAnnot(idx)) => Some((t, idx, tpe))
+            case _ => None
+          }
+        case _ => None
+      }
+    }
   }
 
   object ExAndThen {

@@ -23,10 +23,12 @@ class SymbolMapping {
   private val invs = MutableMap[SymbolIdentifier, SymbolIdentifier]()
   private val invSymbol = stainless.ast.Symbol("inv")
 
+  type SkolemId = (Symbol, Int)
   /** Mapping from [[Symbol]] and the stainless identifier. */
   private val s2s = MutableMap[Symbol, SymbolIdentifier]()
   private val s2sAccessor = MutableMap[Symbol, SymbolIdentifier]()
   private val s2sEnumType = MutableMap[Symbol, SymbolIdentifier]()
+  private val s2sSkolems = MutableMap[SkolemId, SymbolIdentifier]()
 
   /** Returns a mapping from used Tasty root trees to their associated file.
     *
@@ -95,6 +97,14 @@ class SymbolMapping {
         assert(sym.allOverriddenSymbols.isEmpty)
         SymbolIdentifier(ast.Symbol(symFullName(sym)))
       })
+  }
+
+  def fetchSkolemSymbol(sym: Symbol, id: Int)(using Context): (SymbolIdentifier, Boolean) = {
+    if s2sSkolems.contains((sym, id)) then (s2sSkolems((sym, id)), false)
+    else 
+      val newId = SymbolIdentifier(ast.Symbol(symFullName(sym) + "_skolem" + id))
+      s2sSkolems += ((sym, id) -> newId)
+      (newId, true)
   }
 
   /** Get the identifier for the class invariant of [[sym]]. */
