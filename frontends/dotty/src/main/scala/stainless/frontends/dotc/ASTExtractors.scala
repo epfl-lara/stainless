@@ -1868,23 +1868,6 @@ trait ASTExtractors {
         case _ => None
       }
     }
-
-    /** Matches a `Typed(expr, tpt)` node where `tpt` is annotated with `QualifierSkolemIndex`,
-     *  extracting the inner `expr`. */
-    object ExQualifierSkolemIndex {
-      def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
-        case Typed(expr, tpt) =>
-          tpt.tpe match {
-            case AnnotatedType(_, annot) => 
-              annot.symbol match {
-                case ExSymbol("scala", "annotation","internal", "QualifierSkolemIndex") => Some(expr)
-                case _ => None
-              }
-            case _ => None
-          }
-        case _ => None
-      }
-    }
   }
 
   object ExAndThen {
