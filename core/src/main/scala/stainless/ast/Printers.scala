@@ -114,6 +114,9 @@ trait Printer extends inox.ast.Printer {
       ovd foreach (vd => p"${vd.toVariable} : ")
       p"(${nary(subs, " | ")})"
 
+    case RefinementPattern(underlying, pred) =>
+      p"$underlying : { $pred }"
+
     case Passes(in, out, cases) =>
       optP {
         p"""|($in, $out) passes {

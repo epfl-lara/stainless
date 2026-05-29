@@ -397,7 +397,8 @@ class ExprOps(override val trees: Trees) extends inox.ast.ExprOps(trees) { self 
   def replaceKeepPositions(subst: Map[Variable, Expr], expr: Expr): Expr = {
     new ConcreteStainlessSelfTreeTransformer {
       override def transform(expr: Expr): Expr = expr match {
-        case v: Variable => subst.getOrElse(v, v).copiedFrom(v)
+        case v: Variable =>
+          subst.get(v).map(_.copiedFrom(v)).getOrElse(super.transform(v))
         case _ => super.transform(expr)
       }
     }.transform(expr)
@@ -464,6 +465,13 @@ class ExprOps(override val trees: Trees) extends inox.ast.ExprOps(trees) { self 
         (
           AlternativePattern(freshVdOpt, subPatterns),
           env ++ freshVdOpt.map(freshVd => vdOpt.get.id -> freshVd.id)
+        )
+
+      case RefinementPattern(underlying, pred) =>
+        val newUnderlying = transformAndGetEnv(underlying, env)
+        (
+          RefinementPattern(newUnderlying._1, transform(pred, env).asInstanceOf[Lambda]),
+          env ++ newUnderlying._2
         )
 
       case LiteralPattern(vdOpt, lit) =>

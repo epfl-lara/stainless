@@ -830,6 +830,17 @@ trait ASTExtractors {
       }
     }
 
+    object ExSkolemTerm {
+      def unapply(tree: tpd.Ident): Option[Name] = tree match {
+        case Ident(name) if name.toString == "???"=>
+          tree.tpe match {
+            case s: SkolemType => Some(s.repr)
+            case _ => None
+          }
+        case _ => None
+      }
+    }
+
   }
 
   object StructuralExtractors {
@@ -1847,6 +1858,13 @@ trait ASTExtractors {
         case ConcreteAnnotation(
           Apply(Select(New(ExSymbol("stainless", "annotation", "indexedAt")), _), List(arg))
         ) => Some(arg)
+        case _ => None
+      }
+    }
+
+    object ExQualified {
+      def unapply(annot: Annotation): Option[tpd.Tree] = annot.symbol match {
+        case ExSymbol("scala", "annotation", "qualified") => Some(annot.tree)
         case _ => None
       }
     }

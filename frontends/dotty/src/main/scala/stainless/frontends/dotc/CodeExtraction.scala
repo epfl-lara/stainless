@@ -68,6 +68,16 @@ class CodeExtraction(inoxCtx: inox.Context,
 
   def outOfSubsetError(t: tpd.Tree, msg: String): Nothing = outOfSubsetError(t.sourcePos, msg)
 
+  def skolemError(pos: SourcePosition): Nothing =
+    outOfSubsetError(
+      pos,
+      s"""|Skolems are not supported in Stainless.
+          |For a workaround:
+          | - rewrite code to ANF,
+          | - add an explicit type annotation (to avoid type inference).
+          |""".stripMargin
+    )
+
   private case class DefContext(
     tparams: ListMap[Symbol, xt.TypeParameter] = ListMap(),
     vars: Map[Symbol, () => xt.Expr] = Map(),
@@ -930,7 +940,7 @@ class CodeExtraction(inoxCtx: inox.Context,
       (dctx.copy(tparams = dctx.tparams + (sym -> tp)), tparams :+ tp)
     }._2
   }
-
+    
   // Note: `expectedTpe` is used to check for redundant type checks that can appear in some patterns.
   // For instance, the following expression (assuming a: A and b: B) is a valid pattern:
   //     val (aa: A, bb: B) = (a, b)
@@ -955,15 +965,18 @@ class CodeExtraction(inoxCtx: inox.Context,
       extractPattern(pat, expectedTpe, Some(vd))(using pctx)
 
     case t @ Typed(Ident(nme.WILDCARD), tpt) =>
-      extractType(tpt)(using dctx.setResolveTypes(true)) match {
+      def rec(tpe: xt.Type): (xt.Pattern, DefContext) = tpe match {
         case ct: xt.ClassType =>
           (xt.InstanceOfPattern(binder, ct).setPos(p.sourcePos), dctx)
         case lt if expectedTpe.contains(lt) =>
           (xt.WildcardPattern(binder), dctx)
+        case xt.RefinementType(vd, pred) =>
+          val (pat, ctx) = rec(vd.tpe)
+          (xt.RefinementPattern(pat, xt.Lambda(Seq(vd), pred)), ctx)
         case lt =>
           outOfSubsetError(p, s"Unsupported pattern: ${p.show}")
       }
-
+      rec(extractType(tpt)(using dctx.setResolveTypes(true)))
     case Ident(nme.WILDCARD) =>
       (xt.WildcardPattern(binder).setPos(p.sourcePos), dctx)
 
@@ -1086,8 +1099,8 @@ class CodeExtraction(inoxCtx: inox.Context,
     }
   }
 
-  private def extractMatchCase(cd: tpd.CaseDef)(using dctx: DefContext): xt.MatchCase = {
-    val (recPattern, ndctx) = extractPattern(cd.pat, None)
+  private def extractMatchCase(cd: tpd.CaseDef, expectedType: xt.Type)(using dctx: DefContext): xt.MatchCase = {
+    val (recPattern, ndctx) = extractPattern(cd.pat, Some(expectedType))
     val recBody             = extractTree(cd.body)(using ndctx)
 
     if (cd.guard == tpd.EmptyTree) {
@@ -1372,7 +1385,7 @@ class CodeExtraction(inoxCtx: inox.Context,
 
     case Try(body, cses, fin) =>
       val rb = extractTree(body)
-      val rc = cses.map(extractMatchCase)
+      val rc = cses.map(cd => extractMatchCase(cd, extractType(body)))
       xt.Try(rb, rc, if (fin == tpd.EmptyTree) None else Some(extractTree(fin)))
 
     case Return(e, _) => xt.Return(extractTree(e))
@@ -1459,7 +1472,7 @@ class CodeExtraction(inoxCtx: inox.Context,
     case ExPasses(in, out, cases) =>
       val ine = extractTree(in)
       val oute = extractTree(out)
-      val rc = cases.map(extractMatchCase)
+      val rc = cases.map(cd => extractMatchCase(cd, extractType(in)))
 
       xt.Passes(ine, oute, rc)
 
@@ -1647,6 +1660,8 @@ class CodeExtraction(inoxCtx: inox.Context,
 
     case ExSymbol("scala", "Predef$", "$qmark$qmark$qmark" | "???") => xt.NoTree(extractType(tr))
 
+    case ExSkolemTerm(name) => skolemError(tr.sourcePos)
+
     case Typed(e, _) =>
       extractTree(e)
 
@@ -1735,7 +1750,7 @@ class CodeExtraction(inoxCtx: inox.Context,
       case lct: xt.LocalClassType => xt.LocalClassConstructor(lct, args map extractTree)
       case ct: xt.ClassType => xt.ClassConstructor(ct, args map extractTree)
       case tt: xt.TupleType => xt.Tuple(args map extractTree)
-      case at: xt.ArrayType if args.size == 1 && extractType(args.head.tpe)(using dctx, tr.sourcePos) == xt.Int32Type() =>
+      case at: xt.ArrayType if args.size == 1 && extractType(args.head.tpe)(using dctx.setResolveTypes(true), tr.sourcePos) == xt.Int32Type() =>
         mkZeroForPrimitive(at.base) match {
           case Some(zero) =>
             val recArg = extractTree(args.head)
@@ -1799,25 +1814,14 @@ class CodeExtraction(inoxCtx: inox.Context,
     case If(t1,t2,t3) =>
       xt.IfExpr(extractTree(t1), extractTree(t2), extractTree(t3))
 
-    case TypeApply(s @ Select(t, _), Seq(tpt)) if s.symbol == defn.Any_asInstanceOf =>
-      extractType(tpt) match {
-        case ct: xt.ClassType => xt.AsInstanceOf(extractTree(t), ct)
-        case _ =>
-          // XXX @nv: dotc generates spurious `asInstanceOf` casts for now, se
-          //          we will have to rely on later type checks within Stainless
-          //          to catch issues stemming from casts we ignored here.
-          // outOfSubsetError(tr, "asInstanceOf can only cast to class types")
-          extractTree(t)
-      }
+    case TypeApply(s @ Select(t, _), Seq(tpt)) if s.symbol == defn.Any_asInstanceOf || s.symbol == defn.Any_typeCast =>
+      xt.AsInstanceOf(extractTree(t), extractType(tpt))
 
     case TypeApply(s @ Select(t, _), Seq(tpt)) if s.symbol == defn.Any_isInstanceOf =>
-      extractType(tpt) match {
-        case ct: xt.ClassType => xt.IsInstanceOf(extractTree(t), ct)
-        case _ => outOfSubsetError(tr, "isInstanceOf can only be used with class types")
-      }
+      xt.IsInstanceOf(extractTree(t), extractType(tpt))
 
     case Match(scrut, cases) =>
-      xt.MatchExpr(extractTree(scrut), cases.map(extractMatchCase))
+      xt.MatchExpr(extractTree(scrut), cases.map(cd => extractMatchCase(cd, extractType(scrut))))
 
     case t @ This(_) =>
       extractType(t) match {
@@ -2050,7 +2054,7 @@ class CodeExtraction(inoxCtx: inox.Context,
           xt.ApplyLetRec(id, tparams.map(_.tp), tpe, tps map extractType, extractArgs(sym, args)).setPos(tr.sourcePos)
       }
 
-    case Some(lhs) => stripAnnotationsExceptStrictBV(extractType(lhs)(using dctx.setResolveTypes(true))) match {
+    case Some(lhs) => stripAnnotationsExceptStrictBV(extractType(lhs)(using dctx.setResolveTypes(true))).stripToplevelRefinement match {
       case ct: (xt.ClassType | xt.LocalClassType) =>
         val isCtorField = (sym `is` ParamAccessor) || (sym `is` CaseAccessor)
         val isNonCtorField = sym.isField && !isCtorField
@@ -2447,9 +2451,9 @@ class CodeExtraction(inoxCtx: inox.Context,
     val lhs = extractTree(lhs0)
     val rhs = extractTree(rhs0)
 
-    val ltpe = extractType(lhs0)(using dctx.setResolveTypes(true))
+    val ltpe = extractType(lhs0)(using dctx.setResolveTypes(true)).stripToplevelRefinement
     checkBits(lhs0, ltpe)
-    val rtpe = extractType(rhs0)(using dctx.setResolveTypes(true))
+    val rtpe = extractType(rhs0)(using dctx.setResolveTypes(true)).stripToplevelRefinement
     checkBits(rhs0, rtpe)
 
     val id = { (e: xt.Expr) => e }
@@ -2553,8 +2557,24 @@ class CodeExtraction(inoxCtx: inox.Context,
   }
 
   private def extractType(tpt: Type)(using dctx: DefContext, pos: SourcePosition): xt.Type =
+
+    def restoreRefinements(base: xt.Type): xt.Type = {
+      tpt.dealiasKeepRefiningAnnots match {
+        case AnnotatedType(_, ExQualified(qualifier)) =>
+          extractTree(qualifier) match
+            case xt.ClassConstructor(xt.ClassType(id, _), List(xt.Lambda(Seq(arg), body))) => xt.RefinementType(arg.copy(tpe = base), body)
+            case t => outOfSubsetError(tpt.typeSymbol.sourcePos, s"Malformed refinement: $t")
+        case _ => base
+      }
+    }
+
     (tpt match {
       case NoType => xt.Untyped
+
+      case AnnotatedType(tpe, ExQualified(qualifier)) =>
+        extractTree(qualifier) match
+          case xt.ClassConstructor(xt.ClassType(id, _), List(xt.Lambda(Seq(arg), body))) => xt.RefinementType(arg, body)
+          case t => outOfSubsetError(tpt.typeSymbol.sourcePos, s"Malformed refinement: $t")
 
       case tpe if tpe.typeSymbol == defn.FloatClass       => xt.Float32Type()
       case tpe if tpe.typeSymbol == defn.DoubleClass      => xt.Float64Type()
@@ -2576,11 +2596,11 @@ class CodeExtraction(inoxCtx: inox.Context,
         xt.TypeBounds(extractType(lo), extractType(hi), Seq.empty)
       case cet: ExprType => extractType(cet.resultType)
 
-      case tpe if isBigIntSym(tpe.typeSymbol)        => xt.IntegerType()
-      case tpe if isRealSym(tpe.typeSymbol)          => xt.RealType()
-      case tpe if isStringSym(tpe.typeSymbol)        => xt.StringType()
-      case tpe if isWrappedFloatSym(tpe.typeSymbol)  => xt.Float32Type()
-      case tpe if isWrappedDoubleSym(tpe.typeSymbol) => xt.Float64Type()
+      case tpe if isBigIntSym(tpe.typeSymbol)        => restoreRefinements(xt.IntegerType())
+      case tpe if isRealSym(tpe.typeSymbol)          => restoreRefinements(xt.RealType())
+      case tpe if isStringSym(tpe.typeSymbol)        => restoreRefinements(xt.StringType())
+      case tpe if isWrappedFloatSym(tpe.typeSymbol)  => restoreRefinements(xt.Float32Type())
+      case tpe if isWrappedDoubleSym(tpe.typeSymbol) => restoreRefinements(xt.Float64Type())
 
       case AppliedType(tr: TypeRef, Seq(tp)) if isSetSym(tr.symbol) =>
         // We know the underlying is a set, but it may be hidden under an alias
@@ -2649,14 +2669,14 @@ class CodeExtraction(inoxCtx: inox.Context,
         }
 
       case tr: TypeRef if dctx.resolveTypes && tr.symbol.isAbstractOrAliasType =>
-        extractType(tr.widenDealias)(using dctx.setResolveTypes(tr != tr.widenDealias), pos)
+        extractType(tr.widenDealiasKeepRefiningAnnots)(using dctx.setResolveTypes(tr != tr.widenDealiasKeepRefiningAnnots), pos)
 
       case tr @ TypeRef(prefix, _) if tr.symbol.isAbstractOrAliasType || tr.symbol.isOpaqueAlias =>
         val selector = extractPrefix(prefix)
         xt.TypeApply(xt.TypeSelect(selector, getIdentifier(tr.symbol)), Seq.empty)
 
       case at@AppliedType(tr @ TypeRef(prefix, _), args) if dctx.resolveTypes && tr.symbol.isAbstractOrAliasType =>
-        extractType(at.derivedAppliedType(tr.widenDealias, args))(using dctx.setResolveTypes(tr != tr.widenDealias), pos)
+        extractType(at.derivedAppliedType(tr.widenDealiasKeepRefiningAnnots, args))(using dctx.setResolveTypes(tr != tr.widenDealiasKeepRefiningAnnots), pos)
 
       case AppliedType(tr @ TypeRef(prefix, _), args) if tr.symbol.isAbstractOrAliasType || tr.symbol.isOpaqueAlias =>
         val selector = extractPrefix(prefix)
@@ -2720,7 +2740,7 @@ class CodeExtraction(inoxCtx: inox.Context,
         }
 
       case at @ AppliedType(tr: TypeRef, args) if tr.symbol.info.isTypeAlias && dctx.resolveTypes =>
-        extractType(at.widenDealias)
+        extractType(at.widenDealiasKeepRefiningAnnots)
 
       case at @ AppliedType(tr: TypeRef, args) if tr.symbol.info.isTypeAlias =>
         xt.TypeApply(xt.TypeSelect(None, getIdentifier(tr.symbol)), args map extractType)
@@ -2729,7 +2749,7 @@ class CodeExtraction(inoxCtx: inox.Context,
         xt.ClassType(getEnumTypeIdentifier(tt.symbol), Seq.empty)
 
       case tt @ TermRef(_, _) if dctx.resolveTypes =>
-        extractType(tt.widenDealias)
+        extractType(tt.widenDealiasKeepRefiningAnnots)
 
       case tt @ TermRef(_, _) =>
         extractType(tt.widenTermRefExpr)
@@ -2754,6 +2774,8 @@ class CodeExtraction(inoxCtx: inox.Context,
         xt.AnnotatedType(extractType(tpe), Seq(xt.IndexedAt(extractTree(n))))
 
       case AnnotatedType(tpe, _) => extractType(tpe)
+
+      case SkolemType(_) => skolemError(tpt.typeSymbol.sourcePos)
 
       case _ =>
         if (tpt ne null) {

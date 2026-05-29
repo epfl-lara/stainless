@@ -14,7 +14,7 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
 
   /** $encodingof `new id(args)` */
   case class ClassConstructor(ct: ClassType, args: Seq[Expr]) extends Expr with CachingTyped {
-    protected def computeType(using Symbols): Type = ct.lookupClass match {
+    protected def computeTpe(stripRefinements: Boolean)(using Symbols): Type = ct.lookupClass match {
       case Some(tcd) => checkParamTypes(args.map(_.getType), tcd.fields.map(_.tpe), ct)
       case _ => Untyped
     }
@@ -27,7 +27,7 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
       case _ => None
     }
 
-    protected def computeType(using s: Symbols): Type = expr.getType match {
+    protected def computeTpe(stripRefinements: Boolean)(using s: Symbols): Type = expr.getTpe(stripRefinements).stripToplevelRefinement match {
       case ct: ClassType =>
         field.map(_.tpe).orElse((s.lookupFunction(selector), s.lookupClass(ct.id, ct.tps)) match {
           case (Some(fd), Some(tcd)) =>
@@ -42,15 +42,15 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
 
   /** $encodingof `expr.isInstanceOf[tpe]` */
   case class IsInstanceOf(expr: Expr, tpe: Type) extends Expr with CachingTyped {
-    override protected def computeType(using s: Symbols): Type = {
+    override protected def computeTpe(stripRefinements: Boolean)(using s: Symbols): Type = {
       if (s.typesCompatible(expr.getType, tpe)) BooleanType() else Untyped
     }
   }
 
   /** $encodingof `expr.asInstanceOf[tpe]` */
   case class AsInstanceOf(expr: Expr, tpe: Type) extends Expr with CachingTyped {
-    override protected def computeType(using s: Symbols): Type = {
-      if (s.typesCompatible(expr.getType, tpe)) tpe.getType else Untyped
+    override protected def computeTpe(stripRefinements: Boolean)(using s: Symbols): Type = {
+      if (s.typesCompatible(expr.getType, tpe)) tpe.getTpe(stripRefinements) else Untyped
     }
   }
 
@@ -135,7 +135,7 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
 
   /** $encodingof `expr.Type[A, B, ...]` */
   case class TypeApply(selector: TypeSelect, tps: Seq[Type]) extends Type {
-    override protected def computeType(using Symbols): Type = {
+    override protected def computeErasedType(using Symbols): Type = {
       if (!wellKinded) Untyped
       else if (applied.isAbstract) this
       else resolve.getType
@@ -180,20 +180,20 @@ trait Trees extends innerfuns.Trees with Definitions { self =>
   override protected def getTupleType(tpe: Typed, tpes: Typed*)(using Symbols): Type =
     super.getTupleType(widenTypeParameter(tpe), tpes*)
 
-  override protected def getSetType(tpe: Typed, tpes: Typed*)(using Symbols): Type =
-    super.getSetType(widenTypeParameter(tpe), tpes*)
+  override protected def getSetType(tpe: Typed, tpes: Typed*)(stripRefinements: Boolean)(using Symbols): Type =
+    super.getSetType(widenTypeParameter(tpe), tpes*)(stripRefinements)
 
-  override protected def getBagType(tpe: Typed, tpes: Typed*)(using Symbols): Type =
-    super.getBagType(widenTypeParameter(tpe), tpes*)
+  override protected def getBagType(tpe: Typed, tpes: Typed*)(stripRefinements: Boolean)(using Symbols): Type =
+    super.getBagType(widenTypeParameter(tpe), tpes*)(stripRefinements)
 
-  override protected def getMapType(tpe: Typed, tpes: Typed*)(using s: Symbols): Type =
+  override protected def getMapType(tpe: Typed, tpes: Typed*)(stripRefinements: Boolean)(using s: Symbols): Type =
     widenTypeParameter(s.leastUpperBound(tpe +: tpes map (_.getType))) match {
       case mt: MapType => mt
       case _ => Untyped
     }
 
-  override protected def getArrayType(tpe: Typed, tpes: Typed*)(using Symbols): Type =
-    super.getArrayType(widenTypeParameter(tpe), tpes*)
+  override protected def getArrayType(tpe: Typed, tpes: Typed*)(stripRefinements: Boolean)(using Symbols): Type =
+    super.getArrayType(widenTypeParameter(tpe), tpes*)(stripRefinements)
 
 
   /* ========================================

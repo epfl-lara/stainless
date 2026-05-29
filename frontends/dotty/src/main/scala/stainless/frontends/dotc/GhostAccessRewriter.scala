@@ -34,6 +34,8 @@ class GhostAccessRewriter(afterPhase: String) extends PluginPhase { self =>
     override val phaseName = self.phaseName
     override val runsAfter = self.runsAfter
 
+    override def run(using dottyCtx: DottyContext): Unit = super.run
+
     override protected def newTransformer(using DottyContext): Transformer = new GhostRewriteTransformer
 
     private class GhostRewriteTransformer(using DottyContext) extends Transformer {

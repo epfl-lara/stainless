@@ -1,5 +1,17 @@
 # Release Notes
 
+## Version 0.9.9.2 (2025-03-31)
+
+- Add IArray to stainless library
+- Fix formal parameters computation in `GhostAccessRewriter`
+- Fix bugs in classtag elimination found when adapting ZipLex
+- Rename IArrays into IArray, and remove an additional @ignore that was breaking def list extraction
+- Fix a bug in extraction for method calls with multiple list of arguments
+- Add a ghost val in IArray instead of instantiating directly the list
+- Add floating point support, attempt 2
+- Update ListMap to match the more advanced version on Bolts
+- Add caching lemmas to ListMap
+
 ## Version 0.9.9.2 (2024-12-12)
 
 - Fix crashing on receiving no input files

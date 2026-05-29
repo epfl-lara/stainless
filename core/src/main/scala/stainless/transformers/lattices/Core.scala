@@ -945,6 +945,8 @@ trait Core extends Definitions { ocbsl =>
               (acc :+ rsub, subst2)
           }
           (LabelledPattern.Alternative(rsubs), subst2)
+        case RefinementPattern(_, _) =>
+          throw UnsupportedOperationException("Refinement pattern is not supported yet.")
         case UnapplyPattern(_, recs, id, tps, subps) =>
           if (recs.nonEmpty) throw UnsupportedOperationException("recs is not empty")
           val unapp = unapplySubScrutinees(scrut, id, tps)
