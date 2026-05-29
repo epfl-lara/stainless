@@ -35,6 +35,7 @@ class FunctionInlining(override val s: Trees, override val t: trace.Trees)
 
   override protected def extractFunction(symbols: s.Symbols, fd: s.FunDef): (Option[t.FunDef], Unit) = {
     import symbols.{given, _}
+    import s.exprOps
 
     class Inliner(inlinedOnce: Set[Identifier] = Set()) extends s.ConcreteStainlessSelfTreeTransformer {
 
@@ -155,6 +156,7 @@ class FunctionInlining(override val s: Trees, override val t: trace.Trees)
     if ((fd.flags contains Synthetic) && (fd.flags contains Inline)) (None, ())
     else (Some(identity.transform(fd.copy(
       fullBody = new Inliner().transform(fd.fullBody),
+      params = fd.params.map(vd => vd.copy(tpe = new Inliner().transform(vd.tpe))),
       flags = fd.flags filterNot (f => f == Inline || f == InlineOnce)
     ))), ())
   }
