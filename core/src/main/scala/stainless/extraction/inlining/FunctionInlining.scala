@@ -35,7 +35,6 @@ class FunctionInlining(override val s: Trees, override val t: trace.Trees)
 
   override protected def extractFunction(symbols: s.Symbols, fd: s.FunDef): (Option[t.FunDef], Unit) = {
     import symbols.{given, _}
-    import s.exprOps
 
     class Inliner(inlinedOnce: Set[Identifier] = Set()) extends s.ConcreteStainlessSelfTreeTransformer {
 
