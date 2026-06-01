@@ -1298,7 +1298,6 @@ class CodeExtraction(inoxCtx: inox.Context,
         if (v.symbol `is` Mutable) {
           xt.LetVar(vd, extractTree(v.rhs)(using cctx), rest()).setPos(v.sourcePos)
         } else {
-          println(s"Extracting val ${v.symbol} in block with rhs ${v.rhs}; ${v.symbol.annotations}")
           xt.Let(vd, extractTree(v.rhs)(using cctx), rest()).setPos(v.sourcePos)
         }
 
