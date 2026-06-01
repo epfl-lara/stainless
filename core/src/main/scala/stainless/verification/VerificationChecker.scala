@@ -257,7 +257,7 @@ trait VerificationChecker { self =>
 
   private def removeAssertionsAndGhostAnnotations(expr: Expr): Expr = {
     exprOps.postMap {
-      case Assert(_, _, e) => Some(e)
+      case Assert(cond, _, body) => Some(Assume(cond, body))
       case Annotated(e, flags0) =>
         val flags = flags0.filter(f => f != DropVCs && f != DropConjunct && f != Ghost)
         if (flags.isEmpty) Some(e)
