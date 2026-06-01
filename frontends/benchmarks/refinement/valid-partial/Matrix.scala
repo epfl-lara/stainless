@@ -1,6 +1,5 @@
 package matrixMut
 import stainless.annotation.{ignore, extern}
-import language.experimental.qualifiedTypes.silent
 
 type Dim = {v: Int with v >= 0 && v > 0 && v <= 1000}
 type Pos = {v: Int with v >= 0}

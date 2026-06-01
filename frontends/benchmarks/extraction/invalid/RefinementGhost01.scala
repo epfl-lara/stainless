@@ -1,4 +1,3 @@
-import language.experimental.qualifiedTypes.silent
 import stainless.annotation.ghost
 import stainless.lang._
 
