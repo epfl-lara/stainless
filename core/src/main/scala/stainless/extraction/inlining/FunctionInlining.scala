@@ -119,8 +119,13 @@ class FunctionInlining(override val s: Trees, override val t: trace.Trees)
               val decorated = addPreconditionAssertions(addPostconditionAssumption(theBody))
               (tfd.params, decorated)
             case Some(_) =>
-              val argBinders = tfd.params.map(_.freshen)
-              val replMap = tfd.params.zip(argBinders.map(_.toVariable)).toMap
+              val (replMap, argBinders) = tfd.params
+                .foldLeft((Map[ValDef, Expr](), Seq[ValDef]())) {
+                  case ((replMap, argBinders), param) =>
+                    val freshened = param.freshen
+                    val argBinder = freshened.copy(tpe = typeOps.replaceFromSymbols(replMap, param.tpe))
+                    (replMap + (param -> argBinder.toVariable), argBinders :+ argBinder)
+                }
               val decorated = addPreconditionAssertions(addPostconditionAssumption(fi.copy(args = argBinders.map(_.toVariable))))
               val repled = exprOps.replaceFromSymbols(replMap, decorated)
               (argBinders, repled)
