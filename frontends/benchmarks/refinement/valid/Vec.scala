@@ -1,4 +1,3 @@
-import language.experimental.qualifiedTypes.silent
 import stainless.annotation.ignore
 import scala.annotation.nowarn
 import stainless.lang._
