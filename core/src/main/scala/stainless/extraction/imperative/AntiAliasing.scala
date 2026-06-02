@@ -604,10 +604,11 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
         // For instance, if `lhs` aliases `refref.lhs` and a call replaces `refref.lhs`,
         // `lhs` must no longer be considered an alias of `refref.lhs` afterwards.
         def invalidateReplacementAliases(e: Expr, env: Env): Env = {
-          val invalidatedTargets = effects(e).collect {
+          val invalidatedTargets = effects(e).flatMap {
             case eff if eff.kind == ReplacementKind || eff.kind == CombinedKind =>
               dealiasTarget(eff.toTarget(), env)
-          }.flatten
+            case _ => Set.empty
+          }
 
           if (invalidatedTargets.isEmpty) env
           else {
@@ -741,7 +742,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
 
             val newExpr = transform(e, env)
             val bodyEnv = invalidateReplacementAliases(e, env)
-            val targets = getAllTargetsDealiased(newExpr, env)
+            val targets = getAllTargetsDealiased(newExpr, bodyEnv)
             targets match {
               case Some(targets) =>
                 // This branch handles all cases when targets can be precisely computed, namely when
