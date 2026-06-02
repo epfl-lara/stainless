@@ -156,7 +156,7 @@ else
   fi
 
   # Run the integration tests
-  $SBT -batch -Dtestsuite-parallelism=3 -Dtestcase-parallelism=5 it:test
+  $SBT -batch -Dtestsuite-parallelism=6 -Dtestcase-parallelism=5 it:test
   if [ $? -ne 0 ]; then
     echo "************** Integration tests failed **************"
     exit 1
