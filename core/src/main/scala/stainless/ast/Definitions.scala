@@ -35,6 +35,7 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
   case class IsField(isLazy: Boolean) extends Flag("field", Seq.empty)
   case class IsUnapply(isEmpty: Identifier, get: Identifier) extends Flag("unapply", Seq(isEmpty, get))
   case class ClassParamInit(cid: Identifier) extends Flag("paramInit", Seq(cid))
+  case object IsModuleVal extends Flag("moduleVal", Seq.empty)
 
   case class TerminationStatus(status: TerminationReport.Status) extends Flag("termination", Seq(status))
 
@@ -53,6 +54,7 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
     case ("wrapping", Seq()) => Wrapping
     case ("template", Seq()) => Template
     case ("inlineInvariant", Seq()) => InlineInvariant
+    case ("moduleVal", Seq()) => IsModuleVal
     case _ => Annotation(name, args)
   }
 

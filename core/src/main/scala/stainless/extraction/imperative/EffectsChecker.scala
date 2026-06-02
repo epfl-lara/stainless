@@ -234,6 +234,15 @@ trait EffectsChecker { self: EffectsAnalyzer =>
 
       if (effects(fd.fullBody).nonEmpty)
         throw ImperativeEliminationException(fd, s"A field must be pure, but ${fd.id.asString} has effects: ${effects(fd.fullBody).map(_.asString).mkString(", ")}")
+
+      exprOps.preTraversal {
+        case FunctionInvocation(id, _, _) =>
+          val callee = symbols.getFunction(id)
+          if (callee.flags.contains(IsModuleVal) && isMutableType(callee.returnType))
+            throw ImperativeEliminationException(fd,
+              s"A field cannot refer to a mutable object defined in an object (${callee.id.asString} is a mutable module-level val)")
+        case _ => ()
+      }(fd.fullBody)
     }
 
     def checkEffectsLocations(fd: FunAbstraction): Unit = exprOps.preTraversal {
