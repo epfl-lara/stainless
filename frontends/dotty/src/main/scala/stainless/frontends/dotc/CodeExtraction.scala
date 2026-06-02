@@ -374,13 +374,13 @@ class CodeExtraction(inoxCtx: inox.Context,
       // Normal fields
       case t@ExNonCtorFieldDef(fsym, _, rhs) =>
         val fd0 = extractFunction(fsym, t, Seq(), Seq(), rhs)
-        val fd = fd0.copy(flags = fd0.flags ++ extraFlags(fsym.name.toTermName))
+        val fd = fd0.copy(flags = fd0.flags ++ Seq(xt.IsField(false)) ++ extraFlags(fsym.name.toTermName))
         functions :+= fd.id
         allFunctions :+= fd
 
       case t@ExLazyFieldDef(fsym, _, rhs) =>
         val fd0 = extractFunction(fsym, t, Seq.empty, Seq.empty, rhs)
-        val fd = fd0.copy(flags = fd0.flags ++ extraFlags(fsym.name.toTermName))
+        val fd = fd0.copy(flags = fd0.flags ++ Seq(xt.IsField(true)) ++ extraFlags(fsym.name.toTermName))
         functions :+= fd.id
         allFunctions :+= fd
 
