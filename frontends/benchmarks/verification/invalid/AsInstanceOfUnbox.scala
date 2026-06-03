@@ -1,5 +1,5 @@
 package asInstanceOfUnbox
-object A {
+
+def test: Boolean =
   val x: Any = 1
-  val y: Boolean = x.asInstanceOf[Boolean]
-}
+  x.asInstanceOf[Boolean]
