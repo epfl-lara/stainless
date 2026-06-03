@@ -371,6 +371,14 @@ class CodeExtraction(inoxCtx: inox.Context,
         allFunctions ++= newFunctions
         allTypeDefs ++= newTypeDefs
 
+      // Skip compiler-synthetic accessors that we don't extract (e.g. enum `$values`).
+      // References to them in source code are rejected by `extractCall`.
+      case ExNonCtorFieldDef(fsym, _, _) if (fsym `is` Synthetic) && !canExtractSynthetic(fsym) =>
+        // ignore
+
+      case ExLazyFieldDef(fsym, _, _) if (fsym `is` Synthetic) && !canExtractSynthetic(fsym) =>
+        // ignore
+
       // Normal fields
       case t@ExNonCtorFieldDef(fsym, _, rhs) =>
         val fd0 = extractFunction(fsym, t, Seq(), Seq(), rhs)
@@ -2036,7 +2044,10 @@ class CodeExtraction(inoxCtx: inox.Context,
       )
   }
 
-  private def extractCall(tr: tpd.Tree, rec: Option[tpd.Tree], sym: Symbol, tps: Seq[tpd.Tree], args: Seq[tpd.Tree])(using dctx: DefContext): xt.Expr = rec match {
+  private def extractCall(tr: tpd.Tree, rec: Option[tpd.Tree], sym: Symbol, tps: Seq[tpd.Tree], args: Seq[tpd.Tree])(using dctx: DefContext): xt.Expr = {
+    if ((sym `is` Synthetic) && !canExtractSynthetic(sym))
+      outOfSubsetError(tr, s"Stainless does not support references to the synthetic accessor `${sym.name.toString}`")
+    rec match {
     case None if (sym.owner `is` ModuleClass) && (sym.owner `is` Case) =>
       val ct = extractType(sym.owner.thisType)(using dctx, tr.sourcePos).asInstanceOf[xt.ClassType]
       xt.MethodInvocation(
@@ -2395,6 +2406,7 @@ class CodeExtraction(inoxCtx: inox.Context,
         case (tpe, name, args) =>
           outOfSubsetError(tr, s"Unsupported call to $name on ${lhs.show}")
       }
+    }
     }
   }
 

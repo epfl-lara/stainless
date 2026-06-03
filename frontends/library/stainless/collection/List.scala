@@ -8,13 +8,34 @@ import scala.collection.immutable.{List => ScalaList}
 import stainless.lang._
 import stainless.lang.StaticChecks._
 import stainless.annotation._
+import scala.annotation.tailrec
 
 @library
 @isabelle.typ(name = "List.list")
 sealed abstract class List[T] {
 
   @isabelle.function(term = "Int.int o List.length")
-  def size: BigInt = (this match {
+  def size: BigInt = {
+    stainless.lang.ghost(lemmaSizeTr(this, 0))
+    sizeTr()
+  }.ensuring(res => res == this.fsize)
+
+  @inlineOnce @tailrec private def sizeTr(acc: BigInt = 0): BigInt = 
+    this match {
+      case Nil() => acc
+      case Cons(h, t) => t.sizeTr(acc + 1)
+    }
+  @inlineOnce
+  @ghost
+  @opaque
+  def lemmaSizeTr(l: List[T], acc: BigInt): Unit = {
+    l match {
+      case Nil() => ()
+      case Cons(h, t) => lemmaSizeTr(t, acc + 1)
+    }
+  }.ensuring(_ => l.sizeTr(acc) == acc + l.fsize)
+
+  @inlineOnce def fsize: BigInt = (this match {
     case Nil() => BigInt(0)
     case Cons(h, t) => 1 + t.size
   }).ensuring (_ >= 0)
