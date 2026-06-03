@@ -99,12 +99,12 @@ class SymbolMapping {
       })
   }
 
-  def fetchSkolemSymbol(sym: Symbol, id: Int)(using Context): (SymbolIdentifier, Boolean) = {
-    if s2sSkolems.contains((sym, id)) then (s2sSkolems((sym, id)), false)
+  def fetchSkolemSymbol(sym: Symbol, id: Int)(using Context): SymbolIdentifier = {
+    if s2sSkolems.contains((sym, id)) then s2sSkolems((sym, id))
     else 
       val newId = SymbolIdentifier(ast.Symbol(symFullName(sym) + "_skolem" + id))
       s2sSkolems += ((sym, id) -> newId)
-      (newId, true)
+      newId
   }
 
   /** Get the identifier for the class invariant of [[sym]]. */

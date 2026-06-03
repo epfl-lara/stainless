@@ -1,4 +1,3 @@
-import stainless.annotation.ignore
 import scala.annotation.nowarn
 import stainless.lang._
 
@@ -20,6 +19,10 @@ sealed trait Vec[T]:
       case Nil() => b
       case Cons(head, tail) => Cons(head, tail.concat(b))
 
+  def zipWithItself =
+    val res = zip[T](this)
+    res
+
 case class Nil[T]() extends Vec[T]
 case class Cons[T](head: T, tail: Vec[T]) extends Vec[T]
 
@@ -29,3 +32,8 @@ object Vec:
     else
       val nMinus1: Pos = n - 1
       Cons(v, fill(nMinus1, v))
+
+object VecTest:
+  def main =
+    val v1 = Vec.fill(3, 42).zip(Vec.fill(3, "foo"))
+    // val v2 = Vec.fill(2, 42).concat(Vec.fill(2, 24))

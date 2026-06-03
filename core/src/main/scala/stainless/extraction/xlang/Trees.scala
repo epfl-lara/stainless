@@ -55,6 +55,16 @@ trait Trees extends innerclasses.Trees { self =>
     def allTypeDefs: Seq[Identifier] = modules.flatMap(_.allTypeDefs) ++ typeDefs
   }
 
+  case class SkolemCall(id: Identifier, tpe: Type, flags: Seq[Flag]) extends Expr {
+    def getTpe(stripRefinements: Boolean)(using Symbols): Type = 
+      if stripRefinements then tpe.getTpe(stripRefinements) else tpe
+  }
+
+  case class SkolemDef(id: Identifier, tpe: Type, flags: Seq[Flag]) extends Expr {
+    def getTpe(stripRefinements: Boolean)(using Symbols): Type = 
+      if stripRefinements then tpe.getTpe(stripRefinements) else tpe
+  }
+
   override def getDeconstructor(that: inox.ast.Trees): inox.ast.TreeDeconstructor { val s: self.type; val t: that.type } = that match {
     case tree: (Trees & that.type) => // The `& that.type` trick allows to convince scala that `tree` and `that` are actually equal...
       class DeconstructorImpl(override val s: self.type, override val t: tree.type & that.type) extends ConcreteTreeDeconstructor(s, t)
@@ -78,6 +88,8 @@ trait Printer extends innerclasses.Printer {
   }
 
   override def ppBody(tree: Tree)(using PrinterContext): Unit = tree match {
+    case SkolemDef @ SkolemDef(id, _, _) => p"@$id"
+    case SkolemCall @ SkolemCall(id, _) => p"$id"
     case Import(path, isWildcard) =>
       p"import ${path.mkString(".")}"
       if (isWildcard) p"._"
@@ -127,6 +139,14 @@ trait TreeDeconstructor extends innerclasses.TreeDeconstructor {
 
   protected val s: Trees
   protected val t: Trees
+
+   override def deconstruct(e: s.Expr): Deconstructed[t.Expr] = e match {
+    case s.SkolemCall(id, tpe, flags) =>
+      (Seq(id), Seq(), Seq(), Seq(tpe), flags, (ids, _, _, tpes, flags) => t.SkolemCall(ids(0), tpes(0), flags))
+    case s.SkolemDef(id, tpe, flags) =>
+      (Seq(id), Seq(), Seq(), Seq(tpe), flags, (ids, _, _, tpes, flags) => t.SkolemDef(ids(0), tpes(0), flags))
+    case _ => super.deconstruct(e)
+  }
 
   override def deconstruct(f: s.Flag): DeconstructedFlag = f match {
     case s.Ignore => (Seq(), Seq(), Seq(), (_, _, _) => t.Ignore)
