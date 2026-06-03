@@ -29,7 +29,7 @@ class SkolemLifting(override val s: Trees)(override val t: s.type)
 
       override def transform(e: s.Expr): t.Expr = {
         e match {
-          case s @ SkolemDef(id, _, flags) =>
+          case s : SkolemDef =>
             skolemDefinitions += s
             super.transform(e)
           case _ =>
@@ -41,19 +41,24 @@ class SkolemLifting(override val s: Trees)(override val t: s.type)
     val collector = new SkolemCollector(self.s, self.s)
     collector.transform(fd)
 
-    val skolemMap = skolemDefinitions.groupBy {
-      _.flags.collectFirst {
-        case IsMethodOf(owner) => owner
+    val (skolemsWithFunOwner, skolemsWithClassOrModuleOwner) = 
+      skolemDefinitions.partition(_.call.flags.exists {
+        case Derived(Some(_)) => true
+        case _ => false
+      })
+
+    val skolemMap = skolemsWithFunOwner.groupBy {
+      _.call.flags.collectFirst {
         case Derived(Some(owner)) => owner
-      }
+      }.get
     }.withDefaultValue(Nil)
 
     class SkolemTransformer(override val s: self.s.type, override val t: self.s.type)
       extends transformers.ConcreteTreeTransformer(s, t) {
         private def skolemFunctionForFun(id : Identifier): Seq[LocalFunDef] =
-          skolemMap(Some(id))
+          skolemMap(id)
             .map { 
-              case SkolemDef(id, tpe, flags) =>
+              case SkolemDef(SkolemCall(id, tpe, flags, _)) =>
                 // we take the non-dependent type
                 val newTpe = tpe.getType
                 LocalFunDef(
@@ -61,6 +66,14 @@ class SkolemLifting(override val s: Trees)(override val t: s.type)
                   Choose(ValDef(FreshIdentifier("x", true), newTpe), BooleanLiteral(true)), List(IsPure)
                 )
             }.toList
+
+        override def transform(lfd: s.FunDef): t.FunDef = {
+          val newSkolems = skolemFunctionForFun(lfd.id)
+          val transformed = super.transform(lfd)
+
+          if newSkolems.isEmpty then transformed
+          else transformed.copy( fullBody = LetRec(newSkolems, transformed.fullBody))
+        }
 
         def transform(lfd: s.LocalFunDef): t.LocalFunDef = {
           val newSkolems = skolemFunctionForFun(fd.id)
@@ -78,21 +91,23 @@ class SkolemLifting(override val s: Trees)(override val t: s.type)
         }
 
         override def transform(e: s.Expr): t.Expr = e match {
-          case SkolemDef(id, tpe, _) => skolemCall(id)
-          case SkolemCall(id, tpe) =>
-            val transformedTpe = transform(tpe)
-            Annotated(AsInstanceOf(skolemCall(id), transformedTpe), Seq(DropVCs))
+          case SkolemDef(call) => 
+            val transformed = call.copy(tpe = transform(call.tpe), ownerTparams = call.ownerTparams.map(transform(_)))
+            skolemCall(transformed)
+          case call @ SkolemCall(_, tpe, _, ownerTparams) =>
+            val transformed = call.copy(tpe = transform(tpe), ownerTparams = ownerTparams.map(transform(_)))
+            Annotated(AsInstanceOf(skolemCall(transformed), transformed.tpe), Seq(DropVCs))
           case _ => super.transform(e)
         }
     }
 
     val transformer = new SkolemTransformer(self.s, self.s)
-    (transformer.transform(fd) :: skolemMap(None).map(skolemFunction).toList, ())
+    (transformer.transform(fd) :: skolemsWithClassOrModuleOwner.map(skolemFunction).toList, ())
   }
 
 
   private def skolemFunction(skolem: SkolemDef)(using Symbols): FunDef = {
-    val SkolemDef(id, tpe, flags) = skolem
+    val SkolemDef(SkolemCall(id, tpe, flags, _)) = skolem
     val newTpe = tpe.getType
     FunDef(
       id,
@@ -104,14 +119,25 @@ class SkolemLifting(override val s: Trees)(override val t: s.type)
     )
   }
 
-  private def skolemCall(call: SkolemCall): Expr = 
-    val isMethod = call.collectFirst {
-      case IsMethodOf(ownerId) => 
-        MethodInvocation(ownerId ,call.id, List.empty, List.empty)
-      case _ => false
+  private def skolemCall(call: SkolemCall)(using s: Symbols): Expr = 
+    call.flags.collectFirst {
+      case IsMethodOf(ownerId) =>
+        // owner is a class
+        s.lookupClass(ownerId).map{ cdef => 
+          MethodInvocation(
+            This(cdef.typed(call.ownerTparams).toType),
+            call.id,
+            List.empty,
+            List.empty
+         )
+        }
+      case Derived(Some(_)) =>
+        // owner is a function
+        Some(ApplyLetRec(call.id, List.empty, FunctionType(List.empty, call.tpe), List.empty, List.empty))
+    }.flatten.getOrElse {
+      // owner is an object
+      FunctionInvocation(call.id, List.empty, List.empty)
     }
-    if isMethod then MethodInvocation(call.id, List.empty, List.empty)
-    else FunctionInvocation(call.id, List.empty, List.empty)
 }
 
 object SkolemLifting {

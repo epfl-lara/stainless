@@ -55,14 +55,14 @@ trait Trees extends innerclasses.Trees { self =>
     def allTypeDefs: Seq[Identifier] = modules.flatMap(_.allTypeDefs) ++ typeDefs
   }
 
-  case class SkolemCall(id: Identifier, tpe: Type, flags: Seq[Flag]) extends Expr {
+  case class SkolemCall(id: Identifier, tpe: Type, flags: Seq[Flag], ownerTparams: Seq[Type]) extends Expr {
     def getTpe(stripRefinements: Boolean)(using Symbols): Type = 
       if stripRefinements then tpe.getTpe(stripRefinements) else tpe
   }
 
-  case class SkolemDef(id: Identifier, tpe: Type, flags: Seq[Flag]) extends Expr {
+  case class SkolemDef(call: SkolemCall) extends Expr {
     def getTpe(stripRefinements: Boolean)(using Symbols): Type = 
-      if stripRefinements then tpe.getTpe(stripRefinements) else tpe
+      call.getTpe(stripRefinements)
   }
 
   override def getDeconstructor(that: inox.ast.Trees): inox.ast.TreeDeconstructor { val s: self.type; val t: that.type } = that match {
@@ -88,8 +88,8 @@ trait Printer extends innerclasses.Printer {
   }
 
   override def ppBody(tree: Tree)(using PrinterContext): Unit = tree match {
-    case SkolemDef @ SkolemDef(id, _, _) => p"@$id"
-    case SkolemCall @ SkolemCall(id, _) => p"$id"
+    case SkolemDef(SkolemCall(id, _, _, _)) => p"@$id"
+    case SkolemCall(id, _, _, _) => p"$id"
     case Import(path, isWildcard) =>
       p"import ${path.mkString(".")}"
       if (isWildcard) p"._"
@@ -141,10 +141,10 @@ trait TreeDeconstructor extends innerclasses.TreeDeconstructor {
   protected val t: Trees
 
    override def deconstruct(e: s.Expr): Deconstructed[t.Expr] = e match {
-    case s.SkolemCall(id, tpe, flags) =>
-      (Seq(id), Seq(), Seq(), Seq(tpe), flags, (ids, _, _, tpes, flags) => t.SkolemCall(ids(0), tpes(0), flags))
-    case s.SkolemDef(id, tpe, flags) =>
-      (Seq(id), Seq(), Seq(), Seq(tpe), flags, (ids, _, _, tpes, flags) => t.SkolemDef(ids(0), tpes(0), flags))
+    case s.SkolemCall(id, tpe, flags, ownerTparams) =>
+      (Seq(id), Seq(), Seq(), tpe +: ownerTparams, flags, (ids, _, _, tpes, flags) => t.SkolemCall(ids(0), tpes(0), flags, tpes.tail))
+    case s.SkolemDef(call) =>
+      (Seq(), Seq(), Seq(call), Seq(), Seq(), (_, _, exprs, _, _) => t.SkolemDef(exprs(0).asInstanceOf[t.SkolemCall]))
     case _ => super.deconstruct(e)
   }
 

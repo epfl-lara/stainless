@@ -84,7 +84,7 @@ class StainlessExtraction(val inoxCtx: inox.Context) {
         case _ => true
       }).getOrElse(stats)
     try {
-      val (imports, unitClasses, unitFunctions, _, subs, classes, functions, typeDefs) = extraction.extractStatic(filteredStats)
+      val (imports, unitClasses, unitFunctions, _, subs, classes, functions, typeDefs) = extraction.extractAll(filteredStats)
       assert(unitFunctions.isEmpty, "Packages shouldn't contain functions")
       val xtUnit = xt.UnitDef(id, imports, unitClasses, subs, isFromSource)
       Some(ExtractedUnit(file.absolute.path, xtUnit, classes, functions, typeDefs))
