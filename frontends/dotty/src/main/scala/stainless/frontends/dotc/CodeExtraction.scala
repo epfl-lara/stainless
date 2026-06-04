@@ -194,6 +194,17 @@ class CodeExtraction(inoxCtx: inox.Context,
     FreshIdentifier(refs.mkString("$"))
   }
 
+  // Detects compiler-synthetic accessors whose return type is mutable in Stainless's sense
+  // (currently: `Array[T]`). These cannot be safely extracted as fields, so we drop them
+  // from the symbol table and reject any references to them.
+  private def isMutableTypedSynthetic(sym: Symbol): Boolean = {
+    def hasMutableReturnType(tpe: Type): Boolean = tpe.dealias match {
+      case AppliedType(tr, _) if isArrayClassSym(tr.typeSymbol) => true
+      case _ => false
+    }
+    (sym `is` Synthetic) && !canExtractSynthetic(sym) && hasMutableReturnType(sym.info.resultType)
+  }
+
   def extractStatic(stats: List[tpd.Tree]): (
     Seq[xt.Import],
     Seq[Identifier],
@@ -371,12 +382,15 @@ class CodeExtraction(inoxCtx: inox.Context,
         allFunctions ++= newFunctions
         allTypeDefs ++= newTypeDefs
 
-      // Skip compiler-synthetic accessors that we don't extract (e.g. enum `$values`).
-      // References to them in source code are rejected by `extractCall`.
-      case ExNonCtorFieldDef(fsym, _, _) if (fsym `is` Synthetic) && !canExtractSynthetic(fsym) =>
+      // Skip compiler-synthetic accessors whose return type is mutable (e.g. enum
+      // `$values: Array[T]`). Such accessors would otherwise trip the `checkMutableField`
+      // returnType check. References to them in source code are rejected by `extractCall`.
+      // Non-mutable synthetic accessors (e.g. tuple-destructure `$N$: (T1, T2)`) are
+      // extracted normally below.
+      case ExNonCtorFieldDef(fsym, _, _) if isMutableTypedSynthetic(fsym) =>
         // ignore
 
-      case ExLazyFieldDef(fsym, _, _) if (fsym `is` Synthetic) && !canExtractSynthetic(fsym) =>
+      case ExLazyFieldDef(fsym, _, _) if isMutableTypedSynthetic(fsym) =>
         // ignore
 
       // Normal fields
@@ -2045,7 +2059,7 @@ class CodeExtraction(inoxCtx: inox.Context,
   }
 
   private def extractCall(tr: tpd.Tree, rec: Option[tpd.Tree], sym: Symbol, tps: Seq[tpd.Tree], args: Seq[tpd.Tree])(using dctx: DefContext): xt.Expr = {
-    if ((sym `is` Synthetic) && !canExtractSynthetic(sym))
+    if (isMutableTypedSynthetic(sym))
       outOfSubsetError(tr, s"Stainless does not support references to the synthetic accessor `${sym.name.toString}`")
     rec match {
     case None if (sym.owner `is` ModuleClass) && (sym.owner `is` Case) =>
