@@ -313,6 +313,7 @@ class FunctionClosure(override val s: Trees, override  val t: ast.Trees)
           val transformedParams = fd.params.map(vd => vd.copy(tpe = tr.transform(vd.tpe)))
           fd.copy(
             params = transformedParams,
+            returnType = tr.transform(fd.returnType),
             fullBody = tr.transform(fd.fullBody)
           )
       }
