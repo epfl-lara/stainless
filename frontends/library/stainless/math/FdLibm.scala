@@ -1520,10 +1520,10 @@ object FdLibm {
     private val twom1000: Double = java.lang.Double.longBitsToDouble(0x170000000000000L)
     private val o_threshold: Double = java.lang.Double.longBitsToDouble(0x40862e42fefa39efL)
     private val u_threshold: Double = java.lang.Double.longBitsToDouble(0xc0874910d52d3051L)
-    private val ln2HI = Array(java.lang.Double.longBitsToDouble(0x3fe62e42fee00000L), java.lang.Double.longBitsToDouble(0xbfe62e42fee00000L))
+    private def ln2HI: Array[Double] = Array(java.lang.Double.longBitsToDouble(0x3fe62e42fee00000L), java.lang.Double.longBitsToDouble(0xbfe62e42fee00000L))
     private val ln2HI0: Double = java.lang.Double.longBitsToDouble(0x3fe62e42fee00000L)
     private val ln2HI1: Double = java.lang.Double.longBitsToDouble(0xbfe62e42fee00000L)
-    private val ln2LO = Array(java.lang.Double.longBitsToDouble(0x3dea39ef35793c76L), java.lang.Double.longBitsToDouble(0xbdea39ef35793c76L))
+    private def ln2LO: Array[Double] = Array(java.lang.Double.longBitsToDouble(0x3dea39ef35793c76L), java.lang.Double.longBitsToDouble(0xbdea39ef35793c76L))
     private val ln2LO0 = java.lang.Double.longBitsToDouble(0x3dea39ef35793c76L)
     private val ln2LO1 = java.lang.Double.longBitsToDouble(0xbdea39ef35793c76L)
 
