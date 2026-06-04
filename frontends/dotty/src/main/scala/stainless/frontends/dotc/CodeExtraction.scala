@@ -194,15 +194,18 @@ class CodeExtraction(inoxCtx: inox.Context,
     FreshIdentifier(refs.mkString("$"))
   }
 
-  // Detects compiler-synthetic accessors whose return type is mutable in Stainless's sense
-  // (currently: `Array[T]`). These cannot be safely extracted as fields, so we drop them
-  // from the symbol table and reject any references to them.
-  private def isMutableTypedSynthetic(sym: Symbol): Boolean = {
-    def hasMutableReturnType(tpe: Type): Boolean = tpe.dealias match {
+  // Detects compiler-synthetic accessors whose return type is `Array[T]`
+  // (e.g. the `$values: Array[T]` accessor generated for Scala enums). Such
+  // accessors cannot be safely extracted as fields, so we drop them from the
+  // symbol table and reject any references to them. If a synthetic accessor
+  // returning some other mutable type (e.g. `MutableMap`, `Cell`, a `@mutable`
+  // class) ever surfaces here, this should be extended (and renamed).
+  private def isSyntheticArrayAccessor(sym: Symbol): Boolean = {
+    def hasArrayReturnType(tpe: Type): Boolean = tpe.dealias match {
       case AppliedType(tr, _) if isArrayClassSym(tr.typeSymbol) => true
       case _ => false
     }
-    (sym `is` Synthetic) && !canExtractSynthetic(sym) && hasMutableReturnType(sym.info.resultType)
+    (sym `is` Synthetic) && !canExtractSynthetic(sym) && hasArrayReturnType(sym.info.resultType)
   }
 
   def extractStatic(stats: List[tpd.Tree]): (
@@ -387,10 +390,10 @@ class CodeExtraction(inoxCtx: inox.Context,
       // returnType check. References to them in source code are rejected by `extractCall`.
       // Non-mutable synthetic accessors (e.g. tuple-destructure `$N$: (T1, T2)`) are
       // extracted normally below.
-      case ExNonCtorFieldDef(fsym, _, _) if isMutableTypedSynthetic(fsym) =>
+      case ExNonCtorFieldDef(fsym, _, _) if isSyntheticArrayAccessor(fsym) =>
         // ignore
 
-      case ExLazyFieldDef(fsym, _, _) if isMutableTypedSynthetic(fsym) =>
+      case ExLazyFieldDef(fsym, _, _) if isSyntheticArrayAccessor(fsym) =>
         // ignore
 
       // Normal fields
@@ -2059,7 +2062,7 @@ class CodeExtraction(inoxCtx: inox.Context,
   }
 
   private def extractCall(tr: tpd.Tree, rec: Option[tpd.Tree], sym: Symbol, tps: Seq[tpd.Tree], args: Seq[tpd.Tree])(using dctx: DefContext): xt.Expr = {
-    if (isMutableTypedSynthetic(sym))
+    if (isSyntheticArrayAccessor(sym))
       outOfSubsetError(tr, s"Stainless does not support references to the synthetic accessor `${sym.name.toString}`")
     rec match {
     case None if (sym.owner `is` ModuleClass) && (sym.owner `is` Case) =>
