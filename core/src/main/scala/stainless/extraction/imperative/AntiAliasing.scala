@@ -1436,7 +1436,8 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
               // Since this transformation is only performed for target computation, we can avoid introducing
               // bindings for variables of immutable types, as these are not affected by mutation.
               val patternBindings: Map[ValDef, Expr] = mapForPattern(normScrut, pattern)
-              val mutVds = patternBindings.keySet.filter(vd => isMutableType(vd.tpe))
+              val usedPatternVars = guard.toSeq.flatMap(exprOps.variablesOf) ++ exprOps.variablesOf(rhs)
+              val mutVds = patternBindings.keySet.filter(vd => isMutableType(vd.tpe) && usedPatternVars.contains(vd.toVariable))
               val (normGuard, normRhs) = {
                 if (mutVds.nonEmpty) {
                   def bindAndNormalize(e: Expr): Expr = {
