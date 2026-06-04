@@ -13,6 +13,6 @@ object Typedefs3 {
   val t: TypeSet[Int] = Set(List(1, 2, 3), List(4, 5, 6))
   val b: TypeBag[Int] = Bag((List(1, 2, 3), BigInt(3)), (List(4, 5, 6), BigInt(2)))
   val m: TypeMap[Int] = Map(1 -> List(1, 2, 3), 2 -> List(4, 5, 6))
-  val mm: TypeMutableMap[Int] = MutableMap.withDefaultValue[Int, List[Int]](() => List(1, 2, 3))
+  def mm: TypeMutableMap[Int] = MutableMap.withDefaultValue[Int, List[Int]](() => List(1, 2, 3))
 
 }

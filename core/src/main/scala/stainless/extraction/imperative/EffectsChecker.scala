@@ -231,9 +231,14 @@ trait EffectsChecker { self: EffectsAnalyzer =>
 
       val isMethod = fd.flags.exists(_.name == "method")
 
-      if (!isMethod && !isReferentiallyTransparent(fd.fullBody))
-        throw ImperativeEliminationException(fd,
-          s"A field defined in an object must not depend on mutable state, but ${fd.id.asString} is not referentially transparent")
+      if (!isMethod) {
+        val mutableFreeVars = variablesOf(fd.fullBody).filter(v => isMutableType(v.tpe))
+        if (mutableFreeVars.nonEmpty) {
+          val v = mutableFreeVars.toSeq.sortBy(_.id).head
+          throw ImperativeEliminationException(fd,
+            s"A field defined in an object must not reference mutable objects, but it references ${v.asString} of mutable type ${v.tpe.asString}")
+        }
+      }
 
       if (isMutableType(fd.returnType))
         throw ImperativeEliminationException(fd, "A field cannot refer to a mutable object")
