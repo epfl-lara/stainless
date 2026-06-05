@@ -49,6 +49,14 @@ trait EffectsChecker { self: EffectsAnalyzer =>
 
       object traverser extends ConcreteSelfTreeTraverser {
         override def traverse(tpe: Type): Unit = tpe match {
+          case rt @ RefinementType(_, pred) =>
+            val predEffects = effects(pred)
+            if (predEffects.nonEmpty)
+              throw ImperativeEliminationException(rt,
+                "Refinement type predicate has effects on: " + predEffects.head.receiver.asString)
+
+            super.traverse(rt)
+
           case at @ ADTType(id, tps) =>
             (at.getSort.definition.tparams zip tps).foreach { case (tdef, instanceType) =>
               if (isMutableType(instanceType) && !(tdef.flags contains IsMutable))
