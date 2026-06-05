@@ -6,6 +6,4 @@ object PureFieldInMutableClass {
     @pure @opaque def computeValue(): BigInt = 42
 
   }
-
-
 }
