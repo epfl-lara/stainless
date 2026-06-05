@@ -225,6 +225,11 @@ class FunctionClosure(override val s: Trees, override  val t: ast.Trees)
             val path = nestedWithPaths.find(_._1.id == fid).get._2
             val boundVars = path.bindings.map(_._1.toVariable).toSet
 
+            // We annotate outer path conditions with `DropConjunct` so that they are not checked when
+            // calling the inner function (as we know they already hold at this point).
+            // And we annotated bound expressions and path conditions with `DropVCs` so that they
+            // don't generate verification conditions (e.g. index within bounds), as these would be
+            // already checked in the outer function.
             val fromPath: Seq[RefinementVar[Variable]] = path.elements.collect {
               case Path.CloseBound(vd, e) if allVars.contains(vd.toVariable) => 
                 (vd.toVariable, (tpe: Type, tparamsMap: Map[s.TypeParameter, s.Type]) => {
