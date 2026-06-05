@@ -1,3 +1,3 @@
-[ Error  ] EffectfulVal.scala:8:9: A field defined in an object must not reference mutable objects, but it references thiss of mutable type Test
+[ Error  ] EffectfulVal.scala:8:9: A field must be pure, but rand has effects: ReplacementEffect(thiss.state.seed)
                val rand = Random.nextBigInt(state)
                    ^

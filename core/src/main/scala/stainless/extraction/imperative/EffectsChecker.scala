@@ -229,17 +229,6 @@ trait EffectsChecker { self: EffectsAnalyzer =>
     def checkMutableField(fd: FunAbstraction): Unit = {
       if (!fd.flags.exists { case IsField(_) => true case _ => false }) return ()
 
-      val isMethod = fd.flags.exists(_.name == "method")
-
-      if (!isMethod) {
-        val mutableFreeVars = variablesOf(fd.fullBody).filter(v => isMutableType(v.tpe))
-        if (mutableFreeVars.nonEmpty) {
-          val v = mutableFreeVars.toSeq.sortBy(_.id).head
-          throw ImperativeEliminationException(fd,
-            s"A field defined in an object must not reference mutable objects, but it references ${v.asString} of mutable type ${v.tpe.asString}")
-        }
-      }
-
       if (isMutableType(fd.returnType))
         throw ImperativeEliminationException(fd, "A field cannot refer to a mutable object")
 
