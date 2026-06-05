@@ -325,7 +325,7 @@ object FdLibm {
 
   @library
   object RemPio2 {
-    private val npio2_hw = Array[Int](
+    private def npio2_hw: Array[Int] = Array[Int](
       0x3FF921FB, 0x400921FB, 0x4012D97C, 0x401921FB, 0x401F6A7A, 0x4022D97C,
       0x4025FDBB, 0x402921FB, 0x402C463A, 0x402F6A7A, 0x4031475C, 0x4032D97C,
       0x40346B9C, 0x4035FDBB, 0x40378FDB, 0x403921FB, 0x403AB41B, 0x403C463A,
@@ -430,7 +430,7 @@ object FdLibm {
 
     //// Constants ////
 
-    private val two_over_pi = Array[Int]( // moved to this object from RemPio2
+    private def two_over_pi: Array[Int] = Array[Int]( // moved to this object from RemPio2
       0xA2F983, 0x6E4E44, 0x1529FC, 0x2757D1, 0xF534DD, 0xC0DB62,
       0x95993C, 0x439041, 0xFE5163, 0xABDEBB, 0xC561B7, 0x246E3A,
       0x424DD2, 0xE00649, 0x2EEA09, 0xD1921C, 0xFE1DEB, 0x1CB129,
@@ -443,7 +443,7 @@ object FdLibm {
       0x91615E, 0xE61B08, 0x659985, 0x5F14A0, 0x68408D, 0xFFD880,
       0x4D7327, 0x310606, 0x1556CA, 0x73A8C9, 0x60E27B, 0xC08C6B)
 
-    private val PIo2 = Array[Double](
+    private def PIo2: Array[Double] = Array[Double](
       1.57079625129699707031e+00d, // 0x1.921fb4p0,
       7.54978941586159635335e-08d, // 0x1.4442dp-24,
       5.39030252995776476554e-15d, // 0x1.846988p-48,
@@ -455,7 +455,7 @@ object FdLibm {
 
     private val twon24 = 5.96046447753906250000e-08d // 0x1.0p-24
 
-    private val twon24Pow = Array[Double](
+    private def twon24Pow: Array[Double] = Array[Double](
       1,
       5.9604644775390625E-8,
       3.552713678800501E-15,
@@ -518,7 +518,7 @@ object FdLibm {
     @pure
     private def iqInv(iq: Array[Int]): Boolean = iq.length == 20 && all20Int(iq, QInt)
 
-    private val qqBound = Array[Double](
+    private def qqBound: Array[Double] = Array[Double](
       0.4999999403953552,
       5.9604641222676946E-8,
       3.552713467042264E-15,
@@ -566,7 +566,7 @@ object FdLibm {
         && 0 <= qq(19) && qq(19) <= 5.374300565720376E-138
     }
 
-    private val fqBound = Array[Double](
+    private def fqBound: Array[Double] = Array[Double](
       0.785398032021746,
       1.3137568957176623E-7,
       1.2775764834046103E-14,
@@ -614,7 +614,7 @@ object FdLibm {
         && 0 <= fq(19) && fq(19) <= 3.714327186185047E-137
     }
 
-    private val sBound = Array[Double](
+    private def sBound: Array[Double] = Array[Double](
       0.7853981633974483,
       1.3137570234753214E-7,
       1.2775765920284793E-14,
@@ -1513,17 +1513,17 @@ object FdLibm {
 
   @library
   object Exp {
-    private val half: Array[Double] = Array(0.5, -0.5)
+    private def half: Array[Double] = Array(0.5, -0.5)
     private val half0: Double = 0.5
     private val half1: Double = -0.5
     private val huge: Double = 1.0e+300
     private val twom1000: Double = java.lang.Double.longBitsToDouble(0x170000000000000L)
     private val o_threshold: Double = java.lang.Double.longBitsToDouble(0x40862e42fefa39efL)
     private val u_threshold: Double = java.lang.Double.longBitsToDouble(0xc0874910d52d3051L)
-    private val ln2HI = Array(java.lang.Double.longBitsToDouble(0x3fe62e42fee00000L), java.lang.Double.longBitsToDouble(0xbfe62e42fee00000L))
+    private def ln2HI: Array[Double] = Array(java.lang.Double.longBitsToDouble(0x3fe62e42fee00000L), java.lang.Double.longBitsToDouble(0xbfe62e42fee00000L))
     private val ln2HI0: Double = java.lang.Double.longBitsToDouble(0x3fe62e42fee00000L)
     private val ln2HI1: Double = java.lang.Double.longBitsToDouble(0xbfe62e42fee00000L)
-    private val ln2LO = Array(java.lang.Double.longBitsToDouble(0x3dea39ef35793c76L), java.lang.Double.longBitsToDouble(0xbdea39ef35793c76L))
+    private def ln2LO: Array[Double] = Array(java.lang.Double.longBitsToDouble(0x3dea39ef35793c76L), java.lang.Double.longBitsToDouble(0xbdea39ef35793c76L))
     private val ln2LO0 = java.lang.Double.longBitsToDouble(0x3dea39ef35793c76L)
     private val ln2LO1 = java.lang.Double.longBitsToDouble(0xbdea39ef35793c76L)
 
