@@ -31,7 +31,7 @@ class FunctionClosure(override val s: Trees, override  val t: ast.Trees)
       tparamsMap: Map[TypeParameter, TypeParameter]
     )
 
-    def isProp(vd: ValDef): Boolean = vd.tpe match {
+    def isConditionAsRefinement(vd: ValDef): Boolean = vd.tpe match {
       case RefinementType(param, _) if param.tpe == UnitType() && vd.id.name == "prop" => true
       case _ => false
     }
@@ -280,7 +280,7 @@ class FunctionClosure(override val s: Trees, override  val t: ast.Trees)
 
             val mapReverse = calleeMap map { _.swap }
             val extraArgs = newCallee.params.dropRight(args.size).map { vd =>
-              if isProp(vd) then UnitLiteral()
+              if isConditionAsRefinement(vd) then UnitLiteral()
               else typeOps.instantiateType(callerMap(mapReverse(vd)).toVariable, tparamsMap) 
             }
 
