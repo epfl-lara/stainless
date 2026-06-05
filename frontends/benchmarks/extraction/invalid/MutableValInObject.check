@@ -1,0 +1,3 @@
+[ Error  ] MutableValInObject.scala:10:7: A field cannot refer to a mutable object
+             val c = Counter(0)
+                 ^
