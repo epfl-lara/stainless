@@ -1,5 +1,4 @@
 package variable3
-import language.experimental.qualifiedTypes.silent
 
 object A:
   def f() =

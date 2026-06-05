@@ -1,5 +1,4 @@
-package badMutation
-import language.experimental.qualifiedTypes.silent
+package refinementMutation
 
 object A:
   case class Box(var x: Int):

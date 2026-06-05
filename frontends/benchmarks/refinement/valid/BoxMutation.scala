@@ -1,5 +1,4 @@
 package boxMutation
-import language.experimental.qualifiedTypes.silent
 
 object A:
   case class Box(var x: Int):
