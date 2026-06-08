@@ -16,4 +16,9 @@ trait Constructors extends inox.ast.Constructors { self: Trees =>
   def passes(in: Expr, out: Expr, cases: Seq[MatchCase])(using Symbols): Expr = {
     Passes(in, out, cases)
   }
+
+  def sigmaTypeWrap(params: Seq[ValDef], to: Type): Type = params match {
+    case Seq() => to
+    case more => SigmaType(more, to)
+  }
 }

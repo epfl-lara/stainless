@@ -150,10 +150,18 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       fd.params.filter(vd => receivers(vd.toVariable))
     }
 
-    private[imperative] def getReturnType(fd: FunAbstraction): Type = {
-      val aliasedParams = getAliasedParams(fd)
-      tupleTypeWrap(fd.returnType +: aliasedParams.map(_.tpe))
-    }
+     private[imperative] def getReturnType(fd: FunAbstraction): Type = {
+       val aliasedParams = getAliasedParams(fd)
+       if aliasedParams.isEmpty then fd.returnType
+       else {
+         val freshParams = aliasedParams.map(vd => vd.freshen)
+         val subst = aliasedParams.zip(freshParams).map { case (orig, fresh) =>
+           (orig.toVariable, fresh.toVariable)
+         }.toMap
+         val substBody = typeOps.replaceFromSymbols(subst, fd.returnType)
+         sigmaTypeWrap(freshParams, substBody)
+       }
+     }
 
     def asString(using PrinterOptions): String =
       s"EffectsAnalysis(\n${result.asString}\n)"
