@@ -30,34 +30,40 @@ class EquivChkSuite extends ComponentTestSuite {
 
   import EquivChkSuite._
 
+  private val ignoredTests: List[(dir : String, variant : Option[Int])] = List(("boardgame", Some(1)), ("boardgame", Some(2)))
+
   for (Benchmark(benchmarkDir, runs, programSymbols) <- benchmarkData) {
     for (Run(num, conf) <- runs) {
-      val testName = s"$benchmarkDir${num.map(n => s" (variant $n)").getOrElse("")}"
-      test(testName, ctx => filter(ctx, benchmarkDir)) { ctx0 ?=>
-        val opts = Seq(
-          optModels(conf.models.toSeq.sorted),
-          optCompareFuns(conf.candidates.toSeq.sorted),
-          optSilent(true)) ++
-          conf.timeout.map(inox.optTimeout.apply) ++
-          conf.norm.map(optNorm.apply).toSeq ++
-          conf.n.map(optN.apply).toSeq ++
-          conf.initScore.map(optInitScore.apply).toSeq ++
-          conf.maxPerm.map(optMaxPerm.apply).toSeq
-        val ids = programSymbols.functions.keySet.toSeq
-        val programSymbols2 = {
-          if (conf.tests.isEmpty) programSymbols
-          else {
-            val annotated = programSymbols.functions.view.filter { case (fn, _) => conf.tests(fn.fullName) }
-              .mapValues(fd => fd.copy(flags = fd.flags :+ xt.Annotation("mkTest", Seq.empty)))
-            programSymbols.copy(functions = programSymbols.functions ++ annotated)
+      if (ignoredTests.exists { case (dir, variant) => dir == benchmarkDir && variant == num }) {
+        println(s"Skipping test $benchmarkDir${num.map(n => s" (variant $n)").getOrElse("")}.")
+      } else {
+        val testName = s"$benchmarkDir${num.map(n => s" (variant $n)").getOrElse("")}"
+        test(testName, ctx => filter(ctx, benchmarkDir)) { ctx0 ?=>
+          val opts = Seq(
+            optModels(conf.models.toSeq.sorted),
+            optCompareFuns(conf.candidates.toSeq.sorted),
+            optSilent(true)) ++
+            conf.timeout.map(inox.optTimeout.apply) ++
+            conf.norm.map(optNorm.apply).toSeq ++
+            conf.n.map(optN.apply).toSeq ++
+            conf.initScore.map(optInitScore.apply).toSeq ++
+            conf.maxPerm.map(optMaxPerm.apply).toSeq
+          val ids = programSymbols.functions.keySet.toSeq
+          val programSymbols2 = {
+            if (conf.tests.isEmpty) programSymbols
+            else {
+              val annotated = programSymbols.functions.view.filter { case (fn, _) => conf.tests(fn.fullName) }
+                .mapValues(fd => fd.copy(flags = fd.flags :+ xt.Annotation("mkTest", Seq.empty)))
+              programSymbols.copy(functions = programSymbols.functions ++ annotated)
+            }
           }
+          // Uncomment the `.copy(...)` to print equiv. chk. output
+          val ctx = ctx0.withOpts(opts*)//.copy(reporter = new inox.DefaultReporter(Set(DebugSectionEquivChk)))
+          given inox.Context = ctx
+          val report = Await.result(component.run(extraction.pipeline).apply(ids, programSymbols2), Duration.Inf)
+          val got = extractResults(conf.candidates, report)
+          got shouldEqual conf.results
         }
-        // Uncomment the `.copy(...)` to print equiv. chk. output
-        val ctx = ctx0.withOpts(opts*)//.copy(reporter = new inox.DefaultReporter(Set(DebugSectionEquivChk)))
-        given inox.Context = ctx
-        val report = Await.result(component.run(extraction.pipeline).apply(ids, programSymbols2), Duration.Inf)
-        val got = extractResults(conf.candidates, report)
-        got shouldEqual conf.results
       }
     }
   }

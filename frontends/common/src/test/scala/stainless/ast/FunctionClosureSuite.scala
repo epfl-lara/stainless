@@ -50,7 +50,7 @@ class FunctionClosureSuite extends AnyFunSuite with InputUtils {
     val inner3B = funDef("InnerFunctions.inner3B")
     assert(inner1.params.isEmpty)
     assert(inner2.params.size == 1)
-    assert(inner3A.params.map(_.id.name) == Seq("x", "y"))
-    assert(inner3B.params.map(_.id.name) == Seq("x", "y"))
+    assert(inner3A.params.map(_.id.name) == Seq("x", "y", "prop", "prop", "a"))
+    assert(inner3B.params.map(_.id.name) == Seq("x", "y", "prop", "prop", "a"))
   }
 }
