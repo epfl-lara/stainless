@@ -89,7 +89,7 @@ private class S2IRImpl(override val s: tt.type,
       if (fd.isVal)
         registerVal(fd)
       else
-        rec(Outer(fd), Seq())(using Map.empty, Env(Map.empty, Map.empty, fd.isExported))
+        rec(Outer(fd), Seq())(using Map.empty, emptyEnv(fd.isExported))
     }
 
     for (cd <- symbols.classes.values if cd.isExported || cd.isGlobal)
@@ -119,18 +119,26 @@ private class S2IRImpl(override val s: tt.type,
   // When converting expressions, we keep track of the variable in scope to build Bindings
   // Also, the identifier might not have the correct type (e.g. when generic). We therefore
   // need an external *concrete* type.
-  case class Env(
+  private case class Env(
     bindings: Map[(ValDef, Type), CIR.ValDef],
     lfds: Map[Identifier, LocalFunDef],
-    inExported: Boolean // true when we're inside an exported function
+    inExported: Boolean, // true when we're inside an exported function
+    localNames: LocalNameAllocator
   )
 
   // Keep track of generic to concrete type mapping
   private type TypeMapping = Map[TypeParameter, Type]
 
+  private def emptyEnv(inExported: Boolean = false): Env =
+    Env(Map.empty, Map.empty, inExported, new LocalNameAllocator(globalReservedNames))
+
   // Here, when contexts are translated, there might remain some generic types. We use `tm` to make them disapear.
-  private def convertVarInfoToArg(vi: VarInfo)(using tm: TypeMapping) = CIR.ValDef(rec(vi.vd.id), rec(vi.typ), vi.isVar)
-  private def convertVarInfoToParam(vi: VarInfo)(using tm: TypeMapping) = CIR.Binding(convertVarInfoToArg(vi))
+  private def convertVarInfoToArg(vi: VarInfo)(using tm: TypeMapping, names: LocalNameAllocator) =
+    CIR.ValDef(names(vi.vd.id), rec(vi.typ), vi.isVar)
+  private def convertVarInfoToParam(vi: VarInfo)(using env: Env, tm: TypeMapping) = {
+    val typ = instantiateType(vi.typ, tm)
+    CIR.Binding(env.bindings(vi.vd, typ))
+  }
 
   def flagsToModes(flags: Seq[Flag]): Seq[DeclarationMode] = flags.flatMap {
     case flag if flag.name == "cCode.static" => Some(Static)
@@ -151,7 +159,7 @@ private class S2IRImpl(override val s: tt.type,
       if (fd.isDropped) {
         declResults += ((CIR.Decl(CIR.ValDef(newId, newType, false), None), flagsToModes(fd.flags)))
       } else {
-        val newBody = rec(fd.fullBody)(using Env(Map.empty, Map.empty, fd.isExported), Map.empty)
+        val newBody = rec(fd.fullBody)(using emptyEnv(fd.isExported), Map.empty)
         declResults += ((CIR.Decl(CIR.ValDef(newId, newType, false), Some(newBody)), flagsToModes(fd.flags)))
       }
     }
@@ -178,7 +186,7 @@ private class S2IRImpl(override val s: tt.type,
   private def buildLet(x: ValDef, e: Expr, body: Expr, isVar: Boolean)
                       (using env: Env, tm: TypeMapping): CIR.Expr = {
     val tpe = rec(x.tpe)
-    val vd = CIR.ValDef(rec(x.id), tpe, isVar)
+    val vd = CIR.ValDef(env.localNames(x.id), tpe, isVar)
     val newBindings = env.bindings + ((x, instantiateType(x.tpe, tm)) -> vd)
 
     val decl: Seq[CIR.Expr] = try {
@@ -336,7 +344,7 @@ private class S2IRImpl(override val s: tt.type,
 
     def withTmp(typ: Type, value: Expr, env: Env): (Variable, Some[CIR.Decl], Env) = {
       val tmp0 = ValDef.fresh("tmp", typ)
-      val tmpId = rec(tmp0.id)
+      val tmpId = env.localNames(tmp0.id)
       val tmpTyp = rec(typ)
       val tmp = CIR.ValDef(tmpId, tmpTyp, isVar = false)
       val pre = CIR.Decl(tmp, Some(rec(value)(using env, tm)))
@@ -490,6 +498,58 @@ private class S2IRImpl(override val s: tt.type,
     else id.name
   }
 
+  private lazy val globalReservedNames: Set[String] = {
+    val functionNames = syms.functions.values.flatMap(fd => Seq(fd.id.name, fd.id.uniqueNameDelimited("_")))
+    val classNames = syms.classes.values.flatMap(cd => Seq(cd.id.name, cd.id.uniqueNameDelimited("_")))
+    val globalFieldNames = syms.classes.values.filter(_.isGlobal).flatMap { cd =>
+      cd.fields.flatMap(vd => Seq(vd.id.name, vd.id.uniqueNameDelimited("_")))
+    }
+
+    (functionNames ++ classNames ++ globalFieldNames).toSet
+  }
+
+  private class LocalNameAllocator(initiallyUsed: Iterable[String] = Nil) {
+    private val used = MutableSet[String]()
+    initiallyUsed.foreach(name => used += name)
+    cReservedNames.foreach(name => used += name)
+
+    def apply(id: Identifier): CIR.Id = {
+      val base = cleanCIdentifier(id.name)
+      if (!used(base)) {
+        used += base
+        base
+      } else {
+        var index = 1
+        var candidate = s"${base}_$index"
+        while (used(candidate)) {
+          index += 1
+          candidate = s"${base}_$index"
+        }
+        used += candidate
+        candidate
+      }
+    }
+  }
+
+  private def cleanCIdentifier(name: String): String = {
+    def validFirst(c: Char) = c == '_' || c.isLetter
+    def validRest(c: Char) = c == '_' || c.isLetterOrDigit
+
+    val cleaned = name.zipWithIndex.map { case (c, i) =>
+      if ((i == 0 && validFirst(c)) || (i > 0 && validRest(c))) c else '_'
+    }.mkString
+
+    if (cleaned.nonEmpty && validFirst(cleaned.head)) cleaned else "local"
+  }
+
+  private val cReservedNames: Set[String] = Set(
+    "auto", "break", "case", "char", "const", "continue", "default", "do",
+    "double", "else", "enum", "extern", "float", "for", "goto", "if",
+    "inline", "int", "long", "register", "restrict", "return", "short",
+    "signed", "sizeof", "static", "struct", "switch", "typedef", "union",
+    "unsigned", "void", "volatile", "while", "_Bool", "_Complex", "_Imaginary"
+  )
+
   // Try first to fetch the function from cache to handle recursive funcitons.
   private def rec(fa: FunAbstraction, tps: Seq[Type])(using tm0: TypeMapping, env: Env): CIR.FunDef = {
     val cacheKey = (fa, tps, tm0)
@@ -522,9 +582,10 @@ private class S2IRImpl(override val s: tt.type,
 
     // Make sure to get the id from the function definition, not the typed one, as they don't always match.
     // Remove global parameters
+    given localNames: LocalNameAllocator = new LocalNameAllocator(globalReservedNames + id)
     val newParams = fa.params.filter(vd => !isGlobal(vd.tpe))
     val paramTypes = newParams map { p => rec(p.getType) }
-    val paramIds = newParams map { p => rec(p.id) }
+    val paramIds = newParams map { p => localNames(p.id) }
     val params = (paramIds zip paramTypes) map { case (id, typ) => CIR.ValDef(id, typ, isVar = false) }
 
     // Extract the context for the function definition, taking care of the remaining generic types in the context.
@@ -575,7 +636,7 @@ private class S2IRImpl(override val s: tt.type,
         val bodyWithoutSpecs = exprOps.BodyWithSpecs(fa.fullBody).letsAndBody
 
         // Recurse on the FunDef body, and not the TypedFunDef one, in order to keep the correct identifiers.
-        CIR.FunBodyAST(rec(bodyWithoutSpecs)(using env.copy(bindings = newBindings), tm1))
+        CIR.FunBodyAST(rec(bodyWithoutSpecs)(using env.copy(bindings = newBindings, localNames = localNames), tm1))
       }
 
     // Now that we have a body, we can fully build the FunDef
@@ -672,7 +733,7 @@ private class S2IRImpl(override val s: tt.type,
             )
           }
           for ((((field, modes), paramInit), vd) <- fields.zip(paramInits).zip(tcd.fields)) {
-            given emptyEnv: Env = Env(Map(), Map(), false)
+            given initEnv: Env = emptyEnv()
             val decl = (CIR.Decl(field, Some(rec(paramInit.fullBody))), modes)
             if (declResults.map(_._1.vd).contains(field)) {
               reporter.fatalError(cd.getPos, s"Global variable ${field.id} is defined twice")
