@@ -57,9 +57,8 @@ class ImperativeCodeElimination(override val s: Trees)(override val t: s.type)
           val (rhsVal, rhsScope, rhsFun) = toFunction(e)
           val (bodyRes, bodyScope, bodyFun) = toFunction(b)(using state.withVar(vd))
           val newSubst = rhsFun + (vd.toVariable -> newVd.toVariable)
-          val finalSubst = newSubst ++ bodyFun
           val scope = (body: Expr) => rhsScope(Let(newVd, rhsVal, replaceFromSymbols(newSubst, bodyScope(body))).copiedFrom(expr))
-          (replaceFromSymbols(finalSubst, bodyRes), scope, finalSubst)
+          (bodyRes, scope, newSubst ++ bodyFun)
 
         case Assignment(v, e) =>
           assert(varsInScope.contains(v), s"varsInScope should contain ${v.asString}")
@@ -410,6 +409,10 @@ class ImperativeCodeElimination(override val s: Trees)(override val t: s.type)
           val newTpe = transformPureType(tpe)
           val (eRes, eScope, eFun) = toFunction(e)
           (IsInstanceOf(eRes, newTpe).copiedFrom(io), eScope, eFun)
+
+        // this is a workaround not a fix
+        case n @ Tuple(args) =>
+          foldArguments(args.reverse)(args => Tuple(args.reverse).setPos(n))
 
         case n @ Operator(args, recons) =>
           foldArguments(args)(recons(_).setPos(n))
