@@ -129,11 +129,13 @@ final class TailRecTransformer(val ctx: inox.Context) extends Transformer(SIR, T
   private def replaceRecursiveCalls(fd: FunDef, body: Expr, valdefs: List[ValDef], labelName: String): Expr = {
     val replacer = new Transformer(from, from) with NoEnv {
       override def recImpl(e: Expr)(using Env): (Expr, Env) = e match {
-        case Return(App(FunVal(fdcall), _, args)) if fdcall == fd =>
+        case Return(App(FunVal(fdcall), _, args)) if fdcall == fd && args.length == valdefs.length =>
           val tmpValDefs = valdefs.map(vd => ValDef(freshId(vd.id), vd.typ, isVar = false))
           val tmpDecls = tmpValDefs.zip(args).map { case (vd, arg) => Decl(vd, Some(arg)) }
           val valdefAssign = valdefs.zip(tmpValDefs).map { case (vd, tmp) => Assign(Binding(vd), Binding(tmp)) }
           Block(tmpDecls ++ valdefAssign :+ Goto(labelName)) -> ()
+        case Return(App(FunVal(fdcall), _, _)) if fdcall == fd && fd.returnType.isUnitType =>
+          Return(Lit(UnitLit)) -> ()
         case _ =>
           super.recImpl(e)
       }
