@@ -74,10 +74,13 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
 
     case Decl(vd0, Some(value0)) =>
       val vd = rec(vd0)
-      val (pre, value) = flatten(value0, allowTopLevelApp = true, allowArray = true)
-      val declinit = to.Decl(vd, Some(value))
+      val destination = to.Binding(vd)
+      val (pre, value) = flatten(value0, allowTopLevelApp = true, allowArray = true, Some(destination))
+      val exprs =
+        if (pre.nonEmpty && value == destination) to.Decl(vd, None) +: pre
+        else pre :+ to.Decl(vd, Some(value))
 
-      combine(pre :+ declinit) -> env
+      combine(exprs) -> env
 
     case Decl(vd0, None) =>
       val vd = rec(vd0)
@@ -266,7 +269,12 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
   // a variable holding the result of the function call). However, in a few cases this is not required;
   // e.g. when declaring a variable we can directly call a function without needing a (duplicate) sequence
   // point. Caller can therefore carefully set `allowTopLevelApp` to true in those cases.
-  private def flatten(e: Expr, allowTopLevelApp: Boolean, allowArray: Boolean)(using Env): (Seq[to.Expr], to.Expr) = {
+  private def flatten(
+    e: Expr,
+    allowTopLevelApp: Boolean,
+    allowArray: Boolean,
+    destination: Option[to.Binding] = None
+  )(using Env): (Seq[to.Expr], to.Expr) = {
     def innerLoop(e2: to.Expr): (Seq[to.Expr], to.Expr) = e2 match {
       case to.Block(init :+ last) =>
         (init, last)
@@ -280,7 +288,7 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
         (Seq.empty, e)
     }
     val (init, last) = innerLoop(rec(e))
-    normalise(init, last, allowTopLevelApp, allowArray)
+    normalise(init, last, allowTopLevelApp, allowArray, destination)
   }
 
   // Flatten all the given arguments, adding strict normalisation is needed and returning two lists of:
@@ -343,10 +351,22 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
     rec(e)
   }
 
-  private def normalise(pre: Seq[to.Expr], value: to.Expr, allowTopLevelApp: Boolean, allowArray: Boolean): (Seq[to.Expr], to.Expr) = value match {
+  private def normalise(
+    pre: Seq[to.Expr],
+    value: to.Expr,
+    allowTopLevelApp: Boolean,
+    allowArray: Boolean,
+    destination: Option[to.Binding]
+  ): (Seq[to.Expr], to.Expr) = value match {
     case _ if isSimple(value, allowTopLevelApp, allowArray, true) => (pre, value)
 
     case _: to.While => (pre :+ value, to.Lit(Literals.UnitLit))
+
+    case fi0 @ to.IfElse(_, _, _) if destination.isDefined =>
+      val binding = destination.get
+      val fi = inject({ e => to.Assign(binding, e) }, _ => true)(fi0)
+
+      (pre :+ fi, binding)
 
     case fi0 @ to.IfElse(_, _, _) =>
       val norm = freshNormVal(fi0.getType, isVar = true)
