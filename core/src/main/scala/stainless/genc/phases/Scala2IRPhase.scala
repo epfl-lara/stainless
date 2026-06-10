@@ -508,6 +508,15 @@ private class S2IRImpl(override val s: tt.type,
     (functionNames ++ classNames ++ globalFieldNames).toSet
   }
 
+  private lazy val globalFieldReservedNames: Set[String] = {
+    val functionNames = syms.functions.values.flatMap(fd => Seq(fd.id.name, fd.id.uniqueNameDelimited("_")))
+    val classNames = syms.classes.values.flatMap(cd => Seq(cd.id.name, cd.id.uniqueNameDelimited("_")))
+
+    (functionNames ++ classNames).toSet
+  }
+
+  private lazy val globalFieldNames = new LocalNameAllocator(globalFieldReservedNames)
+
   private class LocalNameAllocator(initiallyUsed: Iterable[String] = Nil) {
     private val used = MutableSet[String]()
     initiallyUsed.foreach(name => used += name)
@@ -549,6 +558,14 @@ private class S2IRImpl(override val s: tt.type,
     "signed", "sizeof", "static", "struct", "switch", "typedef", "union",
     "unsigned", "void", "volatile", "while", "_Bool", "_Complex", "_Imaginary"
   )
+
+  private def convertedField(ct: ClassType, fieldId: Identifier)(using tm: TypeMapping): CIR.ValDef = {
+    val cd = rec(ct)
+    val idx = ct.tcd.fields.indexWhere(_.id == fieldId)
+    if (idx < 0)
+      reporter.fatalError(ct.getPos, s"Unexpected field ${fieldId.asString} in class ${ct.id.asString}")
+    cd.fields(idx)._1
+  }
 
   // Try first to fetch the function from cache to handle recursive funcitons.
   private def rec(fa: FunAbstraction, tps: Seq[Type])(using tm0: TypeMapping, env: Env): CIR.FunDef = {
@@ -707,14 +724,15 @@ private class S2IRImpl(override val s: tt.type,
       if (cd.isCaseObject)
         reporter.fatalError(ct.getPos, s"Case objects (${ct.id.asString}) are not convertible to ClassDef in GenC")
 
-      // disable name mangling for fields of exported and global classes
-      val mangling = !cd.isExported && !cd.isGlobal && !cd.noMangling
+      val fieldNames =
+        if (cd.isGlobal) globalFieldNames
+        else new LocalNameAllocator()
 
       val fields = tcd.fields.map(vd => vd.tpe match {
         case ArrayType(base) if arrayLengthsMap.contains(vd.id) =>
-          (CIR.ValDef(rec(vd.id, withUnique = mangling), CIR.ArrayType(rec(base), Some(arrayLengthsMap(vd.id))), vd.flags.contains(IsVar)), flagsToModes(vd.flags))
+          (CIR.ValDef(fieldNames(vd.id), CIR.ArrayType(rec(base), Some(arrayLengthsMap(vd.id))), vd.flags.contains(IsVar)), flagsToModes(vd.flags))
         case typ =>
-          (CIR.ValDef(rec(vd.id, withUnique = mangling), rec(typ), vd.flags.contains(IsVar)), flagsToModes(vd.flags))
+          (CIR.ValDef(fieldNames(vd.id), rec(typ), vd.flags.contains(IsVar)), flagsToModes(vd.flags))
       })
 
       val clazz = CIR.ClassDef(id, parent, fields, cd.isAbstract, cd.isExported, cd.isPacked)
@@ -853,16 +871,10 @@ private class S2IRImpl(override val s: tt.type,
     case FieldAssignment(obj, fieldId, expr) =>
       obj.getType match {
         case ct: ClassType if isGlobal(ct) =>
-          val cd2 = rec(ct)
-          val fieldId2 = rec(fieldId, withUnique = false)
-          val field2 = cd2.fields.find(_._1.id == fieldId2).get
-          val vd = CIR.ValDef(rec(fieldId, withUnique = false), field2._1.typ, isVar = field2._1.isVar)
-          CIR.Assign(CIR.Binding(vd), rec(expr))
+          CIR.Assign(CIR.Binding(convertedField(ct, fieldId)), rec(expr))
 
         case ct: ClassType =>
-          val cd = ct.tcd.cd
-          val mangling = !cd.isExported && !cd.isManuallyTyped && !cd.noMangling
-          CIR.Assign(CIR.FieldAccess(rec(obj), rec(fieldId, withUnique = mangling)), rec(expr))
+          CIR.Assign(CIR.FieldAccess(rec(obj), convertedField(ct, fieldId).id), rec(expr))
 
         case typ =>
           reporter.fatalError(e.getPos, s"Unexpected type $typ. Only class type are expected to update fields")
@@ -950,15 +962,10 @@ private class S2IRImpl(override val s: tt.type,
 
     case ClassSelector(obj, fieldId) =>
       val ct = obj.getType.asInstanceOf[ClassType]
-      val cd = ct.tcd.cd
       if (isGlobal(ct)) {
-        val cd2 = rec(ct)
-        val fieldId2 = rec(fieldId, withUnique = false)
-        val field2 = cd2.fields.find(_._1.id == fieldId2).get
-        val vd = CIR.ValDef(rec(fieldId, withUnique = false), field2._1.typ, isVar = field2._1.isVar)
-        CIR.Binding(vd)
+        CIR.Binding(convertedField(ct, fieldId))
       } else {
-        CIR.FieldAccess(rec(obj), rec(fieldId, withUnique = !cd.isExported && !cd.isManuallyTyped && !cd.noMangling))
+        CIR.FieldAccess(rec(obj), convertedField(ct, fieldId).id)
       }
 
     case tuple @ Tuple(args0) =>
@@ -1001,15 +1008,16 @@ private class S2IRImpl(override val s: tt.type,
       val cellBaseType = cell1.getType.asInstanceOf[ClassType].tps.head
       val cellClassDef = symbols.lookup.get[ClassDef]("stainless.lang.Cell").get
       val vFieldId: Identifier = cellClassDef.fields.head.id
+      val fieldId = convertedField(cell1.getType.asInstanceOf[ClassType], vFieldId).id
       val c1 = rec(cell1)
       val c2 = rec(cell2)
       val tmpId = rec(FreshIdentifier("tmp"))
       val tmpVd = CIR.ValDef(tmpId, rec(cellBaseType), false)
       val tmp = CIR.Binding(tmpVd)
       CIR.buildBlock(Seq(
-        CIR.Decl(tmpVd, Some(CIR.FieldAccess(c2, rec(vFieldId, withUnique = false)))),
-        CIR.Assign(CIR.FieldAccess(c2, rec(vFieldId, withUnique = false)), CIR.FieldAccess(c1, rec(vFieldId, withUnique = false))),
-        CIR.Assign(CIR.FieldAccess(c1, rec(vFieldId, withUnique = false)), tmp),
+        CIR.Decl(tmpVd, Some(CIR.FieldAccess(c2, fieldId))),
+        CIR.Assign(CIR.FieldAccess(c2, fieldId), CIR.FieldAccess(c1, fieldId)),
+        CIR.Assign(CIR.FieldAccess(c1, fieldId), tmp),
       ))
 
 
