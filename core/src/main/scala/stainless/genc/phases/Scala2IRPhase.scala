@@ -210,10 +210,14 @@ private class S2IRImpl(override val s: tt.type,
   //   rec(tfd.fd.id) + (if (tfd.tps.nonEmpty) buildIdPostfix(tfd.tps) else buildIdFromTypeMapping(tm))
 
   // Include the "nesting path" in case of generic functions to avoid ambiguity
-  private def buildId(fa: FunAbstraction, tps: Seq[Type])(using tm: TypeMapping): CIR.Id = {
-    val postfix = if (tps.nonEmpty) buildIdPostfix(tps) else buildIdFromTypeMapping(tm)
-    val preferred = fa.id.name + postfix
-    globalName(("function", fa.id, postfix), preferred)
+  private def buildId(fa: FunAbstraction, tps: Seq[Type])(using tm: TypeMapping): CIR.Id = fa match {
+    case outer: Outer if outer.fd.isVal && tps.isEmpty =>
+      buildId(outer.fd)
+
+    case _ =>
+      val postfix = if (tps.nonEmpty) buildIdPostfix(tps) else buildIdFromTypeMapping(tm)
+      val preferred = fa.id.name + postfix
+      globalName(("function", fa.id, postfix), preferred)
   }
 
   private def buildId(fd: FunDef): CIR.Id = {
