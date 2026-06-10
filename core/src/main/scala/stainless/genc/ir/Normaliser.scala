@@ -151,7 +151,7 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
         ctx.reporter.fatalError(s"Assumed to be invalid Scala code is apparently present in the AST:\n$assign0")
       }
 
-      val (preRhs, rhs) = flatten(rhs0, allowTopLevelApp = false, allowArray = false)
+      val (preRhs, rhs) = flatten(rhs0, allowTopLevelApp = true, allowArray = false)
 
       val assign = to.Assign(lhs, rhs)
 
