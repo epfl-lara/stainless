@@ -147,9 +147,9 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
           val freshBody = exprOps.replaceFromSymbols(freshSubst, body)
           val explicitBody = makeSideEffectsExplicit(freshBody, fd, env `withBindings` freshLocals, freshLocals.map(_.toVariable))
 
-          //WARNING: only works if side effects in Tuples are extracted from left to right,
-          //         in the ImperativeTransformation phase.
-          val finalBody: Expr = Tuple(freshLocals.map(_.toVariable) :+ explicitBody).copiedFrom(body)
+          val tmp = ValDef(FreshIdentifier("res"), typeOps.replaceFromSymbols(freshSubst, fd.returnType))
+          val finalBody: Expr =
+            Let(tmp, explicitBody, Tuple(freshLocals.map(_.toVariable) :+ tmp.toVariable).copiedFrom(body)).copiedFrom(body)
 
           freshLocals.zip(aliasedParams).foldLeft(finalBody) {
             (bd, vp) => LetVar(vp._1, vp._2.toVariable, bd).copiedFrom(body)
@@ -904,9 +904,10 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
               val rewritingMap = aliasedParams.zip(freshLocals).map(p => p._1.toVariable -> p._2.toVariable).toMap
               val freshBody = exprOps.replaceFromSymbols(rewritingMap, body)
 
-              //WARNING: only works if side effects in Tuples are extracted from left to right,
-              //         in the ImperativeTransformation phase.
-              val finalBody: Expr = Tuple(freshLocals.map(_.toVariable) :+ freshBody)
+              // ft.to is widened, so no need to `replaceFromSymbols` with `rewritingMap`
+              val tmp = ValDef(FreshIdentifier("res"), ft.to)
+              val finalBody: Expr =
+                Let(tmp, freshBody, Tuple(freshLocals.map(_.toVariable) :+ tmp.toVariable).copiedFrom(body)).copiedFrom(body)
 
               val wrappedBody: Expr = freshLocals.zip(aliasedParams).foldLeft(finalBody) {
                 (bd, vp) => LetVar(vp._1, vp._2.toVariable, bd).copiedFrom(bd)

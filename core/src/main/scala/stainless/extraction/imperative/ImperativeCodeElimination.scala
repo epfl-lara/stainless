@@ -410,10 +410,6 @@ class ImperativeCodeElimination(override val s: Trees)(override val t: s.type)
           val (eRes, eScope, eFun) = toFunction(e)
           (IsInstanceOf(eRes, newTpe).copiedFrom(io), eScope, eFun)
 
-        // this is a workaround not a fix
-        case n @ Tuple(args) =>
-          foldArguments(args.reverse)(args => Tuple(args.reverse).setPos(n))
-
         case n @ Operator(args, recons) =>
           foldArguments(args)(recons(_).setPos(n))
       }): @unchecked
