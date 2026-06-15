@@ -1695,6 +1695,28 @@ trait CodeGeneration { self: CompilationUnit =>
   }
 
   /**
+    * Lift machine integer representations to the BitVector class.
+    */
+  private def mkAsRuntimeBV(from: Type, ch: CodeHandler): Unit = from match {
+    case Int8Type()  => mkNewBV(ch, "B", 8)
+    case Int16Type() => mkNewBV(ch, "S", 16)
+    case Int32Type() => mkNewBV(ch, "I", 32)
+    case Int64Type() => mkNewBV(ch, "J", 64)
+    case BVType(_, _) => ch << NOP
+  }
+
+  /**
+    * Lower BitVector back to machine integer representations, if possible.
+    */
+  private def mkFromRuntimeBV(to: Type, ch: CodeHandler): Unit = to match {
+    case Int8Type()  => ch << InvokeVirtual(BitVectorClass, "toByte", "()B")
+    case Int16Type() => ch << InvokeVirtual(BitVectorClass, "toShort", "()S")
+    case Int32Type() => ch << InvokeVirtual(BitVectorClass, "toInt", "()I")
+    case Int64Type() => ch << InvokeVirtual(BitVectorClass, "toLong", "()J")
+    case BVType(_, _) => ch << NOP
+  }
+
+  /**
    *  Generate ByteCode for BV widening and narrowing on arbitrary BV.
    *
    *  [[from]] and [[to]] are expected to be different, and at least one of
@@ -1707,13 +1729,7 @@ trait CodeGeneration { self: CompilationUnit =>
   private def mkBVCast(from: Type, to: Type, ch: CodeHandler): Unit = {
     // Here, we might need to first create a BitVector.
     // We might also have to convert the resulting BitVector back to a regular integer type.
-    from match {
-      case Int8Type()  => mkNewBV(ch, "B", 8)
-      case Int16Type() => mkNewBV(ch, "S", 16)
-      case Int32Type() => mkNewBV(ch, "I", 32)
-      case Int64Type() => mkNewBV(ch, "J", 64)
-      case BVType(_, s) => ch << NOP
-    }
+    mkAsRuntimeBV(from, ch)
 
     val BVType(_, oldSize) = from: @unchecked
     val BVType(_, newSize) = to: @unchecked
@@ -1721,13 +1737,7 @@ trait CodeGeneration { self: CompilationUnit =>
     ch << Ldc(newSize)
     ch << InvokeVirtual(BitVectorClass, "cast", s"(I)L$BitVectorClass;")
 
-    to match {
-      case Int8Type()  => ch << InvokeVirtual(BitVectorClass, "toByte", "()B")
-      case Int16Type() => ch << InvokeVirtual(BitVectorClass, "toShort", "()S")
-      case Int32Type() => ch << InvokeVirtual(BitVectorClass, "toInt", "()I")
-      case Int64Type() => ch << InvokeVirtual(BitVectorClass, "toLong", "()J")
-      case BVType(_, s) => ch << NOP
-    }
+    mkFromRuntimeBV(to, ch)
   }
 
   private def mkBVShift(l: Expr, r: Expr, ch: CodeHandler,
