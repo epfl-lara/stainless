@@ -1057,6 +1057,25 @@ trait CodeGeneration { self: CompilationUnit =>
           Comment("BVSignedToUnsigned: no-op for everything except signed bitvectors")
           ch << NOP
 
+    case BVToInt(e) =>
+      mkExpr(e, ch)
+      mkAsRuntimeBV(e.getType, ch)
+      ch << InvokeVirtual(BitVectorClass, "toBigInt", s"()L$BigIntClass;")
+
+    case i @ IntToBV(size, signed, e) =>
+      mkExpr(e, ch)
+      // stack state ..., value
+      ch << InvokeVirtual(BigIntClass, "toBigInteger", s"()L$JavaBigIntegerClass;")
+      // ..., bigIntValue
+      ch << New(BitVectorClass) << DUP_X1 << SWAP
+      // ..., uninit BV, uninit BV, bigIntValue
+      ch << Ldc(if (signed) 1 else 0) << SWAP << Ldc(size)
+      // ..., uninit BV, signed, bigIntValue, size
+      ch << InvokeSpecial(BitVectorClass, constructorName, s"(ZL$JavaBigIntegerClass;I)V")
+      // ..., initialized BV
+      // turn this into a machine integer if possible
+      mkFromRuntimeBV(i.getType, ch)
+
     case BVNarrowingCast(e, to) =>
       mkExpr(e, ch)
       val from = e.getType
