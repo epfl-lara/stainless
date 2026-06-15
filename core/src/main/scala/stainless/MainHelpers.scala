@@ -59,6 +59,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
       "  ocbsl (experimental) : Leverages orthocomplemented bisemilattices boolean algebra for simplifying boolean expressions.\n" +
       "                         Though the name sounds cooler than OL, it is less complete.\n" +
       "  bland (experimental) : Common simplification logic to OL and OCBSL, but without any boolean algebra flavor"),
+    termination.optYoloForever -> Description(Termination, "Disable both termination measure checking and inference (implies --check-measures=no and --infer-measures=false)"),
     termination.optCheckMeasures -> Description(Termination, "Check that measures are valid (both inferred and user-defined)"),
     termination.optInferMeasures -> Description(Termination, "Automatically infer measures for recursive functions"),
     inox.optTimeout -> Description(General, "Set a timeout n (in sec) such that\n" +
@@ -158,7 +159,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
   }
 
   def getConfigContext(options: inox.Options)(using inox.Reporter): inox.Context = {
-    val ctx = super.processOptions(Seq.empty, getConfigOptions(options))
+    val ctx = applyTerminationImplications(super.processOptions(Seq.empty, getConfigOptions(options)))
 
     if (ctx.options.findOptionOrDefault(inox.optNoColors)) {
       val reporter = new stainless.PlainTextReporter(ctx.reporter.debugSections)
@@ -178,11 +179,20 @@ trait MainHelpers extends inox.MainHelpers { self =>
       .values
       .toSeq
 
-    val ctx = super.processOptions(files, options)
+    val ctx = applyTerminationImplications(super.processOptions(files, options))
 
     if (ctx.options.findOptionOrDefault(inox.optNoColors)) {
       val reporter = new stainless.PlainTextReporter(ctx.reporter.debugSections)
       Context.withReporter(reporter)(ctx)
+    } else ctx
+  }
+
+  private def applyTerminationImplications(ctx: inox.Context): inox.Context = {
+    if (ctx.options.findOptionOrDefault(termination.optYoloForever)) {
+      ctx.withOpts(
+        termination.optCheckMeasures(stainless.utils.YesNoOnly.No),
+        termination.optInferMeasures(false)
+      )
     } else ctx
   }
 
