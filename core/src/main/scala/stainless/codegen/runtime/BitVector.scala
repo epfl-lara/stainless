@@ -26,6 +26,8 @@ final class BitVector(private val signed: Boolean, private val bits: Array[Boole
   }
 
   private def toUnsigned: BitVector = new BitVector(false, bits)
+  def withSignedness(signed: Boolean): BitVector = new BitVector(signed, bits)
+  def toBigInt: stainless.codegen.runtime.BigInt = new stainless.codegen.runtime.BigInt(toBigInteger)
 
   def toByte: Byte = toBigInteger.byteValueExact
   def toShort: Short = toBigInteger.shortValueExact
