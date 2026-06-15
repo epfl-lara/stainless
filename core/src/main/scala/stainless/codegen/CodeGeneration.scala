@@ -93,6 +93,7 @@ trait CodeGeneration { self: CompilationUnit =>
   private[codegen] val JavaListClass             = "java/util/List"
   private[codegen] val JavaIteratorClass         = "java/util/Iterator"
   private[codegen] val JavaStringClass           = "java/lang/String"
+  private[codegen] val JavaBigIntegerClass       = "java/math/BigInteger"
 
   private[codegen] val TupleClass                = "stainless/codegen/runtime/Tuple"
   private[codegen] val SetClass                  = "stainless/codegen/runtime/Set"
@@ -1026,6 +1027,35 @@ trait CodeGeneration { self: CompilationUnit =>
     case BVShiftLeft(l, r)   => mkBVShift(l, r, ch, ISHL,  LSHL,  "shiftLeft")
     case BVLShiftRight(l, r) => mkBVShift(l, r, ch, IUSHR, LUSHR, "lShiftLeft")
     case BVAShiftRight(l, r) => mkBVShift(l, r, ch, ISHR,  LSHR,  "aShiftRight")
+
+    case BVUnsignedToSigned(e) =>
+      e.getType match
+        case BVType(false, size) => 
+          mkExpr(e, ch)
+          // if the BV is unsigned it should really be in runtime represetation,
+          // so this is likely a no-op, but just to be safe
+          mkAsRuntimeBV(e.getType, ch)
+          ch << Ldc(1) << InvokeVirtual(BitVectorClass, "withSignedness", s"(Z)L$BitVectorClass;")
+          // try and lower this to a machine integer if possible
+          mkFromRuntimeBV(BVType(true, size), ch)
+        case _ => 
+          Comment("BVUnsignedToSigned: no-op for everything except unsigned bitvectors")
+          ch << NOP
+
+    case BVSignedToUnsigned(e) =>
+      e.getType match
+        case BVType(true, size) => 
+          mkExpr(e, ch)
+          // the BV could be in machine integer representation, so we just lift
+          // it to the BV class and then operate on it
+          mkAsRuntimeBV(e.getType, ch)
+          ch << Ldc(0) << InvokeVirtual(BitVectorClass, "withSignedness", s"(Z)L$BitVectorClass;")
+          // try and lower this to a machine integer if possible. should be a
+          // no-op, but we keep it for consistency 
+          mkFromRuntimeBV(BVType(false, size), ch)
+        case _ => 
+          Comment("BVSignedToUnsigned: no-op for everything except signed bitvectors")
+          ch << NOP
 
     case BVNarrowingCast(e, to) =>
       mkExpr(e, ch)
