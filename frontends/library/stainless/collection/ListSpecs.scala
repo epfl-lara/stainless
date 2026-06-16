@@ -552,24 +552,24 @@ object ListSpecs {
         val newList = l - hd
         ListSpecs.subsetContains(tl, newList)
         forallContainsNoDuplicateSmallerList(newList, tl)
-        removeContainedElementSmaller(l, hd)
+        removeContainedDecreasesSize(l, hd)
       }
       case Nil() => ()
     }
   }.ensuring (_ => lIn.size <= l.size)
 
   @inlineOnce @opaque
-  def removeContainedElementSmaller[T](l: List[T], e: T): Unit = {
+  def removeContainedDecreasesSize[T](l: List[T], e: T): Unit = {
     require(l.contains(e))
     decreases(l)
     l match {
       case Cons(hd, tl) if hd == e => {
         assert(l - e == tl - e)
         if (tl.contains(e)) {
-          removeContainedElementSmaller(tl, e)
+          removeContainedDecreasesSize(tl, e)
         }
       }
-      case Cons(hd, tl) => removeContainedElementSmaller(tl, e)
+      case Cons(hd, tl) => removeContainedDecreasesSize(tl, e)
       case Nil()        => check(false)
     }
   }.ensuring (_ => (l - e).size < l.size)
