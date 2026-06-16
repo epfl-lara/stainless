@@ -649,7 +649,7 @@ object ListSpecs {
   }.ensuring(_ => ListSpecs.subseq(l.drop(i), l))
 
   @inlineOnce @opaque 
-  def tailSubseqOfList[T](elmt: T, l: List[T]): Unit = {
+  def subseqOfCons[T](l: List[T], elmt: T): Unit = {
     l match {
       case Nil() => ()
       case Cons(hd, tl) if hd == elmt => {
