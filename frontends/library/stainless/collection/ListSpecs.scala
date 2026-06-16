@@ -332,22 +332,22 @@ object ListSpecs {
  }.ensuring(_ => p(x))
 
   @opaque @inlineOnce
-  def notForallThenExists[T](l: List[T], p: T => Boolean): Unit = {
+  def notForallThenExistsNot[T](l: List[T], p: T => Boolean): Unit = {
     require(!l.forall(p))
     decreases(l)
     l match {
       case Cons(hd, tl) if !p(hd) => ()
-      case Cons(hd, tl) if p(hd)  => notForallThenExists(tl, p)
+      case Cons(hd, tl) if p(hd)  => notForallThenExistsNot(tl, p)
       case Nil()                  => ()
     }
   }.ensuring(_ => l.exists(e => !p(e)))
 
   @opaque @inlineOnce
-  def forallThenNotExists[T](l: List[T], p: T => Boolean): Unit = {
+  def forallThenNotExistsNot[T](l: List[T], p: T => Boolean): Unit = {
     require(l.forall(p))
     decreases(l)
     l match {
-      case Cons(hd, tl) => forallThenNotExists(tl, p)
+      case Cons(hd, tl) => forallThenNotExistsNot(tl, p)
       case Nil()                  => ()
     }
   }.ensuring(_ => !l.exists(e => !p(e)))
