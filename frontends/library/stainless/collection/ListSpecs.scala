@@ -4,7 +4,7 @@ package stainless
 package collection
 
 import ListOps._
-import lang.{ghost => ghostExpr, *}
+import lang._
 import annotation._
 import proof._
 
@@ -469,39 +469,28 @@ object ListSpecs {
   }.ensuring(_ => subseq(l1.map(f), l2.map(f)))
 
   @opaque
-  def mapConcat[B, A](l1: List[B], l2: List[B], p: B => A): Unit = {
+  def mapAppend[B, A](l1: List[B], l2: List[B], p: B => A): Unit = {
     l1 match {
       case Cons(hd1, tl1) => 
-        mapConcat(tl1, l2, p)
+        mapAppend(tl1, l2, p)
       case _ => ()
     }
   }.ensuring(_ => (l1 ++ l2).map(p) == (l1.map(p) ++ l2.map(p)))
 
   @opaque
-  def concatPreservesForall[B](l1: List[B], l2: List[B], p: B => Boolean): Unit = {
-    require(l1.forall(p))
-    require(l2.forall(p))
-    decreases(l1)
-    l1 match {
-      case Cons(hd, tl) => concatPreservesForall(tl, l2, p)
-      case Nil()        => ()
-    }
-  }.ensuring (_ => (l1 ++ l2).forall(p))
-
-  @opaque
-  def forallConcat[B](l1: List[B], l2: List[B], p: B => Boolean): Unit = {
+  def appendForall[B](l1: List[B], l2: List[B], p: B => Boolean): Unit = {
     l1 match {
       case Cons(hd1, tl1) => 
-        forallConcat(tl1, l2, p)
+        appendForall(tl1, l2, p)
       case _ => ()
     }
   }.ensuring(_ => (l1 ++ l2).forall(p) == (l1.forall(p) && l2.forall(p)))
 
   @opaque
-  def existsConcat[B](l1: List[B], l2: List[B], p: B => Boolean): Unit = {
+  def appendExists[B](l1: List[B], l2: List[B], p: B => Boolean): Unit = {
     l1 match {
       case Cons(hd1, tl1) => 
-        existsConcat(tl1, l2, p)
+        appendExists(tl1, l2, p)
       case _ => ()
     }
   }.ensuring(_ => (l1 ++ l2).exists(p) == (l1.exists(p) || l2.exists(p)))
@@ -520,44 +509,30 @@ object ListSpecs {
 
   @inlineOnce
   @opaque
-  def concatFirstSubseq[B](l1: List[B], l2: List[B]): Unit = {
+  def appendFirstSubseq[B](l1: List[B], l2: List[B]): Unit = {
     decreases(l1)
     l1 match {
-      case Cons(hd, tl) => concatFirstSubseq(tl, l2)
+      case Cons(hd, tl) => appendFirstSubseq(tl, l2)
       case Nil()        => ()
     }
   }.ensuring (_ => ListSpecs.subseq(l1, l1 ++ l2))
 
   @inlineOnce
   @opaque
-  def concatSecondSubseq[B](l1: List[B], l2: List[B]): Unit = {
+  def appendSecondSubseq[B](l1: List[B], l2: List[B]): Unit = {
     decreases(l1)
     l1 match {
-      case Cons(hd, tl) => concatSecondSubseq(tl, l2)
+      case Cons(hd, tl) => appendSecondSubseq(tl, l2)
       case Nil()        => subseqRefl(l2)
     }
   }.ensuring (_ => ListSpecs.subseq(l2, l1 ++ l2))
 
-  // @inlineOnce
-  // @opaque
-  // def concatPreservesNotContain[B](l1: List[B], l2: List[B], b: B): Unit = {
-  //   require(!l1.contains(b))
-  //   require(!l2.contains(b))
-  //   decreases(l1)
-
-  //   l1 match {
-  //     case Cons(hd, tl) if hd == b => check(false)
-  //     case Cons(hd, tl)            => concatPreservesNotContain(tl, l2, b)
-  //     case Nil()                   => ()
-  //   }
-  // }.ensuring (_ => !(l1 ++ l2).contains(b))
-
   @inlineOnce @opaque
-  def concatPreservesContains[B](l1: List[B], l2: List[B], b: B): Unit = {
+  def appendContains[B](l1: List[B], l2: List[B], b: B): Unit = {
     decreases(l1)
     l1 match {
       case Cons(hd, tl) if hd == b => ()
-      case Cons(hd, tl)            => concatPreservesContains(tl, l2, b)
+      case Cons(hd, tl)            => appendContains(tl, l2, b)
       case Nil()                   => ()
     }
   }.ensuring (_ => (l1 ++ l2).contains(b) == (l1.contains(b) || l2.contains(b)))
@@ -687,35 +662,35 @@ object ListSpecs {
   }.ensuring (_ => ListSpecs.subseq(l, Cons(elmt, l)))
   
   @inlineOnce @opaque 
-  def subSeqTransitive[B](l1: List[B], l2: List[B], l3: List[B]): Unit = {
+  def subseqTransitive[B](l1: List[B], l2: List[B], l3: List[B]): Unit = {
     require(ListSpecs.subseq(l1, l2))
     require(ListSpecs.subseq(l2, l3))
     decreases(l1.size, l2.size, l3.size)
 
     (l1, l2, l3) match {
       case (Cons(hd1, tl1), Cons(hd2, tl2), Cons(hd3, tl3)) if hd2 != hd3 => {
-        subSeqTransitive(l1, l2, tl3)
+        subseqTransitive(l1, l2, tl3)
       }
       case (Cons(hd1, tl1), Cons(hd2, tl2), Cons(hd3, tl3)) if hd2 == hd3 => {
         if (ListSpecs.subseq(tl2, tl3)) {
           if (hd1 == hd2) {
             if (ListSpecs.subseq(tl1, tl2)) {
-              subSeqTransitive(tl1, tl2, tl3)
+              subseqTransitive(tl1, tl2, tl3)
             } else {
-              subSeqTransitive(l1, tl2, tl3)
+              subseqTransitive(l1, tl2, tl3)
             }
           } else {
-            subSeqTransitive(l1, tl2, tl3)
+            subseqTransitive(l1, tl2, tl3)
           }
         } else {
           if (hd1 == hd2) {
             if (ListSpecs.subseq(tl1, l2)) {
-              subSeqTransitive(tl1, l2, tl3)
+              subseqTransitive(tl1, l2, tl3)
             } else {
-              subSeqTransitive(l1, l2, tl3)
+              subseqTransitive(l1, l2, tl3)
             }
           } else {
-            subSeqTransitive(l1, l2, tl3)
+            subseqTransitive(l1, l2, tl3)
           }
         }
       }
@@ -743,10 +718,10 @@ object ListSpecs {
   )
 
   @opaque
-  def filterConcat[B](l1: List[B], l2: List[B], p: B => Boolean): Unit = {
+  def filterAppend[B](l1: List[B], l2: List[B], p: B => Boolean): Unit = {
     l1 match {
       case Cons(hd1, tl1) => 
-        filterConcat(tl1, l2, p)
+        filterAppend(tl1, l2, p)
       case _ => ()
     }
   }.ensuring(_ => (l1 ++ l2).filter(p) == (l1.filter(p) ++ l2.filter(p)))
