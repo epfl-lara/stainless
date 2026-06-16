@@ -8,8 +8,8 @@ import lang.{ghost => ghostExpr, *}
 import annotation._
 import proof._
 
-// @library
-object ListSpecs2 {
+@library
+object ListSpecs {
 
   def snocIndex[T](l: List[T], t: T, i: BigInt): Boolean = {
     require(0 <= i && i < l.size + 1)
