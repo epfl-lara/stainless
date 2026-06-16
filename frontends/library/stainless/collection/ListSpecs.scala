@@ -538,7 +538,7 @@ object ListSpecs {
   }.ensuring (_ => (l1 ++ l2).contains(b) == (l1.contains(b) || l2.contains(b)))
 
   @inlineOnce @opaque
-  def forallContainsNoDuplicateSmallerList[T](l: List[T], lIn: List[T]): Unit = {
+  def noDuplicateSubsetSizeBound[T](l: List[T], lIn: List[T]): Unit = {
     require(lIn.forall(e => l.contains(e)))
     require(ListOps.noDuplicate(lIn))
     decreases(lIn.size)
@@ -551,7 +551,7 @@ object ListSpecs {
         assert(!tl.contains(hd))
         val newList = l - hd
         ListSpecs.subsetContains(tl, newList)
-        forallContainsNoDuplicateSmallerList(newList, tl)
+        noDuplicateSubsetSizeBound(newList, tl)
         removeContainedDecreasesSize(l, hd)
       }
       case Nil() => ()
@@ -575,13 +575,13 @@ object ListSpecs {
   }.ensuring (_ => (l - e).size < l.size)
 
   @inlineOnce @opaque
-  def notContainedRemoveEqList[T](l: List[T], e: T): Unit = {
+  def removeNotContainedIdentity[T](l: List[T], e: T): Unit = {
     require(ListSpecs.noDuplicate(l))
     require(!l.contains(e))
     decreases(l)
     l match {
       case Cons(h, t) => {
-        notContainedRemoveEqList(t, e)
+        removeNotContainedIdentity(t, e)
         assert(!t.contains(e))
         assert(t - e == t)
       }
@@ -598,7 +598,7 @@ object ListSpecs {
       case Cons(h, t) => {
         assert(h == e)
         assert(!t.contains(e))
-        notContainedRemoveEqList(t, e)
+        removeNotContainedIdentity(t, e)
         assert(t - e == t)
 
       }
@@ -750,7 +750,7 @@ object ListSpecs {
   }.ensuring(_ => (l - e).size == l.size - 1)
 
   @inlineOnce @opaque
-  def tailPreservesForallContainsNotHead[T](@induct l: List[T], refL: List[T], refHd: T): Unit = {
+  def forallContainsDropHead[T](@induct l: List[T], refL: List[T], refHd: T): Unit = {
     require(!refL.isEmpty)
     require(l.forall(e => refL.contains(e)))
     require(refHd == refL.head)
