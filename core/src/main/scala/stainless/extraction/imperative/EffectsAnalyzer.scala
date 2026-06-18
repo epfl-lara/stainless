@@ -142,6 +142,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     def effects(fd: FunDef): Set[Effect] = result.effects(Outer(fd))
     def effects(fun: FunAbstraction): Set[Effect] = result.effects(fun)
     def effects(expr: Expr): Set[Effect] = expressionEffects(expr, result)
+    def refsToMutable(expr: Expr): Set[Variable] = referencesToMutableStates(expr, result)
 
     private[imperative] def local(id: Identifier): FunAbstraction = result.locals(id)
 
@@ -986,5 +987,34 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     ft.from.zipWithIndex.flatMap { case (tpe, i) =>
       if (symbols.isMutableType(tpe)) Some(i) else None
     }.toSet
+  }
+
+  val mutableStateFnCache = scala.collection.mutable.Map.empty[Identifier, Set[Variable]]
+
+  /** This overaproximattes sometimes, e.g.
+   * ```
+   *  case class A(var x: Int):
+   *    def foo() = 2
+   * ```
+   *  references to `foo()` are disallowed, since `A` has a mutable type.
+   */
+  private def referencesToMutableStates(expr: Expr, result: Result)(using symbols: Symbols): Set[Variable] = {
+    import symbols._
+    val direct = variablesOf(expr).filter { v =>
+      v.flags.contains(IsVar) || isMutableType(v.tpe)
+    }
+
+    direct ++ exprOps.collect {
+      case fi @ FunInvocation(id, _, _, _) => 
+        mutableStateFnCache.getOrElseUpdate(id, {
+          val body: Expr = fi match {
+            case FunctionInvocation(id, _, _) => getFunction(id).fullBody
+            case ApplyLetRec(id, _, _, _, _) => result.locals(id).fullBody
+          }
+          referencesToMutableStates(body, result)
+        })
+
+      case _ => Set.empty[Variable]
+    }(expr)
   }
 }
