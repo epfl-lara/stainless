@@ -1,7 +1,32 @@
 How to release
 ==============
 
-## Prepare release
+## Automated release
+
+Most of the release is automated by the [Stainless Release](../.github/workflows/stainless-release.yml)
+GitHub Actions workflow.
+
+1. Update [RELEASE\_NOTES.md](RELEASE_NOTES.md) and merge it to the release branch (usually `main`).
+2. Run the **Stainless Release** workflow manually (Actions tab → *Stainless Release* → *Run workflow*),
+   from the branch you want to release, and provide the version (e.g. `v0.9.9.4`).
+
+The workflow then automatically:
+
+- bumps the version in the Sphinx docs ([core/src/sphinx/conf.py](../core/src/sphinx/conf.py));
+- commits that bump and creates an annotated `vX.X.X` tag on it, then pushes both;
+- builds the standalone archives with `./bin/package-standalone.sh` and the SBT plugin
+  archive with `./bin/package-sbt-plugin.sh`;
+- creates the GitHub release with auto-generated notes and the archives attached
+  (without renaming them).
+
+Note: the tag is annotated but **not** GPG-signed (the manual process below used
+`git tag -s`); signing in CI would require importing a GPG key from a repository secret.
+
+[//]: # (TODO: Release the Docker image with `./bin/docker-release.sh VERSION`, where `VERSION` is of the form `X.X.X` &#40;without a leading `v`&#41;.)
+
+## Manual release
+
+If you need to release by hand:
 
 1. Update [RELEASE\_NOTES.md](RELEASE_NOTES.md).
 2. Make sure that the  Git working copy is not dirty, ie. that `git diff --stat` does not output anything.
@@ -11,8 +36,6 @@ How to release
 5. Build the standalone archives for macOS and Linux with `./bin/package-standalone.sh`.
 6. Build the SBT plugin archive for all platform with `./bin/package-sbt-plugin.sh`. 
 7. Create a new release on GitHub, add the release notes for that version and attach the archives. Make sure to not rename the archives.
-
-[//]: # (7. Release the Docker image with `./bin/docker-release.sh VERSION`, where `VERSION` is of the form `X.X.X` &#40;without a leading `v`&#41;.)
 
 ## Notes
 
