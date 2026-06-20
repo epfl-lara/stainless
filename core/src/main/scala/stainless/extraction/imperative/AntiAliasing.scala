@@ -600,6 +600,26 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
             }.toSet
         }
 
+        // Drop aliasing information that becomes stale after replacement-like effects.
+        // For instance, if `lhs` aliases `refref.lhs` and a call replaces `refref.lhs`,
+        // `lhs` must no longer be considered an alias of `refref.lhs` afterwards.
+        def invalidateReplacementAliases(e: Expr, env: Env): Env = {
+          val invalidatedTargets = effects(e).flatMap {
+            case eff if eff.kind == ReplacementKind || eff.kind == CombinedKind =>
+              dealiasTarget(eff.toTarget(), env)
+            case _ => Set.empty
+          }
+
+          if (invalidatedTargets.isEmpty) env
+          else {
+            val newTargets = env.targets.iterator.flatMap { case (vd, tgs) =>
+              val remaining = tgs.filterNot(tg => invalidatedTargets.exists(_.maybePrefixOf(tg)))
+              if (remaining.nonEmpty) Some(vd -> remaining) else None
+            }.toMap
+            (env.bindings, newTargets, env.locals)
+          }
+        }
+
         // All bindings that may refer to a proper prefix of the given `updTarget`.
         // Example:
         //   Assuming env.targets =
@@ -709,11 +729,20 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
                 Block(updates.init, updates.last).setPos(cellSwap)
               ).setPos(cellSwap)
 
+          case b @ Block(stmts, last) =>
+            val (newStmts, lastEnv) = stmts.foldLeft((Seq.empty[Expr], env)) {
+              case ((acc, currEnv), stmt) =>
+                val newStmt = transform(stmt, currEnv)
+                (acc :+ newStmt, invalidateReplacementAliases(stmt, currEnv))
+            }
+            Block(newStmts, transform(last, lastEnv)).copiedFrom(b)
+
           case l @ Let(vd, e, b) if isMutableType(vd.tpe) =>
             // see https://github.com/epfl-lara/stainless/pull/920 for discussion
 
             val newExpr = transform(e, env)
-            val targets = getAllTargetsDealiased(newExpr, env)
+            val bodyEnv = invalidateReplacementAliases(e, env)
+            val targets = getAllTargetsDealiased(newExpr, bodyEnv)
             targets match {
               case Some(targets) =>
                 // This branch handles all cases when targets can be precisely computed, namely when
@@ -757,7 +786,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
                   }
                 }
 
-                val newBody = transform(b, env.withTargets(vd, targs ++ extraTarget).withBinding(vd))
+                val newBody = transform(b, bodyEnv.withTargets(vd, targs ++ extraTarget).withBinding(vd))
                 // Note: even though there are no effects on `vd`, we still need to re-assign it
                 // in case it aliases a target that gets updated.
                 // As such, we use appearsInAssignment (on the transformed body) instead of checking for effects (on the original body)
@@ -786,7 +815,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
                 if (commonMutable.isEmpty) {
                   // The above condition is similar to the one in EffectsChecker#check#traverser#traverse#Let, with the
                   // difference that we also account for rewrites (which may introduce other variables, as in i1099.scala).
-                  val newBody = transform(b, env `withBinding` vd)
+                  val newBody = transform(b, bodyEnv `withBinding` vd)
 
                   // for all effects of `b` whose receiver is `vd`
                   val copyEffects = effects(b).filter(_.receiver == vd.toVariable).flatMap { eff =>
@@ -832,10 +861,21 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
                 }
             }
 
+          case l @ Let(vd, e, b) =>
+            val newExpr = transform(e, env)
+            val bodyEnv = invalidateReplacementAliases(e, env)
+            Let(vd, newExpr, transform(b, bodyEnv)).copiedFrom(l)
+
           case l @ LetVar(vd, e, b) if isMutableType(vd.tpe) =>
             val newExpr = transform(e, env)
-            val newBody = transform(b, env `withBinding` vd)
+            val bodyEnv = invalidateReplacementAliases(e, env)
+            val newBody = transform(b, bodyEnv `withBinding` vd)
             LetVar(vd, newExpr, newBody).copiedFrom(l)
+
+          case l @ LetVar(vd, e, b) =>
+            val newExpr = transform(e, env)
+            val bodyEnv = invalidateReplacementAliases(e, env)
+            LetVar(vd, newExpr, transform(b, bodyEnv `withBinding` vd)).copiedFrom(l)
 
           case up @ ArrayUpdate(arr, i, v) =>
             assertReferentiallyTransparent(i)
