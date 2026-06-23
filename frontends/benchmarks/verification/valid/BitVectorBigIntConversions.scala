@@ -20,4 +20,9 @@ object BitVectorBigIntConversions {
   def longSignAgrees(x: Long): Boolean = {
     (bitVectorToBigInt(x) >= 0) == (x >= 0L)
   }.holds
+
+  // A 32-bit signed bitvector denotes a non-negative BigInt iff it is non-negative.
+  def intSignAgrees(x: Int): Boolean = {
+    (bitVectorToBigInt(x) >= 0) == (x >= 0)
+  }.holds
 }
