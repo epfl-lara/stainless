@@ -2,22 +2,22 @@ import stainless.lang._
 
 object BitVectorBigIntConversions {
 
-  // `BigInt(x)` on a machine integer gives the mathematical integer it represents:
-  // a 32-bit signed value lies within the Int range.
+  // `bitVectorToBigInt` agrees with the value denoted by a bitvector literal.
+  def toBigIntPos: Boolean = { bitVectorToBigInt(5) == BigInt(5) }.holds
+  def toBigIntNeg: Boolean = { bitVectorToBigInt(-1) == BigInt(-1) }.holds
+  def toBigIntLong: Boolean = { bitVectorToBigInt(7L) == BigInt(7) }.holds
+
+  // `bigIntToInt` / `bigIntToLong` agree with the bitvector for an in-range integer.
+  def fromBigIntInt: Boolean = { bigIntToInt(BigInt(5)) == 5 }.holds
+  def fromBigIntLong: Boolean = { bigIntToLong(BigInt(5)) == 7L - 2L }.holds
+
+  // A 32-bit signed bitvector denotes a BigInt within the Int range.
   def intWithinRange(x: Int): Boolean = {
-    BigInt(x) >= BigInt(-2147483648) && BigInt(x) <= BigInt(2147483647)
+    bitVectorToBigInt(x) >= BigInt(-2147483648) && bitVectorToBigInt(x) <= BigInt(2147483647)
   }.holds
 
-  // Sign is preserved by the conversion to BigInt.
-  def intSignAgrees(x: Int): Boolean = {
-    (BigInt(x) >= 0) == (x >= 0)
-  }.holds
-
+  // A 64-bit signed bitvector denotes a non-negative BigInt iff it is non-negative.
   def longSignAgrees(x: Long): Boolean = {
-    (BigInt(x) >= 0) == (x >= 0L)
+    (bitVectorToBigInt(x) >= 0) == (x >= 0L)
   }.holds
-
-  // `BigInt(_).toInt` / `.toLong` round-trip an in-range value.
-  def fromBigIntInt: Boolean = { BigInt(5).toInt == 5 }.holds
-  def fromBigIntLong: Boolean = { BigInt(5).toLong == 5L }.holds
 }

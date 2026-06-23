@@ -1557,6 +1557,36 @@ trait ASTExtractors {
       }
     }
 
+    /** `bitVectorToBigInt` extraction (overloaded on Int/Long) */
+    object ExBitVectorToBigInt {
+      def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
+        case Apply(ExSymbol("stainless", "lang", "package$", "bitVectorToBigInt"), n :: Nil) =>
+          Some(n)
+        case _ =>
+          None
+      }
+    }
+
+    /** `bigIntToInt` extraction */
+    object ExBigIntToInt {
+      def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
+        case Apply(ExSymbol("stainless", "lang", "package$", "bigIntToInt"), n :: Nil) =>
+          Some(n)
+        case _ =>
+          None
+      }
+    }
+
+    /** `bigIntToLong` extraction */
+    object ExBigIntToLong {
+      def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
+        case Apply(ExSymbol("stainless", "lang", "package$", "bigIntToLong"), n :: Nil) =>
+          Some(n)
+        case _ =>
+          None
+      }
+    }
+
     /** `max` extraction for bitvectors */
     object ExMaxBV {
       def unapply(tree: tpd.Tree): Option[(Boolean, Int)] = tree  match {
