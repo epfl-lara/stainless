@@ -300,6 +300,12 @@ trait TransformerWithType extends TreeTransformer {
     case s.BVSignedToUnsigned(e) =>
       t.BVSignedToUnsigned(transform(e)).copiedFrom(expr)
 
+    case s.BVToInt(e) =>
+      t.BVToInt(transform(e)).copiedFrom(expr)
+
+    case s.IntToBV(size, signed, e) =>
+      t.IntToBV(size, signed, transform(e, s.IntegerType())).copiedFrom(expr)
+
     case s.Tuple(es) => widen(tpe) match {
       case s.TupleType(tps) => t.Tuple((es zip tps) map (p => transform(p._1, p._2))).copiedFrom(expr)
       case _ => t.Tuple(es map (transform(_, s.AnyType()))).copiedFrom(expr)
