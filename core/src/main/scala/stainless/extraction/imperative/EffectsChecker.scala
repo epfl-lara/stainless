@@ -37,6 +37,22 @@ trait EffectsChecker { self: EffectsAnalyzer =>
     // which is where we will want to report the error from, and abort the pipeline.
     if (isMutableSynthetic(fd.id)) return CheckResult.Skip
 
+    def checkNoMutableStateInVariableType(tpe: Type): Unit = {
+      object variableTypeTraverser extends ConcreteSelfTreeTraverser {
+        override def traverse(tpe: Type): Unit = tpe match {
+          case rt @ RefinementType(refVd, pred) =>
+            val refs = refsToMutable(pred)
+            if refs.nonEmpty then 
+              throw ImperativeEliminationException(tpe, s"Cannot reference a mutable state form a type of a variable")
+            else checkNoMutableStateInVariableType(refVd.tpe)
+            super.traverse(rt)
+          case _ => super.traverse(tpe)
+        }
+      }
+
+      variableTypeTraverser.traverse(tpe)
+    }
+
     def check(fd: FunAbstraction): Unit = {
       checkMutableField(fd)
       checkEffectsLocations(fd)
@@ -49,6 +65,14 @@ trait EffectsChecker { self: EffectsAnalyzer =>
 
       object traverser extends ConcreteSelfTreeTraverser {
         override def traverse(tpe: Type): Unit = tpe match {
+          case rt @ RefinementType(_, pred) =>
+            val predEffects = effects(pred)
+            if (predEffects.nonEmpty)
+              throw ImperativeEliminationException(rt,
+                "Refinement type predicate has effects on: " + predEffects.head.receiver.asString)
+
+            super.traverse(rt)
+
           case at @ ADTType(id, tps) =>
             (at.getSort.definition.tparams zip tps).foreach { case (tdef, instanceType) =>
               if (isMutableType(instanceType) && !(tdef.flags contains IsMutable))
@@ -127,6 +151,8 @@ trait EffectsChecker { self: EffectsAnalyzer =>
             super.traverse(l)
 
           case l @ LetVar(vd, e, b) =>
+            checkNoMutableStateInVariableType(vd.tpe)
+
             if (isMutableType(vd.tpe))
               throw ImperativeEliminationException(e, "Cannot bind expression of a mutable type to a `var`: " + e.asString)
 
