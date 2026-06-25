@@ -1603,7 +1603,12 @@ class CodeExtraction(inoxCtx: inox.Context,
     case ExBigIntLiteral(Literal(cnst)) =>
       xt.IntegerLiteral(BigInt(cnst.stringValue))
 
-    case ExBigIntLiteral(_) => outOfSubsetError(tr, "Only literal arguments are allowed for BigInt.")
+    // `BigInt(x)` on a non-literal `Int`/`Long` denotes the integer represented by that bitvector
+    case ExBigIntLiteral(arg)
+        if arg.tpe.widenDealias.typeSymbol == defn.IntClass || arg.tpe.widenDealias.typeSymbol == defn.LongClass =>
+      xt.BVToInt(extractTree(arg)).setPos(tr.sourcePos)
+
+    case ExBigIntLiteral(_) => outOfSubsetError(tr, "Only literal, Int or Long arguments are allowed for BigInt.")
 
     case ExIntToBigInt(t) => extractTree(t) match {
       case xt.Int32Literal(n) => xt.IntegerLiteral(BigInt(n))
@@ -1638,15 +1643,6 @@ class CodeExtraction(inoxCtx: inox.Context,
           xt.BVLiteral(signed, n, size)
         case _ => outOfSubsetError(tr, "`bigIntToBV` implicit may only be used on `BigInt` literals (in the right range)")
       }
-
-    case ExBitVectorToBigInt(tree) =>
-      xt.BVToInt(extractTree(tree)).setPos(tr.sourcePos)
-
-    case ExBigIntToInt(tree) =>
-      xt.IntToBV(32, true, extractTree(tree)).setPos(tr.sourcePos)
-
-    case ExBigIntToLong(tree) =>
-      xt.IntToBV(64, true, extractTree(tree)).setPos(tr.sourcePos)
 
     case ExMaxBV(signed, size) =>
       if (signed) xt.BVLiteral(signed, (BigInt(2) pow (size - 1)) - 1, size)
@@ -2307,6 +2303,12 @@ class CodeExtraction(inoxCtx: inox.Context,
           toSigned(extractTree(lhs), signed, size, 32)
         case (StrictBVType(signed, size), "toLong",  Seq()) =>
           toSigned(extractTree(lhs), signed, size, 64)
+
+        // `BigInt.toInt` / `BigInt.toLong`: integer to bitvector conversion, modulo 2^size
+        case (xt.IntegerType(), "toInt",  Seq()) =>
+          xt.IntToBV(32, true, extractTree(lhs))
+        case (xt.IntegerType(), "toLong",  Seq()) =>
+          xt.IntToBV(64, true, extractTree(lhs))
 
         case (_, "unary_+", Seq()) => injectCast(e => e)(lhs)
         case (_, "-",   Seq(rhs)) => injectCasts(xt.Minus.apply)(lhs, rhs)

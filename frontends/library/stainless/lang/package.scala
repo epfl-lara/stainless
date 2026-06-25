@@ -15,14 +15,6 @@ package object lang {
   @library
   def indexedAt[T](n: BigInt, t: T): T = (??? : T)
 
-  /** Converts a bitvector to the mathematical integer it represents. */
-  @extern @library def bitVectorToBigInt(bv: Int): BigInt = scala.math.BigInt(bv)
-  @extern @library def bitVectorToBigInt(bv: Long): BigInt = scala.math.BigInt(bv)
-
-  /** Converts a mathematical integer to a bitvector, modulo 2^size. */
-  @extern @library def bigIntToInt(i: BigInt): Int = i.toInt
-  @extern @library def bigIntToLong(i: BigInt): Long = i.toLong
-
   @ignore
   implicit class BooleanDecorations(val underlying: Boolean) {
     def holds : Boolean = {
@@ -161,6 +153,7 @@ package object lang {
   @ignore
   object BigInt {
     def apply(b: Int): scala.math.BigInt = scala.math.BigInt(b)
+    def apply(b: Long): scala.math.BigInt = scala.math.BigInt(b)
     def apply(b: String): scala.math.BigInt = scala.math.BigInt(b)
 
     def unapply(b: scala.math.BigInt): scala.Option[Int] = {
