@@ -53,7 +53,7 @@ class ImperativeCodeElimination(override val s: Trees)(override val t: s.type)
 
       val (res, scope, fun): (Expr, Expr => Expr, Map[Variable, Variable]) = (expr match {
         case LetVar(vd, e, b) =>
-          val newVd = vd.freshen
+          val newVd = vd.freshen.copy(tpe = transformPureType(vd.tpe))
           val (rhsVal, rhsScope, rhsFun) = toFunction(e)
           val (bodyRes, bodyScope, bodyFun) = toFunction(b)(using state.withVar(vd))
           val newSubst = rhsFun + (vd.toVariable -> newVd.toVariable)
@@ -62,7 +62,7 @@ class ImperativeCodeElimination(override val s: Trees)(override val t: s.type)
 
         case Assignment(v, e) =>
           assert(varsInScope.contains(v), s"varsInScope should contain ${v.asString}")
-          val newVd = v.toVal.freshen
+          val newVd = v.toVal.freshen.copy(tpe = transformPureType(v.tpe))
           val (rhsVal, rhsScope, rhsFun) = toFunction(e)
           val scope = (body: Expr) => rhsScope(Let(newVd, rhsVal, body).copiedFrom(expr))
           (UnitLiteral(), scope, rhsFun + (v -> newVd.toVariable))
@@ -78,19 +78,20 @@ class ImperativeCodeElimination(override val s: Trees)(override val t: s.type)
           val modifiedVars: Seq[Variable] = (tFun.keys ++ eFun.keys).toSet.intersect(varsInScope).toSeq
           val res = ValDef.fresh("res", ite.getType)
           val freshVars = modifiedVars.map(_.freshen)
-          val iteType = tupleTypeWrap(res.tpe +: freshVars.map(_.tpe))
+          val freshResultVars = modifiedVars.map(_.freshen)
+          val newResultType = typeOps.replaceFromSymbols(modifiedVars.zip(freshResultVars).toMap, res.tpe)
+          val iteType = sigmaTypeWrap(freshResultVars.map(_.toVal), newResultType)
 
-          val thenVal = tupleWrap(tRes +: modifiedVars.map(v => tFun.getOrElse(v, v)))
-          val elseVal = tupleWrap(eRes +: modifiedVars.map(v => eFun.getOrElse(v, v)))
+          val thenVal = tupleWrap(modifiedVars.map(v => tFun.getOrElse(v, v)) :+ tRes)
+          val elseVal = tupleWrap(modifiedVars.map(v => eFun.getOrElse(v, v)) :+ eRes)
           val iteExpr = IfExpr(cRes, replaceFromSymbols(cFun, tScope(thenVal)), replaceFromSymbols(cFun, eScope(elseVal))).copiedFrom(ite)
-
           val scope = (body: Expr) => {
             val tupleVd = ValDef.fresh("t", iteType)
             cScope(Let(tupleVd, iteExpr, Let(
               res,
-              tupleSelect(tupleVd.toVariable, 1, modifiedVars.nonEmpty),
+              tupleSelect(tupleVd.toVariable, modifiedVars.length + 1, modifiedVars.nonEmpty),
               freshVars.zipWithIndex.foldLeft(body)((b, p) =>
-                Let(p._1.toVal, tupleSelect(tupleVd.toVariable, p._2 + 2, true), b)
+                Let(p._1.toVal, tupleSelect(tupleVd.toVariable, p._2 + 1, true), b)
               ))
             ).copiedFrom(expr))
           }
@@ -105,10 +106,12 @@ class ImperativeCodeElimination(override val s: Trees)(override val t: s.type)
           val modifiedVars: Seq[Variable] = csesFun.flatMap(_.keys).toSet.intersect(varsInScope).toSeq
           val res = ValDef.fresh("res", m.getType).setPos(m)
           val freshVars = modifiedVars.map(_.freshen)
-          val matchType = tupleTypeWrap(res.tpe +: freshVars.map(_.tpe))
+          val freshResultVars = modifiedVars.map(_.freshen)
+          val newResultType = typeOps.replaceFromSymbols(modifiedVars.zip(freshResultVars).toMap, res.tpe)
+          val matchType = sigmaTypeWrap(freshResultVars.map(_.toVal), newResultType)
 
           val csesVals = csesRes.zip(csesFun).map {
-            case (cRes, cFun) => tupleWrap(cRes +: modifiedVars.map(v => cFun.getOrElse(v, v)))
+            case (cRes, cFun) => tupleWrap(modifiedVars.map(v => cFun.getOrElse(v, v)) ++ Seq(cRes))
           }
 
           val newRhs = csesVals.zip(csesScope).map {
@@ -129,9 +132,9 @@ class ImperativeCodeElimination(override val s: Trees)(override val t: s.type)
             val tupleVd = ValDef.fresh("t", matchType)
             scrutScope(
               Let(tupleVd, matchE,
-                Let(res, tupleSelect(tupleVd.toVariable, 1, freshVars.nonEmpty),
+                Let(res, tupleSelect(tupleVd.toVariable, freshVars.length + 1, freshVars.nonEmpty),
                   freshVars.zipWithIndex.foldLeft(body)((b, p) =>
-                    Let(p._1.toVal, tupleSelect(tupleVd.toVariable, p._2 + 2, true), b)
+                    Let(p._1.toVal, tupleSelect(tupleVd.toVariable, p._2 + 1, true), b)
                   )
                 )
               )
@@ -162,12 +165,14 @@ class ImperativeCodeElimination(override val s: Trees)(override val t: s.type)
 
         //pure expression (that could still contain side effects as a subexpression) (evaluation order is from left to right)
         case Let(vd, e, b) =>
+          val newVd = vd.copy(tpe = transformPureType(vd.tpe))
           val (bindRes, bindScope, bindFun) = toFunction(e)
           val (bodyRes, bodyScope, bodyFun) = toFunction(b)
+          val newBidFun = bindFun + (vd.toVariable -> newVd.toVariable)
           (
             bodyRes,
-            (b2: Expr) => bindScope(Let(vd, bindRes, replaceFromSymbols(bindFun, bodyScope(b2))).copiedFrom(expr)),
-            bindFun ++ bodyFun
+            (b2: Expr) => bindScope(Let(newVd, bindRes, replaceFromSymbols(newBidFun, bodyScope(b2))).copiedFrom(expr)),
+            newBidFun ++ bodyFun
           )
 
         //a function invocation can update variables in scope.
@@ -177,24 +182,26 @@ class ImperativeCodeElimination(override val s: Trees)(override val t: s.type)
           // There may be local function call in the arguments that modify the modified vars.
           // As such, ensure we get the up-to-date modified vars
           val modifiedVars = modifiedVars0.map(v => argFun.getOrElse(v, v))
-          val newReturnType = TupleType(tpe.to +: modifiedVars.map(_.getType))
+          val freshVars = modifiedVars.map(_.freshen)
+          val freshResultVars = modifiedVars.map(_.freshen)
+          val newToType = typeOps.replaceFromSymbols(modifiedVars.zip(freshResultVars).toMap, tpe.to)
+          val newReturnType = sigmaTypeWrap(freshResultVars.map(_.toVal), newToType)
           val newInvoc = ApplyLetRec(id, fd.tparams.map(_.tp),
             FunctionType(tpe.from ++ modifiedVars.map(_.getType), newReturnType).copiedFrom(tpe),
             tps, recArgs ++ modifiedVars
           ).setPos(alr)
 
-          val freshVars = modifiedVars.map(_.freshen)
           val tmpTuple = ValDef.fresh("t", newInvoc.getType)
 
           val scope = (body: Expr) => {
             argScope(Let(tmpTuple, newInvoc,
               freshVars.zipWithIndex.foldRight(body) { case ((v, i), b) =>
-                Let(v.toVal, TupleSelect(tmpTuple.toVariable, i + 2), b)
+                Let(v.toVal, TupleSelect(tmpTuple.toVariable, i + 1), b)
               }
             ))
           }
 
-          (TupleSelect(tmpTuple.toVariable, 1), scope, argFun ++ (modifiedVars0 zip freshVars) ++ (modifiedVars zip freshVars))
+          (TupleSelect(tmpTuple.toVariable, freshVars.length + 1), scope, argFun ++ (modifiedVars0 zip freshVars) ++ (modifiedVars zip freshVars))
 
         case LetRec(Seq(fd), b) =>
           val inner = Inner(fd)
@@ -208,7 +215,8 @@ class ImperativeCodeElimination(override val s: Trees)(override val t: s.type)
             }
             val allParams = outerFd.params ++ state.localsMapping.values.flatMap(_._1.params) ++ fd.params
             val newSpecs = specs.map(rewriteSpecs(allParams, _))
-            val newFd = inner.copy(fullBody = reconstructSpecs(newSpecs, newBody, inner.returnType))
+            val newReturnType = transformPureType(inner.returnType)
+            val newFd = inner.copy(fullBody = reconstructSpecs(newSpecs, newBody, newReturnType), returnType = newReturnType)
             val (bodyRes, bodyScope, bodyFun) = toFunction(b)
             (bodyRes, (b2: Expr) => LetRec(Seq(newFd.toLocal), bodyScope(b2)).setPos(fd).copiedFrom(expr), bodyFun)
           }
@@ -276,34 +284,40 @@ class ImperativeCodeElimination(override val s: Trees)(override val t: s.type)
                       (body, p) => LetVar(p._2.toVal, p._1, body)
                     }
                 }
-                val newRes = Tuple(fdRes +: fdDecls)
+                val newRes = Tuple(fdDecls :+ fdRes)
                 val newBody = fdScope(newRes)
-                val newReturnType = TupleType(inner.returnType +: modifiedVars.map(_.tpe))
+                val freshResultVars = modifiedVars.map(_.freshen)
+                val newBasicType = typeOps.replaceFromSymbols(modifiedVars.zip(freshResultVars).toMap, transformPureType(inner.returnType))
+                val newReturnType = sigmaTypeWrap(freshResultVars.map(_.toVal), newBasicType)
 
                 val newSpecs = specs.map {
                   case spec @ Postcondition(post @ Lambda(Seq(res), postBody)) =>
                     /*
                     Essentially translates:
-                      (res: (R, T1, T2, ...)) => {
+                      (res: (T1, T2, ..., R)) => {
                         // ...
                         pureFnCapturingModifiedVars
                         // ...
                       }
                     (where R is the result type of the function in question, and T1, T2, ... the types of the modified vars)
                     into:
-                      (res: (R, T1, T2, ...)) => {
-                        val modVar1 = res._2
-                        val modVar2 = res._3
+                      (res: (T1, T2, ..., R)) => {
+                        val modVar1 = res._1
+                        val modVar2 = res._2
                         // ...
                         pureFnCapturingModifiedVars(modVar1, modVar2, ...)
                         // ...
                       }
                     */
                     val newRes = ValDef(res.id.freshen, newReturnType)
-                    val (pcRes, pcScope, _) = recHelper(postBody, Map(res.toVariable -> TupleSelect(newRes.toVariable, 1)), rewriteOldExpr = true) {
+                    val (pcRes, pcScope, _) = recHelper(
+                      postBody,
+                      Map(res.toVariable -> TupleSelect(newRes.toVariable, modifiedVars.length + 1)),
+                      rewriteOldExpr = true
+                    ) {
                       case (freshBody, freshVarDecls) =>
                         freshVarDecls.zipWithIndex.foldLeft(freshBody) {
-                          case (body, (vr, ix)) => LetVar(vr.toVal, TupleSelect(newRes.toVariable, ix + 2), body)
+                          case (body, (vr, ix)) => LetVar(vr.toVal, TupleSelect(newRes.toVariable, ix + 1), body)
                         }
                     }
                     Postcondition(Lambda(Seq(newRes), pcScope(pcRes)).copiedFrom(post)).setPos(spec)
@@ -386,6 +400,16 @@ class ImperativeCodeElimination(override val s: Trees)(override val t: s.type)
           val scope = (body: Expr) => condScope(Assume(condVal, replaceFromSymbols(condFun, bodyScope(body))).copiedFrom(a))
           (bodyRes, scope, condFun ++ bodyFun)
 
+        case aio @ AsInstanceOf(e, tpe) =>
+          val newTpe = transformPureType(tpe)
+          val (eRes, eScope, eFun) = toFunction(e)
+          (AsInstanceOf(eRes, newTpe).copiedFrom(aio), eScope, eFun)
+
+        case io @ IsInstanceOf(e, tpe) =>
+          val newTpe = transformPureType(tpe)
+          val (eRes, eScope, eFun) = toFunction(e)
+          (IsInstanceOf(eRes, newTpe).copiedFrom(io), eScope, eFun)
+
         case n @ Operator(args, recons) =>
           foldArguments(args)(recons(_).setPos(n))
       }): @unchecked
@@ -414,6 +438,36 @@ class ImperativeCodeElimination(override val s: Trees)(override val t: s.type)
           }
       }
       (rec.map(_._1), scope, funScan.last)
+    }
+
+    def transformPureExpr(expr: Expr)(using state: State): Expr = {
+      import state._
+      exprOps.postMap {
+        case alr @ ApplyLetRec(id, tparams, tpe, tps, args) if localsMapping contains id =>
+          val (fd, modifiedVars) = localsMapping(id)
+          val freshVars = modifiedVars.map(_.freshen)
+          val newBasicType = typeOps.replaceFromSymbols(modifiedVars.zip(freshVars).toMap, tpe.to)
+          val newReturnType = sigmaTypeWrap(freshVars.map(_.toVal), newBasicType)
+          val newInvoc = ApplyLetRec(
+            id,
+            fd.tparams.map(_.tp),
+            FunctionType(tpe.from ++ modifiedVars.map(_.getType), newReturnType).copiedFrom(tpe),
+            tps,
+            args ++ modifiedVars
+          ).setPos(alr)
+          Some(TupleSelect(newInvoc, modifiedVars.length + 1).setPos(alr))
+        case _ => None
+      }(expr)
+    }
+
+    def transformPureType(tpe: Type)(using state: State): Type = {
+      s.typeOps.postMap {
+        case rt @ RefinementType(rv, pred) =>
+          val newPred = transformPureExpr(pred)
+          if (newPred ne pred) Some(RefinementType(rv, newPred).copiedFrom(rt))
+          else None
+        case _ => None
+      }(tpe)
     }
 
     def requireRewriting(expr: Expr) = expr match {
