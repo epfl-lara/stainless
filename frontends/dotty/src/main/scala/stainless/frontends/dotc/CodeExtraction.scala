@@ -862,7 +862,7 @@ class CodeExtraction(inoxCtx: inox.Context,
       .copy(isExtern = dctx.isExtern || (flags contains xt.Extern))
 
     lazy val retType = extractType(tree.tpt)(using nctx)
-    val (finalBody, returnType) = if (isAbstract) {
+    val (finalBody0, returnType0) = if (isAbstract) {
       (xt.NoTree(retType).setPos(sym.sourcePos), retType)
     } else {
       val fullBody = xt.exprOps.flattenBlocks(extractTreeOrNoTree(rhs)(using fctx))
@@ -881,6 +881,38 @@ class CodeExtraction(inoxCtx: inox.Context,
         // FIXME: `flattenBlocks` should not change the positions that appear in `ntparams`
         (xt.exprOps.flattenBlocks(extractTreeOrNoTree(rhs)(using bctx)), returnType)
       }
+    }
+
+    // Allow `old(...)` to appear in a refinement type on the return type, mirroring its
+    // use in `ensuring`. Since `old` refers to the pre-state, it cannot remain inside a
+    // type, so we lift such a refinement predicate into a postcondition and erase the
+    // refinement type (both here and in any cast the frontend inserted in the body).
+    def containsOld(e: xt.Expr): Boolean =
+      xt.exprOps.exists { case _: xt.Old => true; case _ => false }(e)
+
+    val (finalBody, returnType) = returnType0 match {
+      case xt.RefinementType(resVd, pred) if containsOld(pred) =>
+        val stripper = new xt.ConcreteStainlessSelfTreeTransformer {
+          override def transform(tpe: xt.Type): xt.Type = tpe match {
+            case xt.RefinementType(vd, p) if containsOld(p) => transform(vd.tpe)
+            case _ => super.transform(tpe)
+          }
+        }
+        val baseType = stripper.transform(resVd.tpe)
+        val newResVd = resVd.copy(tpe = baseType)
+        val strippedPred =
+          xt.exprOps.replaceFromSymbols(Map(resVd.toVariable -> newResVd.toVariable), stripper.transform(pred))
+        val specced = xt.exprOps.BodyWithSpecs(stripper.transform(finalBody0))
+        val newSpecced = specced.getSpec(xt.exprOps.PostconditionKind) match {
+          case Some(xt.exprOps.Postcondition(xt.Lambda(Seq(evd), ebody))) =>
+            val merged = xt.And(ebody,
+              xt.exprOps.replaceFromSymbols(Map(newResVd.toVariable -> evd.toVariable), strippedPred)).setPos(pred)
+            specced.withSpec(xt.exprOps.Postcondition(xt.Lambda(Seq(evd), merged).setPos(pred)))
+          case _ =>
+            specced.withSpec(xt.exprOps.Postcondition(xt.Lambda(Seq(newResVd), strippedPred).setPos(pred)))
+        }
+        (newSpecced.reconstructed, baseType)
+      case _ => (finalBody0, returnType0)
     }
 
     // For @extern function, check that their extracted body does not contain further specs that couldn't be extracted out.
