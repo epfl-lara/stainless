@@ -862,13 +862,4 @@ object ListSpecs {
     }
   }.ensuring(res => p(res) && l.contains(res) && l.exists(p))
 
-  // BigInt and Int operations equivalence lemmas
-  def isizeEqSize[T](xs: List[T]): Unit = {
-    decreases(xs)
-    xs match {
-      case Nil() => ()
-      case Cons(_, tail) => isizeEqSize(tail)
-    }
-  }.ensuring(_ => xs.size <= bitVectorToBigInt(Int.MaxValue) ==> (xs.size == bitVectorToBigInt(xs.isize)))
-
 }
