@@ -300,6 +300,23 @@ class AssertionInjector(override val s: ast.Trees, override val t: ast.Trees, va
         }
       }
 
+    case s.IntToBV(size, signed, value) if checkOverflow =>
+      bindIfCannotDuplicate(value, "i") { x =>      // x : IntegerType
+        val (lo, hi) =
+          if (signed) (-BigInt(2).pow(size - 1), BigInt(2).pow(size - 1) - 1)
+          else        (BigInt(0),               BigInt(2).pow(size) - 1)
+        t.Assert(
+          t.GreaterEquals(x, t.IntegerLiteral(lo).copiedFrom(e)).copiedFrom(e),
+          Some("BigInteger to bitvector conversion underflow"),
+          t.Assert(
+            t.LessEquals(x, t.IntegerLiteral(hi).copiedFrom(e)).copiedFrom(e),
+            Some("BigInteger to bitvector conversion overflow"),
+            t.IntToBV(size, signed, x).copiedFrom(e)
+          ).copiedFrom(e)
+        ).copiedFrom(e)
+      }
+
+
     case s.FPToBVJVM(exponent, significand, toSize, expr) if checkOverflow =>
       bindIfCannotDuplicate(expr, "expr") { expr =>
         // a FP -> BV cast of the value `f` is considered safe iff `f` is not NaN and `bvLb < f < bvUb`.
