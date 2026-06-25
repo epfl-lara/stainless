@@ -915,6 +915,33 @@ class CodeExtraction(inoxCtx: inox.Context,
       case _ => (finalBody0, returnType0)
     }
 
+    // `old(...)` is only meaningful in a refinement on the return type (lifted above into a
+    // postcondition). Reject it inside any other refinement type (parameters, locals, nested
+    // types, ...), where it would refer to a non-existent pre-state.
+    locally {
+      val oldChecker = new xt.ConcreteStainlessSelfTreeTraverser {
+        override def traverse(tpe: xt.Type): Unit = {
+          tpe match {
+            case xt.RefinementType(_, pred) if containsOld(pred) =>
+              val oldPos = xt.exprOps.collectPreorder[inox.utils.Position] {
+                case o: xt.Old => Seq(o.getPos)
+                case _ => Seq()
+              } (pred).find(_ != inox.utils.NoPosition)
+              val msg = "`old` can only be used in a refinement type on the return type of a function."
+              oldPos match {
+                case Some(p) => outOfSubsetError(p, msg)
+                case None => outOfSubsetError(sym.sourcePos, msg)
+              }
+            case _ => ()
+          }
+          super.traverse(tpe)
+        }
+      }
+      newParams.foreach(vd => oldChecker.traverse(vd.tpe))
+      oldChecker.traverse(returnType)
+      oldChecker.traverse(finalBody)
+    }
+
     // For @extern function, check that their extracted body does not contain further specs that couldn't be extracted out.
     // For instance, this is fine:
     //   @extern
