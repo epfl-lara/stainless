@@ -559,6 +559,20 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
           case _ => reporter.fatalError(e.getPos, s"Cannot use `toUnsigned` on ${e2.asString}")
         }
 
+      case c@BVToInt(e2) =>
+        val (tpe, vcs) = inferType(tc, e2)
+        stripRefinementsAndAnnotations(tpe) match {
+          case BVType(_, _) => (IntegerType(), vcs)
+          case _ => reporter.fatalError(e.getPos, s"Cannot convert ${e2.asString} to an integer")
+        }
+
+      case c@IntToBV(size, signed, e2) =>
+        val (tpe, vcs) = inferType(tc, e2)
+        stripRefinementsAndAnnotations(tpe) match {
+          case IntegerType() => (BVType(signed, size), vcs)
+          case _ => reporter.fatalError(e.getPos, s"Cannot convert ${e2.asString} to a bitvector")
+        }
+
       case FiniteSet(elements, tpe) =>
         (SetType(tpe),
           if (elements.isEmpty) isType(tc, tpe)

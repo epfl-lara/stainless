@@ -87,6 +87,8 @@ trait Definitions {
     case BVWideningCast(newType: BVType)
     case BVUnsignedToSigned
     case BVSignedToUnsigned
+    case BVToInt
+    case IntToBV(size: Int, signed: Boolean)
 
     case Lit[T](lit: Literal[T])
 
@@ -338,6 +340,8 @@ trait Definitions {
   final def mkBVWideningCast(e: Code, newType: BVType): Signature = Signature(Label.BVWideningCast(newType), Seq(e))
   final def mkBVUnsignedToSigned(e: Code): Signature = Signature(Label.BVUnsignedToSigned, Seq(e))
   final def mkBVSignedToUnsigned(e: Code): Signature = Signature(Label.BVSignedToUnsigned, Seq(e))
+  final def mkBVToInt(e: Code): Signature = Signature(Label.BVToInt, Seq(e))
+  final def mkIntToBV(e: Code, size: Int, signed: Boolean): Signature = Signature(Label.IntToBV(size, signed), Seq(e))
   final def mkLit[T](l: Literal[T]): Signature = Signature(Label.Lit(l), Seq.empty)
   final def mkTupleSelect(recv: Code, i: Int): Signature = Signature(Label.TupleSelect(i), Seq(recv))
   final def mkFiniteSet(elems: Seq[Code], base: Type): Signature = Signature(Label.FiniteSet(base), elems)

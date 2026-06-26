@@ -153,6 +153,7 @@ package object lang {
   @ignore
   object BigInt {
     def apply(b: Int): scala.math.BigInt = scala.math.BigInt(b)
+    def apply(b: Long): scala.math.BigInt = scala.math.BigInt(b)
     def apply(b: String): scala.math.BigInt = scala.math.BigInt(b)
 
     def unapply(b: scala.math.BigInt): scala.Option[Int] = {
