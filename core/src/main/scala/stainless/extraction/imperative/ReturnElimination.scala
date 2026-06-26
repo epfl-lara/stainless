@@ -457,10 +457,7 @@ class ReturnElimination(override val s: Trees, override val t: Trees)
           def rec(es: Seq[s.Expr], tes: Seq[t.Expr]): t.Expr = es match {
             case Seq() => recons(ids, tvs, tes, ttps, tflags)
             case e +: rest if !exprHasReturn(e) =>
-              // We use a let-binding here to preserve execution order.
-              val eTpe = widenTp(e.getType)
-              val vd = t.ValDef.fresh("x", simpleWhileTransformer.transform(eTpe), true).copiedFrom(e)
-              t.Let(vd, simpleWhileTransformer.transform(e), rec(rest, tes :+ vd.toVariable)).copiedFrom(e)
+              rec(rest, tes :+ simpleWhileTransformer.transform(e))
             case e +: rest =>
               val eTpe = widenTp(e.getType)
               val firstType = simpleWhileTransformer.transform(eTpe)

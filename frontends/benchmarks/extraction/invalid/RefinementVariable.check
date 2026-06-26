@@ -1,0 +1,3 @@
+[ Error  ] RefinementVariable.scala:7:13: Cannot reference a mutable state form a type of a variable
+               var y : { y: Int with y == foo() } = 1
+                       ^^^^^^^^^^^^^^^^^^^^^^^^
