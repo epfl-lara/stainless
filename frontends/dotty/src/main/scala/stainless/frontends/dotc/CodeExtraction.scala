@@ -1644,6 +1644,15 @@ class CodeExtraction(inoxCtx: inox.Context,
         case _ => outOfSubsetError(tr, "`bigIntToBV` implicit may only be used on `BigInt` literals (in the right range)")
       }
 
+    case ExBitVectorToBigInt(tree) =>
+      xt.BVToInt(extractTree(tree)).setPos(tr.sourcePos)
+
+    case ExBigIntToInt(tree) =>
+      xt.IntToBV(32, true, extractTree(tree)).setPos(tr.sourcePos)
+
+    case ExBigIntToLong(tree) =>
+      xt.IntToBV(64, true, extractTree(tree)).setPos(tr.sourcePos)
+
     case ExMaxBV(signed, size) =>
       if (signed) xt.BVLiteral(signed, (BigInt(2) pow (size - 1)) - 1, size)
       else xt.BVLiteral(signed,  (BigInt(2) pow size) - 1, size)
