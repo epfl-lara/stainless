@@ -8,14 +8,18 @@
 #  Currently, only the Linux & macOS version are shipped with ScalaZ3 (Windows must rely on smt-z3)
 # ====
 set -e
+# Without pipefail, the exit status of `sbt ... | tee` is tee's (0), so a
+# failing sbt assembly step is masked and the script marches on to a confusing
+# downstream error. Make the pipeline fail if any command in it fails.
+set -o pipefail
 
 STAINLESS_VERSION=$(git describe --abbrev=7 | sed 's/v//g')
 if [[ $(git diff --stat) != '' ]]; then
   STAINLESS_VERSION="$STAINLESS_VERSION-SNAPSHOT"
 fi
 
-SCALA_VERSION="3.9.0-RC1-bin-20260522-7039450-NIGHTLY"
-LIB_SCALA_VERSION="3.9.0-RC1-bin-20260522-7039450-NIGHTLY"
+SCALA_VERSION="3.10.0-RC1-bin-20260608-cf86bba-NIGHTLY"
+LIB_SCALA_VERSION="3.10.0-RC1-bin-20260608-cf86bba-NIGHTLY"
 LIB_SCALA_VERSION_JAR_NAME_PART=$(echo $LIB_SCALA_VERSION | cut -d '.' -f 1)
 Z3_VERSION="4.12.2"
 CVC5_VERSION="1.0.8"

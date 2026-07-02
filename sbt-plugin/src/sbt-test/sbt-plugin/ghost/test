@@ -1,5 +1,5 @@
 > + tailrec/run
 > + basic/run
-$ exists basic/target/scala-3.9.0-RC1-bin-20260522-7039450-NIGHTLY/classes/test/Main.class
+$ exists basic/target/scala-3.10.0-RC1-bin-20260608-cf86bba-NIGHTLY/classes/test/Main.class
 $ absent basic/target/sneakyGhostCalled basic/target/insideGhostCalled
 > + actor-tests/compile

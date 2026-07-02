@@ -805,6 +805,8 @@ trait Core extends Definitions { ocbsl =>
       case BVWideningCast(e, newTpe) => codeOfExprsBound(e, tpe)(mkBVWideningCast(_, newTpe))
       case BVUnsignedToSigned(e) => codeOfExprsBound(e, tpe)(mkBVUnsignedToSigned)
       case BVSignedToUnsigned(e) => codeOfExprsBound(e, tpe)(mkBVSignedToUnsigned)
+      case BVToInt(e) => codeOfExprsBound(e, tpe)(mkBVToInt)
+      case IntToBV(size, signed, e) => codeOfExprsBound(e, tpe)(mkIntToBV(_, size, signed))
 
       case TupleSelect(e, index) => codeOfExprsBound(e, tpe)(mkTupleSelect(_, index))
 
@@ -2200,6 +2202,7 @@ trait Core extends Definitions { ocbsl =>
                    | Label.BVAShiftRight | Label.BVLShiftRight, args) => args.size <= 2 && args.forall(isSimple(_, bodyOccurrences))
     case Signature(Label.Not | Label.BVSignedToUnsigned | Label.BVUnsignedToSigned
                    | Label.BVNarrowingCast(_) | Label.BVWideningCast(_)
+                   | Label.BVToInt | Label.IntToBV(_, _)
                    | Label.BVNot, Seq(e)) => isSimple(e, bodyOccurrences)
     case _ => false
   }
@@ -2542,6 +2545,12 @@ trait Core extends Definitions { ocbsl =>
         case Label.BVSignedToUnsigned =>
           val Seq(e) = eargs
           BVSignedToUnsigned(e)
+        case Label.BVToInt =>
+          val Seq(e) = eargs
+          BVToInt(e)
+        case Label.IntToBV(size, signed) =>
+          val Seq(e) = eargs
+          IntToBV(size, signed, e)
         case Label.TupleSelect(index) =>
           val Seq(e) = eargs
           TupleSelect(e, index)

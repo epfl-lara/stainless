@@ -9,12 +9,13 @@ object BigInt {
   lazy val ONE  = new BigInt(BigInteger.ONE)
 }
 
-final class BigInt private(private val underlying: BigInteger) {
+final class BigInt private[codegen] (private val underlying: BigInteger) {
   def this(value: String) = this(new BigInteger(value))
   def this(value: Int) = this(new BigInteger(value.toString))
 
   def toScala: scala.BigInt = scala.BigInt(underlying)
   def toInt: Int = underlying.intValue
+  def toBigInteger: BigInteger = underlying
 
   def add(that: BigInt): BigInt = new BigInt(underlying.add(that.underlying))
   def sub(that: BigInt): BigInt = new BigInt(underlying.subtract(that.underlying))

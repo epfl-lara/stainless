@@ -40,7 +40,7 @@ lazy val nTestSuiteParallelism = {
 
 // The Scala version with which Stainless is compiled.
 // Note: in case of version bump, do not forget to update the `test` files in `sbt-plugin` (for `sbt scripted`)!
-val stainlessScalaVersion = "3.9.0-RC1-bin-20260522-7039450-NIGHTLY"
+val stainlessScalaVersion = "3.10.0-RC1-bin-20260608-cf86bba-NIGHTLY"
 val frontendDottyVersion = stainlessScalaVersion
 // The Stainless libraries use Scala 2.13 and Scala 3.5, and is compatible only with Scala 3.5.
 val stainlessLibScalaVersion = stainlessScalaVersion
@@ -192,6 +192,17 @@ lazy val assemblySettings: Seq[Setting[_]] = {
         val oldStrategy = (assembly / assemblyMergeStrategy).value
         oldStrategy(x)
     },
+    // Keep a single Scala library in the assembled classpath. We use a custom
+    // scalaOrganization (ch.epfl.lara), but transitive dependencies still pull
+    // upstream org.scala-lang Scala libraries; assembling them alongside the
+    // fork's library yields conflicting scala/* classes from different Scala
+    // versions. commonSettings already excludes these, but the assembling
+    // projects (e.g. stainless-dotty-standalone) don't use commonSettings.
+    excludeDependencies ++= Seq(
+      ExclusionRule("org.scala-lang", "scala3-library_3"),
+      ExclusionRule("org.scala-lang", "scala3-compiler_3"),
+      ExclusionRule("org.scala-lang", "scala-library"),
+    ),
   )
 }
 

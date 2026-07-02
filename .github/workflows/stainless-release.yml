@@ -1,0 +1,93 @@
+name: Stainless Release
+# Triggered manually from the Actions UI (or `gh workflow run`), run from the
+# branch/commit you want to release (usually `main`). Given a version number,
+# it:
+#   1. Creates an annotated `vX.Y.Z` tag on the current commit and pushes it.
+#      The tag is what `sbt-git`/`git describe` use as the version for the build
+#      (the project is built with `git.useGitDescribe`).
+#   2. Builds the standalone and sbt-plugin archives.
+#   3. Publishes a GitHub release with auto-generated notes and the archives
+#      attached.
+#
+# Note: the tag is annotated but NOT GPG-signed; signing in CI would require
+# importing a GPG key from a secret.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Three-component version to release, with leading v (e.g. v0.10.0).'
+        required: true
+
+permissions:
+  contents: write # required to push the tag and create the release
+
+jobs:
+  release:
+    runs-on:
+      labels: [self-hosted, linux]
+    env:
+      JAVA_OPTS: -Dsbt.io.implicit.relative.glob.conversion=allow -Xss512M -Xms1024M -Xmx12G -XX:MaxMetaspaceSize=2G -XX:+UseCodeCacheFlushing -XX:ReservedCodeCacheSize=768M
+      JVM_OPTS:  -Dsbt.io.implicit.relative.glob.conversion=allow -Xss512M -Xms1024M -Xmx12G -XX:MaxMetaspaceSize=2G -XX:+UseCodeCacheFlushing -XX:ReservedCodeCacheSize=768M
+      JAVA_OPTS_TMP_DIR: /tmp/tmp_${{ github.run_id }}_${{ github.run_attempt }}
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ github.event.inputs.version }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        # Full history and tags are required for `git describe` to compute the
+        # version string the packaging scripts rely on.
+        fetch-depth: 0
+        fetch-tags: true
+        submodules: recursive
+    - name: Validate version
+      run: |
+        # Expect a three-component tag of the form vX.Y.Z.
+        if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "::error::Version must look like vX.Y.Z (got '$VERSION')."
+          exit 1
+        fi
+        if git rev-parse -q --verify "refs/tags/$VERSION" >/dev/null; then
+          echo "::error::Tag $VERSION already exists."
+          exit 1
+        fi
+    - name: Tag the current commit and push the tag
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        # Tag the checked-out commit as-is (no version bump / no commit). The tag
+        # is what `sbt-git`/`git describe` use as the version for the build.
+        git tag -a "$VERSION" -m "Release $VERSION"
+        git push origin "refs/tags/$VERSION"
+    - name: Setup JDK
+      uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: 17
+    - name: Setup sbt
+      uses: sbt/setup-sbt@v1
+      with:
+        sbt-runner-version: 1.10.1
+    - name: Setup java options
+      run: |
+          echo "JAVA_OPTS=$JAVA_OPTS -Djava.io.tmpdir=$JAVA_OPTS_TMP_DIR" >> "$GITHUB_ENV" && \
+          echo "JVM_OPTS=$JVM_OPTS -Djava.io.tmpdir=$JAVA_OPTS_TMP_DIR" >> "$GITHUB_ENV" && \
+          echo "SBT_OPTS=-Djava.io.tmpdir=$JAVA_OPTS_TMP_DIR --sbt-dir $JAVA_OPTS_TMP_DIR" >> "$GITHUB_ENV"
+    - name: Creating temp folder
+      run: rm -rf $JAVA_OPTS_TMP_DIR && mkdir -p $JAVA_OPTS_TMP_DIR && chmod 777 $JAVA_OPTS_TMP_DIR
+    - name: Build standalone archives
+      run: ./bin/package-standalone.sh
+    - name: Build sbt plugin archive
+      run: ./bin/package-sbt-plugin.sh
+    - name: Create GitHub release
+      run: |
+        # Let GitHub auto-generate the release notes from merged PRs, and attach
+        # the archives without renaming them.
+        gh release create "$VERSION" \
+          --title "$VERSION" \
+          --generate-notes \
+          stainless-dotty-standalone-*.zip \
+          sbt-stainless.zip
+    - name: Clean up
+      if: always()
+      run: rm -rf $JAVA_OPTS_TMP_DIR

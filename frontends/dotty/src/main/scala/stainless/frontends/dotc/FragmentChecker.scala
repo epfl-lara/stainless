@@ -613,8 +613,13 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
           traverseChildren(tree)
 
         case Apply(fun, args) if BigInt_ApplyMethods(sym) =>
-          if (args.size != 1 || !args.head.isInstanceOf[tpd.Literal])
-            reportError(args.head.sourcePos, "Only literal arguments are allowed for BigInt.")
+          // `BigInt(_)` accepts a literal, or an `Int`/`Long` (a bitvector-to-integer conversion).
+          def okArg(a: tpd.Tree): Boolean =
+            a.isInstanceOf[tpd.Literal] ||
+            a.tpe.widenDealias.typeSymbol == defn.IntClass ||
+            a.tpe.widenDealias.typeSymbol == defn.LongClass
+          if (args.size != 1 || !okArg(args.head))
+            reportError(args.head.sourcePos, "Only literal, Int or Long arguments are allowed for BigInt.")
           traverseChildren(tree)
 
         case ExCall(Some(s @ Select(Super(_, _), _)), _, _, _) =>

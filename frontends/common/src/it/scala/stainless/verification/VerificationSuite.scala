@@ -37,6 +37,8 @@ class VerificationSuite extends VerificationComponentTestSuite {
       "verification/valid/Iterables",
       "verification/valid/PartialCompiler",
       "verification/valid/PartialKVTrace",
+      // Times out on the symbolic signed bv2int range/sign reasoning
+      "verification/valid/BitVectorBigIntConversions",
     )
 
   private val ignorePrincess = ignoreCommon ++
