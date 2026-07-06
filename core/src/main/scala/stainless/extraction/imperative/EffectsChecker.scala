@@ -43,7 +43,7 @@ trait EffectsChecker { self: EffectsAnalyzer =>
           case rt @ RefinementType(refVd, pred) =>
             val refs = refsToMutable(pred)
             if refs.nonEmpty then 
-              throw ImperativeEliminationException(tpe, s"Cannot reference a mutable state form a type of a variable")
+              throw ImperativeEliminationException(tpe, s"Cannot reference a mutable state from a type of a variable")
             else checkNoMutableStateInVariableType(refVd.tpe)
             super.traverse(rt)
           case _ => super.traverse(tpe)
