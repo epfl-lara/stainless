@@ -48,12 +48,22 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
     // that returns the mutable parameters. This makes explicit all possible
     // effects of the function. This should be used for higher order functions
     // declared as parameters.
-    def makeFunctionTypeExplicit(tpe: Type): Type = tpe match {
-      case ft @ FunctionType(from, to) =>
-        ft.copy(to = tupleTypeWrap(to +: from.filter(isMutableType(_))).copiedFrom(to)).copiedFrom(tpe)
-      case pt @ PiType(params, to) =>
-        pt.copy(to = tupleTypeWrap(to +: params.map(_.tpe).filter(isMutableType(_))).copiedFrom(to)).copiedFrom(tpe)
-    }
+     def makeFunctionTypeExplicit(tpe: Type): Type =
+      def makeSigmaType(mutableParams: Seq[Type], returnType: Type) =
+        val freshParams = mutableParams.map(tpe => ValDef(FreshIdentifier("x"), tpe))
+        sigmaTypeWrap(freshParams, returnType).copiedFrom(returnType)
+
+      tpe match {
+       case ft @ FunctionType(from, to) =>
+        val mutableParams = from.filter(isMutableType(_))
+        if mutableParams.isEmpty then ft
+        else ft.copy(to = makeSigmaType(mutableParams, to)).copiedFrom(ft)
+         
+       case pt @ PiType(params, to) =>
+        val mutableParamTypes = params.map(_.tpe).filter(isMutableType(_))
+        if mutableParamTypes.isEmpty then pt
+        else pt.copy(to = makeSigmaType(mutableParamTypes, to)).copiedFrom(pt)
+     }
 
     object transformer extends ConcreteOOSelfTreeTransformer {
 
@@ -137,9 +147,9 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
           val freshBody = exprOps.replaceFromSymbols(freshSubst, body)
           val explicitBody = makeSideEffectsExplicit(freshBody, fd, env `withBindings` freshLocals, freshLocals.map(_.toVariable))
 
-          //WARNING: only works if side effects in Tuples are extracted from left to right,
-          //         in the ImperativeTransformation phase.
-          val finalBody: Expr = Tuple(explicitBody +: freshLocals.map(_.toVariable)).copiedFrom(body)
+          val tmp = ValDef(FreshIdentifier("res"), typeOps.replaceFromSymbols(freshSubst, fd.returnType))
+          val finalBody: Expr =
+            Let(tmp, explicitBody, Tuple(freshLocals.map(_.toVariable) :+ tmp.toVariable).copiedFrom(body)).copiedFrom(body)
 
           freshLocals.zip(aliasedParams).foldLeft(finalBody) {
             (bd, vp) => LetVar(vp._1, vp._2.toVariable, bd).copiedFrom(body)
@@ -152,8 +162,8 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
             val newBody = exprOps.replaceSingle(
               aliasedParams.map(vd => (Old(vd.toVariable), vd.toVariable): (Expr, Expr)).toMap ++
               aliasedParams.zipWithIndex.map { case (vd, i) =>
-                (vd.toVariable, TupleSelect(newRes.toVariable, i+2).copiedFrom(vd)): (Expr, Expr)
-              }.toMap + (res.toVariable -> TupleSelect(newRes.toVariable, 1).copiedFrom(res)),
+                (vd.toVariable, TupleSelect(newRes.toVariable, i+1).copiedFrom(vd)): (Expr, Expr)
+              }.toMap + (res.toVariable -> TupleSelect(newRes.toVariable, aliasedParams.length + 1).copiedFrom(res)),
               makeSideEffectsExplicit(postBody, fd, env, Seq.empty)
             )
 
@@ -312,8 +322,8 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
 
             val assgns = localEffects.zipWithIndex.flatMap {
               case ((vd, effects, arg), effIndex) =>
-                // +1 because we are a tuple and +1 because the first component is for the result of the function
-                val resSelect = TupleSelect(freshRes.toVariable, effIndex + 2)
+                // +1 because we are a tuple (1-based indexing starts at 1 for the first state)
+                val resSelect = TupleSelect(freshRes.toVariable, effIndex + 1)
                 // All effects on the given parameter, applied to the given argument
                 val paramWithArgsEffect = for {
                   outerEffect0 <- effects
@@ -466,7 +476,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
                 }
             }
             val exprRes =
-              if (selectResult) TupleSelect(freshRes.toVariable, 1)
+              if (selectResult) TupleSelect(freshRes.toVariable, localEffects.length + 1)
               else freshRes.toVariable
             val extractResults = Block(assgns, exprRes)
             // FIXME: This should be `Let` and not `LetVar`, however doing so will cause a crash in e.g. `MapAliasing1`
@@ -652,7 +662,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
           case ret @ Return(_) if freshLocals.isEmpty => super.transform(e, env)
 
           case ret @ Return(retExpr) =>
-            Return(Tuple(transform(retExpr, env) +: freshLocals.map(_.setPos(ret))).setPos(ret)).setPos(ret)
+            Return(Tuple(freshLocals.map(_.setPos(ret)) :+ transform(retExpr, env)).setPos(ret)).setPos(ret)
 
           case swap @ Swap(array1, index1, array2, index2) =>
             // Though `array1`, `index1`, `array2` and `index2` are all normalized, we still need to recursively transform
@@ -894,9 +904,10 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
               val rewritingMap = aliasedParams.zip(freshLocals).map(p => p._1.toVariable -> p._2.toVariable).toMap
               val freshBody = exprOps.replaceFromSymbols(rewritingMap, body)
 
-              //WARNING: only works if side effects in Tuples are extracted from left to right,
-              //         in the ImperativeTransformation phase.
-              val finalBody: Expr = Tuple(freshBody +: freshLocals.map(_.toVariable))
+              // ft.to is widened, so no need to `replaceFromSymbols` with `rewritingMap`
+              val tmp = ValDef(FreshIdentifier("res"), ft.to)
+              val finalBody: Expr =
+                Let(tmp, freshBody, Tuple(freshLocals.map(_.toVariable) :+ tmp.toVariable).copiedFrom(body)).copiedFrom(body)
 
               val wrappedBody: Expr = freshLocals.zip(aliasedParams).foldLeft(finalBody) {
                 (bd, vp) => LetVar(vp._1, vp._2.toVariable, bd).copiedFrom(bd)

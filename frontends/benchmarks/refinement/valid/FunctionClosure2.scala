@@ -1,5 +1,4 @@
 package functionClosure2
-import language.experimental.qualifiedTypes.silent
 import stainless.lang._
 
 object FunctionClosure2:

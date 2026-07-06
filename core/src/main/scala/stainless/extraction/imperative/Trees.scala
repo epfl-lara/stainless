@@ -11,6 +11,14 @@ import stainless.transformers.TreeTraverser
 
 trait Trees extends oo.Trees with Definitions { self =>
 
+  def sigmaTypeWrap(params: Seq[ValDef], to: Type): Type = params match {
+    case Seq() => to
+    case more =>
+      val isTrueSigma = typeOps.variablesOf(to).intersect(more.map(_.toVariable).toSet).nonEmpty
+      if isTrueSigma then SigmaType(more, to)
+      else TupleType(more.map(_.tpe) :+ to)
+  }
+
   /* XLang imperative trees to desugar */
 
   /** Return an [[ast.Expressions.Expr]].
