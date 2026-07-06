@@ -992,7 +992,8 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     }.toSet
   }
 
-  val mutableStateFnCache = scala.collection.mutable.Map.empty[Identifier, Set[Variable]]
+  type FunRef = (id: Identifier, kind: "local" | "global")
+  val mutableStateFnCache = scala.collection.mutable.Map.empty[Identifier, Set[Either[Variable, FunRef]]]
 
   /** This overaproximattes sometimes, e.g.
    * ```
@@ -1000,24 +1001,47 @@ trait EffectsAnalyzer extends oo.CachingPhase {
    *    def foo() = 2
    * ```
    *  references to `foo()` are disallowed, since `A` has a mutable type.
+   * 
+   * We keep a list of `visitedFunctions` to aviod looping in case of cyclic references.
    */
   private def referencesToMutableStates(expr: Expr, result: Result)(using symbols: Symbols): Set[Variable] = {
     import symbols._
-    val direct = variablesOf(expr).filter { v =>
-      v.flags.contains(IsVar) || isMutableType(v.tpe)
+
+    def getRefs(expr: Expr, visitedFunctions: Set[Identifier])(using symbols: Symbols): Set[Either[Variable, FunRef]] = {
+      val direct = variablesOf(expr).filter { v =>
+        v.flags.contains(IsVar) || isMutableType(v.tpe)
+      }.map(Left(_))
+
+      direct ++ exprOps.collect[Either[Variable, FunRef]] {
+        case fi @ FunInvocation(id, _, _, _) if visitedFunctions.contains(id) =>
+          fi match {
+            case FunctionInvocation(id, _, _) => Set(Right(id, "global"))
+            case ApplyLetRec(id, _, _, _, _) => Set(Right(id, "local"))
+          }
+        case fi @ FunInvocation(id, _, _, _) =>
+          mutableStateFnCache.updateWith(id) {
+            case None =>
+              val body = fi match {
+                case FunctionInvocation(id, _, _) => getFunction(id).fullBody
+                case ApplyLetRec(id, _, _, _, _) => result.locals(id).fullBody
+              }
+              Some(getRefs(body, visitedFunctions + id))
+            case Some(refs) =>
+              Some(refs.flatMap {
+                case r @ Right(id, _) if visitedFunctions.contains(id) => Set(r)
+                case Right(id, "global") => getRefs(getFunction(id).fullBody, visitedFunctions + id)
+                case Right(id, "local") => getRefs(result.locals(id).fullBody, visitedFunctions + id)
+                case v => Set(v)
+              })
+          }.getOrElse(Set.empty)
+
+        case _ => Set.empty
+      }(expr)
     }
 
-    direct ++ exprOps.collect {
-      case fi @ FunInvocation(id, _, _, _) => 
-        mutableStateFnCache.getOrElseUpdate(id, {
-          val body: Expr = fi match {
-            case FunctionInvocation(id, _, _) => getFunction(id).fullBody
-            case ApplyLetRec(id, _, _, _, _) => result.locals(id).fullBody
-          }
-          referencesToMutableStates(body, result)
-        })
-
-      case _ => Set.empty[Variable]
-    }(expr)
+    getRefs(expr, Set.empty).collect{
+      case Left(v) => v
+    }
   }
+
 }
