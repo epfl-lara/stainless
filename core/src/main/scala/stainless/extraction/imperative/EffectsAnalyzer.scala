@@ -152,7 +152,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     }
 
     /* Since the return type may depend on the `aliasedParams` (they may be referenced in a refinement type),
-     * we return a sigma type with fresh variables for `aliasedParams` and a the original return type.
+     * we return a sigma type with fresh variables for `aliasedParams` and the original return type.
      */
     private[imperative] def getReturnType(fd: FunAbstraction): Type = {
       val aliasedParams = getAliasedParams(fd)
