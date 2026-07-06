@@ -37,6 +37,9 @@ trait EffectsChecker { self: EffectsAnalyzer =>
     // which is where we will want to report the error from, and abort the pipeline.
     if (isMutableSynthetic(fd.id)) return CheckResult.Skip
 
+    /* Checks that refinements of variable types do not reference mutable states.
+     * Otherwise refinements on variables are treated as invariants.
+     */
     def checkNoMutableStateInVariableType(tpe: Type): Unit = {
       object variableTypeTraverser extends ConcreteSelfTreeTraverser {
         override def traverse(tpe: Type): Unit = tpe match {

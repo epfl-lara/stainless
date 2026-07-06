@@ -460,6 +460,8 @@ class ImperativeCodeElimination(override val s: Trees)(override val t: s.type)
       }(expr)
     }
 
+    /* Adjusts references to local functions that were transformed inside of refinement types.
+     */
     def transformPureType(tpe: Type)(using state: State): Type = {
       s.typeOps.postMap {
         case rt @ RefinementType(rv, pred) =>
