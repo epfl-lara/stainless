@@ -13,16 +13,16 @@ class TreeSanitizerSuite extends AnyFunSpec with InputUtils {
 
   val sources = Map(
     "AbstractValOverrides" -> getFileContents(
-      "frontends/common/src/test/resources/AbstractValOverrides.scala"
+      "frontends/dotty/src/test/resources/AbstractValOverrides.scala"
     ),
     "GhostOverrides" -> getFileContents(
-      "frontends/common/src/test/resources/GhostOverrides.scala"
+      "frontends/dotty/src/test/resources/GhostOverrides.scala"
     ),
     "SoundEquality" -> getFileContents(
-      "frontends/common/src/test/resources/SoundEquality.scala"
+      "frontends/dotty/src/test/resources/SoundEquality.scala"
     ),
     "SoundInvariants" -> getFileContents(
-      "frontends/common/src/test/resources/SoundInvariants.scala"
+      "frontends/dotty/src/test/resources/SoundInvariants.scala"
     )
   )
 
