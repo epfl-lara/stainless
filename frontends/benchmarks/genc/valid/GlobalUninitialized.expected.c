@@ -66,8 +66,7 @@ static void move(void) {
         stable = true;
         if (y > 0) {
             goto label_0;
-        }
-        return;;
+        };
 }
 
 

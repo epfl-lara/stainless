@@ -112,20 +112,11 @@ final class TailRecTransformer(val ctx: inox.Context) extends Transformer(SIR, T
       val newParamMap = fd.params.zip(newParams).toMap
       val labelName = freshId("label")
       val bodyWithNewParams = replaceBindings(newParamMap, body)
-      // For a Unit-returning function, make the implicit `()` on the base-case path explicit
-      // by appending a `return;`, so control leaves the function instead of falling through
-      // past the label. This must be done for any body shape, not only a Block: e.g. a bare
-      // `if (c) recurse()` body would otherwise have no return on its base-case path.
-      val bodyWithUnitReturn =
-        if fd.returnType.isUnitType then
-          val stmts = bodyWithNewParams match {
-            case Block(ss) => ss
-            case other     => List(other)
-          }
-          Block(stmts :+ Return(Lit(UnitLit)))
-        else bodyWithNewParams
+      // No terminating `return` is added on the base-case path: a Unit-returning function
+      // becomes a C `void` function, and reaching the end of its body is already a normal
+      // return. (Non-Unit functions have an explicit `return <value>` on every base-case path.)
       val declarations = newParamMap.toList.map { case (old, nw) => Decl(nw, Some(Binding(old))) }
-      val newBody = replaceRecursiveCalls(fd, bodyWithUnitReturn, newParams.toList, labelName)
+      val newBody = replaceRecursiveCalls(fd, bodyWithNewParams, newParams.toList, labelName)
       val newBodyWithALabel = Labeled(labelName, newBody)
       FunDef(fd.id, fd.returnType, fd.ctx, fd.params, FunBodyAST(Block(declarations :+ newBodyWithALabel)), fd.isExported, fd.isPure)
     case _ => fd
