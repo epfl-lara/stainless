@@ -247,7 +247,7 @@ package object lang {
 
   val IntMaxValue: BigInt = BigInt(2147483647)
   // This type can be used to represent Array indices for example
-  type UInt31 = {v: BigInt with 0 <= v && v < IntMaxValue} 
+  type UInt31 = {v: BigInt with 0 <= v && v <= IntMaxValue} 
 
   // This --full-imperative stuff should perhaps move to a separate object.
 
