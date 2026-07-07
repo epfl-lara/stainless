@@ -50,26 +50,24 @@ void main(void) {
 static STAINLESS_FUNC_PURE int32_t multipleCalls(int32_t n, int32_t acc) {
     int32_t n_0 = n;
     int32_t acc_0 = acc;
-    while (true) {
-        label_0: ;
-            if (n_0 == 0) {
-                return acc_0;
-            } else if (n_0 == 1) {
-                return acc_0 + 2;
-            } else if (n_0 % 2 == 0) {
-                int32_t n_0_0 = n_0 - 1;
-                int32_t acc_0_0 = acc_0 + 1;
-                n_0 = n_0_0;
-                acc_0 = acc_0_0;
-                goto label_0;
-            } else {
-                int32_t n_0_1 = n_0 - 2;
-                int32_t acc_0_1 = acc_0 + 2;
-                n_0 = n_0_1;
-                acc_0 = acc_0_1;
-                goto label_0;
-            };
-    }
+    label_0: ;
+        if (n_0 == 0) {
+            return acc_0;
+        } else if (n_0 == 1) {
+            return acc_0 + 2;
+        } else if (n_0 % 2 == 0) {
+            int32_t n_0_0 = n_0 - 1;
+            int32_t acc_0_0 = acc_0 + 1;
+            n_0 = n_0_0;
+            acc_0 = acc_0_0;
+            goto label_0;
+        } else {
+            int32_t n_0_1 = n_0 - 2;
+            int32_t acc_0_1 = acc_0 + 2;
+            n_0 = n_0_1;
+            acc_0 = acc_0_1;
+            goto label_0;
+        };
 }
 
 void* newState(void) {

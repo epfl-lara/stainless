@@ -44,18 +44,16 @@ static void println_1(void);
 
 static STAINLESS_FUNC_PURE int32_t even(int32_t n) {
     int32_t n_0 = n;
-    while (true) {
-        label_0: ;
-            if (n_0 == 0) {
-                return 1;
-            } else if (n_0 == 1) {
-                return 0;
-            } else {
-                int32_t n_0_0 = n_0 - 2;
-                n_0 = n_0_0;
-                goto label_0;
-            };
-    }
+    label_0: ;
+        if (n_0 == 0) {
+            return 1;
+        } else if (n_0 == 1) {
+            return 0;
+        } else {
+            int32_t n_0_0 = n_0 - 2;
+            n_0 = n_0_0;
+            goto label_0;
+        };
 }
 
 void main(void) {
