@@ -22,6 +22,7 @@ Contents:
    imperative
    equivalence
    ghost
+   refinementtypes
    wrap
    purescala
    library
