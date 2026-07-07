@@ -21,12 +21,6 @@ class GenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUtils with
   val updateExpected: Boolean =
     sys.env.get("STAINLESS_GENC_UPDATE_EXPECTED").exists(v => v == "1" || v.equalsIgnoreCase("true"))
 
-  // Benchmarks whose *generated binary* currently does not terminate, so we cannot run it
-  // to compare its output. Their C is still generated, compiled and snapshotted; only the
-  // execution/output check is ignored. See the GenC tail-recursion infinite-loop issue
-  // (the generated while(true) loop lacks a terminating return for a non-Block Unit body).
-  val nonTerminatingBenchmarks = Set("TailRecUnitNoExplicitEnd.scala")
-
   val validFiles = resourceFiles("genc/valid", _.endsWith(".scala"), false).map(_.getPath)
   val invalidFiles = resourceFiles("genc/invalid", _.endsWith(".scala"), false).map(_.getPath)
   val tailrecFiles = validFiles.filter(_.toLowerCase.contains("tailrec".toLowerCase)).map { path =>
@@ -106,17 +100,9 @@ class GenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUtils with
   for (case (file, checkFile) <- tailrecFiles) {
     val name = file.split("/").last
     val checkValue = Files.readAllLines(Paths.get(checkFile)).toArray.mkString
-    val testName = s"Checking that $name outputs $checkValue"
-    // Run the compiled binary and check its output, unless the binary is known not to
-    // terminate (see genc-tailrec-unit-infinite-loop.md), in which case we `ignore` the
-    // test so the suite does not hang.
-    if (nonTerminatingBenchmarks.contains(name)) {
-      ignore(testName) {}
-    } else {
-      test(testName) {
-        val output = runCHelper(file)
-        assert(output == checkValue, s"Output '$output' should be $checkValue")
-      }
+    test(s"Checking that $name outputs $checkValue") {
+      val output = runCHelper(file)
+      assert(output == checkValue, s"Output '$output' should be $checkValue")
     }
   }
 
