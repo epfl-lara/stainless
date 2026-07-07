@@ -44,8 +44,7 @@ static STAINLESS_FUNC_PURE void countDown(int32_t n) {
         }
         int32_t n_0_0 = n_0 - 1;
         n_0 = n_0_0;
-        goto label_0;
-        return;;
+        goto label_0;;
 }
 
 void main(void) {
