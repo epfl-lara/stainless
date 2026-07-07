@@ -27,11 +27,6 @@ class GenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUtils with
   // (the generated while(true) loop lacks a terminating return for a non-Block Unit body).
   val nonTerminatingBenchmarks = Set("TailRecUnitNoExplicitEnd.scala")
 
-  // Benchmarks whose generated C is not deterministic across runs (Set-derived enum/union
-  // ordering, and fresh-variable numbering), so a golden snapshot would be flaky. Their C is
-  // still generated, compiled and executed; only the golden comparison is skipped.
-  val nonDeterministicBenchmarks = Set("RefInCtor.scala", "ImageProcessing.scala")
-
   val validFiles = resourceFiles("genc/valid", _.endsWith(".scala"), false).map(_.getPath)
   val invalidFiles = resourceFiles("genc/invalid", _.endsWith(".scala"), false).map(_.getPath)
   val tailrecFiles = validFiles.filter(_.toLowerCase.contains("tailrec".toLowerCase)).map { path =>
@@ -70,11 +65,9 @@ class GenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUtils with
       // Snapshot the generated C and header against golden files so that unintended
       // changes to the emitted code (not just compilation/behaviour) are caught. The
       // golden files live in the source tree (not the copied test resources) so they
-      // can be committed. Skipped for benchmarks with non-deterministic output.
-      if (!nonDeterministicBenchmarks.contains(file.split("/").last)) {
-        checkGolden(cFile, sourceGoldenPath(file, ".expected.c"))
-        checkGolden(hFile, sourceGoldenPath(file, ".expected.h"))
-      }
+      // can be committed.
+      checkGolden(cFile, sourceGoldenPath(file, ".expected.c"))
+      checkGolden(hFile, sourceGoldenPath(file, ".expected.h"))
       val gccCompile = s"gcc $cFile -o $outFile"
       ctx.reporter.info(s"Running: $gccCompile")
       val (std, exitCode) = runCommand(gccCompile)

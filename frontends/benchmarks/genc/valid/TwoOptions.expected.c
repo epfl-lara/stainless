@@ -38,24 +38,6 @@ typedef enum {
 
 typedef struct {
   int8_t extra;
-} None_int64;
-
-typedef struct {
-  int64_t v;
-} Some_int64;
-
-typedef union {
-  None_int64 None_int64_v;
-  Some_int64 Some_int64_v;
-} union_Option_int64;
-
-typedef struct {
-  enum_Option_int64 tag;
-  union_Option_int64 value;
-} Option_int64;
-
-typedef struct {
-  int8_t extra;
 } None_int32;
 
 typedef struct {
@@ -71,6 +53,24 @@ typedef struct {
   enum_Option_int32 tag;
   union_Option_int32 value;
 } Option_int32;
+
+typedef struct {
+  int8_t extra;
+} None_int64;
+
+typedef struct {
+  int64_t v;
+} Some_int64;
+
+typedef union {
+  None_int64 None_int64_v;
+  Some_int64 Some_int64_v;
+} union_Option_int64;
+
+typedef struct {
+  enum_Option_int64 tag;
+  union_Option_int64 value;
+} Option_int64;
 
 
 

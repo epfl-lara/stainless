@@ -77,8 +77,11 @@ private class IR2CImpl()(using ctx: inox.Context) {
         )
     }}
 
-    prog.functions foreach rec
-    prog.classes foreach rec
+    // Process functions and classes in a deterministic (id-sorted) order: datatypes are
+    // registered on first encounter (see `dataTypes`), so a stable traversal order gives a
+    // stable — and still dependency-correct — declaration order in the generated C.
+    prog.functions.sortBy(_.id) foreach rec
+    prog.classes.sortBy(_.id) foreach rec
 
     val enums = enumCache.values.toSet
     val functions = funCache.values.toSet
@@ -496,8 +499,9 @@ private class IR2CImpl()(using ctx: inox.Context) {
     require(cd.isAbstract && cd.parent.isEmpty) // Top of hierarchy
 
     // List all (concrete) leaves of the class hierarchy as fields of the union.
-    val leaves = cd.getHierarchyLeaves
-    val fields = leaves.toSeq map { c => (C.Var(getUnionFieldFor(c), getStructFor(c)), Seq.empty) }
+    // `getHierarchyLeaves` returns a Set; sort by id so the field order is deterministic.
+    val leaves = cd.getHierarchyLeaves.toSeq.sortBy(_.id)
+    val fields = leaves map { c => (C.Var(getUnionFieldFor(c), getStructFor(c)), Seq.empty) }
     val id = rec("union_" + cd.id)
 
     val union = C.Union(id, fields, cd.isExported)
@@ -511,8 +515,9 @@ private class IR2CImpl()(using ctx: inox.Context) {
   // Build the enum used in the "tagged union" structure that is representing a class hierarchy.
   private def getEnumFor(cd: ClassDef): C.Enum = enumCache.getOrElseUpdate(cd, {
     // List all (concrete) leaves of the class hierarchy as fields of the union.
-    val leaves = cd.getHierarchyLeaves
-    val literals = leaves.toSeq map getEnumLiteralFor
+    // Sort by id (getHierarchyLeaves is a Set) so the enum literal order is deterministic.
+    val leaves = cd.getHierarchyLeaves.toSeq.sortBy(_.id)
+    val literals = leaves map getEnumLiteralFor
     val id = rec("enum_" + cd.id)
 
     C.Enum(id, literals)
