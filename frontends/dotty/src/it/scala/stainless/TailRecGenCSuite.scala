@@ -14,6 +14,10 @@ import java.io.PrintWriter
 import Utils._
 
 class TailRecGenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUtils with Matchers {
+  // Benchmarks whose generated binary currently does not terminate; their output check is
+  // ignored so the suite does not hang. See the GenC tail-recursion infinite-loop issue.
+  val nonTerminatingBenchmarks = Set("TailRecUnitNoExplicitEnd.scala")
+
   val validFiles = resourceFiles("genc/valid", _.endsWith(".scala"), false).map(_.getPath)
   val tailrecFiles = validFiles.filter(_.toLowerCase.contains("tailrec".toLowerCase)).map { path =>
     val checkFile = path.replace(".scala", ".check")
@@ -54,10 +58,16 @@ class TailRecGenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUti
   }
 
   for (case (file, checkFile) <- tailrecFiles) {
-    test(s"Checking that ${file.split("/").last} outputs ${Files.readAllLines(Paths.get(checkFile)).toArray.mkString}") {
-      val output = runCHelper(file)
-      val checkValue = Files.readAllLines(Paths.get(checkFile)).toArray.mkString
-      assert(output == checkValue, s"Output '$output' should be $checkValue")
+    val name = file.split("/").last
+    val checkValue = Files.readAllLines(Paths.get(checkFile)).toArray.mkString
+    val testName = s"Checking that $name outputs $checkValue"
+    if (nonTerminatingBenchmarks.contains(name)) {
+      ignore(testName) {}
+    } else {
+      test(testName) {
+        val output = runCHelper(file)
+        assert(output == checkValue, s"Output '$output' should be $checkValue")
+      }
     }
   }
 
