@@ -197,14 +197,11 @@ def libraryFiles(baseDir: File): Seq[(String, File)] = {
 lazy val frontendSettings: Seq[Setting[_]] = Defaults.itSettings ++ Seq(
 
   /**
-    * NOTE: IntelliJ seems to have trouble including sources located outside the base directory of an
-    *   sbt project. You can temporarily disable the following four lines when importing the project.
+    * NOTE: IntelliJ seems to have trouble including resources located outside the base directory of an
+    *   sbt project. You can temporarily disable the following line when importing the project.
     * NOTE 2: baseDirectory.value is frontends/dotty, so we need to go up two levels with / .. / .. /
     */
   IntegrationTest / unmanagedResourceDirectories += (baseDirectory.value / ".." / ".." / "frontends" / "benchmarks"),
-  Compile / unmanagedSourceDirectories           += (baseDirectory.value / ".." / ".." / "frontends" / "common" / "src" / "main" / "scala"),
-  Test / unmanagedSourceDirectories              += (baseDirectory.value / ".." / ".." / "frontends" / "common" / "src" / "test" / "scala"),
-  IntegrationTest / unmanagedSourceDirectories   += (baseDirectory.value / ".." / ".." / "frontends" / "common" / "src" / "it" / "scala"),
 
   // Ship the Stainless library sources as resources, along with the stainless/libfiles.txt
   // index that stainless.Main reads to locate them.

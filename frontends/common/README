@@ -1,1 +1,0 @@
-We include these common test sources to both the scala and dotty frontends through sbt.
