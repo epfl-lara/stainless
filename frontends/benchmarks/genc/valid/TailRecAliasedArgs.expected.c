@@ -46,20 +46,18 @@ static STAINLESS_FUNC_PURE int32_t aliased(int32_t n, int32_t a, int32_t b) {
     int32_t n_0 = n;
     int32_t a_0 = a;
     int32_t b_0 = b;
-    while (true) {
-        label_0: ;
-            if (n_0 == 0) {
-                return a_0;
-            } else {
-                int32_t n_0_0 = n_0 - 1;
-                int32_t a_0_0 = b_0;
-                int32_t b_0_0 = a_0 + b_0;
-                n_0 = n_0_0;
-                a_0 = a_0_0;
-                b_0 = b_0_0;
-                goto label_0;
-            };
-    }
+    label_0: ;
+        if (n_0 == 0) {
+            return a_0;
+        } else {
+            int32_t n_0_0 = n_0 - 1;
+            int32_t a_0_0 = b_0;
+            int32_t b_0_0 = a_0 + b_0;
+            n_0 = n_0_0;
+            a_0 = a_0_0;
+            b_0 = b_0_0;
+            goto label_0;
+        };
 }
 
 void main(void) {

@@ -81,30 +81,28 @@ void* newState(void) {
 static STAINLESS_FUNC_PURE int32_t patternMatch(Option_int32 x, int32_t acc) {
     Option_int32 x_0 = x;
     int32_t acc_0 = acc;
-    while (true) {
-        label_0: ;
-            int32_t measure;
-            if (x_0.tag == tag_None_int32) {
-                measure = 0;
-            } else if (x_0.tag == tag_Some_int32) {
-                measure = x_0.value.Some_int32_v.v;
-            }
-            if (x_0.tag == tag_None_int32) {
-                return acc_0;
-            } else if (x_0.tag == tag_Some_int32 && x_0.value.Some_int32_v.v == 1) {
-                Option_int32 x_0_0 = (Option_int32) { .tag = tag_None_int32, .value = (union_Option_int32) { .None_int32_v = (None_int32) { .extra = 0 } } };
-                int32_t acc_0_0 = acc_0 + 1;
-                x_0 = x_0_0;
-                acc_0 = acc_0_0;
-                goto label_0;
-            } else if (x_0.tag == tag_Some_int32) {
-                Option_int32 x_0_1 = (Option_int32) { .tag = tag_Some_int32, .value = (union_Option_int32) { .Some_int32_v = (Some_int32) { .v = (x_0.value.Some_int32_v.v - 1) } } };
-                int32_t acc_0_1 = acc_0 + 1;
-                x_0 = x_0_1;
-                acc_0 = acc_0_1;
-                goto label_0;
-            };
-    }
+    label_0: ;
+        int32_t measure;
+        if (x_0.tag == tag_None_int32) {
+            measure = 0;
+        } else if (x_0.tag == tag_Some_int32) {
+            measure = x_0.value.Some_int32_v.v;
+        }
+        if (x_0.tag == tag_None_int32) {
+            return acc_0;
+        } else if (x_0.tag == tag_Some_int32 && x_0.value.Some_int32_v.v == 1) {
+            Option_int32 x_0_0 = (Option_int32) { .tag = tag_None_int32, .value = (union_Option_int32) { .None_int32_v = (None_int32) { .extra = 0 } } };
+            int32_t acc_0_0 = acc_0 + 1;
+            x_0 = x_0_0;
+            acc_0 = acc_0_0;
+            goto label_0;
+        } else if (x_0.tag == tag_Some_int32) {
+            Option_int32 x_0_1 = (Option_int32) { .tag = tag_Some_int32, .value = (union_Option_int32) { .Some_int32_v = (Some_int32) { .v = (x_0.value.Some_int32_v.v - 1) } } };
+            int32_t acc_0_1 = acc_0 + 1;
+            x_0 = x_0_1;
+            acc_0 = acc_0_1;
+            goto label_0;
+        };
 }
 
 

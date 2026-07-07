@@ -45,16 +45,14 @@ static void println_1(void);
 
 static STAINLESS_FUNC_PURE int32_t inner(int32_t* n, int32_t x) {
     int32_t x_0 = x;
-    while (true) {
-        label_0: ;
-            if (x_0 == 0) {
-                return 0;
-            } else {
-                int32_t x_0_0 = x_0 - 1;
-                x_0 = x_0_0;
-                goto label_0;
-            };
-    }
+    label_0: ;
+        if (x_0 == 0) {
+            return 0;
+        } else {
+            int32_t x_0_0 = x_0 - 1;
+            x_0 = x_0_0;
+            goto label_0;
+        };
 }
 
 void main(void) {

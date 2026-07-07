@@ -48,20 +48,18 @@ static STAINLESS_FUNC_PURE int32_t fib(int32_t n, int32_t i, int32_t j) {
     int32_t n_0 = n;
     int32_t i_0 = i;
     int32_t j_0 = j;
-    while (true) {
-        label_0: ;
-            if (n_0 == 0) {
-                return i_0;
-            } else {
-                int32_t n_0_0 = n_0 - 1;
-                int32_t i_0_0 = j_0;
-                int32_t j_0_0 = i_0 + j_0;
-                n_0 = n_0_0;
-                i_0 = i_0_0;
-                j_0 = j_0_0;
-                goto label_0;
-            };
-    }
+    label_0: ;
+        if (n_0 == 0) {
+            return i_0;
+        } else {
+            int32_t n_0_0 = n_0 - 1;
+            int32_t i_0_0 = j_0;
+            int32_t j_0_0 = i_0 + j_0;
+            n_0 = n_0_0;
+            i_0 = i_0_0;
+            j_0 = j_0_0;
+            goto label_0;
+        };
 }
 
 static STAINLESS_FUNC_PURE int32_t fib_default_2(void) {

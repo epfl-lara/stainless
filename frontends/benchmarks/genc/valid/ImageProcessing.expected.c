@@ -1125,25 +1125,23 @@ static bool writeBytes(FileOutputStream fos, int8_t byte, int32_t count) {
     FileOutputStream fos_0 = fos;
     int8_t byte_0 = byte;
     int32_t count_0 = count;
-    while (true) {
-        label_0: ;
-            if (count_0 == 0) {
-                return true;
+    label_0: ;
+        if (count_0 == 0) {
+            return true;
+        } else {
+            bool ok1 = write(fos_0, byte_0);
+            if (ok1) {
+                FileOutputStream fos_0_0 = fos_0;
+                int8_t byte_0_0 = byte_0;
+                int32_t count_0_0 = count_0 - 1;
+                fos_0 = fos_0_0;
+                byte_0 = byte_0_0;
+                count_0 = count_0_0;
+                goto label_0;
             } else {
-                bool ok1 = write(fos_0, byte_0);
-                if (ok1) {
-                    FileOutputStream fos_0_0 = fos_0;
-                    int8_t byte_0_0 = byte_0;
-                    int32_t count_0_0 = count_0 - 1;
-                    fos_0 = fos_0_0;
-                    byte_0 = byte_0_0;
-                    count_0 = count_0_0;
-                    goto label_0;
-                } else {
-                    return false;
-                }
-            };
-    }
+                return false;
+            }
+        };
 }
 
 static bool writeDword(FileOutputStream fos, int32_t dword) {

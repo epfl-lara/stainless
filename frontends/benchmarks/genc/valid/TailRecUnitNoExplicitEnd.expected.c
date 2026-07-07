@@ -38,15 +38,13 @@ static void* newState(void);
 
 static STAINLESS_FUNC_PURE void countDown(int32_t n) {
     int32_t n_0 = n;
-    while (true) {
-        label_0: ;
-            if (n_0 > 0) {
-                int32_t n_0_0 = n_0 - 1;
-                n_0 = n_0_0;
-                goto label_0;
-            }
-            return;;
-    }
+    label_0: ;
+        if (n_0 > 0) {
+            int32_t n_0_0 = n_0 - 1;
+            n_0 = n_0_0;
+            goto label_0;
+        }
+        return;;
 }
 
 void main(void) {

@@ -58,18 +58,16 @@ void main(void) {
 }
 
 static void move(void) {
-    while (true) {
-        label_0: ;
-            stable = false;
-            x = x + 1;
-            y = y - 1;
-            data[y] = 1;
-            stable = true;
-            if (y > 0) {
-                goto label_0;
-            }
-            return;;
-    }
+    label_0: ;
+        stable = false;
+        x = x + 1;
+        y = y - 1;
+        data[y] = 1;
+        stable = true;
+        if (y > 0) {
+            goto label_0;
+        }
+        return;;
 }
 
 
