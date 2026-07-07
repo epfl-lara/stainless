@@ -38,10 +38,15 @@ class Scala2IRPhase(val arrayLengthsMap: Map[Identifier, Int])
     val impl = new S2IRImpl(tt, tt, ctxDB, syms, arrayLengthsMap)
     impl.run()
 
+    // Sort functions and classes by their (unique) id so that the IR — and therefore the
+    // generated C — is deterministic. `funResults`/`classResults` are mutable maps whose
+    // `values` iteration order is not stable across JVM runs; leaving it unsorted makes
+    // downstream output (e.g. fresh-variable numbering in the Normaliser, which shares a
+    // counter across functions, and datatype declaration order in IR2C) non-deterministic.
     CIR.Prog(
       impl.declResults.toList,
-      impl.funResults.values.toList,
-      impl.classResults.filter { case ((ct, _), _) => !isGlobal(ct)(using syms) }.values.toList,
+      impl.funResults.values.toList.sortBy(_.id),
+      impl.classResults.filter { case ((ct, _), _) => !isGlobal(ct)(using syms) }.values.toList.sortBy(_.id),
     )
   }
 }

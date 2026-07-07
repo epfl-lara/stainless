@@ -40,8 +40,8 @@ static void println_1(void);
 
 static STAINLESS_FUNC_PURE int32_t f(int32_t v) {
     int32_t tmp = v + 42;
-    int32_t* norm_1 = &tmp;
-    return inc(norm_1);
+    int32_t* norm_0 = &tmp;
+    return inc(norm_0);
 }
 
 static int32_t inc(int32_t* p) {
@@ -51,8 +51,8 @@ static int32_t inc(int32_t* p) {
 
 void main(void) {
     int32_t tmp = 123;
-    int32_t* norm_0 = &tmp;
-    int32_t res1 = inc(norm_0);
+    int32_t* norm_1 = &tmp;
+    int32_t res1 = inc(norm_1);
     int32_t res2 = f(400);
     println(res1);
     println(res2);

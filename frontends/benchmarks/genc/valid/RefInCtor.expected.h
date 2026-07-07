@@ -1,5 +1,5 @@
-#ifndef __FIXEDARRAY_H__
-#define __FIXEDARRAY_H__
+#ifndef __REFINCTOR_H__
+#define __REFINCTOR_H__
 
 /* --------------------------- preprocessor macros ----- */
 
@@ -21,35 +21,20 @@
 /* ----------------------------------- includes ----- */
 
 #include <assert.h>
-#include <inttypes.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <string.h>
 
 
 
 
-/* ---------------------- data type definitions ----- */
-
-typedef struct {
-  int32_t x;
-  int32_t a[5];
-  int32_t y;
-} W;
-
-typedef struct {
-  int32_t* data;
-  int32_t length;
-} array_int32;
-
 
 
 /* ---------------------- function declarations ----- */
 
-int32_t f(W* w);
-void g(array_int32 a);
-void main(void);
+STAINLESS_FUNC_PURE void main(void);
+STAINLESS_FUNC_PURE void test1(int32_t v);
+STAINLESS_FUNC_PURE void test2(int32_t v);
 
 #endif

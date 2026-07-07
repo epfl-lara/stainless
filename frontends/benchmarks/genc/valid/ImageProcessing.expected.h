@@ -1,5 +1,5 @@
-#ifndef __FIXEDARRAY_H__
-#define __FIXEDARRAY_H__
+#ifndef __IMAGEPROCESSING_H__
+#define __IMAGEPROCESSING_H__
 
 /* --------------------------- preprocessor macros ----- */
 
@@ -31,25 +31,10 @@
 
 
 
-/* ---------------------- data type definitions ----- */
-
-typedef struct {
-  int32_t x;
-  int32_t a[5];
-  int32_t y;
-} W;
-
-typedef struct {
-  int32_t* data;
-  int32_t length;
-} array_int32;
-
 
 
 /* ---------------------- function declarations ----- */
 
-int32_t f(W* w);
-void g(array_int32 a);
-void main(void);
+int32_t main(void);
 
 #endif
