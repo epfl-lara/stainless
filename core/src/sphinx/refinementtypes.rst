@@ -257,18 +257,3 @@ Limitations
     foo(x) // error: foo expects B, not A
 
   A workaround is to use a type cast, e.g. ``foo(x.asInstanceOf[B])``.  This is safe because Stainless verifies all type casts statically.
-
-* Not all patterns expressible with ``require`` and ``.ensuring`` can be expressed with refinement types. For example, invariants on mutable fields cannot be captured:
-
-  .. code-block:: scala
-
-    case class Positions(var x: BigInt, var y: BigInt):
-      require(x >= y)
-
-  Attempting to express this as a refinement field:
-
-  .. code-block:: scala
-
-    case class Positions(var x: BigInt, var y: BigInt, val prop: Unit with x >= y)
-
-  would treat the refinement as a constructor assertion, not as a maintained invariant on the mutable fields.
