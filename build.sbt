@@ -126,7 +126,8 @@ lazy val stainlessLibSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
   scalacOptions ++= Seq(
     "-deprecation",
     "-unchecked",
-    "-feature"
+    "-feature",
+    "-language:experimental.qualifiedTypes"
   ),
 
   // disable documentation packaging in universal:stage to speedup development
