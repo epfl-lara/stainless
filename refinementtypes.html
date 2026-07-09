@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Refinement Types &mdash; Stainless 0.9.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/documentation_options.js?v=9dc39874"></script>
+        <script src="_static/doctools.js?v=fd6eb6e6"></script>
+        <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Working With Existing Code" href="wrap.html" />
+    <link rel="prev" title="Ghost Context" href="ghost.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Stainless
+          </a>
+              <div class="version">
+                0.9
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installing Stainless</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gettingstarted.html">Verifying and Compiling Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorial.html">Tutorial: Sorting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="options.html">Specifying Options</a></li>
+<li class="toctree-l1"><a class="reference internal" href="verification.html">Verification conditions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quantifiedproperties.html">Quantified Properties</a></li>
+<li class="toctree-l1"><a class="reference internal" href="laws.html">Specifying Algebraic Properties</a></li>
+<li class="toctree-l1"><a class="reference internal" href="imperative.html">Imperative and Other Effects</a></li>
+<li class="toctree-l1"><a class="reference internal" href="equivalence.html">Equivalence Checking</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ghost.html">Ghost Context</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Refinement Types</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#syntax">Syntax</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#using-refinement-types-in-function-signatures">Using Refinement Types in Function Signatures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#pattern-matching-with-refinements">Pattern Matching with Refinements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#ghost-refinements">Ghost Refinements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#semantics-of-refinement-types-with-mutation">Semantics of Refinement Types (With Mutation)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#good-patterns-for-using-refinement-types">Good Patterns for Using Refinement Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#setup-with-refinement-types">Setup with Refinement Types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#limitations">Limitations</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="wrap.html">Working With Existing Code</a></li>
+<li class="toctree-l1"><a class="reference internal" href="purescala.html">Pure Scala</a></li>
+<li class="toctree-l1"><a class="reference internal" href="library.html">Stainless Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="genc.html">Generating C Code</a></li>
+<li class="toctree-l1"><a class="reference internal" href="neon.html">Proving Theorems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="limitations.html">Limitations of Verification</a></li>
+<li class="toctree-l1"><a class="reference internal" href="casestudies.html">Case Studies</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coq.html">Translation from Stainless to Coq</a></li>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">FAQ: (Frequently) Asked Questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="references.html">References</a></li>
+<li class="toctree-l1"><a class="reference internal" href="internals.html">Stainless’ Internals</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Stainless</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Refinement Types</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/refinementtypes.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="refinement-types">
+<span id="refinementtypes"></span><h1>Refinement Types<a class="headerlink" href="#refinement-types" title="Link to this heading">¶</a></h1>
+<p>Stainless supports <em>refinement types</em> as an additional way to provide specification.</p>
+<section id="syntax">
+<h2>Syntax<a class="headerlink" href="#syntax" title="Link to this heading">¶</a></h2>
+<p>A refinement type is written using a brace-and-<code class="docutils literal notranslate"><span class="pre">with</span></code> notation:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="w"> </span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">T</span><span class="w"> </span><span class="k">with</span><span class="w"> </span><span class="n">p</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="w"> </span><span class="p">}</span>
+</pre></div>
+</div>
+<p>where <code class="docutils literal notranslate"><span class="pre">x</span></code> is a local binder, <code class="docutils literal notranslate"><span class="pre">T</span></code> is the parent type, and <code class="docutils literal notranslate"><span class="pre">p(x)</span></code> is a
+boolean expression that may refer to <code class="docutils literal notranslate"><span class="pre">x</span></code>.  For example:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">type</span><span class="w"> </span><span class="nc">Pos</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">v</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="k">with</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">}</span>
+<span class="k">type</span><span class="w"> </span><span class="nc">Even</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">n</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="w"> </span><span class="k">with</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="mi">2</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">}</span>
+<span class="k">type</span><span class="w"> </span><span class="nc">NonEmptyList</span><span class="p">[</span><span class="nc">T</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">l</span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]</span><span class="w"> </span><span class="k">with</span><span class="w"> </span><span class="n">l</span><span class="p">.</span><span class="n">nonEmpty</span><span class="w"> </span><span class="p">}</span>
+</pre></div>
+</div>
+<p>In some cases we can use the shorthand notation for refinement types <code class="docutils literal notranslate"><span class="pre">val</span> <span class="pre">x:</span> <span class="pre">Int</span> <span class="pre">with</span> <span class="pre">x</span> <span class="pre">&gt;</span> <span class="pre">0</span></code> by reusing the name of the variable as the binder.  This is equivalent to <code class="docutils literal notranslate"><span class="pre">val</span> <span class="pre">x:</span> <span class="pre">{</span> <span class="pre">v:</span> <span class="pre">Int</span> <span class="pre">with</span> <span class="pre">v</span> <span class="pre">&gt;</span> <span class="pre">0</span> <span class="pre">}</span></code>.</p>
+</section>
+<section id="using-refinement-types-in-function-signatures">
+<h2>Using Refinement Types in Function Signatures<a class="headerlink" href="#using-refinement-types-in-function-signatures" title="Link to this heading">¶</a></h2>
+<p>Refinement types are most useful on function parameters and return types.</p>
+<p><strong>Refined parameters</strong> express preconditions directly in the type:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">sqrt</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">v</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="k">with</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">}):</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">???</span>
+</pre></div>
+</div>
+<p><strong>Refined return types</strong> express postconditions directly in the type:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">abs</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">):</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">r</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="k">with</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="k">then</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="o">-</span><span class="n">x</span>
+</pre></div>
+</div>
+<p>A refined parameter <code class="docutils literal notranslate"><span class="pre">x:</span> <span class="pre">{</span> <span class="pre">v:</span> <span class="pre">T</span> <span class="pre">with</span> <span class="pre">p(v)</span> <span class="pre">}</span></code>
+is conceptually equivalent to adding <code class="docutils literal notranslate"><span class="pre">require(p(x))</span></code> at the top of the
+function body.  Likewise, a refined return type <code class="docutils literal notranslate"><span class="pre">{</span> <span class="pre">r:</span> <span class="pre">T</span> <span class="pre">with</span> <span class="pre">q(r)</span> <span class="pre">}</span></code> is
+equivalent to <code class="docutils literal notranslate"><span class="pre">.ensuring(r</span> <span class="pre">=&gt;</span> <span class="pre">q(r))</span></code>. You are free to use either style; the two can even be mixed.</p>
+</section>
+<section id="pattern-matching-with-refinements">
+<h2>Pattern Matching with Refinements<a class="headerlink" href="#pattern-matching-with-refinements" title="Link to this heading">¶</a></h2>
+<p>Refinements can appear as type patterns inside <code class="docutils literal notranslate"><span class="pre">match</span></code> expressions:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">type</span><span class="w"> </span><span class="nc">Pos</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">i</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="w"> </span><span class="k">with</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">}</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">classifySign</span><span class="p">(</span><span class="n">b</span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="p">):</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="k">then</span><span class="w"> </span><span class="mi">42</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">  </span><span class="n">v</span><span class="w"> </span><span class="k">match</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="n">p</span><span class="p">:</span><span class="w"> </span><span class="nc">Pos</span><span class="w">                         </span><span class="o">=&gt;</span><span class="w"> </span><span class="kc">true</span><span class="w">   </span><span class="c1">// v &gt; 0 branch</span>
+<span class="w">    </span><span class="k">case</span><span class="w"> </span><span class="n">_:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">i</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="w"> </span><span class="k">with</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">}</span><span class="w">      </span><span class="o">=&gt;</span><span class="w"> </span><span class="kc">true</span><span class="w">   </span><span class="c1">// v == 0 branch</span>
+</pre></div>
+</div>
+<p>Stainless checks that the patterns are exhaustive and that the refinement
+predicates are consistent with what can be known about the scrutinee at each
+branch.</p>
+</section>
+<section id="ghost-refinements">
+<h2>Ghost Refinements<a class="headerlink" href="#ghost-refinements" title="Link to this heading">¶</a></h2>
+<p>Refinement predicates may refer to <a class="reference internal" href="ghost.html"><span class="doc">ghost</span></a> values and functions.
+In the example below, <code class="docutils literal notranslate"><span class="pre">valid</span></code> is a ghost method used purely for
+specification:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">import</span><span class="w"> </span><span class="nn">stainless</span><span class="p">.</span><span class="nn">annotation</span><span class="p">.</span><span class="n">ghost</span>
+<span class="k">import</span><span class="w"> </span><span class="nn">stainless</span><span class="p">.</span><span class="nn">lang</span><span class="p">.</span><span class="n">_</span>
+
+<span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">ClassWithInvariant</span><span class="p">(</span><span class="kd">var</span><span class="w"> </span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">):</span>
+<span class="w">  </span><span class="nd">@ghost</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">valid</span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="mi">0</span>
+
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">f</span><span class="p">(</span><span class="n">v</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">v</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="k">with</span><span class="w"> </span><span class="n">valid</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">}):</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">res</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="k">with</span><span class="w"> </span><span class="n">valid</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=</span>
+<span class="w">    </span><span class="n">x</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">v</span>
+</pre></div>
+</div>
+<p>Because <code class="docutils literal notranslate"><span class="pre">valid</span></code> is ghost, it is erased at run time.  The verification
+obligation is still discharged by Stainless statically.</p>
+</section>
+<section id="semantics-of-refinement-types-with-mutation">
+<h2>Semantics of Refinement Types (With Mutation)<a class="headerlink" href="#semantics-of-refinement-types-with-mutation" title="Link to this heading">¶</a></h2>
+<p>We assign refinement types the following semantics:</p>
+<ul>
+<li><p>A refinement type on a function’s return type is equivalent to a postcondition on the function. For example:</p>
+<blockquote>
+<div><div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">f</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">):</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">res</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="w"> </span><span class="k">with</span><span class="w"> </span><span class="n">res</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">???</span>
+</pre></div>
+</div>
+<p>is equivalent to:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">f</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">):</span><span class="w"> </span><span class="nc">Int</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">???</span>
+<span class="w">  </span><span class="p">.</span><span class="n">ensuring</span><span class="p">(</span><span class="n">res</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">res</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
+</pre></div>
+</div>
+</div></blockquote>
+<p>If the refinement type references mutable state, for example:</p>
+<blockquote>
+<div><div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">Box</span><span class="p">(</span><span class="kd">var</span><span class="w"> </span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">):</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">setX</span><span class="p">(</span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">):</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">res</span><span class="p">:</span><span class="w"> </span><span class="nc">Unit</span><span class="w"> </span><span class="k">with</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=</span>
+<span class="w">    </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">y</span>
+</pre></div>
+</div>
+<p>then the postcondition is interpreted as <code class="docutils literal notranslate"><span class="pre">.ensuring(_</span> <span class="pre">=&gt;</span> <span class="pre">x</span> <span class="pre">==</span> <span class="pre">y)</span></code>, where <code class="docutils literal notranslate"><span class="pre">x</span></code> is the field’s value after execution of <code class="docutils literal notranslate"><span class="pre">setX</span></code>.</p>
+</div></blockquote>
+</li>
+<li><p>A refinement type on a value is equivalent to an assertion on the value. For example:</p>
+<blockquote>
+<div><div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="kd">val</span><span class="w"> </span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="w"> </span><span class="k">with</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span>
+</pre></div>
+</div>
+<p>is equivalent to:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="kd">val</span><span class="w"> </span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span>
+<span class="n">assert</span><span class="p">(</span><span class="n">x</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">y</span><span class="p">)</span>
+</pre></div>
+</div>
+</div></blockquote>
+<p>If the refinement type references mutable state, for example:</p>
+<blockquote>
+<div><div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="kd">var</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">4</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="w"> </span><span class="k">with</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span>
+<span class="n">y</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">-</span><span class="mi">1</span>
+</pre></div>
+</div>
+</div></blockquote>
+<p>is equivalent to</p>
+<blockquote>
+<div><div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="kd">var</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">4</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span>
+<span class="n">assert</span><span class="p">(</span><span class="n">x</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">y</span><span class="p">)</span>
+<span class="n">y</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">-</span><span class="mi">1</span>
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+<li><p>A refinement type on a <code class="docutils literal notranslate"><span class="pre">var</span></code> is understood as an invariant:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="kd">var</span><span class="w"> </span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="w"> </span><span class="k">with</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span>
+<span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">-</span><span class="mi">1</span><span class="w"> </span><span class="c1">// error: x &gt; 0 is violated</span>
+</pre></div>
+</div>
+<p>To maintain this invariant semantics, we disallow referencing mutable variables in refinement types of <code class="docutils literal notranslate"><span class="pre">var</span></code> declarations. For example, the following code is rejected:</p>
+<blockquote>
+<div><div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="kd">var</span><span class="w"> </span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span>
+<span class="kd">var</span><span class="w"> </span><span class="n">y</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="w"> </span><span class="k">with</span><span class="w"> </span><span class="n">y</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="w"> </span><span class="c1">// error: refinement type of y references mutable variable x</span>
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Side effects and mutation in refinement predicates are not allowed.</p>
+</div>
+</section>
+<section id="good-patterns-for-using-refinement-types">
+<h2>Good Patterns for Using Refinement Types<a class="headerlink" href="#good-patterns-for-using-refinement-types" title="Link to this heading">¶</a></h2>
+<p>Several code patterns benefit from refinement types.</p>
+<p><strong>Postconditions on abstract methods</strong> are a natural fit. For example, consider this interface:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">trait</span><span class="w"> </span><span class="nc">Sorting</span><span class="p">:</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">sort</span><span class="p">[</span><span class="nc">T</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="nc">Ordering</span><span class="p">](</span><span class="n">xs</span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]):</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>To express that <code class="docutils literal notranslate"><span class="pre">sort</span></code>’s result is sorted without refinement types, we would write:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">trait</span><span class="w"> </span><span class="nc">Sorting</span><span class="p">:</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">sort</span><span class="p">[</span><span class="nc">T</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="nc">Ordering</span><span class="p">](</span><span class="n">xs</span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]):</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]</span><span class="w"> </span><span class="o">=</span>
+<span class="w">    </span><span class="p">(</span><span class="o">???</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">])</span>
+<span class="w">  </span><span class="p">.</span><span class="n">ensuring</span><span class="p">(</span><span class="n">res</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">res</span><span class="p">.</span><span class="n">isSorted</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>where <code class="docutils literal notranslate"><span class="pre">???</span></code> represents the unimplemented body. With refinement types, the postcondition becomes part of the return type:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">trait</span><span class="w"> </span><span class="nc">Sorting</span><span class="p">:</span>
+<span class="w">  </span><span class="k">def</span><span class="w"> </span><span class="nf">sort</span><span class="p">[</span><span class="nc">T</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="nc">Ordering</span><span class="p">](</span><span class="n">xs</span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]):</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">l</span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">T</span><span class="p">]</span><span class="w"> </span><span class="k">with</span><span class="w"> </span><span class="n">l</span><span class="p">.</span><span class="n">isSorted</span><span class="w"> </span><span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Refined parameters in higher-order functions</strong> help propagate constraints. Consider a <code class="docutils literal notranslate"><span class="pre">toRoots</span></code> function that applies <code class="docutils literal notranslate"><span class="pre">squareRoot</span></code> to each element:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">toRoots</span><span class="p">(</span><span class="n">xs</span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">Int</span><span class="p">]):</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">Int</span><span class="p">]</span><span class="w"> </span><span class="o">=</span>
+<span class="w">  </span><span class="n">xs</span><span class="p">.</span><span class="n">map</span><span class="p">(</span><span class="n">squareRoot</span><span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">squareRoot</span><span class="p">(</span><span class="n">i</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">):</span><span class="w"> </span><span class="nc">Int</span><span class="w"> </span><span class="o">=</span>
+<span class="w">  </span><span class="n">require</span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
+<span class="w">  </span><span class="o">???</span>
+</pre></div>
+</div>
+<p>For verification to succeed, we need to ensure all elements of the input list are positive. With refinement types, this constraint becomes part of the parameter’s type:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">type</span><span class="w"> </span><span class="nc">Pos</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">i</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="w"> </span><span class="k">with</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">}</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">toRoots</span><span class="p">(</span><span class="n">xs</span><span class="p">:</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">Pos</span><span class="p">]):</span><span class="w"> </span><span class="nc">List</span><span class="p">[</span><span class="nc">Int</span><span class="p">]</span><span class="w"> </span><span class="o">=</span>
+<span class="w">  </span><span class="n">xs</span><span class="p">.</span><span class="n">map</span><span class="p">(</span><span class="n">squareRoot</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">Pos</span></code> is a zero-cost abstraction, as no wrapper object is created. Without refinement types, you would need to define a wrapper class and handle conversions throughout the code:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">Pos</span><span class="p">(</span><span class="n">i</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">):</span>
+<span class="w">  </span><span class="n">require</span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="setup-with-refinement-types">
+<h2>Setup with Refinement Types<a class="headerlink" href="#setup-with-refinement-types" title="Link to this heading">¶</a></h2>
+<p>Refinement types work out of the box with the latest version of Stainless. However, the Scala compiler requires a forked Dotty compiler (from the <code class="docutils literal notranslate"><span class="pre">ch.epfl.lara</span></code> organization) and two compiler flags:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">-language:experimental.qualifiedTypes</span></code> — enables refinement type syntax</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">-language:experimental.qualifiedTypes.silent</span></code> — bypass Scala compiler checks for refinement types and defers them to Stainless</p></li>
+</ul>
+<p>Both flags can be replaced with appropriate imports; see the <a class="reference external" href="https://nightly.scala-lang.org/docs/reference/experimental/index.html">Scala documentation</a> for details.</p>
+<p>For example, the following <code class="docutils literal notranslate"><span class="pre">build.sbt</span></code> file sets up a project with refinement types:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="n">scalaOrganization</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="s">&quot;ch.epfl.lara&quot;</span>
+<span class="n">scalacOptions</span><span class="w"> </span><span class="o">++=</span><span class="w"> </span><span class="nc">Seq</span><span class="p">(</span><span class="s">&quot;-language:experimental.qualifiedTypes&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;-language:experimental.qualifiedTypes.silent&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This works with sbt 2.x and 1.12.4 and above. For earlier versions of sbt, a workaround is needed to obtain the correct compiler bridge. See <a class="reference external" href="https://github.com/sbt/sbt/issues/8731#issuecomment-3967140035">this comment</a> for details.</p>
+</div>
+</section>
+<section id="limitations">
+<h2>Limitations<a class="headerlink" href="#limitations" title="Link to this heading">¶</a></h2>
+<ul>
+<li><p>The Scala program must still type-check without refinement types. For example, the following code will not compile:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">trait</span><span class="w"> </span><span class="nc">A</span>
+<span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">B</span><span class="p">()</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">A</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">foo</span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">B</span><span class="p">):</span><span class="w"> </span><span class="nc">Unit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">()</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">v</span><span class="p">:</span><span class="w"> </span><span class="nc">A</span><span class="w"> </span><span class="k">with</span><span class="w"> </span><span class="n">v</span><span class="p">.</span><span class="k">isInstanceOf</span><span class="p">[</span><span class="nc">B</span><span class="p">]</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">B</span><span class="p">()</span>
+<span class="n">foo</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="w"> </span><span class="c1">// error: foo expects B, not A</span>
+</pre></div>
+</div>
+<p>A workaround is to use a type cast, e.g. <code class="docutils literal notranslate"><span class="pre">foo(x.asInstanceOf[B])</span></code>.  This is safe because Stainless verifies all type casts statically.</p>
+</li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="ghost.html" class="btn btn-neutral float-left" title="Ghost Context" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="wrap.html" class="btn btn-neutral float-right" title="Working With Existing Code" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2009-2021 EPFL, Lausanne.
+      <span class="lastupdated">Last updated on Jul 09, 2026.
+      </span></p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

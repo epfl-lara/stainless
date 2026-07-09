@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quantified Properties &mdash; Stainless 0.9.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/documentation_options.js?v=9dc39874"></script>
+        <script src="_static/doctools.js?v=fd6eb6e6"></script>
+        <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Specifying Algebraic Properties" href="laws.html" />
+    <link rel="prev" title="Verification conditions" href="verification.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Stainless
+          </a>
+              <div class="version">
+                0.9
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installing Stainless</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gettingstarted.html">Verifying and Compiling Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorial.html">Tutorial: Sorting</a></li>
+<li class="toctree-l1"><a class="reference internal" href="options.html">Specifying Options</a></li>
+<li class="toctree-l1"><a class="reference internal" href="verification.html">Verification conditions</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Quantified Properties</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#importing-the-quantifier-library">Importing the Quantifier Library</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#propositional-natural-deduction">Propositional Natural Deduction</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#conjunction">Conjunction (<code class="docutils literal notranslate"><span class="pre">&amp;&amp;</span></code>)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#disjunction">Disjunction (<code class="docutils literal notranslate"><span class="pre">||</span></code>)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#negation">Negation (<code class="docutils literal notranslate"><span class="pre">!</span></code>)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#implication">Implication (<code class="docutils literal notranslate"><span class="pre">==&gt;</span></code>)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#quantifier-rules">Quantifier Rules</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#universal-quantification-forall">Universal Quantification (<code class="docutils literal notranslate"><span class="pre">Forall</span></code>)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#existential-quantification-exists">Existential Quantification (<code class="docutils literal notranslate"><span class="pre">Exists</span></code>)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#negated-quantifiers">Negated Quantifiers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#combined-examples">Combined Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#summary">Summary</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="laws.html">Specifying Algebraic Properties</a></li>
+<li class="toctree-l1"><a class="reference internal" href="imperative.html">Imperative and Other Effects</a></li>
+<li class="toctree-l1"><a class="reference internal" href="equivalence.html">Equivalence Checking</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ghost.html">Ghost Context</a></li>
+<li class="toctree-l1"><a class="reference internal" href="refinementtypes.html">Refinement Types</a></li>
+<li class="toctree-l1"><a class="reference internal" href="wrap.html">Working With Existing Code</a></li>
+<li class="toctree-l1"><a class="reference internal" href="purescala.html">Pure Scala</a></li>
+<li class="toctree-l1"><a class="reference internal" href="library.html">Stainless Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="genc.html">Generating C Code</a></li>
+<li class="toctree-l1"><a class="reference internal" href="neon.html">Proving Theorems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="limitations.html">Limitations of Verification</a></li>
+<li class="toctree-l1"><a class="reference internal" href="casestudies.html">Case Studies</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coq.html">Translation from Stainless to Coq</a></li>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">FAQ: (Frequently) Asked Questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="references.html">References</a></li>
+<li class="toctree-l1"><a class="reference internal" href="internals.html">Stainless’ Internals</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Stainless</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Quantified Properties</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/quantifiedproperties.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="quantified-properties">
+<span id="quantifiedproperties"></span><h1>Quantified Properties<a class="headerlink" href="#quantified-properties" title="Link to this heading">¶</a></h1>
+<p>Stainless supports <em>explicit quantifiers</em> through the
+<code class="docutils literal notranslate"><span class="pre">stainless.lang.Quantifiers</span></code> library.  Thanks to the instantiation of
+universal quantifiers by the SMT solver, it is possible to use quantifiers
+in a rather systematic and controlled way.  This chapter explains how to
+introduce and eliminate quantifiers following the rules of <em>natural
+deduction</em>, and illustrates each rule with a Stainless example.</p>
+<nav class="contents local" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#importing-the-quantifier-library" id="id2">Importing the Quantifier Library</a></p></li>
+<li><p><a class="reference internal" href="#propositional-natural-deduction" id="id3">Propositional Natural Deduction</a></p>
+<ul>
+<li><p><a class="reference internal" href="#conjunction" id="id4">Conjunction (<code class="docutils literal notranslate"><span class="pre">&amp;&amp;</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#disjunction" id="id5">Disjunction (<code class="docutils literal notranslate"><span class="pre">||</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#negation" id="id6">Negation (<code class="docutils literal notranslate"><span class="pre">!</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#implication" id="id7">Implication (<code class="docutils literal notranslate"><span class="pre">==&gt;</span></code>)</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#quantifier-rules" id="id8">Quantifier Rules</a></p>
+<ul>
+<li><p><a class="reference internal" href="#universal-quantification-forall" id="id9">Universal Quantification (<code class="docutils literal notranslate"><span class="pre">Forall</span></code>)</a></p></li>
+<li><p><a class="reference internal" href="#existential-quantification-exists" id="id10">Existential Quantification (<code class="docutils literal notranslate"><span class="pre">Exists</span></code>)</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#negated-quantifiers" id="id11">Negated Quantifiers</a></p></li>
+<li><p><a class="reference internal" href="#combined-examples" id="id12">Combined Examples</a></p></li>
+<li><p><a class="reference internal" href="#summary" id="id13">Summary</a></p></li>
+</ul>
+</nav>
+<section id="importing-the-quantifier-library">
+<h2><a class="toc-backref" href="#id2" role="doc-backlink">Importing the Quantifier Library</a><a class="headerlink" href="#importing-the-quantifier-library" title="Link to this heading">¶</a></h2>
+<p>All examples below assume the following imports:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">import</span><span class="w"> </span><span class="nn">stainless</span><span class="p">.</span><span class="nn">lang</span><span class="p">.</span><span class="n">_</span>
+<span class="k">import</span><span class="w"> </span><span class="nn">stainless</span><span class="p">.</span><span class="nn">lang</span><span class="p">.</span><span class="nc">Quantifiers</span><span class="p">.</span><span class="n">*</span>
+<span class="k">import</span><span class="w"> </span><span class="nn">stainless</span><span class="p">.</span><span class="nn">annotation</span><span class="p">.</span><span class="n">*</span>
+<span class="k">import</span><span class="w"> </span><span class="nn">stainless</span><span class="p">.</span><span class="nn">lang</span><span class="p">.</span><span class="nc">StaticChecks</span><span class="p">.</span><span class="n">*</span>
+<span class="k">import</span><span class="w"> </span><span class="nn">stainless</span><span class="p">.</span><span class="nn">lang</span><span class="p">.</span><span class="n">*</span>
+</pre></div>
+</div>
+<p>The library provides the following key constructs:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Forall(p)</span></code>: an opaque wrapper around the built-in <code class="docutils literal notranslate"><span class="pre">forall</span></code>, used to
+state that predicate <code class="docutils literal notranslate"><span class="pre">p</span></code> holds for all values of the quantified type.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ForallOf(p)(a)</span></code>: instantiates <code class="docutils literal notranslate"><span class="pre">Forall(p)</span></code> at a concrete value <code class="docutils literal notranslate"><span class="pre">a</span></code>,
+yielding <code class="docutils literal notranslate"><span class="pre">p(a)</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Exists(p)</span></code>: defined as <code class="docutils literal notranslate"><span class="pre">!Forall(x</span> <span class="pre">=&gt;</span> <span class="pre">!p(x))</span></code>, states that some value
+satisfies <code class="docutils literal notranslate"><span class="pre">p</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ExistsThe(w)(p)</span></code>: introduces an existential by providing a witness <code class="docutils literal notranslate"><span class="pre">w</span></code>
+with <code class="docutils literal notranslate"><span class="pre">p(w)</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">pickWitness(p)</span></code>: given <code class="docutils literal notranslate"><span class="pre">Exists(p)</span></code>, returns a witness satisfying <code class="docutils literal notranslate"><span class="pre">p</span></code>.</p></li>
+</ul>
+<p>There are also helpers for reasoning about negated quantifiers:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">notExists(p)</span></code>: from <code class="docutils literal notranslate"><span class="pre">!Exists(p)</span></code> derives <code class="docutils literal notranslate"><span class="pre">Forall(x</span> <span class="pre">=&gt;</span> <span class="pre">!p(x))</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">notForall(p)</span></code>: from <code class="docutils literal notranslate"><span class="pre">!Forall(p)</span></code> derives <code class="docutils literal notranslate"><span class="pre">Exists(x</span> <span class="pre">=&gt;</span> <span class="pre">!p(x))</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">notExistsNot(p)</span></code>: from <code class="docutils literal notranslate"><span class="pre">!Exists(x</span> <span class="pre">=&gt;</span> <span class="pre">!p(x))</span></code> derives <code class="docutils literal notranslate"><span class="pre">Forall(p)</span></code>.</p></li>
+</ul>
+</section>
+<section id="propositional-natural-deduction">
+<h2><a class="toc-backref" href="#id3" role="doc-backlink">Propositional Natural Deduction</a><a class="headerlink" href="#propositional-natural-deduction" title="Link to this heading">¶</a></h2>
+<p>Before discussing quantifiers, we review how Stainless handles the
+propositional connectives <code class="docutils literal notranslate"><span class="pre">&amp;&amp;</span></code>, <code class="docutils literal notranslate"><span class="pre">||</span></code>, <code class="docutils literal notranslate"><span class="pre">!</span></code>, and <code class="docutils literal notranslate"><span class="pre">==&gt;</span></code>.</p>
+<section id="conjunction">
+<h3><a class="toc-backref" href="#id4" role="doc-backlink">Conjunction (<code class="docutils literal notranslate"><span class="pre">&amp;&amp;</span></code>)</a><a class="headerlink" href="#conjunction" title="Link to this heading">¶</a></h3>
+<p><strong>Introduction.</strong> If <code class="docutils literal notranslate"><span class="pre">p</span></code> and <code class="docutils literal notranslate"><span class="pre">q</span></code> are both true, then <code class="docutils literal notranslate"><span class="pre">p</span> <span class="pre">&amp;&amp;</span> <span class="pre">q</span></code> is true.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="nd">@ghost</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">conjIntro</span><span class="p">(</span><span class="n">p</span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="p">,</span><span class="w"> </span><span class="n">q</span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="p">):</span><span class="w"> </span><span class="nc">Unit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">require</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+<span class="w">  </span><span class="n">require</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>
+<span class="w">  </span><span class="p">()</span>
+<span class="p">}.</span><span class="n">ensuring</span><span class="p">(</span><span class="n">_</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">p</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">q</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Elimination.</strong> From <code class="docutils literal notranslate"><span class="pre">p</span> <span class="pre">&amp;&amp;</span> <span class="pre">q</span></code> we can derive <code class="docutils literal notranslate"><span class="pre">p</span></code> (or <code class="docutils literal notranslate"><span class="pre">q</span></code>).</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="nd">@ghost</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">conjElimLeft</span><span class="p">(</span><span class="n">p</span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="p">,</span><span class="w"> </span><span class="n">q</span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="p">):</span><span class="w"> </span><span class="nc">Unit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">require</span><span class="p">(</span><span class="n">p</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">q</span><span class="p">)</span>
+<span class="w">  </span><span class="p">()</span>
+<span class="p">}.</span><span class="n">ensuring</span><span class="p">(</span><span class="n">_</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">p</span><span class="p">)</span>
+
+<span class="nd">@ghost</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">conjElimRight</span><span class="p">(</span><span class="n">p</span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="p">,</span><span class="w"> </span><span class="n">q</span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="p">):</span><span class="w"> </span><span class="nc">Unit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">require</span><span class="p">(</span><span class="n">p</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">q</span><span class="p">)</span>
+<span class="w">  </span><span class="p">()</span>
+<span class="p">}.</span><span class="n">ensuring</span><span class="p">(</span><span class="n">_</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">q</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="disjunction">
+<h3><a class="toc-backref" href="#id5" role="doc-backlink">Disjunction (<code class="docutils literal notranslate"><span class="pre">||</span></code>)</a><a class="headerlink" href="#disjunction" title="Link to this heading">¶</a></h3>
+<p><strong>Introduction.</strong> From <code class="docutils literal notranslate"><span class="pre">p</span></code> alone, we can derive <code class="docutils literal notranslate"><span class="pre">p</span> <span class="pre">||</span> <span class="pre">q</span></code>.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="nd">@ghost</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">disjIntroLeft</span><span class="p">(</span><span class="n">p</span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="p">,</span><span class="w"> </span><span class="n">q</span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="p">):</span><span class="w"> </span><span class="nc">Unit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">require</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+<span class="w">  </span><span class="p">()</span>
+<span class="p">}.</span><span class="n">ensuring</span><span class="p">(</span><span class="n">_</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">p</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">q</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Elimination.</strong> If <code class="docutils literal notranslate"><span class="pre">p</span> <span class="pre">||</span> <span class="pre">q</span></code> holds and both <code class="docutils literal notranslate"><span class="pre">p</span> <span class="pre">==&gt;</span> <span class="pre">r</span></code> and <code class="docutils literal notranslate"><span class="pre">q</span> <span class="pre">==&gt;</span> <span class="pre">r</span></code>
+hold, then <code class="docutils literal notranslate"><span class="pre">r</span></code> holds.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="nd">@ghost</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">disjElim</span><span class="p">(</span><span class="n">p</span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="p">,</span><span class="w"> </span><span class="n">q</span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="p">,</span><span class="w"> </span><span class="n">r</span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="p">):</span><span class="w"> </span><span class="nc">Unit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">require</span><span class="p">(</span><span class="n">p</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">q</span><span class="p">)</span>
+<span class="w">  </span><span class="n">require</span><span class="p">(</span><span class="n">p</span><span class="w"> </span><span class="o">==&gt;</span><span class="w"> </span><span class="n">r</span><span class="p">)</span>
+<span class="w">  </span><span class="n">require</span><span class="p">(</span><span class="n">q</span><span class="w"> </span><span class="o">==&gt;</span><span class="w"> </span><span class="n">r</span><span class="p">)</span>
+<span class="w">  </span><span class="p">()</span>
+<span class="p">}.</span><span class="n">ensuring</span><span class="p">(</span><span class="n">_</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">r</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="negation">
+<h3><a class="toc-backref" href="#id6" role="doc-backlink">Negation (<code class="docutils literal notranslate"><span class="pre">!</span></code>)</a><a class="headerlink" href="#negation" title="Link to this heading">¶</a></h3>
+<p><strong>Double Negation Elimination.</strong> From <code class="docutils literal notranslate"><span class="pre">!!p</span></code>, derive <code class="docutils literal notranslate"><span class="pre">p</span></code>.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="nd">@ghost</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">doubleNegElim</span><span class="p">(</span><span class="n">p</span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="p">):</span><span class="w"> </span><span class="nc">Unit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">require</span><span class="p">(</span><span class="o">!</span><span class="p">(</span><span class="o">!</span><span class="n">p</span><span class="p">))</span>
+<span class="w">  </span><span class="p">()</span>
+<span class="p">}.</span><span class="n">ensuring</span><span class="p">(</span><span class="n">_</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">p</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Double Negation Introduction.</strong> From <code class="docutils literal notranslate"><span class="pre">p</span></code>, derive <code class="docutils literal notranslate"><span class="pre">!!p</span></code>.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="nd">@ghost</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">doubleNegIntro</span><span class="p">(</span><span class="n">p</span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="p">):</span><span class="w"> </span><span class="nc">Unit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">require</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+<span class="w">  </span><span class="p">()</span>
+<span class="p">}.</span><span class="n">ensuring</span><span class="p">(</span><span class="n">_</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="o">!</span><span class="p">(</span><span class="o">!</span><span class="n">p</span><span class="p">))</span>
+</pre></div>
+</div>
+</section>
+<section id="implication">
+<h3><a class="toc-backref" href="#id7" role="doc-backlink">Implication (<code class="docutils literal notranslate"><span class="pre">==&gt;</span></code>)</a><a class="headerlink" href="#implication" title="Link to this heading">¶</a></h3>
+<p><strong>Modus Ponens.</strong> From <code class="docutils literal notranslate"><span class="pre">p</span> <span class="pre">==&gt;</span> <span class="pre">q</span></code> and <code class="docutils literal notranslate"><span class="pre">p</span></code>, derive <code class="docutils literal notranslate"><span class="pre">q</span></code>.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="nd">@ghost</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">modusPonens</span><span class="p">(</span><span class="n">p</span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="p">,</span><span class="w"> </span><span class="n">q</span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="p">):</span><span class="w"> </span><span class="nc">Unit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">require</span><span class="p">(</span><span class="n">p</span><span class="w"> </span><span class="o">==&gt;</span><span class="w"> </span><span class="n">q</span><span class="p">)</span>
+<span class="w">  </span><span class="n">require</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+<span class="w">  </span><span class="p">()</span>
+<span class="p">}.</span><span class="n">ensuring</span><span class="p">(</span><span class="n">_</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">q</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Modus Tollens.</strong> From <code class="docutils literal notranslate"><span class="pre">p</span> <span class="pre">==&gt;</span> <span class="pre">q</span></code> and <code class="docutils literal notranslate"><span class="pre">!q</span></code>, derive <code class="docutils literal notranslate"><span class="pre">!p</span></code>.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="nd">@ghost</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">modusTollens</span><span class="p">(</span><span class="n">p</span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="p">,</span><span class="w"> </span><span class="n">q</span><span class="p">:</span><span class="w"> </span><span class="nc">Boolean</span><span class="p">):</span><span class="w"> </span><span class="nc">Unit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">require</span><span class="p">(</span><span class="n">p</span><span class="w"> </span><span class="o">==&gt;</span><span class="w"> </span><span class="n">q</span><span class="p">)</span>
+<span class="w">  </span><span class="n">require</span><span class="p">(</span><span class="o">!</span><span class="n">q</span><span class="p">)</span>
+<span class="w">  </span><span class="p">()</span>
+<span class="p">}.</span><span class="n">ensuring</span><span class="p">(</span><span class="n">_</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="o">!</span><span class="n">p</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="quantifier-rules">
+<h2><a class="toc-backref" href="#id8" role="doc-backlink">Quantifier Rules</a><a class="headerlink" href="#quantifier-rules" title="Link to this heading">¶</a></h2>
+<section id="universal-quantification-forall">
+<h3><a class="toc-backref" href="#id9" role="doc-backlink">Universal Quantification (<code class="docutils literal notranslate"><span class="pre">Forall</span></code>)</a><a class="headerlink" href="#universal-quantification-forall" title="Link to this heading">¶</a></h3>
+<p><strong>Introduction (∀I).</strong> To prove <code class="docutils literal notranslate"><span class="pre">Forall(p)</span></code>, one must show that <code class="docutils literal notranslate"><span class="pre">p(x)</span></code>
+holds for an <em>arbitrary</em> <code class="docutils literal notranslate"><span class="pre">x</span></code>.  In Stainless this is done by writing a
+function whose body proves <code class="docutils literal notranslate"><span class="pre">p(x)</span></code> for a universally quantified variable.
+The built-in <code class="docutils literal notranslate"><span class="pre">forall</span></code> is Skolemized when it needs to be proven.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="nd">@ghost</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">forallIntro</span><span class="p">:</span><span class="w"> </span><span class="nc">Unit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">assert</span><span class="p">(</span><span class="n">stainless</span><span class="p">.</span><span class="n">lang</span><span class="p">.</span><span class="n">forall</span><span class="p">((</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">x</span><span class="p">))</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Elimination (∀E).</strong> Given <code class="docutils literal notranslate"><span class="pre">Forall(p)</span></code>, derive <code class="docutils literal notranslate"><span class="pre">p(a)</span></code> for any concrete
+<code class="docutils literal notranslate"><span class="pre">a</span></code> by calling <code class="docutils literal notranslate"><span class="pre">ForallOf(p)(a)</span></code>.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="nd">@ghost</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">forallElim</span><span class="p">(</span><span class="n">p</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Boolean</span><span class="p">,</span><span class="w"> </span><span class="n">a</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">):</span><span class="w"> </span><span class="nc">Unit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">require</span><span class="p">(</span><span class="nc">Forall</span><span class="p">(</span><span class="n">p</span><span class="p">))</span>
+<span class="w">  </span><span class="nc">ForallOf</span><span class="p">(</span><span class="n">p</span><span class="p">)(</span><span class="n">a</span><span class="p">)</span>
+<span class="p">}.</span><span class="n">ensuring</span><span class="p">(</span><span class="n">_</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">p</span><span class="p">(</span><span class="n">a</span><span class="p">))</span>
+</pre></div>
+</div>
+</section>
+<section id="existential-quantification-exists">
+<h3><a class="toc-backref" href="#id10" role="doc-backlink">Existential Quantification (<code class="docutils literal notranslate"><span class="pre">Exists</span></code>)</a><a class="headerlink" href="#existential-quantification-exists" title="Link to this heading">¶</a></h3>
+<p><strong>Introduction (∃I).</strong> To prove <code class="docutils literal notranslate"><span class="pre">Exists(p)</span></code>, provide a <em>witness</em> <code class="docutils literal notranslate"><span class="pre">w</span></code>
+such that <code class="docutils literal notranslate"><span class="pre">p(w)</span></code> holds, then call <code class="docutils literal notranslate"><span class="pre">ExistsThe(w)(p)</span></code>.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="nd">@ghost</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">existsIntro</span><span class="p">:</span><span class="w"> </span><span class="nc">Unit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">p</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">10</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">witness</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span>
+<span class="w">  </span><span class="n">assert</span><span class="p">(</span><span class="n">p</span><span class="p">(</span><span class="n">witness</span><span class="p">))</span>
+<span class="w">  </span><span class="nc">ExistsThe</span><span class="p">(</span><span class="n">witness</span><span class="p">)(</span><span class="n">p</span><span class="p">)</span>
+<span class="p">}.</span><span class="n">ensuring</span><span class="p">(</span><span class="n">_</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Exists</span><span class="p">((</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">10</span><span class="p">))</span>
+</pre></div>
+</div>
+<p><strong>Elimination (∃E).</strong> Given <code class="docutils literal notranslate"><span class="pre">Exists(p)</span></code>, obtain a witness <code class="docutils literal notranslate"><span class="pre">w</span></code>
+satisfying <code class="docutils literal notranslate"><span class="pre">p(w)</span></code> by calling <code class="docutils literal notranslate"><span class="pre">pickWitness(p)</span></code>.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="nd">@ghost</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">existsElim</span><span class="p">(</span><span class="n">p</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Boolean</span><span class="p">):</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">require</span><span class="p">(</span><span class="nc">Exists</span><span class="p">(</span><span class="n">p</span><span class="p">))</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">w</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pickWitness</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">](</span><span class="n">p</span><span class="p">)</span>
+<span class="w">  </span><span class="n">assert</span><span class="p">(</span><span class="n">p</span><span class="p">(</span><span class="n">w</span><span class="p">))</span>
+<span class="w">  </span><span class="n">w</span>
+<span class="p">}.</span><span class="n">ensuring</span><span class="p">(</span><span class="n">res</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">p</span><span class="p">(</span><span class="n">res</span><span class="p">))</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="negated-quantifiers">
+<h2><a class="toc-backref" href="#id11" role="doc-backlink">Negated Quantifiers</a><a class="headerlink" href="#negated-quantifiers" title="Link to this heading">¶</a></h2>
+<p>The following rules connect negation and quantification, mirroring the
+classical equivalences.</p>
+<p><strong>¬∃ → ∀¬</strong>: From <code class="docutils literal notranslate"><span class="pre">!Exists(p)</span></code>, derive <code class="docutils literal notranslate"><span class="pre">Forall(x</span> <span class="pre">=&gt;</span> <span class="pre">!p(x))</span></code>.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="nd">@ghost</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">notExistsToForallNot</span><span class="p">(</span><span class="n">p</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Boolean</span><span class="p">):</span><span class="w"> </span><span class="nc">Unit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">require</span><span class="p">(</span><span class="o">!</span><span class="nc">Exists</span><span class="p">(</span><span class="n">p</span><span class="p">))</span>
+<span class="w">  </span><span class="n">notExists</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+<span class="p">}.</span><span class="n">ensuring</span><span class="p">(</span><span class="n">_</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Forall</span><span class="p">((</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="o">!</span><span class="n">p</span><span class="p">(</span><span class="n">x</span><span class="p">)))</span>
+</pre></div>
+</div>
+<p><strong>¬∀ → ∃¬</strong>: From <code class="docutils literal notranslate"><span class="pre">!Forall(p)</span></code>, derive <code class="docutils literal notranslate"><span class="pre">Exists(x</span> <span class="pre">=&gt;</span> <span class="pre">!p(x))</span></code>.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="nd">@ghost</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">notForallToExistsNot</span><span class="p">(</span><span class="n">p</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Boolean</span><span class="p">):</span><span class="w"> </span><span class="nc">Unit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">require</span><span class="p">(</span><span class="o">!</span><span class="nc">Forall</span><span class="p">(</span><span class="n">p</span><span class="p">))</span>
+<span class="w">  </span><span class="n">notForall</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+<span class="p">}.</span><span class="n">ensuring</span><span class="p">(</span><span class="n">_</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Exists</span><span class="p">((</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="o">!</span><span class="n">p</span><span class="p">(</span><span class="n">x</span><span class="p">)))</span>
+</pre></div>
+</div>
+<p><strong>¬∃¬ → ∀</strong>: From <code class="docutils literal notranslate"><span class="pre">!Exists(x</span> <span class="pre">=&gt;</span> <span class="pre">!p(x))</span></code>, derive <code class="docutils literal notranslate"><span class="pre">Forall(p)</span></code>.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="nd">@ghost</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">notExistsNotToForall</span><span class="p">(</span><span class="n">p</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Boolean</span><span class="p">):</span><span class="w"> </span><span class="nc">Unit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">require</span><span class="p">(</span><span class="o">!</span><span class="nc">Exists</span><span class="p">((</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="o">!</span><span class="n">p</span><span class="p">(</span><span class="n">x</span><span class="p">)))</span>
+<span class="w">  </span><span class="n">notExistsNot</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+<span class="p">}.</span><span class="n">ensuring</span><span class="p">(</span><span class="n">_</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Forall</span><span class="p">(</span><span class="n">p</span><span class="p">))</span>
+</pre></div>
+</div>
+</section>
+<section id="combined-examples">
+<h2><a class="toc-backref" href="#id12" role="doc-backlink">Combined Examples</a><a class="headerlink" href="#combined-examples" title="Link to this heading">¶</a></h2>
+<p>The following examples show how to combine multiple rules in one proof.</p>
+<p><strong>Conjunction of universals.</strong> From <code class="docutils literal notranslate"><span class="pre">Forall(p)</span></code> and <code class="docutils literal notranslate"><span class="pre">Forall(q)</span></code>,
+derive that <code class="docutils literal notranslate"><span class="pre">p(x)</span> <span class="pre">&amp;&amp;</span> <span class="pre">q(x)</span></code> holds for all <code class="docutils literal notranslate"><span class="pre">x</span></code>.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="nd">@ghost</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">forallConjunction</span><span class="p">(</span><span class="n">p</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Boolean</span><span class="p">,</span><span class="w"> </span><span class="n">q</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Boolean</span><span class="p">):</span><span class="w"> </span><span class="nc">Unit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">require</span><span class="p">(</span><span class="nc">Forall</span><span class="p">(</span><span class="n">p</span><span class="p">))</span>
+<span class="w">  </span><span class="n">require</span><span class="p">(</span><span class="nc">Forall</span><span class="p">(</span><span class="n">q</span><span class="p">))</span>
+<span class="w">  </span><span class="n">unfold</span><span class="p">(</span><span class="nc">Forall</span><span class="p">(</span><span class="n">p</span><span class="p">))</span>
+<span class="w">  </span><span class="n">unfold</span><span class="p">(</span><span class="nc">Forall</span><span class="p">(</span><span class="n">q</span><span class="p">))</span>
+<span class="w">  </span><span class="n">assert</span><span class="p">(</span><span class="n">stainless</span><span class="p">.</span><span class="n">lang</span><span class="p">.</span><span class="n">forall</span><span class="p">((</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">p</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">q</span><span class="p">(</span><span class="n">x</span><span class="p">)))</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><strong>Weakening an existential.</strong> From <code class="docutils literal notranslate"><span class="pre">Exists(p)</span></code>,
+derive <code class="docutils literal notranslate"><span class="pre">Exists(x</span> <span class="pre">=&gt;</span> <span class="pre">p(x)</span> <span class="pre">||</span> <span class="pre">q(x))</span></code>.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="nd">@ghost</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">existsWeaken</span><span class="p">(</span><span class="n">p</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Boolean</span><span class="p">,</span><span class="w"> </span><span class="n">q</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Boolean</span><span class="p">):</span><span class="w"> </span><span class="nc">Unit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">require</span><span class="p">(</span><span class="nc">Exists</span><span class="p">(</span><span class="n">p</span><span class="p">))</span>
+<span class="w">  </span><span class="kd">val</span><span class="w"> </span><span class="n">w</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pickWitness</span><span class="p">[</span><span class="nc">BigInt</span><span class="p">](</span><span class="n">p</span><span class="p">)</span>
+<span class="w">  </span><span class="n">assert</span><span class="p">(</span><span class="n">p</span><span class="p">(</span><span class="n">w</span><span class="p">)</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">q</span><span class="p">(</span><span class="n">w</span><span class="p">))</span>
+<span class="w">  </span><span class="nc">ExistsThe</span><span class="p">(</span><span class="n">w</span><span class="p">)((</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">p</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">q</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+<span class="p">}.</span><span class="n">ensuring</span><span class="p">(</span><span class="n">_</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Exists</span><span class="p">((</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">p</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">q</span><span class="p">(</span><span class="n">x</span><span class="p">)))</span>
+</pre></div>
+</div>
+<p><strong>Universal modus ponens.</strong> From <code class="docutils literal notranslate"><span class="pre">Forall(x</span> <span class="pre">=&gt;</span> <span class="pre">p(x)</span> <span class="pre">==&gt;</span> <span class="pre">q(x))</span></code> and
+<code class="docutils literal notranslate"><span class="pre">Forall(p)</span></code>, derive that <code class="docutils literal notranslate"><span class="pre">q(x)</span></code> holds for all <code class="docutils literal notranslate"><span class="pre">x</span></code>.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="nd">@ghost</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">forallModusPonens</span><span class="p">(</span><span class="n">p</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Boolean</span><span class="p">,</span><span class="w"> </span><span class="n">q</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Boolean</span><span class="p">):</span><span class="w"> </span><span class="nc">Unit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">require</span><span class="p">(</span><span class="nc">Forall</span><span class="p">((</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">p</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="w"> </span><span class="o">==&gt;</span><span class="w"> </span><span class="n">q</span><span class="p">(</span><span class="n">x</span><span class="p">)))</span>
+<span class="w">  </span><span class="n">require</span><span class="p">(</span><span class="nc">Forall</span><span class="p">(</span><span class="n">p</span><span class="p">))</span>
+<span class="w">  </span><span class="n">unfold</span><span class="p">(</span><span class="nc">Forall</span><span class="p">((</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">p</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="w"> </span><span class="o">==&gt;</span><span class="w"> </span><span class="n">q</span><span class="p">(</span><span class="n">x</span><span class="p">)))</span>
+<span class="w">  </span><span class="n">unfold</span><span class="p">(</span><span class="nc">Forall</span><span class="p">(</span><span class="n">p</span><span class="p">))</span>
+<span class="w">  </span><span class="n">assert</span><span class="p">(</span><span class="n">stainless</span><span class="p">.</span><span class="n">lang</span><span class="p">.</span><span class="n">forall</span><span class="p">((</span><span class="n">x</span><span class="p">:</span><span class="w"> </span><span class="nc">BigInt</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">q</span><span class="p">(</span><span class="n">x</span><span class="p">)))</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="summary">
+<h2><a class="toc-backref" href="#id13" role="doc-backlink">Summary</a><a class="headerlink" href="#summary" title="Link to this heading">¶</a></h2>
+<p>The following table summarizes the rules and the corresponding Stainless
+constructs:</p>
+<table class="docutils align-default" id="id1">
+<caption><span class="caption-text">Natural Deduction Rules in Stainless</span><a class="headerlink" href="#id1" title="Link to this table">¶</a></caption>
+<colgroup>
+<col style="width: 25.0%" />
+<col style="width: 35.0%" />
+<col style="width: 40.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Rule</p></th>
+<th class="head"><p>Logical Statement</p></th>
+<th class="head"><p>Stainless Construct</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>∧-Introduction</p></td>
+<td><p>P, Q ⊢ P ∧ Q</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">p</span> <span class="pre">&amp;&amp;</span> <span class="pre">q</span></code> in postcondition</p></td>
+</tr>
+<tr class="row-odd"><td><p>∧-Elimination</p></td>
+<td><p>P ∧ Q ⊢ P</p></td>
+<td><p>Extract from <code class="docutils literal notranslate"><span class="pre">p</span> <span class="pre">&amp;&amp;</span> <span class="pre">q</span></code> precondition</p></td>
+</tr>
+<tr class="row-even"><td><p>∨-Introduction</p></td>
+<td><p>P ⊢ P ∨ Q</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">p</span> <span class="pre">||</span> <span class="pre">q</span></code> in postcondition</p></td>
+</tr>
+<tr class="row-odd"><td><p>∨-Elimination</p></td>
+<td><p>P ∨ Q, P→R, Q→R ⊢ R</p></td>
+<td><p>Case analysis + implications</p></td>
+</tr>
+<tr class="row-even"><td><p>¬¬-Elimination</p></td>
+<td><p>¬¬P ⊢ P</p></td>
+<td><p>Automatic by SMT solver</p></td>
+</tr>
+<tr class="row-odd"><td><p>→-Elimination</p></td>
+<td><p>P→Q, P ⊢ Q</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">p</span> <span class="pre">==&gt;</span> <span class="pre">q</span></code> + <code class="docutils literal notranslate"><span class="pre">p</span></code> in preconditions</p></td>
+</tr>
+<tr class="row-even"><td><p>∀-Introduction</p></td>
+<td><p>⊢ ∀x.P(x)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">forall(x</span> <span class="pre">=&gt;</span> <span class="pre">P(x))</span></code> / Skolemization</p></td>
+</tr>
+<tr class="row-odd"><td><p>∀-Elimination</p></td>
+<td><p>∀x.P(x) ⊢ P(a)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ForallOf(p)(a)</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>∃-Introduction</p></td>
+<td><p>P(w) ⊢ ∃x.P(x)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ExistsThe(w)(p)</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>∃-Elimination</p></td>
+<td><p>∃x.P(x) ⊢ P(w) for some w</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">pickWitness(p)</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>¬∃ → ∀¬</p></td>
+<td><p>¬∃x.P(x) ⊢ ∀x.¬P(x)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">notExists(p)</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>¬∀ → ∃¬</p></td>
+<td><p>¬∀x.P(x) ⊢ ∃x.¬P(x)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">notForall(p)</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>¬∃¬ → ∀</p></td>
+<td><p>¬∃x.¬P(x) ⊢ ∀x.P(x)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">notExistsNot(p)</span></code></p></td>
+</tr>
+</tbody>
+</table>
+<p>The complete set of test cases can be found in
+<a class="reference external" href="https://github.com/epfl-lara/stainless/blob/master/frontends/benchmarks/verification/valid/NaturalDeduction.scala">frontends/benchmarks/verification/valid/NaturalDeduction.scala</a>.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="verification.html" class="btn btn-neutral float-left" title="Verification conditions" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="laws.html" class="btn btn-neutral float-right" title="Specifying Algebraic Properties" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2009-2021 EPFL, Lausanne.
+      <span class="lastupdated">Last updated on Jul 09, 2026.
+      </span></p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
