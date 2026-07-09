@@ -197,6 +197,10 @@ def libraryFiles(baseDir: File): Seq[(String, File)] = {
 
 lazy val frontendSettings: Seq[Setting[_]] = Defaults.itSettings ++ Seq(
 
+  // The stainless library is compiled with qualified types enabled, which marks all its
+  // definitions @experimental; referencing them requires experimental mode here as well.
+  scalacOptions += "-language:experimental.qualifiedTypes",
+
   /**
     * NOTE: IntelliJ seems to have trouble including resources located outside the base directory of an
     *   sbt project. You can temporarily disable the following line when importing the project.
