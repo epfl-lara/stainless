@@ -236,6 +236,18 @@ object StainlessPlugin extends sbt.AutoPlugin {
 
           // For now we always enable ghost elimination
           "-P:stainless:ghost-elim:true",
+        ) ++ (
+          // The stainless library uses qualified types (e.g. UInt31 in stainless.lang),
+          // so its sources only parse with the experimental feature enabled.
+          // These flags mirror the ones the stainless frontend passes (see DottyCompiler).
+          if (scalaVersion.value.startsWith("3."))
+            Seq(
+              "-language:experimental.qualifiedTypes",
+              "-language:experimental.qualifiedTypes.silent",
+              "-Yqualified-types-anf",
+            )
+          else
+            Seq.empty
         )
 
         // FIXME: Properly merge possibly duplicate scalac options
