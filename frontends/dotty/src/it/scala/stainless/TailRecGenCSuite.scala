@@ -54,9 +54,10 @@ class TailRecGenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUti
   }
 
   for (case (file, checkFile) <- tailrecFiles) {
-    test(s"Checking that ${file.split("/").last} outputs ${Files.readAllLines(Paths.get(checkFile)).toArray.mkString}") {
+    val name = file.split("/").last
+    val checkValue = Files.readAllLines(Paths.get(checkFile)).toArray.mkString
+    test(s"Checking that $name outputs $checkValue") {
       val output = runCHelper(file)
-      val checkValue = Files.readAllLines(Paths.get(checkFile)).toArray.mkString
       assert(output == checkValue, s"Output '$output' should be $checkValue")
     }
   }
