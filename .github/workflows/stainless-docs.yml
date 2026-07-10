@@ -1,0 +1,52 @@
+name: Stainless Documentation
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - core/src/sphinx/**
+      - .github/workflows/stainless-docs.yml
+  push:
+    branches:
+      - main
+    paths:
+      - core/src/sphinx/**
+      - .github/workflows/stainless-docs.yml
+permissions:
+  contents: read
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Sphinx
+        run: pip install "sphinx==7.*"
+      - name: Build documentation
+        run: make html SPHINXOPTS="-W --keep-going"
+        working-directory: core/src/sphinx
+      - name: Upload Pages artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: core/src/sphinx/_build/html
+  deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
