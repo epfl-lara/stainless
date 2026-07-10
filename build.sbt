@@ -126,7 +126,8 @@ lazy val stainlessLibSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
   scalacOptions ++= Seq(
     "-deprecation",
     "-unchecked",
-    "-feature"
+    "-feature",
+    "-language:experimental.qualifiedTypes"
   ),
 
   // disable documentation packaging in universal:stage to speedup development
@@ -195,6 +196,10 @@ def libraryFiles(baseDir: File): Seq[(String, File)] = {
 }
 
 lazy val frontendSettings: Seq[Setting[_]] = Defaults.itSettings ++ Seq(
+
+  // The stainless library is compiled with qualified types enabled, which marks all its
+  // definitions @experimental; referencing them requires experimental mode here as well.
+  scalacOptions += "-language:experimental.qualifiedTypes",
 
   /**
     * NOTE: IntelliJ seems to have trouble including resources located outside the base directory of an
