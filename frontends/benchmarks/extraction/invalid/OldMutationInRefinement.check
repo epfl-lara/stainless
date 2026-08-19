@@ -1,0 +1,3 @@
+[ Error  ] OldMutationInRefinement.scala:14:7: Postcondition tries to mutate old(b)
+             def f(b: Box): { res: Unit with old(b).bump() } = {
+                 ^

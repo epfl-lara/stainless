@@ -130,6 +130,35 @@ class ImperativeCleanup(override val s: Trees, override val t: oo.Trees)
     case _ => ()
   } (expr)
 
+  /* `old` may only occur in the refinement of a function return type, where it plays the same role
+   * as in a postcondition. Such valid occurrences have been eliminated by the previous imperative
+   * phases, so any occurrence remaining in a type at this point is invalid.
+   */
+  private def checkNoOldInTypes(fd: s.FunDef): Unit = {
+    // `old` nodes in refinement predicates may have lost their position, so we
+    // fall back to the position of the enclosing function.
+    def positioned(o: s.Expr): s.Tree = if (o.getPos != inox.utils.NoPosition) o else fd
+
+    object checker extends s.ConcreteSelfTreeTraverser {
+      override def traverse(tpe: s.Type): Unit = tpe match {
+        case s.RefinementType(_, pred) =>
+          s.exprOps.preTraversal {
+            case o @ s.Old(v: s.Variable) =>
+              throw MalformedStainlessCode(positioned(o),
+                s"In refinement types, Stainless `old` can only occur in the refinement of a function return type, applied to `this` or parameters.")
+            case _ => ()
+          } (pred)
+          checkValidOldUsage(pred)
+          super.traverse(tpe)
+        case _ => super.traverse(tpe)
+      }
+    }
+
+    fd.params.foreach(vd => checker.traverse(vd.tpe))
+    checker.traverse(fd.returnType)
+    checker.traverse(fd.fullBody)
+  }
+
   override protected def extractFunction(context: TransformerContext, fd: s.FunDef): (t.FunDef, Unit) = {
     val (specs, body) = s.exprOps.deconstructSpecs(fd.fullBody)
 
@@ -143,6 +172,7 @@ class ImperativeCleanup(override val s: Trees, override val t: oo.Trees)
     }
 
     body foreach checkNoOld
+    checkNoOldInTypes(fd)
 
     super.extractFunction(context, fd.copy(flags = fd.flags filterNot context.isImperativeFlag))
   }
