@@ -3,7 +3,7 @@
 import stainless.lang._
 import stainless.annotation._
 
-object RefinementOld {
+object RefinementOldOpaque {
   case class Box(var x: BigInt) {
     def bump(): {res: Boolean with old(this).x + 1 == this.x} = {
       x = x + 1

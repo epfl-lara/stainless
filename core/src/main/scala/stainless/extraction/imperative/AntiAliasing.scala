@@ -331,6 +331,19 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
           typeBinder.transform(tpe)
         }
 
+        /* Whether `tpe` contains a (necessarily stray, at a call site) `old(...)` occurrence. */
+        def containsOld(tpe: Type): Boolean = {
+          var found = false
+          object finder extends ConcreteSelfTreeTransformer {
+            override def transform(e: Expr): Expr = e match {
+              case Old(_) => found = true; e
+              case _ => super.transform(e)
+            }
+          }
+          finder.transform(tpe)
+          found
+        }
+
         def mapApplication(formalArgs: Seq[ValDef], args: Seq[Expr], nfi: Expr, nfiType: Type, fiEffects: Set[Effect], isOpaqueOrExtern: Boolean, selectResult: Boolean, env: Env): Expr = {
 
           def affectedBindings(updTarget: Target, isReplacement: Boolean): Map[ValDef, Set[Target]] = {
@@ -887,9 +900,16 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
           // `vd`'s type the same way we do for the (transformed) call itself, so that `old(...)`
           // occurrences referring to referentially transparent arguments are properly eliminated
           // (see `bindCallSiteType`), rather than leaking into the caller's tree as stray `old(...)`.
-          case l @ Let(vd, fi @ FunctionInvocation(_, _, args), b) if !isMutableType(vd.tpe) =>
+          // Guarded on `containsOld`: `vd.tpe` may otherwise be a (possibly widened) ascription
+          // unrelated to the callee's declared return type -- e.g. `val l: List[Int] = x :: xs` --
+          // which we must not clobber with the callee's raw return type.
+          case l @ Let(vd, fi @ FunctionInvocation(_, _, args), b) if !isMutableType(vd.tpe) && containsOld(vd.tpe) =>
             val fd = Outer(fi.tfd.fd)
-            val newVd = vd.copy(tpe = bindCallSiteType(fi.tfd.instantiate(analysis.getReturnType(fd)), fd.params, args))
+            // Note: unlike `nfiType` in `mapFnInvoc` below, this must NOT go through
+            // `analysis.getReturnType`, which sigma-wraps the return type with the callee's
+            // post-effect state when it has aliased params: at this (pre-transformation) call
+            // site, `vd` is still bound to the plain (single-valued) declared return type.
+            val newVd = vd.copy(tpe = bindCallSiteType(fi.tfd.instantiate(analysis.substReturnType(fd, Map.empty)), fd.params, args))
             Let(newVd, transform(fi, env), transform(b, env)).copiedFrom(l)
 
           case up @ ArrayUpdate(arr, i, v) =>
