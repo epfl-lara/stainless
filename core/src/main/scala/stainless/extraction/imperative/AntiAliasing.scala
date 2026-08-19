@@ -881,6 +881,17 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
             val newBody = transform(b, env `withBinding` vd)
             LetVar(vd, newExpr, newBody).copiedFrom(l)
 
+          // The frontend infers `vd`'s type from the callee's declared return type, substituting
+          // formal parameters by the actual arguments -- including within `old(...)`, which it is
+          // not aware is only meaningful within the callee's own definition. We must instead rebind
+          // `vd`'s type the same way we do for the (transformed) call itself, so that `old(...)`
+          // occurrences referring to referentially transparent arguments are properly eliminated
+          // (see `bindCallSiteType`), rather than leaking into the caller's tree as stray `old(...)`.
+          case l @ Let(vd, fi @ FunctionInvocation(_, _, args), b) if !isMutableType(vd.tpe) =>
+            val fd = Outer(fi.tfd.fd)
+            val newVd = vd.copy(tpe = bindCallSiteType(fi.tfd.instantiate(analysis.getReturnType(fd)), fd.params, args))
+            Let(newVd, transform(fi, env), transform(b, env)).copiedFrom(l)
+
           case up @ ArrayUpdate(arr, i, v) =>
             assertReferentiallyTransparent(i)
             val recI = transform(i, env)
