@@ -458,20 +458,25 @@ class CodeExtraction(inoxCtx: inox.Context,
         val typeParamsSymbols = typeParamSymbols(tparams)
         val typeParams = extractTypeParams(typeParamsSymbols)
         val tpCtx = dctx.withNewTypeParams(typeParamsSymbols zip typeParams)
-        val typeBody = extractType(body)(using tpCtx)
+        val typeBody = body match {
+          // Bounded opaque type constructor: extract the alias, as below.
+          case TypeBoundsTree(_, _, alias) if !alias.isEmpty => extractType(alias)(using tpCtx)
+          case _ => extractType(body)(using tpCtx)
+        }
         (typeParams, typeBody, false)
+
+      // A TypeBoundsTree with a non-empty alias is a bounded opaque type
+      // (e.g. `opaque type Positive <: BigInt = BigInt`): extract it as an
+      // alias to its right-hand side rather than as an abstract type, like
+      // we do for unbounded opaque types.
+      case TypeBoundsTree(_, _, alias) if !alias.isEmpty =>
+        (Seq.empty, extractType(alias), false)
 
       case TypeBoundsTree(lo, hi, _) =>
         val (loType, hiType) = (extractType(lo), extractType(hi))
         (Seq.empty, xt.TypeBounds(loType, hiType, Seq.empty), true)
 
       case tpt =>
-        val tpe =
-          if (tpt.symbol `is` Opaque)
-            tpt.symbol.typeRef.translucentSuperType
-          else
-            tpt.tpe
-
         (Seq.empty, extractType(tpt), false)
     }
 
@@ -2708,12 +2713,25 @@ class CodeExtraction(inoxCtx: inox.Context,
           case None => xt.ClassType(id, args map extractType)
         }
 
+      // This case must come before the two below: isAbstractOrAliasType is also true for
+      // opaque aliases, but widenDealiasKeepRefiningAnnots does not unfold them outside
+      // their defining scope, so they would be extracted symbolically instead of resolved.
+      case tr: TypeRef if dctx.resolveTypes && tr.symbol.isOpaqueAlias =>
+        extractType(tr.translucentSuperType)
+
       case tr: TypeRef if dctx.resolveTypes && tr.symbol.isAbstractOrAliasType =>
         extractType(tr.widenDealiasKeepRefiningAnnots)(using dctx.setResolveTypes(tr != tr.widenDealiasKeepRefiningAnnots), pos)
 
       case tr @ TypeRef(prefix, _) if tr.symbol.isAbstractOrAliasType || tr.symbol.isOpaqueAlias =>
         val selector = extractPrefix(prefix)
         xt.TypeApply(xt.TypeSelect(selector, getIdentifier(tr.symbol)), Seq.empty)
+
+      // As for the unapplied opaque alias case above: opaque aliases must be
+      // resolved via their translucent super type (beta-reduced with the type
+      // arguments), which widenDealiasKeepRefiningAnnots does not reveal
+      // outside their defining scope.
+      case at @ AppliedType(tr: TypeRef, _) if dctx.resolveTypes && tr.symbol.isOpaqueAlias =>
+        extractType(at.translucentSuperType)
 
       case at@AppliedType(tr @ TypeRef(prefix, _), args) if dctx.resolveTypes && tr.symbol.isAbstractOrAliasType =>
         extractType(at.derivedAppliedType(tr.widenDealiasKeepRefiningAnnots, args))(using dctx.setResolveTypes(tr != tr.widenDealiasKeepRefiningAnnots), pos)
@@ -2739,9 +2757,6 @@ class CodeExtraction(inoxCtx: inox.Context,
         val vd = dctx.depParams(ref.paramName).setPos(pos)
         val selector = getIdentifier(tr.symbol)
         xt.TypeApply(xt.TypeSelect(Some(vd.toVariable), selector).setPos(pos), Seq.empty)
-
-      case tr: TypeRef if tr.symbol.isOpaqueAlias && dctx.resolveTypes =>
-        extractType(tr.translucentSuperType)
 
       case tt @ TypeRef(prefix: TermRef, name) if prefix.underlying.classSymbol.typeParams.exists(_.name == name) =>
         extractType(TypeRef(prefix.widenTermRefExpr, name))
