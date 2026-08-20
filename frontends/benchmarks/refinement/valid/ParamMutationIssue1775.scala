@@ -25,3 +25,11 @@ object A:
     b.value = b.value + v // now we have b$2.value == b$1.value + v, with v == b$1.value == b$0.value + 1
     assert(v == x) // should hold, as both are equal to b$1.value
   }
+
+  def updateBox4(): {res: Box with res.value >= 0} = {
+    val b: Box with b.value >= 0 = Box(0)
+    val v: BigInt with v == b.value = b.value
+    b.value = b.value + v
+    assert(v == 0)
+    b
+  }
