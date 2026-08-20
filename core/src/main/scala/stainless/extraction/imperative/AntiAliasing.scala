@@ -44,6 +44,46 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
   protected case class SymbolsAnalysis()(using override val symbols: Symbols) extends EffectsAnalysis {
     import symbols._
 
+    /* Like `exprOps.replaceFromSymbols`, but occurrences of `frozen` variables are left
+     * completely untouched, instead of being rebuilt with `super.transform`.
+     *
+     * `replaceFromSymbols` rebuilds every non-substituted `Variable` via `super.transform`,
+     * which also transforms its embedded type -- so if that type is a dependent refinement
+     * mentioning a variable that *is* being substituted (e.g. a parameter `v: Int with v <=
+     * this.max`, where `this`/`thiss` is substituted by a freshened copy), occurrences of `v`
+     * in the body end up with a rewritten type that no longer matches `v`'s declared type in
+     * `fd.params`. Since `Variable` equality (used by `ensureWellFormedFunction`'s bound-variable
+     * check) compares the embedded type too, this spuriously turns every occurrence of `v` into
+     * an "unknown variable".
+     *
+     * This only matters for variables whose binder is *not* itself rewritten by this same
+     * substitution -- typically other parameters of the enclosing function/lambda, listed in
+     * `frozen`: their declared type (in `fd.params`) is external to `body`/`returnType` and is
+     * therefore never substituted, so occurrences must not be either, to keep matching it. Any
+     * other variable (e.g. one bound by a `Let` inside the body) has its binder's type rewritten
+     * by the very same recursive traversal (a bound `ValDef`'s type is transformed like any other
+     * child), so its occurrences must keep being rewritten the same way to stay consistent with it.
+     */
+    def substituteVariables(subst: Map[Variable, Variable], frozen: Set[Variable], e: Expr): Expr =
+      new ConcreteSelfTreeTransformer {
+        override def transform(e: Expr): Expr = e match {
+          case v: Variable if frozen(v) => v
+          case v: Variable => subst.getOrElse(v, super.transform(v))
+          case _ => super.transform(e)
+        }
+      }.transform(e)
+
+    /* Same as `substituteVariables`, but for substituting within a `Type` (e.g. a declared
+     * return type whose refinement predicate may itself reference other parameters). */
+    def substituteVariablesInType(subst: Map[Variable, Variable], frozen: Set[Variable], tpe: Type): Type =
+      new ConcreteSelfTreeTransformer {
+        override def transform(e: Expr): Expr = e match {
+          case v: Variable if frozen(v) => v
+          case v: Variable => subst.getOrElse(v, super.transform(v))
+          case _ => super.transform(e)
+        }
+      }.transform(tpe)
+
     // Convert a function type with mutable parameters, into a function type
     // that returns the mutable parameters. This makes explicit all possible
     // effects of the function. This should be used for higher order functions
@@ -142,12 +182,17 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
         val (specs, body) = exprOps.deconstructSpecs(fd.fullBody)
         val freshLocals: Seq[ValDef] = aliasedParams.map(v => v.freshen)
         val freshSubst = aliasedParams.zip(freshLocals).map(p => p._1.toVariable -> p._2.toVariable).toMap
+        // The other (non-aliased) parameters' declared types, in `fd.params`, are external to
+        // this substitution (only `fd.fullBody`/`fd.returnType` are rewritten here) -- so their
+        // occurrences must not be rewritten either, even if their type depends on an aliased
+        // parameter (see `substituteVariables`).
+        val otherParams = fd.params.map(_.toVariable).toSet -- freshSubst.keySet
 
         val newBody = body.map { body =>
-          val freshBody = exprOps.replaceFromSymbols(freshSubst, body)
+          val freshBody = substituteVariables(freshSubst, otherParams, body)
           val explicitBody = makeSideEffectsExplicit(freshBody, fd, env `withBindings` freshLocals, freshLocals.map(_.toVariable))
 
-          val tmp = ValDef(FreshIdentifier("res"), typeOps.replaceFromSymbols(freshSubst, fd.returnType))
+          val tmp = ValDef(FreshIdentifier("res"), substituteVariablesInType(freshSubst, otherParams, fd.returnType))
           val finalBody: Expr =
             Let(tmp, explicitBody, Tuple(freshLocals.map(_.toVariable) :+ tmp.toVariable).copiedFrom(body)).copiedFrom(body)
 
@@ -902,7 +947,8 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
             } else {
               val freshLocals = aliasedParams.map(v => v.freshen)
               val rewritingMap = aliasedParams.zip(freshLocals).map(p => p._1.toVariable -> p._2.toVariable).toMap
-              val freshBody = exprOps.replaceFromSymbols(rewritingMap, body)
+              val otherParams = params.map(_.toVariable).toSet -- rewritingMap.keySet
+              val freshBody = substituteVariables(rewritingMap, otherParams, body)
 
               // ft.to is widened, so no need to `replaceFromSymbols` with `rewritingMap`
               val tmp = ValDef(FreshIdentifier("res"), ft.to)

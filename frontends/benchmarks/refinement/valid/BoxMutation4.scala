@@ -1,16 +1,16 @@
-package boxMutation3
+package boxMutation4
 import stainless.lang._
 import stainless.annotation._
 
 object A:
   @mutable
-  case class Box(var value: Int, val max: Int with max >= 0){
+  case class Box(var value: BigInt, val max: BigInt with max >= 0){
     def valid: Boolean = value >= 0
-    def update(v: Int with v >= 0): Unit = {
+    def update(v: BigInt with v >= 0): Unit = {
       require(valid)
       value = v
     }.ensuring(_ => valid)
-    def add(v: Int with 0 <= v && this.value + v <= this.max): Unit = {
+    def add(v: BigInt with 0 <= v && this.value + v <= this.max): Unit = {
       require(valid)
       value = value + v
     }
