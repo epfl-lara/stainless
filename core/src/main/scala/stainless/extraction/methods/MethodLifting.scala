@@ -64,6 +64,34 @@ class MethodLifting(override val s: Trees, override val t: oo.Trees)
 
   private val identity = new IdentityImpl(self.s, self.t)
 
+  private class AdtTransformer(override val s: self.s.type, override val t: self.t.type, symbols: s.Symbols)
+    extends oo.ConcreteTreeTransformer(s, t) {
+      def this(symbols: self.s.Symbols) = this(self.s, self.t, symbols)
+      var fieldsMap: Map[Identifier, (t.ValDef, Int)] = Map.empty
+
+      override def transform(cd: s.ClassDef): t.ClassDef = {
+        val env = initEnv
+        val newId = transform(cd.id, env)
+        val newTpeParams = cd.tparams.map(transform(_, env))
+        val newParents = cd.parents.map(ct => transform(ct, env).asInstanceOf[t.ClassType])
+
+        cd.fields.zipWithIndex.foreach { case (f, i) => fieldsMap = fieldsMap + (f.id -> (transform(f, env), i)) }
+        val newFields = fieldsMap.values.toSeq.sortBy(_._2).map(_._1)
+        fieldsMap = Map.empty
+
+        val newFlags = cd.flags.map(transform(_, env))
+
+        new t.ClassDef(newId, newTpeParams, newParents, newFields, newFlags).copiedFrom(cd)
+      }
+
+      override def transform(e: s.Expr): t.Expr = e match {
+        case s.ClassSelector(s.This(_), id) => 
+          assert(fieldsMap.contains(id), s"Field $id not found in previous ADT class fields")
+          fieldsMap(id)._1.toVariable
+        case _ => super.transform(e)
+      }
+  }
+
   private class BaseTransformer(override val s: self.s.type,
                                 override val t: self.t.type,
                                 val symbols: s.Symbols) extends oo.ConcreteTreeTransformer(s, t) {
@@ -72,10 +100,10 @@ class MethodLifting(override val s: Trees, override val t: oo.Trees)
     override def transform(e: s.Expr): t.Expr = e match {
       case s.MethodInvocation(rec, id, tps, args) =>
         given s.Symbols = symbols
-        val ct = rec.getType match {
+        val ct = rec.getTpe(stripRefinements = false).stripToplevelRefinement match {
           case ct: s.ClassType => ct
           case ta: s.TypeApply if ta.lookupTypeDef.isDefined && !ta.isAbstract =>
-            ta.resolve match {
+            ta.resolve.stripToplevelRefinement match {
               case ct: s.ClassType => ct
               case other => context.reporter.fatalError(rec.getPos, s"Unexpected type for method invocation receiver: got $other")
             }
@@ -98,6 +126,7 @@ class MethodLifting(override val s: Trees, override val t: oo.Trees)
     val typeDefs = new scala.collection.mutable.ListBuffer[t.TypeDef]
 
     val default = new BaseTransformer(symbols)
+    val classTransformer = new AdtTransformer(symbols)
 
     for (cd <- symbols.classes.values) {
       val (invariants, functionToOverrides) = metadata(cd.id)(symbols)
@@ -120,7 +149,7 @@ class MethodLifting(override val s: Trees, override val t: oo.Trees)
       }
 
       val (cls, fun) = classCache.cached(cd, symbols) {
-        val cls = identity.transform(cd.copy(flags = cd.flags ++ invariants.map(fd => HasADTInvariant(fd.id))))
+        val cls = classTransformer.transform(cd.copy(flags = cd.flags ++ invariants.map(fd => HasADTInvariant(fd.id))))
         (cls, invs)
       }
 
@@ -135,7 +164,7 @@ class MethodLifting(override val s: Trees, override val t: oo.Trees)
       }
 
     for (td <- symbols.typeDefs.values) {
-      typeDefs += typeDefCache.cached(td, symbols)(identity.transform(td))
+      typeDefs += typeDefCache.cached(td, symbols)(default.transform(td))
     }
 
     (t.NoSymbols.withFunctions(functions.toSeq).withClasses(classes.toSeq).withTypeDefs(typeDefs.toSeq), ExtractionSummary.NoSummary)

@@ -82,7 +82,7 @@ object TypeCheckerUtils {
     }.transform(expr)
   }
 
-  // TODO: implement ite for more types (PiType, SigmaType, etc.)
+  // TODO: implement ite for more types (PiType, etc.)
   def ite(b: Expr, t1: Type, t2: Type)(using opts: PrinterOptions, ctx: inox.Context): Type = (t1, t2) match {
     case _ if (t1 == t2) => t1
 
@@ -106,6 +106,28 @@ object TypeCheckerUtils {
 
     case (ADTType(id1, tps1), ADTType(id2, tps2)) if id1 == id2 =>
       ADTType(id1, tps1.zip(tps2).map { case (t1, t2) => ite(b, t1, t2) })
+
+    case (SigmaType(params1, to1), SigmaType(params2, to2)) if params1.size == params2.size =>
+      val newParams = params1.zip(params2).map { case (vd1, vd2) =>
+        ValDef.fresh(vd1.id.name, ite(b, vd1.tpe, vd2.tpe))
+      }
+      val subst1 = Substituter(params1.map(_.id).zip(newParams.map(_.id)).toMap)
+      val subst2 = Substituter(params2.map(_.id).zip(newParams.map(_.id)).toMap)
+      SigmaType(newParams, ite(b, subst1.transform(to1), subst2.transform(to2)))
+
+    case (SigmaType(params1, to1), TupleType(params2)) if params1.size + 1 == params2.size =>
+      val newParams = params1.zip(params2.dropRight(1)).map { case (vd1, tpe2) =>
+        ValDef.fresh(vd1.id.name, ite(b, vd1.tpe, tpe2))
+      }
+      val subst1 = Substituter(params1.map(_.id).zip(newParams.map(_.id)).toMap)
+      SigmaType(newParams, ite(b, subst1.transform(to1), params2.last))
+
+    case (TupleType(params1), SigmaType(params2, to2)) if params1.size == params2.size + 1 =>
+      val newParams = params1.dropRight(1).zip(params2).map { case (tpe1, vd2) =>
+        ValDef.fresh(vd2.id.name, ite(b, tpe1, vd2.tpe))
+      }
+      val subst2 = Substituter(params2.map(_.id).zip(newParams.map(_.id)).toMap)
+      SigmaType(newParams, ite(b, params1.last, subst2.transform(to2)))
 
     case _ =>
       ctx.reporter.fatalError(b.getPos, s"The `If Then Else` type is not defined for types ${t1.asString} and ${t2.asString}")

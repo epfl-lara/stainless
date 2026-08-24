@@ -1,0 +1,14 @@
+{
+  "recursive": true,
+  "codegen": false,
+  "successful": [
+    {
+      "function": "eval1",
+      "expected": "expected1"
+    },
+    {
+      "function": "eval2",
+      "expected": "expected2"
+    }
+  ]
+}

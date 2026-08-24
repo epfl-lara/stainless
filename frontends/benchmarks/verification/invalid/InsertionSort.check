@@ -6,6 +6,10 @@
 25:36;isSorted;body assertion: match exhaustiveness;valid
 35:5;buggySortedIns;body assertion: match exhaustiveness;valid
 35:5;buggySortedIns;postcondition;valid
+35:5;buggySortedIns;type-checking;valid
 36:21;buggySortedIns;postcondition;valid
+36:21;buggySortedIns;type-checking;valid
 37:38;buggySortedIns;postcondition;invalid
+37:38;buggySortedIns;type-checking;valid
 37:73;buggySortedIns;postcondition;invalid
+37:73;buggySortedIns;type-checking;valid

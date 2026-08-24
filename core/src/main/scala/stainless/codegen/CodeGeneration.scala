@@ -93,6 +93,7 @@ trait CodeGeneration { self: CompilationUnit =>
   private[codegen] val JavaListClass             = "java/util/List"
   private[codegen] val JavaIteratorClass         = "java/util/Iterator"
   private[codegen] val JavaStringClass           = "java/lang/String"
+  private[codegen] val JavaBigIntegerClass       = "java/math/BigInteger"
 
   private[codegen] val TupleClass                = "stainless/codegen/runtime/Tuple"
   private[codegen] val SetClass                  = "stainless/codegen/runtime/Set"
@@ -1027,6 +1028,54 @@ trait CodeGeneration { self: CompilationUnit =>
     case BVLShiftRight(l, r) => mkBVShift(l, r, ch, IUSHR, LUSHR, "lShiftLeft")
     case BVAShiftRight(l, r) => mkBVShift(l, r, ch, ISHR,  LSHR,  "aShiftRight")
 
+    case BVUnsignedToSigned(e) =>
+      e.getType match
+        case BVType(false, size) => 
+          mkExpr(e, ch)
+          // if the BV is unsigned it should really be in runtime represetation,
+          // so this is likely a no-op, but just to be safe
+          mkAsRuntimeBV(e.getType, ch)
+          ch << Ldc(1) << InvokeVirtual(BitVectorClass, "withSignedness", s"(Z)L$BitVectorClass;")
+          // try and lower this to a machine integer if possible
+          mkFromRuntimeBV(BVType(true, size), ch)
+        case _ => 
+          Comment("BVUnsignedToSigned: no-op for everything except unsigned bitvectors")
+          ch << NOP
+
+    case BVSignedToUnsigned(e) =>
+      e.getType match
+        case BVType(true, size) => 
+          mkExpr(e, ch)
+          // the BV could be in machine integer representation, so we just lift
+          // it to the BV class and then operate on it
+          mkAsRuntimeBV(e.getType, ch)
+          ch << Ldc(0) << InvokeVirtual(BitVectorClass, "withSignedness", s"(Z)L$BitVectorClass;")
+          // try and lower this to a machine integer if possible. should be a
+          // no-op, but we keep it for consistency 
+          mkFromRuntimeBV(BVType(false, size), ch)
+        case _ => 
+          Comment("BVSignedToUnsigned: no-op for everything except signed bitvectors")
+          ch << NOP
+
+    case BVToInt(e) =>
+      mkExpr(e, ch)
+      mkAsRuntimeBV(e.getType, ch)
+      ch << InvokeVirtual(BitVectorClass, "toBigInt", s"()L$BigIntClass;")
+
+    case i @ IntToBV(size, signed, e) =>
+      mkExpr(e, ch)
+      // stack state ..., value
+      ch << InvokeVirtual(BigIntClass, "toBigInteger", s"()L$JavaBigIntegerClass;")
+      // ..., bigIntValue
+      ch << New(BitVectorClass) << DUP_X1 << SWAP
+      // ..., uninit BV, uninit BV, bigIntValue
+      ch << Ldc(if (signed) 1 else 0) << SWAP << Ldc(size)
+      // ..., uninit BV, signed, bigIntValue, size
+      ch << InvokeSpecial(BitVectorClass, constructorName, s"(ZL$JavaBigIntegerClass;I)V")
+      // ..., initialized BV
+      // turn this into a machine integer if possible
+      mkFromRuntimeBV(i.getType, ch)
+
     case BVNarrowingCast(e, to) =>
       mkExpr(e, ch)
       val from = e.getType
@@ -1695,6 +1744,28 @@ trait CodeGeneration { self: CompilationUnit =>
   }
 
   /**
+    * Lift machine integer representations to the BitVector class.
+    */
+  private def mkAsRuntimeBV(from: Type, ch: CodeHandler): Unit = from match {
+    case Int8Type()  => mkNewBV(ch, "B", 8)
+    case Int16Type() => mkNewBV(ch, "S", 16)
+    case Int32Type() => mkNewBV(ch, "I", 32)
+    case Int64Type() => mkNewBV(ch, "J", 64)
+    case BVType(_, _) => ch << NOP
+  }
+
+  /**
+    * Lower BitVector back to machine integer representations, if possible.
+    */
+  private def mkFromRuntimeBV(to: Type, ch: CodeHandler): Unit = to match {
+    case Int8Type()  => ch << InvokeVirtual(BitVectorClass, "toByte", "()B")
+    case Int16Type() => ch << InvokeVirtual(BitVectorClass, "toShort", "()S")
+    case Int32Type() => ch << InvokeVirtual(BitVectorClass, "toInt", "()I")
+    case Int64Type() => ch << InvokeVirtual(BitVectorClass, "toLong", "()J")
+    case BVType(_, _) => ch << NOP
+  }
+
+  /**
    *  Generate ByteCode for BV widening and narrowing on arbitrary BV.
    *
    *  [[from]] and [[to]] are expected to be different, and at least one of
@@ -1707,13 +1778,7 @@ trait CodeGeneration { self: CompilationUnit =>
   private def mkBVCast(from: Type, to: Type, ch: CodeHandler): Unit = {
     // Here, we might need to first create a BitVector.
     // We might also have to convert the resulting BitVector back to a regular integer type.
-    from match {
-      case Int8Type()  => mkNewBV(ch, "B", 8)
-      case Int16Type() => mkNewBV(ch, "S", 16)
-      case Int32Type() => mkNewBV(ch, "I", 32)
-      case Int64Type() => mkNewBV(ch, "J", 64)
-      case BVType(_, s) => ch << NOP
-    }
+    mkAsRuntimeBV(from, ch)
 
     val BVType(_, oldSize) = from: @unchecked
     val BVType(_, newSize) = to: @unchecked
@@ -1721,13 +1786,7 @@ trait CodeGeneration { self: CompilationUnit =>
     ch << Ldc(newSize)
     ch << InvokeVirtual(BitVectorClass, "cast", s"(I)L$BitVectorClass;")
 
-    to match {
-      case Int8Type()  => ch << InvokeVirtual(BitVectorClass, "toByte", "()B")
-      case Int16Type() => ch << InvokeVirtual(BitVectorClass, "toShort", "()S")
-      case Int32Type() => ch << InvokeVirtual(BitVectorClass, "toInt", "()I")
-      case Int64Type() => ch << InvokeVirtual(BitVectorClass, "toLong", "()J")
-      case BVType(_, s) => ch << NOP
-    }
+    mkFromRuntimeBV(to, ch)
   }
 
   private def mkBVShift(l: Expr, r: Expr, ch: CodeHandler,

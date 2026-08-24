@@ -331,6 +331,27 @@ object ListSpecs {
 
  }.ensuring(_ => p(x))
 
+  @opaque @inlineOnce
+  def notForallThenExistsNot[T](l: List[T], p: T => Boolean): Unit = {
+    require(!l.forall(p))
+    decreases(l)
+    l match {
+      case Cons(hd, tl) if !p(hd) => ()
+      case Cons(hd, tl) if p(hd)  => notForallThenExistsNot(tl, p)
+      case Nil()                  => ()
+    }
+  }.ensuring(_ => l.exists(e => !p(e)))
+
+  @opaque @inlineOnce
+  def forallThenNotExistsNot[T](l: List[T], p: T => Boolean): Unit = {
+    require(l.forall(p))
+    decreases(l)
+    l match {
+      case Cons(hd, tl) => forallThenNotExistsNot(tl, p)
+      case Nil()                  => ()
+    }
+  }.ensuring(_ => !l.exists(e => !p(e)))
+
   @opaque
   def subsetContained[T](l1: List[T], l2: List[T], x: T): Unit = {
     require(l1.forall(l2.contains) && l1.contains(x))
@@ -445,12 +466,237 @@ object ListSpecs {
         ()
     }
 
- }.ensuring(_ => subseq(l1.map(f), l2.map(f)))
+  }.ensuring(_ => subseq(l1.map(f), l2.map(f)))
+
+  @opaque
+  def mapAppend[A, B](l1: List[A], l2: List[A], f: A => B): Unit = {
+    l1 match {
+      case Cons(hd1, tl1) =>
+        mapAppend(tl1, l2, f)
+      case _ => ()
+    }
+  }.ensuring(_ => (l1 ++ l2).map(f) == (l1.map(f) ++ l2.map(f)))
+
+  @opaque
+  def appendForall[T](l1: List[T], l2: List[T], p: T => Boolean): Unit = {
+    l1 match {
+      case Cons(hd1, tl1) => 
+        appendForall(tl1, l2, p)
+      case _ => ()
+    }
+  }.ensuring(_ => (l1 ++ l2).forall(p) == (l1.forall(p) && l2.forall(p)))
+
+  @opaque
+  def appendExists[T](l1: List[T], l2: List[T], p: T => Boolean): Unit = {
+    l1 match {
+      case Cons(hd1, tl1) => 
+        appendExists(tl1, l2, p)
+      case _ => ()
+    }
+  }.ensuring(_ => (l1 ++ l2).exists(p) == (l1.exists(p) || l2.exists(p)))
+
+  @opaque @inlineOnce
+  def containsThenExists[T](l: List[T], e: T, p: T => Boolean): Unit = {
+    require(l.contains(e))
+    require(p(e))
+    decreases(l)
+    l match {
+      case Cons(hd, tl) if hd == e => ()
+      case Cons(hd, tl)            => containsThenExists(tl, e, p)
+      case Nil()                   => check(false)
+    }
+  }.ensuring(_ => l.exists(p))
+
+  @inlineOnce
+  @opaque
+  def appendFirstSubseq[T](l1: List[T], l2: List[T]): Unit = {
+    decreases(l1)
+    l1 match {
+      case Cons(hd, tl) => appendFirstSubseq(tl, l2)
+      case Nil()        => ()
+    }
+  }.ensuring (_ => ListSpecs.subseq(l1, l1 ++ l2))
+
+  @inlineOnce
+  @opaque
+  def appendSecondSubseq[T](l1: List[T], l2: List[T]): Unit = {
+    decreases(l1)
+    l1 match {
+      case Cons(hd, tl) => appendSecondSubseq(tl, l2)
+      case Nil()        => subseqRefl(l2)
+    }
+  }.ensuring (_ => ListSpecs.subseq(l2, l1 ++ l2))
+
+  @inlineOnce @opaque
+  def appendContains[T](l1: List[T], l2: List[T], b: T): Unit = {
+    decreases(l1)
+    l1 match {
+      case Cons(hd, tl) if hd == b => ()
+      case Cons(hd, tl)            => appendContains(tl, l2, b)
+      case Nil()                   => ()
+    }
+  }.ensuring (_ => (l1 ++ l2).contains(b) == (l1.contains(b) || l2.contains(b)))
+
+  @inlineOnce @opaque
+  def noDuplicateSubsetSizeBound[T](l: List[T], lIn: List[T]): Unit = {
+    require(lIn.forall(e => l.contains(e)))
+    require(ListOps.noDuplicate(lIn))
+    decreases(lIn.size)
+
+    lIn match {
+      case Cons(hd, tl) => {
+
+        ListSpecs.forallContainsSubset(lIn, l)
+        assert(lIn.content.subsetOf(l.content))
+        assert(!tl.contains(hd))
+        val newList = l - hd
+        ListSpecs.subsetContains(tl, newList)
+        noDuplicateSubsetSizeBound(newList, tl)
+        removeContainedDecreasesSize(l, hd)
+      }
+      case Nil() => ()
+    }
+  }.ensuring (_ => lIn.size <= l.size)
+
+  @inlineOnce @opaque
+  def removeContainedDecreasesSize[T](l: List[T], e: T): Unit = {
+    require(l.contains(e))
+    decreases(l)
+    l match {
+      case Cons(hd, tl) if hd == e => {
+        assert(l - e == tl - e)
+        if (tl.contains(e)) {
+          removeContainedDecreasesSize(tl, e)
+        }
+      }
+      case Cons(hd, tl) => removeContainedDecreasesSize(tl, e)
+      case Nil()        => check(false)
+    }
+  }.ensuring (_ => (l - e).size < l.size)
+
+  @inlineOnce @opaque
+  def removeNotContainedIdentity[T](l: List[T], e: T): Unit = {
+    require(ListSpecs.noDuplicate(l))
+    require(!l.contains(e))
+    decreases(l)
+    l match {
+      case Cons(h, t) => {
+        removeNotContainedIdentity(t, e)
+        assert(!t.contains(e))
+        assert(t - e == t)
+      }
+      case Nil() => ()
+    }
+  }.ensuring(_ => l == l - e)
+
+  @inlineOnce @opaque
+  def noDuplicateRemoveHeadTail[T](l: List[T], e: T): Unit = {
+    require(ListSpecs.noDuplicate(l))
+    require(l.contains(e))
+    require(l.head == e)
+    l match {
+      case Cons(h, t) => {
+        assert(h == e)
+        assert(!t.contains(e))
+        removeNotContainedIdentity(t, e)
+        assert(t - e == t)
+
+      }
+      case Nil() => check(false)
+    }
+    
+  }.ensuring(_ => l - e == l.tail)
 
   @opaque
   def filterSubseq[A](@induct l: List[A], p: A => Boolean): Unit = {
+  
+  }.ensuring(_ => subseq(l.filter(p), l))
 
- }.ensuring(_ => subseq(l.filter(p), l))
+  @inlineOnce @opaque 
+  def subseqRefl[T](l: List[T]): Unit = {
+    decreases(l.size)
+    l match {
+      case Nil()        => ()
+      case Cons(hd, tl) => subseqRefl(tl)
+    }
+  }.ensuring (_ => ListSpecs.subseq(l, l))
+
+  @inlineOnce @opaque
+  def sliceSubseq[T](l: List[T], i: BigInt, j: BigInt): Unit = {
+    require(i >= 0 && j >= i && j <= l.size)
+    decreases(l)
+    l match {
+      case Nil()        => ()
+      case Cons(hd, tl) => if (i == 0 && j == 0) then () 
+                          else if (i > 0) then sliceSubseq(tl, i - 1, j - 1)
+                          else sliceSubseq(tl, i, j - 1)
+    }
+  }.ensuring(_ => ListSpecs.subseq(l.slice(i, j), l))
+  
+  @inlineOnce @opaque
+  def dropSubseq[T](l: List[T], i: BigInt): Unit = {
+    decreases(l)
+    (l, i) match {
+      case (Nil(), _) => ()
+      case (Cons(h, t), i) =>
+        if (i <= BigInt(0)) {
+          subseqRefl(l)
+          ()
+        } else {
+          dropSubseq(t, i - 1)
+        }
+    }
+  }.ensuring(_ => ListSpecs.subseq(l.drop(i), l))
+
+  @inlineOnce @opaque 
+  def subseqOfCons[T](l: List[T], elmt: T): Unit = {
+    l match {
+      case Nil() => ()
+      case Cons(hd, tl) if hd == elmt => {
+        subseqRefl(l)
+        ListSpecs.subseqTail(l, l)
+        assert(ListSpecs.subseq(tl, l))
+      }
+      case Cons(hd, tl) if hd != elmt => subseqRefl(l)
+    }
+  }.ensuring (_ => ListSpecs.subseq(l, Cons(elmt, l)))
+  
+  @inlineOnce @opaque 
+  def subseqTransitive[T](l1: List[T], l2: List[T], l3: List[T]): Unit = {
+    require(ListSpecs.subseq(l1, l2))
+    require(ListSpecs.subseq(l2, l3))
+    decreases(l1.size, l2.size, l3.size)
+
+    (l1, l2, l3) match {
+      case (Cons(hd1, tl1), Cons(hd2, tl2), Cons(hd3, tl3)) if hd2 != hd3 => {
+        subseqTransitive(l1, l2, tl3)
+      }
+      case (Cons(hd1, tl1), Cons(hd2, tl2), Cons(hd3, tl3)) if hd2 == hd3 => {
+        if (ListSpecs.subseq(tl2, tl3)) {
+          if (hd1 == hd2) {
+            if (ListSpecs.subseq(tl1, tl2)) {
+              subseqTransitive(tl1, tl2, tl3)
+            } else {
+              subseqTransitive(l1, tl2, tl3)
+            }
+          } else {
+            subseqTransitive(l1, tl2, tl3)
+          }
+        } else {
+          if (hd1 == hd2) {
+            if (ListSpecs.subseq(tl1, l2)) {
+              subseqTransitive(tl1, l2, tl3)
+            } else {
+              subseqTransitive(l1, l2, tl3)
+            }
+          } else {
+            subseqTransitive(l1, l2, tl3)
+          }
+        }
+      }
+      case _ => ()
+    }
+  }.ensuring (_ => ListSpecs.subseq(l1, l3))
 
   @opaque
   def noDuplicateMapFilter[A, B](l: List[A], p: A => Boolean, f: A => B): Unit = {
@@ -470,6 +716,46 @@ object ListSpecs {
  }.ensuring(_ =>
     !l.filter(_._1 != a).map(_._1).contains(a)
   )
+
+  @opaque
+  def filterAppend[T](l1: List[T], l2: List[T], p: T => Boolean): Unit = {
+    l1 match {
+      case Cons(hd1, tl1) => 
+        filterAppend(tl1, l2, p)
+      case _ => ()
+    }
+  }.ensuring(_ => (l1 ++ l2).filter(p) == (l1.filter(p) ++ l2.filter(p)))
+
+  @inlineOnce @opaque
+  def removePreservesForall[T](@induct l: List[T], e: T, p: T => Boolean): Unit = {
+    require(ListSpecs.noDuplicate(l))
+    require(l.forall(p))
+  }.ensuring(_ => (l - e).forall(p))
+
+  @inlineOnce @opaque
+  def removePreservesNoDuplicate[T](@induct l: List[T], e: T): Unit = {
+    require(ListSpecs.noDuplicate(l))
+  }.ensuring(_ => ListSpecs.noDuplicate(l - e))
+
+  @inlineOnce @opaque
+  def removeNoDuplicateDecreasesSizeByOne[T](l: List[T], e: T): Unit = {
+    require(ListSpecs.noDuplicate(l))
+    require(l.contains(e))
+    decreases(l)
+    l match {
+      case Cons(hd, tl) if hd != e => removeNoDuplicateDecreasesSizeByOne(tl, e)
+      case Cons(hd, tl) if hd == e => noDuplicateRemoveHeadTail(l, e)
+      case Nil()                   => check(false)
+    }
+  }.ensuring(_ => (l - e).size == l.size - 1)
+
+  @inlineOnce @opaque
+  def forallContainsDropHead[T](@induct l: List[T], refL: List[T], refHd: T): Unit = {
+    require(!refL.isEmpty)
+    require(l.forall(e => refL.contains(e)))
+    require(refHd == refL.head)
+    require(!l.contains(refHd))
+  }.ensuring(_ => l.forall(e => refL.tail.contains(e)))
 
   @opaque
   def containedTail[T](@induct l1: List[T], l2: List[T]): Unit = {
@@ -498,8 +784,82 @@ object ListSpecs {
       forallContainsSubset(l1.tail, l2) // gives us:
       assert(l1.tail.content.subsetOf(l2.content))
     }
- }.ensuring(_ =>
+  }.ensuring(_ =>
     l1.content.subsetOf(l2.content)
   )
+
+  @opaque
+  def contentSubsetPreservesForall[T](l1: List[T], l2: List[T], p: T => Boolean): Unit = {
+    require(l1.forall(p))
+    require(l2.content.subsetOf(l1.content))
+    decreases(l2)
+    l2 match {
+      case Cons(hd, tl) => {
+        contentSubsetPreservesForall(l1, tl, p)
+        assert(l1.contains(hd))
+        ListSpecs.forallContained(l1, p, hd)
+        assert(p(hd))
+      }
+      case Nil() => ()
+    }
+  }.ensuring (_ => l2.forall(p))
+  
+  def consecutiveSubseq[T](l1: List[T], lTot: List[T]): Boolean = {
+    decreases(lTot)
+    lTot match {
+      case Cons(hd, tl) => consecutiveSubseqAtHead(l1, lTot) || consecutiveSubseq(l1, tl)
+      case Nil()        => consecutiveSubseqAtHead(l1, lTot)
+    }
+  }
+  
+  def consecutiveSubseqAtHead[T](l1: List[T], lTot: List[T]): Boolean = {
+    decreases(lTot)
+    (l1, lTot) match {
+      case (Nil(), _)                                           => true
+      case (Cons(hd1, tl1), Cons(hdTot, tlTot)) if hd1 == hdTot => consecutiveSubseqAtHead(tl1, tlTot)
+      case _                                                    => false
+    }
+  }
+
+  // isPrefix
+  
+  def isPrefix[T](prefix: List[T], l: List[T]): Boolean = {
+    decreases(prefix)
+    (prefix, l) match {
+      case (Nil(), _) => true
+      case (_, Nil()) => false
+      case (l1, l2)   => if (l1.head == l2.head) isPrefix(l1.tail, l2.tail) else false
+    }
+  }.ensuring (res => if (res) l.size >= prefix.size else true)
+
+  
+  def isSuffix[T](suffix: List[T], l: List[T]): Boolean = {
+    decreases(suffix)
+    suffix == l.drop(l.size - suffix.size)
+  }.ensuring (res => res ==> (l.size >= suffix.size))
+
+  
+  def getSuffix[T](l: List[T], p: List[T]): List[T] = {
+    require(l.size >= p.size)
+    require(isPrefix(p, l))
+    decreases(l)
+    p match {
+      case Cons(hd, tl) => getSuffix(l.tail, tl)
+      case Nil()        => l
+    }
+  }.ensuring (res => p ++ res == l)
+
+
+  // Exists
+  
+  def existsGetWitness[T](l: List[T], p: T => Boolean): T = {
+    require(l.exists(p))
+    decreases(l)
+    l match {
+      case Cons(hd, tl) if p(hd) => hd
+      case Cons(hd, tl)           => existsGetWitness(tl, p)
+      case Nil()                  => check(false); l.head
+    }
+  }.ensuring(res => p(res) && l.contains(res) && l.exists(p))
 
 }

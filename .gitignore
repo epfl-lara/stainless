@@ -114,6 +114,10 @@ project/project/
 *.c
 *.h
 *.out
+# ... but keep the GenC golden snapshots (named `.expected.c` / `.expected.h` for
+# syntax highlighting) under version control.
+!*.expected.c
+!*.expected.h
 
 # LZW GenC benchmarks files
 input.txt

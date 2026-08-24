@@ -95,7 +95,7 @@ if [ -n "$SOLVERS_DIR" ]; then
   mkdir -p "$SOLVERS_DIR"
   mkdir -p "$TEMP_DIR"
   # cvc5
-  wget https://github.com/cvc5/cvc5/releases/download/cvc5-1.1.2/cvc5-Linux-static.zip -O "$TEMP_DIR/downloaded.zip" -q
+  wget https://github.com/cvc5/cvc5/releases/download/cvc5-1.3.4/cvc5-Linux-x86_64-static.zip -O "$TEMP_DIR/downloaded.zip" -q
   unzip "$TEMP_DIR/downloaded.zip" -d "$TEMP_DIR"
   CVC5_DIR=$(ls "$TEMP_DIR" | grep cvc5)
   mv "$TEMP_DIR/$CVC5_DIR/bin/cvc5" "$SOLVERS_DIR/cvc5"
@@ -108,7 +108,7 @@ if [ -n "$SOLVERS_DIR" ]; then
 
   # z3
   mkdir -p "$TEMP_DIR"
-  wget https://github.com/Z3Prover/z3/releases/download/z3-4.13.0/z3-4.13.0-x64-glibc-2.35.zip -O "$TEMP_DIR/downloaded.zip" -q
+  wget https://github.com/Z3Prover/z3/releases/download/z3-5.0.0/z3-5.0.0-x64-glibc-2.39.zip -O "$TEMP_DIR/downloaded.zip" -q
   unzip "$TEMP_DIR/downloaded.zip" -d "$TEMP_DIR"
   Z3_DIR=$(ls "$TEMP_DIR" | grep z3)
   mv "$TEMP_DIR/$Z3_DIR/bin/z3" "$SOLVERS_DIR/z3"
@@ -156,7 +156,7 @@ else
   fi
 
   # Run the integration tests
-  $SBT -batch -Dtestsuite-parallelism=3 -Dtestcase-parallelism=5 it:test
+  $SBT -batch -Dtestsuite-parallelism=6 -Dtestcase-parallelism=5 it:test
   if [ $? -ne 0 ]; then
     echo "************** Integration tests failed **************"
     exit 1

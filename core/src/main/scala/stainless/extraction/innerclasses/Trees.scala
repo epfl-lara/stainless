@@ -59,20 +59,21 @@ trait Trees extends methods.Trees with Definitions with Types { self =>
   }
 
   case class LetClass(classes: Seq[LocalClassDef], body: Expr) extends Expr with CachingTyped {
-    protected def computeType(using Symbols): Type = body.getType
+    protected def computeTpe(stripRefinements: Boolean)(using Symbols): Type = body.getTpe(stripRefinements)
   }
 
   case class LocalThis(lct: LocalClassType) extends Expr with CachingTyped {
-    protected def computeType(using Symbols): LocalClassType = lct
+    protected def computeTpe(stripRefinements: Boolean)(using Symbols): LocalClassType = lct
   }
 
   case class LocalClassConstructor(lct: LocalClassType, args: Seq[Expr]) extends Expr with CachingTyped {
-    protected def computeType(using Symbols): LocalClassType = lct
+    protected def computeTpe(stripRefinements: Boolean)(using Symbols): LocalClassType = lct
   }
 
   case class LocalClassSelector(expr: Expr, selector: Identifier, tpe: Type) extends Expr with CachingTyped {
-    protected def computeType(using Symbols): Type = expr.getType match {
+    protected def computeTpe(stripRefinements: Boolean)(using Symbols): Type = expr.getTpe(stripRefinements) match {
       case lct: LocalClassType => tpe
+      case r: RefinementType => tpe
       case _ => Untyped
     }
   }
@@ -84,7 +85,7 @@ trait Trees extends methods.Trees with Definitions with Types { self =>
     tps: Seq[Type],
     args: Seq[Expr]
   ) extends Expr with CachingTyped {
-    protected def computeType(using Symbols): Type = {
+    protected def computeTpe(stripRefinements: Boolean)(using Symbols): Type = {
       receiver.getType match {
         case lct: LocalClassType =>
           method.tpe match {

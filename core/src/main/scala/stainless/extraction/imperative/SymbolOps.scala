@@ -93,6 +93,11 @@ trait SymbolOps extends TypeOps with oo.SymbolOps { self =>
     case arr: ArrayType => true
     case map: MutableMapType => true
     case ft: FunctionType => false
+    case pt: PiType => false
+    // The base type of a RefinementType is hidden inside its ValDef, so the
+    // generic NAryType case would not see it (RefinementType deconstructs with no sub-types).
+    case RefinementType(vd, _) => isMutableType(vd.tpe, mutableClasses, visited)
+    case SigmaType(params, to) => (params.map(_.tpe) :+ to).exists(isMutableType(_, mutableClasses, visited))
     case ct: ClassType => isMutableClassType(ct, mutableClasses, visited)
     case adt: ADTType => isMutableADTType(adt, mutableClasses, visited)
     case ta: TypeApply if ta.isAbstract => ta.getTypeDef.flags contains IsMutable

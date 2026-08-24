@@ -629,12 +629,16 @@ sealed abstract class List[+T] {
   }}
 
   def groupBy[TT >: T, R](f: TT => R): Map[R, List[TT]] = this match {
-    case Nil => Map.empty[R, List[TT]]
-    case h :: t =>
-      val key: R = f(h)
-      val rest: Map[R, List[TT]] = t.groupBy(f)
-      val prev: List[TT] = if (rest.isDefinedAt(key)) rest(key) else Nil
-      (rest ++ Map((key, h :: prev))) : Map[R, List[TT]]
+     case Nil => Map.empty[R, List[TT]]
+     case h :: t =>
+       val key: R = f(h)
+       val rest: Map[R, List[TT]] = t.groupBy(f)
+       val res = rest.get(key)
+       val prev: List[TT] = 
+         res match
+           case stainless.lang.None() => (Nil : List[TT])
+           case stainless.lang.Some(k) => k 
+       (rest ++ Map((key, h :: prev))) : Map[R, List[TT]]
   }
 
   def takeWhile(p: T => Boolean): List[T] = { this match {

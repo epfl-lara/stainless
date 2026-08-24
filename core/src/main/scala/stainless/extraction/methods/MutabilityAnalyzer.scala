@@ -51,6 +51,11 @@ trait MutabilityAnalyzer extends oo.ExtractionPipeline { self =>
             fd.isGetter && rec(fd.returnType, seen + cid)
           }
         case _: FunctionType => false
+        case _: PiType => false
+        // The base type of a RefinementType is hidden inside its ValDef, so the
+        // generic NAryType case would not see it (RefinementType deconstructs with no sub-types).
+        case RefinementType(vd, _) => rec(vd.tpe, seen)
+        case SigmaType(params, to) => params.exists(vd => rec(vd.tpe, seen)) || rec(to, seen)
         case NAryType(tps, _) => tps.exists(rec(_, seen))
       }
 

@@ -559,6 +559,20 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
           case _ => reporter.fatalError(e.getPos, s"Cannot use `toUnsigned` on ${e2.asString}")
         }
 
+      case c@BVToInt(e2) =>
+        val (tpe, vcs) = inferType(tc, e2)
+        stripRefinementsAndAnnotations(tpe) match {
+          case BVType(_, _) => (IntegerType(), vcs)
+          case _ => reporter.fatalError(e.getPos, s"Cannot convert ${e2.asString} to an integer")
+        }
+
+      case c@IntToBV(size, signed, e2) =>
+        val (tpe, vcs) = inferType(tc, e2)
+        stripRefinementsAndAnnotations(tpe) match {
+          case IntegerType() => (BVType(signed, size), vcs)
+          case _ => reporter.fatalError(e.getPos, s"Cannot convert ${e2.asString} to a bitvector")
+        }
+
       case FiniteSet(elements, tpe) =>
         (SetType(tpe),
           if (elements.isEmpty) isType(tc, tpe)
@@ -937,7 +951,7 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
           }
         }
 
-        val argsKind = VCKind.Error(s"argument types (call $fiS)")
+        val argsKind = VCKind.Info(VCKind.Precondition, s"argument types: call $fiS")
         (insertFreshLets(calleeTfd.params, args, calleeTfd.returnType),
           checkDependentTypes(tc.withVCKind(argsKind), args, calleeTfd.params) ++
           trPre ++
@@ -1207,6 +1221,9 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
 
       case (Tuple(es), TupleType(tps)) =>
         checkTypes(tc, es, tps)
+
+      case (e, TupleType(tps)) =>
+        checkTypes(tc, (1 to tps.size).map(i => TupleSelect(e, i).copiedFrom(e)), tps)
 
       case (Tuple(es), SigmaType(from, to)) =>
         checkDependentTypes(tc, es.init, from) ++

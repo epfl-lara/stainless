@@ -11,15 +11,6 @@ Global / excludeLintKeys += buildInfoPackage
 Global / excludeLintKeys += testOptions
 Global / excludeLintKeys += publishArtifact
 
-val osInf = Option(System.getProperty("os.name")).getOrElse("")
-
-val isUnix    = osInf.indexOf("nix") >= 0 || osInf.indexOf("nux") >= 0
-val isWindows = osInf.indexOf("Win") >= 0
-val isMac     = osInf.indexOf("Mac") >= 0
-
-val osName = if (isWindows) "win" else if (isMac) "mac" else "unix"
-val osArch = System.getProperty("sun.arch.data.model")
-
 val circeVersion = "0.14.1"
 
 // The number of test suites (e.g. VerificationSuite, UncheckedSuite) run in parallel
@@ -38,24 +29,13 @@ lazy val nTestSuiteParallelism = {
   }
 }
 
-// The Scala version with which Stainless is compiled.
+// The Scala version with which Stainless (and its library) is compiled, and which is bundled as the frontend compiler.
 // Note: in case of version bump, do not forget to update the `test` files in `sbt-plugin` (for `sbt scripted`)!
-val stainlessScalaVersion = "3.8.3-RC1-bin-20260218-bb6fc60-NIGHTLY"
-val frontendDottyVersion = stainlessScalaVersion
-// The Stainless libraries use Scala 2.13 and Scala 3.5, and is compatible only with Scala 3.5.
-val stainlessLibScalaVersion = stainlessScalaVersion
+val stainlessScalaVersion = "3.10.0-RC1-bin-20260608-cf86bba-NIGHTLY"
 
 val laraOrganization = "ch.epfl.lara"
 
 scalaVersion := stainlessScalaVersion
-
-lazy val frontendClass = settingKey[String]("The name of the compiler wrapper used to extract stainless trees")
-
-// FIXME @nv: dotty compiler needs the scala-library and dotty-library (and maybe some other
-//            dependencies?) so we set them here through stainless' compile-time dependencies.
-lazy val extraClasspath = taskKey[String]("Classpath extensions passed directly to the underlying compiler")
-
-lazy val scriptPath = taskKey[String]("Classpath used in the stainless Bash script")
 
 lazy val stainlessBuildInfoKeys = Seq[BuildInfoKey](
   name,
@@ -146,7 +126,8 @@ lazy val stainlessLibSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
   scalacOptions ++= Seq(
     "-deprecation",
     "-unchecked",
-    "-feature"
+    "-feature",
+    "-language:experimental.qualifiedTypes"
   ),
 
   // disable documentation packaging in universal:stage to speedup development
@@ -192,79 +173,59 @@ lazy val assemblySettings: Seq[Setting[_]] = {
         val oldStrategy = (assembly / assemblyMergeStrategy).value
         oldStrategy(x)
     },
+    // Keep a single Scala library in the assembled classpath. We use a custom
+    // scalaOrganization (ch.epfl.lara), but transitive dependencies still pull
+    // upstream org.scala-lang Scala libraries; assembling them alongside the
+    // fork's library yields conflicting scala/* classes from different Scala
+    // versions. commonSettings already excludes these, but the assembling
+    // projects (e.g. stainless-dotty-standalone) don't use commonSettings.
+    excludeDependencies ++= Seq(
+      ExclusionRule("org.scala-lang", "scala3-library_3"),
+      ExclusionRule("org.scala-lang", "scala3-compiler_3"),
+      ExclusionRule("org.scala-lang", "scala-library"),
+    ),
   )
 }
 
-lazy val libFilesFile = "libfiles.txt" // file storing list of library file names
-
-lazy val regenFilesFile = false
-
+// The Stainless library sources, shipped as resources and passed to the bundled compiler at runtime.
 def libraryFiles(baseDir: File): Seq[(String, File)] = {
-  // Note baseDir.value is either frontends/scalac or frontends/dotty, so we need to go up two levels with / .. / .. /
+  // Note baseDir is frontends/dotty, so we need to go up two levels with / .. / .. /
   val libFiles = ((baseDir / ".." / ".." / "frontends" / "library" / "stainless") ** "*.scala").get
   val dropCount = (libFiles.head.getPath indexOfSlice "library") + ("library".size + 1 /* for separator */)
-  val res : Seq[(String, File)] = libFiles.map(file => (file.getPath drop dropCount, file)) // Drop the prefix of the path (i.e. everything before "library")
-  if (regenFilesFile) {
-    val fileNames : Seq[String] = res.map(_._1)
-    println(fileNames)
-    reflect.io.File(libFilesFile).writeAll(fileNames.mkString("\n"))
-  }
-  res
+  libFiles.map(file => (file.getPath drop dropCount, file)) // Drop the prefix of the path (i.e. everything before "library")
 }
 
-def commonFrontendSettings(compilerVersion: String): Seq[Setting[_]] = Defaults.itSettings ++ Seq(
+lazy val frontendSettings: Seq[Setting[_]] = Defaults.itSettings ++ Seq(
+
+  // The stainless library is compiled with qualified types enabled, which marks all its
+  // definitions @experimental; referencing them requires experimental mode here as well.
+  scalacOptions += "-language:experimental.qualifiedTypes",
 
   /**
-    * NOTE: IntelliJ seems to have trouble including sources located outside the base directory of an
-    *   sbt project. You can temporarily disable the following four lines when importing the project.
-    * NOTE 2: baseDirectory.value is either frontends/scalac or frontends/dotty, so we need to go up two levels with / .. / .. /
+    * NOTE: IntelliJ seems to have trouble including resources located outside the base directory of an
+    *   sbt project. You can temporarily disable the following line when importing the project.
+    * NOTE 2: baseDirectory.value is frontends/dotty, so we need to go up two levels with / .. / .. /
     */
   IntegrationTest / unmanagedResourceDirectories += (baseDirectory.value / ".." / ".." / "frontends" / "benchmarks"),
-  Compile / unmanagedSourceDirectories           += (baseDirectory.value / ".." / ".." / "frontends" / "common" / "src" / "main" / "scala"),
-  Test / unmanagedSourceDirectories              += (baseDirectory.value / ".." / ".." / "frontends" / "common" / "src" / "test" / "scala"),
-  IntegrationTest / unmanagedSourceDirectories   += (baseDirectory.value / ".." / ".." / "frontends" / "common" / "src" / "it" / "scala"),
 
-  // We have to use managed resources here to keep sbt's source watcher happy
+  // Ship the Stainless library sources as resources, along with the stainless/libfiles.txt
+  // index that stainless.Main reads to locate them.
+  // We have to use managed resources here to keep sbt's source watcher happy.
   Compile / resourceGenerators += Def.task {
-    for ((libPath, libFile) <- libraryFiles(baseDirectory.value)) yield {
-      val resourceFile = (Compile / resourceManaged).value / libPath
+    val libFiles = libraryFiles(baseDirectory.value)
+    val resourceDir = (Compile / resourceManaged).value
+    val copies = for ((libPath, libFile) <- libFiles) yield {
+      val resourceFile = resourceDir / libPath
       IO.write(resourceFile, IO.read(libFile))
       resourceFile
     }
+    val index = resourceDir / "stainless" / "libfiles.txt"
+    IO.write(index, libFiles.map(_._1).mkString("\n"))
+    index +: copies
   }.taskValue,
 
   assembly / test := {}, // Skip the test during assembly
-
-  Compile / sourceGenerators += Def.task {
-    val main = (Compile / sourceManaged).value / "stainless" / "Main.scala"
-    def removeSlashU(in: String): String =
-      in.replaceAll("\\\\" + "u", "\\\\\"\"\"+\"\"\"u")
-      .replaceAll("\\\\" + "U", "\\\\\"\"\"+\"\"\"U")
-
-    IO.write(main,
-      s"""|package stainless
-          |
-          |object Main extends MainHelpers {
-          |  val compilerVersion = "$compilerVersion"
-          |
-          |  override protected def displayVersion(reporter: inox.Reporter): Unit = {
-          |    super.displayVersion(reporter)
-          |    reporter.info(s"Bundled Scala compiler: $$compilerVersion")
-          |  }
-          |
-          |  val defaultPaths = List(${removeSlashU(libraryFiles(baseDirectory.value).map(_._1).mkString("\"\"\"", "\"\"\",\n \"\"\"", "\"\"\""))})
-          |  val libPaths = try {
-          |    val source = scala.io.Source.fromFile(\"${libFilesFile}\")
-          |    try source.getLines().toList finally source.close()
-          |  } catch {
-          |     case (_:Throwable) => defaultPaths
-          |  }
-          |
-          |  override val factory = new frontends.${frontendClass.value}.Factory(Nil, libPaths)
-          |
-          |}""".stripMargin)
-    Seq(main)
-  }) ++
+) ++
   inConfig(IntegrationTest)(Defaults.testTasks ++ Seq(
     logBuffered := (nTestSuiteParallelism > 1),
     parallelExecution := (nTestSuiteParallelism > 1),
@@ -272,13 +233,6 @@ def commonFrontendSettings(compilerVersion: String): Seq[Setting[_]] = Defaults.
 
 Global / concurrentRestrictions := Seq(
   Tags.limit(Tags.Test, nTestSuiteParallelism)
-)
-
-val scriptSettings: Seq[Setting[_]] = Seq(
-  extraClasspath := {
-    ((Compile / classDirectory).value.getAbsolutePath +: (Compile / dependencyClasspath).value.map(_.data.absolutePath))
-      .mkString(System.getProperty("path.separator"))
-  }
 )
 
 def ghProject(repo: String, version: String) = RootProject(uri(s"${repo}#${version}"))
@@ -304,7 +258,7 @@ lazy val `stainless-library` = (project in file("frontends") / "library")
   .settings(stainlessLibSettings, publishMavenSettings)
   .settings(
     name := "stainless-library",
-    scalaVersion := stainlessLibScalaVersion,
+    scalaVersion := stainlessScalaVersion,
     crossVersion := CrossVersion.binary,
     Compile / scalaSource := baseDirectory.value / "stainless"
   )
@@ -315,7 +269,7 @@ lazy val `stainless-algebra` = (project in file("frontends") / "algebra")
   .settings(
     name := "stainless-algebra",
     version := "0.1.2",
-    scalaVersion := stainlessLibScalaVersion,
+    scalaVersion := stainlessScalaVersion,
     // don't publish binaries - stainless-algebra is only consumed as a sources component
     packageBin / publishArtifact := false,
     crossVersion := CrossVersion.binary,
@@ -326,13 +280,12 @@ lazy val `stainless-algebra` = (project in file("frontends") / "algebra")
 lazy val `stainless-dotty` = (project in file("frontends/dotty"))
   .enablePlugins(JavaAppPackaging)
   .enablePlugins(BuildInfoPlugin)
-  .settings(commonSettings, commonFrontendSettings(frontendDottyVersion))
-  .settings(scriptSettings, assemblySettings)
+  .settings(commonSettings, frontendSettings)
+  .settings(assemblySettings)
   .settings(noPublishSettings)
   .settings(
     name := "stainless-dotty",
-    frontendClass := "dotc.DottyCompiler",
-    libraryDependencies += laraOrganization %% "scala3-compiler" % frontendDottyVersion,
+    libraryDependencies += laraOrganization %% "scala3-compiler" % stainlessScalaVersion,
     buildInfoKeys ++= Seq[BuildInfoKey]("useJavaClassPath" -> false),
     // We include Scala library to be certain we also include scala-parser-combinators (which is not shipped with the Scala std library)
     assemblyPackageScala / assembleArtifact := true,
@@ -387,9 +340,9 @@ lazy val `sbt-stainless` = (project in file("sbt-plugin"))
     buildInfoPackage := "ch.epfl.lara.sbt.stainless",
     buildInfoKeys ++= Seq[BuildInfoKey](
       BuildInfoKey.map(version) { case (_, v) => "stainlessVersion" -> v },
-      "supportedScalaVersions" -> Seq(frontendDottyVersion),
+      "supportedScalaVersions" -> Seq(stainlessScalaVersion),
       "stainlessScalaVersion" -> stainlessScalaVersion,
-      "stainlessLibScalaVersion" -> stainlessLibScalaVersion,
+      "stainlessLibScalaVersion" -> stainlessScalaVersion,
     ),
     // Compiled with Scala 2; don't use the custom scalaOrganization
     scalaOrganization := "org.scala-lang",
@@ -399,7 +352,7 @@ lazy val `sbt-stainless` = (project in file("sbt-plugin"))
     scriptedLaunchOpts ++= Seq(
       "-Xmx768m",
       "-Dplugin.version=" + version.value,
-      "-Ddotty.version=" + frontendDottyVersion
+      "-Ddotty.version=" + stainlessScalaVersion
     ),
     scriptedBufferLog := false,
     scriptedDependencies := {
