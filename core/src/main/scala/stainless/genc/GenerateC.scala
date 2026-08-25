@@ -14,6 +14,7 @@ object GenerateC {
     val arrayLengthsMap = ArraysLengthsExtraction.get(symbols)
 
     NamedLeonPhase("GhostElimination", new GhostEliminationPhase) `andThen`
+    NamedLeonPhase("BigIntLowering", new BigIntLoweringPhase) `andThen`
     NamedLeonPhase("TrimSymbols", new TrimSymbols) `andThen`
     NamedLeonPhase("ComputeFunCtx", LeonPipeline.both(NoopPhase[Symbols], new ComputeFunCtxPhase)) `andThen`
     NamedLeonPhase("Scala2IR", Scala2IRPhase(arrayLengthsMap)) `andThen`

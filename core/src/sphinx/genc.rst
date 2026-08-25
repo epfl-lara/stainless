@@ -99,6 +99,33 @@ Additionally, GenC has partial support for character and string literals made
 of ASCII characters only but it has no API to manipulate strings at the moment:
 ``Char`` is mapped to ``char`` and ``String`` is mapped to ``char*``.
 
+BigInt
+^^^^^^
+
+By default, ``BigInt`` is rejected: it is unbounded and has no C counterpart.
+With the ``--genc-bigint-as=uint32`` option, GenC compiles ``BigInt`` to
+``uint32_t``. This mapping is only sound for verified programs: the *same*
+option must also be passed to verification, where it generates verification
+conditions checking that every ``BigInt`` value stays within
+``[0, 2^32 - 1]`` (one VC per addition, subtraction, multiplication and
+negation — division and remainder are always in range on non-negative
+operands — plus one per conversion from a signed or 64-bit integer type).
+Once these VCs are proven, every runtime ``uint32_t`` value equals the
+corresponding mathematical ``BigInt`` value. On non-negative operands, C's
+``/`` and ``%`` coincide with the ``BigInt`` semantics, and ``mod`` coincides
+with ``%``, so all three are supported. Ghost code and specifications are
+exempt from these VCs, so proofs can still use unbounded (and negative)
+arithmetic.
+
+Restrictions under ``--genc-bigint-as=uint32``:
+
+ - Every compiled ``BigInt`` value must provably stay within
+   ``[0, 2^32 - 1]``; in particular ``a - b`` requires ``b <= a``.
+ - Preconditions of exported functions may only use *comparisons* on
+   ``BigInt``, not arithmetic: they are compiled to runtime checks on
+   unverified C inputs, where the arithmetic itself could overflow.
+ - ``BigInt`` literals must fit in ``uint32_t``.
+
 Tuples
 ^^^^^^
 

@@ -67,6 +67,9 @@ trait MainHelpers extends inox.MainHelpers { self =>
     optJson -> Description(General, "Output verification and termination reports to a JSON file"),
     genc.optOutputFile -> Description(General, "File name for GenC output"),
     genc.optIncludes -> Description(General, "Add includes in GenC output"),
+    genc.optBigIntAs -> Description(General, "Compile BigInt to the given C type (only uint32 is supported).\n" +
+      "Requires verifying with the same option: it adds VCs checking that every\n" +
+      "BigInt value stays within [0, 2^32-1]"),
     optWatch -> Description(General, "Re-run stainless upon file changes"),
     optCompact -> Description(General, "Print only invalid elements of summaries"),
     optExtendedSummary -> Description(General, "Print an extended summary of all Stainless phases"),

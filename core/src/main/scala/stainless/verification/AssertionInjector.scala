@@ -10,7 +10,8 @@ import smtlib.theories.FloatingPoint.FPLit
  * casts are legal, no division by zero occur and, when using the [[strictArithmetic]] mode,
  * that the program is exempt of integer overflow and unexpected behaviour.
  */
-class AssertionInjector(override val s: ast.Trees, override val t: ast.Trees, val strictArithmetic: Boolean)
+class AssertionInjector(override val s: ast.Trees, override val t: ast.Trees,
+                        val strictArithmetic: Boolean, val bigIntToUInt32: Boolean = false)
                        (using val symbols: s.Symbols)
   extends transformers.ConcreteTreeTransformer(s, t) {
 
@@ -24,6 +25,35 @@ class AssertionInjector(override val s: ast.Trees, override val t: ast.Trees, va
     inWrappingMode = old
     res
   }
+
+  // BigInt bounds checks (--genc-bigint-as=uint32) do not apply inside specs and ghost code:
+  // GenC never compiles those, and proofs legitimately use unbounded arithmetic there.
+  // Unlike checkOverflow, wrapping mode does not disable these checks, as "wrapping BigInt"
+  // would silently change the mathematical semantics of the compiled program.
+  private var inSpecOrGhost: Boolean = false
+  private def bigIntCheck: Boolean = bigIntToUInt32 && !inSpecOrGhost
+
+  def specOrGhost[A](enabled: Boolean)(a: => A): A = {
+    val old = inSpecOrGhost
+    inSpecOrGhost = enabled
+    val res = a
+    inSpecOrGhost = old
+    res
+  }
+
+  private def inSpec[A](a: => A): A = specOrGhost(true)(a)
+
+  private val uint32Max = BigInt(2).pow(32) - 1
+
+  private def assertInUInt32Range(res: t.Expr, what: String, e: s.Expr): t.Expr =
+    t.Assert(
+      t.And(
+        t.LessEquals(t.IntegerLiteral(BigInt(0)).copiedFrom(e), res).copiedFrom(e),
+        t.LessEquals(res, t.IntegerLiteral(uint32Max).copiedFrom(e)).copiedFrom(e)
+      ).copiedFrom(e),
+      Some(what),
+      res
+    ).copiedFrom(e)
 
   private def indexUpTo(i: t.Expr, e: t.Expr) = t.And(
     t.GreaterEquals(i, t.Int32Literal(0).copiedFrom(i)).copiedFrom(i),
@@ -51,8 +81,13 @@ class AssertionInjector(override val s: ast.Trees, override val t: ast.Trees, va
   }
 
   override def transform(e: s.Expr): t.Expr = e match {
-    case s.Annotated(body, flags) if flags contains s.Wrapping =>
-      t.Annotated(wrapping(true)(transform(body)), flags map transform).copiedFrom(e)
+    case s.Annotated(body, flags) if (flags contains s.Wrapping) || (flags contains s.Ghost) =>
+      val inner = wrapping(inWrappingMode || (flags contains s.Wrapping)) {
+        specOrGhost(inSpecOrGhost || (flags contains s.Ghost)) {
+          transform(body)
+        }
+      }
+      t.Annotated(inner, flags map transform).copiedFrom(e)
 
     case s.ArraySelect(a, i) =>
       bindIfCannotDuplicate(a, "a") { ax =>
@@ -191,6 +226,46 @@ class AssertionInjector(override val s: ast.Trees, override val t: ast.Trees, va
         ).copiedFrom(e)
       }}
 
+    // BigInt arithmetic compiled to uint32_t (--genc-bigint-as=uint32): the operations are
+    // exact on BigInt, so a plain range check on the mathematical result is both necessary
+    // and sufficient for the compiled C operation to be exact. Division and remainder need
+    // no check: with both operands in [0, 2^32-1] (and the divisor nonzero, checked
+    // unconditionally below), their results are always in range.
+    case IntTyped(e0 @ s.Plus(lhs0, rhs0)) if bigIntCheck =>
+      bindIfCannotDuplicate(lhs0, "lhs") { lhsx =>
+      bindIfCannotDuplicate(rhs0, "rhs") { rhsx =>
+        assertInUInt32Range(t.Plus(lhsx, rhsx).copiedFrom(e), "Addition out of uint32 range", e)
+      }}
+
+    case IntTyped(e0 @ s.Minus(lhs0, rhs0)) if bigIntCheck =>
+      bindIfCannotDuplicate(lhs0, "lhs") { lhsx =>
+      bindIfCannotDuplicate(rhs0, "rhs") { rhsx =>
+        assertInUInt32Range(t.Minus(lhsx, rhsx).copiedFrom(e), "Subtraction out of uint32 range", e)
+      }}
+
+    case IntTyped(e0 @ s.Times(lhs0, rhs0)) if bigIntCheck =>
+      bindIfCannotDuplicate(lhs0, "lhs") { lhsx =>
+      bindIfCannotDuplicate(rhs0, "rhs") { rhsx =>
+        assertInUInt32Range(t.Times(lhsx, rhsx).copiedFrom(e), "Multiplication out of uint32 range", e)
+      }}
+
+    case IntTyped(e0 @ s.UMinus(n0)) if bigIntCheck =>
+      bindIfCannotDuplicate(n0, "inner") { innerx =>
+        assertInUInt32Range(t.UMinus(innerx).copiedFrom(e), "Negation out of uint32 range", e)
+      }
+
+    // Bitvector to BigInt conversions must produce a value in [0, 2^32-1]; this holds by
+    // construction for unsigned sources up to 32 bits, and needs a VC otherwise (signed
+    // sources can be negative, 64-bit sources can exceed the range).
+    case s.BVToInt(bv0) if bigIntCheck =>
+      bv0.getType match {
+        case s.BVType(false, size) if size <= 32 => super.transform(e)
+        case _ =>
+          bindIfCannotDuplicate(bv0, "bv") { x =>
+            assertInUInt32Range(t.BVToInt(x).copiedFrom(e), "Bitvector to BigInt conversion out of uint32 range", e)
+          }
+      }
+
     case s.Division(n, d) =>
       // Check division by zero, and if requested/meaningful, check for overflow
       bindIfCannotDuplicate(n, "n") { nx =>
@@ -300,7 +375,9 @@ class AssertionInjector(override val s: ast.Trees, override val t: ast.Trees, va
         }
       }
 
-    case s.IntToBV(size, signed, value) if checkOverflow =>
+    // Also injected in bigIntCheck mode: when BigInt is compiled to uint32_t, these bounds
+    // are what makes the lowered narrowing cast exact, even with --strict-arithmetic=false.
+    case s.IntToBV(size, signed, value) if checkOverflow || bigIntCheck =>
       bindIfCannotDuplicate(value, "i") { x =>      // x : IntegerType
         val (lo, hi) =
           if (signed) (-BigInt(2).pow(size - 1), BigInt(2).pow(size - 1) - 1)
@@ -354,12 +431,41 @@ class AssertionInjector(override val s: ast.Trees, override val t: ast.Trees, va
     case s.FPLessThan(e1, e2) if checkOverflow => checkNaNBinop(e)(t.FPLessThan.apply, e1, e2)
     case s.FPEquals(e1, e2) if checkOverflow => checkNaNBinop(e)(t.FPEquals.apply, e1, e2)
 
+    // In bigIntCheck mode, spec conditions and ghost bindings are transformed with BigInt
+    // bounds checks disabled: GenC never compiles them (all Assert/Assume/spec conditions
+    // are discarded except exported preconditions, which the GenC lowering restricts to
+    // arithmetic-free conditions). Other injected checks still apply within them.
+    case s.Require(pre, body) if bigIntToUInt32 =>
+      t.Require(inSpec(transform(pre)), transform(body)).copiedFrom(e)
+
+    case s.Ensuring(body, pred) if bigIntToUInt32 =>
+      t.Ensuring(transform(body), inSpec(transform(pred).asInstanceOf[t.Lambda])).copiedFrom(e)
+
+    case s.Decreases(measure, body) if bigIntToUInt32 =>
+      t.Decreases(inSpec(transform(measure)), transform(body)).copiedFrom(e)
+
+    case s.Assert(cond, err, body) if bigIntToUInt32 =>
+      t.Assert(inSpec(transform(cond)), err, transform(body)).copiedFrom(e)
+
+    case s.Assume(cond, body) if bigIntToUInt32 =>
+      t.Assume(inSpec(transform(cond)), transform(body)).copiedFrom(e)
+
+    case s.Let(vd, value, body) if bigIntToUInt32 && (vd.flags contains s.Ghost) =>
+      t.Let(transform(vd), inSpec(transform(value)), transform(body)).copiedFrom(e)
+
     case _ => super.transform(e)
   }
 
   private object BVTyped {
     def unapply(e: s.Expr): Option[(Boolean, Int, s.Expr)] = e.getType match {
       case s.BVType(signed, size) => Some((signed, size, e))
+      case _ => None
+    }
+  }
+
+  private object IntTyped {
+    def unapply(e: s.Expr): Option[s.Expr] = e.getType match {
+      case s.IntegerType() => Some(e)
       case _ => None
     }
   }
@@ -410,7 +516,9 @@ object AssertionInjector {
     class InjectorImpl(override val s: p.trees.type,
                        override val t: p.trees.type)
                       (using override val symbols: p.symbols.type)
-      extends AssertionInjector(s, t, ctx.options.findOptionOrDefault(optStrictArithmetic))
+      extends AssertionInjector(s, t,
+        ctx.options.findOptionOrDefault(optStrictArithmetic),
+        genc.bigIntToUInt32(ctx))
     val injector = new InjectorImpl(p.trees, p.trees)(using p.symbols)
 
     class TransformerImpl(override val s: p.trees.type, override val t: p.trees.type)
@@ -421,6 +529,7 @@ object AssertionInjector {
         NoSymbols
           .withFunctions(syms.functions.values.toSeq.map { fd =>
             injector.wrapping(fd.flags.contains(s.Wrapping)) {
+            injector.specOrGhost(fd.flags.contains(s.Ghost)) {
               new FunDef(
                 fd.id,
                 fd.tparams map injector.transform,
@@ -429,7 +538,7 @@ object AssertionInjector {
                 injector.transform(fd.fullBody),
                 fd.flags map injector.transform
               ).copiedFrom(fd)
-            }
+            }}
           })
           .withSorts(syms.sorts.values.toSeq.map(injector.transform))
       }

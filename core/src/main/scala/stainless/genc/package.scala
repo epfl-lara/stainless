@@ -12,12 +12,30 @@ package object genc {
     val parser = inox.OptionParsers.stringParser
   }
 
+  // How GenC compiles BigInt (IntegerType). Empty (the default) means BigInt is rejected.
+  // The same option must be passed to verification, where it injects VCs checking that
+  // every BigInt operation's mathematical result fits in the chosen representation.
+  object optBigIntAs extends inox.OptionDef[String] {
+    val name = "genc-bigint-as"
+    val default = ""
+    val usageRhs = "uint32"
+    val parser = inox.OptionParsers.stringParser
+  }
+
   object optIncludes extends inox.OptionDef[Seq[String]] {
     val name = "genc-includes"
     val default = Seq()
     val usageRhs = "file1.h,file2.h,..."
     val parser = inox.OptionParsers.seqParser(inox.OptionParsers.stringParser)
   }
+
+  def bigIntToUInt32(ctx: inox.Context): Boolean =
+    ctx.options.findOptionOrDefault(optBigIntAs) match {
+      case "" => false
+      case "uint32" => true
+      case other =>
+        ctx.reporter.fatalError(s"Unsupported --genc-bigint-as value: $other (supported: uint32)")
+    }
 
   // FIXME: see leon definition
   def pathFromRoot(df: Definition)(using Symbols): List[Definition] = List(df)

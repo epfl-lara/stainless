@@ -23,6 +23,10 @@ class GenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUtils with
 
   val validFiles = resourceFiles("genc/valid", _.endsWith(".scala"), false).map(_.getPath)
   val invalidFiles = resourceFiles("genc/invalid", _.endsWith(".scala"), false).map(_.getPath)
+  // Benchmarks whose *verification* must report invalid VCs (with the benchmark's flags),
+  // e.g. missing BigInt bounds under --genc-bigint-as=int64. Distinct from `invalid`, whose
+  // files must make the genc run itself fail with a fatal error.
+  val unverifiedFiles = resourceFiles("genc/unverified", _.endsWith(".scala"), false).map(_.getPath)
   val tailrecFiles = validFiles.filter(_.toLowerCase.contains("tailrec".toLowerCase)).map { path =>
     val checkFile = path.replace(".scala", ".check")
     path -> checkFile
@@ -34,12 +38,12 @@ class GenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUtils with
     val cFile = file.replace(".scala", ".c")
     val outFile = file.replace(".scala", ".out")
     test(s"stainless --genc --genc-output=$cFile $file should fail") {
-      an [inox.FatalError] should be thrownBy runMainWithArgs(Array(file) :+ "--genc" :+ s"--genc-output=$cFile")
+      an [inox.FatalError] should be thrownBy runMainWithArgs(Array(file) ++ benchmarkFlags(file) :+ "--genc" :+ s"--genc-output=$cFile")
     }
   }
 
   for (file <- validFiles) {
-    val extraOpts = Seq("--batched", "--solvers=smt-z3", "--strict-arithmetic=false", "--timeout=10")
+    val extraOpts = Seq("--batched", "--solvers=smt-z3", "--strict-arithmetic=false", "--timeout=10") ++ benchmarkFlags(file)
     test(s"stainless ${extraOpts.mkString(" ")} $file") {
       val (localCtx, optReport) = runMainWithArgs(Array(file) ++ extraOpts)
       assert(localCtx.reporter.errorCount == 0, "No errors")
@@ -48,12 +52,21 @@ class GenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUtils with
     }
   }
 
+  for (file <- unverifiedFiles) {
+    val extraOpts = Seq("--batched", "--solvers=smt-z3", "--strict-arithmetic=false", "--timeout=10") ++ benchmarkFlags(file)
+    test(s"stainless ${extraOpts.mkString(" ")} $file should have invalid VCs") {
+      val (_, optReport) = runMainWithArgs(Array(file) ++ extraOpts)
+      assert(optReport.nonEmpty, "Report returned by Stainless")
+      assert(!optReport.get.isSuccess, "Some VCs should be invalid")
+    }
+  }
+
   for (file <- validFiles) {
     val cFile = file.replace(".scala", ".c")
     val hFile = file.replace(".scala", ".h")
     val outFile = file.replace(".scala", ".out")
     test(s"stainless --genc --genc-output=$cFile $file") {
-      runMainWithArgs(Array(file) :+ "--genc" :+ s"--genc-output=$cFile")
+      runMainWithArgs(Array(file) ++ benchmarkFlags(file) :+ "--genc" :+ s"--genc-output=$cFile")
       assert(Files.exists(Paths.get(cFile)))
       assert(Files.exists(Paths.get(hFile)))
       // Snapshot the generated C and header against golden files so that unintended
@@ -84,6 +97,11 @@ class GenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUtils with
     assert(output == "8410120", s"Output '$output' should be '8410120'")
   }
 
+  test("Checking that BigIntArith outputs 55036005050") {
+    val output = runCHelper("BigIntArith.scala")
+    assert(output == "55036005050", s"Output '$output' should be '55036005050'")
+  }
+
   test("Checking that Pointer2 outputs 124443") {
     val output = runCHelper("Pointer2.scala")
     assert(output == "124443", s"Output '$output' should be '124443'")
@@ -104,6 +122,17 @@ class GenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUtils with
       val output = runCHelper(file)
       assert(output == checkValue, s"Output '$output' should be $checkValue")
     }
+  }
+
+  /** Extra Stainless options for a benchmark, from an optional `<Name>.flags` sidecar file
+    * next to the `.scala` file (whitespace-separated). Used e.g. to pass
+    * `--genc-bigint-as=uint32` to both the verification and the genc runs of a benchmark.
+    */
+  def benchmarkFlags(scalaFile: String): Seq[String] = {
+    val flagsFile = Paths.get(scalaFile.replace(".scala", ".flags"))
+    if (Files.exists(flagsFile))
+      new String(Files.readAllBytes(flagsFile), StandardCharsets.UTF_8).split("\\s+").filter(_.nonEmpty).toSeq
+    else Seq()
   }
 
   /** Map a benchmark resource path to the corresponding golden file in the source tree.

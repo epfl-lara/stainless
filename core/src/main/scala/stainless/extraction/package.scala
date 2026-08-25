@@ -64,6 +64,7 @@ package object extraction {
     "ComputeDependencies"       -> "(GenC) Compute the dependencies of a given definition",
     "ComputeFunCtx"             -> "(GenC) Compute the context of each given function definition",
     "GhostElimination"          -> "(GenC) Remove ghost code",
+    "BigIntLowering"            -> "(GenC) Lower BigInt (IntegerType) to uint32_t (with --genc-bigint-as=uint32)",
     "Scala2IR"                  -> "(GenC) Convert the Stainless AST into GenC's IR",
     "StructInlining"            -> "(GenC) Inline structs which have just one member",
     "Normalisation"             -> "(GenC) Normalise IR to match the C execution model",
