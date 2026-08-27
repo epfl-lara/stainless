@@ -2713,6 +2713,11 @@ class CodeExtraction(inoxCtx: inox.Context,
           case None => xt.ClassType(id, args map extractType)
         }
 
+      // `Purified[A]` is a special opaque type that must never be dealiased down to `A`
+      // It is used to use a mutable type as a pure one
+      case AppliedType(tr: TypeRef, Seq(tp)) if isPurifiedSym(tr.symbol) =>
+        xt.PurifiedType(extractType(tp))
+
       // This case must come before the two below: isAbstractOrAliasType is also true for
       // opaque aliases, but widenDealiasKeepRefiningAnnots does not unfold them outside
       // their defining scope, so they would be extracted symbolically instead of resolved.
