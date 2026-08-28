@@ -157,6 +157,7 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
 
     val sd = prepareExtractionSummaryData
     val admitted = ctx.options.findOptionOrDefault(verification.optAdmitVCs)
+    val skipped = ctx.options.findOptionOrDefault(verification.optSkipVerification)
     val termOff = ctx.options.findOptionOrDefault(stainless.termination.optCheckMeasures).isNo
     val explicitChoose = sd.constructsUsage.hasExplicitChoose
     val missingImpl = sd.constructsUsage.hasMissingImpl
@@ -169,6 +170,7 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
     if (isExtendedSummaryOn) {
       // Critical
       val admitStr = if (admitted) Some(redBold("Admitted VCs")) else None
+      val skipStr = if (skipped) Some(yellowBold("VCs skipped")) else None
       val termOffStr = if (termOff) Some(redBold("Termination turned off")) else None
 
       // Constructs usage
@@ -183,7 +185,7 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
 
       // Putting everything together
       val items =
-        Seq(admitStr, termOffStr).flatten.map(indent.spaces + _) ++ // These needs to be indented
+        Seq(admitStr, skipStr, termOffStr).flatten.map(indent.spaces + _) ++ // These needs to be indented
         constructsSummary.toSeq ++ // But neither constructsSummary nor transformationSummary
         cacheStr.toSeq.map(indent.spaces + _) ++
         transformationSummary.toSeq ++
@@ -192,6 +194,7 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
          |${items.mkString("\n")}""".stripMargin // No join(items) here as their sub-items are already split according to the character limit
     } else {
       val admitStr = if (admitted) Some(redBold("admitted VCs")) else None
+      val skipStr = if (skipped) Some(yellowBold("VCs skipped")) else None
       val termOffStr = if (termOff) Some(redBold("termination off")) else None
       val explicitChooseStr = if (explicitChoose) Some(redBold("explicit choose")) else None
       val missingImplsStr = if (missingImpl) Some(redBold("missing implementations")) else None
@@ -204,7 +207,7 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
       val teStr = if (sd.typeEncoding.hasRun) Some("type encoding") else None
       val ceStr = if (sd.chooseInjection.hasRun) Some(yellowBold("choose injection")) else None
       val batchedStr = if (batched) Some("batched") else Some("non-batched")
-      val items = Seq(admitStr, termOffStr, explicitChooseStr, missingImplsStr, externsStr, cacheStr,
+      val items = Seq(admitStr, skipStr, termOffStr, explicitChooseStr, missingImplsStr, externsStr, cacheStr,
         aaStr, reStr, weStr, ieStr, teStr, ceStr, Some(solvers), batchedStr).flatten
       s"""Verification pipeline summary:
          |${join(items, prefix = indent.spaces)}""".stripMargin
