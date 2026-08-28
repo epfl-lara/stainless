@@ -8,6 +8,7 @@ import stainless.lang.Cell
 
 package object lang {
 
+  opaque type Test[A] = A
   // TODO: should be renamed to ghostExpr
   @library
   def ghost[A](@ghost value: => A): Unit = ()
