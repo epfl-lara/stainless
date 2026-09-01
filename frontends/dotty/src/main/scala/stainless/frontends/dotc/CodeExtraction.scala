@@ -2790,7 +2790,16 @@ class CodeExtraction(inoxCtx: inox.Context,
           case (xt.MapType(from, ct @ xt.ClassType(id, Seq(to))), 1) =>
             xt.MapType(from, xt.ClassType(id, Seq(extractType(tpe))).copiedFrom(ct))
           case (xt.NAryType(tps, recons), _) =>
-            recons(tps.updated(idx, extractType(tpe)))
+            // `tpe` can be an unresolved placeholder type (e.g. an unapplied type lambda)
+            // that dotty synthesizes while reconstructing the precise type of certain
+            // inlined expressions (observed with `inline def` methods pattern-matching over
+            // a generic ADT); it carries no real type argument, so on failure the refinement
+            // is dropped rather than failing extraction altogether.
+            scala.util.Try(extractType(tpe)) match {
+              case scala.util.Success(extractedTpe) => recons(tps.updated(idx, extractedTpe))
+              case scala.util.Failure(_: frontend.UnsupportedCodeException) => recons(tps)
+              case scala.util.Failure(e) => throw e
+            }
           case (_, _) => throw MatchError(s"Cannot extract refined type $name in $p", pos)
         }
 
