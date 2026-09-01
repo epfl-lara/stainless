@@ -14,14 +14,14 @@ import stainless.lang.StaticChecks.*
 @mutable
 case class LArray[T](private val data: Array[T], @ghost private var toList: List[T]) {
   
-  @ghost def valid: Boolean = Utils.sameArrayListContent(data, 0, toList)
+  @ghost def valid: Boolean = LArrayUtils.sameArrayListContent(data, 0, toList)
 
   @ghost def getList: List[T] = toList
 
   def size: BigInt = {
     require(valid)
-    ghostExpr(Utils.lemmaSameArrayListContentImpliesSameLength(data, 0, toList))
-    ghostExpr(Utils.lemmaToIntBigIntConversionBothDirections(toList.size, data.length))
+    ghostExpr(LArrayUtils.lemmaSameArrayListContentImpliesSameLength(data, 0, toList))
+    ghostExpr(LArrayUtils.lemmaToIntBigIntConversionBothDirections(toList.size, data.length))
     BigInt(data.length)
   }.ensuring(res => valid && res == toList.size && res >= 0 && res <= BigInt(Int.MaxValue) && res.toInt == data.length)
 
@@ -34,15 +34,15 @@ case class LArray[T](private val data: Array[T], @ghost private var toList: List
     require(valid)
     require(i >= 0 && i < size)
     ghostExpr({
-      Utils.lemmaSameArrayListContentImpliesSameLength(data, 0, toList)
-      Utils.lemmaToIntBigIntConversionBothDirections(toList.size, data.length)
-      Utils.compareBigIntPreservedByToInt(i, size)
+      LArrayUtils.lemmaSameArrayListContentImpliesSameLength(data, 0, toList)
+      LArrayUtils.lemmaToIntBigIntConversionBothDirections(toList.size, data.length)
+      LArrayUtils.compareBigIntPreservedByToInt(i, size)
       assert(size <= BigInt(Int.MaxValue))
       assert(BigInt(i.toInt) == i)
       assert(i.toInt >= 0 && i.toInt < data.length)
-      Utils.lemmaSameArrayListContentImpliesSameApply(data, 0, toList, i.toInt)
-      Utils.compareBigIntPreservedByToInt(i, size)
-      Utils.lemmaConversionBackForth(i)
+      LArrayUtils.lemmaSameArrayListContentImpliesSameApply(data, 0, toList, i.toInt)
+      LArrayUtils.compareBigIntPreservedByToInt(i, size)
+      LArrayUtils.lemmaConversionBackForth(i)
       assert(size == toList.size)
       assert(0 <= i && i < toList.size)
     })
@@ -54,26 +54,26 @@ case class LArray[T](private val data: Array[T], @ghost private var toList: List
     require(i >= 0 && i < isize)
     ghostExpr({
       assert(BigInt(i).toInt == i)
-      Utils.compareIntPreservedByToBigInt(i, size.toInt)
-      Utils.compareBigIntPreservedByToInt(BigInt(i), size)
+      LArrayUtils.compareIntPreservedByToBigInt(i, size.toInt)
+      LArrayUtils.compareBigIntPreservedByToInt(BigInt(i), size)
     })
     data(i)
   }.ensuring(res => valid && {
-      Utils.compareBigIntPreservedByToInt(BigInt(i), size)
+      LArrayUtils.compareBigIntPreservedByToInt(BigInt(i), size)
       res == apply(BigInt(i))
     })
 
   def update(i: BigInt, v: T): Unit = {
     require(valid)
     require(i >= 0 && i < size)
-    ghostExpr({Utils.lemmaSameArrayListContentImpliesSameLength(data, 0, toList)
-      Utils.compareBigIntPreservedByToInt(i, size)
+    ghostExpr({LArrayUtils.lemmaSameArrayListContentImpliesSameLength(data, 0, toList)
+      LArrayUtils.compareBigIntPreservedByToInt(i, size)
       assert(data.length == size.toInt)
-      Utils.sameArrayListContent(data, 0, toList)
-      Utils.lemmaSameArrayListContentPreservedByUpdated(data, 0, toList, i.toInt, v)
-      Utils.lemmaSameArrayListContentImpliesSameLength(data, 0, toList)
-      Utils.lemmaToIntBigIntConversionBothDirections(toList.size, data.length)
-      Utils.compareBigIntPreservedByToInt(i, size)
+      LArrayUtils.sameArrayListContent(data, 0, toList)
+      LArrayUtils.lemmaSameArrayListContentPreservedByUpdated(data, 0, toList, i.toInt, v)
+      LArrayUtils.lemmaSameArrayListContentImpliesSameLength(data, 0, toList)
+      LArrayUtils.lemmaToIntBigIntConversionBothDirections(toList.size, data.length)
+      LArrayUtils.compareBigIntPreservedByToInt(i, size)
       unfold(size)
     })
 
@@ -84,12 +84,12 @@ case class LArray[T](private val data: Array[T], @ghost private var toList: List
   def update(i: Int, v: T): Unit = {
     require(valid)
     require(i >= 0 && i < isize)
-    ghostExpr({Utils.lemmaSameArrayListContentImpliesSameLength(data, 0, toList)
+    ghostExpr({LArrayUtils.lemmaSameArrayListContentImpliesSameLength(data, 0, toList)
       assert(BigInt(i).toInt == i)
-      Utils.sameArrayListContent(data, 0, toList)
-      Utils.lemmaSameArrayListContentPreservedByUpdated(data, 0, toList, i, v)
-      Utils.lemmaSameArrayListContentImpliesSameLength(data, 0, toList)
-      Utils.lemmaToIntBigIntConversionBothDirections(toList.size, data.length)
+      LArrayUtils.sameArrayListContent(data, 0, toList)
+      LArrayUtils.lemmaSameArrayListContentPreservedByUpdated(data, 0, toList, i, v)
+      LArrayUtils.lemmaSameArrayListContentImpliesSameLength(data, 0, toList)
+      LArrayUtils.lemmaToIntBigIntConversionBothDirections(toList.size, data.length)
       unfold(size)
     })
 
@@ -105,7 +105,7 @@ object LArray {
     val list = List.fill(size)(default)
     ghostExpr({
       listFillSameContentAsArrayFill(size, default, 0, list, arr)
-      assert(Utils.sameArrayListContent(arr, 0, list))
+      assert(LArrayUtils.sameArrayListContent(arr, 0, list))
     })
     LArray(arr, list)
   }.ensuring(res => res.valid && res.size == size && res.getList == List.fill(size)(default))
@@ -117,7 +117,7 @@ object LArray {
     ghostExpr({
       assert(BigInt(size).toInt == size)
       listFillSameContentAsArrayFill(BigInt(size), default, 0, list, arr)
-      assert(Utils.sameArrayListContent(arr, 0, list))
+      assert(LArrayUtils.sameArrayListContent(arr, 0, list))
     })
     LArray(arr, list)
   }.ensuring(res => res.valid && res.size.toInt == size && res.getList == List.fill(BigInt(size))(default))
@@ -136,26 +136,26 @@ object LArray {
     assert(BigInt(size.toInt) == size)
     l match {
       case Nil() => 
-        check(Utils.sameArrayListContent(arr, from.toInt, l))
+        check(LArrayUtils.sameArrayListContent(arr, from.toInt, l))
       case Cons(h, tail) if from == size => 
         check(false)
-        check(Utils.sameArrayListContent(arr, from.toInt, l))
+        check(LArrayUtils.sameArrayListContent(arr, from.toInt, l))
       case Cons(h, tail) if from < size => 
-        Utils.compareIntPreservedByToBigInt(from.toInt, size.toInt)
+        LArrayUtils.compareIntPreservedByToBigInt(from.toInt, size.toInt)
         listFillSameContentAsArrayFill(size, elmt, from + 1, tail, arr)
-        Utils.additionIntPreservedByToBigInt(from.toInt, 1)
+        LArrayUtils.additionIntPreservedByToBigInt(from.toInt, 1)
         assert((from + 1).toInt == from.toInt + 1)
-        check(Utils.sameArrayListContent(arr, from.toInt, l))
+        check(LArrayUtils.sameArrayListContent(arr, from.toInt, l))
     }
     
 
   }.ensuring(_ => {
     assert(BigInt(from.toInt) == from)
-    Utils.sameArrayListContent(arr, from.toInt, l)
+    LArrayUtils.sameArrayListContent(arr, from.toInt, l)
   })
 }
 
-object Utils {
+object LArrayUtils {
   @ghost def sameArrayListContent[T](arr: Array[T], from: Int, list: List[T]): Boolean = {
     if (from < 0 || from > arr.length) {
       false
@@ -179,7 +179,7 @@ object Utils {
       // false
       ()
     } else if (from == arr.length){
-      Utils.compareIntPreservedByToBigInt(arr.length, from)
+      LArrayUtils.compareIntPreservedByToBigInt(arr.length, from)
       ()
     } else {
       list match {
@@ -191,18 +191,18 @@ object Utils {
           assert((0 <= from + 1 && from + 1 <= arr.length))
           assert((arr.length == from + 1 + tail.size.toInt))
           assert(list.size == tail.size + 1)
-          Utils.additionIntPreservedByToBigInt(tail.size.toInt, 1)
-          Utils.lemmaConversionBackForth(tail.size)
-          Utils.lemmaConversionBackForth(list.size)
-          Utils.lemmaConversionBackForth(arr.length)
+          LArrayUtils.additionIntPreservedByToBigInt(tail.size.toInt, 1)
+          LArrayUtils.lemmaConversionBackForth(tail.size)
+          LArrayUtils.lemmaConversionBackForth(list.size)
+          LArrayUtils.lemmaConversionBackForth(arr.length)
           assert(1 + tail.size == list.size)
-          Utils.additionIntPreservedByToInt(1, tail.size, list.size)
+          LArrayUtils.additionIntPreservedByToInt(1, tail.size, list.size)
           assert(1 + tail.size.toInt == list.size.toInt)
-          Utils.compareIntPreservedByToBigInt(arr.length, Int.MaxValue)
-          Utils.additionIntPreservedByToBigInt(from + 1, tail.size.toInt)
-          Utils.compareIntPreservedByToBigInt(from + list.size.toInt, from + 1 + tail.size.toInt)
+          LArrayUtils.compareIntPreservedByToBigInt(arr.length, Int.MaxValue)
+          LArrayUtils.additionIntPreservedByToBigInt(from + 1, tail.size.toInt)
+          LArrayUtils.compareIntPreservedByToBigInt(from + list.size.toInt, from + 1 + tail.size.toInt)
 
-          Utils.additionIntPreservedByToBigInt(from, 1)
+          LArrayUtils.additionIntPreservedByToBigInt(from, 1)
           ()
       }
     }
