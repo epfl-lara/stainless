@@ -9,6 +9,7 @@ import utils.{CheckFilter, DefinitionIdFinder, DependenciesFinder}
 import extraction.xlang.{trees => xt}
 import extraction.throwing.{trees => tt}
 import extraction._
+import stainless.verification.VerificationRun
 
 import stainless.utils.JsonConvertions.given
 
@@ -60,39 +61,50 @@ object GenCRun {
 
 class GenCRun private(override val component: GenCComponent.type,
                       override val trees: xt.type,
-                      override val pipeline: extraction.StainlessPipeline)
+                      override val pipeline: extraction.StainlessPipeline,
+                      val verifRun: VerificationRun)
                      (using override val context: inox.Context)
   extends ComponentRun {
 
   def this(pipeline: extraction.StainlessPipeline)(using inox.Context) =
-    this(GenCComponent, xt, pipeline)
+    this(GenCComponent, xt, pipeline, new VerificationRun(pipeline))
 
   import xt._
 
-  override def apply(ids: Seq[Identifier], symbols: Symbols): Future[GenCComponent.Analysis] = try {
-    val (symbolsAfterPipeline: tt.Symbols, exSummary) = GenCRun.pipelineBegin.extract(symbols)
+  override def apply(ids: Seq[Identifier], symbols: Symbols): Future[GenCComponent.Analysis] =
+    verifRun.apply(ids, symbols).map { verifAnalysis =>
+      val verifReport = verifAnalysis.toReport
+      verifReport.emit(context)
 
-    GenerateC.emit(symbolsAfterPipeline)
-
-    val p = inox.Program(trees)(symbols)
-
-    Future.successful(new GenCAnalysis {
-      override val program = p
-      override val sources = ids.toSet
-      override val results = ids.flatMap { id =>
-        val fd = symbols.getFunction(id)
-        val pos = fd.getPos.toString
-        if (fd.flags.exists(_.name == "cCode.export") && !fd.isAccessor)
-          Some(GenCRun.Result(fd, Compiled, 0))
-        else
-          None
+      if (!verifReport.isSuccess) {
+        context.reporter.fatalError("Verification failed, aborting C code generation")
       }
-      override val extractionSummary = exSummary
-    })
-  } catch {
-    case extraction.MalformedStainlessCode(tree, msg) =>
-      context.reporter.fatalError(tree.getPos, msg)
-  }
+
+      try {
+        val (symbolsAfterPipeline: tt.Symbols, exSummary) = GenCRun.pipelineBegin.extract(symbols)
+
+        GenerateC.emit(symbolsAfterPipeline)
+
+        val p = inox.Program(trees)(symbols)
+
+        new GenCAnalysis {
+          override val program = p
+          override val sources = ids.toSet
+          override val results = ids.flatMap { id =>
+            val fd = symbols.getFunction(id)
+            val pos = fd.getPos.toString
+            if (fd.flags.exists(_.name == "cCode.export") && !fd.isAccessor)
+              Some(GenCRun.Result(fd, Compiled, 0))
+            else
+              None
+          }
+          override val extractionSummary = exSummary
+        }: GenCComponent.Analysis
+      } catch {
+        case extraction.MalformedStainlessCode(tree, msg) =>
+          context.reporter.fatalError(tree.getPos, msg)
+      }
+    }
 
   override private[stainless] def execute(functions: Seq[Identifier], symbols: Symbols, exSummary: ExtractionSummary): Future[GenCComponent.Analysis] = ???
 
