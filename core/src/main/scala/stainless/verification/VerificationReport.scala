@@ -64,14 +64,15 @@ object VerificationReport {
 
 }
 
-class VerificationReport(val results: Seq[VerificationReport.Record], val sources: Set[Identifier], override val extractionSummary: ExtractionSummary)
+class VerificationReport(val results: Seq[VerificationReport.Record], val sources: Set[Identifier],
+                          override val extractionSummary: ExtractionSummary, val skipped: Boolean = false)
   extends BuildableAbstractReport[VerificationReport.Record, VerificationReport] {
   import VerificationReport.{given, _}
 
   override val encoder = recordEncoder
 
   override def build(results: Seq[Record], sources: Set[Identifier]) =
-    new VerificationReport(results, sources, ExtractionSummary.NoSummary)
+    new VerificationReport(results, sources, ExtractionSummary.NoSummary, skipped)
 
   lazy val totalConditions: Int = results.size
   lazy val totalTime = results.map(_.time).sum
@@ -83,14 +84,16 @@ class VerificationReport(val results: Seq[VerificationReport.Record], val source
 
   override val name = VerificationComponent.name
 
-  override lazy val annotatedRows = results map {
-    case Record(id, pos, time, status, solverName, kind, _, smtId) =>
-      val level = levelOf(status)
-      val solver = solverName getOrElse ""
-      val extra = Seq(kind, status.name, solver)
+  override lazy val annotatedRows =
+    if (skipped) Seq(RecordRow(FreshIdentifier("(ALL VCs Skipped)"), inox.utils.NoPosition, Level.Normal, Seq(), 0, None))
+    else results map {
+      case Record(id, pos, time, status, solverName, kind, _, smtId) =>
+        val level = levelOf(status)
+        val solver = solverName getOrElse ""
+        val extra = Seq(kind, status.name, solver)
 
-      RecordRow(id, pos, level, extra, time, smtId)
-  }
+        RecordRow(id, pos, level, extra, time, smtId)
+    }
 
 
   private def levelOf(status: Status) = {

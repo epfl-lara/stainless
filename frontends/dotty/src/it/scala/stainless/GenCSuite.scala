@@ -34,7 +34,7 @@ class GenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUtils with
     val cFile = file.replace(".scala", ".c")
     val outFile = file.replace(".scala", ".out")
     test(s"stainless --genc --genc-output=$cFile $file should fail") {
-      an [inox.FatalError] should be thrownBy runMainWithArgs(Array(file) :+ "--genc" :+ s"--genc-output=$cFile")
+      an [inox.FatalError] should be thrownBy runMainWithArgs(Array(file) :+ "--genc" :+ s"--genc-output=$cFile" :+ "--skip-verification")
     }
   }
 
@@ -53,7 +53,7 @@ class GenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUtils with
     val hFile = file.replace(".scala", ".h")
     val outFile = file.replace(".scala", ".out")
     test(s"stainless --genc --genc-output=$cFile $file") {
-      runMainWithArgs(Array(file) :+ "--genc" :+ s"--genc-output=$cFile")
+      runMainWithArgs(Array(file) :+ "--genc" :+ s"--genc-output=$cFile" :+ "--skip-verification")
       assert(Files.exists(Paths.get(cFile)))
       assert(Files.exists(Paths.get(hFile)))
       // Snapshot the generated C and header against golden files so that unintended

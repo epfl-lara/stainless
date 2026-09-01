@@ -30,6 +30,7 @@ trait VerificationAnalysis extends AbstractAnalysis {
 
   override type Report = VerificationReport
 
-  override def toReport = new VerificationReport(records, sources, extractionSummary)
+  override def toReport = new VerificationReport(records, sources, extractionSummary,
+    skipped = context.options.findOptionOrDefault(optSkipVerification))
 
 }

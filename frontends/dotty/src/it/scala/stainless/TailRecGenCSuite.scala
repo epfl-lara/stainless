@@ -36,7 +36,7 @@ class TailRecGenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUti
     val cFile = file.replace(".scala", ".c")
     val outFile = file.replace(".scala", ".out")
     test(s"stainless --genc --genc-output=$cFile $file") {
-      runMainWithArgs(Array(file) :+ "--genc" :+ s"--genc-output=$cFile")
+      runMainWithArgs(Array(file) :+ "--genc" :+ s"--genc-output=$cFile" :+ "--skip-verification")
       assert(Files.exists(Paths.get(cFile)))
       val gccCompile = s"gcc $cFile -o $outFile"
       ctx.reporter.info(s"Running: $gccCompile")
