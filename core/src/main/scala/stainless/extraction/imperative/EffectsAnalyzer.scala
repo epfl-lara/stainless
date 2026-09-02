@@ -279,7 +279,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     def asString(using PrinterOptions): String =
       path.map {
         case ADTFieldAccessor(id) => s".${id.asString}"
-        case ClassFieldAccessor(id) => s".${id.asString}"
+        case ClassFieldAccessor(id) => s".${id.id.asString}"
         case TupleFieldAccessor(idx) => s"._$idx"
         case ArrayAccessor(idx) => s"(${idx.asString})"
         case UnknownArrayAccessor => s"(???)"
@@ -543,7 +543,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
 
     case ClassConstructor(ct, args) => path match {
       case ClassFieldAccessor(fid) +: rest =>
-        getTargets(args(ct.tcd.fields.indexWhere(_.id == fid)), kind, rest)
+        getTargets(args(ct.tcd.fields.indexWhere(_.id == fid.id)), kind, rest)
       case _ =>
         if (kind != ReplacementKind)
           throw MalformedStainlessCode(expr, s"Couldn't compute effect targets in class constructor ${expr.asString}")
