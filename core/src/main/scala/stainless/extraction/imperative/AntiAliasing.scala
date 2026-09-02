@@ -896,13 +896,10 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
             // fields whose types are also immutable (e.g., accessing a val BigInt field
             // of a mutable class).
             val allVarsInBody = exprOps.variablesOf(body)
-            val safeVars = allVarsInBody.filter(v => isMutableType(v.tpe) && isAccessedOnlyThroughImmutableFields(v, body))
-            val captured = (allVarsInBody -- safeVars).flatMap { v =>
-              env.targets.get(v.toVal) match {
-                case Some(targets) => targets.map(_.receiver)
-                case None => Set(v)
-              }
-            }.filter(vd => isMutableType(vd.tpe)) -- aliasedParams.map(_.toVariable).toSet
+            val unsafeVars = unsafelyCapturedVars(body)
+            val safeVars = allVarsInBody.filter(v => isMutableType(v.tpe) && !unsafeVars(v))
+            val captured = dealiasVars(allVarsInBody -- safeVars, env)
+              .filter(vd => isMutableType(vd.tpe)) -- aliasedParams.map(_.toVariable).toSet
             if (captured.nonEmpty) {
               context.reporter.fatalError(l.getPos, "Illegal capturing of variables with mutable type: " + captured.mkString(", "))
             }
@@ -1025,29 +1022,49 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
           case Operator(es, recons) => recons(es.map(transform(_, env)))
         }).copiedFrom(e)
 
-        // Checks whether the given variable `v` (of mutable type) is only accessed
-        // through ClassSelector on `val` fields whose types are immutable.
-        // In such cases, the lambda does not effectively capture mutable state.
-        def isAccessedOnlyThroughImmutableFields(v: Variable, expr: Expr): Boolean = {
-          def check(e: Expr): Boolean = e match {
-            case cs @ ClassSelector(recv, _) if recv == v =>
-              cs.field match {
-                case Some(vd) if !(vd.flags contains IsVar) && !isMutableType(vd.tpe) => true
-                case _ => false
-              }
-            case w: Variable => w != v
-            case Operator(es, _) => es.forall(check)
+        // Single traversal computing the set of variables that appear, somewhere in `expr`,
+        // in a way that could expose mutable state: either as a bare occurrence, or as the
+        // receiver of a `ClassSelector` on a `var` field or a field of mutable type.
+        // A variable *not* in this set is only ever accessed through `val` fields of
+        // immutable type, so a lambda capturing it does not effectively capture mutable state.
+        def unsafelyCapturedVars(expr: Expr): Set[Variable] = {
+          var unsafe = Set.empty[Variable]
+          object collector extends ConcreteOOSelfTreeTraverser {
+            override def traverse(e: Expr): Unit = e match {
+              case cs @ ClassSelector(recv: Variable, _) =>
+                cs.field match {
+                  case Some(vd) if !(vd.flags contains IsVar) && !isMutableType(vd.tpe) =>
+                    // Safe access to a `val` field of immutable type: `recv` is not marked unsafe.
+                  case _ =>
+                    unsafe += recv
+                }
+              case ClassSelector(recv, _) =>
+                // The receiver is itself a compound expression (e.g. a nested field selection).
+                // Immutability is transitive (an immutable type cannot contain `var` fields nor
+                // fields of mutable type), so the outer selector needs no separate check here:
+                // we only need to keep checking that `recv` itself is safely accessed.
+                traverse(recv)
+              case v: Variable =>
+                unsafe += v
+              case _ =>
+                super.traverse(e)
+            }
           }
-          check(expr)
+          collector.traverse(expr)
+          unsafe
         }
 
-        def varsOfExprDealiased(expr: Expr, env: Env): Set[Variable] = {
-          exprOps.variablesOf(expr).flatMap { v =>
+        def dealiasVars(vars: Set[Variable], env: Env): Set[Variable] = {
+          vars.flatMap { v =>
             env.targets.get(v.toVal) match {
               case Some(targets) => targets.map(_.receiver)
               case None => Set(v)
             }
           }
+        }
+
+        def varsOfExprDealiased(expr: Expr, env: Env): Set[Variable] = {
+          dealiasVars(exprOps.variablesOf(expr), env)
         }
 
         def terminalVarsOfExprDealiased(expr: Expr, env: Env): Set[Variable] = {
