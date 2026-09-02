@@ -66,6 +66,13 @@ object optMaxPerm extends inox.IntOptionDef("equivchk-max-perm", EquivalenceChec
 object optMaxCtex extends inox.IntOptionDef("equivchk-max-ctex", EquivalenceChecker.defaultMaxCtex, "<int>")
 object optMeasureTransfer extends inox.FlagOptionDef("equivchk-transfer", false)
 
+object optEqCache extends inox.OptionDef[Seq[String]]{
+  val name = "eqcache"
+  val default = Seq[String]()
+  val parser = inox.OptionParsers.seqParser(inox.OptionParsers.stringParser)
+  val usageRhs = "f1,f2,..."
+}
+
 object EquivalenceCheckingComponent extends Component {
   override val name = "equivchk"
   override val description = "Equivalence checking of functions"
