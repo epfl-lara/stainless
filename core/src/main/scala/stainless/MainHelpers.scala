@@ -52,6 +52,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
     verification.optAdmitAll -> Description(Verification, "Admit all obligations when translated into a coq program"),
     verification.optStrictArithmetic -> Description(Verification, "Check arithmetic operations for unintended behavior and overflows"),
     verification.optAdmitVCs -> Description(Verification, "Admit all verification conditions"),
+    verification.optSkipVerification -> Description(Verification, "Skip measure inference, VC generation and checking entirely"),
     verification.optSimplifier -> Description(Verification, "Select which simplifier to use for VC simplification\n" +
       "Available:\n" +
       "  vanilla:             : Standard simplifier\n" +

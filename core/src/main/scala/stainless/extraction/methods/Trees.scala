@@ -22,17 +22,17 @@ trait Trees extends throwing.Trees { self =>
 
   /** $encodingof `this` */
   case class This(ct: ClassType) extends Expr with Terminal {
-    def getType(using Symbols): Type = ct.getType
+    def getTpe(stripRefinements: Boolean)(using Symbols): Type = ct.getTpe(stripRefinements)
   }
 
   /** $encodingof `super` */
   case class Super(ct: ClassType) extends Expr with Terminal {
-    def getType(using Symbols): Type = ct.getType
+    def getTpe(stripRefinements: Boolean)(using Symbols): Type = ct.getTpe(stripRefinements)
   }
 
   /** $encodingof `receiver.id[tps](args)` */
   case class MethodInvocation(receiver: Expr, id: Identifier, tps: Seq[Type], args: Seq[Expr]) extends Expr with CachingTyped {
-    protected def computeType(using s: Symbols): Type = widenTypeParameter(receiver) match {
+    protected def computeTpe(stripRefinements: Boolean)(using s: Symbols): Type = widenTypeParameter(receiver) match {
       case ct: ClassType =>
         val optTfd = s.lookupFunction(id)
           .filter(fd => tps.size == fd.tparams.size && args.size == fd.params.size)
@@ -53,7 +53,7 @@ trait Trees extends throwing.Trees { self =>
                 it.transform(typeOps.instantiateType(vd.getType, tpSubst))
               }
 
-              val fdTpe = it.transform(typeOps.instantiateType(tfd.fd.getType, tpSubst))
+              val fdTpe = it.transform(typeOps.instantiateType(tfd.fd.getTpe(stripRefinements), tpSubst))
               checkParamTypes(args, instParams, fdTpe)
             }
         }.getOrElse(Untyped)

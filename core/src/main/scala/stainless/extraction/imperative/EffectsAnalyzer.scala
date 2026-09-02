@@ -142,6 +142,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
     def effects(fd: FunDef): Set[Effect] = result.effects(Outer(fd))
     def effects(fun: FunAbstraction): Set[Effect] = result.effects(fun)
     def effects(expr: Expr): Set[Effect] = expressionEffects(expr, result)
+    def refsToMutable(expr: Expr): Set[Variable] = referencesToMutableStates(expr, result)
 
     private[imperative] def local(id: Identifier): FunAbstraction = result.locals(id)
 
@@ -150,9 +151,20 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       fd.params.filter(vd => receivers(vd.toVariable))
     }
 
+    /* Since the return type may depend on the `aliasedParams` (they may be referenced in a refinement type),
+     * we return a sigma type with fresh variables for `aliasedParams` and the original return type.
+     */
     private[imperative] def getReturnType(fd: FunAbstraction): Type = {
       val aliasedParams = getAliasedParams(fd)
-      tupleTypeWrap(fd.returnType +: aliasedParams.map(_.tpe))
+      if aliasedParams.isEmpty then fd.returnType
+      else {
+        val freshParams = aliasedParams.map(vd => vd.freshen)
+        val subst = aliasedParams.zip(freshParams).map { case (orig, fresh) =>
+          (orig.toVariable, fresh.toVariable)
+        }.toMap
+        val substBody = typeOps.replaceFromSymbols(subst, fd.returnType)
+        sigmaTypeWrap(freshParams, substBody)
+      }
     }
 
     def asString(using PrinterOptions): String =
@@ -983,4 +995,57 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       if (symbols.isMutableType(tpe)) Some(i) else None
     }.toSet
   }
+
+  type FunRef = (id: Identifier, kind: "local" | "global")
+  val mutableStateFnCache = scala.collection.mutable.Map.empty[Identifier, Set[Either[Variable, FunRef]]]
+
+  /** This overaproximattes sometimes, e.g.
+   * ```
+   *  case class A(var x: Int):
+   *    def foo() = 2
+   * ```
+   *  references to `foo()` are disallowed, since `A` has a mutable type.
+   * 
+   * We keep a list of `visitedFunctions` to aviod looping in case of cyclic references.
+   */
+  private def referencesToMutableStates(expr: Expr, result: Result)(using symbols: Symbols): Set[Variable] = {
+    import symbols._
+
+    def getRefs(expr: Expr, visitedFunctions: Set[Identifier])(using symbols: Symbols): Set[Either[Variable, FunRef]] = {
+      val direct = variablesOf(expr).filter { v =>
+        v.flags.contains(IsVar) || isMutableType(v.tpe)
+      }.map(Left(_))
+
+      direct ++ exprOps.collect[Either[Variable, FunRef]] {
+        case fi @ FunInvocation(id, _, _, _) if visitedFunctions.contains(id) =>
+          fi match {
+            case FunctionInvocation(id, _, _) => Set(Right(id, "global"))
+            case ApplyLetRec(id, _, _, _, _) => Set(Right(id, "local"))
+          }
+        case fi @ FunInvocation(id, _, _, _) =>
+          mutableStateFnCache.updateWith(id) {
+            case None =>
+              val body = fi match {
+                case FunctionInvocation(id, _, _) => getFunction(id).fullBody
+                case ApplyLetRec(id, _, _, _, _) => result.locals(id).fullBody
+              }
+              Some(getRefs(body, visitedFunctions + id))
+            case Some(refs) =>
+              Some(refs.flatMap {
+                case r @ Right(id, _) if visitedFunctions.contains(id) => Set(r)
+                case Right(id, "global") => getRefs(getFunction(id).fullBody, visitedFunctions + id)
+                case Right(id, "local") => getRefs(result.locals(id).fullBody, visitedFunctions + id)
+                case v => Set(v)
+              })
+          }.getOrElse(Set.empty)
+
+        case _ => Set.empty
+      }(expr)
+    }
+
+    getRefs(expr, Set.empty).collect{
+      case Left(v) => v
+    }
+  }
+
 }

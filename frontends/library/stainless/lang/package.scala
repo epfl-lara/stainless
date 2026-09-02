@@ -153,6 +153,7 @@ package object lang {
   @ignore
   object BigInt {
     def apply(b: Int): scala.math.BigInt = scala.math.BigInt(b)
+    def apply(b: Long): scala.math.BigInt = scala.math.BigInt(b)
     def apply(b: String): scala.math.BigInt = scala.math.BigInt(b)
 
     def unapply(b: scala.math.BigInt): scala.Option[Int] = {
@@ -243,6 +244,10 @@ package object lang {
     def toDegrees: Float = scala.math.toDegrees(f.toDouble).toFloat
     def toRadians: Float = scala.math.toRadians(f.toDouble).toFloat
   }
+
+  val IntMaxValue: BigInt = BigInt(2147483647)
+  // This type can be used to represent Array indices for example
+  type UInt31 = {v: BigInt with 0 <= v && v <= IntMaxValue} 
 
   // This --full-imperative stuff should perhaps move to a separate object.
 

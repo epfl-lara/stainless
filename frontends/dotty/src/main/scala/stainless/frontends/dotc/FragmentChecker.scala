@@ -200,12 +200,21 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
 
       class GhostAnnotationChecker extends tpd.TreeTraverser {
         private var ghostContext: Boolean = false
+        private var executedRefinementContext: Boolean = false
 
         def withinGhostContext[A](body: => A): A = {
           val old = ghostContext
           ghostContext = true
           val res = body
           ghostContext = old
+          res
+        }
+
+        def withinExecutedRefinementContext[A](body: => A): A = {
+          val old = executedRefinementContext
+          executedRefinementContext = true
+          val res = body
+          executedRefinementContext = old
           res
         }
 
@@ -293,6 +302,27 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
                 withinGhostContext(traverse(rhs))
               else
                 traverseChildren(tree)
+            
+            // Qualified types (i.e., extracted as Refinement types in Stainless)
+            // In patterns and isInstanceOf, the predicate is executed at runtime,
+            // so ghost access is not allowed.
+            // In other positions (parameter types, return types), predicates are ghost.
+            case Annotated(tpt, annot) =>
+              if (executedRefinementContext)
+                traverse(annot)
+              else
+                withinGhostContext(traverse(annot))
+              traverse(tpt)
+
+            case cd: tpd.CaseDef =>
+              withinExecutedRefinementContext(traverse(cd.pat))
+              traverse(cd.guard)
+              traverse(cd.body)
+
+            // isInstanceOf[T]: the type argument's refinement predicate is executed at runtime
+            case TypeApply(s @ Select(expr, _), targs) if s.symbol == defn.Any_isInstanceOf =>
+              traverse(expr)
+              targs.foreach(targ => withinExecutedRefinementContext(traverse(targ)))
 
             case _ =>
               traverseChildren(tree)
@@ -583,8 +613,13 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
           traverseChildren(tree)
 
         case Apply(fun, args) if BigInt_ApplyMethods(sym) =>
-          if (args.size != 1 || !args.head.isInstanceOf[tpd.Literal])
-            reportError(args.head.sourcePos, "Only literal arguments are allowed for BigInt.")
+          // `BigInt(_)` accepts a literal, or an `Int`/`Long` (a bitvector-to-integer conversion).
+          def okArg(a: tpd.Tree): Boolean =
+            a.isInstanceOf[tpd.Literal] ||
+            a.tpe.widenDealias.typeSymbol == defn.IntClass ||
+            a.tpe.widenDealias.typeSymbol == defn.LongClass
+          if (args.size != 1 || !okArg(args.head))
+            reportError(args.head.sourcePos, "Only literal, Int or Long arguments are allowed for BigInt.")
           traverseChildren(tree)
 
         case ExCall(Some(s @ Select(Super(_, _), _)), _, _, _) =>

@@ -8,17 +8,21 @@
 #  Currently, only the Linux & macOS version are shipped with ScalaZ3 (Windows must rely on smt-z3)
 # ====
 set -e
+# Without pipefail, the exit status of `sbt ... | tee` is tee's (0), so a
+# failing sbt assembly step is masked and the script marches on to a confusing
+# downstream error. Make the pipeline fail if any command in it fails.
+set -o pipefail
 
 STAINLESS_VERSION=$(git describe --abbrev=7 | sed 's/v//g')
 if [[ $(git diff --stat) != '' ]]; then
   STAINLESS_VERSION="$STAINLESS_VERSION-SNAPSHOT"
 fi
 
-SCALA_VERSION="3.7.2"
-LIB_SCALA_VERSION="3.7.2"
+SCALA_VERSION="3.10.0-RC1-bin-20260608-cf86bba-NIGHTLY"
+LIB_SCALA_VERSION="3.10.0-RC1-bin-20260608-cf86bba-NIGHTLY"
 LIB_SCALA_VERSION_JAR_NAME_PART=$(echo $LIB_SCALA_VERSION | cut -d '.' -f 1)
-Z3_VERSION="4.12.2"
-CVC5_VERSION="1.0.8"
+Z3_VERSION="5.0.0"
+CVC5_VERSION="1.3.4"
 
 SBT_PACKAGE_DOTTY="sbt stainless-dotty-standalone/assembly"
 SBT_PACKAGE_LIB="sbt stainless-library/package stainless-library/packageSrc"
@@ -29,18 +33,18 @@ SCALAZ3_JAR_LINUX_PATH="./unmanaged/scalaz3-unix-64-3.jar"
 SCALAZ3_JAR_MAC_X64_PATH="./unmanaged/scalaz3-mac-64-3.jar"
 
 Z3_GITHUB_URL="https://github.com/Z3Prover/z3/releases/download/z3-$Z3_VERSION"
-Z3_LINUX_NAME="z3-$Z3_VERSION-x64-glibc-2.31.zip"
-Z3_MAC_ARM64_NAME="z3-$Z3_VERSION-arm64-osx-11.0.zip"
-Z3_MAC_X64_NAME="z3-$Z3_VERSION-x64-osx-10.16.zip"
+Z3_LINUX_NAME="z3-$Z3_VERSION-x64-glibc-2.39.zip"
+Z3_MAC_ARM64_NAME="z3-$Z3_VERSION-arm64-osx-13.3.zip"
+Z3_MAC_X64_NAME="z3-$Z3_VERSION-x64-osx-13.3.zip"
 Z3_WIN_NAME="z3-$Z3_VERSION-x64-win.zip"
 
 CVC5_GITHUB_URL="https://github.com/cvc5/cvc5/releases/download/cvc5-$CVC5_VERSION"
-CVC5_LICENSES_URL="https://raw.githubusercontent.com/cvc5/cvc5/main/licenses/"
+CVC5_LICENSES_URL="https://github.com/cvc5/cvc5/tree/aee874240419269019507d47d687f01d871587f5/licenses"
 CVC5_LICENSES=("minisat-LICENSE" "gpl-3.0.txt" "lgpl-3.0.txt")
-CVC5_LINUX_NAME="cvc5-Linux"
-CVC5_MAC_ARM64_NAME="cvc5-macOS-arm64"
-CVC5_MAC_X64_NAME="cvc5-macOS"
-CVC5_WIN_NAME="cvc5-Win64.exe"
+CVC5_LINUX_NAME="cvc5-Linux-x86_64-static.zip"
+CVC5_MAC_ARM64_NAME="cvc5-macOS-arm64-static.zip"
+CVC5_MAC_X64_NAME="cvc5-macOS-x86_64-static.zip"
+CVC5_WIN_NAME="cvc5-Win64-x86_64-static.zip"
 
 LOG="./package-standalone.log"
 
@@ -123,7 +127,7 @@ function fetch_z3 {
 function fetch_cvc5 {
   local PLAT="$1"
   local NAME="$2"
-  local BINF="$TMP_DIR/$NAME"
+  local ZIPF="$TMP_DIR/$NAME"
   local TMPD="$TMP_DIR/$PLAT"
   local CVC5_EXEC
   info " - $PLAT"
@@ -134,18 +138,19 @@ function fetch_cvc5 {
     CVC5_EXEC="cvc5"
   fi
 
-  if [ -f "$BINF" ]; then
-    info "    (Binary already exists, skipping download step.)"
+  if [ -f "$ZIPF" ]; then
+    info "    (ZIP already exists, skipping download step.)"
   else
-    wget -O "$BINF" "$CVC5_GITHUB_URL/$NAME" 2>> $LOG || fail
+    wget -O "$ZIPF" "$CVC5_GITHUB_URL/$NAME" 2>> $LOG || fail
     for license in "${CVC5_LICENSES[@]}"; do
       wget -O "$TMP_DIR/cvc5_$license" "$CVC5_LICENSES_URL/$license" 2>> $LOG || fail
     done
   fi
+  unzip -d "$TMPD" "$ZIPF" >> $LOG || fail
 
   mkdir -p "$TMPD/cvc5" >> $LOG || fail
   mkdir -p "$TMPD/cvc5/licenses" >> $LOG || fail
-  cp "$BINF" "$TMPD/cvc5/$CVC5_EXEC" >> $LOG || fail
+  cp "$TMPD/${NAME%.*}/bin/$CVC5_EXEC" "$TMPD/cvc5/$CVC5_EXEC" >> $LOG || fail
   for license in "${CVC5_LICENSES[@]}"; do
     cp "$TMP_DIR/cvc5_$license" "$TMPD/cvc5/licenses/$license"
   done

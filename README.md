@@ -45,7 +45,7 @@ If all goes well, Stainless should report something along the lines:
 If you see funny symbols instead of beautiful ASCII art, run Stainless with the `--no-colors` option for clean ASCII output with a standardized error message format.
 
 The release archive of Stainless only requires JDK 17. In particular, it needs
-neither a Scala compiler nor SBT. It is shipped with Z3 4.12.2+, cvc5 1.0.8+ and
+neither a Scala compiler nor SBT. It is shipped with Z3 5.0.0+, cvc5 1.3.4+ and
 Princess (branch compiled for Scala 3). If the Z3 native API is not found, use
 the option `--solvers=smt-z3` to rely on the executable instead of API call to
 z3.
