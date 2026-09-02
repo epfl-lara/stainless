@@ -159,7 +159,8 @@ trait Trees extends oo.Trees with Definitions { self =>
 
   /** $encodingof `sameAs(f(x, ..., z))` */
   case class SameAs(e: Expr) extends Expr with CachingTyped {
-    protected def computeType(using Symbols): Type = e.getType
+    protected def computeTpe(stripRefinements: Boolean)(using Symbols): Type =
+      FunctionType(Seq(e.getTpe(stripRefinements)), BooleanType())
   }
 
   /** $encodingof `snapshot(e)` */
