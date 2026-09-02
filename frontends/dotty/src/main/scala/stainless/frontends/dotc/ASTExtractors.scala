@@ -244,6 +244,13 @@ trait ASTExtractors {
     getResolvedTypeSym(sym) == cellSym
   }
 
+  // `Purified` is an opaque type alias, so it cannot be looked up via
+  // `classFromName`/`requiredClass` like the symbols above; match on its full name instead.
+  def isPurifiedSym(sym: Symbol): Boolean = sym match {
+    case AuxiliaryExtractors.ExSymbol("stainless", "lang", "package$", "Purified") => true
+    case _ => false
+  }
+
   def isScalaSetSym(sym: Symbol) : Boolean = {
     getResolvedTypeSym(sym) == scalaSetSym
   }
