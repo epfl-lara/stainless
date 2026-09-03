@@ -21,7 +21,7 @@ if [[ -d "bolts" ]]; then
   # We do not pull so that we can run the 
   # git pull || exit 1 
 else
-  git clone https://git@github.com/epfl-lara/bolts
+  git clone https://git:git@github.com/epfl-lara/bolts
   cd bolts || exit 1
 fi
 
