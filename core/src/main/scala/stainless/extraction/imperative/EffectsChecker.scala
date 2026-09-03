@@ -378,7 +378,7 @@ trait EffectsChecker { self: EffectsAnalyzer =>
         case _ => false
       })
       val isInv = fd.flags.contains(IsInvariant)
-      println(f"\nEffects of ${fd.id.asString} (annotated as pure: $isPure): ${effs.map(_.asString).mkString(", ")}\n")
+      // println(f"\nEffects of ${fd.id.asString} (annotated as pure: $isPure): ${effs.map(_.asString).mkString(", ")}\n")
       if ((isPure || isInv) && effs.nonEmpty) {
         val isInv = fd.flags.contains(IsInvariant)
         val fnName = if (isInv) "the invariant" else fd.id.asString
