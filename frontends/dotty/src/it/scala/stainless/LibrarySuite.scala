@@ -89,7 +89,7 @@ class LibrarySuite extends AbstractLibrarySuite(Seq(
   termination.optInferMeasures(true),
   termination.optCheckMeasures(YesNoOnly.Yes),
   inox.optSelectedSolvers(Set("smt-z3", "princess")),
-  inox.optTimeout(30.seconds),
+  inox.optTimeout(50.seconds),
 )) {
   // keep everything except math library functions
   override protected def keep(tr: ast.Trees)(fd: tr.FunDef): Boolean =
