@@ -87,7 +87,8 @@ class StainlessExtraction(val inoxCtx: inox.Context) {
       val (imports, unitClasses, unitFunctions, _, subs, classes, functions, typeDefs) = extraction.extractStatic(filteredStats)
       assert(unitFunctions.isEmpty, "Packages shouldn't contain functions")
       val xtUnit = xt.UnitDef(id, imports, unitClasses, subs, isFromSource)
-      Some(ExtractedUnit(file.absolute.path, xtUnit, classes, functions, typeDefs))
+      val absolutePath = Option(file.jpath).map(_.toAbsolutePath.toString).getOrElse(file.path)
+      Some(ExtractedUnit(absolutePath, xtUnit, classes, functions, typeDefs))
     } catch {
       case UnsupportedCodeException(pos, msg) =>
         inoxCtx.reporter.error(pos, msg)
