@@ -82,7 +82,7 @@ class mutable extends Annotation
   * Used to mark a class field as mutable, but not observable from the outside. 
   * This field must be private, and read/written only from pure or observationnally pure methods of the class.
   */
-@ignore 
+@ignore @field @getter @setter @param
 class internallyMutable extends Annotation
 
 /** Can be used to mark a library function/class/object so that it is not
