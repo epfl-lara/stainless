@@ -145,11 +145,21 @@ class StainlessExtraction(val inoxCtx: inox.Context) {
     // `@extern` methods is not visited at all, or by not registering used Tasty
     // units for symbols accessed only from within `@extern` methods.
     //
-    // Note: `tree.symbol` is a term symbol (the package value), so we
-    // compare it against `defn.ScalaPackageVal`. Its owners however are class
-    // symbols, so we compare those against `defn.ScalaPackageClass`.
+    // Note: the symbol of a `PackageDef` is a term symbol (the package value),
+    // so we compare it against `defn.ScalaPackageVal`. Its owners however are
+    // class symbols, so we compare those against `defn.ScalaPackageClass`.
+    //
+    // The root tree of a Tasty unit is wrapped in a `PackageDef` for the empty
+    // package, which itself contains the `PackageDef`s of the unit's packages
+    // (e.g. `<empty>` -> `stainless` -> `collection`). We therefore look at the
+    // outermost package that is not the empty package.
+    def unitPackage(tree: tpd.Tree): Symbol = tree match
+      case PackageDef(pid, stats) if pid.symbol.isEmptyPackage =>
+        stats.collectFirst { case inner: tpd.PackageDef => unitPackage(inner) }.getOrElse(pid.symbol)
+      case _ => tree.symbol
+
     def ignoreTastyUnit(tree: tpd.Tree): Boolean =
-      val sym = tree.symbol
+      val sym = unitPackage(tree)
       sym.isEmptyPackage || sym == defn.ScalaPackageVal || sym.ownersIterator.exists(_ == defn.ScalaPackageClass)
 
     // Potential performance improvement: share the Map of extracted Tasty units
