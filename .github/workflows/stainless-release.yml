@@ -40,7 +40,6 @@ jobs:
         fetch-depth: 0
         fetch-tags: true
         submodules: recursive
-        persist-credentials: false
     - name: Validate version
       run: |
         # Expect a three-component tag of the form vX.Y.Z.
