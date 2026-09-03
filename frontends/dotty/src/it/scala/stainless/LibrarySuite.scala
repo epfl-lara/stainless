@@ -88,6 +88,7 @@ abstract class AbstractLibrarySuite(opts: Seq[inox.OptionValue[?]]) extends AnyF
 class LibrarySuite extends AbstractLibrarySuite(Seq(
   termination.optInferMeasures(true),
   termination.optCheckMeasures(YesNoOnly.Yes),
+  inox.optSelectedSolvers(Set("smt-z3", "princess")),
   inox.optTimeout(30.seconds),
 )) {
   // keep everything except math library functions
