@@ -186,6 +186,15 @@ trait EffectsAnalyzer extends oo.CachingPhase {
   case class ClassFieldAccessor(selector: ValDef) extends Accessor {
     def asString(using inox.Context) = s"ClassFieldAccessor(${selector.id.asString})"
     def bind(x: ValDef, e: Expr): Accessor = this
+
+    // The `selector` ValDef can carry a type substituted for a particular generic instantiation
+    // (e.g. `t: T` vs. `t: Thing[Int]`), so two accessors for the *same* field can otherwise
+    // differ structurally. Identity of a class field accessor is its field identifier only.
+    override def equals(that: Any): Boolean = that match {
+      case ClassFieldAccessor(thatSelector) => selector.id == thatSelector.id
+      case _ => false
+    }
+    override def hashCode: Int = selector.id.hashCode
   }
 
   case class ArrayAccessor(index: Expr) extends Accessor {
@@ -240,7 +249,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
           rec(xs1, xs2)
         case (ADTFieldAccessor(id1) +: xs1, ADTFieldAccessor(id2) +: xs2) if id1 == id2 =>
           rec(xs1, xs2)
-        case (ClassFieldAccessor(id1) +: xs1, ClassFieldAccessor(id2) +: xs2) if id1 == id2 =>
+        case (ClassFieldAccessor(id1) +: xs1, ClassFieldAccessor(id2) +: xs2) if id1.id == id2.id =>
           rec(xs1, xs2)
         case (TupleFieldAccessor(id1) +: xs1, TupleFieldAccessor(id2) +: xs2) if id1 == id2 =>
           rec(xs1, xs2)
@@ -262,7 +271,7 @@ trait EffectsAnalyzer extends oo.CachingPhase {
           rec(xs1, xs2)
         case (ADTFieldAccessor(id1) +: xs1, ADTFieldAccessor(id2) +: xs2) if id1 == id2 =>
           rec(xs1, xs2)
-        case (ClassFieldAccessor(id1) +: xs1, ClassFieldAccessor(id2) +: xs2) if id1 == id2 =>
+        case (ClassFieldAccessor(id1) +: xs1, ClassFieldAccessor(id2) +: xs2) if id1.id == id2.id =>
           rec(xs1, xs2)
         case (TupleFieldAccessor(id1) +: xs1, TupleFieldAccessor(id2) +: xs2) if id1 == id2 =>
           rec(xs1, xs2)
