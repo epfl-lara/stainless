@@ -26,6 +26,9 @@ object optCoq extends inox.FlagOptionDef("coq", false)
 /** When enabled, do not verify verification conditions */
 object optAdmitVCs extends inox.FlagOptionDef("admit-vcs", false)
 
+/** When enabled, skip measure inference, VC generation and checking entirely */
+object optSkipVerification extends inox.FlagOptionDef("skip-verification", false)
+
 
 object VerificationComponent extends Component {
   override val name = "verification"
@@ -58,9 +61,13 @@ class VerificationRun private(override val component: VerificationComponent.type
   override def parse(json: Json): Report = VerificationReport.parse(json)
 
   override def createPipeline = {
-    pipeline `andThen`
-    extraction.utils.NamedPipeline("MeasureInference", MeasureInference(extraction.trees)) `andThen`
-    extraction.utils.NamedPipeline("PartialEvaluation", PartialEvaluation(extraction.trees))
+    if (context.options.findOptionOrDefault(optSkipVerification)) {
+      pipeline
+    } else {
+      pipeline `andThen`
+      extraction.utils.NamedPipeline("MeasureInference", MeasureInference(extraction.trees)) `andThen`
+      extraction.utils.NamedPipeline("PartialEvaluation", PartialEvaluation(extraction.trees))
+    }
   }
 
   given givenDebugSection: DebugSectionVerification.type = DebugSectionVerification
@@ -75,63 +82,74 @@ class VerificationRun private(override val component: VerificationComponent.type
   override private[stainless] def execute(functions0: Seq[Identifier], symbols: trees.Symbols, exSummary: ExtractionSummary): Future[VerificationAnalysis] = {
     import context._
 
-    val functions = functions0.filterNot(fid => symbols.getFunction(fid).flags.contains(trees.DropVCs))
     val p = inox.Program(trees)(symbols)
 
-    if (context.options.findOptionOrDefault(optCoq)) {
-      val vcResult = CoqVerificationChecker.verify(functions, p, context)
+    if (context.options.findOptionOrDefault(optSkipVerification)) {
       Future.successful(new VerificationAnalysis {
         override val program: p.type = p
         override val context = VerificationRun.this.context
-        override val sources = functions.toSet
-        override val results = vcResult
+        override val sources = functions0.toSet
+        override val results = Map.empty
         override val extractionSummary = exSummary
       })
     } else {
-      val assertions = AssertionInjector(p, context)
-      val assertionEncoder = inox.transformers.ProgramEncoder(p)(assertions)
+      val functions = functions0.filterNot(fid => symbols.getFunction(fid).flags.contains(trees.DropVCs))
 
-      if (debugAssertions.isEnabled) {
-        debugAssertions.debugEncoder(assertionEncoder)
-      }
+      if (context.options.findOptionOrDefault(optCoq)) {
+        val vcResult = CoqVerificationChecker.verify(functions, p, context)
+        Future.successful(new VerificationAnalysis {
+          override val program: p.type = p
+          override val context = VerificationRun.this.context
+          override val sources = functions.toSet
+          override val results = vcResult
+          override val extractionSummary = exSummary
+        })
+      } else {
+        val assertions = AssertionInjector(p, context)
+        val assertionEncoder = inox.transformers.ProgramEncoder(p)(assertions)
 
-      if (!functions.isEmpty) {
-        val plural = if (functions.size == 1) "" else "s"
-        val msg = {
-          if (reporter.isDebugEnabled) s"Generating VCs for function$plural: ${functions map { _.uniqueName } mkString ", "}..."
-          else s"Generating VCs for ${functions.size} function$plural..."
-        }
-        reportVCProgress(msg)
-      }
-
-      val vcGenEncoder = assertionEncoder
-
-      val vcs = context.timers.verification.get("type-checker").run {
-        TypeChecker(vcGenEncoder.targetProgram, context).checkFunctionsAndADTs(functions)
-      }
-
-      if (!functions.isEmpty) {
-        reportVCProgress(s"Finished generating VCs")
-      }
-      val opaqueEncoder = inox.transformers.ProgramEncoder(vcGenEncoder.targetProgram)(OpaqueChooseInjector(vcGenEncoder.targetProgram))
-      val res: Future[Map[VC[p.trees.type], VCResult[p.Model]]] =
-        if (context.options.findOptionOrDefault(optAdmitVCs)) {
-          Future(vcs.map(vc => vc -> VCResult(VCStatus.Admitted, None, None, None)).toMap)
-        } else {
-          VerificationChecker.verify(opaqueEncoder.targetProgram, context)(vcs).map(_.view.mapValues {
-            case VCResult(VCStatus.Invalid(VCStatus.CounterExample(model)), s, t, smtid) =>
-              VCResult(VCStatus.Invalid(VCStatus.CounterExample(model.encode(opaqueEncoder.reverse.andThen(vcGenEncoder.reverse)))), s, t, smtid)
-            case res => res.asInstanceOf[VCResult[p.Model]]
-          }.toMap)
+        if (debugAssertions.isEnabled) {
+          debugAssertions.debugEncoder(assertionEncoder)
         }
 
-      res.map(r => new VerificationAnalysis {
-        override val program: p.type = p
-        override val context = VerificationRun.this.context
-        override val sources = functions.toSet
-        override val results = r
-        override val extractionSummary = exSummary
-      })
+        if (!functions.isEmpty) {
+          val plural = if (functions.size == 1) "" else "s"
+          val msg = {
+            if (reporter.isDebugEnabled) s"Generating VCs for function$plural: ${functions map { _.uniqueName } mkString ", "}..."
+            else s"Generating VCs for ${functions.size} function$plural..."
+          }
+          reportVCProgress(msg)
+        }
+
+        val vcGenEncoder = assertionEncoder
+
+        val vcs = context.timers.verification.get("type-checker").run {
+          TypeChecker(vcGenEncoder.targetProgram, context).checkFunctionsAndADTs(functions)
+        }
+
+        if (!functions.isEmpty) {
+          reportVCProgress(s"Finished generating VCs")
+        }
+        val opaqueEncoder = inox.transformers.ProgramEncoder(vcGenEncoder.targetProgram)(OpaqueChooseInjector(vcGenEncoder.targetProgram))
+        val res: Future[Map[VC[p.trees.type], VCResult[p.Model]]] =
+          if (context.options.findOptionOrDefault(optAdmitVCs)) {
+            Future(vcs.map(vc => vc -> VCResult(VCStatus.Admitted, None, None, None)).toMap)
+          } else {
+            VerificationChecker.verify(opaqueEncoder.targetProgram, context)(vcs).map(_.view.mapValues {
+              case VCResult(VCStatus.Invalid(VCStatus.CounterExample(model)), s, t, smtid) =>
+                VCResult(VCStatus.Invalid(VCStatus.CounterExample(model.encode(opaqueEncoder.reverse.andThen(vcGenEncoder.reverse)))), s, t, smtid)
+              case res => res.asInstanceOf[VCResult[p.Model]]
+            }.toMap)
+          }
+
+        res.map(r => new VerificationAnalysis {
+          override val program: p.type = p
+          override val context = VerificationRun.this.context
+          override val sources = functions.toSet
+          override val results = r
+          override val extractionSummary = exSummary
+        })
+      }
     }
   }
 
