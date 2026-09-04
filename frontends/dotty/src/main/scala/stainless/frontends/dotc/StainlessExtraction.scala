@@ -27,6 +27,20 @@ case class ExtractedUnit(file: String, unit: xt.UnitDef, classes: Seq[xt.ClassDe
 class StainlessExtraction(val inoxCtx: inox.Context) {
   private val symbolMapping = new SymbolMapping
 
+  /** Strips the `PackageDef` of the empty package wrapping the tree of a unit.
+    *
+    * Since Scala 3.10.1, the typed tree of a compilation unit that declares a
+    * package, as well as the root tree of a Tasty unit, is wrapped in a
+    * `PackageDef` for the empty package (e.g. `<empty>` -> `stainless` ->
+    * `collection`). Stripping it keeps units declaring a package named after
+    * their file rather than after their package, and keeps the statements of a
+    * unit being its definitions rather than a single nested `PackageDef`.
+    */
+  private def unwrapEmptyPackage(tree: tpd.Tree)(using DottyContext): tpd.Tree = tree match {
+    case PackageDef(pid, (inner: tpd.PackageDef) :: Nil) if pid.symbol.isEmptyPackage => inner
+    case _ => tree
+  }
+
   def extractUnit(exportedSymsMapping: ExportedSymbolsMapping)(using ctx: DottyContext): Option[ExtractedUnit] = {
     val unit = ctx.compilationUnit
     val tree = unit.tpdTree
@@ -45,7 +59,7 @@ class StainlessExtraction(val inoxCtx: inox.Context) {
     val extraction = new CodeExtraction(inoxCtx, symbolMapping, exportedSymsMapping)
     import extraction._
 
-    val (id, stats) = tree match {
+    val (id, stats) = unwrapEmptyPackage(tree) match {
       case pd@PackageDef(pid, lst) =>
         val id = lst.collectFirst { case PackageDef(ref, _) => ref } match {
           case Some(ref) => extractRef(ref)
@@ -87,7 +101,8 @@ class StainlessExtraction(val inoxCtx: inox.Context) {
       val (imports, unitClasses, unitFunctions, _, subs, classes, functions, typeDefs) = extraction.extractStatic(filteredStats)
       assert(unitFunctions.isEmpty, "Packages shouldn't contain functions")
       val xtUnit = xt.UnitDef(id, imports, unitClasses, subs, isFromSource)
-      Some(ExtractedUnit(file.absolute.path, xtUnit, classes, functions, typeDefs))
+      val absolutePath = Option(file.jpath).map(_.toAbsolutePath.toString).getOrElse(file.path)
+      Some(ExtractedUnit(absolutePath, xtUnit, classes, functions, typeDefs))
     } catch {
       case UnsupportedCodeException(pos, msg) =>
         inoxCtx.reporter.error(pos, msg)
@@ -144,11 +159,11 @@ class StainlessExtraction(val inoxCtx: inox.Context) {
     // `@extern` methods is not visited at all, or by not registering used Tasty
     // units for symbols accessed only from within `@extern` methods.
     //
-    // Note: `tree.symbol` is a term symbol (the package value), so we
-    // compare it against `defn.ScalaPackageVal`. Its owners however are class
-    // symbols, so we compare those against `defn.ScalaPackageClass`.
+    // Note: the symbol of a `PackageDef` is a term symbol (the package value),
+    // so we compare it against `defn.ScalaPackageVal`. Its owners however are
+    // class symbols, so we compare those against `defn.ScalaPackageClass`.
     def ignoreTastyUnit(tree: tpd.Tree): Boolean =
-      val sym = tree.symbol
+      val sym = unwrapEmptyPackage(tree).symbol
       sym.isEmptyPackage || sym == defn.ScalaPackageVal || sym.ownersIterator.exists(_ == defn.ScalaPackageClass)
 
     // Potential performance improvement: share the Map of extracted Tasty units
