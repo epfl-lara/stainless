@@ -549,6 +549,8 @@ class CodeExtraction(inoxCtx: inox.Context,
       val vdSym = vd.symbol
       val id = getIdentifier(vdSym)
       val flags = annotationsOf(vdSym, ignoreOwner = true)
+      if (flags.contains(xt.IsInternallyMutable) && !(vdSym `is` Private))
+        outOfSubsetError(vd, "Fields annotated with @internallyMutable must be private")
       val tpe = stainlessType(vd.tpt.tpe)(using tpCtx, vd.tpt.sourcePos)
       val (isExtern, isPure) = (flags contains xt.Extern, flags contains xt.IsPure)
       val isMutable = (vdSym `is` Mutable) || isExtern && !isPure
@@ -1534,6 +1536,8 @@ class CodeExtraction(inoxCtx: inox.Context,
       xt.Tuple(args.map(extractTree))
 
     case ExOldExpression(e) => xt.Old(extractTree(e))
+
+    case ExSameAsExpression(e) => xt.SameAs(extractTree(e))
 
     case ExSnapshotExpression(e) => xt.Snapshot(extractTree(e))
 
