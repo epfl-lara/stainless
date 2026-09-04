@@ -97,10 +97,24 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
 
     object GhostManagement {
       private val ghostAnnotation = getClassIfDefinedOrNone("stainless.annotation.ghost")
+      private val externAnnotation = getClassIfDefinedOrNone("stainless.annotation.extern")
       extension (sym: Symbol) {
-        private def hasGhostAnnotation(using DottyContext): Boolean = ghostAnnotation.exists(ghostClassSymbol => sym.hasAnnotation(ghostClassSymbol))
+        // An `erased` symbol (Scala's native soft keyword) is treated exactly like a `@ghost` symbol,
+        // mirroring the equivalence made when extracting flags in ASTExtractors.getAnnotations.
+        private def hasGhostAnnotation(using DottyContext): Boolean =
+          (sym.isEffectivelyErased && !(sym `is` Inline)) ||
+          ghostAnnotation.exists(ghostClassSymbol => sym.hasAnnotation(ghostClassSymbol))
         private def addGhostAnnotation()(using DottyContext): Unit = ghostAnnotation.foreach(ghostClassSymbol => sym.addAnnotation(ghostClassSymbol))
         private def removeGhostAnnotation()(using DottyContext): Unit = ghostAnnotation.foreach(ghostClassSymbol => sym.removeAnnotation(ghostClassSymbol))
+        // @extern code is not verified/extracted by Stainless, so ghost-access restrictions
+        // (which only make sense for code Stainless actually checks) should not apply inside it.
+        // Externally-erased symbols (e.g. macro-only stdlib methods like StringContext.f) are thus
+        // still usable from @extern code, same as from ghost code. Propagates from enclosing owners,
+        // mirroring how `propagatedAnnotations` propagates @extern during extraction.
+        private def hasExternAnnotation(using DottyContext): Boolean =
+          externAnnotation.exists(externClassSymbol =>
+            sym.hasAnnotation(externClassSymbol) || sym.ownersIterator.drop(1).exists(_.hasAnnotation(externClassSymbol))
+          )
       }
       /**
         * Tree traverser that propagates ghost annotations on synthesized members:
@@ -276,8 +290,10 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
             case m: tpd.MemberDef  =>
               // We consider some synthetic methods values as being inside ghost
               // but don't auto-annotate as such because we don't want all code to be removed.
-              // They are synthetic case class methods that are harmless if they see some ghost nulls
-              if (m.symbol.hasGhostAnnotation || effectivelyGhost(sym))
+              // They are synthetic case class methods that are harmless if they see some ghost nulls.
+              // @extern members are not verified or extracted by Stainless, so ghost-access
+              // restrictions (meant for code Stainless actually checks) don't apply inside them either.
+              if (m.symbol.hasGhostAnnotation || effectivelyGhost(sym) || m.symbol.hasExternAnnotation)
                 withinGhostContext(traverseChildren(m))
               else
                 traverseChildren(m)
