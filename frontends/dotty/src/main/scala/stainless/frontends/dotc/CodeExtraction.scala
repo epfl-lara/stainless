@@ -1164,7 +1164,18 @@ class CodeExtraction(inoxCtx: inox.Context,
       args.map(extractTree)
   }
 
-  private def extractBlock(es: List[tpd.Tree])(using dctx: DefContext): xt.Expr = {
+  private def extractBlock(rawEs: List[tpd.Tree])(using dctx: DefContext): xt.Expr = {
+    // Drop compiler-synthesized "this" proxies the inliner introduces to reach a package
+    // object's own instance from inlined code originating in that package (e.g.
+    // `val $proxy1: lang = package.asInstanceOf[lang]`, materializing `stainless.lang.package$.this`
+    // for `Try`'s `inline def flatMap`). Package objects are flattened by Stainless -- their
+    // members become plain top-level definitions -- so no instance of them is ever needed,
+    // and such a proxy's type can be unsupported (or simply meaningless) to extract.
+    val es = rawEs.filterNot {
+      case v: tpd.ValDef => v.symbol.info.classSymbol.isPackageObject
+      case _ => false
+    }
+
     val fctx = es.collect {
       case ExFunctionDef(sym, tparams, vparams, tpt, rhs) => (sym, tparams, vparams)
     }.foldLeft(dctx) { case (dctx, (sym, tparams, vparams)) =>
@@ -2790,7 +2801,16 @@ class CodeExtraction(inoxCtx: inox.Context,
           case (xt.MapType(from, ct @ xt.ClassType(id, Seq(to))), 1) =>
             xt.MapType(from, xt.ClassType(id, Seq(extractType(tpe))).copiedFrom(ct))
           case (xt.NAryType(tps, recons), _) =>
-            recons(tps.updated(idx, extractType(tpe)))
+            // `tpe` can be an unresolved placeholder type (e.g. an unapplied type lambda)
+            // that dotty synthesizes while reconstructing the precise type of certain
+            // inlined expressions (observed with `inline def` methods pattern-matching over
+            // a generic ADT); it carries no real type argument, so on failure the refinement
+            // is dropped rather than failing extraction altogether.
+            scala.util.Try(extractType(tpe)) match {
+              case scala.util.Success(extractedTpe) => recons(tps.updated(idx, extractedTpe))
+              case scala.util.Failure(_: frontend.UnsupportedCodeException) => recons(tps)
+              case scala.util.Failure(e) => throw e
+            }
           case (_, _) => throw MatchError(s"Cannot extract refined type $name in $p", pos)
         }
 
@@ -2815,6 +2835,33 @@ class CodeExtraction(inoxCtx: inox.Context,
       case AndType(prod, tp) if defn.isProductClass(prod.typeSymbol) => extractType(tp)
       case AndType(tp, ser) if ser.typeSymbol == defn.SerializableClass => extractType(tp)
       case AndType(ser, tp) if ser.typeSymbol == defn.SerializableClass => extractType(tp)
+
+      // Other and-types can arise from dotty computing a more precise (but Stainless-
+      // unsupported) type for certain inlined expressions, e.g. intersecting the declared
+      // type of a closure argument with a path-dependent refinement through a local inliner
+      // proxy. Neither side is canonically "the" type here, so fall back to whichever side
+      // extraction can handle, preferring the left (typically the declared, public type).
+      case AndType(tp1, tp2) =>
+        // Other and-types can arise from dotty computing a more precise (but redundant)
+        // type for certain inlined expressions, e.g. intersecting a closure argument's
+        // declared type with the same type again, path-dependent on a local inliner proxy
+        // for a package object's instance (which Stainless flattens away, see the ValDef
+        // filtering in extractBlock). Such a side is not real, independent information, so
+        // when the two sides agree on the extracted type, that shared type is used.
+        // A genuine (and unsupported) intersection between two different types -- as
+        // opposed to two extractions of the same type -- must still be rejected: silently
+        // picking one side would misrepresent the program (e.g. `A & B` for distinct type
+        // parameters `A`, `B`, as produced by an invalid type-ascribed pattern).
+        def tryExtract(tp: Type): Option[xt.Type] =
+          try Some(extractType(tp))
+          catch { case _: frontend.UnsupportedCodeException => None }
+        (tryExtract(tp1), tryExtract(tp2)) match {
+          case (Some(t1), Some(t2)) if t1 == t2 => t1
+          case (Some(t1), None) => t1
+          case (None, Some(t2)) => t2
+          case _ =>
+            outOfSubsetError(tpt.typeSymbol.sourcePos, s"Stainless does not support type ${tpt.show}")
+        }
 
       case ot: OrType => extractType(ot.join)
 
