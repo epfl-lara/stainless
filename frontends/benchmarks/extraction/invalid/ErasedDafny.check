@@ -1,0 +1,27 @@
+[ Error  ] ErasedDafny.scala:18:11: Cannot access a ghost symbol outside of a ghost context. [ g in method M ]
+                 r = g;         // error: RHS is erased, LHS is not
+                     ^
+[ Error  ] ErasedDafny.scala:19:11: Cannot access a ghost symbol outside of a ghost context. [ ErasedDafny.ErasedTests.F in method M ]
+                 r = F(18, g);  // error: RHS is erased and will not be available at run time
+                     ^
+[ Error  ] ErasedDafny.scala:23:13: Cannot access a ghost symbol outside of a ghost context. [ g in method M ]
+                 r = N(g, 22);  // error: passing in 'g' as non-erased parameter
+                       ^
+[ Error  ] ErasedDafny.scala:24:11: Cannot access a ghost symbol outside of a ghost context. [ ErasedDafny.ErasedTests.P in method M ]
+                 r = P(24, 22); // error: 'P' is erased, but its result is assigned to a non-erased variable
+                     ^
+[ Error  ] ErasedDafny.scala:31:17: Cannot access a ghost symbol outside of a ghost context. [ gg in method M ]
+                     r = G(gg, gg);  // error: cannot pass erased 'gg' as non-erased parameter to 'G'
+                           ^^
+[ Error  ] ErasedDafny.scala:36:26: Cannot access a ghost symbol outside of a ghost context. [ g in method M ]
+                 dd = ErasedDt.Cons(g, dt, 2);  // error: cannot pass 'g' as non-erased parameter
+                                    ^
+[ Error  ] ErasedDafny.scala:47:7: Cannot access a ghost symbol outside of a ghost context. [ y in method G ]
+                 y // error: cannot return an erased value from a non-erased function
+                 ^
+[ Error  ] ErasedDafny.scala:52:34: Cannot access a ghost symbol outside of a ghost context. [ gg in method H ]
+                   case ErasedDt.Nil(gg) => gg  // error: cannot return an erased value from a non-erased function
+                                            ^^
+[ Error  ] ErasedDafny.scala:53:49: Cannot access a ghost symbol outside of a ghost context. [ gg in method H ]
+                   case ErasedDt.Cons(dd, tt, gg) =>  dd + gg  // error: ditto
+                                                           ^^

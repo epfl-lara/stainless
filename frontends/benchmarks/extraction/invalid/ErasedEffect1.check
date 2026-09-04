@@ -1,0 +1,3 @@
+[ Error  ] ErasedEffect1.scala:13:23: Argument to ghost parameter `ignoreMe` of `doStuff` must only have effects on ghost fields (thiss.state.seed is not ghost)
+               def foo = doStuff(Random.nextBigInt(state))
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^

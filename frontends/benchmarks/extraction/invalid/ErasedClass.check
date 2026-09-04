@@ -1,0 +1,3 @@
+[ Error  ] ErasedClass.scala:2:21: `erased` is not allowed for this kind of definition.
+             erased case class MyClass(x: BigInt, y: BigInt)
+                               ^
