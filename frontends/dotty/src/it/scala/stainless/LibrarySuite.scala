@@ -51,6 +51,8 @@ abstract class AbstractLibrarySuite(opts: Seq[inox.OptionValue[?]]) extends AnyF
 
   test("Stainless library extraction and verification") {
     val ctx: inox.Context = stainless.TestContext(options)
+    // Use this context to debug the verification of the library
+    // val ctx: inox.Context = stainless.TestContext.debug(sections = Set(stainless.verification.DebugSectionVerification), options = options) 
     import ctx.{reporter, given}
     import verification.VerificationComponent
     val libProgram = loadLibrary()
@@ -88,7 +90,8 @@ abstract class AbstractLibrarySuite(opts: Seq[inox.OptionValue[?]]) extends AnyF
 class LibrarySuite extends AbstractLibrarySuite(Seq(
   termination.optInferMeasures(true),
   termination.optCheckMeasures(YesNoOnly.Yes),
-  inox.optTimeout(30.seconds),
+  inox.optSelectedSolvers(Set("smt-z3", "princess")),
+  inox.optTimeout(100.seconds),
 )) {
   // keep everything except math library functions
   override protected def keep(tr: ast.Trees)(fd: tr.FunDef): Boolean =
