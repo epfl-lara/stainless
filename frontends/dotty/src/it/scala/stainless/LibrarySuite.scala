@@ -51,6 +51,8 @@ abstract class AbstractLibrarySuite(opts: Seq[inox.OptionValue[?]]) extends AnyF
 
   test("Stainless library extraction and verification") {
     val ctx: inox.Context = stainless.TestContext(options)
+    // Use this context to debug the verification of the library
+    // val ctx: inox.Context = stainless.TestContext.debug(sections = Set(stainless.verification.DebugSectionVerification), options = options) 
     import ctx.{reporter, given}
     import verification.VerificationComponent
     val libProgram = loadLibrary()
