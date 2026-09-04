@@ -1,8 +1,9 @@
+import stainless.annotation.ghost
 import stainless.lang._
 
 case class ErasedClassWithInvariant(var x: BigInt) {
 
-  erased def valid: Boolean = x >= 0
+  @ghost def valid: Boolean = x >= 0
 
   def f(v: {v: BigInt with valid && v >= 0}): {res: BigInt with valid} = x + v
 }
