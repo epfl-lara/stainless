@@ -1,6 +1,6 @@
 import stainless.lang._
 
-case class A(x: BigInt) {
+case class ErasedLocal(x: BigInt) {
 
   def f() = {
     erased val a = x + 1
