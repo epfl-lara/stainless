@@ -27,6 +27,20 @@ case class ExtractedUnit(file: String, unit: xt.UnitDef, classes: Seq[xt.ClassDe
 class StainlessExtraction(val inoxCtx: inox.Context) {
   private val symbolMapping = new SymbolMapping
 
+  /** Strips the `PackageDef` of the empty package wrapping the tree of a unit.
+    *
+    * Since Scala 3.10.1, the typed tree of a compilation unit that declares a
+    * package, as well as the root tree of a Tasty unit, is wrapped in a
+    * `PackageDef` for the empty package (e.g. `<empty>` -> `stainless` ->
+    * `collection`). Stripping it keeps units declaring a package named after
+    * their file rather than after their package, and keeps the statements of a
+    * unit being its definitions rather than a single nested `PackageDef`.
+    */
+  private def unwrapEmptyPackage(tree: tpd.Tree)(using DottyContext): tpd.Tree = tree match {
+    case PackageDef(pid, (inner: tpd.PackageDef) :: Nil) if pid.symbol.isEmptyPackage => inner
+    case _ => tree
+  }
+
   def extractUnit(exportedSymsMapping: ExportedSymbolsMapping)(using ctx: DottyContext): Option[ExtractedUnit] = {
     val unit = ctx.compilationUnit
     val tree = unit.tpdTree
@@ -45,7 +59,7 @@ class StainlessExtraction(val inoxCtx: inox.Context) {
     val extraction = new CodeExtraction(inoxCtx, symbolMapping, exportedSymsMapping)
     import extraction._
 
-    val (id, stats) = tree match {
+    val (id, stats) = unwrapEmptyPackage(tree) match {
       case pd@PackageDef(pid, lst) =>
         val id = lst.collectFirst { case PackageDef(ref, _) => ref } match {
           case Some(ref) => extractRef(ref)
@@ -148,18 +162,8 @@ class StainlessExtraction(val inoxCtx: inox.Context) {
     // Note: the symbol of a `PackageDef` is a term symbol (the package value),
     // so we compare it against `defn.ScalaPackageVal`. Its owners however are
     // class symbols, so we compare those against `defn.ScalaPackageClass`.
-    //
-    // The root tree of a Tasty unit is wrapped in a `PackageDef` for the empty
-    // package, which itself contains the `PackageDef`s of the unit's packages
-    // (e.g. `<empty>` -> `stainless` -> `collection`). We therefore look at the
-    // outermost package that is not the empty package.
-    def unitPackage(tree: tpd.Tree): Symbol = tree match
-      case PackageDef(pid, stats) if pid.symbol.isEmptyPackage =>
-        stats.collectFirst { case inner: tpd.PackageDef => unitPackage(inner) }.getOrElse(pid.symbol)
-      case _ => tree.symbol
-
     def ignoreTastyUnit(tree: tpd.Tree): Boolean =
-      val sym = unitPackage(tree)
+      val sym = unwrapEmptyPackage(tree).symbol
       sym.isEmptyPackage || sym == defn.ScalaPackageVal || sym.ownersIterator.exists(_ == defn.ScalaPackageClass)
 
     // Potential performance improvement: share the Map of extracted Tasty units
