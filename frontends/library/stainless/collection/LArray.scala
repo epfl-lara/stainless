@@ -186,7 +186,6 @@ object LArrayUtils {
         case Nil() => 
           ()
         case Cons(h, tail) =>
-          assert((0 <= from && from <= arr.length))
           lemmaSameArrayListContentImpliesSameLength(arr, from + 1, tail)
           assert((0 <= from + 1 && from + 1 <= arr.length))
           assert((arr.length == from + 1 + tail.size.toInt))
@@ -203,6 +202,7 @@ object LArrayUtils {
           LArrayUtils.compareIntPreservedByToBigInt(from + list.size.toInt, from + 1 + tail.size.toInt)
 
           LArrayUtils.additionIntPreservedByToBigInt(from, 1)
+          assert((0 <= from && from <= arr.length))
           ()
       }
     }
