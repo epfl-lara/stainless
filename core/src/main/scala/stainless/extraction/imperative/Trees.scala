@@ -156,6 +156,13 @@ trait Trees extends oo.Trees with Definitions { self =>
     protected def computeTpe(stripRefinements: Boolean)(using Symbols): Type = e.getTpe(stripRefinements)
   }
 
+
+  /** $encodingof `sameAs(f(x, ..., z))` */
+  case class SameAs(e: Expr) extends Expr with CachingTyped {
+    protected def computeTpe(stripRefinements: Boolean)(using Symbols): Type =
+      FunctionType(Seq(e.getTpe(stripRefinements)), BooleanType())
+  }
+
   /** $encodingof `snapshot(e)` */
   case class Snapshot(e: Expr) extends Expr with CachingTyped {
     protected def computeTpe(stripRefinements: Boolean)(using Symbols): Type = e.getTpe(stripRefinements)
@@ -242,6 +249,7 @@ trait Trees extends oo.Trees with Definitions { self =>
   case object IsVar extends Flag("var", Seq.empty)
   case object IsPure extends Flag("pure", Seq.empty)
   case object IsMutable extends Flag("mutable", Seq.empty)
+  case object IsInternallyMutable extends Flag("internallyMutable", Seq.empty)
 
   override val exprOps: ExprOps { val trees: self.type } = {
     class ExprOpsImpl(override val trees: self.type) extends ExprOps(trees)
@@ -261,6 +269,7 @@ trait Trees extends oo.Trees with Definitions { self =>
   override def extractFlag(name: String, args: Seq[Expr]): Flag = (name, args) match {
     case ("pure", Seq()) => IsPure
     case ("mutable", Seq()) => IsMutable
+    case ("internallyMutable", Seq()) => IsInternallyMutable
     case _ => super.extractFlag(name, args)
   }
 
@@ -353,6 +362,9 @@ trait Printer extends oo.Printer {
 
     case Old(e) =>
       p"old($e)"
+
+    case SameAs(e) =>
+      p"sameAs($e)"
 
     case Snapshot(e) =>
       p"snapshot($e)"
@@ -454,6 +466,9 @@ trait TreeDeconstructor extends oo.TreeDeconstructor {
     case s.Old(e) =>
       (Seq(), Seq(), Seq(e), Seq(), Seq(), (_, _, es, _, _) => t.Old(es.head))
 
+    case s.SameAs(e) =>
+      (Seq(), Seq(), Seq(e), Seq(), Seq(), (_, _, es, _, _) => t.SameAs(es.head))
+
     case s.Return(e) =>
       (Seq(), Seq(), Seq(e), Seq(), Seq(), (_, _, es, _, _) => t.Return(es(0)))
 
@@ -502,6 +517,7 @@ trait TreeDeconstructor extends oo.TreeDeconstructor {
     case s.IsVar => (Seq(), Seq(), Seq(), (_, _, _) => t.IsVar)
     case s.IsPure => (Seq(), Seq(), Seq(), (_, _, _) => t.IsPure)
     case s.IsMutable => (Seq(), Seq(), Seq(), (_, _, _) => t.IsMutable)
+    case s.IsInternallyMutable => (Seq(), Seq(), Seq(), (_, _, _) => t.IsInternallyMutable)
     case _ => super.deconstruct(f)
   }
 }
