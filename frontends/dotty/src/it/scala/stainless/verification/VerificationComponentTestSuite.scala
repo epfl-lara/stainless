@@ -9,6 +9,12 @@ import java.io.File
 
 trait VerificationComponentTestSuite extends ComponentTestSuite { self =>
 
+  // TEMPORARY (CI hang investigation): print a line for every VC as it starts solving, so that
+  // when a run hangs, the CI log shows exactly which VC/file/solver never returned instead of
+  // going silent. Revert to `super.createContext` (the silent reporter) once the culprit is found.
+  override def createContext(options: inox.Options) =
+    stainless.TestContext.debug(Set(DebugSectionVerification), options)
+
   // When set to true, Scala file with a missing corresponding check file will not be treated as an error
   val allowMissingCheckFile: Boolean = true
 

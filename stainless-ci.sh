@@ -156,7 +156,11 @@ else
   fi
 
   # Run the integration tests
-  $SBT -batch -Dtestsuite-parallelism=6 -Dtestcase-parallelism=5 it:test
+  # TEMPORARY (CI hang investigation): parallelism dropped to 1 so that, if a run hangs, the last
+  # "Now solving..." line printed in the log unambiguously identifies the stuck VC/file/solver,
+  # instead of several tests racing and obscuring which one never returned. Revert to
+  # -Dtestsuite-parallelism=6 -Dtestcase-parallelism=5 once the culprit is found.
+  $SBT -batch -Dtestsuite-parallelism=1 -Dtestcase-parallelism=1 it:test
   if [ $? -ne 0 ]; then
     echo "************** Integration tests failed **************"
     exit 1
