@@ -1,0 +1,3 @@
+[ Fatal  ] IndirectCaptureOfMutableField.scala:8:7: Illegal capturing of variables with mutable type: thiss
+                 x => g.value
+                 ^^^^^^^^^^^^

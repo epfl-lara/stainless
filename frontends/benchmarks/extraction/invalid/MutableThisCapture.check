@@ -1,0 +1,3 @@
+[ Fatal  ] MutableThisCapture.scala:9:33: Illegal capturing of variables with mutable type: thiss
+               def f(): BigInt => BigInt = x => this.g()(x)
+                                           ^^^^^^^^^^^^^^^^
