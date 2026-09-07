@@ -731,6 +731,13 @@ trait ASTExtractors {
           Apply(TypeApply(ExSymbol("scala", "Predef$", "ArrowAssoc"), Seq(_)), Seq(from)),
           ExNamed("->") | ExNamed("$minus$greater")
         ), Seq(_)), Seq(to)) => Some(Seq(from, to))
+        // Since Scala 3.10, `->` is an extension method defined directly in `Predef`
+        // (`ArrowAssoc` is deprecated). It is an inline method, so calls from source
+        // files are inlined (and handled by the `Inlined` case of the extraction),
+        // but calls from Tasty units (e.g. from the Stainless library) are not.
+        case Apply(TypeApply(Apply(TypeApply(
+          ExSymbol("scala", "Predef$", "->" | "$minus$greater"), Seq(_)), Seq(from)
+        ), Seq(_)), Seq(to)) => Some(Seq(from, to))
         case _ => None
       }
     }

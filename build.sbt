@@ -31,7 +31,7 @@ lazy val nTestSuiteParallelism = {
 
 // The Scala version with which Stainless (and its library) is compiled, and which is bundled as the frontend compiler.
 // Note: in case of version bump, do not forget to update the `test` files in `sbt-plugin` (for `sbt scripted`)!
-val stainlessScalaVersion = "3.10.0-RC1-bin-20260608-cf86bba-NIGHTLY"
+val stainlessScalaVersion = "3.10.1-RC1-bin-20260903-e1f9361-NIGHTLY"
 
 val laraOrganization = "ch.epfl.lara"
 
@@ -162,6 +162,8 @@ lazy val assemblySettings: Seq[Setting[_]] = {
       case "stainless/BuildInfo.class" => MergeStrategy.last
       case "stainless/BuildInfo$.class" => MergeStrategy.last
       case PathList("META-INF", xs @ _*) => MergeStrategy.discard
+      // Java module descriptors (e.g. from the ASM jars pulled in by the Scala 3 compiler) are irrelevant in a fat jar
+      case "module-info.class" => MergeStrategy.discard
       case PathList("scala", "collection", "compat", _*) => MergeStrategy.first
       case PathList("scala", "annotation", _*) => MergeStrategy.first
       case PathList("scala", "util", _*) => MergeStrategy.first
@@ -238,7 +240,7 @@ Global / concurrentRestrictions := Seq(
 def ghProject(repo: String, version: String) = RootProject(uri(s"${repo}#${version}"))
 
 lazy val inox = RootProject(file("./inox"))
-lazy val cafebabe = ghProject("https://github.com/epfl-lara/cafebabe.git", "8656f80ed6612161263612e9c35d14467006e451")
+lazy val cafebabe = ghProject("https://git:git@github.com/epfl-lara/cafebabe.git", "8656f80ed6612161263612e9c35d14467006e451")
 
 // Allow integration test to use facilities from regular tests
 lazy val IntegrationTest = config("it") extend(Test)
