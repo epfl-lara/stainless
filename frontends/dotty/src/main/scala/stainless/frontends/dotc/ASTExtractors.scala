@@ -651,6 +651,15 @@ trait ASTExtractors {
       }
     }
 
+    /** Strips the `Inlined(EmptyTree, Nil, _)` markers with which the inliner wraps the trees that come
+      * from the call site of an inlined method (arguments, references to `this`). Unlike
+      * `tpd.stripInlined`, this keeps inlined calls that carry bindings.
+      */
+    def stripInlineMarkers(tree: tpd.Tree): tpd.Tree = tree match {
+      case Inlined(_, Nil, expansion) => stripInlineMarkers(expansion)
+      case _ => tree
+    }
+
     object ExCall {
       def unapply(tree: tpd.Tree): Option[(Option[tpd.Tree], Symbol, Seq[tpd.Tree], Seq[tpd.Tree])] = {
         val optCall = tree match {
@@ -667,8 +676,10 @@ trait ASTExtractors {
         }
 
         optCall.map { case (rec, sym, tps, args) =>
+          // Receivers coming from the call site of an inlined method are wrapped in `Inlined` markers
           val newRec = rec.filterNot { r =>
-            (r.symbol `is` Module) && !(r.symbol `is` Case)
+            val recSym = stripInlineMarkers(r).symbol
+            (recSym `is` Module) && !(recSym `is` Case)
           }
           (newRec, sym, tps, args)
         }
