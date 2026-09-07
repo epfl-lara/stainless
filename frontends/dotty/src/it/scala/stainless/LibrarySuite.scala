@@ -28,6 +28,13 @@ abstract class AbstractLibrarySuite(opts: Seq[inox.OptionValue[?]]) extends AnyF
   protected final def isMathLibraryFunction(tr: ast.Trees)(fd: tr.FunDef): Boolean =
     fd.id.fullName.startsWith("stainless.math.")
 
+  /* Similarly, some library additions (e.g. LArray) require a portfolio of solvers (z3, cvc5, princess) to verify in
+   * reasonable time, which would slow down the rest of the library if used everywhere. These live alongside other
+   * collection code rather than in their own subpackage, so we identify them by their (class/object) name prefix
+   * instead of by package. */
+  protected final def isAdvancedLibraryFunction(tr: ast.Trees)(fd: tr.FunDef): Boolean =
+    fd.id.fullName.startsWith("stainless.collection.LArray")
+
   protected def symbolName(id: Identifier): String = id match {
     case si: SymbolIdentifier => si.symbol.name
     case id => id.name
@@ -90,12 +97,11 @@ abstract class AbstractLibrarySuite(opts: Seq[inox.OptionValue[?]]) extends AnyF
 class LibrarySuite extends AbstractLibrarySuite(Seq(
   termination.optInferMeasures(true),
   termination.optCheckMeasures(YesNoOnly.Yes),
-  inox.optSelectedSolvers(Set("smt-z3", "smt-cvc5", "princess")),
-  inox.optTimeout(100.seconds),
+  inox.optTimeout(30.seconds),
 )) {
-  // keep everything except math library functions
+  // keep everything except math library functions and the advanced (e.g. LArray) library functions
   override protected def keep(tr: ast.Trees)(fd: tr.FunDef): Boolean =
-    !isMathLibraryFunction(tr)(fd) && super.keep(tr)(fd)
+    !isMathLibraryFunction(tr)(fd) && !isAdvancedLibraryFunction(tr)(fd) && super.keep(tr)(fd)
 }
 
 class MathLibrarySuite extends AbstractLibrarySuite(Seq(
@@ -118,4 +124,15 @@ class MathLibrarySuite extends AbstractLibrarySuite(Seq(
     }
     super.libraryFiles().filter(_.startsWith(mathPrefix))
   }
+}
+
+class AdvancedLibrarySuite extends AbstractLibrarySuite(Seq(
+  termination.optInferMeasures(true),
+  termination.optCheckMeasures(YesNoOnly.Yes),
+  inox.optSelectedSolvers(Set("smt-z3", "smt-cvc5", "princess")),
+  inox.optTimeout(100.seconds),
+)) {
+  // only keep the advanced (e.g. LArray) library functions
+  override protected def keep(tr: ast.Trees)(fd: tr.FunDef): Boolean =
+    isAdvancedLibraryFunction(tr)(fd) && super.keep(tr)(fd)
 }
