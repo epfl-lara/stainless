@@ -1,0 +1,3 @@
+[ Error  ] OldInValRefinement.scala:8:7: In refinement types, Stainless `old` can only occur in the refinement of a function return type, applied to `this` or parameters.
+             def f(b: Box): Unit = {
+                 ^

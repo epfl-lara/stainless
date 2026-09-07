@@ -117,6 +117,40 @@ We assign refinement types the following semantics:
 
     then the postcondition is interpreted as ``.ensuring(_ => x == y)``, where ``x`` is the field's value after execution of ``setX``.
 
+* Like a postcondition, a refinement type on a function's return type can refer to the state
+  at the entry of the function using ``old(...)``. For example:
+
+    .. code-block:: scala
+
+      case class Box(var x: BigInt)
+
+      def addX(b: Box, y: BigInt): { res: Unit with b.x == old(b).x + y } =
+        b.x = b.x + y
+
+    is equivalent to:
+
+    .. code-block:: scala
+
+      def addX(b: Box, y: BigInt): Unit = {
+        b.x = b.x + y
+      }.ensuring(_ => b.x == old(b).x + y)
+
+  The same restrictions apply as for ``old`` in postconditions: it can only be applied to
+  ``this`` and function parameters, and the refinement predicate may not mutate the
+  pre-state. For example, on a method:
+
+    .. code-block:: scala
+
+      case class Box(var x: BigInt):
+        def bump(): { res: Boolean with old(this).x + 1 == this.x } =
+          x = x + 1
+          true
+
+  Note that the Scala compiler requires field accesses in refinement types to be written
+  with an explicit ``this`` prefix (``this.x``, not ``x``), and rejects references to
+  local variables of enclosing functions in refinement types (``Invalid qualifier``);
+  for postconditions over such local variables, use an ``ensuring`` clause instead.
+
 * A refinement type on a value is equivalent to an assertion on the value. For example:
 
    .. code-block:: scala
