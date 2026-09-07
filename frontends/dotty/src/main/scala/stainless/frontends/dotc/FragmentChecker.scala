@@ -101,8 +101,12 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
       extension (sym: Symbol) {
         // An `erased` symbol (Scala's native soft keyword) is treated exactly like a `@ghost` symbol,
         // mirroring the equivalence made when extracting flags in ASTExtractors.getAnnotations.
+        // Macro stubs (e.g. StringContext.s/f, whose declared body is never actually run: the
+        // compiler substitutes the macro expansion at call sites instead) are excluded even when
+        // `erased`: the flag there only means "this declaration itself is never called", not that
+        // using the interpolator is proof-irrelevant/ghost.
         private def hasGhostAnnotation(using DottyContext): Boolean =
-          (sym.isEffectivelyErased && !(sym `is` Inline)) ||
+          (sym.isEffectivelyErased && !(sym `is` Inline) && !(sym `is` Macro)) ||
           ghostAnnotation.exists(ghostClassSymbol => sym.hasAnnotation(ghostClassSymbol))
         private def addGhostAnnotation()(using DottyContext): Unit = ghostAnnotation.foreach(ghostClassSymbol => sym.addAnnotation(ghostClassSymbol))
         private def removeGhostAnnotation()(using DottyContext): Unit = ghostAnnotation.foreach(ghostClassSymbol => sym.removeAnnotation(ghostClassSymbol))
