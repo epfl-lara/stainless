@@ -130,7 +130,9 @@ class AdvancedLibrarySuite extends AbstractLibrarySuite(Seq(
   termination.optInferMeasures(true),
   termination.optCheckMeasures(YesNoOnly.Yes),
   inox.optSelectedSolvers(Set("smt-z3", "smt-cvc5", "princess")),
-  inox.optTimeout(100.seconds),
+  inox.optTimeout(10.seconds),
+  verification.optVCCache(true),
+  verification.optSimplifier(verification.SimplifierKind.Bland),
 )) {
   // only keep the advanced (e.g. LArray) library functions
   override protected def keep(tr: ast.Trees)(fd: tr.FunDef): Boolean =

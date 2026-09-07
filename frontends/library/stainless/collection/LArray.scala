@@ -22,11 +22,17 @@ case class LArray[T](private val data: Array[T], @ghost private var toList: List
     require(valid)
     ghostExpr(LArrayUtils.lemmaSameArrayListContentImpliesSameLength(data, 0, toList))
     ghostExpr(LArrayUtils.lemmaToIntBigIntConversionBothDirections(toList.size, data.length))
+    assert(BigInt(data.length) == toList.size)
     BigInt(data.length)
   }.ensuring(res => valid && res == toList.size && res >= 0 && res <= BigInt(Int.MaxValue) && res.toInt == data.length)
 
   def isize: Int = {
     require(valid)
+    ghostExpr({
+      assert(size <= BigInt(Int.MaxValue))
+      assert(toList.size.toInt == size.toInt)
+      assert(toList.size == size)
+    })
     data.length
   }.ensuring(res => valid && res == size.toInt && res >= 0 && res <= Int.MaxValue)
 
@@ -53,9 +59,12 @@ case class LArray[T](private val data: Array[T], @ghost private var toList: List
     require(valid)
     require(i >= 0 && i < isize)
     ghostExpr({
+      assert(size <= BigInt(Int.MaxValue))
+      assert(i >= 0 && i < data.length)
       assert(BigInt(i).toInt == i)
       LArrayUtils.compareIntPreservedByToBigInt(i, size.toInt)
       LArrayUtils.compareBigIntPreservedByToInt(BigInt(i), size)
+      assert(apply(BigInt(i)) == data(i))
     })
     data(i)
   }.ensuring(res => valid && {
@@ -68,13 +77,19 @@ case class LArray[T](private val data: Array[T], @ghost private var toList: List
     require(i >= 0 && i < size)
     ghostExpr({LArrayUtils.lemmaSameArrayListContentImpliesSameLength(data, 0, toList)
       LArrayUtils.compareBigIntPreservedByToInt(i, size)
-      assert(data.length == size.toInt)
-      LArrayUtils.sameArrayListContent(data, 0, toList)
+      val vsize: BigInt = size
+      assert(vsize >= 0 && vsize <= BigInt(Int.MaxValue))
+      assert(vsize.toInt == isize)
+      assert(vsize.toInt == data.length)
+      assert(data.length == vsize.toInt)
+      assert(BigInt(i.toInt) == i)
+      assert(LArrayUtils.sameArrayListContent(data, 0, toList))
       LArrayUtils.lemmaSameArrayListContentPreservedByUpdated(data, 0, toList, i.toInt, v)
       LArrayUtils.lemmaSameArrayListContentImpliesSameLength(data, 0, toList)
       LArrayUtils.lemmaToIntBigIntConversionBothDirections(toList.size, data.length)
-      LArrayUtils.compareBigIntPreservedByToInt(i, size)
+      assert(Int.MinValue <= i && i <= Int.MaxValue && Int.MinValue <= vsize && vsize <= Int.MaxValue)
       unfold(size)
+      LArrayUtils.compareBigIntPreservedByToInt(i, vsize)
     })
 
     toList = toList.updated(i, v)
@@ -137,14 +152,25 @@ object LArray {
     l match {
       case Nil() => 
         check(LArrayUtils.sameArrayListContent(arr, from.toInt, l))
-      case Cons(h, tail) if from == size => 
+      case Cons(h, tail) if from == size =>
+        assert(l.isEmpty)
         check(false)
         check(LArrayUtils.sameArrayListContent(arr, from.toInt, l))
-      case Cons(h, tail) if from < size => 
+      case Cons(h, tail) if from < size =>
+        assert(h == elmt)
+        assert(from + 1 <= size)
+        assert(l.size == 1 + tail.size)
+        assert(tail == List.fill(size - from - 1)(elmt))
+        assert(BigInt(from.toInt) == from)
+        assert(0 <= from && from < size)
+        assert(arr.size == size.toInt)
         LArrayUtils.compareIntPreservedByToBigInt(from.toInt, size.toInt)
+        assert(0 <= from.toInt && from.toInt < size.toInt)
+        assert(arr(from.toInt) == elmt)
         listFillSameContentAsArrayFill(size, elmt, from + 1, tail, arr)
         LArrayUtils.additionIntPreservedByToBigInt(from.toInt, 1)
         assert((from + 1).toInt == from.toInt + 1)
+        assert(LArrayUtils.sameArrayListContent(arr, from.toInt + 1, tail))
         check(LArrayUtils.sameArrayListContent(arr, from.toInt, l))
     }
     
@@ -186,6 +212,7 @@ object LArrayUtils {
         case Nil() => 
           ()
         case Cons(h, tail) =>
+          assert((0 <= from && from <= arr.length))
           lemmaSameArrayListContentImpliesSameLength(arr, from + 1, tail)
           assert((0 <= from + 1 && from + 1 <= arr.length))
           assert((arr.length == from + 1 + tail.size.toInt))
