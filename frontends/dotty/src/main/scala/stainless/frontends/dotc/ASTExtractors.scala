@@ -75,7 +75,9 @@ trait ASTExtractors {
     if (sym eq NoSymbol)
       return Seq.empty
 
-    val erased = if (sym.isEffectivelyErased && !(sym `is` Inline)) Seq(("ghost", Seq.empty[tpd.Tree])) else Seq()
+    // Macro stubs (e.g. StringContext.s/f) are excluded even when `erased`: see the matching note
+    // on FragmentChecker.GhostManagement.hasGhostAnnotation.
+    val erased = if (sym.isEffectivelyErased && !(sym `is` Inline) && !(sym `is` Macro)) Seq(("ghost", Seq.empty[tpd.Tree])) else Seq()
     val selfs = sym.annotations
     val owners =
       if (ignoreOwner) List.empty[Annotation]
