@@ -291,13 +291,22 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
               reportError(tree.sourcePos, s"Cannot access a ghost symbol outside of a ghost context. [ ${tree.show} in ${ctx.owner} ]")
               traverseChildren(tree)
 
+            // Do not even look inside the body of an @extern/@ignore/uninteresting-synthetic member:
+            // this only gates whether we descend into *this definition's own* body, not references
+            // to it from elsewhere (an `Apply`'s `.symbol` forwards to the callee, so applying this
+            // check to every tree node -- rather than only here, at the definition itself -- would
+            // also wrongly exempt call sites to an @extern member from ghost-context checking).
+            // We have to skip only the body (and not the whole symbol like in Checker below) otherwise
+            // an ignored function can be called from non-ghost code, which is not what we want. We just want to 
+            // ignore the body
+            case m: tpd.MemberDef if sym.exists && ignoredSymbols(sym) =>
+               ()
+
             case m: tpd.MemberDef  =>
               // We consider some synthetic methods values as being inside ghost
               // but don't auto-annotate as such because we don't want all code to be removed.
               // They are synthetic case class methods that are harmless if they see some ghost nulls.
-              // @extern members are not verified or extracted by Stainless, so ghost-access
-              // restrictions (meant for code Stainless actually checks) don't apply inside them either.
-              if (m.symbol.hasGhostAnnotation || effectivelyGhost(sym) || m.symbol.hasExternAnnotation)
+              if (m.symbol.hasGhostAnnotation || effectivelyGhost(sym))
                 withinGhostContext(traverseChildren(m))
               else
                 traverseChildren(m)
@@ -350,6 +359,24 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
         }
       }
     }
+
+
+  def ignoredSymbols(sym: Symbol, additionalCases: Boolean = false): Boolean = {
+    val ExternAnnotation = getClassIfDefinedOrNone("stainless.annotation.extern")
+    val IgnoreAnnotation = getClassIfDefinedOrNone("stainless.annotation.ignore")
+    val ScalaEnsuringMethod = requiredMethod("scala.Predef.Ensuring")
+
+    val isExtern = ExternAnnotation.exists(sym.hasAnnotation)
+    val isIgnore = IgnoreAnnotation.exists(sym.hasAnnotation)
+    // * If it's a synthetic symbol, we will still visit if it is either:
+    //    -the scala Ensuring method (that creates the Ensuring class), which for some reasons is synthetic (though StaticChecks.Ensuring is not for instance)
+    //    -an anonymous function
+    //    -an anonymous class
+    // * We furthermore ignore ClassTag[T].apply() that appear for Array operations, which we can still extract.
+    isExtern || isIgnore || ((sym `is` Synthetic) && (sym ne ScalaEnsuringMethod) && !sym.isAnonymousFunction && !sym.isAnonymousFunction) ||
+      (sym.owner eq defn.ClassTagModule_apply)
+      || additionalCases
+  }
 
   class Checker extends tpd.TreeTraverser {
     private val ScalaEnsuringMethod = requiredMethod("scala.Predef.Ensuring")
@@ -684,16 +711,7 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
     }
 
     private def skipTraversal(sym: Symbol): Boolean = {
-      val isExtern = ExternAnnotation.exists(sym.hasAnnotation)
-      val isIgnore = IgnoreAnnotation.exists(sym.hasAnnotation)
-      // * If it's a synthetic symbol, we will still visit if it is either:
-      //    -the scala Ensuring method (that creates the Ensuring class), which for some reasons is synthetic (though StaticChecks.Ensuring is not for instance)
-      //    -an anonymous function
-      //    -an anonymous class
-      // * We furthermore ignore ClassTag[T].apply() that appear for Array operations, which we can still extract.
-      isExtern || isIgnore || ((sym `is` Synthetic) && (sym ne ScalaEnsuringMethod) && !sym.isAnonymousFunction && !sym.isAnonymousFunction) ||
-        (sym.owner eq defn.ClassTagModule_apply) ||
-        bvSpecialFunctions(sym) || StainlessBVClass.contains(sym)
+      ignoredSymbols(sym, bvSpecialFunctions(sym) || StainlessBVClass.contains(sym))
     }
   }
 }
