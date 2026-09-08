@@ -117,7 +117,7 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
         // mirroring how `propagatedAnnotations` propagates @extern during extraction.
         private def hasExternAnnotation(using DottyContext): Boolean =
           externAnnotation.exists(externClassSymbol =>
-            sym.hasAnnotation(externClassSymbol) || sym.ownersIterator.drop(1).exists(_.hasAnnotation(externClassSymbol))
+            sym.hasAnnotation(externClassSymbol) || sym.ownersIterator.exists(_.hasAnnotation(externClassSymbol))
           )
       }
       /**
