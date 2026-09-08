@@ -17,6 +17,8 @@ import stainless.frontend
 import stainless.frontend.{CallBack, Frontend}
 import Utils._
 
+import scala.concurrent.duration._
+
 object StainlessPlugin {
   val PluginName                       = "stainless"
   val PluginDescription                = "Inject Stainless verification pipeline"
@@ -107,7 +109,11 @@ class StainlessPlugin extends StandardPlugin {
         }
       }
       val inoxCtx = {
-        val base = mainHelper.getConfigContext(inox.Options.empty)(using new stainless.PlainTextReporter(Set.empty))
+        // The sbt plugin currently has no way to pass options (e.g. via `-P:stainless:`) through to the
+        // verification pipeline, so a solver timeout is otherwise never set here: without one, a single VC
+        // that gets a solver stuck would hang the whole build (and CI) indefinitely.
+        val defaultOptions = inox.Options.empty + inox.optTimeout(30.seconds)
+        val base = mainHelper.getConfigContext(defaultOptions)(using new stainless.PlainTextReporter(Set.empty))
         val adapter = new ReporterAdapter(base.reporter.debugSections)
         inox.Context(
           reporter         = adapter,
