@@ -299,7 +299,7 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
             // We have to skip only the body (and not the whole symbol like in Checker below) otherwise
             // an ignored function can be called from non-ghost code, which is not what we want. We just want to 
             // ignore the body
-            case m: tpd.MemberDef if sym.exists && ignoredSymbols(sym) =>
+            case m: tpd.MemberDef if sym.exists && isIgnoredSymbol(sym) =>
                ()
 
             case m: tpd.MemberDef  =>
@@ -361,7 +361,7 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
     }
 
 
-  def ignoredSymbols(sym: Symbol, additionalCases: Boolean = false): Boolean = {
+  def isIgnoredSymbol(sym: Symbol, additionalCases: Boolean = false): Boolean = {
     val ExternAnnotation = getClassIfDefinedOrNone("stainless.annotation.extern")
     val IgnoreAnnotation = getClassIfDefinedOrNone("stainless.annotation.ignore")
     val ScalaEnsuringMethod = requiredMethod("scala.Predef.Ensuring")
@@ -711,7 +711,7 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
     }
 
     private def skipTraversal(sym: Symbol): Boolean = {
-      ignoredSymbols(sym, bvSpecialFunctions(sym) || StainlessBVClass.contains(sym))
+      isIgnoredSymbol(sym, bvSpecialFunctions(sym) || StainlessBVClass.contains(sym))
     }
   }
 }
