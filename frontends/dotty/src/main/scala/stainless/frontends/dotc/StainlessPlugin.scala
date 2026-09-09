@@ -109,16 +109,20 @@ class StainlessPlugin extends StandardPlugin {
         }
       }
       val inoxCtx = {
+        val base = mainHelper.getConfigContext(inox.Options.empty)(using new stainless.PlainTextReporter(Set.empty))
+        val adapter = new ReporterAdapter(base.reporter.debugSections)
         // The sbt plugin currently has no way to pass options (e.g. via `-P:stainless:`) through to the
         // verification pipeline, so a solver timeout is otherwise never set here: without one, a single VC
-        // that gets a solver stuck would hang the whole build (and CI) indefinitely.
-        val defaultOptions = inox.Options.empty + inox.optTimeout(30.seconds)
-        val base = mainHelper.getConfigContext(defaultOptions)(using new stainless.PlainTextReporter(Set.empty))
-        val adapter = new ReporterAdapter(base.reporter.debugSections)
+        // that gets a solver stuck would hang the whole build (and CI) indefinitely. Note: `getConfigContext`
+        // does *not* propagate the options passed to it as base settings (it only reads `stainless.conf` if
+        // present), so the timeout must be added to its result rather than passed as an argument to it.
+        val options =
+          if (base.options.findOption(inox.optTimeout).isDefined) base.options
+          else base.options + inox.optTimeout(30.seconds)
         inox.Context(
           reporter         = adapter,
           interruptManager = new inox.utils.InterruptManager(adapter),
-          options          = base.options,
+          options          = options,
           timers           = base.timers,
         )
       }
