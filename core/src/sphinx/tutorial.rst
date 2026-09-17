@@ -326,7 +326,7 @@ As the starting point, we define the size of a list.
 
     def size(l: List) : BigInt = {
       l match
-          case Nil => 0
+          case Nil => BigInt(0)
           case Cons(x, rest) => 1 + size(rest)
     }
 
