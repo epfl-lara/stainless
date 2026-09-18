@@ -68,8 +68,9 @@ To evaluate them, we run Stainless as:
 
   $ stainless test.scala --eval
 
-The code seems to work correctly on the example values. However, Stainless
-automatically finds that it is not correct:
+The code seems to work correctly on the example values. Remove ``--eval`` to
+allow Stainless to perform full verification. Then, Stainless automatically
+finds that it is not correct:
 
 .. stainless output; the postconditions are the highlighted lines!!
 .. code-block:: text
@@ -325,7 +326,7 @@ As the starting point, we define the size of a list.
 
     def size(l: List) : BigInt = {
       l match
-          case Nil => 0
+          case Nil => BigInt(0)
           case Cons(x, rest) => 1 + size(rest)
     }
 
