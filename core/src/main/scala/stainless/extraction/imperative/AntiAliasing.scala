@@ -891,8 +891,15 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
               case (vd, i) if ownEffects.contains(i) => Some(vd)
               case _ => None
             }
-            // Disallow capturing of variables of mutable type
-            val captured = varsOfExprDealiased(body, env).filter(vd => isMutableType(vd.tpe)) -- aliasedParams.map(_.toVariable).toSet
+            // Disallow capturing of variables of mutable type, but allow capturing
+            // of mutable objects when they are only accessed through immutable (val)
+            // fields whose types are also immutable (e.g., accessing a val BigInt field
+            // of a mutable class).
+            val allVarsInBody = exprOps.variablesOf(body)
+            val unsafeVars = unsafelyCapturedVars(body)
+            val safeVars = allVarsInBody.filter(v => isMutableType(v.tpe) && !unsafeVars(v))
+            val captured = dealiasVars(allVarsInBody -- safeVars, env)
+              .filter(vd => isMutableType(vd.tpe)) -- aliasedParams.map(_.toVariable).toSet
             if (captured.nonEmpty) {
               context.reporter.fatalError(l.getPos, "Illegal capturing of variables with mutable type: " + captured.mkString(", "))
             }
@@ -1015,13 +1022,49 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
           case Operator(es, recons) => recons(es.map(transform(_, env)))
         }).copiedFrom(e)
 
-        def varsOfExprDealiased(expr: Expr, env: Env): Set[Variable] = {
-          exprOps.variablesOf(expr).flatMap { v =>
+        // Single traversal computing the set of variables that appear, somewhere in `expr`,
+        // in a way that could expose mutable state: either as a bare occurrence, or as the
+        // receiver of a `ClassSelector` on a `var` field or a field of mutable type.
+        // A variable *not* in this set is only ever accessed through `val` fields of
+        // immutable type, so a lambda capturing it does not effectively capture mutable state.
+        def unsafelyCapturedVars(expr: Expr): Set[Variable] = {
+          var unsafe = Set.empty[Variable]
+          object collector extends ConcreteOOSelfTreeTraverser {
+            override def traverse(e: Expr): Unit = e match {
+              case cs @ ClassSelector(recv: Variable, _) =>
+                cs.field match {
+                  case Some(vd) if !(vd.flags contains IsVar) && !isMutableType(vd.tpe) =>
+                    // Safe access to a `val` field of immutable type: `recv` is not marked unsafe.
+                  case _ =>
+                    unsafe += recv
+                }
+              case ClassSelector(recv, _) =>
+                // The receiver is itself a compound expression (e.g. a nested field selection).
+                // Immutability is transitive (an immutable type cannot contain `var` fields nor
+                // fields of mutable type), so the outer selector needs no separate check here:
+                // we only need to keep checking that `recv` itself is safely accessed.
+                traverse(recv)
+              case v: Variable =>
+                unsafe += v
+              case _ =>
+                super.traverse(e)
+            }
+          }
+          collector.traverse(expr)
+          unsafe
+        }
+
+        def dealiasVars(vars: Set[Variable], env: Env): Set[Variable] = {
+          vars.flatMap { v =>
             env.targets.get(v.toVal) match {
               case Some(targets) => targets.map(_.receiver)
               case None => Set(v)
             }
           }
+        }
+
+        def varsOfExprDealiased(expr: Expr, env: Env): Set[Variable] = {
+          dealiasVars(exprOps.variablesOf(expr), env)
         }
 
         def terminalVarsOfExprDealiased(expr: Expr, env: Env): Set[Variable] = {
