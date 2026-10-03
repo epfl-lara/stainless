@@ -6,6 +6,8 @@ package frontends.dotc
 import dotty.tools.dotc.*
 import ast.tpd
 import ast.untpd
+import ast.TreeTypeMap
+import inlines.Inliner.OpaqueProxy
 import ast.Trees.*
 import core.Contexts
 import core.Contexts.Context as DottyContext
@@ -1164,6 +1166,58 @@ class CodeExtraction(inoxCtx: inox.Context,
       args.map(extractTree)
   }
 
+  /** Dotty's inliner keeps a reference to the enclosing object `O` of an inlined method when `O`
+   *  contains opaque type aliases (see `Inliner.canElideThis`), and exposes these aliases through
+   *  a refined "opaque proxy" (see `Inliner.addOpaqueProxies`):
+   *
+   *    val $proxy1: O.type{type T = R} = O.$asInstanceOf[O.type{type T = R}]
+   *    val O$_this: ($proxy1 : O.type{type T = R}) = $proxy1
+   *
+   *  In the inlined code, types are then expressed relative to these proxies (`O$_this.C[X]`),
+   *  members of `O` are selected on them (`O$_this.f(x)`) and value arguments whose type mentions
+   *  `O` are cast to the intersection `A & A[O := $proxy1]`.
+   *
+   *  Objects have no instances in Stainless (their members are extracted as top-level definitions),
+   *  so we substitute the proxies by `O` itself and drop their bindings, just like the inliner does
+   *  for the result type of the inlined call (see `Inliner.mapBackToOpaques`). The intersections
+   *  then become redundant and are simplified away.
+   */
+  private def substituteModuleProxies(bindings: List[tpd.Tree], expansion: tpd.Tree): (List[tpd.Tree], tpd.Tree) = {
+    // The reference `O` that an inliner proxy binding stands for, if it is one
+    def proxiedRef(vd: tpd.ValDef): Option[TermRef] = vd.symbol.termRef match {
+      // val $proxy1: O.type{type T = R} = O.$asInstanceOf[O.type{type T = R}]
+      case OpaqueProxy(ref) => Some(ref)
+      // val O$_this: ($proxy1 : O.type{type T = R}) = $proxy1
+      case _ if vd.symbol.is(InlineProxy) => vd.symbol.info match {
+        case OpaqueProxy(ref) => Some(ref)
+        case _ => None
+      }
+      case _ => None
+    }
+    val proxies: Map[Symbol, TermRef] = bindings.collect {
+      case vd: tpd.ValDef => proxiedRef(vd).map(vd.symbol -> _)
+    }.flatten.toMap
+
+    if (proxies.isEmpty) (bindings, expansion)
+    else {
+      val typeMap = new TypeMap {
+        // Also map the prefixes of static types such as `$proxy1.C`
+        override def stopAt = StopAt.Package
+        def apply(tp: Type): Type = tp match {
+          case tr: TermRef if proxies.contains(tr.symbol) => proxies(tr.symbol)
+          case _ => mapOver(tp)
+        }
+        // `A & A[O := $proxy1]` becomes `A & A`: simplify it to `A`
+        override protected def derivedAndType(tp: AndType, tp1: Type, tp2: Type): Type = tp1 & tp2
+      }
+      // Mapping a block also gives the remaining local bindings symbols with mapped types, and
+      // `TreeTypeMap` re-creates the references whose type changed (`Ident($proxy1)` becomes `O`)
+      val block = tpd.Block(bindings.filterNot(b => proxies.contains(b.symbol)), expansion)
+      val Block(bindings1, expansion1) = new TreeTypeMap(typeMap = typeMap).transform(block): @unchecked
+      (bindings1, expansion1)
+    }
+  }
+
   private def extractBlock(es: List[tpd.Tree])(using dctx: DefContext): xt.Expr = {
     val fctx = es.collect {
       case ExFunctionDef(sym, tparams, vparams, tpt, rhs) => (sym, tparams, vparams)
@@ -1715,7 +1769,8 @@ class CodeExtraction(inoxCtx: inox.Context,
         case _ => expr
       }
 
-      rec(extractBlock(members :+ body))
+      val (bindings, expansion) = substituteModuleProxies(members, body)
+      rec(extractBlock(bindings :+ expansion))
 
     case ExChooseExpression(tpt, pred) =>
       reporter.warning(tr.sourcePos, "`choose` expressions may be unsafe due to difficulty in checking their realizability automatically")
@@ -2789,7 +2844,7 @@ class CodeExtraction(inoxCtx: inox.Context,
         (extractType(p), idx) match {
           case (xt.MapType(from, ct @ xt.ClassType(id, Seq(to))), 1) =>
             xt.MapType(from, xt.ClassType(id, Seq(extractType(tpe))).copiedFrom(ct))
-          case (xt.NAryType(tps, recons), _) =>
+          case (xt.NAryType(tps, recons), _) if idx >= 0 =>
             recons(tps.updated(idx, extractType(tpe)))
           case (_, _) => throw MatchError(s"Cannot extract refined type $name in $p", pos)
         }
