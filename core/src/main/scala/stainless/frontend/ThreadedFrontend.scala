@@ -32,6 +32,20 @@ abstract class ThreadedFrontend(callback: CallBack, ctx: inox.Context) extends F
           initRun()
           callback.beginExtractions()
           onRun()
+        } catch {
+          case e: Throwable => {
+            // `BatchedCallBack.endExtractions` and
+            // `SplitCallBack.endExtractions` only run if there are no errors
+            // reported. Not reporting errors here allow them to potentially
+            // recover from some errors.
+            //
+            // Matt: Do we really want that? From which errors can they actually
+            // recover? There might be non-recoverable exceptions benefiting
+            // from being reported here already or in handler below, either as
+            // errors or as warnings. See #1618 for more context.
+            ctx.reporter.debug("The following exception has been caught in the frontend init or run:")
+            ctx.reporter.debug(e)
+          }
         } finally {
           callback.endExtractions()
           onEnd()
@@ -45,6 +59,8 @@ abstract class ThreadedFrontend(callback: CallBack, ctx: inox.Context) extends F
     thread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
       override def uncaughtException(t: Thread, e: Throwable): Unit = {
         ThreadedFrontend.this.synchronized(exceptions += e)
+        ctx.reporter.debug("The following exception has been caught in the frontend end:")
+        ctx.reporter.debug(e)
       }
     })
 
@@ -69,9 +85,8 @@ abstract class ThreadedFrontend(callback: CallBack, ctx: inox.Context) extends F
     case UnsupportedCodeException(pos, msg) =>
       ctx.reporter.error(pos, msg)
     case _ =>
-      ctx.reporter.debug(s"Rethrowing exception emitted from within the compiler: ${ex.getMessage}")
+      ctx.reporter.debug(s"Rethrowing the first exception caught in the frontend end: ${ex.getMessage}.")
       exceptions.clear()
       throw ex
   }
 }
-
