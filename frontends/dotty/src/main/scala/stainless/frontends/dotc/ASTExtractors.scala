@@ -68,7 +68,8 @@ trait ASTExtractors {
     "stainless.annotation.cCode.drop"
   )
   private val ghostAnnot: String = "stainless.annotation.ghost"
-  // @lemma is a shortcut for these annotations, see also FragmentChecker.GhostManagement.hasGhostAnnotation
+  // @lemma is a shortcut for these annotations. Its @ghost part is also handled by
+  // FragmentChecker.GhostManagement.hasGhostAnnotation and GhostAccessRewriter.effectivelyGhost
   private val lemmaAnnot: String = "stainless.annotation.lemma"
   private val lemmaFlags: Seq[String] = Seq("ghost", "pure", "inlineOnce", "opaque")
 
