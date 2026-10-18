@@ -287,6 +287,17 @@ lazy val `stainless-dotty` = (project in file("frontends/dotty"))
   .settings(noPublishSettings)
   .settings(
     name := "stainless-dotty",
+    // Check the launcher's JDK at runtime, after processing -java-home.
+    bashScriptExtraDefines += """process_my_args() {
+  local runtime_java_version
+  runtime_java_version=$("$java_cmd" -version 2>&1 | awk -F '"' '/version/ {print $2; exit}')
+  if [[ "$runtime_java_version" =~ ^([0-9]+) ]] && [[ "${BASH_REMATCH[1]}" -ge 25 ]]; then
+    # Prepend the default so explicit JVM options can override it.
+    java_args=("-XX:+UseCompactObjectHeaders" "${java_args[@]}")
+  fi
+  residual_args=("$@")
+}
+""",
     libraryDependencies += laraOrganization %% "scala3-compiler" % stainlessScalaVersion,
     buildInfoKeys ++= Seq[BuildInfoKey]("useJavaClassPath" -> false),
     // We include Scala library to be certain we also include scala-parser-combinators (which is not shipped with the Scala std library)
