@@ -68,6 +68,10 @@ trait ASTExtractors {
     "stainless.annotation.cCode.drop"
   )
   private val ghostAnnot: String = "stainless.annotation.ghost"
+  // @lemma is a shortcut for these annotations. Its @ghost part is also handled by
+  // FragmentChecker.GhostManagement.hasGhostAnnotation and GhostAccessRewriter.effectivelyGhost
+  private val lemmaAnnot: String = "stainless.annotation.lemma"
+  private val lemmaFlags: Seq[String] = Seq("ghost", "pure", "inlineOnce", "opaque")
 
   def isIgnored(tp: Type): Boolean = ignoredClasses.exists(_ frozen_=:= tp)
 
@@ -97,13 +101,15 @@ trait ASTExtractors {
       name = a.symbol.showFullName
         .replace(".package.", ".")
     } yield {
-      if (name `startsWith` "stainless.annotation.") {
+      if (name == lemmaAnnot) {
+        lemmaFlags.map(_ -> Seq.empty[tpd.Tree])
+      } else if (name `startsWith` "stainless.annotation.") {
         val shortName = name drop "stainless.annotation.".length
-        Some(shortName, a.arguments)
+        Seq(shortName -> a.arguments)
       } else if (name == "inline" || name == "scala.inline") {
-        Some("inline", a.arguments)
+        Seq("inline" -> a.arguments)
       } else {
-        None
+        Seq.empty
       }
     }).flatten.foldLeft[(Set[String], Seq[(String, Seq[tpd.Tree])])]((Set(), Seq())) {
       case (acc @ (keys, _), (key, _)) if keys contains key => acc

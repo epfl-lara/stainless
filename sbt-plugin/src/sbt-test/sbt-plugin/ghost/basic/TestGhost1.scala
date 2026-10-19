@@ -17,11 +17,22 @@ object Main {
 
   def main(args: Array[String]): Unit = {
     doGhostStuff()
+    callLemmaReflectively()
   }
 
   @ghostAnnot def sneakyGhost(): BigInt = {
     touchFile("sneakyGhostCalled")
     BigInt(0)
+  }
+
+  // @lemma implies @ghost, so its body must be erased as well
+  @lemma def sneakyLemma(): Unit = {
+    touchFile("sneakyLemmaCalled")
+  }
+
+  @extern
+  def callLemmaReflectively(): Unit = {
+    Main.getClass.getMethod("sneakyLemma").invoke(Main)
   }
 
   def ghostParam1(@ghostAnnot x: BigInt, y: BigInt) = { BigInt(0) }
