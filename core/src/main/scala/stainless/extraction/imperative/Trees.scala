@@ -166,6 +166,17 @@ trait Trees extends oo.Trees with Definitions { self =>
     protected def computeTpe(stripRefinements: Boolean)(using Symbols): Type = e.getTpe(stripRefinements)
   }
 
+  /** copy primitive that creates a PURE copy. Useful to use mutable type as immutable values. */
+  case class FreshPureCopy(e: Expr) extends Expr with CachingTyped {
+    protected def computeTpe(stripRefinements: Boolean)(using Symbols): Type = e.getTpe(stripRefinements)
+  }
+
+  /** $encodingof `stainless.lang.Purified[A]`.
+    *
+    * Kept as a distinct type rather than dealiased to `A` (unlike other opaque types), 
+    * because its purpose is to be a type "wrapper" to use the underlying mutable type `A` as immutable.*/
+  sealed case class PurifiedType(tp: Type) extends Type
+
   /** $encodingof `a & b` for Boolean; desuggared to { val l = lhs; val r = rhs; l && r } when removing imperative style. */
   case class BoolBitwiseAnd(lhs: Expr, rhs: Expr) extends Expr with CachingTyped {
     protected def computeTpe(stripRefinements: Boolean)(using Symbols): Type =
@@ -336,6 +347,9 @@ trait Printer extends oo.Printer {
     case MutableMapType(from,to) =>
       p"MutableMap[$from,$to]"
 
+    case PurifiedType(tp) =>
+      p"Purified[$tp]"
+
     case MutableMapWithDefault(from, to, default) =>
       p"MutableMap.withDefaultValue[$from,$to]($default)"
 
@@ -495,6 +509,7 @@ trait TreeDeconstructor extends oo.TreeDeconstructor {
 
   override def deconstruct(tpe: s.Type): Deconstructed[t.Type] = tpe match {
     case s.MutableMapType(from, to) => (Seq(), Seq(), Seq(), Seq(from, to), Seq(), (_, _, _, tps, _) => t.MutableMapType(tps(0), tps(1)))
+    case s.PurifiedType(tp) => (Seq(), Seq(), Seq(), Seq(tp), Seq(), (_, _, _, tps, _) => t.PurifiedType(tps(0)))
     case _ => super.deconstruct(tpe)
   }
 
