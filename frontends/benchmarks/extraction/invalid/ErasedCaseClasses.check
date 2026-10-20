@@ -1,0 +1,9 @@
+[ Error  ] ErasedCaseClasses.scala:16:19: Cannot access a ghost symbol outside of a ghost context. [ x in val foo ]
+                   val foo = x // error: x is erased
+                             ^
+[ Error  ] ErasedCaseClasses.scala:17:19: Cannot access a ghost symbol outside of a ghost context. [ y in val bar ]
+                   val bar = y // error: y is erased
+                             ^
+[ Error  ] ErasedCaseClasses.scala:18:19: Cannot access a ghost symbol outside of a ghost context. [ t in val baz ]
+                   val baz = t // error: t is erased
+                             ^

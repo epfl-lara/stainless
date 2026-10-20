@@ -75,7 +75,9 @@ trait ASTExtractors {
     if (sym eq NoSymbol)
       return Seq.empty
 
-    val erased = if (sym.isEffectivelyErased && !(sym `is` Inline)) Seq(("ghost", Seq.empty[tpd.Tree])) else Seq()
+    // Macro stubs (e.g. StringContext.s/f) are excluded even when `erased`: see the matching note
+    // on FragmentChecker.GhostManagement.hasGhostAnnotation.
+    val erased = if (sym.isEffectivelyErased && !(sym `is` Inline) && !(sym `is` Macro)) Seq(("ghost", Seq.empty[tpd.Tree])) else Seq()
     val selfs = sym.annotations
     val owners =
       if (ignoreOwner) List.empty[Annotation]
@@ -649,6 +651,15 @@ trait ASTExtractors {
       }
     }
 
+    /** Strips the `Inlined(EmptyTree, Nil, _)` markers with which the inliner wraps the trees that come
+      * from the call site of an inlined method (arguments, references to `this`). Unlike
+      * `tpd.stripInlined`, this keeps inlined calls that carry bindings.
+      */
+    def stripInlineMarkers(tree: tpd.Tree): tpd.Tree = tree match {
+      case Inlined(_, Nil, expansion) => stripInlineMarkers(expansion)
+      case _ => tree
+    }
+
     object ExCall {
       def unapply(tree: tpd.Tree): Option[(Option[tpd.Tree], Symbol, Seq[tpd.Tree], Seq[tpd.Tree])] = {
         val optCall = tree match {
@@ -665,8 +676,10 @@ trait ASTExtractors {
         }
 
         optCall.map { case (rec, sym, tps, args) =>
+          // Receivers coming from the call site of an inlined method are wrapped in `Inlined` markers
           val newRec = rec.filterNot { r =>
-            (r.symbol `is` Module) && !(r.symbol `is` Case)
+            val recSym = stripInlineMarkers(r).symbol
+            (recSym `is` Module) && !(recSym `is` Case)
           }
           (newRec, sym, tps, args)
         }
@@ -730,6 +743,13 @@ trait ASTExtractors {
         case Apply(TypeApply(Select(
           Apply(TypeApply(ExSymbol("scala", "Predef$", "ArrowAssoc"), Seq(_)), Seq(from)),
           ExNamed("->") | ExNamed("$minus$greater")
+        ), Seq(_)), Seq(to)) => Some(Seq(from, to))
+        // Since Scala 3.10, `->` is an extension method defined directly in `Predef`
+        // (`ArrowAssoc` is deprecated). It is an inline method, so calls from source
+        // files are inlined (and handled by the `Inlined` case of the extraction),
+        // but calls from Tasty units (e.g. from the Stainless library) are not.
+        case Apply(TypeApply(Apply(TypeApply(
+          ExSymbol("scala", "Predef$", "->" | "$minus$greater"), Seq(_)), Seq(from)
         ), Seq(_)), Seq(to)) => Some(Seq(from, to))
         case _ => None
       }

@@ -142,7 +142,7 @@ class StainlessPlugin extends StandardPlugin {
     import Message._
 
     private def toSourceFile(file: java.io.File): SourceFile =
-      SourceFile(AbstractFile.getFile(file.getPath), scala.io.Codec.UTF8)
+      dottyCtx.getSource(AbstractFile.getFile(file.getPath), scala.io.Codec.UTF8)
 
     private def toDottyPos(pos: InoxPosition.Position): SourcePosition = pos match {
       case InoxPosition.NoPosition =>

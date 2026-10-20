@@ -31,7 +31,7 @@ lazy val nTestSuiteParallelism = {
 
 // The Scala version with which Stainless (and its library) is compiled, and which is bundled as the frontend compiler.
 // Note: in case of version bump, do not forget to update the `test` files in `sbt-plugin` (for `sbt scripted`)!
-val stainlessScalaVersion = "3.10.0-RC1-bin-20260608-cf86bba-NIGHTLY"
+val stainlessScalaVersion = "3.10.1-RC1-bin-20260903-e1f9361-NIGHTLY"
 
 val laraOrganization = "ch.epfl.lara"
 
@@ -162,6 +162,8 @@ lazy val assemblySettings: Seq[Setting[_]] = {
       case "stainless/BuildInfo.class" => MergeStrategy.last
       case "stainless/BuildInfo$.class" => MergeStrategy.last
       case PathList("META-INF", xs @ _*) => MergeStrategy.discard
+      // Java module descriptors (e.g. from the ASM jars pulled in by the Scala 3 compiler) are irrelevant in a fat jar
+      case "module-info.class" => MergeStrategy.discard
       case PathList("scala", "collection", "compat", _*) => MergeStrategy.first
       case PathList("scala", "annotation", _*) => MergeStrategy.first
       case PathList("scala", "util", _*) => MergeStrategy.first
@@ -285,6 +287,17 @@ lazy val `stainless-dotty` = (project in file("frontends/dotty"))
   .settings(noPublishSettings)
   .settings(
     name := "stainless-dotty",
+    // Check the launcher's JDK at runtime, after processing -java-home.
+    bashScriptExtraDefines += """process_my_args() {
+  local runtime_java_version
+  runtime_java_version=$("$java_cmd" -version 2>&1 | awk -F '"' '/version/ {print $2; exit}')
+  if [[ "$runtime_java_version" =~ ^([0-9]+) ]] && [[ "${BASH_REMATCH[1]}" -ge 25 ]]; then
+    # Prepend the default so explicit JVM options can override it.
+    java_args=("-XX:+UseCompactObjectHeaders" "${java_args[@]}")
+  fi
+  residual_args=("$@")
+}
+""",
     libraryDependencies += laraOrganization %% "scala3-compiler" % stainlessScalaVersion,
     buildInfoKeys ++= Seq[BuildInfoKey]("useJavaClassPath" -> false),
     // We include Scala library to be certain we also include scala-parser-combinators (which is not shipped with the Scala std library)

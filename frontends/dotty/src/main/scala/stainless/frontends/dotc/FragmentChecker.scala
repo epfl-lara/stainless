@@ -97,10 +97,28 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
 
     object GhostManagement {
       private val ghostAnnotation = getClassIfDefinedOrNone("stainless.annotation.ghost")
+      private val externAnnotation = getClassIfDefinedOrNone("stainless.annotation.extern")
       extension (sym: Symbol) {
-        private def hasGhostAnnotation(using DottyContext): Boolean = ghostAnnotation.exists(ghostClassSymbol => sym.hasAnnotation(ghostClassSymbol))
+        // An `erased` symbol (Scala's native soft keyword) is treated exactly like a `@ghost` symbol,
+        // mirroring the equivalence made when extracting flags in ASTExtractors.getAnnotations.
+        // Macro stubs (e.g. StringContext.s/f, whose declared body is never actually run: the
+        // compiler substitutes the macro expansion at call sites instead) are excluded even when
+        // `erased`: the flag there only means "this declaration itself is never called", not that
+        // using the interpolator is proof-irrelevant/ghost.
+        private def hasGhostAnnotation(using DottyContext): Boolean =
+          (sym.isEffectivelyErased && !(sym `is` Inline) && !(sym `is` Macro)) ||
+          ghostAnnotation.exists(ghostClassSymbol => sym.hasAnnotation(ghostClassSymbol))
         private def addGhostAnnotation()(using DottyContext): Unit = ghostAnnotation.foreach(ghostClassSymbol => sym.addAnnotation(ghostClassSymbol))
         private def removeGhostAnnotation()(using DottyContext): Unit = ghostAnnotation.foreach(ghostClassSymbol => sym.removeAnnotation(ghostClassSymbol))
+        // @extern code is not verified/extracted by Stainless, so ghost-access restrictions
+        // (which only make sense for code Stainless actually checks) should not apply inside it.
+        // Externally-erased symbols (e.g. macro-only stdlib methods like StringContext.f) are thus
+        // still usable from @extern code, same as from ghost code. Propagates from enclosing owners,
+        // mirroring how `propagatedAnnotations` propagates @extern during extraction.
+        private def hasExternAnnotation(using DottyContext): Boolean =
+          externAnnotation.exists(externClassSymbol =>
+            sym.hasAnnotation(externClassSymbol) || sym.ownersIterator.exists(_.hasAnnotation(externClassSymbol))
+          )
       }
       /**
         * Tree traverser that propagates ghost annotations on synthesized members:
@@ -273,10 +291,21 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
               reportError(tree.sourcePos, s"Cannot access a ghost symbol outside of a ghost context. [ ${tree.show} in ${ctx.owner} ]")
               traverseChildren(tree)
 
+            // Do not even look inside the body of an @extern/@ignore/uninteresting-synthetic member:
+            // this only gates whether we descend into *this definition's own* body, not references
+            // to it from elsewhere (an `Apply`'s `.symbol` forwards to the callee, so applying this
+            // check to every tree node -- rather than only here, at the definition itself -- would
+            // also wrongly exempt call sites to an @extern member from ghost-context checking).
+            // We have to skip only the body (and not the whole symbol like in Checker below) otherwise
+            // an ignored function can be called from non-ghost code, which is not what we want. We just want to 
+            // ignore the body
+            case m: tpd.MemberDef if sym.exists && isIgnoredSymbol(sym) =>
+               ()
+
             case m: tpd.MemberDef  =>
               // We consider some synthetic methods values as being inside ghost
               // but don't auto-annotate as such because we don't want all code to be removed.
-              // They are synthetic case class methods that are harmless if they see some ghost nulls
+              // They are synthetic case class methods that are harmless if they see some ghost nulls.
               if (m.symbol.hasGhostAnnotation || effectivelyGhost(sym))
                 withinGhostContext(traverseChildren(m))
               else
@@ -330,6 +359,24 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
         }
       }
     }
+
+
+  def isIgnoredSymbol(sym: Symbol, additionalCases: Boolean = false): Boolean = {
+    val ExternAnnotation = getClassIfDefinedOrNone("stainless.annotation.extern")
+    val IgnoreAnnotation = getClassIfDefinedOrNone("stainless.annotation.ignore")
+    val ScalaEnsuringMethod = requiredMethod("scala.Predef.Ensuring")
+
+    val isExtern = ExternAnnotation.exists(sym.hasAnnotation)
+    val isIgnore = IgnoreAnnotation.exists(sym.hasAnnotation)
+    // * If it's a synthetic symbol, we will still visit if it is either:
+    //    -the scala Ensuring method (that creates the Ensuring class), which for some reasons is synthetic (though StaticChecks.Ensuring is not for instance)
+    //    -an anonymous function
+    //    -an anonymous class
+    // * We furthermore ignore ClassTag[T].apply() that appear for Array operations, which we can still extract.
+    isExtern || isIgnore || ((sym `is` Synthetic) && (sym ne ScalaEnsuringMethod) && !sym.isAnonymousFunction && !sym.isAnonymousFunction) ||
+      (sym.owner eq defn.ClassTagModule_apply)
+      || additionalCases
+  }
 
   class Checker extends tpd.TreeTraverser {
     private val ScalaEnsuringMethod = requiredMethod("scala.Predef.Ensuring")
@@ -664,16 +711,7 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
     }
 
     private def skipTraversal(sym: Symbol): Boolean = {
-      val isExtern = ExternAnnotation.exists(sym.hasAnnotation)
-      val isIgnore = IgnoreAnnotation.exists(sym.hasAnnotation)
-      // * If it's a synthetic symbol, we will still visit if it is either:
-      //    -the scala Ensuring method (that creates the Ensuring class), which for some reasons is synthetic (though StaticChecks.Ensuring is not for instance)
-      //    -an anonymous function
-      //    -an anonymous class
-      // * We furthermore ignore ClassTag[T].apply() that appear for Array operations, which we can still extract.
-      isExtern || isIgnore || ((sym `is` Synthetic) && (sym ne ScalaEnsuringMethod) && !sym.isAnonymousFunction && !sym.isAnonymousFunction) ||
-        (sym.owner eq defn.ClassTagModule_apply) ||
-        bvSpecialFunctions(sym) || StainlessBVClass.contains(sym)
+      isIgnoredSymbol(sym, bvSpecialFunctions(sym) || StainlessBVClass.contains(sym))
     }
   }
 }
