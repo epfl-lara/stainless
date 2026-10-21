@@ -38,6 +38,7 @@ package object extraction {
     "ValueClasses"              -> "Erase value classes",
     "ExceptionLifting"          -> "Removes all throw statements, and replaces them with an assertion with false condition",
     "FieldAccessors"            -> "Inline field accessors of concrete classes",
+    "SameAsLowering"            -> "Lower `sameAs` postconditions of observationally pure functions to equalities",
     "EffectElaboration"         -> "Transform all side-effectful operations into mutable map updates",
     "AntiAliasing"              -> "Rewrite field and array mutations",
     "ReturnElimination"         -> "Eliminate `return` expressions",

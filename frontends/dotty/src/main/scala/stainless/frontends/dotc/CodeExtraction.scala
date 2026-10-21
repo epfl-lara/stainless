@@ -950,6 +950,7 @@ class CodeExtraction(inoxCtx: inox.Context,
 
   /** Returns whether the function with the given (extracted) full body is observationally pure, that is,
     * whether one of the top-level conjuncts of its postcondition is `sameAs(e)` applied to the result.
+    * The argument `e` of `sameAs` must be a function call (its purity is checked in `SameAsLowering`).
     *
     * Any other occurrence of `sameAs` in the body or specs of the function (e.g. under a disjunction or a
     * negation, or in a precondition) is rejected, since it would not guarantee observational equivalence.
@@ -982,6 +983,11 @@ class CodeExtraction(inoxCtx: inox.Context,
           if (!allowed.exists(_ eq sa))
             outOfSubsetError(sa.getPos,
               "`sameAs` can only appear as a top-level conjunct of a postcondition, applied to the result")
+          sa.e match {
+            case _: xt.FunctionInvocation | _: xt.MethodInvocation | _: xt.ApplyLetRec => ()
+            case other =>
+              outOfSubsetError(other.getPos, "`sameAs` must be applied to a function call, e.g. `sameAs(f(x))`")
+          }
           super.traverse(e)
         case _ => super.traverse(e)
       }
