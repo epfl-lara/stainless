@@ -140,7 +140,8 @@ class XLangSerializer(override val trees: extraction.xlang.Trees, serializeProdu
       stainlessClassSerializer[BoolBitwiseXor]              (197),
       stainlessClassSerializer[IsVar.type]                  (198),
       stainlessClassSerializer[IsMutable.type]              (199),
-      stainlessClassSerializer[IsInternallyMutable.type]    (200),
+      stainlessClassSerializer[IsInternallyMutable.type]    (264),
+      stainlessClassSerializer[IsObservationallyPure.type]  (265),
       stainlessClassSerializer[IsPure.type]                 (230),
       stainlessClassSerializer[Snapshot]                    (239),
       stainlessClassSerializer[MutableMapType]              (248),
@@ -153,7 +154,7 @@ class XLangSerializer(override val trees: extraction.xlang.Trees, serializeProdu
       stainlessClassSerializer[CellSwap]                    (262),
       stainlessClassSerializer[FreshCopy]                   (260),
       stainlessClassSerializer[Reads]                       (182),
-      stainlessClassSerializer[Modifies]                     (210),
+      stainlessClassSerializer[Modifies]                    (210),
 
       // Object-oriented trees
       stainlessClassSerializer[ClassConstructor] (200),

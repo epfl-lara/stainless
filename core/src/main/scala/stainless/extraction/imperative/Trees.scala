@@ -250,6 +250,8 @@ trait Trees extends oo.Trees with Definitions { self =>
   case object IsPure extends Flag("pure", Seq.empty)
   case object IsMutable extends Flag("mutable", Seq.empty)
   case object IsInternallyMutable extends Flag("internallyMutable", Seq.empty)
+  /** Inferred (not user-written) flag for functions whose postcondition contains a top-level `sameAs` conjunct. */
+  case object IsObservationallyPure extends Flag("observationallyPure", Seq.empty)
 
   override val exprOps: ExprOps { val trees: self.type } = {
     class ExprOpsImpl(override val trees: self.type) extends ExprOps(trees)
@@ -518,6 +520,7 @@ trait TreeDeconstructor extends oo.TreeDeconstructor {
     case s.IsPure => (Seq(), Seq(), Seq(), (_, _, _) => t.IsPure)
     case s.IsMutable => (Seq(), Seq(), Seq(), (_, _, _) => t.IsMutable)
     case s.IsInternallyMutable => (Seq(), Seq(), Seq(), (_, _, _) => t.IsInternallyMutable)
+    case s.IsObservationallyPure => (Seq(), Seq(), Seq(), (_, _, _) => t.IsObservationallyPure)
     case _ => super.deconstruct(f)
   }
 }
