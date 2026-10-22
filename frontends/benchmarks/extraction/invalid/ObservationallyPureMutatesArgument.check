@@ -1,0 +1,3 @@
+[ Error  ] ObservationallyPureMutatesArgument.scala:11:7: Observationally pure functions (with a `sameAs` postcondition) can only have side-effects on @internallyMutable fields, but get has side-effects on: b.v
+             def get(b: Box, x: BigInt): BigInt = {
+                 ^
