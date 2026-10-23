@@ -1693,7 +1693,7 @@ class CodeExtraction(inoxCtx: inox.Context,
     case ExBigIntToBV(signed, size, tree) =>
       extractTree(tree) match {
         case xt.IntegerLiteral(n)
-          if signed && 0 <= n && n < BigInt(2).pow(size) =>
+          if !signed && 0 <= n && n < BigInt(2).pow(size) =>
 
           xt.BVLiteral(signed, n, size)
         case xt.IntegerLiteral(n)
