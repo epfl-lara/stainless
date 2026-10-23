@@ -89,6 +89,11 @@ class GenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUtils with
     assert(output == "124443", s"Output '$output' should be '124443'")
   }
 
+  test("Checking that BigIntLiterals outputs 2006000040000000005000000000-100-30000-2000000000") {
+    val output = runCHelper("BigIntLiterals.scala")
+    assert(output == "2006000040000000005000000000-100-30000-2000000000", s"Output '$output' should be '2006000040000000005000000000-100-30000-2000000000'")
+  }
+
   for (case (file, _) <- tailrecFiles) {
     test(s"Checking that ${file.split("/").last} has tail recursive function rewritten as loop") {
       val cFile = file.replace(".scala", ".c")
