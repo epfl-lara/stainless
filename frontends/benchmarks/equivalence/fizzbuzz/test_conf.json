@@ -5,6 +5,7 @@
   "comparefuns": [
     "FizzBuzz.fizzBuzz1"
   ],
+  "timeout": 10,
   "outcome": {
     "equivalent": [
       {
