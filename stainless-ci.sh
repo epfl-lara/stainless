@@ -103,7 +103,7 @@ if [ -n "$SOLVERS_DIR" ]; then
   rm -rf "$TEMP_DIR"
   
   # CVC4
-  wget https://cvc4.cs.stanford.edu/downloads/builds/x86_64-linux-opt/cvc4-1.8-x86_64-linux-opt -O "$SOLVERS_DIR/cvc4" -q
+  wget https://github.com/CVC4/CVC4-archived/releases/download/1.8/cvc4-1.8-x86_64-linux-opt -O "$SOLVERS_DIR/cvc4" -q
   chmod +x "$SOLVERS_DIR/cvc4"
 
   # z3
