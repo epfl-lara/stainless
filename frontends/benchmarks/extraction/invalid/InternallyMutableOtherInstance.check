@@ -1,0 +1,3 @@
+[ Error  ] InternallyMutableOtherInstance.scala:10:7: Field last of class Cache is @internallyMutable: it can only be accessed on `this`, from observationally pure, ghost, or invariant methods of Cache
+                 other.last = x
+                 ^^^^^^^^^^^^^^

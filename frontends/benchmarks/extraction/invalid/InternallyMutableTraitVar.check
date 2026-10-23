@@ -1,0 +1,3 @@
+[ Error  ] InternallyMutableTraitVar.scala:7:5: @internallyMutable can only annotate constructor fields of a class
+               @internallyMutable var x: BigInt
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -1,0 +1,3 @@
+[ Error  ] ObservationallyPureOverridable.scala:11:9: Observationally pure method get must not be overridable: it must be concrete, and its class T must be concrete (not abstract or a trait)
+               def get(x: BigInt): BigInt = {
+                   ^

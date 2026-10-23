@@ -1,0 +1,3 @@
+[ Error  ] ObservationallyPureReferenceInClass.scala:14:16: The function in `sameAs` must be defined outside of classes with @internallyMutable fields, but pureId is a method of Memo
+               }.ensuring(sameAs(pureId(x)))
+                          ^^^^^^^^^^^^^^^^^
