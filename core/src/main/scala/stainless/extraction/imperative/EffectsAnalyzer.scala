@@ -151,20 +151,59 @@ trait EffectsAnalyzer extends oo.CachingPhase {
       fd.params.filter(vd => receivers(vd.toVariable))
     }
 
+    /* Substitutes variables like `replaceFromSymbols`, except that within `fd`'s return type,
+     * `old(p)` occurrences over the parameters of `fd` are replaced by the parameter itself:
+     * as in postconditions, `old(p)` in a refinement of the return type refers to the pre-state
+     * of `p`, which is the parameter itself once effects have been made explicit, while a direct
+     * reference to `p` refers to its post-state, i.e. its image in `subst`
+     * (cf. the postcondition handling in `AntiAliasing.updateFunction`).
+     * `old` is only eliminated in the declared return type and in the casts to it that the
+     * frontend inserts in the body; anywhere else (in particular in expression position) it is
+     * left untouched so that invalid usages are reported in `ImperativeCleanup`.
+     */
+    private class ParamSubstituter(fd: FunAbstraction, subst: Map[Variable, Variable]) extends ConcreteSelfTreeTransformer {
+      private val paramVars = fd.params.map(_.toVariable).toSet
+
+      private object returnTypeSubstituter extends ConcreteSelfTreeTransformer {
+        override def transform(e: Expr): Expr = e match {
+          case Old(v: Variable) if paramVars(v) => v
+          case v: Variable => subst.getOrElse(v, super.transform(v))
+          case _ => super.transform(e)
+        }
+      }
+
+      override def transform(tpe: Type): Type =
+        if (tpe == fd.returnType) returnTypeSubstituter.transform(tpe)
+        else super.transform(tpe)
+
+      override def transform(e: Expr): Expr = e match {
+        case v: Variable => subst.getOrElse(v, super.transform(v))
+        case _ => super.transform(e)
+      }
+    }
+
+    /* Substitutes variables in `fd`'s return type, eliminating `old` (see `ParamSubstituter`). */
+    private[imperative] def substReturnType(fd: FunAbstraction, subst: Map[Variable, Variable]): Type =
+      new ParamSubstituter(fd, subst).transform(fd.returnType)
+
+    /* Substitutes variables in an expression of `fd`'s body, eliminating `old` within the
+     * casts to the return type (see `ParamSubstituter`).
+     */
+    private[imperative] def substBody(fd: FunAbstraction, subst: Map[Variable, Variable], body: Expr): Expr =
+      new ParamSubstituter(fd, subst).transform(body)
+
     /* Since the return type may depend on the `aliasedParams` (they may be referenced in a refinement type),
      * we return a sigma type with fresh variables for `aliasedParams` and the original return type.
      */
     private[imperative] def getReturnType(fd: FunAbstraction): Type = {
       val aliasedParams = getAliasedParams(fd)
-      if aliasedParams.isEmpty then fd.returnType
-      else {
-        val freshParams = aliasedParams.map(vd => vd.freshen)
-        val subst = aliasedParams.zip(freshParams).map { case (orig, fresh) =>
-          (orig.toVariable, fresh.toVariable)
-        }.toMap
-        val substBody = typeOps.replaceFromSymbols(subst, fd.returnType)
-        sigmaTypeWrap(freshParams, substBody)
-      }
+      val freshParams = aliasedParams.map(vd => vd.freshen)
+      val subst = aliasedParams.zip(freshParams).map { case (orig, fresh) =>
+        (orig.toVariable, fresh.toVariable)
+      }.toMap
+      val substBody = substReturnType(fd, subst)
+      if aliasedParams.isEmpty then substBody
+      else sigmaTypeWrap(freshParams, substBody)
     }
 
     def asString(using PrinterOptions): String =
