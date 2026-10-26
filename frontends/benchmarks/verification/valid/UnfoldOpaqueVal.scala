@@ -7,7 +7,7 @@ object UnfoldOpaqueVal {
 
   def test(x: BigInt): Unit = {
     val y = opaqueFn(x)
-    unfold(y)
+    unfolding(y)
     assert(y == x + 1)
   }
 }
