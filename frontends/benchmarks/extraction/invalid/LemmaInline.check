@@ -1,0 +1,3 @@
+[ Error  ] LemmaInline.scala:6:7: Can't annotate a function with both @inline and @inlineOnce
+             def lem(x: BigInt): Unit = ()
+                 ^

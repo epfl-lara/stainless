@@ -108,6 +108,9 @@ which instruct Stainless to handle some functions or objects in a specialized wa
 |                   | even on (mutually) recursive functions.                        |
 |                   | Note: A recursive function will not be inlined within itself.  |
 +-------------------+----------------------------------------------------------------+
+| ``@lemma``        | Shortcut for ``@ghost @pure @inlineOnce @opaque``, the usual   |
+|                   | annotations of a lemma.                                        |
++-------------------+----------------------------------------------------------------+
 | ``@partialEval``  | Partially evaluate calls to this function.                     |
 |                   | Note: ``stainless.lang.partialEval`` can also be used to       |
 |                   | partially evaluate an expression.                              |

@@ -1,0 +1,3 @@
+[ Error  ] LemmaGhost.scala:8:5: Cannot access a ghost symbol outside of a ghost context. [ LemmaGhost.lem in method f ]
+               lem(x) // should be rejected
+               ^^^

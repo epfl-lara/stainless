@@ -98,6 +98,7 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
     object GhostManagement {
       private val ghostAnnotation = getClassIfDefinedOrNone("stainless.annotation.ghost")
       private val externAnnotation = getClassIfDefinedOrNone("stainless.annotation.extern")
+      private val lemmaAnnotation = getClassIfDefinedOrNone("stainless.annotation.lemma")
       extension (sym: Symbol) {
         // An `erased` symbol (Scala's native soft keyword) is treated exactly like a `@ghost` symbol,
         // mirroring the equivalence made when extracting flags in ASTExtractors.getAnnotations.
@@ -105,9 +106,11 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
         // compiler substitutes the macro expansion at call sites instead) are excluded even when
         // `erased`: the flag there only means "this declaration itself is never called", not that
         // using the interpolator is proof-irrelevant/ghost.
+        // A `@lemma` symbol is ghost as well, as `@lemma` implies `@ghost` in ASTExtractors.getAnnotations.
         private def hasGhostAnnotation(using DottyContext): Boolean =
           (sym.isEffectivelyErased && !(sym `is` Inline) && !(sym `is` Macro)) ||
-          ghostAnnotation.exists(ghostClassSymbol => sym.hasAnnotation(ghostClassSymbol))
+          ghostAnnotation.exists(ghostClassSymbol => sym.hasAnnotation(ghostClassSymbol)) ||
+          lemmaAnnotation.exists(lemmaClassSymbol => sym.hasAnnotation(lemmaClassSymbol))
         private def addGhostAnnotation()(using DottyContext): Unit = ghostAnnotation.foreach(ghostClassSymbol => sym.addAnnotation(ghostClassSymbol))
         private def removeGhostAnnotation()(using DottyContext): Unit = ghostAnnotation.foreach(ghostClassSymbol => sym.removeAnnotation(ghostClassSymbol))
         // @extern code is not verified/extracted by Stainless, so ghost-access restrictions

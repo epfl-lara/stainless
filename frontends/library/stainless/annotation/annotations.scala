@@ -97,6 +97,12 @@ class keep extends Annotation
 @ignore @field @getter @setter @param
 class ghost extends StaticAnnotation
 
+/** Mark the annotated function as a lemma.
+  * Shortcut for `@ghost @pure @inlineOnce @opaque`.
+  */
+@ignore
+class lemma extends StaticAnnotation
+
 @ignore
 class erasable extends Annotation
 

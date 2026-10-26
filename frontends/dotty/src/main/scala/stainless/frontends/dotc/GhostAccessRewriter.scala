@@ -29,6 +29,7 @@ class GhostAccessRewriter(afterPhase: String) extends PluginPhase { self =>
     import AuxiliaryExtractors._
 
     private val ghostAnnotation = Symbols.requiredClass("stainless.annotation.ghost")
+    private val lemmaAnnotation = Symbols.requiredClass("stainless.annotation.lemma")
     private val ghostFun = Symbols.requiredMethod("stainless.lang.ghost")
 
     override val phaseName = self.phaseName
@@ -41,13 +42,13 @@ class GhostAccessRewriter(afterPhase: String) extends PluginPhase { self =>
     private class GhostRewriteTransformer(using DottyContext) extends Transformer {
 
       /**
-        * Is this symbol @ghost, or enclosed inside a ghost definition?
+        * Is this symbol @ghost (or @lemma, which implies @ghost), or enclosed inside a ghost definition?
         *
         * Note: We exclude constructors from being ghost because we can't remove them anyway
         */
       def effectivelyGhost(sym: Symbol)(using dottyCtx: DottyContext): Boolean =
         (!sym.denot.isConstructor &&
-          sym.ownersIterator.exists(_.hasAnnotation(ghostAnnotation)))
+          sym.ownersIterator.exists(owner => owner.hasAnnotation(ghostAnnotation) || owner.hasAnnotation(lemmaAnnotation)))
 
       /** 
         * Returns the remaining formal parameter lists of a method/function left
