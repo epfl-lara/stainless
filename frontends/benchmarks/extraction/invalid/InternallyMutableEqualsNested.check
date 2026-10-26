@@ -1,0 +1,3 @@
+[ Error  ] InternallyMutableEqualsNested.scala:11:52: Equality cannot be used on values of type Wrapper, as they may contain @internallyMutable fields
+             def different(a: Wrapper, b: Wrapper): Boolean = a != b
+                                                              ^^^^^^

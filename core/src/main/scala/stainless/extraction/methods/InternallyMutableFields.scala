@@ -15,6 +15,9 @@ package methods
   * Calls to the accessors of the field, or to synthetic methods that read it (e.g. `copy$default$n`,
   * called by `copy`), count as accesses to the field. Binding the field in a pattern is not allowed.
   *
+  * Equality (`==` and `!=`) is not allowed on types that may contain a class with internally mutable fields
+  * (directly, through a field, a subclass, or a type argument), since it would compare these fields.
+  *
   * This runs before `MethodLifting`, while methods are still attached to their class and `this` is explicit.
   */
 trait InternallyMutableFields extends ExtractionPipeline {
@@ -30,7 +33,8 @@ trait InternallyMutableFields extends ExtractionPipeline {
 
     if (imFields.nonEmpty) {
       given s.Symbols = symbols
-      symbols.functions.values.foreach(checkFunction(_, imFields))
+      val imReachingClasses = imReaching(imFields.values.toSet)
+      symbols.functions.values.foreach(checkFunction(_, imFields, imReachingClasses))
     }
     (symbols, ExtractionSummary.NoSummary)
   }
@@ -50,6 +54,27 @@ trait InternallyMutableFields extends ExtractionPipeline {
     case _ => false
   }
 
+  /** The classes whose values may contain an internally mutable field: the classes declaring such fields, and the
+    * classes that have a subclass or a field whose type mentions one of these classes.
+    */
+  private def imReaching(imClasses: Set[Identifier])(using symbols: s.Symbols): Set[Identifier] =
+    inox.utils.fixpoint[Set[Identifier]] { reaching =>
+      reaching ++ symbols.classes.values.collect {
+        case cd if cd.descendants.exists(d => reaching(d.id)) || cd.fields.exists(vd => mentions(vd.tpe, reaching)) => cd.id
+      }
+    }(imClasses)
+
+  /** Whether `tpe` mentions one of the given classes. */
+  private def mentions(tpe: Type, classes: Set[Identifier])(using symbols: s.Symbols): Boolean = tpe match {
+    case ClassType(id, _) if classes(id) => true
+    // The base type of a RefinementType is hidden inside its ValDef, so the
+    // generic NAryType case would not see it (RefinementType deconstructs with no sub-types).
+    case RefinementType(vd, _) => mentions(vd.tpe, classes)
+    case SigmaType(params, to) => (params.map(_.tpe) :+ to).exists(mentions(_, classes))
+    case ta: TypeApply if !ta.isAbstract => mentions(ta.getType, classes)
+    case NAryType(tps, _) => tps.exists(mentions(_, classes))
+  }
+
   /** The internally mutable fields that a call to `callee` accesses on its receiver. */
   private def accessedThroughCall(callee: FunDef, imFields: Map[Identifier, Identifier]): Set[Identifier] = {
     val viaAccessor = callee.flags.collect { case IsAccessor(Some(fid)) if imFields.contains(fid) => fid }.toSet
@@ -63,7 +88,8 @@ trait InternallyMutableFields extends ExtractionPipeline {
     viaAccessor ++ viaSynthetic
   }
 
-  private def checkFunction(fd: FunDef, imFields: Map[Identifier, Identifier])(using symbols: s.Symbols): Unit = {
+  private def checkFunction(fd: FunDef, imFields: Map[Identifier, Identifier], imReachingClasses: Set[Identifier])
+                           (using symbols: s.Symbols): Unit = {
     // The class whose internally mutable fields may be accessed (on `this`) from `fd`, if any
     val allowedClass: Option[Identifier] =
       if (isAllowedMethod(fd)) fd.flags.collectFirst { case IsMethodOf(cid) => cid } else None
@@ -81,6 +107,10 @@ trait InternallyMutableFields extends ExtractionPipeline {
         e match {
           case ClassSelector(recv, fid) if imFields.contains(fid) => checkAccess(fid, recv, e)
           case FieldAssignment(recv, fid, _) if imFields.contains(fid) => checkAccess(fid, recv, e)
+          case Equals(l, _) if mentions(l.getType, imReachingClasses) =>
+            throw MethodsException(e,
+              s"Equality cannot be used on values of type ${l.getType.asString}, " +
+              s"as they may contain @internallyMutable fields")
           case MethodInvocation(recv, id, _, _) =>
             symbols.lookupFunction(id).foreach { callee =>
               accessedThroughCall(callee, imFields).foreach(fid => checkAccess(fid, recv, e))

@@ -29,7 +29,7 @@ package object extraction {
     "PartialFunctions"          -> "Lift partial function preconditions",
     "XlangLowering"             -> "Lowering phase at the end of xlang phases",
     "InnerClasses"              -> "Lift inner classes",
-    "InternallyMutableFields"   -> "Check that @internallyMutable fields are only accessed by allowed methods",
+    "InternallyMutableFields"   -> "Check that @internallyMutable fields are only accessed by allowed methods, and not compared by equality",
     "ObservationallyPureCalls"  -> "Replace calls to observationally pure methods by their pure reference function",
     "Laws"                      -> "Rewrite laws as abstract functions with contracts",
     "SuperInvariants"           -> "Ensure super class invariant cannot be weakened in subclasses",
