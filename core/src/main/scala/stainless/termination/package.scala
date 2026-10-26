@@ -18,6 +18,9 @@ package object termination {
     val usageRhs = "yes | no | only"
   }
 
+  object optYoloForever extends inox.FlagOptionDef("yolo-forever", false) // turns off infer-measures and check-measures
+
+
   object DebugSectionTermination extends inox.DebugSection("termination")
 
   case class FailedMeasureInference(fd: inox.ast.Trees#FunDef, msg: String)
