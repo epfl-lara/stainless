@@ -1,0 +1,3 @@
+[ Fatal  ] ImmutableAndMutableFieldCapture.scala:5:33: Illegal capturing of variables with mutable type: thiss
+               def f(): BigInt => BigInt = x => v + m
+                                           ^^^^^^^^^^
