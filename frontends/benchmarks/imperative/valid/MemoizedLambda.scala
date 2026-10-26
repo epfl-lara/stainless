@@ -11,20 +11,10 @@ import stainless.lang.StaticChecks._
 }
 
 @pure def abs(x: BigInt): BigInt = if (x < 0) -x else x
-def memAbs(x: BigInt)(using cache: Cache): BigInt = {
-  cache.value match {
-    case Some((cachedX, cachedAbs)) if cachedX == x => cachedAbs
-    case _ =>
-      val result = abs(x)
-      cache.value = Some((x, result))
-      result
-  }
-}.ensuring(res => res == abs(x))
 
 def listAbs(xs: List[BigInt]): List[BigInt] = {
   xs.map(abs)
 }
-
 case class PureMemAbs(@internallyMutable private val cache: Cache) {
   def apply(x: BigInt): BigInt = {
     cache.value match {
