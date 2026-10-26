@@ -211,6 +211,7 @@ object TypeCheckerUtils {
   def lessThan(tpe: Type, e1: Expr, e2: Expr)(using ctx: inox.Context, opts: PrinterOptions): Expr = (tpe match {
     case IntegerType() => LessThan(e1, e2)
     case BVType(_, _) => LessThan(e1, e2)
+    case FPType(_, _) => FPLessThan(e1, e2)
     case TupleType(tps) =>
       or((1 to tps.length).map(i =>
         And(
@@ -230,6 +231,7 @@ object TypeCheckerUtils {
     case BVType(signed, size) => GreaterEquals(e, BVLiteral(signed, 0, size))
     case TupleType(tps) => and((1 to tps.length).map(i => positive(tps(i-1), TupleSelect(e,i)))*)
     case RefinementType(vd, ref) => positive(vd.tpe, e)
+    case FPType(exponent, significand) => FPGreaterEquals(e, FPLiteral.plusZero(exponent, significand))
     case _ =>
       ctx.reporter.fatalError(e.getPos, s"Type ${tpe.asString} is not supported for measures")
   }).setPos(e)
