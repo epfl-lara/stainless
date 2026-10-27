@@ -359,7 +359,7 @@ trait VerificationChecker { self =>
         case Failure(e) => reporter.internalError(e)
       }
 
-      val vcResultMsg = VCResultMessage(vc, vcres)
+      val vcResultMsg = VCResultMessage(vc, vcres, prettify(vc.condition).asString)
       reporter.debug(vcResultMsg)
 
       val silent = options.findOptionOrDefault(optSilent)
@@ -376,7 +376,7 @@ trait VerificationChecker { self =>
               // avoid reprinting VC if --debug=verification is enabled
               if (!reporter.isDebugEnabled(using DebugSectionVerification))
                 reporter.warning(prettify(vc.condition).asString)
-              reporter.warning(vc.getPos, " => INVALID")
+              reporter.warning(vc.getPos, vcResultMsg)
               reason match {
                 case VCStatus.CounterExample(cex) =>
                   vc.kind match {
