@@ -1,0 +1,3 @@
+[ Error  ] InternallyMutableEquals.scala:7:41: Equality cannot be used on values of type Memo, as they may contain @internallyMutable fields
+             def same(a: Memo, b: Memo): Boolean = a == b
+                                                   ^^^^^^

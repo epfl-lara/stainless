@@ -1,0 +1,3 @@
+[ Error  ] InternallyMutableEqualsTuple.scala:7:61: Equality cannot be used on values of type (BigInt, Memo), as they may contain @internallyMutable fields
+             def same(a: (BigInt, Memo), b: (BigInt, Memo)): Boolean = a == b
+                                                                       ^^^^^^

@@ -1,0 +1,3 @@
+[ Error  ] InternallyMutableCopy.scala:8:33: Field last of class Cache is @internallyMutable: it can only be accessed on `this`, from observationally pure, ghost, or invariant methods of Cache
+             def resize(c: Cache): Cache = c.copy(size = 3)
+                                           ^^^^^^

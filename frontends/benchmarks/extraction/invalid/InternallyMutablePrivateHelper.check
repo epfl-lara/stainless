@@ -1,0 +1,3 @@
+[ Error  ] InternallyMutablePrivateHelper.scala:8:32: Field last of class Cache is @internallyMutable: it can only be accessed on `this`, from observationally pure, ghost, or invariant methods of Cache
+               private def peek: BigInt = last
+                                          ^^^^

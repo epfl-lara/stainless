@@ -1,0 +1,3 @@
+[ Error  ] SameAsUnderDisjunction.scala:9:21: `sameAs` can only appear as a top-level conjunct of a postcondition, applied to the result
+             }.ensuring(res => sameAs(pureId(x))(res) || res == 0)
+                               ^^^^^^^^^^^^^^^^^
