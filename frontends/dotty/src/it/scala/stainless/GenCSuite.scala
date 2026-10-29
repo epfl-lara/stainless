@@ -34,7 +34,13 @@ class GenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUtils with
     val cFile = file.replace(".scala", ".c")
     val outFile = file.replace(".scala", ".out")
     test(s"stainless --genc --genc-output=$cFile $file should fail") {
-      an [inox.FatalError] should be thrownBy runMainWithArgs(Array(file) :+ "--genc" :+ s"--genc-output=$cFile" :+ "--skip-verification")
+      // The program must be rejected, either by GenC (FatalError) or earlier by Stainless (MalformedStainlessCode)
+      intercept[Exception] {
+        runMainWithArgs(Array(file) :+ "--genc" :+ s"--genc-output=$cFile" :+ "--skip-verification")
+      } match {
+        case _: inox.FatalError | _: extraction.MalformedStainlessCode => ()
+        case e => fail(s"Expected a FatalError or a MalformedStainlessCode, but got $e")
+      }
     }
   }
 
