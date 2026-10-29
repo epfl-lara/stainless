@@ -23,13 +23,6 @@
 
 
 
-/* --------------------------- global variables ----- */
-
-int32_t data[100] = { 0 };
-bool stable = true;
-int32_t x = 5;
-int32_t y = 7;
-
 
 /* ---------------------- function declarations ----- */
 
@@ -40,6 +33,14 @@ static
 void print_1(char c);
 static void println(int32_t x_1);
 static void println_1(void);
+
+
+/* --------------------------- global variables ----- */
+
+int32_t data[100] = { 0 };
+bool stable = true;
+int32_t x = 5;
+int32_t y = 7;
 
 
 /* ----------------------- function definitions ----- */
