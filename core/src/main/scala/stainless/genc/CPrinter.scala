@@ -88,12 +88,7 @@ class CPrinter(
               closing = "\n\n",
               sep = "\n\n")
              }
-            |${nary(
-              decls.filter(decl => !decl._2.contains(External) && !decl._2.contains(Define)).map { case (decl, modes) => wrap(decl, modes) },
-              opening = separator("global variables"),
-              closing = ";\n\n",
-              sep = ";\n")
-             }
+            |
             |${nary(
               functions.filter(!_.isExported) map FunDecl.apply,
               opening = separator("function declarations"),
@@ -101,6 +96,12 @@ class CPrinter(
               sep = "\n")
              }
             |${nary(
+              // Globals come after the function declarations as globals of function type refer to functions
+              decls.filter(decl => !decl._2.contains(External) && !decl._2.contains(Define)).map { case (decl, modes) => wrap(decl, modes) },
+              opening = separator("global variables"),
+              closing = ";\n\n\n",
+              sep = ";\n")
+             }${nary(
               functions,
               opening = separator("function definitions"),
               sep = "\n\n")
@@ -163,20 +164,21 @@ class CPrinter(
               closing = "\n\n",
               sep = "\n\n")
              }
-            |${nary(
-              decls.filter(decl => decl._2.contains(Export) && !decl._2.contains(Define)).map { case (decl, modes) =>
-                ExternDecl(wrap(decl.copy(optValue = None), modes)): WrapperTree
-              },
-              opening = separator("global variables"),
-              closing = ";\n\n",
-              sep = ";\n")
-             }
+            |
             |${nary(
               functions.filter(_.isExported) map FunDecl.apply,
               opening = separator("function declarations"),
+              closing = "\n",
               sep = "\n")
+             }${nary(
+              // Globals come after the function declarations as globals of function type refer to functions
+              decls.filter(decl => decl._2.contains(Export) && !decl._2.contains(Define)).map { case (decl, modes) =>
+                ExternDecl(wrap(decl.copy(optValue = None), modes)): WrapperTree
+              },
+              opening = "\n" + separator("global variables"),
+              closing = ";\n",
+              sep = ";\n")
              }
-            |
             |#endif
             |"""
       }
