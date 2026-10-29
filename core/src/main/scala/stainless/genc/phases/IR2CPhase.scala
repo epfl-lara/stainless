@@ -64,18 +64,28 @@ private class IR2CImpl()(using ctx: inox.Context) {
 
   private def rec(prog: Prog): C.Prog = {
 
-    val decls = prog.decls.map { case (decl, modes) => rec(decl, allowFixedArray = true) match {
-      case res: C.Decl => (res, modes)
-      case res =>
-        ctx.reporter.fatalError(
-          "Only simple values are supported as default values for global variables.\n" +
-          s"Declaration $decl was translated to $res.\n" +
-          (if (decl.vd.typ.isArray && !decl.vd.typ.isFixedArray)
-            "Try making the length of the array constant by adding a condition in the class invariant of the global state."
-          else
-            "")
-        )
-    }}
+    val decls = prog.decls.map { case (decl, modes) =>
+      if (isHeaderConstant(modes)) decl.optInit.foreach(checkHeaderConstant(decl.vd, _))
+      rec(decl, allowFixedArray = true) match {
+        case res: C.Decl =>
+          for (init <- res.optValue if !isConstantExpression(init))
+            ctx.reporter.fatalError(
+              s"The initial value of global ${decl.vd.id} must be a constant expression in C " +
+              "(a literal, a constructor applied to constant expressions, or a reference to another constant), " +
+              s"but it was translated to: $init"
+            )
+          (res, modes)
+        case res =>
+          ctx.reporter.fatalError(
+            "Only simple values are supported as default values for global variables.\n" +
+            s"Declaration $decl was translated to $res.\n" +
+            (if (decl.vd.typ.isArray && !decl.vd.typ.isFixedArray)
+              "Try making the length of the array constant by adding a condition in the class invariant of the global state."
+            else
+              "")
+          )
+      }
+    }
 
     // Process functions and classes in a deterministic (id-sorted) order: datatypes are
     // registered on first encounter (see `dataTypes`), so a stable traversal order gives a
@@ -88,6 +98,40 @@ private class IR2CImpl()(using ctx: inox.Context) {
 
     // Remove "mutability" on includes & typeDefs
     C.Prog(headerIncludes.toSet, cIncludes.toSet, decls, typdefs.toSet, enums, dataTypes, functions)
+  }
+
+  /** Checks that a constant defined in the header file only refers to functions that are declared
+    * there as well, i.e., exported ones.
+    */
+  private def checkHeaderConstant(vd: ValDef, init: Expr): Unit = {
+    new ir.Visitor[TIR.type](TIR) {
+      override def visit(e: Expr): Unit = e match {
+        case FunVal(fd) if !fd.isExported =>
+          ctx.reporter.fatalError(
+            s"Exported constant ${vd.id} refers to function ${fd.id}, which must be exported as well " +
+            "(with @cCode.export) to be visible from the header file"
+          )
+        case _ => ()
+      }
+    }.apply(init)
+  }
+
+  /** Conservative approximation of C99 constant expressions (§6.6), which are required as initial
+    * values of objects with static storage duration (i.e., globals).
+    *
+    * Bindings are accepted as, at this point, they can only refer to functions, macros, or externally
+    * defined values: references to other constants are inlined by the Scala2IR phase.
+    */
+  private def isConstantExpression(e: C.Expr): Boolean = e match {
+    case _: C.Lit | _: C.EnumLiteral | _: C.SizeOf | _: C.Binding => true
+    case C.Ref(C.Binding(_)) => true
+    case C.Cast(expr, _) => isConstantExpression(expr)
+    case C.UnOp(_, expr) => isConstantExpression(expr)
+    case C.BinOp(_, lhs, rhs) => isConstantExpression(lhs) && isConstantExpression(rhs)
+    case C.StructInit(_, values) => values.forall(isConstantExpression)
+    case C.UnionInit(_, _, value) => isConstantExpression(value)
+    case C.ArrayStatic(_, values) => values.forall(isConstantExpression)
+    case _ => false
   }
 
   private def rec(fd: FunDef): Unit = funCache.getOrElseUpdate(fd, {

@@ -29,4 +29,13 @@ package object genc {
   case object Volatile extends DeclarationMode // volatile annotation
   case object External extends DeclarationMode // no declaration in the produced code
   case object Export extends DeclarationMode // print in header file
+  case object Const extends DeclarationMode // const qualifier, for immutable values
+
+  /** Whether a global declaration with the given `modes` is defined in the header file.
+    *
+    * Exported constants are defined directly in the header file (as `static const`) so that C code can
+    * use them; other exported globals are defined in the C file and declared `extern` in the header.
+    */
+  def isHeaderConstant(modes: Seq[DeclarationMode]): Boolean =
+    modes.contains(Export) && modes.contains(Const) && !modes.contains(Define)
 }

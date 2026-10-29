@@ -89,6 +89,16 @@ class GenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUtils with
     assert(output == "124443", s"Output '$output' should be '124443'")
   }
 
+  test("Checking that Constants outputs 100-2655361310721-8123412z400000000017511164257") {
+    val output = runCHelper("Constants.scala")
+    assert(output == "100-2655361310721-8123412z400000000017511164257", s"Output '$output' should be '100-2655361310721-8123412z400000000017511164257'")
+  }
+
+  test("Checking that GlobalConstFields outputs 510") {
+    val output = runCHelper("GlobalConstFields.scala")
+    assert(output == "510", s"Output '$output' should be '510'")
+  }
+
   test("Checking that BigIntLiterals outputs 2006000040000000005000000000-100-30000-2000000000") {
     val output = runCHelper("BigIntLiterals.scala")
     assert(output == "2006000040000000005000000000-100-30000-2000000000", s"Output '$output' should be '2006000040000000005000000000-100-30000-2000000000'")
