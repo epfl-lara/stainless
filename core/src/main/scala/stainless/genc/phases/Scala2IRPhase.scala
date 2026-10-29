@@ -89,15 +89,17 @@ private class S2IRImpl(override val s: tt.type,
   def run(): Unit = {
     checkGlobalUsage()
 
-    // Start the transformation from `@cCode.export` (and `@cCode.global`) functions and classes
-    for (fd <- symbols.functions.values if fd.isExported || fd.flags.exists(_.name == "cCode.define")) {
+    // Start the transformation from `@cCode.export` (and `@cCode.global`) functions and classes.
+    // Iterate in a deterministic (id-sorted) order: the order in which `val`s and global fields
+    // get registered is the order of the global declarations in the generated C.
+    for (fd <- symbols.functions.values.toSeq.sortBy(_.id) if fd.isExported || fd.flags.exists(_.name == "cCode.define")) {
       if (fd.isVal)
         registerVal(fd)
       else
         rec(Outer(fd), Seq())(using Map.empty, emptyEnv(fd.isExported))
     }
 
-    for (cd <- symbols.classes.values if cd.isExported || cd.isGlobal)
+    for (cd <- symbols.classes.values.toSeq.sortBy(_.id) if cd.isExported || cd.isGlobal)
       rec(cd.typed.toType)(using Map.empty)
   }
 
