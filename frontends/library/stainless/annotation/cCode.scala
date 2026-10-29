@@ -55,7 +55,7 @@ object cCode {
     cIncludes: String,
   ) extends StaticAnnotation
 
-  /* Export function into a header file for GenC translation */
+  /* Export a function, a type, or a constant (`val`) into the header file for GenC translation */
   @ignore
   class `export` extends StaticAnnotation
 
@@ -113,7 +113,7 @@ object cCode {
   @ignore @field @getter @setter @param
   class static() extends StaticAnnotation
 
-  /* The `define` annotation is used for #define macros */
+  /* The `define` annotation turns a constant (`val`) into a #define macro rather than a `static const` global variable */
   @ignore @field @getter @setter @param
   class define() extends StaticAnnotation
 
