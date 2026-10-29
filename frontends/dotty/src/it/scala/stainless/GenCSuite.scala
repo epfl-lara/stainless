@@ -28,6 +28,12 @@ class GenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUtils with
     path -> checkFile
   }
   val tailrecScalaFiles = tailrecFiles.map(_._1)
+  // Every valid benchmark with a sibling `.check` file is also run end-to-end: the output
+  // of the compiled binary (lines concatenated) must match the contents of the `.check` file.
+  val checkFiles = validFiles.flatMap { path =>
+    val checkFile = path.replace(".scala", ".check")
+    if (Files.exists(Paths.get(checkFile))) Some(path -> checkFile) else None
+  }
   val ctx = TestContext.empty
 
   for (file <- invalidFiles) {
@@ -102,7 +108,7 @@ class GenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUtils with
     }
   }
 
-  for (case (file, checkFile) <- tailrecFiles) {
+  for (case (file, checkFile) <- checkFiles) {
     val name = file.split("/").last
     val checkValue = Files.readAllLines(Paths.get(checkFile)).toArray.mkString
     test(s"Checking that $name outputs $checkValue") {
