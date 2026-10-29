@@ -244,12 +244,17 @@ object CAST { // C Abstract Syntax Tree
   def buildBlock(expr: Expr): Block = buildBlock(Seq(expr))
 
   object FreshId {
-    private val counter = new utils.UniqueCounter[String]()
+    // NOTE This counter is JVM-global. It is reset at the start of every IR2C run so that the
+    //      generated names (and thus the emitted C) only depend on the input program and not on
+    //      how many programs were compiled before in the same JVM (e.g. in the test suite).
+    private var counter = new utils.UniqueCounter[String]()
 
     def apply(prefix: String): Id = {
       val idx = counter.next(prefix)
       Id("stainless_" + prefix + "_" + idx)
     }
+
+    def reset(): Unit = { counter = new utils.UniqueCounter[String]() }
   }
 
   val True = Lit(BoolLit(true))

@@ -967,8 +967,8 @@ static void println_2(char* s) {
 }
 
 static enum_Status process(FileInputStream fis, FileOutputStream fos, State state) {
-    int32_t stainless_buffer_4[25] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 };
-    array_int32 norm_18 = (array_int32) { .data = stainless_buffer_4, .length = 25 };
+    int32_t stainless_buffer_0[25] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 };
+    array_int32 norm_18 = (array_int32) { .data = stainless_buffer_0, .length = 25 };
     array_int32 norm_19 = norm_18;
     Kernel kernel = (Kernel) { .size = 5, .scale = 25, .kernel = norm_19 };
     MaybeResult_FileHeader fileHeaderRes = maybeReadFileHeader(fis, state);
