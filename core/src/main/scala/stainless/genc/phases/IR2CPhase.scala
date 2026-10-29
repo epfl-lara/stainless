@@ -19,7 +19,10 @@ class IR2CPhase(using override val context: inox.Context) extends LeonPipeline[T
   val name = "CASTer"
   val description = "Translate the IR tree into the final C AST"
 
-  def run(ir: TIR.Prog): CAST.Prog = new IR2CImpl()(using context)(ir)
+  def run(ir: TIR.Prog): CAST.Prog = {
+    CAST.FreshId.reset()
+    new IR2CImpl()(using context)(ir)
+  }
 }
 
 // This implementation is basically a Transformer that produce something which isn't an IR tree.
