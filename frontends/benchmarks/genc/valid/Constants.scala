@@ -50,9 +50,12 @@ object Constants {
   @cCode.`export`
   val Center: Point = Point(50, 50)
 
-  // Constants translated to preprocessor macros
+  // Constants translated to preprocessor macros; their value need not be a constant expression
   @cCode.define
   val BufferSize: Int = 16
+
+  @cCode.define
+  val Computed: Int = incImpl(41)
 
   // Macros are referred to by name from the initial values of constants defined in the C file,
   // and inlined in the initial values of constants defined in the header (unless exported too)
@@ -116,5 +119,6 @@ object Constants {
     StdOut.println(Lazy)
     StdOut.println(DoubleBuffer)
     StdOut.println(Limit)
+    StdOut.println(Computed)
   }
 }
