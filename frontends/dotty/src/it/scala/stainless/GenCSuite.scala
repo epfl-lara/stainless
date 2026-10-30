@@ -95,9 +95,9 @@ class GenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUtils with
     assert(output == "124443", s"Output '$output' should be '124443'")
   }
 
-  test("Checking that Constants outputs 100-2655361310721-8123412z4000000000175111642573217") {
+  test("Checking that Constants outputs 100-2655361310721-8123412z400000000017511164257321742") {
     val output = runCHelper("Constants.scala")
-    assert(output == "100-2655361310721-8123412z4000000000175111642573217", s"Output '$output' should be '100-2655361310721-8123412z4000000000175111642573217'")
+    assert(output == "100-2655361310721-8123412z400000000017511164257321742", s"Output '$output' should be '100-2655361310721-8123412z400000000017511164257321742'")
   }
 
   test("Checking that GlobalConstFields outputs 510") {

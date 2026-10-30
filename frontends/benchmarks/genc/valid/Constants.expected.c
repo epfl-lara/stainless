@@ -22,6 +22,7 @@
 /* ------------------------------------- macros ----- */
 
 #define BufferSize 16
+#define Computed incImpl(41)
 
 
 
@@ -169,6 +170,7 @@ void main(void) {
     println(Lazy);
     println(DoubleBuffer);
     println(Limit);
+    println(Computed);
 }
 
 

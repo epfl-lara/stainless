@@ -68,7 +68,8 @@ private class IR2CImpl()(using ctx: inox.Context) {
       if (isHeaderConstant(modes)) decl.optInit.foreach(checkHeaderConstant(decl.vd, _))
       rec(decl, allowFixedArray = true) match {
         case res: C.Decl =>
-          for (init <- res.optValue if !isConstantExpression(init))
+          // Macros are expanded at their use sites, so their value need not be a constant expression
+          for (init <- res.optValue if !modes.contains(Define) && !isConstantExpression(init))
             ctx.reporter.fatalError(
               s"The initial value of global ${decl.vd.id} must be a constant expression in C " +
               "(a literal, a constructor applied to constant expressions, or a reference to another constant), " +
