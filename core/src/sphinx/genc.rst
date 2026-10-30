@@ -405,7 +405,9 @@ initialiser lists. In C, the initial value of a global variable must be a consta
 which a ``const`` variable is not: GenC therefore inlines the values of the constants that
 appear in the initial value of another constant (e.g., ``val MaxPlusOne = Limits.MaxF + 1``
 becomes ``static const int32_t MaxPlusOne = 65535 + 1;``), and rejects initial values that are
-not constant expressions, such as function calls.
+not constant expressions, such as function calls. An initial value may also refer to a value
+annotated with ``@cCode.drop``, which must then be defined as a constant expression (e.g., as a
+macro) on the C side.
 
 Constants are only translated if they are used by the translated code, unless they are annotated
 with ``@cCode.export``, in which case they are defined in the generated header file so that they

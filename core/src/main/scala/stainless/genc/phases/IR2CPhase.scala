@@ -64,17 +64,14 @@ private class IR2CImpl()(using ctx: inox.Context) {
 
   private def rec(prog: Prog): C.Prog = {
 
+    val declModes = prog.decls.map { case (decl, modes) => decl.vd.id -> modes }.toMap
+
     val decls = prog.decls.map { case (decl, modes) =>
-      if (isHeaderConstant(modes)) decl.optInit.foreach(checkHeaderConstant(decl.vd, _))
       rec(decl, allowFixedArray = true) match {
         case res: C.Decl =>
           // Macros are expanded at their use sites, so their value need not be a constant expression
-          for (init <- res.optValue if !modes.contains(Define) && !isConstantExpression(init))
-            ctx.reporter.fatalError(
-              s"The initial value of global ${decl.vd.id} must be a constant expression in C " +
-              "(a literal, a constructor applied to constant expressions, or a reference to another constant), " +
-              s"but it was translated to: $init"
-            )
+          if (!modes.contains(Define))
+            decl.optInit.foreach(checkGlobalInit(decl.vd, _, isHeaderConstant(modes), declModes))
           (res, modes)
         case res =>
           ctx.reporter.fatalError(
@@ -101,38 +98,43 @@ private class IR2CImpl()(using ctx: inox.Context) {
     C.Prog(headerIncludes.toSet, cIncludes.toSet, decls, typdefs.toSet, enums, dataTypes, functions)
   }
 
-  /** Checks that a constant defined in the header file only refers to functions that are declared
-    * there as well, i.e., exported ones.
-    */
-  private def checkHeaderConstant(vd: ValDef, init: Expr): Unit = {
-    new ir.Visitor[TIR.type](TIR) {
-      override def visit(e: Expr): Unit = e match {
-        case FunVal(fd) if !fd.isExported =>
-          ctx.reporter.fatalError(
-            s"Exported constant ${vd.id} refers to function ${fd.id}, which must be exported as well " +
-            "(with @cCode.export) to be visible from the header file"
-          )
-        case _ => ()
-      }
-    }.apply(init)
-  }
-
-  /** Conservative approximation of C99 constant expressions (§6.6), which are required as initial
-    * values of objects with static storage duration (i.e., globals).
+  /** Checks that the initial value `init` of the global `vd` is a constant expression in C (C99 §6.6),
+    * as required for objects with static storage duration, and that a global defined in the header file
+    * (`inHeader`) only refers to definitions that are visible there.
     *
-    * Bindings are accepted as, at this point, they can only refer to functions, macros, or externally
-    * defined values: references to other constants are inlined by the Scala2IR phase.
+    * Besides literals, and constructors, operators, and casts applied to constant expressions, an initial
+    * value may refer to functions (address constants), to `@cCode.define` macros, and to `@cCode.drop`ped
+    * values, which the user must then define as constant expressions (e.g., as macros) on the C side.
+    * References to other constants have been inlined by the Scala2IR phase. `declModes` gives the
+    * declaration modes of all globals.
     */
-  private def isConstantExpression(e: C.Expr): Boolean = e match {
-    case _: C.Lit | _: C.EnumLiteral | _: C.SizeOf | _: C.Binding => true
-    case C.Ref(C.Binding(_)) => true
-    case C.Cast(expr, _) => isConstantExpression(expr)
-    case C.UnOp(_, expr) => isConstantExpression(expr)
-    case C.BinOp(_, lhs, rhs) => isConstantExpression(lhs) && isConstantExpression(rhs)
-    case C.StructInit(_, values) => values.forall(isConstantExpression)
-    case C.UnionInit(_, _, value) => isConstantExpression(value)
-    case C.ArrayStatic(_, values) => values.forall(isConstantExpression)
-    case _ => false
+  private def checkGlobalInit(vd: ValDef, init: Expr, inHeader: Boolean, declModes: Map[Id, Seq[DeclarationMode]]): Unit = {
+    def notConstant(what: String): Nothing = ctx.reporter.fatalError(
+      s"The initial value of global ${vd.id} must be a constant expression in C " +
+      s"(a literal, a constructor applied to constant expressions, or a reference to another constant), but it $what"
+    )
+    def notInHeader(what: String): Nothing = ctx.reporter.fatalError(
+      s"Exported constant ${vd.id} refers to $what, which must be exported as well (with @cCode.export) " +
+      "to be visible from the header file"
+    )
+    def check(e: Expr): Unit = e match {
+      case Lit(_) => ()
+      case Construct(_, args) => args.foreach(check)
+      case ArrayInit(ArrayAllocStatic(_, _, values)) => values.foreach(_.foreach(check))
+      case BinOp(_, lhs, rhs) => check(lhs); check(rhs)
+      case UnOp(_, expr) => check(expr)
+      case IntegralCast(expr, _) => check(expr)
+      case FunRef(expr) => check(expr)
+      case FunVal(fd) => if (inHeader && !fd.isExported) notInHeader(s"function ${fd.id}")
+      case Binding(ref) => declModes.get(ref.id) match {
+        case Some(modes) if modes.contains(Define) => if (inHeader && !modes.contains(Export)) notInHeader(s"macro ${ref.id}")
+        case Some(modes) if modes.contains(External) => () // defined by the user on the C side
+        case _ => notConstant(s"refers to the variable ${ref.id}")
+      }
+      case App(FunVal(fd), Seq(), Seq()) if fd.body == FunDropped(true) => () // `@cCode.drop`ped value
+      case other => notConstant(s"contains: $other")
+    }
+    check(init)
   }
 
   private def rec(fd: FunDef): Unit = funCache.getOrElseUpdate(fd, {
