@@ -133,14 +133,15 @@ private class S2IRImpl(override val s: tt.type,
     lfds: Map[Identifier, LocalFunDef],
     inExported: Boolean, // true when we're inside an exported function
     inGlobalInit: Boolean, // true when converting the initial value of a global declaration
+    inHeaderInit: Boolean, // true when that global declaration is defined in the header file
     localNames: LocalNameAllocator
   )
 
   // Keep track of generic to concrete type mapping
   private type TypeMapping = Map[TypeParameter, Type]
 
-  private def emptyEnv(inExported: Boolean = false, inGlobalInit: Boolean = false): Env =
-    Env(Map.empty, Map.empty, inExported, inGlobalInit, new LocalNameAllocator(globalReservedNames))
+  private def emptyEnv(inExported: Boolean = false, inGlobalInit: Boolean = false, inHeaderInit: Boolean = false): Env =
+    Env(Map.empty, Map.empty, inExported, inGlobalInit, inHeaderInit, new LocalNameAllocator(globalReservedNames))
 
   // Here, when contexts are translated, there might remain some generic types. We use `tm` to make them disapear.
   private def convertVarInfoToArg(vi: VarInfo)(using tm: TypeMapping, names: LocalNameAllocator) =
@@ -184,8 +185,9 @@ private class S2IRImpl(override val s: tt.type,
       if (fd.isDropped) {
         declResults += ((CIR.Decl(vd, None), flagsToModes(fd.flags)))
       } else {
-        val newBody = rec(fd.fullBody)(using emptyEnv(fd.isExported, inGlobalInit = true), Map.empty)
-        declResults += ((CIR.Decl(vd, Some(newBody)), valModes(vd, fd.flags)))
+        val modes = valModes(vd, fd.flags)
+        val initEnv = emptyEnv(fd.isExported, inGlobalInit = true, inHeaderInit = isHeaderConstant(modes))
+        declResults += ((CIR.Decl(vd, Some(rec(fd.fullBody)(using initEnv, Map.empty))), modes))
       }
     }
   }
@@ -723,7 +725,7 @@ private class S2IRImpl(override val s: tt.type,
         // Recurse on the FunDef body, and not the TypedFunDef one, in order to keep the correct identifiers.
         // A function body is never a global initialiser, even when the function is first reached from one
         // (e.g., through a constant of function type).
-        val bodyEnv = env.copy(bindings = newBindings, localNames = localNames, inGlobalInit = false)
+        val bodyEnv = env.copy(bindings = newBindings, localNames = localNames, inGlobalInit = false, inHeaderInit = false)
         CIR.FunBodyAST(rec(bodyWithoutSpecs)(using bodyEnv, tm1))
       }
 
@@ -828,9 +830,10 @@ private class S2IRImpl(override val s: tt.type,
               s"We found ${paramInits.length} initializations instead of ${fields.length}."
             )
           }
-          for ((((field, modes), paramInit), vd) <- fields.zip(paramInits).zip(tcd.fields)) {
-            given initEnv: Env = emptyEnv(inGlobalInit = true)
-            val decl = (CIR.Decl(field, Some(rec(paramInit.fullBody))), withConst(field, modes))
+          for ((((field, modes0), paramInit), vd) <- fields.zip(paramInits).zip(tcd.fields)) {
+            val modes = withConst(field, modes0)
+            given initEnv: Env = emptyEnv(inGlobalInit = true, inHeaderInit = isHeaderConstant(modes))
+            val decl = (CIR.Decl(field, Some(rec(paramInit.fullBody))), modes)
             if (declResults.map(_._1.vd).contains(field)) {
               reporter.fatalError(cd.getPos, s"Global variable ${field.id} is defined twice")
             }
@@ -965,10 +968,13 @@ private class S2IRImpl(override val s: tt.type,
     case FunctionInvocation(id, Seq(), Seq()) if syms.getFunction(id).isVal =>
       val fd = syms.getFunction(id)
       val isDefine = fd.flags.exists(_.name == "cCode.define")
-      if (env.inGlobalInit && !fd.isDropped && !isDefine) {
+      // A macro is visible from the initial value of a global defined in the C file, and from the
+      // initial value of a global defined in the header file only if it is exported as well.
+      val isVisibleMacro = isDefine && (!env.inHeaderInit || fd.isExported)
+      if (env.inGlobalInit && !fd.isDropped && !isVisibleMacro) {
         // In C, the initial value of a global must be a constant expression, which a `const`
         // variable is not. We therefore inline the values of constants referenced from the
-        // initial values of other globals (macros, which are constant expressions, are kept).
+        // initial values of other globals (macros are kept by name where they are visible).
         rec(fd.fullBody)
       } else {
         registerVal(fd)
