@@ -54,6 +54,13 @@ object Constants {
   @cCode.define
   val BufferSize: Int = 16
 
+  // Macros are referred to by name from the initial values of constants defined in the C file,
+  // and inlined in the initial values of constants defined in the header (unless exported too)
+  val DoubleBuffer: Int = BufferSize * 2
+
+  @cCode.`export`
+  val Limit: Int = BufferSize + 1
+
   // Function constants (lambdas directly calling a named function) become constant function pointers;
   // exported ones must refer to exported functions, as they are defined in the header
   val Inc: Int => Int = (x: Int) => incImpl(x)
@@ -107,5 +114,7 @@ object Constants {
     StdOut.println(Inc(41))
     StdOut.println(Op(5))
     StdOut.println(Lazy)
+    StdOut.println(DoubleBuffer)
+    StdOut.println(Limit)
   }
 }

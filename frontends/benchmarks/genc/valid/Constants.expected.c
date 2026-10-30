@@ -101,6 +101,7 @@ static const Shape DefaultShape = { .tag = tag_Circle, .value = { .Circle_v = { 
 static const enum_Color DefaultColor = tag_Green;
 static int32_t (* const Inc)(int32_t) = incImpl;
 static const int32_t Lazy = 7;
+static const int32_t DoubleBuffer = BufferSize * 2;
 
 
 /* ----------------------- function definitions ----- */
@@ -166,6 +167,8 @@ void main(void) {
     println(Inc(41));
     println(Op(5));
     println(Lazy);
+    println(DoubleBuffer);
+    println(Limit);
 }
 
 
