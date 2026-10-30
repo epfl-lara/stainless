@@ -24,12 +24,23 @@ class CPrinter(
   // are not supposed to be accessed outside of the compilation unit.
   private def static(isExported: Boolean): String = if (!isExported) "static " else ""
 
+  /** Builds the printable form of a global declaration (`Decl`) or of a struct field (`Var`) according
+    * to the declaration `modes` that affect *how* it is printed:
+    *   - `Const` makes a `Decl` a constant: `const` is added to its type and its initial value is printed
+    *     as a static initialiser (see `GlobalDecl` and `StaticInit`);
+    *   - `Volatile` and `Static` add the corresponding qualifiers, e.g., `static volatile const T x = v`.
+    *
+    * The other modes decide *where* a declaration is printed rather than how: `Define` as a macro,
+    * `Export` in the header file, `External` nowhere. They are handled by the callers (see the `Prog`
+    * case of `pp`).
+    */
   private def wrap(t: Tree, modes: Seq[DeclarationMode]): WrapperTree = {
-    modes.foldLeft(TTree(t) : WrapperTree) {
-      case (acc, Static) => StaticStorage(acc)
-      case (acc, Volatile) => VolatileStorage(acc)
-      case (acc, _) => acc
+    val base: WrapperTree = t match {
+      case decl: Decl => GlobalDecl(decl, modes.contains(Const))
+      case _ => TTree(t)
     }
+    val volatileWrapped = if (modes.contains(Volatile)) VolatileStorage(base) else base
+    if (modes.contains(Static)) StaticStorage(volatileWrapped) else volatileWrapped
   }
 
   private[genc] def pp(tree: Tree)(using pctx: PrinterContext): Unit = tree match {
@@ -88,12 +99,7 @@ class CPrinter(
               closing = "\n\n",
               sep = "\n\n")
              }
-            |${nary(
-              decls.filter(decl => !decl._2.contains(External) && !decl._2.contains(Define)).map { case (decl, modes) => wrap(decl, modes) },
-              opening = separator("global variables"),
-              closing = ";\n\n",
-              sep = ";\n")
-             }
+            |
             |${nary(
               functions.filter(!_.isExported) map FunDecl.apply,
               opening = separator("function declarations"),
@@ -101,6 +107,12 @@ class CPrinter(
               sep = "\n")
              }
             |${nary(
+              // Globals come after the function declarations as globals of function type refer to functions
+              decls.filter(decl => !decl._2.contains(External) && !decl._2.contains(Define) && !isHeaderConstant(decl._2)).map { case (decl, modes) => wrap(decl, modes) },
+              opening = separator("global variables"),
+              closing = ";\n\n\n",
+              sep = ";\n")
+             }${nary(
               functions,
               opening = separator("function definitions"),
               sep = "\n\n")
@@ -163,20 +175,22 @@ class CPrinter(
               closing = "\n\n",
               sep = "\n\n")
              }
-            |${nary(
-              decls.filter(decl => decl._2.contains(Export) && !decl._2.contains(Define)).map { case (decl, modes) =>
-                ExternDecl(wrap(decl.copy(optValue = None), modes)): WrapperTree
-              },
-              opening = separator("global variables"),
-              closing = ";\n\n",
-              sep = ";\n")
-             }
+            |
             |${nary(
               functions.filter(_.isExported) map FunDecl.apply,
               opening = separator("function declarations"),
+              closing = "\n",
               sep = "\n")
+             }${nary(
+              // Globals come after the function declarations as globals of function type refer to functions
+              decls.filter(decl => decl._2.contains(Export) && !decl._2.contains(Define)).map { case (decl, modes) =>
+                if (isHeaderConstant(modes)) wrap(decl, (modes :+ Static).distinct)
+                else ExternDecl(wrap(decl.copy(optValue = None), modes)): WrapperTree
+              },
+              opening = "\n" + separator("global variables"),
+              closing = ";\n",
+              sep = ";\n")
              }
-            |
             |#endif
             |"""
       }
@@ -340,7 +354,7 @@ class CPrinter(
     case _ => throw new Exception(s"GenC cannot print tree (of class ${tree.getClass})")
   }
 
-  private[genc] def pp(wt: WrapperTree)(using PrinterContext): Unit = wt match {
+  private[genc] def pp(wt: WrapperTree)(using pctx: PrinterContext): Unit = wt match {
     case TTree(t) => pp(t)
 
     case StaticStorage(decl) => c"static $decl"
@@ -348,9 +362,33 @@ class CPrinter(
     case VolatileStorage(decl) => c"volatile $decl"
     case DefineMacro(TTree(Decl(id, _, Some(value)))) => c"#define $id $value"
 
-    case TypeId(FunType(ret, params), id) => c"$ret (*$id)($params)"
-    case TypeId(FixedArrayType(base, length), id) => c"$base $id[$length]"
-    case TypeId(typ, id) => c"$typ $id"
+    case GlobalDecl(decl @ Decl(id, typ, optValue), isConst) =>
+      // Print the initial value in the context of its declaration (e.g., to avoid spurious parentheses)
+      given PrinterContext = pctx.copy(current = decl, previous = Some(pctx.current))
+      optValue match {
+        case None => c"${TypeId(typ, id, isConst)}"
+        case Some(value) => c"${TypeId(typ, id, isConst)} = ${StaticInit(value)}"
+      }
+
+    // Initial values of globals must be constant expressions in C. Aggregates are therefore printed
+    // as (designated) initialiser lists rather than as compound literals, which are not constant
+    // expressions in C99.
+    case StaticInit(StructInit(struct, values)) =>
+      val args = struct.fields zip values
+      c"{ ${nary(args map { case ((Var(id, _), _), arg) => StaticFieldInit(id, arg) }, sep = ", ")} }"
+    case StaticInit(UnionInit(_, fieldId, value)) => c"{ ${StaticFieldInit(fieldId, value)} }"
+    case StaticInit(ArrayStatic(_, values)) => c"{ ${nary(values map StaticInit.apply, sep = ", ")} }"
+    case StaticInit(value) => c"$value"
+    case StaticFieldInit(id, value) => c".$id = ${StaticInit(value)}"
+
+    case TypeId(FunType(ret, params), id, isConst) =>
+      if (isConst) c"$ret (* const $id)($params)" else c"$ret (*$id)($params)"
+    case TypeId(FixedArrayType(base, length), id, isConst) =>
+      if (isConst) c"const $base $id[$length]" else c"$base $id[$length]"
+    // For pointers (including strings, which are `char*`), the binding is constant, not the pointee
+    case TypeId(typ @ (Pointer(_) | Primitive(StringType)), id, true) => c"$typ const $id"
+    case TypeId(typ, id, true) => c"const $typ $id"
+    case TypeId(typ, id, false) => c"$typ $id"
 
     case FunSign(Fun(id, _, _, Right(s), isExported, isPure)) =>
       val header = s.takeWhile(_ != ')').replace("__FUNCTION__", id.name)
@@ -411,7 +449,10 @@ class CPrinter(
   private case class DefineMacro(wt: WrapperTree) extends WrapperTree
   private case class StaticStorage(wt: WrapperTree) extends WrapperTree
   private case class VolatileStorage(wt: WrapperTree) extends WrapperTree
-  private case class TypeId(typ: Type, id: Id) extends WrapperTree
+  private case class GlobalDecl(decl: Decl, isConst: Boolean) extends WrapperTree
+  private case class StaticInit(value: Expr) extends WrapperTree
+  private case class StaticFieldInit(id: Id, value: Expr) extends WrapperTree
+  private case class TypeId(typ: Type, id: Id, isConst: Boolean = false) extends WrapperTree
   private case class FunSign(f: Fun) extends WrapperTree
 
   // Here, params is expected to be of Type or Var.

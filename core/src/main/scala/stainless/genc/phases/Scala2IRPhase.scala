@@ -89,15 +89,17 @@ private class S2IRImpl(override val s: tt.type,
   def run(): Unit = {
     checkGlobalUsage()
 
-    // Start the transformation from `@cCode.export` (and `@cCode.global`) functions and classes
-    for (fd <- symbols.functions.values if fd.isExported || fd.flags.exists(_.name == "cCode.define")) {
+    // Start the transformation from `@cCode.export` (and `@cCode.global`) functions and classes.
+    // Iterate in a deterministic (id-sorted) order: the order in which `val`s and global fields
+    // get registered is the order of the global declarations in the generated C.
+    for (fd <- symbols.functions.values.toSeq.sortBy(_.id) if fd.isExported || fd.flags.exists(_.name == "cCode.define")) {
       if (fd.isVal)
         registerVal(fd)
       else
         rec(Outer(fd), Seq())(using Map.empty, emptyEnv(fd.isExported))
     }
 
-    for (cd <- symbols.classes.values if cd.isExported || cd.isGlobal)
+    for (cd <- symbols.classes.values.toSeq.sortBy(_.id) if cd.isExported || cd.isGlobal)
       rec(cd.typed.toType)(using Map.empty)
   }
 
@@ -130,14 +132,16 @@ private class S2IRImpl(override val s: tt.type,
     bindings: Map[(ValDef, Type), CIR.ValDef],
     lfds: Map[Identifier, LocalFunDef],
     inExported: Boolean, // true when we're inside an exported function
+    inGlobalInit: Boolean, // true when converting the initial value of a global declaration
+    inHeaderInit: Boolean, // true when that global declaration is defined in the header file
     localNames: LocalNameAllocator
   )
 
   // Keep track of generic to concrete type mapping
   private type TypeMapping = Map[TypeParameter, Type]
 
-  private def emptyEnv(inExported: Boolean = false): Env =
-    Env(Map.empty, Map.empty, inExported, new LocalNameAllocator(globalReservedNames))
+  private def emptyEnv(inExported: Boolean = false, inGlobalInit: Boolean = false, inHeaderInit: Boolean = false): Env =
+    Env(Map.empty, Map.empty, inExported, inGlobalInit, inHeaderInit, new LocalNameAllocator(globalReservedNames))
 
   // Here, when contexts are translated, there might remain some generic types. We use `tm` to make them disapear.
   private def convertVarInfoToArg(vi: VarInfo)(using tm: TypeMapping, names: LocalNameAllocator) =
@@ -157,17 +161,33 @@ private class S2IRImpl(override val s: tt.type,
     case _ => None
   }
 
+  /** Adds the `Const` mode to the declaration `modes` of an immutable global (i.e., not a `var` and
+    * not of a mutable type), unless it is translated to a macro or is not declared at all.
+    */
+  private def withConst(vd: CIR.ValDef, modes: Seq[DeclarationMode]): Seq[DeclarationMode] =
+    if (vd.isMutable || modes.exists(m => m == Const || m == Define || m == External)) modes
+    else modes :+ Const
+
+  /** Declaration modes of a top-level `val`: `static const` in the generated C file, unless it is
+    * exported, in which case it is defined in the header file instead (see `CPrinter`).
+    */
+  private def valModes(vd: CIR.ValDef, flags: Seq[Flag]): Seq[DeclarationMode] = {
+    val modes = withConst(vd, flagsToModes(flags))
+    if (modes.contains(Const) && !modes.contains(Export) && !modes.contains(Static)) modes :+ Static
+    else modes
+  }
+
   val registered = MutableSet[FunDef]()
   def registerVal(fd: FunDef): Unit = {
     if (!registered(fd)) {
       registered += fd
-      val newId = buildId(fd)
-      val newType = rec(fd.returnType)(using Map.empty)
+      val vd = CIR.ValDef(buildId(fd), rec(fd.returnType)(using Map.empty), false)
       if (fd.isDropped) {
-        declResults += ((CIR.Decl(CIR.ValDef(newId, newType, false), None), flagsToModes(fd.flags)))
+        declResults += ((CIR.Decl(vd, None), flagsToModes(fd.flags)))
       } else {
-        val newBody = rec(fd.fullBody)(using emptyEnv(fd.isExported), Map.empty)
-        declResults += ((CIR.Decl(CIR.ValDef(newId, newType, false), Some(newBody)), flagsToModes(fd.flags)))
+        val modes = valModes(vd, fd.flags)
+        val initEnv = emptyEnv(fd.isExported, inGlobalInit = true, inHeaderInit = isHeaderConstant(modes))
+        declResults += ((CIR.Decl(vd, Some(rec(fd.fullBody)(using initEnv, Map.empty))), modes))
       }
     }
   }
@@ -703,7 +723,10 @@ private class S2IRImpl(override val s: tt.type,
         val bodyWithoutSpecs = exprOps.BodyWithSpecs(fa.fullBody).letsAndBody
 
         // Recurse on the FunDef body, and not the TypedFunDef one, in order to keep the correct identifiers.
-        CIR.FunBodyAST(rec(bodyWithoutSpecs)(using env.copy(bindings = newBindings, localNames = localNames), tm1))
+        // A function body is never a global initialiser, even when the function is first reached from one
+        // (e.g., through a constant of function type).
+        val bodyEnv = env.copy(bindings = newBindings, localNames = localNames, inGlobalInit = false, inHeaderInit = false)
+        CIR.FunBodyAST(rec(bodyWithoutSpecs)(using bodyEnv, tm1))
       }
 
     // Now that we have a body, we can fully build the FunDef
@@ -807,8 +830,9 @@ private class S2IRImpl(override val s: tt.type,
               s"We found ${paramInits.length} initializations instead of ${fields.length}."
             )
           }
-          for ((((field, modes), paramInit), vd) <- fields.zip(paramInits).zip(tcd.fields)) {
-            given initEnv: Env = emptyEnv()
+          for ((((field, modes0), paramInit), vd) <- fields.zip(paramInits).zip(tcd.fields)) {
+            val modes = withConst(field, modes0)
+            given initEnv: Env = emptyEnv(inGlobalInit = true, inHeaderInit = isHeaderConstant(modes))
             val decl = (CIR.Decl(field, Some(rec(paramInit.fullBody))), modes)
             if (declResults.map(_._1.vd).contains(field)) {
               reporter.fatalError(cd.getPos, s"Global variable ${field.id} is defined twice")
@@ -943,8 +967,19 @@ private class S2IRImpl(override val s: tt.type,
 
     case FunctionInvocation(id, Seq(), Seq()) if syms.getFunction(id).isVal =>
       val fd = syms.getFunction(id)
-      registerVal(fd)
-      CIR.Binding(CIR.ValDef(buildId(fd), rec(fd.returnType), false))
+      val isDefine = fd.flags.exists(_.name == "cCode.define")
+      // A macro is visible from the initial value of a global defined in the C file, and from the
+      // initial value of a global defined in the header file only if it is exported as well.
+      val isVisibleMacro = isDefine && (!env.inHeaderInit || fd.isExported)
+      if (env.inGlobalInit && !fd.isDropped && !isVisibleMacro) {
+        // In C, the initial value of a global must be a constant expression, which a `const`
+        // variable is not. We therefore inline the values of constants referenced from the
+        // initial values of other globals (macros are kept by name where they are visible).
+        rec(fd.fullBody)
+      } else {
+        registerVal(fd)
+        CIR.Binding(CIR.ValDef(buildId(fd), rec(fd.returnType), false))
+      }
 
     case fi @ FunctionInvocation(id, tps, args) =>
       val fd = syms.getFunction(id)

@@ -64,18 +64,26 @@ private class IR2CImpl()(using ctx: inox.Context) {
 
   private def rec(prog: Prog): C.Prog = {
 
-    val decls = prog.decls.map { case (decl, modes) => rec(decl, allowFixedArray = true) match {
-      case res: C.Decl => (res, modes)
-      case res =>
-        ctx.reporter.fatalError(
-          "Only simple values are supported as default values for global variables.\n" +
-          s"Declaration $decl was translated to $res.\n" +
-          (if (decl.vd.typ.isArray && !decl.vd.typ.isFixedArray)
-            "Try making the length of the array constant by adding a condition in the class invariant of the global state."
-          else
-            "")
-        )
-    }}
+    val declModes = prog.decls.map { case (decl, modes) => decl.vd.id -> modes }.toMap
+
+    val decls = prog.decls.map { case (decl, modes) =>
+      rec(decl, allowFixedArray = true) match {
+        case res: C.Decl =>
+          // Macros are expanded at their use sites, so their value need not be a constant expression
+          if (!modes.contains(Define))
+            decl.optInit.foreach(checkGlobalInit(decl.vd, _, isHeaderConstant(modes), declModes))
+          (res, modes)
+        case res =>
+          ctx.reporter.fatalError(
+            "Only simple values are supported as default values for global variables.\n" +
+            s"Declaration $decl was translated to $res.\n" +
+            (if (decl.vd.typ.isArray && !decl.vd.typ.isFixedArray)
+              "Try making the length of the array constant by adding a condition in the class invariant of the global state."
+            else
+              "")
+          )
+      }
+    }
 
     // Process functions and classes in a deterministic (id-sorted) order: datatypes are
     // registered on first encounter (see `dataTypes`), so a stable traversal order gives a
@@ -88,6 +96,45 @@ private class IR2CImpl()(using ctx: inox.Context) {
 
     // Remove "mutability" on includes & typeDefs
     C.Prog(headerIncludes.toSet, cIncludes.toSet, decls, typdefs.toSet, enums, dataTypes, functions)
+  }
+
+  /** Checks that the initial value `init` of the global `vd` is a constant expression in C (C99 §6.6),
+    * as required for objects with static storage duration, and that a global defined in the header file
+    * (`inHeader`) only refers to definitions that are visible there.
+    *
+    * Besides literals, and constructors, operators, and casts applied to constant expressions, an initial
+    * value may refer to functions (address constants), to `@cCode.define` macros, and to `@cCode.drop`ped
+    * values, which the user must then define as constant expressions (e.g., as macros) on the C side.
+    * References to other constants have been inlined by the Scala2IR phase. `declModes` gives the
+    * declaration modes of all globals.
+    */
+  private def checkGlobalInit(vd: ValDef, init: Expr, inHeader: Boolean, declModes: Map[Id, Seq[DeclarationMode]]): Unit = {
+    def notConstant(what: String): Nothing = ctx.reporter.fatalError(
+      s"The initial value of global ${vd.id} must be a constant expression in C " +
+      s"(a literal, a constructor applied to constant expressions, or a reference to another constant), but it $what"
+    )
+    def notInHeader(what: String): Nothing = ctx.reporter.fatalError(
+      s"Exported constant ${vd.id} refers to $what, which must be exported as well (with @cCode.export) " +
+      "to be visible from the header file"
+    )
+    def check(e: Expr): Unit = e match {
+      case Lit(_) => ()
+      case Construct(_, args) => args.foreach(check)
+      case ArrayInit(ArrayAllocStatic(_, _, values)) => values.foreach(_.foreach(check))
+      case BinOp(_, lhs, rhs) => check(lhs); check(rhs)
+      case UnOp(_, expr) => check(expr)
+      case IntegralCast(expr, _) => check(expr)
+      case FunRef(expr) => check(expr)
+      case FunVal(fd) => if (inHeader && !fd.isExported) notInHeader(s"function ${fd.id}")
+      case Binding(ref) => declModes.get(ref.id) match {
+        case Some(modes) if modes.contains(Define) => if (inHeader && !modes.contains(Export)) notInHeader(s"macro ${ref.id}")
+        case Some(modes) if modes.contains(External) => () // defined by the user on the C side
+        case _ => notConstant(s"refers to the variable ${ref.id}")
+      }
+      case App(FunVal(fd), Seq(), Seq()) if fd.body == FunDropped(true) => () // `@cCode.drop`ped value
+      case other => notConstant(s"contains: $other")
+    }
+    check(init)
   }
 
   private def rec(fd: FunDef): Unit = funCache.getOrElseUpdate(fd, {

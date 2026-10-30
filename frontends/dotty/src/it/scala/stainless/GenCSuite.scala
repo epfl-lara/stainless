@@ -34,7 +34,13 @@ class GenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUtils with
     val cFile = file.replace(".scala", ".c")
     val outFile = file.replace(".scala", ".out")
     test(s"stainless --genc --genc-output=$cFile $file should fail") {
-      an [inox.FatalError] should be thrownBy runMainWithArgs(Array(file) :+ "--genc" :+ s"--genc-output=$cFile" :+ "--skip-verification")
+      // The program must be rejected, either by GenC (FatalError) or earlier by Stainless (MalformedStainlessCode)
+      intercept[Exception] {
+        runMainWithArgs(Array(file) :+ "--genc" :+ s"--genc-output=$cFile" :+ "--skip-verification")
+      } match {
+        case _: inox.FatalError | _: extraction.MalformedStainlessCode => ()
+        case e => fail(s"Expected a FatalError or a MalformedStainlessCode, but got $e")
+      }
     }
   }
 
@@ -66,6 +72,12 @@ class GenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUtils with
       ctx.reporter.info(s"Running: $gccCompile")
       val (std, exitCode) = runCommand(gccCompile)
       assert(exitCode == 0, "gcc failed with output:\n" + std.mkString("\n"))
+      // The header must also be usable on its own by C clients, which the compilation of the C
+      // file does not check as its definitions come after the inclusion of the header.
+      val gccHeader = s"gcc -fsyntax-only -x c $hFile"
+      ctx.reporter.info(s"Running: $gccHeader")
+      val (stdHeader, exitCodeHeader) = runCommand(gccHeader)
+      assert(exitCodeHeader == 0, "gcc failed on the header alone with output:\n" + stdHeader.mkString("\n"))
     }
   }
 
@@ -87,6 +99,16 @@ class GenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUtils with
   test("Checking that Pointer2 outputs 124443") {
     val output = runCHelper("Pointer2.scala")
     assert(output == "124443", s"Output '$output' should be '124443'")
+  }
+
+  test("Checking that Constants outputs 100-2655361310721-8123412z400000000017511164257321742") {
+    val output = runCHelper("Constants.scala")
+    assert(output == "100-2655361310721-8123412z400000000017511164257321742", s"Output '$output' should be '100-2655361310721-8123412z400000000017511164257321742'")
+  }
+
+  test("Checking that GlobalConstFields outputs 510") {
+    val output = runCHelper("GlobalConstFields.scala")
+    assert(output == "510", s"Output '$output' should be '510'")
   }
 
   test("Checking that BigIntLiterals outputs 2006000040000000005000000000-100-30000-2000000000") {
