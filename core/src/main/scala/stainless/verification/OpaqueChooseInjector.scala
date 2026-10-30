@@ -29,12 +29,14 @@ class OpaqueChooseInjector private(val trees: ast.Trees)
         val choose = post
           .map {
             case Postcondition(Lambda(Seq(vd), post)) =>
-              Choose(vd, freshenLocals(specced.wrapLets(post)))
+              // Add DropVCs flag to ensure ChooseEncoder doesn't generate VCs for extern/opaque functions
+              val vdWithDropVCs = vd.copy(flags = vd.flags :+ DropVCs).copiedFrom(vd)
+              Choose(vdWithDropVCs, freshenLocals(specced.wrapLets(post)))
             case Postcondition(l@Lambda(_, _)) =>
               sys.error(s"Unexpected number of params for postcondition lambda: $l")
           }
           .getOrElse {
-            Choose(ValDef(FreshIdentifier("res", true), fd.returnType), BooleanLiteral(true))
+            Choose(ValDef(FreshIdentifier("res", true), fd.returnType, Seq(DropVCs)), BooleanLiteral(true))
           }
           .copiedFrom(fd)
         fd.copy(fullBody = specced.copy(body = choose).reconstructed)
