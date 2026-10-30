@@ -72,6 +72,12 @@ class GenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUtils with
       ctx.reporter.info(s"Running: $gccCompile")
       val (std, exitCode) = runCommand(gccCompile)
       assert(exitCode == 0, "gcc failed with output:\n" + std.mkString("\n"))
+      // The header must also be usable on its own by C clients, which the compilation of the C
+      // file does not check as its definitions come after the inclusion of the header.
+      val gccHeader = s"gcc -fsyntax-only -x c $hFile"
+      ctx.reporter.info(s"Running: $gccHeader")
+      val (stdHeader, exitCodeHeader) = runCommand(gccHeader)
+      assert(exitCodeHeader == 0, "gcc failed on the header alone with output:\n" + stdHeader.mkString("\n"))
     }
   }
 
