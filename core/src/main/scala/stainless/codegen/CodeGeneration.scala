@@ -1025,7 +1025,7 @@ trait CodeGeneration { self: CompilationUnit =>
     case BVOr(l, r)  => mkArithmeticBinary(l, r, ch, IOR, LOR, null, null, "or", bvOnly = true)
     case BVXor(l, r) => mkArithmeticBinary(l, r, ch, IXOR, LXOR, null, null, "xor", bvOnly = true)
     case BVShiftLeft(l, r)   => mkBVShift(l, r, ch, ISHL,  LSHL,  "shiftLeft")
-    case BVLShiftRight(l, r) => mkBVShift(l, r, ch, IUSHR, LUSHR, "lShiftLeft")
+    case BVLShiftRight(l, r) => mkBVShift(l, r, ch, IUSHR, LUSHR, "lShiftRight")
     case BVAShiftRight(l, r) => mkBVShift(l, r, ch, ISHR,  LSHR,  "aShiftRight")
 
     case BVUnsignedToSigned(e) =>

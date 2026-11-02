@@ -152,7 +152,7 @@ object ScalaTestGen {
     Path(Seq("stainless", "lang")) -> Set("_"),
     Path(Seq("stainless", "collection")) -> Set("_"),
     Path(Seq("stainless", "math")) -> Set("_"),
-    Path(Seq("stainless", "math", "BitVectors")) -> Set("_"),
+    Path(Seq("stainless", "math", "Unsigned")) -> Set("_"),
   ))
 
   private case class Path(parts: Seq[String])
@@ -204,18 +204,24 @@ object ScalaTestGen {
       case bv: xt.BVLiteral =>
         val bigInt = bv.toBigInt
         val bigIntStr = bigInt.toString
-        val litStr =
-          if (Int.MinValue <= bigInt && bigInt <= Int.MaxValue) bigIntStr
-          else if (Long.MinValue <= bigInt && bigInt <= Long.MaxValue) s"${bigIntStr}L"
-          else s"""BigInt("$bigIntStr")"""
+        def fitsInt = Int.MinValue <= bigInt && bigInt <= Int.MaxValue
+        def fitsLong = Long.MinValue <= bigInt && bigInt <= Long.MaxValue
 
-        if (bv.signed && bv.size == 8) p"$litStr.toByte"
-        else if (bv.signed && bv.size == 16) p"$litStr.toShort"
-        else if (bv.signed && bv.size == 32) p"$litStr"
-        else if (bv.signed && bv.size == 64) p"${litStr}L"
+        if (bv.signed && bv.size == 8) p"$bigIntStr.toByte"
+        else if (bv.signed && bv.size == 16) p"$bigIntStr.toShort"
+        else if (bv.signed && bv.size == 32) p"$bigIntStr"
+        else if (bv.signed && bv.size == 64) p"${bigIntStr}L"
         else {
-          val bvTypeStr = s"""${if (bv.signed) "I" else "U"}Int${bv.size}"""
-          p"$litStr: $bvTypeStr"
+          // Unsigned literals are converted from `Int`, `Long` or `BigInt` literals
+          val tpe = bv.size match {
+            case 8 => "UByte"
+            case 16 => "UShort"
+            case 32 => "UInt"
+            case _ => "ULong"
+          }
+          if (fitsInt) p"$bigIntStr.to$tpe"
+          else if (fitsLong) p"${bigIntStr}L.to$tpe"
+          else p"""BigInt("$bigIntStr").to$tpe"""
         }
       case _ => super.ppBody(tree)
     }

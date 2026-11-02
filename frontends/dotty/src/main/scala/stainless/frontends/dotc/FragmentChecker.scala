@@ -385,9 +385,6 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
     private val ExternAnnotation = getClassIfDefinedOrNone("stainless.annotation.extern")
     private val IgnoreAnnotation = getClassIfDefinedOrNone("stainless.annotation.ignore")
     private val StainlessOld = StainlessLangPackage.map(_.info.decl(Names.termName("old")).symbol)
-    private val StainlessBVObject = getModuleClassIfDefinedOrNone("stainless.math.BitVectors")
-    private val StainlessBVClass = getClassIfDefinedOrNone("stainless.math.BitVectors.BV")
-    private val StainlessBVArrayIndex = getModuleClassIfDefinedOrNone("stainless.math.BitVectors.ArrayIndexing")
 
     private val BigInt_ApplyMethods =
       (StainlessLangPackage.map(_.info.decl(Names.termName("BigInt")).info.decl(nme.apply).alternatives).getOrElse(Nil)
@@ -412,21 +409,6 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
       Symbols.requiredClass("java.lang.Float") -> "stainless.lang.WrappedFloat",
       Symbols.requiredClass("java.lang.Double") -> "stainless.lang.WrappedDouble",
     )
-
-    // We do not in general support the types for these methods, but we do extract them.
-    // We therefore skip the typing check for them.
-    private val bvSpecialFunctions =
-      StainlessBVObject.map(bvObj => Set(
-        bvObj.info.decl(termName("min")),
-        bvObj.info.decl(termName("max"))
-      )).getOrElse(Set.empty) ++
-      StainlessBVArrayIndex.map(bvArray => Set(bvArray.info.decl(StdNames.nme.apply))).getOrElse(Set.empty) ++
-      StainlessBVClass.map(bvClass => Set(
-        bvClass.info.decl(termName("widen")),
-        bvClass.info.decl(termName("narrow")),
-        bvClass.info.decl(termName("toSigned")),
-        bvClass.info.decl(termName("toUnsigned")),
-      )).getOrElse(Set.empty)
 
     // Types that may show up due to inference that will later cause a missing dependency error
     // should we not report an error before.
@@ -711,7 +693,7 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
     }
 
     private def skipTraversal(sym: Symbol): Boolean = {
-      isIgnoredSymbol(sym, bvSpecialFunctions(sym) || StainlessBVClass.contains(sym))
+      isIgnoredSymbol(sym)
     }
   }
 }

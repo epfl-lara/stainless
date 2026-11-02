@@ -3,7 +3,7 @@
 package stainless.io
 
 import stainless.annotation._
-import stainless.math.BitVectors._
+import stainless.math.Unsigned._
 
 object StdOut {
 
@@ -18,12 +18,12 @@ object StdOut {
     headerIncludes = "inttypes.h:stdio.h",
     cIncludes = ""
   )
-  def printU8(x: UInt8)(implicit @ghost state: State): Unit = {
-    scala.Predef.print(x)
+  def printU8(x: UByte)(implicit @ghost state: State): Unit = {
+    scala.Predef.print(x.toStringUnsigned)
   }
 
   @library
-  def printlnU8(x: UInt8)(implicit @ghost state: State): Unit = {
+  def printlnU8(x: UByte)(implicit @ghost state: State): Unit = {
     printU8(x)
     println()
   }
@@ -39,12 +39,12 @@ object StdOut {
     headerIncludes = "inttypes.h:stdio.h",
     cIncludes = ""
   )
-  def printU16(x: UInt16)(implicit @ghost state: State): Unit = {
-    scala.Predef.print(x)
+  def printU16(x: UShort)(implicit @ghost state: State): Unit = {
+    scala.Predef.print(x.toStringUnsigned)
   }
 
   @library
-  def printlnU16(x: UInt16)(implicit @ghost state: State): Unit = {
+  def printlnU16(x: UShort)(implicit @ghost state: State): Unit = {
     printU16(x)
     println()
   }
@@ -60,12 +60,12 @@ object StdOut {
     headerIncludes = "inttypes.h:stdio.h",
     cIncludes = ""
   )
-  def printU32(x: UInt32)(implicit @ghost state: State): Unit = {
-    scala.Predef.print(x)
+  def printU32(x: UInt)(implicit @ghost state: State): Unit = {
+    scala.Predef.print(x.toStringUnsigned)
   }
 
   @library
-  def printlnU32(x: UInt32)(implicit @ghost state: State): Unit = {
+  def printlnU32(x: UInt)(implicit @ghost state: State): Unit = {
     printU32(x)
     println()
   }
@@ -81,12 +81,12 @@ object StdOut {
     headerIncludes = "inttypes.h:stdio.h",
     cIncludes = ""
   )
-  def printU64(x: UInt64)(implicit @ghost state: State): Unit = {
-    scala.Predef.print(x)
+  def printU64(x: ULong)(implicit @ghost state: State): Unit = {
+    scala.Predef.print(x.toStringUnsigned)
   }
 
   @library
-  def printlnU64(x: UInt64)(implicit @ghost state: State): Unit = {
+  def printlnU64(x: ULong)(implicit @ghost state: State): Unit = {
     printU64(x)
     println()
   }

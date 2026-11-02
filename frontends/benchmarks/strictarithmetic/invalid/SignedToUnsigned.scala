@@ -1,8 +1,8 @@
-import stainless.math.BitVectors._
+import stainless.math.Unsigned._
 
 object SignedToUnsigned {
   def test = {
-    val a: Int3 = -1
-    a.toUnsigned[UInt3]
+    val a: Int = -1
+    a.toUInt
   }
 }

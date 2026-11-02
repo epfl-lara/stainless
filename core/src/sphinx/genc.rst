@@ -78,21 +78,21 @@ The following raw types and their corresponding literals are supported:
     - ``void``
   * - ``Boolean``
     - ``bool``
-  * - ``Byte`` and ``Int8`` (8-bit integer)
+  * - ``Byte`` (8-bit integer)
     - ``int8_t``
-  * - ``Short`` and ``Int16`` (16-bit integer)
+  * - ``Short`` (16-bit integer)
     - ``int16_t``
-  * - ``Int`` and ``Int32`` (32-bit integer)
+  * - ``Int`` (32-bit integer)
     - ``int32_t``
-  * - ``Long`` and ``Int64`` (64-bit integer)
+  * - ``Long`` (64-bit integer)
     - ``int64_t``
-  * - ``UInt8`` (8-bit unsigned integer)
+  * - ``UByte`` (8-bit unsigned integer)
     - ``uint8_t``
-  * - ``UInt16`` (16-bit integer)
+  * - ``UShort`` (16-bit unsigned integer)
     - ``uint16_t``
-  * - ``UInt32`` (32-bit integer)
+  * - ``UInt`` (32-bit unsigned integer)
     - ``uint32_t``
-  * - ``UInt64`` (64-bit integer)
+  * - ``ULong`` (64-bit unsigned integer)
     - ``uint64_t``
 
 Additionally, GenC has partial support for character and string literals made
@@ -139,9 +139,9 @@ See below for a case class with a fixed length array and its transformation in C
 
 .. code-block:: scala
 
-  val CONSTANT1: UInt16 = 5
-  val CONSTANT2: UInt16 = 12
-  val CONSTANT3: UInt16 = CONSTANT1 + CONSTANT2
+  val CONSTANT1: UShort = 5.toUShort
+  val CONSTANT2: UShort = 12.toUShort
+  val CONSTANT3: UShort = CONSTANT1 + CONSTANT2
 
   @cCode.export
   case class W(x: Int, a: Array[Int], y: Int) {
