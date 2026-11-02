@@ -58,7 +58,7 @@ static STAINLESS_FUNC_PURE uint32_t fb(uint32_t x, uint32_t y) {
 }
 
 static STAINLESS_FUNC_PURE uint16_t fc(uint16_t x, uint16_t y) {
-    return x * y;
+    return (uint16_t)(((uint32_t)x) * y);
 }
 
 static STAINLESS_FUNC_PURE uint8_t fd(uint8_t x, uint8_t y) {
@@ -66,7 +66,7 @@ static STAINLESS_FUNC_PURE uint8_t fd(uint8_t x, uint8_t y) {
 }
 
 void main(void) {
-    uint64_t a = fa(16, 84);
+    uint64_t a = fa(16ULL, 84ULL);
     uint32_t b = fb(84, 14);
     uint16_t c = fc(5, 7);
     uint8_t d = fd(126, 3);

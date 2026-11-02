@@ -1,0 +1,8 @@
+# Expected results of the `testN` functions of UnsignedBigInt.scala.
+test1 = 200
+test2 = 65535
+test3 = 4294967295
+test4 = 18446744073709551615
+test5 = 4294967296
+test6 = 18446744073709551616
+test7 = 9223372036854775808

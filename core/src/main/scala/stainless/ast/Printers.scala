@@ -127,6 +127,17 @@ trait Printer extends inox.ast.Printer {
     case ArrayType(base) =>
       p"Array[$base]"
 
+    // The unsigned types of `stainless.math.Unsigned`, with their literals in decimal
+    case BVType(false, 8) => p"UByte"
+    case BVType(false, 16) => p"UShort"
+    case BVType(false, 32) => p"UInt"
+    case BVType(false, 64) => p"ULong"
+    case bv @ BVLiteral(false, _, 8 | 16 | 32 | 64) => p"${bv.toBigInt}"
+    case BVNarrowingCast(e, tpe @ BVType(false, 8 | 16 | 32 | 64)) => p"$e.to$tpe"
+    case BVWideningCast(e, tpe @ BVType(false, 8 | 16 | 32 | 64)) => p"$e.to$tpe"
+    case BVSignedToUnsigned(e @ BVLiteral(_, _, size @ (8 | 16 | 32 | 64))) => p"$e.to${BVType(false, size)}"
+    case BVUnsignedToSigned(e @ BVLiteral(_, _, size @ (8 | 16 | 32 | 64))) => p"$e.to${BVType(true, size)}"
+
     case RecursiveType(id, tps, size) =>
       p"${ADTType(id, tps)}($size)"
 

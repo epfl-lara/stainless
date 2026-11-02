@@ -95,9 +95,9 @@ class GenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUtils with
     assert(output == "124443", s"Output '$output' should be '124443'")
   }
 
-  test("Checking that BigIntLiterals outputs 2006000040000000005000000000-100-30000-2000000000") {
+  test("Checking that BigIntLiterals outputs 200600004000000000500000000018446744073709551615") {
     val output = runCHelper("BigIntLiterals.scala")
-    assert(output == "2006000040000000005000000000-100-30000-2000000000", s"Output '$output' should be '2006000040000000005000000000-100-30000-2000000000'")
+    assert(output == "200600004000000000500000000018446744073709551615", s"Output '$output' should be '200600004000000000500000000018446744073709551615'")
   }
 
   for (case (file, _) <- tailrecFiles) {

@@ -81,7 +81,7 @@ static STAINLESS_FUNC_PURE uint32_t widenU8(uint8_t x);
 /* ----------------------- function definitions ----- */
 
 static STAINLESS_FUNC_PURE uint8_t addU8(uint8_t a, uint8_t b) {
-    return a + b;
+    return (uint8_t)(a + b);
 }
 
 static STAINLESS_FUNC_PURE int32_t bitOps(int32_t x, int32_t y) {
@@ -143,10 +143,10 @@ void main(void) {
     println(shl(1, 31));
     println(shl(2147483647, 1));
     println(shl(-1, 20));
-    printlnLong(shlLong(1, 40));
-    printlnLong(lshrLong(-1, 60));
-    printlnLong(shlLong(-1, 63));
-    printlnLong(lshrLong(shlLong(-1, 63), 63));
+    printlnLong(shlLong(1LL, 40LL));
+    printlnLong(lshrLong(-1LL, 60LL));
+    printlnLong(shlLong(-1LL, 63LL));
+    printlnLong(lshrLong(shlLong(-1LL, 63LL), 63LL));
     println(byteShl(-1, 4));
     println(byteShl(100, 2));
     println(byteLshr(-1, 4));
@@ -157,8 +157,8 @@ void main(void) {
     println(byteToUnsigned(toByte(200)));
     println((int32_t)toShort(70000));
     println((int32_t)toShort(-40000));
-    println(toInt(shlLong(1, 35) + ((int64_t)7)));
-    println(toInt(-1));
+    println(toInt(shlLong(1LL, 35LL) + ((int64_t)7)));
+    println(toInt(-1LL));
     printlnLong(toLong(-1));
     printlnLong(toLong(2147483647) + ((int64_t)1));
     printlnLong(byteToLong(-128));
@@ -167,8 +167,8 @@ void main(void) {
     println(div(7, -2));
     println(rem(7, -2));
     println(rem(-7, -2));
-    printlnLong(divLong(-9000000000, 7));
-    printlnLong(remLong(-9000000000, 7));
+    printlnLong(divLong(-9000000000LL, 7LL));
+    printlnLong(remLong(-9000000000LL, 7LL));
     println(bnot(0));
     println(bnot(5));
     println(bitOps(3855, 255));
@@ -192,7 +192,7 @@ static STAINLESS_FUNC_PURE bool mixedCmp(int8_t b, int32_t i) {
 }
 
 static STAINLESS_FUNC_PURE uint16_t mulU16(uint16_t a, uint16_t b) {
-    return a * b;
+    return (uint16_t)(((uint32_t)a) * b);
 }
 
 static STAINLESS_FUNC_PURE uint8_t narrowU32(uint32_t x) {
