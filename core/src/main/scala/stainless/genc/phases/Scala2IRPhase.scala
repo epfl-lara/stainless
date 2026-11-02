@@ -177,6 +177,21 @@ private class S2IRImpl(override val s: tt.type,
     else modes
   }
 
+  /** The `val`s whose value is being translated, innermost first. */
+  private var valsInProgress: List[FunDef] = Nil
+
+  /** Translates the value of the `val` `fd` with `translate`, reporting an error if that value depends on
+    * itself (which would otherwise make the inlining of constants loop).
+    */
+  private def translateValue[T](fd: FunDef)(translate: => T): T = {
+    if (valsInProgress.contains(fd)) {
+      val cycle = (fd :: valsInProgress.takeWhile(_ != fd).reverse) :+ fd
+      reporter.fatalError(fd.getPos, s"Cyclic definition of constants: ${cycle.map(_.id.asString).mkString(" -> ")}")
+    }
+    valsInProgress = fd :: valsInProgress
+    try translate finally valsInProgress = valsInProgress.tail
+  }
+
   val registered = MutableSet[FunDef]()
   def registerVal(fd: FunDef): Unit = {
     if (!registered(fd)) {
@@ -187,7 +202,8 @@ private class S2IRImpl(override val s: tt.type,
       } else {
         val modes = valModes(vd, fd.flags)
         val initEnv = emptyEnv(fd.isExported, inGlobalInit = true, inHeaderInit = isDefinedInHeader(modes))
-        declResults += ((CIR.Decl(vd, Some(rec(fd.fullBody)(using initEnv, Map.empty))), modes))
+        val init = translateValue(fd)(rec(fd.fullBody)(using initEnv, Map.empty))
+        declResults += ((CIR.Decl(vd, Some(init)), modes))
       }
     }
   }
@@ -975,7 +991,7 @@ private class S2IRImpl(override val s: tt.type,
         // In C, the initial value of a global must be a constant expression, which a `const`
         // variable is not. We therefore inline the values of constants referenced from the
         // initial values of other globals (macros are kept by name where they are visible).
-        rec(fd.fullBody)
+        translateValue(fd)(rec(fd.fullBody))
       } else {
         registerVal(fd)
         CIR.Binding(CIR.ValDef(buildId(fd), rec(fd.returnType), false))
