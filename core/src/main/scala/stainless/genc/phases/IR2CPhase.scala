@@ -67,14 +67,14 @@ private class IR2CImpl()(using ctx: inox.Context) {
 
   private def rec(prog: Prog): C.Prog = {
 
-    val declModes = prog.decls.map { case (decl, modes) => decl.vd.id -> modes }.toMap
+    val globals = prog.decls.map { case (decl, modes) => decl.vd.id -> (decl, modes) }.toMap
 
     val decls = prog.decls.map { case (decl, modes) =>
       rec(decl, allowFixedArray = true) match {
         case res: C.Decl =>
           // Macros are expanded at their use sites, so their value need not be a constant expression
           if (!modes.contains(Define))
-            decl.optInit.foreach(checkGlobalInit(decl.vd, _, isHeaderConstant(modes), declModes))
+            decl.optInit.foreach(checkGlobalInit(decl.vd, _, isHeaderConstant(modes), globals))
           (res, modes)
         case res =>
           ctx.reporter.fatalError(
@@ -106,38 +106,51 @@ private class IR2CImpl()(using ctx: inox.Context) {
     * (`inHeader`) only refers to definitions that are visible there.
     *
     * Besides literals, and constructors, operators, and casts applied to constant expressions, an initial
-    * value may refer to functions (address constants), to `@cCode.define` macros, and to `@cCode.drop`ped
-    * values, which the user must then define as constant expressions (e.g., as macros) on the C side.
-    * References to other constants have been inlined by the Scala2IR phase. `declModes` gives the
-    * declaration modes of all globals.
+    * value may refer to functions (address constants), to `@cCode.define` macros whose value is itself a
+    * constant expression (as macros are expanded in place), and to `@cCode.drop`ped values, which the user
+    * must then define as constant expressions (e.g., as macros) on the C side. References to other
+    * constants have been inlined by the Scala2IR phase. `globals` gives the declaration and the
+    * declaration modes of each global.
     */
-  private def checkGlobalInit(vd: ValDef, init: Expr, inHeader: Boolean, declModes: Map[Id, Seq[DeclarationMode]]): Unit = {
-    def notConstant(what: String): Nothing = ctx.reporter.fatalError(
-      s"The initial value of global ${vd.id} must be a constant expression in C " +
-      s"(a literal, a constructor applied to constant expressions, or a reference to another constant), but it $what"
-    )
+  private def checkGlobalInit(vd: ValDef, init: Expr, inHeader: Boolean, globals: Map[Id, (Decl, Seq[DeclarationMode])]): Unit = {
+    val checkedMacros = MutableSet[Id]()
     def notInHeader(what: String): Nothing = ctx.reporter.fatalError(
       s"Exported constant ${vd.id} refers to $what, which must be exported as well (with @cCode.export) " +
       "to be visible from the header file"
     )
-    def check(e: Expr): Unit = e match {
-      case Lit(_) => ()
-      case Construct(_, args) => args.foreach(check)
-      case ArrayInit(ArrayAllocStatic(_, _, values)) => values.foreach(_.foreach(check))
-      case BinOp(_, lhs, rhs) => check(lhs); check(rhs)
-      case UnOp(_, expr) => check(expr)
-      case IntegralCast(expr, _) => check(expr)
-      case FunRef(expr) => check(expr)
-      case FunVal(fd) => if (inHeader && !fd.isExported) notInHeader(s"function ${fd.id}")
-      case Binding(ref) => declModes.get(ref.id) match {
-        case Some(modes) if modes.contains(Define) => if (inHeader && !modes.contains(Export)) notInHeader(s"macro ${ref.id}")
-        case Some(modes) if modes.contains(External) => () // defined by the user on the C side
-        case _ => notConstant(s"refers to the variable ${ref.id}")
-      }
-      case App(FunVal(fd), Seq(), Seq()) if fd.body == FunDropped(true) => () // `@cCode.drop`ped value
-      case other => notConstant(s"contains: $other")
+    // Shows an expression as C code (array initialisations can only be translated as part of a declaration)
+    def show(e: Expr): String = e match {
+      case _: ArrayInit | _: Decl => e.toString
+      case _ => rec(e).toString
     }
-    check(init)
+    // `viaMacro` is the macro whose value `e` is part of, if any
+    def check(e: Expr, viaMacro: Option[Id]): Unit = {
+      def notConstant(what: String): Nothing = ctx.reporter.fatalError(
+        s"The initial value of global ${vd.id} must be a constant expression in C " +
+        "(a literal, a constructor applied to constant expressions, or a reference to another constant), but " +
+        viaMacro.fold("it")(m => s"the value of the macro $m it refers to") + s" $what"
+      )
+      e match {
+        case Lit(_) => ()
+        case Construct(_, args) => args.foreach(check(_, viaMacro))
+        case ArrayInit(ArrayAllocStatic(_, _, values)) => values.foreach(_.foreach(check(_, viaMacro)))
+        case BinOp(_, lhs, rhs) => check(lhs, viaMacro); check(rhs, viaMacro)
+        case UnOp(_, expr) => check(expr, viaMacro)
+        case IntegralCast(expr, _) => check(expr, viaMacro)
+        case FunRef(expr) => check(expr, viaMacro)
+        case FunVal(fd) => if (inHeader && !fd.isExported) notInHeader(s"function ${fd.id}")
+        case Binding(ref) => globals.get(ref.id) match {
+          case Some((macroDecl, modes)) if modes.contains(Define) =>
+            if (inHeader && !modes.contains(Export)) notInHeader(s"macro ${ref.id}")
+            if (checkedMacros.add(ref.id)) macroDecl.optInit.foreach(check(_, Some(ref.id)))
+          case Some((_, modes)) if modes.contains(External) => () // defined by the user on the C side
+          case _ => notConstant(s"refers to the variable ${ref.id}")
+        }
+        case App(FunVal(fd), Seq(), Seq()) if fd.body == FunDropped(true) => () // `@cCode.drop`ped value
+        case other => notConstant(s"contains: ${show(other)}")
+      }
+    }
+    check(init, None)
   }
 
   private def rec(fd: FunDef): Unit = funCache.getOrElseUpdate(fd, {
