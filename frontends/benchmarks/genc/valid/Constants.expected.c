@@ -171,6 +171,7 @@ void main(void) {
     println(DoubleBuffer);
     println(Limit);
     println(Computed);
+    println(PublicSize);
 }
 
 

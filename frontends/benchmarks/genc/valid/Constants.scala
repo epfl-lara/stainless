@@ -64,6 +64,11 @@ object Constants {
   @cCode.`export`
   val Limit: Int = BufferSize + 1
 
+  // The same holds for the value of exported macros, which are defined in the header as well
+  @cCode.define
+  @cCode.`export`
+  val PublicSize: Int = BufferSize + 1
+
   // Function constants (lambdas directly calling a named function) become constant function pointers;
   // exported ones must refer to exported functions, as they are defined in the header
   val Inc: Int => Int = (x: Int) => incImpl(x)
@@ -120,5 +125,6 @@ object Constants {
     StdOut.println(DoubleBuffer)
     StdOut.println(Limit)
     StdOut.println(Computed)
+    StdOut.println(PublicSize)
   }
 }
