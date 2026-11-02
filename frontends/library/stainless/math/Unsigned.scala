@@ -146,8 +146,8 @@ object Unsigned:
       def |(y: UInt): UInt = x | y
       def &(y: UInt): UInt = x & y
       def ^(y: UInt): UInt = x ^ y
-      def <<(y: UInt): UInt = if u32(y) >= 32 then 0 else x << y
-      def >>>(y: UInt): UInt = if u32(y) >= 32 then 0 else x >>> y
+      def <<(y: UInt): UInt = if java.lang.Integer.compareUnsigned(y, 32) >= 0 then 0 else x << y
+      def >>>(y: UInt): UInt = if java.lang.Integer.compareUnsigned(y, 32) >= 0 then 0 else x >>> y
 
       def toUByte: UByte = x.toByte
       def toUShort: UShort = x.toShort
