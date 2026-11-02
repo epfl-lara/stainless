@@ -133,7 +133,7 @@ private class S2IRImpl(override val s: tt.type,
     lfds: Map[Identifier, LocalFunDef],
     inExported: Boolean, // true when we're inside an exported function
     inGlobalInit: Boolean, // true when converting the initial value of a global declaration
-    inHeaderInit: Boolean, // true when that global declaration is defined in the header file
+    inHeaderInit: Boolean, // true when the value of that global declaration is given in the header file
     localNames: LocalNameAllocator
   )
 
@@ -186,7 +186,7 @@ private class S2IRImpl(override val s: tt.type,
         declResults += ((CIR.Decl(vd, None), flagsToModes(fd.flags)))
       } else {
         val modes = valModes(vd, fd.flags)
-        val initEnv = emptyEnv(fd.isExported, inGlobalInit = true, inHeaderInit = isHeaderConstant(modes))
+        val initEnv = emptyEnv(fd.isExported, inGlobalInit = true, inHeaderInit = isDefinedInHeader(modes))
         declResults += ((CIR.Decl(vd, Some(rec(fd.fullBody)(using initEnv, Map.empty))), modes))
       }
     }
@@ -832,7 +832,7 @@ private class S2IRImpl(override val s: tt.type,
           }
           for ((((field, modes0), paramInit), vd) <- fields.zip(paramInits).zip(tcd.fields)) {
             val modes = withConst(field, modes0)
-            given initEnv: Env = emptyEnv(inGlobalInit = true, inHeaderInit = isHeaderConstant(modes))
+            given initEnv: Env = emptyEnv(inGlobalInit = true, inHeaderInit = isDefinedInHeader(modes))
             val decl = (CIR.Decl(field, Some(rec(paramInit.fullBody))), modes)
             if (declResults.map(_._1.vd).contains(field)) {
               reporter.fatalError(cd.getPos, s"Global variable ${field.id} is defined twice")
@@ -968,8 +968,8 @@ private class S2IRImpl(override val s: tt.type,
     case FunctionInvocation(id, Seq(), Seq()) if syms.getFunction(id).isVal =>
       val fd = syms.getFunction(id)
       val isDefine = fd.flags.exists(_.name == "cCode.define")
-      // A macro is visible from the initial value of a global defined in the C file, and from the
-      // initial value of a global defined in the header file only if it is exported as well.
+      // A macro is visible from the value of a global given in the C file, and from the value of a
+      // global given in the header file (an exported constant or macro) only if it is exported as well.
       val isVisibleMacro = isDefine && (!env.inHeaderInit || fd.isExported)
       if (env.inGlobalInit && !fd.isDropped && !isVisibleMacro) {
         // In C, the initial value of a global must be a constant expression, which a `const`

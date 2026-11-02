@@ -38,4 +38,10 @@ package object genc {
     */
   def isHeaderConstant(modes: Seq[DeclarationMode]): Boolean =
     modes.contains(Export) && modes.contains(Const) && !modes.contains(Define)
+
+  /** Whether the value of a global declaration with the given `modes` is given in the header file, where
+    * it can only refer to exported definitions: exported constants (see `isHeaderConstant`) and macros.
+    */
+  def isDefinedInHeader(modes: Seq[DeclarationMode]): Boolean =
+    isHeaderConstant(modes) || (modes.contains(Export) && modes.contains(Define))
 }
