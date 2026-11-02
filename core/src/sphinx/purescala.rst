@@ -756,101 +756,63 @@ Function
 
 
 
-Bitvectors
-**********
+Unsigned integers
+*****************
 
-Bitvectors are currently only supported in GenC and for verification, but
-`not for compilation <https://github.com/epfl-lara/stainless/issues/982>`_.
+``stainless.math.Unsigned`` provides the unsigned integer types ``UByte``, ``UShort``, ``UInt`` and
+``ULong``, of 8, 16, 32 and 64 bits. They are supported for verification, by GenC (where they become
+``uint8_t``, ..., ``uint64_t``) and on the JVM, with the same semantics.
 
-These examples are taken from `BitVectors3.scala
-<https://github.com/epfl-lara/stainless/blob/master/frontends/benchmarks/verification/valid/MicroTests/BitVectors3.scala>`_.
+These examples are taken from `Unsigned2.scala
+<https://github.com/epfl-lara/stainless/blob/master/frontends/benchmarks/verification/valid/MicroTests/Unsigned2.scala>`_.
 
 .. code-block:: scala
 
-  import stainless.math.BitVectors._
+  import stainless.math.Unsigned._
 
-  val x1: UInt8 = 145
-  val x2: Int8 = x1.toSigned[Int8] // conversion from unsigned to signed ints
+  // Unsigned values are written with conversions from `Int`, `Long` or `BigInt` literals
+  val x1: UByte = 145.toUByte
+  val big: ULong = BigInt("18446744073709551615").toULong
+  assert(big == ULong.MaxValue)
 
-  // Bitvectors can be compared to literal constants, which are encoded as a bitvector of the same
-  // type as the left-hand-side bitvector.
-  // In the line below, `-111` get encoded internally as an `Int8`.
-  assert(x2 == -111)
+  val x2: Byte = x1.toByte // reinterpretation of the bits of an unsigned value as a signed value
+  assert(x2 == (-111: Byte))
 
-  // In Stainless internals, `Int8` and `Byte` are the same type, but not for the surface language,
-  // so `toByte` allows to go from `Int8` to `Byte`.
-  // Similarly, we support `toShort`, `toInt`, `toLong` for conversions
-  // respectively from `Int16` to `Short`, `Int32` to `Int`, `Int64` to `Long`,
-  // and `fromByte`, `fromShort`, `fromInt`, `fromLong` for the other direction
-  val x3: Byte = x2.toByte
-  assert(x3 == -111)
+  // and conversely
+  assert(x2.toUByte == x1)
 
-  // Unsigned ints can be cast to larger unsigned types
-  val x4: UInt12 = x1.widen[UInt12]
-  assert(x4 == 145)
+  // Unsigned values can be converted to larger unsigned types (zero-extension)
+  val x4: UShort = x1.toUShort
+  assert(x4 == 145.toUShort)
 
-  // or truncated to smaller unsigned types.
-  val x5: UInt4 = x1.narrow[UInt4]
-  assert(x5 == 1) // 145 % 2^4 == 1
+  // or to smaller unsigned types (truncation).
+  val x5: UByte = 401.toUShort.toUByte
+  assert(x5 == 145.toUByte) // 401 % 2^8 == 145
 
-  // Signed ints can also be cast to larger signed types (using sign extension)
-  val x6: Int8 = 120
-  val x7: Int12 = x6.widen[Int12]
-  assert(x7 == 120)
+  // Conversions to larger signed types preserve the value
+  assert(x1.toInt == 145)
 
-  // and cast to smaller signed types.
-  // This corresponds to extracting the least significant bits of the representation
-  // (see `extract` here http://smtlib.cs.uiowa.edu/logics-all.shtml).
-  val x8: Int4 = x6.narrow[Int4]
-  assert(x8 == -8)
+  // Signed values are sign-extended before being reinterpreted as unsigned values
+  assert(x2.toUShort == 65425.toUShort) // 2^16 - 111
 
-  // the `toByte`, `toShort`, `toInt`, and `toLong` methods described above
-  // can be used on any bitvector type. For signed integers, this corresponds
-  // to a narrowing or a widening operation depending on the bitvector size.
-  // For unsigned integers, this corresponds to first doing a widening/narrowing
-  // operation, and then applying `toSigned`
-  val x9: UInt2 = 3
-  assert(x9.toInt == x9.widen[UInt32].toSigned[Int32].toInt)
+  // Constants for the minimum and maximum values
+  assert(UByte.MaxValue == 255.toUByte)
+  assert(UByte.MinValue == 0.toUByte)
 
-  // The library also provide constants for maximum and minimum values.
-  assert(max[Int8] == 127)
-  assert(min[Int8] == -128)
+Arithmetic operations (``+``, ``-``, ``*``, unary ``-``) and ``<<`` wrap around, comparisons, ``/``
+and ``%`` are unsigned, and ``>>>`` is a logical shift (there is no ``>>``). The shift amount is read as an
+unsigned value, and shifting by the size of the type or more yields ``0``. ``toBigInt`` returns the
+represented (non-negative) integer, which is convenient in specifications. Arrays are indexed with
+``Int``\ s: use ``a(i.toInt)`` for an unsigned index ``i``.
 
+On the JVM, the unsigned types are opaque type aliases of the signed types of the same size, which
+hold the same bits. The Scala compiler therefore rejects comparing an unsigned value with ``==`` to a
+number of another type: write ``x == 200.toUByte`` rather than ``x == 200``. For the same reason,
+``toString`` (and string interpolation) shows the signed value: use ``toStringUnsigned`` instead.
+Stainless treats ``toStringUnsigned`` as an uninterpreted function (it is ``@extern``): it can be used in
+verified code, but nothing is known about its result, except that it only depends on its argument.
 
-Arrays, which are usually indexed using ``Int``, may also be indexed using the bitvector types.
-This is similar to first converting the bitvector index using ``toInt``.
-
-Bitvector types can be understood as finite intervals of integers
-(two's complement representation). For ``X`` an integer larger than ``1``
-(and at most ``256`` in Stainless):
-
-* ``UIntX`` is the interval :math:`[0, 2^X - 1]`,
-* ``IntX`` is the interval :math:`[-2^{X-1}, 2^{X-1} - 1]`.
-
-Conversions between these types can be interpreted as operations on the
-arrays of bits of the bitvectors, or as operations on the integers they
-represent.
-
-* ``widen`` from ``UIntX`` to ``UIntY`` with :math:`Y > X` adds :math:`Y-X` (most significant) 0-bits, and corresponds to the identity transformation on integers.
-
-* ``widen`` from ``IntX`` to ``IntY`` with :math:`Y > X` copies :math:`Y-X` times the sign bit (sign-extension), and corresponds to the identity transformation on integers.
-
-* ``narrow`` from ``UIntX`` to ``UIntY`` with :math:`Y < X` removes the :math:`X-Y` most significant bits,
-  and corresponds to taking the number modulo :math:`2^Y`.
-  When the ``strict-arithmetic`` option is enabled, narrowing a number ``n`` to ``UIntY`` generates
-  a check ``n < 2^Y``.
-
-* ``narrow`` from ``IntX`` to ``IntY`` with :math:`Y < X` removes the :math:`X-Y` most significant bits (including the sign bit),
-  and corresponds to the identity for integers in the interval :math:`[-2^{Y-1}, 2^{Y-1} - 1]`. Outside this range,
-  the narrowing operation on a number ``n`` can be described as: 1) (unsigning) adding ``2^X`` if ``n`` is negative,
-  2) (unsigned narrowing) taking the result modulo ``2^Y``, 3) (signing) removing ``2^Y`` if the result of (2) is
-  greater or equal than ``2^{Y-1}``.
-  In ``strict-arithmetic`` mode, narrowing a number ``n`` to ``IntY`` generates two checks: ``-2^{Y-1} <= n`` and ``n <= 2^{Y-1} - 1``.
-
-* ``toSigned`` from ``UIntX`` to ``IntX`` does not change the bitvector, and behaves as the identity for integers not larger than :math:`2^{X-1}-1`,
-  and subtracts :math:`2^{X}` for integers in the interval :math:`[2^{X-1}, 2^{X} - 1]`.
-  In ``strict-arithmetic`` mode, making a number ``n`` signed generates a check ``n <= 2^{X-1}-1``.
-
-* ``toUnsigned`` from ``IntX`` to ``UIntX`` does not change the bitvector, and behaves as the identity
-  for non-negative integers, and adds :math:`2^{X}` for negative integers (in the interval :math:`[-2^{X-1}, 0[`).
-  In ``strict-arithmetic`` mode, making a number ``n`` unsigned generates a check ``n >= 0``.
+There are no implicit conversions to the unsigned types: literals are written with the conversions
+from the signed types and from ``BigInt`` (``200.toUByte``, ``4000000000L.toUInt``,
+``BigInt("18446744073709551615").toULong``), which Stainless extracts as literals when they are in the
+range of the type. Out of range, these conversions truncate their argument (``300.toUByte`` is ``44``).

@@ -302,11 +302,27 @@ private class IR2CImpl()(using ctx: inox.Context) {
           C.Cast(expr, C.Primitive(tpe))
 
         case PrimitiveType(tpe: IntegralPrimitiveType) if tpe.isUnsigned =>
-          C.BinOp(op, rec(lhs0), rec(rhs0))
+          val expr = C.BinOp(op, rec(lhs0), rec(rhs0))
+          if (op == BLeftShift && isPromotedToInt(lhs0.getType)) C.Cast(expr, C.Primitive(tpe)) else expr
 
         case _ =>
           ctx.reporter.fatalError(s"Shifting on type $tpe is not supported")
       }
+
+    /* NOTE In C, the operands of arithmetic operations on types smaller than `int` (`uint8_t` and
+     *      `uint16_t`) are promoted to `int`. The result of the operations that can exceed the range of
+     *      the type is therefore cast back to the type, so that it wraps around as in Stainless (signed
+     *      types smaller than `int` never appear here, as Stainless promotes them to `Int` like Scala).
+     *      Multiplications are performed on `uint32_t`: in `int`, multiplying two `uint16_t` can overflow.
+     */
+    case BinOp(op @ (Plus | Minus | Times), lhs0, rhs0) if isPromotedToInt(lhs0.getType) =>
+      val PrimitiveType(tpe) = lhs0.getType: @unchecked
+      val lhs = if (op == Times) C.Cast(rec(lhs0), C.Primitive(UInt32Type)) else rec(lhs0)
+      C.Cast(C.BinOp(op, lhs, rec(rhs0)), C.Primitive(tpe))
+
+    case UnOp(op @ (UMinus | BNot), expr0) if isPromotedToInt(expr0.getType) =>
+      val PrimitiveType(tpe) = expr0.getType: @unchecked
+      C.Cast(C.UnOp(op, rec(expr0)), C.Primitive(tpe))
 
     /* NOTE For == and != on objects, we create a dedicated equal function.
      *      See comment in CmpFactory.
@@ -413,6 +429,12 @@ private class IR2CImpl()(using ctx: inox.Context) {
   //
   // NOTE Leon guarantees us that every abstract class has at least one (indirect) case class child.
   //
+  /** Whether C promotes the operands of arithmetic operations on this (unsigned) type to `int` */
+  private def isPromotedToInt(typ: Type): Boolean = typ match {
+    case PrimitiveType(UInt8Type | UInt16Type) => true
+    case _ => false
+  }
+
   private def constructObject(cd: ClassDef, args: Seq[Expr]): C.Expr = {
     require(!cd.isAbstract)
 

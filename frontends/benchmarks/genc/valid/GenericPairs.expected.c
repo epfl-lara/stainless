@@ -187,7 +187,7 @@ void main(void) {
     println(boolToInt(first_bool_int32(q)));
     println(boolToInt(equals_Pair_int32_bool(swap_bool_int32(q), p)));
     println(boolToInt(equals_Pair_bool_int32(q, (Pair_bool_int32) { .first = false, .second = 7 })));
-    Pair_Pair_int32_int64_char nested = (Pair_Pair_int32_int64_char) { .first = (Pair_int32_int64) { .first = 3, .second = 4 }, .second = 'x' };
+    Pair_Pair_int32_int64_char nested = (Pair_Pair_int32_int64_char) { .first = (Pair_int32_int64) { .first = 3, .second = 4LL }, .second = 'x' };
     println(nested.first.first + ((int32_t)nested.first.second));
     println_2(nested.second);
     Tuple_int32_int32 tmp = divMod(17, 5);

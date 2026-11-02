@@ -32,11 +32,13 @@ private[genc] object Literals {
       case Int8Lit(v) => s"$v"
       case Int16Lit(v) => s"$v"
       case Int32Lit(v) => s"$v"
-      case Int64Lit(v) => s"$v"
+      // 64-bit literals need a suffix: without it, C gives them the type `int` (or `long`), so that
+      // e.g. `1 << 63` overflows. The minimal value is not a valid literal and is written as an expression.
+      case Int64Lit(v) => if (v == BigInt(Long.MinValue)) "(-9223372036854775807LL - 1)" else s"${v}LL"
       case UInt8Lit(v) => s"$v"
       case UInt16Lit(v) => s"$v"
       case UInt32Lit(v) => s"$v"
-      case UInt64Lit(v) => s"$v"
+      case UInt64Lit(v) => s"${v}ULL"
       case BoolLit(v) => s"$v"
       case UnitLit => s"()"
       case StringLit(v) => "\"" + escape(v) + "\""

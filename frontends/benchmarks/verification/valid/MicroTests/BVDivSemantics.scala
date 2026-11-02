@@ -2,7 +2,6 @@
 
 import stainless.lang._
 import stainless.collection._
-import stainless.math.BitVectors._
 import stainless._
 
 object BVDivSemantics {
