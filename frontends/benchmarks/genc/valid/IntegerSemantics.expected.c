@@ -176,14 +176,14 @@ void main(void) {
     println(boolToInt(mixedCmp(127, 127)));
     println(negate(-5));
     printlnU8(addU8(250, 10));
-    printlnU32(subU32(0, 1));
+    printlnU32(subU32(0U, 1U));
     printlnU16(mulU16(300, 300));
     printlnU8(shrU8(200, 3));
-    printlnU32(shlU32(1, 31));
+    printlnU32(shlU32(1U, 31U));
     printlnU32(toUnsigned(-1));
-    println(toSigned(subU32(0, 1)));
+    println(toSigned(subU32(0U, 1U)));
     println(toSigned(toUnsigned(-2147483648)));
-    println(u8ToInt(narrowU32(subU32(0, 1))));
+    println(u8ToInt(narrowU32(subU32(0U, 1U))));
     printlnU32(widenU8(200));
 }
 

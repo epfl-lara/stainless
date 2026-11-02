@@ -48,7 +48,7 @@ static void printlnU8(uint8_t x);
 void main(void) {
     uint8_t a = 200;
     uint16_t b = 60000;
-    uint32_t c = 4000000000;
+    uint32_t c = 4000000000U;
     uint64_t d = 5000000000ULL;
     uint64_t e = 18446744073709551615ULL;
     printlnU8(a);

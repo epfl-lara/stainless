@@ -6,7 +6,7 @@ import stainless.io._
  * End-to-end test of classic in-place array algorithms in GenC:
  *  - arrays passed to functions and mutated in place (insertion sort, reverse);
  *  - nested while loops with short-circuit conditions guarding array accesses;
- *  - a read-only binary search and a reduction (sum);
+ *  - a read-only binary search and a (saturating) reduction (sum);
  *  - printing an array element by element.
  */
 object ArrayAlgorithms {
@@ -39,7 +39,7 @@ object ArrayAlgorithms {
       a(j) = tmp
       i += 1
       j -= 1
-    }).invariant(0 <= i && j < a.length && i + j == a.length - 1)
+    }).invariant(0 <= i && i <= a.length && j < a.length && j == a.length - 1 - i)
   }
 
   // Lower-bound binary search: index of `key` in the sorted array `a`, or -1.
@@ -55,12 +55,16 @@ object ArrayAlgorithms {
     if (lo < a.length && a(lo) == key) lo else -1
   }
 
+  // The sum saturates instead of overflowing (signed overflow is undefined in C)
   def sum(a: Array[Int]): Int = {
     var s = 0
     var i = 0
     (while (i < a.length) {
       decreases(a.length - i)
-      s += a(i)
+      val x = a(i)
+      if (x > 0 && s > Int.MaxValue - x) s = Int.MaxValue
+      else if (x < 0 && s < Int.MinValue - x) s = Int.MinValue
+      else s += x
       i += 1
     }).invariant(0 <= i && i <= a.length)
     s

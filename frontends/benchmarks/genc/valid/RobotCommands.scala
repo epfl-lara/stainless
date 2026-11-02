@@ -29,6 +29,17 @@ object RobotCommands {
 
   case class Robot(var x: Int, var y: Int, var dir: Direction, var moves: Int)
 
+  // The coordinates and the number of moves saturate instead of overflowing (signed overflow is
+  // undefined in C)
+  def add(a: Int, b: Int): Int =
+    if (b > 0 && a > Int.MaxValue - b) Int.MaxValue
+    else if (b < 0 && a < Int.MinValue - b) Int.MinValue
+    else a + b
+  def sub(a: Int, b: Int): Int =
+    if (b < 0 && a > Int.MaxValue + b) Int.MaxValue
+    else if (b > 0 && a < Int.MinValue + b) Int.MinValue
+    else a - b
+
   def turnLeft(d: Direction): Direction = d match {
     case North() => West()
     case West()  => South()
@@ -56,12 +67,12 @@ object RobotCommands {
       // scrutinee, so it is bound to a local first.
       val d = r.dir
       d match {
-        case North() => r.y += n
-        case South() => r.y -= n
-        case East()  => r.x += n
-        case West()  => r.x -= n
+        case North() => r.y = add(r.y, n)
+        case South() => r.y = sub(r.y, n)
+        case East()  => r.x = add(r.x, n)
+        case West()  => r.x = sub(r.x, n)
       }
-      r.moves += 1
+      r.moves = add(r.moves, 1)
     case TurnLeft()  => r.dir = turnLeft(r.dir)
     case TurnRight() => r.dir = turnRight(r.dir)
     case Teleport(x, y) =>
