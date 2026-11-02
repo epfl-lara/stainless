@@ -297,7 +297,11 @@ class CPrinter(
 
     case BinOp(op, lhs, rhs) => optP { c"$lhs $op $rhs" }
 
-    case UnOp(op, expr) => optP { c"$op$expr" }
+    case UnOp(op, expr) => expr match {
+      // A negative literal operand must be parenthesized: `--128` would be parsed as a decrement.
+      case Lit(lit) if lit.toString.startsWith("-") => optP { c"$op($expr)" }
+      case _ => optP { c"$op$expr" }
+    }
 
     case If(cond, thenn) =>
       c"""|if ($cond) {

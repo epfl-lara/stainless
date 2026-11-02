@@ -1,0 +1,3 @@
+[ Error  ] Unsigned3.scala:7:5: Values of types stainless.math.Unsigned.UByte and BigInt cannot be compared with == or !=
+               v == BigInt(200)
+               ^

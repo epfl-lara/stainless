@@ -1,8 +1,8 @@
-import stainless.math.BitVectors._
+import stainless.math.Unsigned._
 
 object NarrowUnsigned {
   def test = {
-    val a: UInt3 = 5
-    a.narrow[UInt2]
+    val a: UShort = 300.toUShort
+    a.toUByte
   }
 }

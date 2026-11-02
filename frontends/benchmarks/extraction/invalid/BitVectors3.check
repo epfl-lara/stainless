@@ -1,3 +1,0 @@
-[ Error  ] BitVectors3.scala:6:5: Method `widen` must be used with a bitvector type of a larger size
-               v.widen[UInt4]
-               ^^^^^^^^^^^^^^
