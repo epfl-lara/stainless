@@ -339,7 +339,8 @@ class AssertionInjector(override val s: ast.Trees, override val t: ast.Trees, va
 
     case BVTyped(signed, size, BVShift(rhs, recons)) if strictArithmetic =>
       bindIfCannotDuplicate(rhs, "rhs") { rhsx =>
-        val leq = t.LessEquals(rhsx, t.BVLiteral(signed, size, size).copiedFrom(rhs)).copiedFrom(rhs)
+        // the amount must be less than the width: on the JVM, `1 << 32 == 1`, but SMT-LIB `bvshl` gives 0
+        val leq = t.LessEquals(rhsx, t.BVLiteral(signed, size - 1, size).copiedFrom(rhs)).copiedFrom(rhs)
         // positivity check is only relevant for signed bitvectors
         val pos = t.GreaterEquals(rhsx, zero(true, size, rhs.getPos)).copiedFrom(rhs)
         // TODO: explain why `checkOverflow` here and `strictArithmetic` in the guard?
