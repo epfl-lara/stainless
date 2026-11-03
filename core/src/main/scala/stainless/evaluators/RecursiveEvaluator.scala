@@ -73,6 +73,10 @@ abstract class RecursiveEvaluator(override val program: Program,
     case m: Max =>
       e(maxToIfThenElse(m))
 
+    case BVShiftLeft(lhs, rhs) => super.e(jvmShift(lhs, rhs)(BVShiftLeft.apply))
+    case BVAShiftRight(lhs, rhs) => super.e(jvmShift(lhs, rhs)(BVAShiftRight.apply))
+    case BVLShiftRight(lhs, rhs) => super.e(jvmShift(lhs, rhs)(BVLShiftRight.apply))
+
     case Error(tpe, msg) =>
       throw RuntimeError("Error reached in evaluation: " + msg)
 
@@ -87,6 +91,22 @@ abstract class RecursiveEvaluator(override val program: Program,
       e(body)(using nrctx)
 
     case _ => super.e(expr)
+  }
+
+  /** The shift `recons(lhs, rhs)` with its operands evaluated and, when they are `Int`s or `Long`s, its amount
+    * taken modulo the width as on the JVM (`1 << 33 == 2`).
+    *
+    * The inox evaluator follows SMT-LIB, where shifting by the width or more gives 0 (or -1), which is what the
+    * `stainless.math.Unsigned` shifts do, so the amount of unsigned shifts is left as is. This mirrors
+    * `jvmShiftAmount` in [[stainless.verification.AssertionInjector]].
+    */
+  private def jvmShift(lhs: Expr, rhs: Expr)(recons: (Expr, Expr) => Expr)(using rctx: RC, gctx: GC): Expr = {
+    (e(lhs), e(rhs)) match {
+      case (l @ BVLiteral(true, _, size), amount @ BVLiteral(true, _, amountSize))
+          if size == amountSize && (size == 32 || size == 64) =>
+        recons(l, BVLiteral(true, amount.toBigInt & (size - 1), size))
+      case (l, r) => recons(l, r)
+    }
   }
 
   override def ignoreContractsOn(expr: Expr)(using rctx: RC, gctx: GC): Boolean = {

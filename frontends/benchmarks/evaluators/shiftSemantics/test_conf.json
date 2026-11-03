@@ -1,0 +1,98 @@
+{
+  "recursive": true,
+  "codegen": true,
+  "successful": [
+    {
+      "function": "shl31",
+      "expected": "expectedShl31"
+    },
+    {
+      "function": "shl33",
+      "expected": "expectedShl33"
+    },
+    {
+      "function": "shlNegative",
+      "expected": "expectedShlNegative"
+    },
+    {
+      "function": "shlMinValueNegative",
+      "expected": "expectedShlMinValueNegative"
+    },
+    {
+      "function": "ashr32",
+      "expected": "expectedAshr32"
+    },
+    {
+      "function": "ashr33",
+      "expected": "expectedAshr33"
+    },
+    {
+      "function": "ashrNegative",
+      "expected": "expectedAshrNegative"
+    },
+    {
+      "function": "lshr33",
+      "expected": "expectedLshr33"
+    },
+    {
+      "function": "lshrNegative",
+      "expected": "expectedLshrNegative"
+    },
+    {
+      "function": "longShl65",
+      "expected": "expectedLongShl65"
+    },
+    {
+      "function": "longShlNegative",
+      "expected": "expectedLongShlNegative"
+    },
+    {
+      "function": "longAshr64",
+      "expected": "expectedLongAshr64"
+    },
+    {
+      "function": "longAshr65",
+      "expected": "expectedLongAshr65"
+    },
+    {
+      "function": "longLshr65",
+      "expected": "expectedLongLshr65"
+    },
+    {
+      "function": "longShlLongAmount",
+      "expected": "expectedLongShlLongAmount"
+    },
+    {
+      "function": "ubyteShl8",
+      "expected": "expectedTrue"
+    },
+    {
+      "function": "ushortLshr16",
+      "expected": "expectedTrue"
+    },
+    {
+      "function": "uintShl31",
+      "expected": "expectedTrue"
+    },
+    {
+      "function": "uintShl32",
+      "expected": "expectedTrue"
+    },
+    {
+      "function": "uintShl33",
+      "expected": "expectedTrue"
+    },
+    {
+      "function": "uintLshrMax",
+      "expected": "expectedTrue"
+    },
+    {
+      "function": "ulongShl65",
+      "expected": "expectedTrue"
+    },
+    {
+      "function": "ulongLshrMax",
+      "expected": "expectedTrue"
+    }
+  ]
+}
