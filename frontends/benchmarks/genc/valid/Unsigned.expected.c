@@ -67,7 +67,7 @@ static STAINLESS_FUNC_PURE uint8_t fd(uint8_t x, uint8_t y) {
 
 void main(void) {
     uint64_t a = fa(16ULL, 84ULL);
-    uint32_t b = fb(84, 14);
+    uint32_t b = fb(84U, 14U);
     uint16_t c = fc(5, 7);
     uint8_t d = fd(126, 3);
     printlnU64(a);

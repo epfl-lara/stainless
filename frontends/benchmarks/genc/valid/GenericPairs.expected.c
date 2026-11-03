@@ -133,7 +133,13 @@ static STAINLESS_FUNC_PURE Tuple_int32_int32 divMod(int32_t a, int32_t b) {
 }
 
 static STAINLESS_FUNC_PURE int32_t double_1(int32_t x) {
-    return x * 2;
+    if (x > 2147483647 / 2) {
+        return 2147483647;
+    } else if (x < -2147483648 / 2) {
+        return -2147483648;
+    } else {
+        return x * 2;
+    }
 }
 
 static STAINLESS_FUNC_PURE bool equals_Pair_bool_int32(Pair_bool_int32 lhs, Pair_bool_int32 rhs) {
@@ -161,7 +167,11 @@ static STAINLESS_FUNC_PURE bool first_bool_int32(Pair_bool_int32 p) {
 }
 
 static STAINLESS_FUNC_PURE int32_t inc(int32_t x) {
-    return x + 1;
+    if (x == 2147483647) {
+        return x;
+    } else {
+        return x + 1;
+    }
 }
 
 static STAINLESS_FUNC_PURE bool isEmpty_int32(Option_int32 thiss) {

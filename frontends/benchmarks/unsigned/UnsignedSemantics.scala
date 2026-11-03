@@ -3,6 +3,7 @@
 import stainless.annotation._
 import stainless.io._
 import stainless.math.Unsigned._
+import stainless.math.wrapping
 
 /** Semantics of the operations of `stainless.math.Unsigned`.
   *
@@ -15,103 +16,107 @@ import stainless.math.Unsigned._
   *
   * Shifts by the size of the type or more, and divisions by zero, are only covered by `UnsignedJVMSuite`
   * and by the verification benchmarks, as they are undefined in C.
+  *
+  * The program verifies with `--strict-arithmetic`, as GenC requires: the wrap-arounds tested here are
+  * intended, so every `testN` is in `wrapping` (they are defined in C for unsigned types, and GenC requires
+  * the conversions to signed types to wrap around).
   */
 object UnsignedSemantics {
 
   // Wrap-around
-  def test1: UByte = UByte.MaxValue + 1.toUByte
-  def test2: UByte = 0.toUByte - 1.toUByte
-  def test3: UByte = 200.toUByte * 3.toUByte
-  def test4: UShort = 60000.toUShort + 10000.toUShort
-  def test5: UInt = UInt.MaxValue + 1.toUInt
-  def test6: UInt = 0.toUInt - 1.toUInt
-  def test7: UInt = 4000000000L.toUInt * 2.toUInt
-  def test8: ULong = ULong.MaxValue + 1.toULong
-  def test9: ULong = 0.toULong - 1.toULong
+  def test1: UByte = wrapping(UByte.MaxValue + 1.toUByte)
+  def test2: UByte = wrapping(0.toUByte - 1.toUByte)
+  def test3: UByte = wrapping(200.toUByte * 3.toUByte)
+  def test4: UShort = wrapping(60000.toUShort + 10000.toUShort)
+  def test5: UInt = wrapping(UInt.MaxValue + 1.toUInt)
+  def test6: UInt = wrapping(0.toUInt - 1.toUInt)
+  def test7: UInt = wrapping(4000000000L.toUInt * 2.toUInt)
+  def test8: ULong = wrapping(ULong.MaxValue + 1.toULong)
+  def test9: ULong = wrapping(0.toULong - 1.toULong)
 
   // Division and remainder are unsigned
-  def test10: UByte = 200.toUByte / 3.toUByte
-  def test11: UByte = 200.toUByte % 3.toUByte
-  def test12: UShort = 65535.toUShort / 2.toUShort
-  def test13: UInt = UInt.MaxValue / 2.toUInt
-  def test14: UInt = 4000000000L.toUInt % 7.toUInt
-  def test15: ULong = ULong.MaxValue / 3.toULong
-  def test16: ULong = ULong.MaxValue % 10.toULong
+  def test10: UByte = wrapping(200.toUByte / 3.toUByte)
+  def test11: UByte = wrapping(200.toUByte % 3.toUByte)
+  def test12: UShort = wrapping(65535.toUShort / 2.toUShort)
+  def test13: UInt = wrapping(UInt.MaxValue / 2.toUInt)
+  def test14: UInt = wrapping(4000000000L.toUInt % 7.toUInt)
+  def test15: ULong = wrapping(ULong.MaxValue / 3.toULong)
+  def test16: ULong = wrapping(ULong.MaxValue % 10.toULong)
 
   // Unary operators
-  def test17: UByte = ~0.toUByte
-  def test18: UByte = -(1.toUByte)
-  def test19: UShort = ~0x00FF.toUShort
-  def test20: UInt = -(1.toUInt)
-  def test21: ULong = ~0.toULong
+  def test17: UByte = wrapping(~0.toUByte)
+  def test18: UByte = wrapping(-(1.toUByte))
+  def test19: UShort = wrapping(~0x00FF.toUShort)
+  def test20: UInt = wrapping(-(1.toUInt))
+  def test21: ULong = wrapping(~0.toULong)
 
   // Comparisons are unsigned
-  def test22: Boolean = 200.toUByte > 100.toUByte
-  def test23: Boolean = 40000.toUShort > 30000.toUShort
-  def test24: Boolean = UInt.MaxValue > 1.toUInt
-  def test25: Boolean = ULong.MaxValue > 1.toULong
-  def test26: Boolean = 255.toUByte >= 255.toUByte && 255.toUByte <= 255.toUByte
-  def test27: Boolean = 2147483648L.toUInt < 2147483647.toUInt
+  def test22: Boolean = wrapping(200.toUByte > 100.toUByte)
+  def test23: Boolean = wrapping(40000.toUShort > 30000.toUShort)
+  def test24: Boolean = wrapping(UInt.MaxValue > 1.toUInt)
+  def test25: Boolean = wrapping(ULong.MaxValue > 1.toULong)
+  def test26: Boolean = wrapping(255.toUByte >= 255.toUByte && 255.toUByte <= 255.toUByte)
+  def test27: Boolean = wrapping(2147483648L.toUInt < 2147483647.toUInt)
 
   // Bitwise operators
-  def test28: UByte = 0xF0.toUByte & 0x3C.toUByte
-  def test29: UByte = 0xF0.toUByte | 0x0F.toUByte
-  def test30: UByte = 0xAA.toUByte ^ 0xFF.toUByte
-  def test31: UInt = 0x0F0F0F0F.toUInt & 0x00FF00FF.toUInt
-  def test32: ULong = ULong.MaxValue ^ 1.toULong
+  def test28: UByte = wrapping(0xF0.toUByte & 0x3C.toUByte)
+  def test29: UByte = wrapping(0xF0.toUByte | 0x0F.toUByte)
+  def test30: UByte = wrapping(0xAA.toUByte ^ 0xFF.toUByte)
+  def test31: UInt = wrapping(0x0F0F0F0F.toUInt & 0x00FF00FF.toUInt)
+  def test32: ULong = wrapping(ULong.MaxValue ^ 1.toULong)
 
   // Shifts by amounts smaller than the size (the only ones defined in C); `>>>` is a logical shift
-  def test33: UByte = 0x0F.toUByte << 4.toUByte
-  def test34: UByte = 0xF0.toUByte >>> 4.toUByte
-  def test35: UByte = 0x81.toUByte << 1.toUByte
-  def test36: UShort = 0x8000.toUShort >>> 15.toUShort
-  def test37: UInt = 1.toUInt << 31.toUInt
-  def test38: UInt = 2147483648L.toUInt >>> 31.toUInt
-  def test39: ULong = 1.toULong << 63.toULong
-  def test40: ULong = ULong.MaxValue >>> 63.toULong
-  def test41: ULong = ULong.MaxValue >>> 60.toULong
+  def test33: UByte = wrapping(0x0F.toUByte << 4.toUByte)
+  def test34: UByte = wrapping(0xF0.toUByte >>> 4.toUByte)
+  def test35: UByte = wrapping(0x81.toUByte << 1.toUByte)
+  def test36: UShort = wrapping(0x8000.toUShort >>> 15.toUShort)
+  def test37: UInt = wrapping(1.toUInt << 31.toUInt)
+  def test38: UInt = wrapping(2147483648L.toUInt >>> 31.toUInt)
+  def test39: ULong = wrapping(1.toULong << 63.toULong)
+  def test40: ULong = wrapping(ULong.MaxValue >>> 63.toULong)
+  def test41: ULong = wrapping(ULong.MaxValue >>> 60.toULong)
 
   // Conversions between unsigned types: zero-extension and truncation
-  def test42: UShort = 200.toUByte.toUShort
-  def test43: ULong = UInt.MaxValue.toULong
-  def test44: UInt = 0xFFFF.toUShort.toUInt
-  def test45: UByte = 0x1234.toUShort.toUByte
-  def test46: UShort = 0x12345678.toUInt.toUShort
-  def test47: UInt = 0x1FFFFFFFFL.toULong.toUInt
+  def test42: UShort = wrapping(200.toUByte.toUShort)
+  def test43: ULong = wrapping(UInt.MaxValue.toULong)
+  def test44: UInt = wrapping(0xFFFF.toUShort.toUInt)
+  def test45: UByte = wrapping(0x1234.toUShort.toUByte)
+  def test46: UShort = wrapping(0x12345678.toUInt.toUShort)
+  def test47: UInt = wrapping(0x1FFFFFFFFL.toULong.toUInt)
 
   // Conversions to the signed types: zero-extension or truncation, then reinterpretation of the bits
-  def test48: Byte = 200.toUByte.toByte
-  def test49: Int = 200.toUByte.toInt
-  def test50: Short = 0x8000.toUShort.toShort
-  def test51: Int = 0x8000.toUShort.toInt
-  def test52: Int = UInt.MaxValue.toInt
-  def test53: Long = UInt.MaxValue.toLong
-  def test54: Long = ULong.MaxValue.toLong
-  def test55: Byte = 0x1FF.toUShort.toByte
+  def test48: Byte = wrapping(200.toUByte.toByte)
+  def test49: Int = wrapping(200.toUByte.toInt)
+  def test50: Short = wrapping(0x8000.toUShort.toShort)
+  def test51: Int = wrapping(0x8000.toUShort.toInt)
+  def test52: Int = wrapping(UInt.MaxValue.toInt)
+  def test53: Long = wrapping(UInt.MaxValue.toLong)
+  def test54: Long = wrapping(ULong.MaxValue.toLong)
+  def test55: Byte = wrapping(0x1FF.toUShort.toByte)
 
   // Conversions from the signed types: sign-extension or truncation, then reinterpretation of the bits
-  def test56: UByte = (-56: Byte).toUByte
-  def test57: UInt = (-1).toUInt
-  def test58: UShort = (-2: Short).toUShort
-  def test59: ULong = Long.MinValue.toULong
-  def test60: UShort = (-1: Byte).toUShort
-  def test61: UByte = 300.toUByte
-  def test62: ULong = (-1).toULong
+  def test56: UByte = wrapping((-56: Byte).toUByte)
+  def test57: UInt = wrapping((-1).toUInt)
+  def test58: UShort = wrapping((-2: Short).toUShort)
+  def test59: ULong = wrapping(Long.MinValue.toULong)
+  def test60: UShort = wrapping((-1: Byte).toUShort)
+  def test61: UByte = wrapping(300.toUByte)
+  def test62: ULong = wrapping((-1).toULong)
 
   // Nested operations wrap around at each step (in C, the operands of 8 and 16-bit operations are promoted to `int`)
-  def test63: UByte = (200.toUByte + 100.toUByte) / 2.toUByte
-  def test64: Boolean = 200.toUByte + 100.toUByte < 200.toUByte
-  def test65: UShort = (60000.toUShort * 2.toUShort) >>> 8.toUShort
-  def test66: UShort = 60000.toUShort * 60000.toUShort
-  def test67: UByte = (0x81.toUByte << 1.toUByte) >>> 1.toUByte
-  def test68: UByte = (~0.toUByte) >>> 4.toUByte
-  def test69: UByte = (-1.toUByte) >>> 4.toUByte
-  def test70: UShort = (0.toUShort - 1.toUShort) / 2.toUShort
-  def test71: UInt = (200.toUByte + 100.toUByte).toUInt
+  def test63: UByte = wrapping((200.toUByte + 100.toUByte) / 2.toUByte)
+  def test64: Boolean = wrapping(200.toUByte + 100.toUByte < 200.toUByte)
+  def test65: UShort = wrapping((60000.toUShort * 2.toUShort) >>> 8.toUShort)
+  def test66: UShort = wrapping(60000.toUShort * 60000.toUShort)
+  def test67: UByte = wrapping((0x81.toUByte << 1.toUByte) >>> 1.toUByte)
+  def test68: UByte = wrapping((~0.toUByte) >>> 4.toUByte)
+  def test69: UByte = wrapping((-1.toUByte) >>> 4.toUByte)
+  def test70: UShort = wrapping((0.toUShort - 1.toUShort) / 2.toUShort)
+  def test71: UInt = wrapping((200.toUByte + 100.toUByte).toUInt)
 
   // Arrays indexed by unsigned values
-  def test72: Int = Array(10, 20, 30, 40)(3.toUByte.toInt)
-  def test73: Int = Array(10, 20, 30, 40)(1.toULong.toInt)
+  def test72: Int = wrapping(Array(10, 20, 30, 40)(3.toUByte.toInt))
+  def test73: Int = wrapping(Array(10, 20, 30, 40)(1.toULong.toInt))
 
   // The expected results, checked by the verifier.
   def checks1(): Unit = {
