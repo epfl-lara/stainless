@@ -485,7 +485,7 @@ static STAINLESS_FUNC_PURE int32_t at(Kernel* thiss, array_int8 channel, int32_t
     int32_t r = fix(thiss, channel, width, height, index, row, *height);
     int8_t component = channel.data[r * (*width) + c];
     if (((int32_t)component) < 0) {
-        return ((int32_t)component) + 255;
+        return ((int32_t)component) + 256;
     } else {
         return (int32_t)component;
     }

@@ -684,7 +684,7 @@ object ImageProcessing {
         val r = fix(row, height)
 
         val component = channel(r * width + c) // unsigned
-        if (component < 0) component + 255 else component.toInt
+        if (component < 0) component + 256 else component.toInt
      }.ensuring { inRange(_, 0, 255) }
 
       val mid = size / 2
