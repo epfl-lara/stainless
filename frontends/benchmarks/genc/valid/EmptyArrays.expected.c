@@ -59,6 +59,7 @@ typedef struct {
 /* ---------------------- function declarations ----- */
 
 static STAINLESS_FUNC_PURE int32_t count(array_int32 a, int32_t x);
+static STAINLESS_FUNC_PURE int32_t countOfFill(int32_t n);
 static STAINLESS_FUNC_PURE int32_t len(array_int32 a);
 static 
 void print(int32_t x);
@@ -82,27 +83,41 @@ static STAINLESS_FUNC_PURE int32_t count(array_int32 a, int32_t x) {
     return c;
 }
 
+static STAINLESS_FUNC_PURE int32_t countOfFill(int32_t n) {
+    int32_t stainless_length_0 = n;
+    int32_t stainless_buffer_0[stainless_length_0 > 0 ? stainless_length_0 : 1];
+    int32_t stainless_i_0;
+    for (stainless_i_0 = 0; stainless_i_0 < stainless_length_0; ++stainless_i_0) {
+        stainless_buffer_0[stainless_i_0] = 7;
+    };
+    array_int32 norm_0 = (array_int32) { .data = stainless_buffer_0, .length = stainless_length_0 };
+    array_int32 norm_1 = norm_0;
+    return count(norm_1, 7);
+}
+
 static STAINLESS_FUNC_PURE int32_t len(array_int32 a) {
     return a.length;
 }
 
 void main(void) {
-    array_int32 norm_0 = (array_int32) { .data = NULL, .length = 0 };
-    array_int32 norm_1 = norm_0;
-    int32_t norm_2 = len(norm_1);
-    println(norm_2);
+    array_int32 norm_2 = (array_int32) { .data = NULL, .length = 0 };
+    array_int32 norm_3 = norm_2;
+    int32_t norm_4 = len(norm_3);
+    println(norm_4);
     array_int32 filled = (array_int32) { .data = NULL, .length = 0 };
     println(count(filled, 42));
     array_int8 bytes = (array_int8) { .data = NULL, .length = 0 };
     println(bytes.length);
     array_P ps = (array_P) { .data = NULL, .length = 0 };
     println(ps.length);
-    array_int32 norm_3 = (array_int32) { .data = NULL, .length = 0 };
-    array_int32 norm_4 = norm_3;
-    Buffer b = (Buffer) { .data = norm_4, .size = 0 };
+    array_int32 norm_5 = (array_int32) { .data = NULL, .length = 0 };
+    array_int32 norm_6 = norm_5;
+    Buffer b = (Buffer) { .data = norm_6, .size = 0 };
     println(b.data.length + b.size);
     array_array_int32 nested = (array_array_int32) { .data = NULL, .length = 0 };
     println(nested.length);
+    println(countOfFill(0));
+    println(countOfFill(3));
 }
 
 
