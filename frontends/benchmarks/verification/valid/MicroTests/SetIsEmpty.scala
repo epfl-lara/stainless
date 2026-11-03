@@ -5,7 +5,7 @@ import scala.language.postfixOps
 object SetIsEmpty {
 
   def emptySetIsEmpty: Boolean = {
-    Set().isEmpty
+    Set[BigInt]().isEmpty
   }.holds
 
    def emptyContainsNothing[A](set: Set[A]): Boolean = {

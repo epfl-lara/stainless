@@ -1,0 +1,9 @@
+[ Error  ] AnyEquality4.scala:4:11: Cannot use a `Set` with elements of type `Any`: elements are compared with `==`, and equality on `Any` is not supported
+             def set(s: Set[Any]): Boolean = s.contains(1)
+                     ^
+[ Error  ] AnyEquality4.scala:6:11: Cannot use a `Map` with keys of type `Any`: keys are compared with `==`, and equality on `Any` is not supported
+             def map(m: Map[Any, BigInt]): BigInt = m(1)
+                     ^
+[ Error  ] AnyEquality4.scala:9:5: Cannot match a value of type `Any` against the literal `5` of type `Int`: equality on `Any` is not supported
+               case 5 => true
+               ^^^^^^^^^^^^^^

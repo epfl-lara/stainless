@@ -46,6 +46,7 @@ object GenCRun {
   def pipelineBegin(using inox.Context): ExtractionPipeline{val s: xt.type; val t: tt.type} =
     xlang.extractor        `andThen`
       innerclasses.extractor `andThen`
+      utils.NamedPipeline("EqualityCheck",   methods.EqualityCheck(methods.trees))   `andThen`
       utils.NamedPipeline("Laws",            methods.Laws(methods.trees))            `andThen`
       utils.NamedPipeline("SuperInvariants", methods.SuperInvariants(methods.trees)) `andThen`
       utils.NamedPipeline("SuperCalls",      methods.SuperCalls(methods.trees))      `andThen`
