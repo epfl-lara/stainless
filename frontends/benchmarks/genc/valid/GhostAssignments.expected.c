@@ -29,6 +29,11 @@ typedef struct {
   int32_t last;
 } Counter;
 
+typedef struct {
+  Counter* data;
+  int32_t length;
+} array_Counter;
+
 
 
 /* ---------------------- function declarations ----- */
@@ -42,6 +47,7 @@ void print_1(char c);
 static void println(int32_t x);
 static void println_1(void);
 static STAINLESS_FUNC_PURE void reset(Counter* c);
+static STAINLESS_FUNC_PURE void resetLast(array_Counter cs);
 
 
 /* ----------------------- function definitions ----- */
@@ -64,8 +70,12 @@ void main(void) {
     bump(&c);
     bump(&c);
     reset(&c);
+    Counter stainless_buffer_0[1] = { (Counter) { .n = 3, .last = 0 } };
+    array_Counter cs = (array_Counter) { .data = stainless_buffer_0, .length = 1 };
+    resetLast(cs);
     println(c.n);
     println(c.last);
+    println(cs.data[0].n);
     println(countdown(5));
 }
 
@@ -91,5 +101,9 @@ static void println_1(void) {
 }
 
 static STAINLESS_FUNC_PURE void reset(Counter* c) {
+    
+}
+
+static STAINLESS_FUNC_PURE void resetLast(array_Counter cs) {
     
 }

@@ -1,0 +1,3 @@
+[ Error  ] GhostEffect4.scala:16:5: Receiver of ghost field assignment must only have effects on ghost fields (b.hits is not ghost)
+               cs(next(b)).count = 0
+               ^^^^^^^^^^^^^^^^^^^^^

@@ -60,7 +60,7 @@ A *ghost context* as any of:
 
 - Body of a ghost method
 - Argument to a ghost parameter (method or class constructor)
-- Assignment to a ghost variable
+- Assignment to a ghost variable or field (both the assigned value and the receiver of a field assignment must only affect ghost state)
 - Anywhere where a value of type ``Unit`` is expected
 
 Ghost expression elimination
