@@ -174,20 +174,26 @@ class AssertionInjector(override val s: ast.Trees, override val t: ast.Trees, va
     case BVTyped(signed, size, e0 @ s.Times(lhs0, rhs0)) if checkOverflow =>
       bindIfCannotDuplicate(lhs0, "lhs") { lhsx =>
       bindIfCannotDuplicate(rhs0, "rhs") { rhsx =>
-        t.Assert(
-          // when lhs is not null, rhs === (lhs * rhs) / lhs
-          t.Or(
-            t.Equals(lhsx, zero(signed, size, e.getPos)).copiedFrom(e),
-            t.Equals(
-              rhsx,
-              t.Division(
-                t.Times(lhsx, rhsx).copiedFrom(e),
-                lhsx
-              ).copiedFrom(e)
-            ).copiedFrom(e)
+        // The product of two `size`-bit values fits in `2 * size` bits, so it is computed exactly on that
+        // width and compared with the bounds of the `size`-bit type. Checking `rhs == (lhs * rhs) / lhs` in
+        // the original width instead needs a bitvector division, which is much harder for the solvers (tens
+        // of seconds even for small bounded operands), and it accepts `-1 * MinValue` for signed bitvectors.
+        val wide = t.BVType(signed, 2 * size)
+        val (lo, hi) =
+          if (signed) (-BigInt(2).pow(size - 1), BigInt(2).pow(size - 1) - 1)
+          else        (BigInt(0),               BigInt(2).pow(size) - 1)
+        val product = t.ValDef.fresh("product", wide).setPos(e)
+        val fits = t.And(
+          t.GreaterEquals(product.toVariable, t.BVLiteral(signed, lo, 2 * size).copiedFrom(e)).copiedFrom(e),
+          t.LessEquals(product.toVariable, t.BVLiteral(signed, hi, 2 * size).copiedFrom(e)).copiedFrom(e)
+        ).copiedFrom(e)
+        t.Let(
+          product,
+          t.Times(
+            t.BVWideningCast(lhsx, wide).copiedFrom(lhs0),
+            t.BVWideningCast(rhsx, wide).copiedFrom(rhs0)
           ).copiedFrom(e),
-          Some("Multiplication overflow"),
-          t.Times(lhsx, rhsx).copiedFrom(e)
+          t.Assert(fits, Some("Multiplication overflow"), t.Times(lhsx, rhsx).copiedFrom(e)).copiedFrom(e)
         ).copiedFrom(e)
       }}
 
