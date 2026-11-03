@@ -2,6 +2,7 @@
 
 import stainless.annotation._
 import stainless.lang._
+import stainless.math.wrapping
 import stainless.proof._
 
 import stainless.io.{
@@ -46,6 +47,10 @@ object ImageProcessing {
   val MaxSize        = 512
   @inline @cCode.inline
   val MaxSurfaceSize = 512 * 512 // handwritten here to inline the values
+
+  // Maximum size of kernels: smaller than MaxSize, so that convolution sums fit in an Int (see sumBound)
+  @inline @cCode.inline
+  val MaxKernelSize = 128
 
 
   /**********************************************************************
@@ -334,8 +339,9 @@ object ImageProcessing {
     // Shift range appropriately to respect integer representation
     val signed = if (word >= 32768) word - (2 * 32768) else word
 
-    val b1 = (signed >>> 8).toByte
-    val b2 = signed.toByte
+    // Truncations to the low byte
+    val b1 = wrapping((signed >>> 8).toByte)
+    val b2 = wrapping(signed.toByte)
 
     (b1, b2)
   }
@@ -381,10 +387,11 @@ object ImageProcessing {
   def writeDword(fos: FOS, dword: Int): Boolean = {
     require(fos.isOpen && inRange(dword, 0, 2147483647))
 
-    val b4 = (dword >>> 24).toByte
-    val b3 = (dword >>> 16).toByte
-    val b2 = (dword >>> 8).toByte
-    val b1 = dword.toByte
+    // Truncations to the low byte
+    val b4 = wrapping((dword >>> 24).toByte)
+    val b3 = wrapping((dword >>> 16).toByte)
+    val b2 = wrapping((dword >>> 8).toByte)
+    val b1 = wrapping(dword.toByte)
 
     // Big endian to little endian conversion
     val ok1 = fos.write(b1)
@@ -422,10 +429,11 @@ object ImageProcessing {
   def writeLong(fos: FOS, long: Int): Boolean = {
     require(fos.isOpen)
 
-    val b4 = (long >>> 24).toByte
-    val b3 = (long >>> 16).toByte
-    val b2 = (long >>> 8).toByte
-    val b1 = long.toByte
+    // Truncations to the low byte
+    val b4 = wrapping((long >>> 24).toByte)
+    val b3 = wrapping((long >>> 16).toByte)
+    val b2 = wrapping((long >>> 8).toByte)
+    val b1 = wrapping(long.toByte)
 
     // Big endian to little endian conversion
     val ok1 = fos.write(b1)
@@ -628,9 +636,22 @@ object ImageProcessing {
    *                            Kernel & Image Processing Algorithm     *
    **********************************************************************/
 
-  case class Kernel(size: Int, scale: Int, kernel: Array[Int]) {
+  /** Bound on the magnitude of a convolution sum after `rows` full rows of the kernel and
+    * `terms` terms of the next row: each term is a color component in [0, 255] times a
+    * kernel entry in [-128, 127], so its magnitude is below 2^15, and the sum of at most
+    * MaxKernelSize * MaxKernelSize = 2^14 terms fits in an Int. (Powers of two keep the
+    * multiplications easy for the solvers.)
+    */
+  @inline
+  def sumBound(rows: Int, terms: Int): Int = {
+    require(inRange(rows, 0, MaxKernelSize) && inRange(terms, 0, MaxKernelSize))
+    val maxTerm = 32768 // 2^15
+    rows * (MaxKernelSize * maxTerm) + terms * maxTerm
+  }
+
+  case class Kernel(size: Int, scale: Int, kernel: Array[Byte]) {
     require(
-      inRange(size, 0, MaxSize) &&
+      inRange(size, 0, MaxKernelSize) &&
       size % 2 == 1 &&
       size * size == kernel.length &&
       scale != 0 && scale != -1 // avoid division by zero and some particular overflow (*)
@@ -690,19 +711,26 @@ object ImageProcessing {
 
           val kidx = krow * size + kcol
 
-          // Here, the += and * operation could overflow
-          res += at(i + p, j + q) * kernel(kidx)
+          // Neither the * nor the += can overflow, see sumBound
+          res += at(i + p, j + q) * kernel(kidx).toInt
           assert(inRange(q, -mid, mid))
           q += 1
           check(inRange(q, -mid, mid + 1))
-        }) invariant (oldP == p &&& inRange(q, -mid, mid + 1))
+        }) invariant (
+          oldP == p &&&
+          inRange(q, -mid, mid + 1) &&&
+          -sumBound(p + mid, q + mid) <= res &&& res <= sumBound(p + mid, q + mid)
+        )
         assert(inRange(p, -mid, mid))
         p += 1
         check(inRange(p, -mid, mid + 1))
-      }) invariant (inRange(p, -mid, mid + 1))
+      }) invariant (
+        inRange(p, -mid, mid + 1) &&&
+        -sumBound(p + mid, 0) <= res &&& res <= sumBound(p + mid, 0)
+      )
 
       res = clamp(res / scale, 0, 255)
-      res.toByte
+      wrapping(res.toByte) // components are stored as unsigned bytes
     }
 
     def apply(src: Image, dest: Image): Unit = {
@@ -753,11 +781,11 @@ object ImageProcessing {
 
     /*
      * // Smooth kernel
-     * val kernel = Kernel(3, 1, Array(1, 1, 1, 1, 2, 1, 1, 1, 1))
+     * val kernel = Kernel(3, 1, Array[Byte](1, 1, 1, 1, 2, 1, 1, 1, 1))
      */
 
     /* // Edges
-     * val kernel = Kernel(5, 1, Array(
+     * val kernel = Kernel(5, 1, Array[Byte](
      *   0,  0, -1,  0,  0,
      *   0,  0, -1,  0,  0,
      *  -1, -1,  8, -1, -1,
@@ -767,7 +795,7 @@ object ImageProcessing {
      */
 
     /* // Identity
-     * val kernel = Kernel(5, 1, Array(
+     * val kernel = Kernel(5, 1, Array[Byte](
      *   0,  0,  0,  0,  0,
      *   0,  0,  0,  0,  0,
      *   0,  0,  1,  0,  0,
@@ -777,7 +805,7 @@ object ImageProcessing {
      */
 
     /* // Sharpen
-     * val kernel = Kernel(5, 8, Array(
+     * val kernel = Kernel(5, 8, Array[Byte](
      *   -1, -1, -1, -1, -1,
      *   -1,  2,  2,  2, -1,
      *   -1,  2,  8,  2, -1,
@@ -787,7 +815,7 @@ object ImageProcessing {
      */
 
     // Blur
-    val kernel = Kernel(5, 25, Array(
+    val kernel = Kernel(5, 25, Array[Byte](
       1, 1, 1, 1, 1,
       1, 1, 1, 1, 1,
       1, 1, 1, 1, 1,

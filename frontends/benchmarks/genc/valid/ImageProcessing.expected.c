@@ -96,14 +96,14 @@ typedef enum {
 /* ---------------------- data type definitions ----- */
 
 typedef struct {
-  int32_t* data;
+  int8_t* data;
   int32_t length;
-} array_int32;
+} array_int8;
 
 typedef struct {
   int32_t size;
   int32_t scale;
-  array_int32 kernel;
+  array_int8 kernel;
 } Kernel;
 
 typedef struct {
@@ -113,11 +113,6 @@ typedef struct {
   int32_t w;
   int32_t h;
 } Image;
-
-typedef struct {
-  int8_t* data;
-  int32_t length;
-} array_int8;
 
 typedef struct {
   enum_Status status;
@@ -474,7 +469,7 @@ static STAINLESS_FUNC_PURE int8_t apply_1(Kernel* thiss, array_int8 channel, int
             int32_t kcol = p + mid;
             int32_t krow = q + mid;
             int32_t kidx = krow * thiss->size + kcol;
-            res = res + at(thiss, channel, &width, &height, &index, i + p, j + q) * thiss->kernel.data[kidx];
+            res = res + at(thiss, channel, &width, &height, &index, i + p, j + q) * ((int32_t)thiss->kernel.data[kidx]);
             q = q + 1;
             check(inRange(q, -mid, mid + 1));
         }
@@ -967,9 +962,9 @@ static void println_2(char* s) {
 }
 
 static enum_Status process(FileInputStream fis, FileOutputStream fos, State state) {
-    int32_t stainless_buffer_0[25] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 };
-    array_int32 norm_18 = (array_int32) { .data = stainless_buffer_0, .length = 25 };
-    array_int32 norm_19 = norm_18;
+    int8_t stainless_buffer_0[25] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 };
+    array_int8 norm_18 = (array_int8) { .data = stainless_buffer_0, .length = 25 };
+    array_int8 norm_19 = norm_18;
     Kernel kernel = (Kernel) { .size = 5, .scale = 25, .kernel = norm_19 };
     MaybeResult_FileHeader fileHeaderRes = maybeReadFileHeader(fis, state);
     MaybeResult_BitmapHeader bitmapHeaderRes = maybeReadBitmapHeader(fis, state);
