@@ -52,13 +52,8 @@ class GenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUtils with
 
   // GenC requires the programs to verify with `--strict-arithmetic` (the default), so that the generated C
   // code does not overflow, divide by zero, or shift by too many bits (which is undefined behavior in C).
-  // ImageProcessing does not verify with it yet: its convolution can overflow, and the solvers time out on
-  // its multiplication overflow checks (see #1823).
-  val nonStrictFiles = Set("ImageProcessing.scala")
-
   for (file <- validFiles) {
-    val strictOpts = if (nonStrictFiles(file.split("/").last)) Seq("--strict-arithmetic=false") else Seq()
-    val extraOpts = Seq("--batched", "--solvers=smt-z3", "--timeout=10") ++ strictOpts
+    val extraOpts = Seq("--batched", "--solvers=smt-z3", "--timeout=10")
     test(s"stainless ${extraOpts.mkString(" ")} $file") {
       val (localCtx, optReport) = runMainWithArgs(Array(file) ++ extraOpts)
       assert(localCtx.reporter.errorCount == 0, "No errors")
