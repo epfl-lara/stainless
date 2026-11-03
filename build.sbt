@@ -366,7 +366,7 @@ lazy val `sbt-stainless` = (project in file("sbt-plugin"))
       "-Xmx768m",
       "-Dplugin.version=" + version.value,
       "-Ddotty.version=" + stainlessScalaVersion
-    ),
+    ) ++ sys.props.get("sbt.ivy.home").map("-Dsbt.ivy.home=" + _), // where scriptedDependencies publishes
     scriptedBufferLog := false,
     scriptedDependencies := {
       publishLocal.value
