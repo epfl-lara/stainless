@@ -1,0 +1,9 @@
+[ Error  ] AnyEquality1.scala:5:5: Cannot compare values of type `Any` with `==`: equality on `Any` is not supported
+               a == b
+               ^^^^^^
+[ Error  ] AnyEquality1.scala:7:33: Cannot compare values of type `Any` and `Int` with `==`: equality on `Any` is not supported
+             def number(a: Any): Boolean = a == 5
+                                           ^^^^^^
+[ Error  ] AnyEquality1.scala:9:33: Cannot compare values of type `Any` and `BigInt` with `==`: equality on `Any` is not supported
+             def bigInt(a: Any): Boolean = a == BigInt(5)
+                                           ^^^^^^^^^^^^^^

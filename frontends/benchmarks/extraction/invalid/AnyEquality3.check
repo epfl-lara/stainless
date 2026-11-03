@@ -1,0 +1,12 @@
+[ Error  ] AnyEquality3.scala:9:25: Cannot call `same` with the type argument `Any`: values of its type parameter `T` are compared with `==` (in `same`), and equality on `Any` is not supported
+             def test(): Boolean = same[Any](5: Byte, 5) && viaCall[Any](1, 2)
+                                   ^^^^^^^^^^^^^^^^^^^^^
+[ Error  ] AnyEquality3.scala:9:50: Cannot call `viaCall` with the type argument `Any`: values of its type parameter `T` are compared with `==` (in `same`), and equality on `Any` is not supported
+             def test(): Boolean = same[Any](5: Byte, 5) && viaCall[Any](1, 2)
+                                                            ^^^^^^^^^^^^^^^^^^
+[ Error  ] AnyEquality3.scala:11:12: Cannot use the type `List[Any]`: values of its type parameter `T` are compared with `==` (in `List.contains`), and equality on `Any` is not supported
+             def list(l: List[Any]): Boolean = l.contains(1)
+                      ^
+[ Error  ] AnyEquality3.scala:15:5: Cannot call `inner` with the type argument `Any`: values of its type parameter `T` are compared with `==` (in `local`), and equality on `Any` is not supported
+               inner[Any](1, 2)
+               ^^^^^^^^^^^^^^^^
