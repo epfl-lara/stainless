@@ -252,6 +252,12 @@ private class IR2CImpl()(using ctx: inox.Context) {
       }
       C.Decl(rec(vd.id), rec(vd.typ), Some(C.ArrayStatic(rec(arrayType.base), values)))
 
+    // C forbids zero-length arrays, so an empty array has no buffer
+    case Decl(vd, Some(ArrayInit(ArrayAllocStatic(arrayType, 0, _)))) =>
+      val array = array2Struct(arrayType)
+      val varInit = C.StructInit(array, C.Binding(C.Id("NULL")) :: C.Lit(Int32Lit(0)) :: Nil)
+      C.Decl(rec(vd.id), array, Some(varInit))
+
     case Decl(vd, Some(ArrayInit(ArrayAllocStatic(arrayType, length, values0)))) =>
       val bufferId = C.FreshId("buffer")
       val values = values0 match {
