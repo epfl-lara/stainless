@@ -130,8 +130,11 @@ class GhostAccessRewriter(afterPhase: String) extends PluginPhase { self =>
             case _ =>
               cpy.Apply(tree)(fun1, args.map(transform))
 
-        case Assign(lhs, rhs) if effectivelyGhost(lhs.symbol) =>
-          cpy.Assign(tree)(lhs, mkZero(rhs.tpe))
+        // An assignment to a ghost variable or field is ghost code: the ghost checker guarantees that
+        // neither its receiver nor its right-hand side affects non-ghost state, so the whole
+        // assignment is erased, as GenC does.
+        case Assign(lhs, _) if effectivelyGhost(lhs.symbol) =>
+          tpd.Literal(Constant(()))
 
         case Block(stats, last) =>
           val recStats = transform(stats).filter {
