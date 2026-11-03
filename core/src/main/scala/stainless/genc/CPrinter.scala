@@ -278,9 +278,10 @@ class CPrinter(
     case ArrayStatic(_, values) =>
       c"{ ${nary(values, sep = ", ")} }"
 
+    // The bound of a VLA must be positive, so an empty array gets a buffer of one (unused) element
     case DeclArrayVLA(id, base, length, defaultExpr) =>
       val i = FreshId("i")
-      c"""|$base $id[$length];
+      c"""|$base $id[$length > 0 ? $length : 1];
           |${Decl(i, Primitive(Int32Type), None)};
           |for ($i = 0; $i < $length; ++$i) {
           |    $id[$i] = $defaultExpr;
