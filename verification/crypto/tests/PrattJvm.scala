@@ -59,6 +59,7 @@ object PrattJvm {
       check(!certifies(withLast(last.copy(factors = Cons(f0.copy(cofactor = f0.cofactor + 1), last.factors.tail))), n), s"bad cofactor for $name")
       check(!certifies(fromScala(last :: steps.init), n), s"unordered certificate accepted for $name")
       check(!certifies(fromScala(List(last)), n), s"last step without its factor certificates accepted for $name")
+      check(!certifies(withLast(last.copy(factors = Cons(PrattFactor(2, 0, (last.p - 1) / 2), last.factors))), n), s"factor 2^0 accepted for $name")
       // A certificate for a different number.
       check(!certifies(cert, n + 2), s"certificate reused for ${name} + 2")
     }
