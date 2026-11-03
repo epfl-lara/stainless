@@ -1,13 +1,13 @@
 name: Stainless Release
 # Triggered manually from the Actions UI (or `gh workflow run`), run from the
-# branch/commit you want to release (usually `main`). Given a version number,
+# branch/commit you want to release (`damlaudit` in the Cancore fork). Given a version number,
 # it:
-#   1. Creates an annotated `vX.Y.Z` tag on the current commit and pushes it.
+#   1. Creates an annotated `vX.Y.Z` (or `vX.Y.Z-cancore.N`) tag on the current commit and pushes it.
 #      The tag is what `sbt-git`/`git describe` use as the version for the build
 #      (the project is built with `git.useGitDescribe`).
 #   2. Builds the standalone and sbt-plugin archives.
-#   3. Publishes a GitHub release with auto-generated notes and the archives
-#      attached.
+#   3. Publishes a GitHub release with auto-generated notes, the archives and
+#      their SHA256SUMS attached.
 #
 # Note: the tag is annotated but NOT GPG-signed; signing in CI would require
 # importing a GPG key from a secret.
