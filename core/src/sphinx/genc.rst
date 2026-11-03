@@ -121,6 +121,8 @@ For ``Array[Int]`` we get:
     int32_t length;
   } array_int32;
 
+As C forbids zero-length arrays, the ``data`` pointer of an empty array is ``NULL``.
+
 .. NOTE::
 
   Arrays live on the stack and therefore cannot be returned by functions. This limitation is
@@ -132,8 +134,8 @@ using a ``struct`` wrapper for the array, and instead directly inline the array
 in the ``struct`` of the case class. We trigger this optimized transformation
 when the array length is specified in the case class invariant (with ``require``)
 as a conjunct. The left-hand-side needs to be ``a.length`` where ``a`` is the
-array, and the right-hand-side needs to be a constant (or evaluate to a constant
-at compile time).
+array, and the right-hand-side needs to be a positive constant (or evaluate to a
+positive constant at compile time).
 
 See below for a case class with a fixed length array and its transformation in C:
 

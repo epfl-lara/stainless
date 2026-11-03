@@ -151,22 +151,21 @@ private[genc] sealed trait IR { ir =>
   case object Zero
 
   // Allocate an array with a compile-time size
+  //
+  // NOTE The array can be empty, in which case IR2C allocates no buffer, as C forbids zero-length arrays.
   case class ArrayAllocStatic(typ: ArrayType, length: Int, values: Either[Zero.type, Seq[Expr]]) extends ArrayAlloc {
     require(
-      values match {
+      (length >= 0) &&
+      (values match {
         case Left(z) =>
-          // No empty array
-          (length > 0) &&
           typ.base.isIntegral
 
         case Right(values) =>
           // The type of the values should match the type of the array elements
           (values forall { _.getType <= typ.base }) &&
           // The number of values should match the array size
-          (length == values.length) &&
-          // And empty arrays are forbidden
-          (length > 0)
-      }
+          (length == values.length)
+      })
     )
   }
 

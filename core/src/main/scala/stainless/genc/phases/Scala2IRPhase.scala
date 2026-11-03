@@ -822,7 +822,13 @@ private class S2IRImpl(override val s: tt.type,
 
         val fields = tcd.fields.map(vd => vd.tpe match {
           case ArrayType(base) if arrayLengthsMap.contains(vd.id) =>
-            (CIR.ValDef(buildFieldId(vd), CIR.ArrayType(rec(base), Some(arrayLengthsMap(vd.id))), vd.flags.contains(IsVar)), flagsToModes(vd.flags))
+            val length = arrayLengthsMap(vd.id)
+            // The array is a fixed-length C array, and C forbids zero-length arrays
+            if (length <= 0)
+              reporter.fatalError(vd.getPos,
+                s"The length of array ${vd.id.asString} specified in the class invariant of ${cd.id.asString} " +
+                s"must be positive, but is $length")
+            (CIR.ValDef(buildFieldId(vd), CIR.ArrayType(rec(base), Some(length)), vd.flags.contains(IsVar)), flagsToModes(vd.flags))
           case typ =>
             (CIR.ValDef(buildFieldId(vd), rec(typ), vd.flags.contains(IsVar)), flagsToModes(vd.flags))
         })
