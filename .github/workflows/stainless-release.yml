@@ -1,13 +1,13 @@
 name: Stainless Release
 # Triggered manually from the Actions UI (or `gh workflow run`), run from the
-# branch/commit you want to release (usually `main`). Given a version number,
+# branch/commit you want to release (`damlaudit` in the Cancore fork). Given a version number,
 # it:
-#   1. Creates an annotated `vX.Y.Z` tag on the current commit and pushes it.
+#   1. Creates an annotated `vX.Y.Z` (or `vX.Y.Z-cancore.N`) tag on the current commit and pushes it.
 #      The tag is what `sbt-git`/`git describe` use as the version for the build
 #      (the project is built with `git.useGitDescribe`).
 #   2. Builds the standalone and sbt-plugin archives.
-#   3. Publishes a GitHub release with auto-generated notes and the archives
-#      attached.
+#   3. Publishes a GitHub release with auto-generated notes, the archives and
+#      their SHA256SUMS attached.
 #
 # Note: the tag is annotated but NOT GPG-signed; signing in CI would require
 # importing a GPG key from a secret.
@@ -15,7 +15,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Three-component version to release, with leading v (e.g. v0.10.0).'
+        description: 'Version to release, with leading v: vX.Y.Z or a fork build vX.Y.Z-cancore.N (e.g. v0.10.3-cancore.2).'
         required: true
 
 permissions:
@@ -42,9 +42,9 @@ jobs:
         submodules: recursive
     - name: Validate version
       run: |
-        # Expect a three-component tag of the form vX.Y.Z.
-        if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-          echo "::error::Version must look like vX.Y.Z (got '$VERSION')."
+        # vX.Y.Z, or vX.Y.Z-cancore.N for a Cancore fork build (CAN-3282).
+        if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-cancore\.[0-9]+)?$ ]]; then
+          echo "::error::Version must look like vX.Y.Z or vX.Y.Z-cancore.N (got '$VERSION')."
           exit 1
         fi
         if git rev-parse -q --verify "refs/tags/$VERSION" >/dev/null; then
@@ -79,6 +79,9 @@ jobs:
       run: ./bin/package-standalone.sh
     - name: Build sbt plugin archive
       run: ./bin/package-sbt-plugin.sh
+    - name: Checksums
+      # canton-contracts pins these hashes in install-prereqs.sh (CAN-3282).
+      run: sha256sum stainless-dotty-standalone-*.zip sbt-stainless.zip > SHA256SUMS && cat SHA256SUMS
     - name: Create GitHub release
       run: |
         # Let GitHub auto-generate the release notes from merged PRs, and attach
@@ -87,7 +90,8 @@ jobs:
           --title "$VERSION" \
           --generate-notes \
           stainless-dotty-standalone-*.zip \
-          sbt-stainless.zip
+          sbt-stainless.zip \
+          SHA256SUMS
     - name: Clean up
       if: always()
       run: rm -rf $JAVA_OPTS_TMP_DIR
