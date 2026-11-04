@@ -27,9 +27,8 @@ jobs:
     runs-on:
       labels: [self-hosted, linux]
     env:
-      # define Java options for both official sbt and sbt-extras
+      # Java options, read by the sbt launcher and the Stainless launcher scripts
       JAVA_OPTS: -Dsbt.io.implicit.relative.glob.conversion=allow -Xss512M -Xms1024M -Xmx12G -XX:MaxMetaspaceSize=2G -XX:+UseCodeCacheFlushing -XX:ReservedCodeCacheSize=768M ${{ matrix.extra-java-opts }}
-      JVM_OPTS:  -Dsbt.io.implicit.relative.glob.conversion=allow -Xss512M -Xms1024M -Xmx12G -XX:MaxMetaspaceSize=2G -XX:+UseCodeCacheFlushing -XX:ReservedCodeCacheSize=768M ${{ matrix.extra-java-opts }}
       # one directory per matrix entry, as the jobs of a run can share a machine
       JAVA_OPTS_TMP_DIR: /tmp/tmp_${{ github.run_id }}_${{ github.run_attempt }}_jdk${{ matrix.java }}
     steps:
@@ -45,7 +44,6 @@ jobs:
     - name: Setup java options
       run: |
           echo "JAVA_OPTS=$JAVA_OPTS -Djava.io.tmpdir=$JAVA_OPTS_TMP_DIR" >> "$GITHUB_ENV" && \
-          echo "JVM_OPTS=$JVM_OPTS -Djava.io.tmpdir=$JAVA_OPTS_TMP_DIR" >> "$GITHUB_ENV" && \
           echo "SBT_OPTS=-Djava.io.tmpdir=$JAVA_OPTS_TMP_DIR --sbt-dir $JAVA_OPTS_TMP_DIR --ivy $JAVA_OPTS_TMP_DIR/ivy2" >> "$GITHUB_ENV"
     - name: Creating temp folder
       run: rm -rf $JAVA_OPTS_TMP_DIR && mkdir -p $JAVA_OPTS_TMP_DIR && chmod 777 $JAVA_OPTS_TMP_DIR
