@@ -146,7 +146,14 @@ static STAINLESS_FUNC_PURE int32_t sum(array_int32 a) {
     int32_t s = 0;
     int32_t i = 0;
     while (i < a.length) {
-        s = s + a.data[i];
+        int32_t x = a.data[i];
+        if (x > 0 && s > 2147483647 - x) {
+            s = 2147483647;
+        } else if (x < 0 && s < -2147483648 - x) {
+            s = -2147483648;
+        } else {
+            s = s + x;
+        }
         i = i + 1;
     }
     return s;

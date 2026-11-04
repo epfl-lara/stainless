@@ -24,7 +24,7 @@ object GenericPairs {
   def toTuple[A, B](p: Pair[A, B]): (A, B) = (p.first, p.second)
 
   def divMod(a: Int, b: Int): (Int, Int) = {
-    require(b != 0)
+    require(b != 0 && !(a == Int.MinValue && b == -1)) // `Int.MinValue / -1` is undefined in C
     (a / b, a % b)
   }
 
@@ -42,8 +42,13 @@ object GenericPairs {
     (lo, hi)
   }
 
-  def double(x: Int): Int = x * 2
-  def inc(x: Int): Int = x + 1
+  // These are passed as function values, so they cannot have preconditions: they saturate instead of
+  // overflowing (signed overflow is undefined in C)
+  def double(x: Int): Int =
+    if (x > Int.MaxValue / 2) Int.MaxValue
+    else if (x < Int.MinValue / 2) Int.MinValue
+    else x * 2
+  def inc(x: Int): Int = if (x == Int.MaxValue) x else x + 1
   def isEven(x: Int): Boolean = x % 2 == 0
   def isNegative(x: Int): Boolean = x < 0
 

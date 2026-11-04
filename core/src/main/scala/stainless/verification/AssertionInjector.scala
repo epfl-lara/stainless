@@ -346,8 +346,11 @@ class AssertionInjector(override val s: ast.Trees, override val t: ast.Trees, va
         // TODO: explain why `checkOverflow` here and `strictArithmetic` in the guard?
         val range = if (signed && checkOverflow) t.And(pos, leq).copiedFrom(rhs) else leq
         // Ensure the operation doesn't shift more bits than there are.
-        t.Assert(range, Some("Shift semantics"), recons(rhsx)).copiedFrom(e)
+        t.Assert(range, Some("Shift semantics"), recons(jvmShiftAmount(signed, size, rhsx))).copiedFrom(e)
       }
+
+    case BVTyped(signed, size, BVShift(rhs, recons)) =>
+      recons(jvmShiftAmount(signed, size, transform(rhs)))
 
     case s.FPGreaterEquals(e1, e2) if checkOverflow => checkNaNBinop(e)(t.FPGreaterEquals.apply, e1, e2)
     case s.FPLessEquals(e1, e2) if checkOverflow => checkNaNBinop(e)(t.FPLessEquals.apply, e1, e2)
@@ -374,6 +377,15 @@ class AssertionInjector(override val s: ast.Trees, override val t: ast.Trees, va
       case _ => None
     }
   }
+
+  /** On the JVM, the amount of `Int` and `Long` shifts is taken modulo the width (`1 << 33 == 2`), whereas
+    * SMT-LIB shifts give 0 (or -1) for amounts at least the width. Masks the `amount` of a shift on signed
+    * bit vectors of 32 or 64 bits, which are `Int` and `Long`, accordingly, unless [[checkOverflow]] ensures
+    * it is between 0 and `size - 1`. Unsigned shifts already give 0 for such amounts (see `stainless.math`). */
+  private def jvmShiftAmount(signed: Boolean, size: Int, amount: t.Expr): t.Expr =
+    if (signed && (size == 32 || size == 64) && !checkOverflow)
+      t.BVAnd(amount, t.BVLiteral(true, size - 1, size).copiedFrom(amount)).copiedFrom(amount)
+    else amount
 
   private def checkNaNBinop(e: s.Expr)(binop: (t.Expr, t.Expr) => t.Expr, e1: s.Expr, e2: s.Expr): t.Expr = {
     bindIfCannotDuplicate(e1, "e1") { e1x =>

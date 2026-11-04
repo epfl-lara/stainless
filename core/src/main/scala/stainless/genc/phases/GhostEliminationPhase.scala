@@ -18,6 +18,15 @@ class GhostElimination(override val s: tt.type, // to use `isExported` from `gen
 
   case class Env(lfds: Map[Identifier, s.LocalFunDef])
 
+  /** Whether `e` assigns a ghost variable or field. Such assignments may appear outside of ghost
+   *  blocks, and the ghost checker ensures their right-hand side only has effects on ghost state.
+   */
+  private def isGhostAssignment(e: s.Expr): Boolean = e match {
+    case s.Assignment(v, _) => v.flags.contains(s.Ghost)
+    case fa: s.FieldAssignment => fa.getField(using symbols).exists(_.flags.contains(s.Ghost))
+    case _ => false
+  }
+
   private def keepFlag(flag: s.Flag): Boolean =
     !flag.isInstanceOf[s.HasADTInvariant] &&
     flag != s.IsInvariant &&
@@ -108,6 +117,10 @@ class GhostElimination(override val s: tt.type, // to use `isExported` from `gen
 
     case s.Let(vd, e, body) if vd.flags.contains(s.Ghost) => transform(body, env)
 
+    case s.LetVar(vd, e, body) if vd.flags.contains(s.Ghost) => transform(body, env)
+
+    case _ if isGhostAssignment(expr) => t.UnitLiteral()
+
     case s.Assert(s.Annotated(_, flags), _, body) if flags.contains(s.Ghost) => transform(body, env)
 
     case s.LetRec(lfds, body) =>
@@ -121,7 +134,7 @@ class GhostElimination(override val s: tt.type, // to use `isExported` from `gen
         val fd = symbols.getFunction(fi.id)
         fd.id.name == "ghost" && fd.params.length == 1 && fd.params.head.flags.contains(s.Ghost)
       case s.Annotated(_, flags) => flags.contains(s.Ghost)
-      case _ => false
+      case e => isGhostAssignment(e)
     }.map(transform(_, env)), transform(last, env))
 
     case s.While(cond, body, _, _, flags) => t.While(transform(cond, env), transform(body, env), None, None, flags.map(transform(_, env)))

@@ -50,8 +50,15 @@ class GenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUtils with
     }
   }
 
+  // GenC requires the programs to verify with `--strict-arithmetic` (the default), so that the generated C
+  // code does not overflow, divide by zero, or shift by too many bits (which is undefined behavior in C).
+  // ImageProcessing does not verify with it yet: its convolution can overflow, and the solvers time out on
+  // its multiplication overflow checks (see #1823).
+  val nonStrictFiles = Set("ImageProcessing.scala")
+
   for (file <- validFiles) {
-    val extraOpts = Seq("--batched", "--solvers=smt-z3", "--strict-arithmetic=false", "--timeout=10")
+    val strictOpts = if (nonStrictFiles(file.split("/").last)) Seq("--strict-arithmetic=false") else Seq()
+    val extraOpts = Seq("--batched", "--solvers=smt-z3", "--timeout=10") ++ strictOpts
     test(s"stainless ${extraOpts.mkString(" ")} $file") {
       val (localCtx, optReport) = runMainWithArgs(Array(file) ++ extraOpts)
       assert(localCtx.reporter.errorCount == 0, "No errors")
@@ -74,7 +81,7 @@ class GenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUtils with
       // can be committed.
       checkGolden(cFile, sourceGoldenPath(file, ".expected.c"))
       checkGolden(hFile, sourceGoldenPath(file, ".expected.h"))
-      val gccCompile = s"gcc $cFile -o $outFile"
+      val gccCompile = s"$gccWithSanitizer $cFile -o $outFile"
       ctx.reporter.info(s"Running: $gccCompile")
       val (std, exitCode) = runCommand(gccCompile)
       assert(exitCode == 0, "gcc failed with output:\n" + std.mkString("\n"))
@@ -191,6 +198,7 @@ class GenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUtils with
     val outFile = file.replace(".scala", ".out")
     ctx.reporter.info(s"Running: $outFile")
     val (std, _) = runCommand(outFile)
+    undefinedBehavior(std).foreach(ub => fail(s"$outFile has undefined behavior: $ub"))
     // Note: lines are concatenated without adding newlines between them
     std.mkString
   }

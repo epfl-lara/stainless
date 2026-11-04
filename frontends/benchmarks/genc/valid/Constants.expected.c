@@ -95,7 +95,7 @@ static const int8_t Small = -8;
 static const int16_t Medium = 1234;
 static const int64_t Big = 123456789012LL;
 static const char Letter = 'z';
-static const uint32_t Unsigned = 4000000000;
+static const uint32_t Unsigned = 4000000000U;
 static const Point Origin = { .x = 0, .y = 0 };
 static const Rect UnitSquare = { .topLeft = { .x = 0, .y = 0 }, .bottomRight = { .x = 1, .y = 1 } };
 static const Shape DefaultShape = { .tag = tag_Circle, .value = { .Circle_v = { .radius = 5 } } };
@@ -124,7 +124,11 @@ STAINLESS_FUNC_PURE int32_t check(int32_t f) {
 }
 
 static STAINLESS_FUNC_PURE int32_t incImpl(int32_t x) {
-    return x + 1;
+    if (x == 2147483647) {
+        return x;
+    } else {
+        return x + 1;
+    }
 }
 
 static STAINLESS_FUNC_PURE bool isGreen(enum_Color c) {

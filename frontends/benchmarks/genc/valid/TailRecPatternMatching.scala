@@ -4,9 +4,10 @@ import stainless.io._
 
 object TailRecPatternMatching {
   def patternMatch(x: Option[Int], acc: Int): Int = 
+    // `acc` grows by 1 per step
     require(x match {
-      case None() => true
-      case Some(n) => n >= 1
+      case None() => 0 <= acc && acc <= 1000
+      case Some(n) => 1 <= n && n <= 1000 && 0 <= acc && acc <= 1000 - n
     })
     val measure = x match {
       case None() => 0

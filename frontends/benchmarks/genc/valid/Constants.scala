@@ -87,9 +87,16 @@ object Constants {
     if (0 < f && f <= Limits.MaxF) f else Limits.ErrMalformed
   }
 
-  def area(s: Shape): Int = s match {
-    case Circle(r) => 3 * r * r
-    case Square(side) => side * side
+  def area(s: Shape): Int = {
+    // Bounded dimensions, so that the area does not overflow (signed overflow is undefined in C)
+    require(s match {
+      case Circle(r) => 0 <= r && r <= 10000
+      case Square(side) => 0 <= side && side <= 10000
+    })
+    s match {
+      case Circle(r) => 3 * r * r
+      case Square(side) => side * side
+    }
   }
 
   def isGreen(c: Color): Boolean = c match {
@@ -97,9 +104,13 @@ object Constants {
     case Red() => false
   }
 
-  def width(r: Rect): Int = r.bottomRight.x - r.topLeft.x
+  def width(r: Rect): Int = {
+    require(0 <= r.topLeft.x && 0 <= r.bottomRight.x) // so that the subtraction does not overflow
+    r.bottomRight.x - r.topLeft.x
+  }
 
-  def incImpl(x: Int): Int = x + 1
+  // Called from a function value, so it cannot have a precondition: it saturates instead of overflowing
+  def incImpl(x: Int): Int = if (x == Int.MaxValue) x else x + 1
 
   @cCode.`export`
   def main(): Unit = {

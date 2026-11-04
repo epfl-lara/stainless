@@ -25,10 +25,11 @@ import scala.jdk.CollectionConverters.*
   * expected results of the parameterless `testN` functions of the benchmark (`testN = value`, in the
   * order in which `main` prints them, if the benchmark has a `main`). The suite checks that the same
   * results are obtained when the program is:
-  *  - verified by Stainless: the benchmarks assert their expected results, so all VCs must be valid;
+  *  - verified by Stainless (with `--strict-arithmetic`, as GenC requires): the benchmarks assert their
+  *    expected results, so all VCs must be valid;
   *  - evaluated by the recursive and by the code-generating evaluators;
-  *  - compiled to C by GenC and run, if the benchmark has a `main` function (which must print the
-  *    results in the order of the `.check` file);
+  *  - compiled to C by GenC and run with the undefined behavior sanitizer, if the benchmark has a `main`
+  *    function (which must print the results in the order of the `.check` file);
   *  - compiled by the Scala compiler against the Stainless library and run on the JVM, where the
   *    `testN` functions are called directly, the `checksN` functions must not fail, and `main` (if any)
   *    must print the same output as the C program.
@@ -45,7 +46,7 @@ class UnsignedSemanticsSuite extends AnyFunSuite with inox.ResourceUtils with In
     lazy val mainOutput = expected.map(_._2).mkString("\n")
 
     test(s"unsigned/$name: verification") {
-      val opts = Seq("--batched", "--solvers=smt-z3", "--strict-arithmetic=false", "--timeout=30")
+      val opts = Seq("--batched", "--solvers=smt-z3", "--timeout=30")
       val (ctx, optReport) = runMainWithArgs(Array(file) ++ opts)
       assert(ctx.reporter.errorCount == 0, "No errors")
       assert(optReport.nonEmpty, "Valid report returned by Stainless")
@@ -85,10 +86,11 @@ class UnsignedSemanticsSuite extends AnyFunSuite with inox.ResourceUtils with In
         val outFile = file.stripSuffix(".scala") + ".out"
         runMainWithArgs(Array(file, "--genc", s"--genc-output=$cFile", "--skip-verification"))
         assert(Files.exists(Paths.get(cFile)), "GenC produced a C file")
-        val (gccOutput, gccExitCode) = runCommand(s"gcc $cFile -o $outFile")
+        val (gccOutput, gccExitCode) = runCommand(s"$gccWithSanitizer $cFile -o $outFile")
         assert(gccExitCode == 0, "gcc failed with output:\n" + gccOutput.mkString("\n"))
         // Note: the exit code of the C program is meaningless, as GenC generates a `void main`.
         val (output, _) = runCommand(outFile)
+        undefinedBehavior(output).foreach(ub => fail(s"GenC: the C program has undefined behavior: $ub"))
         assert(output.mkString("\n") == mainOutput, s"GenC: unexpected output of the C program:\n${output.mkString("\n")}")
       }
     }

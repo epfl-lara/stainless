@@ -23,7 +23,7 @@ class TailRecGenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUti
   val ctx = TestContext.empty
 
   // for (file <- tailrecFiles) {
-  //   val extraOpts = Seq("--batched", "--solvers=smt-z3", "--strict-arithmetic=false", "--timeout=10")
+  //   val extraOpts = Seq("--batched", "--solvers=smt-z3", "--timeout=10")
   //   test(s"stainless ${extraOpts.mkString(" ")} $file") {
   //     val (localCtx, optReport) = runMainWithArgs(Array(file) ++ extraOpts)
   //     assert(localCtx.reporter.errorCount == 0, "No errors")
@@ -38,7 +38,7 @@ class TailRecGenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUti
     test(s"stainless --genc --genc-output=$cFile $file") {
       runMainWithArgs(Array(file) :+ "--genc" :+ s"--genc-output=$cFile" :+ "--skip-verification")
       assert(Files.exists(Paths.get(cFile)))
-      val gccCompile = s"gcc $cFile -o $outFile"
+      val gccCompile = s"$gccWithSanitizer $cFile -o $outFile"
       ctx.reporter.info(s"Running: $gccCompile")
       val (std, exitCode) = runCommand(gccCompile)
       assert(exitCode == 0, "gcc failed with output:\n" + std.mkString("\n"))
@@ -67,6 +67,7 @@ class TailRecGenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUti
     val outFile = file.replace(".scala", ".out")
     ctx.reporter.info(s"Running: $outFile")
     val (std, _) = runCommand(outFile)
+    undefinedBehavior(std).foreach(ub => fail(s"$outFile has undefined behavior: $ub"))
     // Note: lines are concatenated without adding newlines between them
     std.mkString
   }

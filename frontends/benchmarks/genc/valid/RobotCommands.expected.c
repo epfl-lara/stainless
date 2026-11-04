@@ -85,6 +85,7 @@ typedef struct {
 
 /* ---------------------- function declarations ----- */
 
+static STAINLESS_FUNC_PURE int32_t add(int32_t a, int32_t b);
 static STAINLESS_FUNC_PURE int32_t boolToInt(bool b);
 static STAINLESS_FUNC_PURE int32_t dirCode(enum_Direction d);
 static STAINLESS_FUNC_PURE bool equals_Command(Command lhs, Command rhs);
@@ -97,11 +98,22 @@ static void println(int32_t x);
 static void println_1(void);
 static void run(Robot* r, array_Command cmds);
 static void step(Robot* r, Command c);
+static STAINLESS_FUNC_PURE int32_t sub(int32_t a, int32_t b);
 static STAINLESS_FUNC_PURE enum_Direction turnLeft(enum_Direction d);
 static STAINLESS_FUNC_PURE enum_Direction turnRight(enum_Direction d);
 
 
 /* ----------------------- function definitions ----- */
+
+static STAINLESS_FUNC_PURE int32_t add(int32_t a, int32_t b) {
+    if (b > 0 && a > 2147483647 - b) {
+        return 2147483647;
+    } else if (b < 0 && a < -2147483648 - b) {
+        return -2147483648;
+    } else {
+        return a + b;
+    }
+}
 
 static STAINLESS_FUNC_PURE int32_t boolToInt(bool b) {
     if (b) {
@@ -181,15 +193,15 @@ static void step(Robot* r, Command c) {
     if (c.tag == tag_Move) {
         enum_Direction d = r->dir;
         if (d == tag_North) {
-            r->y = r->y + c.value.Move_v.steps;
+            r->y = add(r->y, c.value.Move_v.steps);
         } else if (d == tag_South) {
-            r->y = r->y - c.value.Move_v.steps;
+            r->y = sub(r->y, c.value.Move_v.steps);
         } else if (d == tag_East) {
-            r->x = r->x + c.value.Move_v.steps;
+            r->x = add(r->x, c.value.Move_v.steps);
         } else if (d == tag_West) {
-            r->x = r->x - c.value.Move_v.steps;
+            r->x = sub(r->x, c.value.Move_v.steps);
         }
-        r->moves = r->moves + 1;
+        r->moves = add(r->moves, 1);
     } else if (c.tag == tag_TurnLeft) {
         r->dir = turnLeft(r->dir);
     } else if (c.tag == tag_TurnRight) {
@@ -197,6 +209,16 @@ static void step(Robot* r, Command c) {
     } else if (c.tag == tag_Teleport) {
         r->x = c.value.Teleport_v.x;
         r->y = c.value.Teleport_v.y;
+    }
+}
+
+static STAINLESS_FUNC_PURE int32_t sub(int32_t a, int32_t b) {
+    if (b < 0 && a > 2147483647 + b) {
+        return 2147483647;
+    } else if (b > 0 && a < -2147483648 + b) {
+        return -2147483648;
+    } else {
+        return a - b;
     }
 }
 
