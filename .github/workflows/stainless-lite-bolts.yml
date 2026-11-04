@@ -5,6 +5,13 @@ on:
   push:
     branches:
       - main
+
+# Cancel a pull request's superseded runs when new commits are pushed.
+# Runs on main are never cancelled, so every merge still gets a result.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   bolts-lite:
     runs-on: [self-hosted, linux]
