@@ -439,8 +439,12 @@ private class S2IRImpl(override val s: tt.type,
       case Block(Nil, v: Variable) => (v, None, env)
       case Block(init, v: Variable) => (v, Some(rec(Block(init.init, init.last))), env)
 
-      // case field @ CaseClassSelector(_, _: Variable, _) => (field, None, env)
-      case field @ ADTSelector(_, _) => (field, None, env)
+      // A field selection is bound to a temporary rather than re-evaluated in each case, so that a
+      // case body that reassigns the field does not change what the pattern binders refer to. If
+      // the field has a mutable type, the Referentiator makes the temporary a pointer to the field,
+      // so mutations through the binders still reach the original object.
+      case _: ClassSelector | _: TupleSelect =>
+        withTmp(scrutinee0.getType, scrutinee0, env)
 
       case select @ ArraySelect(_: Variable, _: Variable | _: BVLiteral) => (select, None, env)
       case select @ ArraySelect(array: Variable, index) =>

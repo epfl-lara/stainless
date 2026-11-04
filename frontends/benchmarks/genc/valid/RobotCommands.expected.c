@@ -191,14 +191,14 @@ static void run(Robot* r, array_Command cmds) {
 
 static void step(Robot* r, Command c) {
     if (c.tag == tag_Move) {
-        enum_Direction d = r->dir;
-        if (d == tag_North) {
+        enum_Direction tmp = r->dir;
+        if (tmp == tag_North) {
             r->y = add(r->y, c.value.Move_v.steps);
-        } else if (d == tag_South) {
+        } else if (tmp == tag_South) {
             r->y = sub(r->y, c.value.Move_v.steps);
-        } else if (d == tag_East) {
+        } else if (tmp == tag_East) {
             r->x = add(r->x, c.value.Move_v.steps);
-        } else if (d == tag_West) {
+        } else if (tmp == tag_West) {
             r->x = sub(r->x, c.value.Move_v.steps);
         }
         r->moves = add(r->moves, 1);
