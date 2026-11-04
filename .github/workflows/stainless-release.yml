@@ -8,6 +8,8 @@ name: Stainless Release
 #   2. Builds the standalone and sbt-plugin archives.
 #   3. Publishes a GitHub release with auto-generated notes and the archives
 #      attached.
+#   4. When releasing from `main`, re-runs the documentation workflow so the
+#      published docs show the new version.
 #
 # Note: the tag is annotated but NOT GPG-signed; signing in CI would require
 # importing a GPG key from a secret.
@@ -20,6 +22,7 @@ on:
 
 permissions:
   contents: write # required to push the tag and create the release
+  actions: write # required to trigger the documentation workflow
 
 jobs:
   release:
@@ -88,6 +91,11 @@ jobs:
           --generate-notes \
           stainless-dotty-standalone-*.zip \
           sbt-stainless.zip
+    - name: Republish the documentation
+      if: github.ref == 'refs/heads/main'
+      # The tag pushed above uses GITHUB_TOKEN, which does not trigger other
+      # workflows, so the documentation workflow is dispatched explicitly.
+      run: gh workflow run stainless-docs.yml --ref main
     - name: Clean up
       if: always()
       run: rm -rf $JAVA_OPTS_TMP_DIR

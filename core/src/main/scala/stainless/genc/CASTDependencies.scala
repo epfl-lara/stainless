@@ -162,6 +162,9 @@ object CASTDependencies {
       params.foreach(typeCollector.traverse)
     }
 
+    // Types of exported globals (defined or declared in the header)
+    prog.decls.collect { case (Decl(_, typ, _), modes) if modes.contains(Export) => typ }.foreach(typeCollector.traverse)
+
     for (tpe <- prog.typeDefs.filter(_.isExported)) typeCollector.traverse(tpe)
     for (tpe <- prog.types.filter(_.isExported)) typeCollector.traverse(tpe)
 

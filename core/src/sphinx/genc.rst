@@ -78,21 +78,21 @@ The following raw types and their corresponding literals are supported:
     - ``void``
   * - ``Boolean``
     - ``bool``
-  * - ``Byte`` and ``Int8`` (8-bit integer)
+  * - ``Byte`` (8-bit integer)
     - ``int8_t``
-  * - ``Short`` and ``Int16`` (16-bit integer)
+  * - ``Short`` (16-bit integer)
     - ``int16_t``
-  * - ``Int`` and ``Int32`` (32-bit integer)
+  * - ``Int`` (32-bit integer)
     - ``int32_t``
-  * - ``Long`` and ``Int64`` (64-bit integer)
+  * - ``Long`` (64-bit integer)
     - ``int64_t``
-  * - ``UInt8`` (8-bit unsigned integer)
+  * - ``UByte`` (8-bit unsigned integer)
     - ``uint8_t``
-  * - ``UInt16`` (16-bit integer)
+  * - ``UShort`` (16-bit unsigned integer)
     - ``uint16_t``
-  * - ``UInt32`` (32-bit integer)
+  * - ``UInt`` (32-bit unsigned integer)
     - ``uint32_t``
-  * - ``UInt64`` (64-bit integer)
+  * - ``ULong`` (64-bit unsigned integer)
     - ``uint64_t``
 
 Additionally, GenC has partial support for character and string literals made
@@ -139,9 +139,9 @@ See below for a case class with a fixed length array and its transformation in C
 
 .. code-block:: scala
 
-  val CONSTANT1: UInt16 = 5
-  val CONSTANT2: UInt16 = 12
-  val CONSTANT3: UInt16 = CONSTANT1 + CONSTANT2
+  val CONSTANT1: UShort = 5.toUShort
+  val CONSTANT2: UShort = 12.toUShort
+  val CONSTANT3: UShort = CONSTANT1 + CONSTANT2
 
   @cCode.export
   case class W(x: Int, a: Array[Int], y: Int) {
@@ -266,7 +266,7 @@ Global State
 At the moment, Stainless does not support global mutable variables declared in objects.
 It is however possible to simulate global state by using classes marked with ``@cCode.global``,
 as shown in the `Global.scala
-<https://github.com/epfl-lara/stainless/blob/master/frontends/benchmarks/genc/Global.scala>`_
+<https://github.com/epfl-lara/stainless/blob/master/frontends/benchmarks/genc/valid/Global.scala>`_
 example:
 
 .. code-block:: scala
@@ -306,7 +306,7 @@ state:
 
 These checks ensure that the fields of ``GlobalState`` can be compiled as global variables in ``C``.
 Consider the ``move`` function from the `Global.scala
-<https://github.com/epfl-lara/stainless/blob/master/frontends/benchmarks/genc/Global.scala>`_
+<https://github.com/epfl-lara/stainless/blob/master/frontends/benchmarks/genc/valid/Global.scala>`_
 example:
 
 .. code-block:: scala
@@ -367,6 +367,73 @@ values. These global variables are thus initialized according to C semantics, an
 a mismatch between the global state instance created by the user, and the initial values in C.
 The second one hides the global declarations, which can be useful when interacting with C code
 that declares global variables outside of the Stainless program.
+
+
+Constants
+---------
+
+Top-level ``val``\ s (i.e., ``val``\ s defined in objects) are immutable, so GenC translates them
+to ``static const`` global variables:
+
+.. code-block:: scala
+
+  object Limits {
+    val MaxF: Int = 65535
+    val ErrMalformed: Int = -2
+  }
+
+  @cCode.export
+  def check(f: Int): Int = {
+    if (0 < f && f <= Limits.MaxF) f else Limits.ErrMalformed
+  }
+
+.. code-block:: C
+
+  static const int32_t MaxF = 65535;
+  static const int32_t ErrMalformed = -2;
+
+  STAINLESS_FUNC_PURE int32_t check(int32_t f) {
+      if (0 < f && f <= MaxF) {
+          return f;
+      } else {
+          return ErrMalformed;
+      }
+  }
+
+Constants of case class types are supported as well; they are initialised with (designated)
+initialiser lists. In C, the initial value of a global variable must be a constant expression,
+which a ``const`` variable is not: GenC therefore inlines the values of the constants that
+appear in the initial value of another constant (e.g., ``val MaxPlusOne = Limits.MaxF + 1``
+becomes ``static const int32_t MaxPlusOne = 65535 + 1;``), and rejects initial values that are
+not constant expressions, such as function calls. An initial value may also refer to a value
+annotated with ``@cCode.drop``, which must then be defined as a constant expression (e.g., as a
+macro) on the C side.
+
+Constants are only translated if they are used by the translated code, unless they are annotated
+with ``@cCode.export``, in which case they are defined in the generated header file so that they
+can be used from C code:
+
+.. code-block:: scala
+
+  @cCode.export
+  val ErrMalformed: Int = -2
+
+.. code-block:: C
+
+  static const int32_t ErrMalformed = -2;
+
+Function values that GenC supports (lambdas that directly call a named function) can be used as
+constants as well; they become constant function pointers. An exported function constant must
+refer to an exported function, as the former is defined in the header file.
+
+Constants annotated with ``@cCode.define`` are translated to preprocessor macros instead
+(``#define MaxF 65535``). Such macros are integer constant expressions in C99, and can therefore
+be used in ``case`` labels or as array sizes at file scope, but they are untyped. Like other
+constants, they are placed in the header file when they are also exported.
+
+Finally, ``val`` fields of ``@cCode.global`` classes are declared ``const`` as well when their
+type is immutable (e.g., ``val limit: Int = 10``), while ``var`` fields and fields of mutable
+types (e.g., arrays) remain regular global variables.
 
 
 Custom Conversion

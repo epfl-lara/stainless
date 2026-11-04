@@ -1,12 +1,12 @@
 import stainless.annotation._
 import stainless.io._
-import stainless.math.BitVectors._
+import stainless.math.Unsigned._
 
 object FixedArray {
 
-  val CONSTANT1: UInt16 = 2
-  val CONSTANT2: UInt16 = 3
-  val CONSTANT3: UInt16 = CONSTANT1 + CONSTANT2
+  val CONSTANT1: UShort = 2.toUShort
+  val CONSTANT2: UShort = 3.toUShort
+  val CONSTANT3: UShort = CONSTANT1 + CONSTANT2
 
   @cCode.`export`
   case class W(x: Int, a: Array[Int], y: Int) {

@@ -4,7 +4,8 @@ import stainless.io._
 
 object TailRecMultipleCalls {
   def multipleCalls(n: Int, acc: Int): Int =
-    require(n >= 0)
+    // `acc` grows by at most 2 per step
+    require(0 <= n && n <= 1000 && 0 <= acc && acc <= 1000 - 2 * n)
     decreases(n)
     if n == 0 then acc
     else if n == 1 then acc + 2

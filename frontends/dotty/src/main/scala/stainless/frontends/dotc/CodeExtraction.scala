@@ -1729,47 +1729,11 @@ class CodeExtraction(inoxCtx: inox.Context,
       case _ => outOfSubsetError(tr, "Conversion from Int to BigInt")
     }
 
-    case ExIntToBV(FrontendBVKind(signed, size), tree) =>
-      extractTree(tree) match {
-        case xt.Int32Literal(n)
-          if !signed && 0 <= n && BigInt(n) < BigInt(2).pow(size) =>
+    case ExUnsignedMinMax(size, isMax) =>
+      xt.BVLiteral(false, if (isMax) BigInt(2).pow(size) - 1 else BigInt(0), size)
 
-          xt.BVLiteral(signed, BigInt(n), size)
-        case xt.Int32Literal(n)
-          if signed && -(BigInt(2).pow(size-1)) <= BigInt(n) && BigInt(n) < BigInt(2).pow(size-1) =>
-
-          xt.BVLiteral(signed, BigInt(n), size)
-        case _ => outOfSubsetError(tr, "`intToBV` may only be used on `Int` literals (in the right range)")
-      }
-
-    case ExIntToBV(typ, tree) =>
-      outOfSubsetError(tr, s"`intToBV` cannot be instantiated on non-bitvector type $typ")
-
-    case ExBigIntToBV(signed, size, tree) =>
-      extractTree(tree) match {
-        case xt.IntegerLiteral(n)
-          if !signed && 0 <= n && n < BigInt(2).pow(size) =>
-
-          xt.BVLiteral(signed, n, size)
-        case xt.IntegerLiteral(n)
-          if signed && -(BigInt(2).pow(size-1)) <= n && n < BigInt(2).pow(size-1) =>
-
-          xt.BVLiteral(signed, n, size)
-        case _ => outOfSubsetError(tr, "`bigIntToBV` implicit may only be used on `BigInt` literals (in the right range)")
-      }
-
-    case ExMaxBV(signed, size) =>
-      if (signed) xt.BVLiteral(signed, (BigInt(2) pow (size - 1)) - 1, size)
-      else xt.BVLiteral(signed,  (BigInt(2) pow size) - 1, size)
-
-    case ExMinBV(signed, size) =>
-      if (signed) xt.BVLiteral(signed, -(BigInt(2) pow (size - 1)), size)
-      else xt.BVLiteral(signed, BigInt(0), size)
-
-    case ExFromByte(tree) => extractTree(tree)
-    case ExFromShort(tree) => extractTree(tree)
-    case ExFromInt(tree) => extractTree(tree)
-    case ExFromLong(tree) => extractTree(tree)
+    case ExUnsignedExtensionCall(sym, receiver, args) =>
+      extractCall(tr, Some(receiver), sym, Seq.empty, args)
 
     case ExWrapping(tree) =>
       val body = extractTree(tree)(using dctx.setWrappingArithmetic(true))
@@ -1910,51 +1874,9 @@ class CodeExtraction(inoxCtx: inox.Context,
     case ExUMinus(e) => injectCast(xt.UMinus.apply)(e)
     case ExBVNot(e)  => injectCast(xt.BVNot.apply)(e)
 
-    case ExNotEquals(l, r) => xt.Not(((extractTree(l), extractType(l), extractTree(r), extractType(r)) match {
-      case (bi @ xt.BVLiteral(_, _, _), _, e, xt.IntegerType()) => xt.Equals(xt.IntegerLiteral(bi.toBigInt).setPos(l.sourcePos), e)
-      case (e, xt.IntegerType(), bi @ xt.BVLiteral(_, _, _), _) => xt.Equals(e, xt.IntegerLiteral(bi.toBigInt).setPos(r.sourcePos))
+    case ExNotEquals(l, r) => xt.Not(extractEquals(tr, l, r).setPos(tr.sourcePos))
 
-      case (l2, StrictBVType(signed, size), xt.IntegerLiteral(value), _) =>
-        xt.Equals(l2, xt.BVLiteral(signed, value, size).setPos(r.sourcePos))
-      case (l2, StrictBVType(signed, size), xt.Int32Literal(value), _) =>
-        xt.Equals(l2, xt.BVLiteral(signed, BigInt(value), size).setPos(r.sourcePos))
-      case (xt.IntegerLiteral(value), _, r2, StrictBVType(signed, size)) =>
-        xt.Equals(xt.BVLiteral(signed, value, size).setPos(l.sourcePos), r2)
-      case (xt.Int32Literal(value), _, r2, StrictBVType(signed, size)) =>
-        xt.Equals(xt.BVLiteral(signed, BigInt(value), size).setPos(l.sourcePos), r2)
-
-      case (l2, tpeL @ StrictBVType(_, _), r2, tpeR) =>
-        if (tpeL == tpeR) xt.Equals(l2, r2)
-        else outOfSubsetError(tr, "Bitvectors can only be compared with bitvectors of the same type.")
-      case (l2, tpeL, r2, tpeR @ StrictBVType(_, _)) =>
-        if (tpeL == tpeR) xt.Equals(l2, r2)
-        else outOfSubsetError(tr, "Bitvectors can only be compared with bitvectors of the same type.")
-
-      case _ => injectCasts(xt.Equals.apply)(l, r)
-    }).setPos(tr.sourcePos))
-
-    case ExEquals(l, r) => (extractTree(l), extractType(l), extractTree(r), extractType(r)) match {
-      case (bi @ xt.BVLiteral(_, _, _), _, e, xt.IntegerType()) => xt.Equals(xt.IntegerLiteral(bi.toBigInt).setPos(l.sourcePos), e)
-      case (e, xt.IntegerType(), bi @ xt.BVLiteral(_, _, _), _) => xt.Equals(e, xt.IntegerLiteral(bi.toBigInt).setPos(r.sourcePos))
-
-      case (l2, StrictBVType(signed, size), xt.IntegerLiteral(value), _) =>
-        xt.Equals(l2, xt.BVLiteral(signed, value, size).setPos(r.sourcePos))
-      case (l2, StrictBVType(signed, size), xt.Int32Literal(value), _) =>
-        xt.Equals(l2, xt.BVLiteral(signed, BigInt(value), size).setPos(r.sourcePos))
-      case (xt.IntegerLiteral(value), _, r2, StrictBVType(signed, size)) =>
-        xt.Equals(xt.BVLiteral(signed, value, size).setPos(l.sourcePos), r2)
-      case (xt.Int32Literal(value), _, r2, StrictBVType(signed, size)) =>
-        xt.Equals(xt.BVLiteral(signed, BigInt(value), size).setPos(l.sourcePos), r2)
-
-      case (l2, tpeL @ StrictBVType(_, _), r2, tpeR) =>
-        if (tpeL == tpeR) xt.Equals(l2, r2)
-        else outOfSubsetError(tr, "Bitvectors can only be compared with bitvectors of the same type.")
-      case (l2, tpeL, r2, tpeR @ StrictBVType(_, _)) =>
-        if (tpeL == tpeR) xt.Equals(l2, r2)
-        else outOfSubsetError(tr, "Bitvectors can only be compared with bitvectors of the same type.")
-
-      case _ => injectCasts(xt.Equals.apply)(l, r)
-    }
+    case ExEquals(l, r) => extractEquals(tr, l, r)
 
     case If(t1,t2,t3) =>
       xt.IfExpr(extractTree(t1), extractTree(t2), extractTree(t3))
@@ -1992,20 +1914,6 @@ class CodeExtraction(inoxCtx: inox.Context,
 
     case ExArrayUpdated(array, index, newValue) =>
       xt.ArrayUpdated(extractTree(array), extractTree(index), extractTree(newValue))
-    case ExArrayApplyBV(array, bvType, index) => bvType match {
-      case FrontendBVType(signed, size) =>
-        xt.ArraySelect(
-          extractTree(array),
-          toSigned(extractTree(index), signed, size, 32)
-        )
-      case FrontendBVKind(signed, size) =>
-        xt.ArraySelect(
-          extractTree(array),
-          toSigned(extractTree(index), signed, size, 32)
-        )
-      case tpe =>
-        outOfSubsetError(bvType, s"ArrayIndexing implicit must be used on a BitVector type (found $tpe instead)")
-    }
 
     case ExArrayLength(array) =>
       xt.ArrayLength(extractTree(array))
@@ -2365,7 +2273,6 @@ class CodeExtraction(inoxCtx: inox.Context,
         case (StrictBVType(_, _), "-",        Seq(rhs)) => xt.Minus(extractTree(lhs), extractTree(rhs))
         case (StrictBVType(_, _), "*",        Seq(rhs)) => xt.Times(extractTree(lhs), extractTree(rhs))
         case (StrictBVType(_, _), "%",        Seq(rhs)) => xt.Remainder(extractTree(lhs), extractTree(rhs))
-        case (StrictBVType(_, _), "mod",      Seq(rhs)) => xt.Modulo(extractTree(lhs), extractTree(rhs))
         case (StrictBVType(_, _), "/",        Seq(rhs)) => xt.Division(extractTree(lhs), extractTree(rhs))
         case (StrictBVType(_, _), ">",        Seq(rhs)) => xt.GreaterThan(extractTree(lhs), extractTree(rhs))
         case (StrictBVType(_, _), ">=",       Seq(rhs)) => xt.GreaterEquals(extractTree(lhs), extractTree(rhs))
@@ -2375,40 +2282,35 @@ class CodeExtraction(inoxCtx: inox.Context,
         case (StrictBVType(_, _), "&",        Seq(rhs)) => xt.BVAnd(extractTree(lhs), extractTree(rhs))
         case (StrictBVType(_, _), "^",        Seq(rhs)) => xt.BVXor(extractTree(lhs), extractTree(rhs))
         case (StrictBVType(_, _), "<<",       Seq(rhs)) => xt.BVShiftLeft(extractTree(lhs), extractTree(rhs))
-        case (StrictBVType(_, _), ">>",       Seq(rhs)) => xt.BVAShiftRight(extractTree(lhs), extractTree(rhs))
         case (StrictBVType(_, _), ">>>",      Seq(rhs)) => xt.BVLShiftRight(extractTree(lhs), extractTree(rhs))
 
-        case (StrictBVType(signed, size), "widen",  Seq()) => tps match {
-          case Seq(FrontendBVType(signed2, size2)) =>
-            if (signed2 != signed) outOfSubsetError(tr, "Method `widen` must be used with a bitvector type of the same sign")
-            else if (size2 <= size) outOfSubsetError(tr, "Method `widen` must be used with a bitvector type of a larger size")
-            else xt.BVWideningCast(extractTree(lhs), xt.BVType(signed2, size2))
-        }
-        case (StrictBVType(signed, size), "narrow",  Seq()) => tps match {
-          case Seq(FrontendBVType(signed2, size2)) =>
-            if (signed2 != signed) outOfSubsetError(tr, "Method `narrow` must be used with a bitvector type of the same sign")
-            else if (size2 >= size) outOfSubsetError(tr, "Method `narrow` must be used with a bitvector type of a smaller size")
-            else xt.BVNarrowingCast(extractTree(lhs), xt.BVType(signed2, size2))
-        }
+        // Conversions to unsigned types: zero-extension or truncation of an unsigned value, and
+        // sign-extension or truncation of a signed value followed by a reinterpretation of its bits
+        case (StrictBVType(false, size), UnsignedConversion(size2), Seq()) =>
+          if (size < size2) xt.BVWideningCast(extractTree(lhs), xt.BVType(false, size2))
+          else if (size > size2) xt.BVNarrowingCast(extractTree(lhs), xt.BVType(false, size2))
+          else extractTree(lhs)
+        // Conversions of signed values and of `BigInt`s (modulo 2^size); a literal in the range of the unsigned
+        // type is extracted as a literal of that type (unsigned literals are written as `200.toUByte`)
+        case (xt.BVType(true, _) | xt.IntegerType(), UnsignedConversion(size), Seq()) =>
+          val e = extractTree(lhs)
+          val literal = e match {
+            case lit @ xt.BVLiteral(true, _, _) => Some(lit.toBigInt)
+            case xt.IntegerLiteral(n) => Some(n)
+            case _ => None
+          }
+          (literal, tpe) match {
+            case (Some(n), _) if 0 <= n && n < BigInt(2).pow(size) => xt.BVLiteral(false, n, size)
+            case (_, xt.BVType(true, size1)) => toUnsigned(e, size1, size)
+            case _ => xt.IntToBV(size, false, e)
+          }
 
-        case (StrictBVType(signed, size), "toSigned",  Seq()) => tps match {
-          case Seq(FrontendBVType(signed2, size2)) =>
-            if (signed) outOfSubsetError(tr, "Method `toSigned` must be used on unsigned bitvectors")
-            else if (!signed2) outOfSubsetError(tr, "Method `toSigned` must be instantiated with a signed bitvector type")
-            else if (size != size2) outOfSubsetError(tr, "Method `toSigned` must be instantiated with a signed bitvector type of the same size as the original bitvector")
-            else xt.BVUnsignedToSigned(extractTree(lhs))
-          case _ =>
-            outOfSubsetError(tr, "Method `toSigned` must be instantiated with a signed bitvector type of the same size as the original bitvector")
-        }
-        case (StrictBVType(signed, size), "toUnsigned",  Seq()) => tps match {
-          case Seq(FrontendBVType(signed2, size2)) =>
-            if (!signed) outOfSubsetError(tr, "Method `toUnsigned` must be used on signed bitvectors")
-            else if (signed2) outOfSubsetError(tr, "Method `toUnsigned` must be instantiated with a unsigned bitvector type")
-            else if (size != size2) outOfSubsetError(tr, "Method `toUnsigned` must be instantiated with a unsigned bitvector type of the same size as the original bitvector")
-            else xt.BVSignedToUnsigned(extractTree(lhs))
-          case _ =>
-            outOfSubsetError(tr, "Method `toSigned` must be instantiated with a signed bitvector type of the same size as the original bitvector")
-        }
+        case (StrictBVType(false, _), "toBigInt", Seq()) =>
+          xt.BVToInt(extractTree(lhs))
+
+        // An uninterpreted (`@extern`) function of `stainless.math.UnsignedStrings`
+        case (StrictBVType(false, size), "toStringUnsigned", Seq()) =>
+          xt.FunctionInvocation(getIdentifier(unsignedToStringSyms(size)), Seq.empty, Seq(extractTree(lhs)))
 
         case (StrictBVType(signed, size), "toByte",  Seq()) =>
           toSigned(extractTree(lhs), signed, size, 8)
@@ -2553,7 +2455,7 @@ class CodeExtraction(inoxCtx: inox.Context,
     }
   }
 
-  /** Inject casts for our BitVectors library for methods toByte, toShort, toInt, toLong */
+  /** Inject casts for the methods toByte, toShort, toInt, toLong of the unsigned types */
   private def toSigned(e: xt.Expr, signed: Boolean, size1: Int, size2: Int): xt.Expr = {
     // already signed
     if (signed && size1 < size2) xt.BVWideningCast(e, xt.BVType(signed, size2)).copiedFrom(e)
@@ -2567,6 +2469,58 @@ class CodeExtraction(inoxCtx: inox.Context,
     else
       xt.BVUnsignedToSigned(e).copiedFrom(e)
   }
+
+  /** Inject casts for the methods toUByte, toUShort, toUInt, toULong of the signed types: the value is
+    * sign-extended or truncated, and its bits are reinterpreted as unsigned. Truncation is applied after the
+    * reinterpretation, so that the checks of `--strict-arithmetic` require the value to fit in the unsigned type.
+    */
+  private def toUnsigned(e: xt.Expr, size1: Int, size2: Int): xt.Expr = {
+    if (size1 < size2)
+      xt.BVSignedToUnsigned(xt.BVWideningCast(e, xt.BVType(true, size2)).copiedFrom(e)).copiedFrom(e)
+    else if (size1 > size2)
+      xt.BVNarrowingCast(xt.BVSignedToUnsigned(e).copiedFrom(e), xt.BVType(false, size2)).copiedFrom(e)
+    else
+      xt.BVSignedToUnsigned(e).copiedFrom(e)
+  }
+
+  /** The name of the conversion methods to the unsigned types, with the size of the type */
+  private object UnsignedConversion {
+    def unapply(name: String): Option[Int] = name match {
+      case "toUByte" => Some(8)
+      case "toUShort" => Some(16)
+      case "toUInt" => Some(32)
+      case "toULong" => Some(64)
+      case _ => None
+    }
+  }
+
+  private def unsignedTypeName(size: Int): String = size match {
+    case 8 => "UByte"
+    case 16 => "UShort"
+    case 32 => "UInt"
+    case 64 => "ULong"
+  }
+
+  /** Extracts `l == r`.
+    *
+    * An unsigned value can only be compared with a value of the same type: on the JVM, comparing it with a number
+    * of another type would compare that number with the signed representation of the unsigned value. The Scala
+    * compiler already rejects comparisons with numbers (`Int`, `BigInt`, ...), as these have `CanEqual` instances.
+    */
+  private def extractEquals(tr: tpd.Tree, l: tpd.Tree, r: tpd.Tree)(using dctx: DefContext): xt.Expr =
+    (extractTree(l), extractType(l), extractTree(r), extractType(r)) match {
+      case (bi @ xt.BVLiteral(true, _, _), _, e, xt.IntegerType()) => xt.Equals(xt.IntegerLiteral(bi.toBigInt).setPos(l.sourcePos), e)
+      case (e, xt.IntegerType(), bi @ xt.BVLiteral(true, _, _), _) => xt.Equals(e, xt.IntegerLiteral(bi.toBigInt).setPos(r.sourcePos))
+
+      case (l2, tpeL @ StrictBVType(_, _), r2, tpeR) =>
+        if (tpeL == tpeR) xt.Equals(l2, r2)
+        else outOfSubsetError(tr, "Unsigned values can only be compared with values of the same type.")
+      case (l2, tpeL, r2, tpeR @ StrictBVType(_, _)) =>
+        if (tpeL == tpeR) xt.Equals(l2, r2)
+        else outOfSubsetError(tr, "Unsigned values can only be compared with values of the same type.")
+
+      case _ => injectCasts(xt.Equals.apply)(l, r)
+    }
 
   /** Inject implicit widening casts according to the Java semantics (5.6.2. Binary Numeric Promotion).
    *  Also converts to floating-point versions of operators when necessary. */
@@ -2769,8 +2723,8 @@ class CodeExtraction(inoxCtx: inox.Context,
         val AppliedType(_, Seq(tp)) = tpt.dealias: @unchecked
         xt.BagType(extractType(tp))
 
-      case FrontendBVType(signed, size) =>
-        xt.AnnotatedType(xt.BVType(signed, size), Seq(xt.StrictBV))
+      case FrontendUnsignedType(size) =>
+        xt.AnnotatedType(xt.BVType(false, size), Seq(xt.StrictBV))
 
       case AppliedType(tr: TypeRef, tps) if isMapSym(tr.symbol) =>
         // We know the underlying is a map, but it may be hidden under an alias

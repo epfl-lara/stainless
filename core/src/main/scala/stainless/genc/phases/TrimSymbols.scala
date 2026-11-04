@@ -115,13 +115,41 @@ class Trimmer(override val s: tt.type, // to get `FunAbsOps` implicit class for 
     kept ++= rootCd.descendants.map(_.id)
   }
 
+  /** The definitions from which `Scala2IR` starts the translation, plus the field initializers of
+   *  global classes, which `Scala2IR` reads to initialize global state.
+   */
+  private def isRoot(fd: s.FunDef): Boolean =
+    fd.isExported ||
+    fd.flags.exists(_.name == "cCode.define") ||
+    fd.flags.exists {
+      case s.ClassParamInit(cid) => symbols.lookupClass(cid).exists(_.isGlobal)
+      case _ => false
+    }
+
+  private def isRoot(cd: s.ClassDef): Boolean =
+    cd.isExported || cd.isGlobal
+
+  /** Keeps only the symbols reachable from the roots: transforming a definition registers the
+   *  symbols it mentions in `kept`, so definitions are transformed until no new symbol is reached.
+   */
   def transform(syms: s.Symbols): t.Symbols = {
-    val newFunctions = syms.functions.values.map(transform)
-    val newClasses = syms.classes.values.map(transform)
+    kept ++= syms.functions.values.filter(isRoot).map(_.id)
+    syms.classes.values.filter(isRoot).foreach(cd => register(cd.id))
+    val visited = MutableSet[Identifier]()
+    val newFunctions = collection.mutable.ArrayBuffer[t.FunDef]()
+    val newClasses = collection.mutable.ArrayBuffer[t.ClassDef]()
+
+    while (!kept.subsetOf(visited)) {
+      for (id <- (kept -- visited).toSeq) {
+        visited += id
+        syms.lookupFunction(id).foreach(fd => newFunctions += transform(fd))
+        syms.lookupClass(id).foreach(cd => newClasses += transform(cd))
+      }
+    }
 
     t.NoSymbols
-      .withFunctions(newFunctions.toSeq.filter(fd => kept.contains(fd.id)))
-      .withClasses(newClasses.toSeq.filter(cd => kept.contains(cd.id)))
+      .withFunctions(newFunctions.toSeq)
+      .withClasses(newClasses.toSeq)
   }
 
   def transform(lfd: s.LocalFunDef): t.LocalFunDef = {
@@ -147,9 +175,6 @@ class Trimmer(override val s: tt.type, // to get `FunAbsOps` implicit class for 
   }
 
   override def transform(fd: s.FunDef): t.FunDef = {
-    val isParamInit = fd.flags.exists(_.isInstanceOf[s.ClassParamInit])
-    val isDefine = fd.flags.exists(_.name == "cCode.define")
-    if (fd.isExported || isParamInit || isDefine) kept += fd.id
     val ret = transform(fd.returnType)
 
     if (fd.isManuallyDefined || fd.isDropped)

@@ -19,7 +19,10 @@ class IR2CPhase(using override val context: inox.Context) extends LeonPipeline[T
   val name = "CASTer"
   val description = "Translate the IR tree into the final C AST"
 
-  def run(ir: TIR.Prog): CAST.Prog = new IR2CImpl()(using context)(ir)
+  def run(ir: TIR.Prog): CAST.Prog = {
+    CAST.FreshId.reset()
+    new IR2CImpl()(using context)(ir)
+  }
 }
 
 // This implementation is basically a Transformer that produce something which isn't an IR tree.
@@ -64,18 +67,26 @@ private class IR2CImpl()(using ctx: inox.Context) {
 
   private def rec(prog: Prog): C.Prog = {
 
-    val decls = prog.decls.map { case (decl, modes) => rec(decl, allowFixedArray = true) match {
-      case res: C.Decl => (res, modes)
-      case res =>
-        ctx.reporter.fatalError(
-          "Only simple values are supported as default values for global variables.\n" +
-          s"Declaration $decl was translated to $res.\n" +
-          (if (decl.vd.typ.isArray && !decl.vd.typ.isFixedArray)
-            "Try making the length of the array constant by adding a condition in the class invariant of the global state."
-          else
-            "")
-        )
-    }}
+    val globals = prog.decls.map { case (decl, modes) => decl.vd.id -> (decl, modes) }.toMap
+
+    val decls = prog.decls.map { case (decl, modes) =>
+      rec(decl, allowFixedArray = true) match {
+        case res: C.Decl =>
+          // Macros are expanded at their use sites, so their value need not be a constant expression
+          if (!modes.contains(Define))
+            decl.optInit.foreach(checkGlobalInit(decl.vd, _, isHeaderConstant(modes), globals))
+          (res, modes)
+        case res =>
+          ctx.reporter.fatalError(
+            "Only simple values are supported as default values for global variables.\n" +
+            s"Declaration $decl was translated to $res.\n" +
+            (if (decl.vd.typ.isArray && !decl.vd.typ.isFixedArray)
+              "Try making the length of the array constant by adding a condition in the class invariant of the global state."
+            else
+              "")
+          )
+      }
+    }
 
     // Process functions and classes in a deterministic (id-sorted) order: datatypes are
     // registered on first encounter (see `dataTypes`), so a stable traversal order gives a
@@ -88,6 +99,58 @@ private class IR2CImpl()(using ctx: inox.Context) {
 
     // Remove "mutability" on includes & typeDefs
     C.Prog(headerIncludes.toSet, cIncludes.toSet, decls, typdefs.toSet, enums, dataTypes, functions)
+  }
+
+  /** Checks that the initial value `init` of the global `vd` is a constant expression in C (C99 §6.6),
+    * as required for objects with static storage duration, and that a global defined in the header file
+    * (`inHeader`) only refers to definitions that are visible there.
+    *
+    * Besides literals, and constructors, operators, and casts applied to constant expressions, an initial
+    * value may refer to functions (address constants), to `@cCode.define` macros whose value is itself a
+    * constant expression (as macros are expanded in place), and to `@cCode.drop`ped values, which the user
+    * must then define as constant expressions (e.g., as macros) on the C side. References to other
+    * constants have been inlined by the Scala2IR phase. `globals` gives the declaration and the
+    * declaration modes of each global.
+    */
+  private def checkGlobalInit(vd: ValDef, init: Expr, inHeader: Boolean, globals: Map[Id, (Decl, Seq[DeclarationMode])]): Unit = {
+    val checkedMacros = MutableSet[Id]()
+    def notInHeader(what: String): Nothing = ctx.reporter.fatalError(
+      s"Exported constant ${vd.id} refers to $what, which must be exported as well (with @cCode.export) " +
+      "to be visible from the header file"
+    )
+    // Shows an expression as C code (array initialisations can only be translated as part of a declaration)
+    def show(e: Expr): String = e match {
+      case _: ArrayInit | _: Decl => e.toString
+      case _ => rec(e).toString
+    }
+    // `viaMacro` is the macro whose value `e` is part of, if any
+    def check(e: Expr, viaMacro: Option[Id]): Unit = {
+      def notConstant(what: String): Nothing = ctx.reporter.fatalError(
+        s"The initial value of global ${vd.id} must be a constant expression in C " +
+        "(a literal, a constructor applied to constant expressions, or a reference to another constant), but " +
+        viaMacro.fold("it")(m => s"the value of the macro $m it refers to") + s" $what"
+      )
+      e match {
+        case Lit(_) => ()
+        case Construct(_, args) => args.foreach(check(_, viaMacro))
+        case ArrayInit(ArrayAllocStatic(_, _, values)) => values.foreach(_.foreach(check(_, viaMacro)))
+        case BinOp(_, lhs, rhs) => check(lhs, viaMacro); check(rhs, viaMacro)
+        case UnOp(_, expr) => check(expr, viaMacro)
+        case IntegralCast(expr, _) => check(expr, viaMacro)
+        case FunRef(expr) => check(expr, viaMacro)
+        case FunVal(fd) => if (inHeader && !fd.isExported) notInHeader(s"function ${fd.id}")
+        case Binding(ref) => globals.get(ref.id) match {
+          case Some((macroDecl, modes)) if modes.contains(Define) =>
+            if (inHeader && !modes.contains(Export)) notInHeader(s"macro ${ref.id}")
+            if (checkedMacros.add(ref.id)) macroDecl.optInit.foreach(check(_, Some(ref.id)))
+          case Some((_, modes)) if modes.contains(External) => () // defined by the user on the C side
+          case _ => notConstant(s"refers to the variable ${ref.id}")
+        }
+        case App(FunVal(fd), Seq(), Seq()) if fd.body == FunDropped(true) => () // `@cCode.drop`ped value
+        case other => notConstant(s"contains: ${show(other)}")
+      }
+    }
+    check(init, None)
   }
 
   private def rec(fd: FunDef): Unit = funCache.getOrElseUpdate(fd, {
@@ -299,11 +362,27 @@ private class IR2CImpl()(using ctx: inox.Context) {
           C.Cast(expr, C.Primitive(tpe))
 
         case PrimitiveType(tpe: IntegralPrimitiveType) if tpe.isUnsigned =>
-          C.BinOp(op, rec(lhs0), rec(rhs0))
+          val expr = C.BinOp(op, rec(lhs0), rec(rhs0))
+          if (op == BLeftShift && isPromotedToInt(lhs0.getType)) C.Cast(expr, C.Primitive(tpe)) else expr
 
         case _ =>
           ctx.reporter.fatalError(s"Shifting on type $tpe is not supported")
       }
+
+    /* NOTE In C, the operands of arithmetic operations on types smaller than `int` (`uint8_t` and
+     *      `uint16_t`) are promoted to `int`. The result of the operations that can exceed the range of
+     *      the type is therefore cast back to the type, so that it wraps around as in Stainless (signed
+     *      types smaller than `int` never appear here, as Stainless promotes them to `Int` like Scala).
+     *      Multiplications are performed on `uint32_t`: in `int`, multiplying two `uint16_t` can overflow.
+     */
+    case BinOp(op @ (Plus | Minus | Times), lhs0, rhs0) if isPromotedToInt(lhs0.getType) =>
+      val PrimitiveType(tpe) = lhs0.getType: @unchecked
+      val lhs = if (op == Times) C.Cast(rec(lhs0), C.Primitive(UInt32Type)) else rec(lhs0)
+      C.Cast(C.BinOp(op, lhs, rec(rhs0)), C.Primitive(tpe))
+
+    case UnOp(op @ (UMinus | BNot), expr0) if isPromotedToInt(expr0.getType) =>
+      val PrimitiveType(tpe) = expr0.getType: @unchecked
+      C.Cast(C.UnOp(op, rec(expr0)), C.Primitive(tpe))
 
     /* NOTE For == and != on objects, we create a dedicated equal function.
      *      See comment in CmpFactory.
@@ -410,6 +489,12 @@ private class IR2CImpl()(using ctx: inox.Context) {
   //
   // NOTE Leon guarantees us that every abstract class has at least one (indirect) case class child.
   //
+  /** Whether C promotes the operands of arithmetic operations on this (unsigned) type to `int` */
+  private def isPromotedToInt(typ: Type): Boolean = typ match {
+    case PrimitiveType(UInt8Type | UInt16Type) => true
+    case _ => false
+  }
+
   private def constructObject(cd: ClassDef, args: Seq[Expr]): C.Expr = {
     require(!cd.isAbstract)
 

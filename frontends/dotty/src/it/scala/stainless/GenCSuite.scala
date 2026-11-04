@@ -28,18 +28,37 @@ class GenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUtils with
     path -> checkFile
   }
   val tailrecScalaFiles = tailrecFiles.map(_._1)
+  // Every valid benchmark with a sibling `.check` file is also run end-to-end: the output
+  // of the compiled binary (lines concatenated) must match the contents of the `.check` file.
+  val checkFiles = validFiles.flatMap { path =>
+    val checkFile = path.replace(".scala", ".check")
+    if (Files.exists(Paths.get(checkFile))) Some(path -> checkFile) else None
+  }
   val ctx = TestContext.empty
 
   for (file <- invalidFiles) {
     val cFile = file.replace(".scala", ".c")
     val outFile = file.replace(".scala", ".out")
     test(s"stainless --genc --genc-output=$cFile $file should fail") {
-      an [inox.FatalError] should be thrownBy runMainWithArgs(Array(file) :+ "--genc" :+ s"--genc-output=$cFile" :+ "--skip-verification")
+      // The program must be rejected, either by GenC (FatalError) or earlier by Stainless (MalformedStainlessCode)
+      intercept[Exception] {
+        runMainWithArgs(Array(file) :+ "--genc" :+ s"--genc-output=$cFile" :+ "--skip-verification")
+      } match {
+        case _: inox.FatalError | _: extraction.MalformedStainlessCode => ()
+        case e => fail(s"Expected a FatalError or a MalformedStainlessCode, but got $e")
+      }
     }
   }
 
+  // GenC requires the programs to verify with `--strict-arithmetic` (the default), so that the generated C
+  // code does not overflow, divide by zero, or shift by too many bits (which is undefined behavior in C).
+  // ImageProcessing does not verify with it yet: its convolution can overflow, and the solvers time out on
+  // its multiplication overflow checks (see #1823).
+  val nonStrictFiles = Set("ImageProcessing.scala")
+
   for (file <- validFiles) {
-    val extraOpts = Seq("--batched", "--solvers=smt-z3", "--strict-arithmetic=false", "--timeout=10")
+    val strictOpts = if (nonStrictFiles(file.split("/").last)) Seq("--strict-arithmetic=false") else Seq()
+    val extraOpts = Seq("--batched", "--solvers=smt-z3", "--timeout=10") ++ strictOpts
     test(s"stainless ${extraOpts.mkString(" ")} $file") {
       val (localCtx, optReport) = runMainWithArgs(Array(file) ++ extraOpts)
       assert(localCtx.reporter.errorCount == 0, "No errors")
@@ -62,10 +81,16 @@ class GenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUtils with
       // can be committed.
       checkGolden(cFile, sourceGoldenPath(file, ".expected.c"))
       checkGolden(hFile, sourceGoldenPath(file, ".expected.h"))
-      val gccCompile = s"gcc $cFile -o $outFile"
+      val gccCompile = s"$gccWithSanitizer $cFile -o $outFile"
       ctx.reporter.info(s"Running: $gccCompile")
       val (std, exitCode) = runCommand(gccCompile)
       assert(exitCode == 0, "gcc failed with output:\n" + std.mkString("\n"))
+      // The header must also be usable on its own by C clients, which the compilation of the C
+      // file does not check as its definitions come after the inclusion of the header.
+      val gccHeader = s"gcc -fsyntax-only -x c $hFile"
+      ctx.reporter.info(s"Running: $gccHeader")
+      val (stdHeader, exitCodeHeader) = runCommand(gccHeader)
+      assert(exitCodeHeader == 0, "gcc failed on the header alone with output:\n" + stdHeader.mkString("\n"))
     }
   }
 
@@ -89,9 +114,19 @@ class GenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUtils with
     assert(output == "124443", s"Output '$output' should be '124443'")
   }
 
-  test("Checking that BigIntLiterals outputs 2006000040000000005000000000-100-30000-2000000000") {
+  test("Checking that Constants outputs 100-2655361310721-8123412z40000000001751116425732174217") {
+    val output = runCHelper("Constants.scala")
+    assert(output == "100-2655361310721-8123412z40000000001751116425732174217", s"Output '$output' should be '100-2655361310721-8123412z40000000001751116425732174217'")
+  }
+
+  test("Checking that GlobalConstFields outputs 510") {
+    val output = runCHelper("GlobalConstFields.scala")
+    assert(output == "510", s"Output '$output' should be '510'")
+  }
+
+  test("Checking that BigIntLiterals outputs 200600004000000000500000000018446744073709551615") {
     val output = runCHelper("BigIntLiterals.scala")
-    assert(output == "2006000040000000005000000000-100-30000-2000000000", s"Output '$output' should be '2006000040000000005000000000-100-30000-2000000000'")
+    assert(output == "200600004000000000500000000018446744073709551615", s"Output '$output' should be '200600004000000000500000000018446744073709551615'")
   }
 
   for (case (file, _) <- tailrecFiles) {
@@ -102,7 +137,7 @@ class GenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUtils with
     }
   }
 
-  for (case (file, checkFile) <- tailrecFiles) {
+  for (case (file, checkFile) <- checkFiles) {
     val name = file.split("/").last
     val checkValue = Files.readAllLines(Paths.get(checkFile)).toArray.mkString
     test(s"Checking that $name outputs $checkValue") {
@@ -163,6 +198,7 @@ class GenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUtils with
     val outFile = file.replace(".scala", ".out")
     ctx.reporter.info(s"Running: $outFile")
     val (std, _) = runCommand(outFile)
+    undefinedBehavior(std).foreach(ub => fail(s"$outFile has undefined behavior: $ub"))
     // Note: lines are concatenated without adding newlines between them
     std.mkString
   }

@@ -1,0 +1,4 @@
+[ Error  ] Unsigned1.scala:6:10: Found:    (v2 : stainless.math.Unsigned.UShort)
+[ Error  ] Required: stainless.math.Unsigned.UByte
+               v1 + v2
+                    ^

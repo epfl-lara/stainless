@@ -214,10 +214,10 @@ Verification
 * ``--strict-aritmetic``
 
   Check arithmetic operations for unintended behaviour and
-  overflows.  Note that reasoning about bitvectors is sound
-  even if this option is false, but in that case no warnings
-  are generated for overflows and underflows because these
-  have well-defined semantics in Scala.
+  overflows.  Note that reasoning about fixed-width integers
+  (signed or unsigned) is sound even if this option is false,
+  but in that case no warnings are generated for overflows and
+  underflows because these have well-defined semantics in Scala.
 
 * ``--vc-cache``
 
@@ -382,8 +382,8 @@ may contain:
    stainless/lang/Bag.scala
    stainless/lang/Map.scala
    stainless/collection/List.scala
-   stainless/math/BitVectors.scala
    stainless/math/Nat.scala
+   stainless/math/Unsigned.scala
    stainless/math/package.scala
    stainless/io/StdIn.scala
    stainless/io/package.scala

@@ -1,37 +1,37 @@
-import stainless.math.BitVectors
-import stainless.math.BitVectors._
+import stainless.math.Unsigned._
 
 object SignedUnsignedConversions {
   def test1 = {
-    val a: UInt3 = 3
-    assert(a == a.toSigned[Int3].toUnsigned[UInt3])
+    val a: UByte = 3.toUByte
+    assert(a == a.toByte.toUByte)
 
-    val b: UInt5 = 3
-    assert(b == b.narrow[UInt2].widen[UInt5])
+    val b: UInt = 3.toUInt
+    assert(b == b.toUByte.toUInt)
 
-    val c : Int5 = 3
-    assert(c == c.narrow[Int3].widen[Int5])
+    // The value fits in a `UByte` (but not in a `Byte`)
+    val c: Int = 200
+    assert(c == c.toUByte.toInt)
   }
 
-  def test2(x: UInt8) = {
-    assert(x == BitVectors.fromInt(x.toInt).toUnsigned[UInt32].narrow[UInt8])
+  def test2(x: UByte) = {
+    assert(x == x.toInt.toUInt.toUByte)
   }
 
   def test3 = {
     val a = Array[Int](0, 100, 150, 132)
-    val x0: UInt2 = 0
-    val x1: UInt2 = 1
-    val x2: UInt2 = 2
-    val x3: UInt2 = 3
-    assert(a(x0) == 0)
-    assert(a(x1) == 100)
-    assert(a(x2) == 150)
-    assert(a(x3) == 132)
+    val x0: UByte = 0.toUByte
+    val x1: UByte = 1.toUByte
+    val x2: UByte = 2.toUByte
+    val x3: UByte = 3.toUByte
+    assert(a(x0.toInt) == 0)
+    assert(a(x1.toInt) == 100)
+    assert(a(x2.toInt) == 150)
+    assert(a(x3.toInt) == 132)
 
     val b = Array[Boolean](true, false, false, true)
-    assert(b(x0))
-    assert(!b(x1))
-    assert(!b(x2))
-    assert(b(x3))
+    assert(b(x0.toInt))
+    assert(!b(x1.toInt))
+    assert(!b(x2.toInt))
+    assert(b(x3.toInt))
   }
 }

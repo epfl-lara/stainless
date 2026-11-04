@@ -53,11 +53,11 @@ static STAINLESS_FUNC_PURE int32_t sum(A thiss);
 /* ----------------------- function definitions ----- */
 
 void main(void) {
-    A a = (A) { .x = 100, .y = 9, .z = 200 };
+    A a = (A) { .x = 100, .y = 9, .z = 200LL };
     int32_t x = sum(a) + sum(a);
     int32_t y = x + sum(a);
     println(y);
-    B b = (B) { .a1 = a, .i = 76, .j = 14, .a2 = a };
+    B b = (B) { .a1 = a, .i = 76, .j = 14U, .a2 = a };
     println(((sum(b.a1) + ((int32_t)((uint32_t)b.i))) + ((int32_t)b.j)) + sum(b.a2));
 }
 

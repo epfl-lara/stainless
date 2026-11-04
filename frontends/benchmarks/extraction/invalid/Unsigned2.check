@@ -1,0 +1,3 @@
+[ Error  ] Unsigned2.scala:7:5: Values of types stainless.math.Unsigned.UByte and Int cannot be compared with == or !=
+               v == 200
+               ^

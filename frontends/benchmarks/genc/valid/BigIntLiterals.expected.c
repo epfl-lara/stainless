@@ -36,14 +36,11 @@ static
 void printU64(uint64_t x);
 static 
 void printU8(uint8_t x);
-static 
-void print_1(int32_t x);
 static void println(void);
 static void printlnU16(uint16_t x);
 static void printlnU32(uint32_t x);
 static void printlnU64(uint64_t x);
 static void printlnU8(uint8_t x);
-static void println_1(int32_t x);
 
 
 /* ----------------------- function definitions ----- */
@@ -51,19 +48,14 @@ static void println_1(int32_t x);
 void main(void) {
     uint8_t a = 200;
     uint16_t b = 60000;
-    uint32_t c = 4000000000;
-    uint64_t d = 5000000000;
+    uint32_t c = 4000000000U;
+    uint64_t d = 5000000000ULL;
+    uint64_t e = 18446744073709551615ULL;
     printlnU8(a);
     printlnU16(b);
     printlnU32(c);
     printlnU64(d);
-    int8_t e = -100;
-    int16_t f = -30000;
-    int32_t g = -2000000000;
-    int64_t h = -5000000000;
-    println_1((int32_t)e);
-    println_1((int32_t)f);
-    println_1(g);
+    printlnU64(e);
 }
 
 
@@ -96,12 +88,6 @@ void printU8(uint8_t x) {
 }
      
 
-
-void print_1(int32_t x) {
-  printf("%"PRIi32, x);
-}
-     
-
 static void println(void) {
     print('\n');
 }
@@ -123,10 +109,5 @@ static void printlnU64(uint64_t x) {
 
 static void printlnU8(uint8_t x) {
     printU8(x);
-    println();
-}
-
-static void println_1(int32_t x) {
-    print_1(x);
     println();
 }
