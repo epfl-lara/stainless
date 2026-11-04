@@ -2,7 +2,7 @@ import stainless.lang._
 import stainless.annotation._
 
 object PartitionExample {
-  sealed abstract class IList
+  sealed abstract class IList derives CanEqual
   case object Nil extends IList
   case class Cons(head: BigInt, tail: IList) extends IList
 

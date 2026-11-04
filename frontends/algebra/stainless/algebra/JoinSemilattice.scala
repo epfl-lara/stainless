@@ -3,7 +3,7 @@ package stainless.algebra
 import stainless.annotation._
 
 @library
-abstract class JoinSemilattice[A] {
+abstract class JoinSemilattice[A](using CanEqual[A, A]) {
   def join(x: A, y: A): A
 
   final def lteqv(x: A, y: A): Boolean = join(x, y) == y

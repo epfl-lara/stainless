@@ -2,7 +2,7 @@ import stainless.lang._
 import stainless.annotation._
 
 object HeapGetProjectsReadsExample {
-  case class Cell(var value: BigInt) extends AnyHeapRef
+  case class Cell(var value: BigInt) extends AnyHeapRef derives CanEqual
 
   def onlyOne(c1: Cell, c2: Cell): BigInt = {
     reads(Set(c1))

@@ -10,7 +10,7 @@ import stainless.proof._
 import stainless.math._
 
 @library
-sealed abstract class List[+T] {
+sealed abstract class List[+T] derives CanEqual {
   def bsize: BigInt = (this match {
     case Nil => BigInt(0)
     case h :: t => 1 + t.bsize
@@ -30,17 +30,17 @@ sealed abstract class List[+T] {
 
   def length: Int = size
 
-  def content[TT >: T]: Set[TT] = this match {
+  def content[TT >: T](using CanEqual[TT, TT]): Set[TT] = this match {
     case Nil => Set[TT]()
     case h :: t => Set[TT](h) ++ t.content[TT]
   }
 
-  def contains[TT >: T](v: TT): Boolean = (this match {
+  def contains[TT >: T](v: TT)(using CanEqual[TT, TT]): Boolean = (this match {
     case h :: t => h == v || t.contains(v)
     case Nil => false
   }).ensuring { _ == (content.contains(v)) }
 
-  def ++[TT >: T](that: List[TT]): List[TT] = {
+  def ++[TT >: T](that: List[TT])(using CanEqual[TT, TT]): List[TT] = {
     this match {
       case Nil => that
       case x :: xs => x :: (xs ++ that)
@@ -53,18 +53,18 @@ sealed abstract class List[+T] {
   }
 
   def head: T = {
-    require(this != Nil)
+    require(nonEmpty)
     val h :: _ = this: @unchecked
     h
   }
 
   def tail: List[T] = {
-    require(this != Nil)
+    require(nonEmpty)
     val _ :: t = this: @unchecked
     t
   }
 
-  def bapply(index: BigInt): T = {
+  def bapply(index: BigInt)(using CanEqual[T, T]): T = {
     require(0 <= index && index < bsize)
     decreases(index)
     if (index == BigInt(0)) {
@@ -74,7 +74,7 @@ sealed abstract class List[+T] {
     }
  }.ensuring(contains(_))
 
-  def apply(index: Int): T = {
+  def apply(index: Int)(using CanEqual[T, T]): T = {
     require(0 <= index && index < size)
     decreases(index)
     if (index == 0) {
@@ -86,7 +86,7 @@ sealed abstract class List[+T] {
 
   def :: [TT >: T](elem: TT): List[TT] = new ::(elem, this)
 
-  def :+[TT >: T](t: TT): List[TT] = {
+  def :+[TT >: T](t: TT)(using CanEqual[TT, TT]): List[TT] = {
     this match {
       case Nil => t :: this
       case x :: xs => x :: (xs :+ t)
@@ -98,7 +98,7 @@ sealed abstract class List[+T] {
       res == this ++ (t :: Nil)
     )
 
-  def reverse: List[T] = {
+  def reverse(using CanEqual[T, T]): List[T] = {
     this match {
       case Nil => this
       case x :: xs => xs.reverse :+ x
@@ -109,7 +109,7 @@ sealed abstract class List[+T] {
       (res.content == content)
     )
 
-  def btake(i: BigInt): List[T] = {
+  def btake(i: BigInt)(using CanEqual[T, T]): List[T] = {
     require(0 <= i)
     decreases(i)
     (this, i) match {
@@ -129,7 +129,7 @@ sealed abstract class List[+T] {
       ))
   }
 
-  def take(i: Int): List[T] = {
+  def take(i: Int)(using CanEqual[T, T]): List[T] = {
     require(0 <= i)
     decreases(i)
     (this, i) match {
@@ -149,7 +149,7 @@ sealed abstract class List[+T] {
       ))
   }
 
-  def bdrop(i: BigInt): List[T] = {
+  def bdrop(i: BigInt)(using CanEqual[T, T]): List[T] = {
     require(0 <= i)
     decreases(i)
     (this, i) match {
@@ -169,7 +169,7 @@ sealed abstract class List[+T] {
       ))
   }
 
-  def drop(i: Int): List[T] = {
+  def drop(i: Int)(using CanEqual[T, T]): List[T] = {
     require(0 <= i)
     decreases(i)
     (this, i) match {
@@ -185,12 +185,12 @@ sealed abstract class List[+T] {
     res.content.subsetOf(this.content)
   }
 
-  def bslice(from: BigInt, to: BigInt): List[T] = {
+  def bslice(from: BigInt, to: BigInt)(using CanEqual[T, T]): List[T] = {
     require(0 <= from && from <= to && to <= bsize)
     bdrop(from).btake(to-from)
   }
 
-  def slice(from: Int, to: Int): List[T] = {
+  def slice(from: Int, to: Int)(using CanEqual[T, T]): List[T] = {
     require(0 <= from && from <= to && to <= size)
     this match {
       case Nil => Nil
@@ -208,7 +208,7 @@ sealed abstract class List[+T] {
     res.content.subsetOf(content) && res.size == to - from
   }
 
-  def replace[TT >: T](from: TT, to: TT): List[TT] = { this match {
+  def replace[TT >: T](from: TT, to: TT)(using CanEqual[TT, TT]): List[TT] = { this match {
     case Nil => Nil
     case h :: t =>
       val r = t.replace(from, to)
@@ -226,7 +226,7 @@ sealed abstract class List[+T] {
         )
   }
 
-  private def bchunk0[TT >: T](s: BigInt, l: List[TT], acc: List[TT], res: List[List[TT]], s0: BigInt): List[List[TT]] = {
+  private def bchunk0[TT >: T](s: BigInt, l: List[TT], acc: List[TT], res: List[List[TT]], s0: BigInt)(using CanEqual[TT, TT]): List[List[TT]] = {
     require(s > 0 && s0 >= 0)
     l match {
       case Nil =>
@@ -244,7 +244,7 @@ sealed abstract class List[+T] {
     }
   }
 
-  def bchunks(s: BigInt): List[List[T]] = {
+  def bchunks(s: BigInt)(using CanEqual[T, T]): List[List[T]] = {
     require(s > 0)
     bchunk0(s, this, Nil, Nil, s)
   }
@@ -262,7 +262,7 @@ sealed abstract class List[+T] {
       res.bsize == (if (this.bsize <= that.bsize) this.bsize else that.bsize)
   }
 
-  def -[TT >: T](e: TT): List[TT] = { this match {
+  def -[TT >: T](e: TT)(using CanEqual[TT, TT]): List[TT] = { this match {
     case h :: t =>
       if (e == h) {
         t - e
@@ -276,7 +276,7 @@ sealed abstract class List[+T] {
       res.content[TT] == this.content[TT] -- Set(e)
   }
 
-  def --[TT >: T](that: List[TT]): List[TT] = { this match {
+  def --[TT >: T](that: List[TT])(using CanEqual[TT, TT]): List[TT] = { this match {
     case h :: t =>
       if (that.contains(h)) {
         t -- that
@@ -290,7 +290,7 @@ sealed abstract class List[+T] {
       res.content[TT] == this.content[TT] -- that.content[TT]
   }
 
-  def &[TT >: T](that: List[TT]): List[TT] = { this match {
+  def &[TT >: T](that: List[TT])(using CanEqual[TT, TT]): List[TT] = { this match {
     case h :: t =>
       if (that.contains(h)) {
         h :: (t & that)
@@ -304,7 +304,7 @@ sealed abstract class List[+T] {
       res.content[TT] == (this.content[TT] & that.content[TT])
   }
 
-  def bpadTo[TT >: T](s: BigInt, e: TT): List[TT] = {
+  def bpadTo[TT >: T](s: BigInt, e: TT)(using CanEqual[TT, TT]): List[TT] = {
     decreases(max(s, 0))
     (this, s) match {
       case (_, s) if s <= 0 =>
@@ -322,7 +322,7 @@ sealed abstract class List[+T] {
         res.content[TT] == this.content[TT] ++ Set(e)
   }
 
-  def indexOf[TT >: T](elem: TT): Int = {
+  def indexOf[TT >: T](elem: TT)(using CanEqual[TT, TT]): Int = {
     this match {
       case Nil => -1
       case h :: t if h == elem => 0
@@ -337,7 +337,7 @@ sealed abstract class List[+T] {
     res <= size
   }
 
-  def bindexOf[TT >: T](elem: TT): BigInt = { this match {
+  def bindexOf[TT >: T](elem: TT)(using CanEqual[TT, TT]): BigInt = { this match {
     case Nil => BigInt(-1)
     case h :: t if h == elem => BigInt(0)
     case h :: t =>
@@ -349,7 +349,7 @@ sealed abstract class List[+T] {
     res < bsize
   }
 
-  def init: List[T] = {
+  def init(using CanEqual[T, T]): List[T] = {
     require(!isEmpty)
     (this : @unchecked) match {
       case h :: Nil =>
@@ -363,7 +363,7 @@ sealed abstract class List[+T] {
       r.content.subsetOf(this.content)
     )
 
-  def last: T = {
+  def last(using CanEqual[T, T]): T = {
     require(!isEmpty)
     (this : @unchecked) match {
       case h :: Nil => h
@@ -393,15 +393,15 @@ sealed abstract class List[+T] {
       None
   }}.ensuring { _.isDefined != this.isEmpty }
 
-  def unique: List[T] = this match {
+  def unique(using CanEqual[T, T]): List[T] = this match {
     case Nil => Nil
     case h :: t =>
       h :: (t.unique - h)
   }
 
-  def splitAtElem[TT >: T](e: TT): List[List[TT]] =  splitElem(e :: Nil)
+  def splitAtElem[TT >: T](e: TT)(using CanEqual[TT, TT]): List[List[TT]] =  splitElem(e :: Nil)
 
-  def splitElem[TT >: T](seps: List[TT]): List[List[TT]] = this match {
+  def splitElem[TT >: T](seps: List[TT])(using CanEqual[TT, TT]): List[List[TT]] = this match {
     case h :: t =>
       if (seps.contains(h)) {
         Nil :: t.splitElem(seps)
@@ -413,12 +413,12 @@ sealed abstract class List[+T] {
       Nil :: Nil
   }
 
-  def evenSplit: (List[T], List[T]) = {
+  def evenSplit(using CanEqual[T, T]): (List[T], List[T]) = {
     val c = size/2
     (take(c), drop(c))
   }
 
-  def bsplitAt(index: BigInt) : (List[T], List[T]) = {
+  def bsplitAt(index: BigInt)(using CanEqual[T, T]): (List[T], List[T]) = {
     require(0 <= index && index < bsize)
     this match {
       case Nil => (Nil, Nil)
@@ -455,7 +455,7 @@ sealed abstract class List[+T] {
     }
   }
 
-  private def binsertAtImpl[TT >: T](pos: BigInt, l: List[TT]): List[TT] = {
+  private def binsertAtImpl[TT >: T](pos: BigInt, l: List[TT])(using CanEqual[TT, TT]): List[TT] = {
     require(0 <= pos && pos <= bsize)
     decreases(pos)
     if(pos == BigInt(0)) {
@@ -474,7 +474,7 @@ sealed abstract class List[+T] {
       res.content == this.content ++ l.content
   }
 
-  def binsertAt[TT >: T](pos: BigInt, l: List[TT]): List[TT] = {
+  def binsertAt[TT >: T](pos: BigInt, l: List[TT])(using CanEqual[TT, TT]): List[TT] = {
     require(-pos <= bsize && pos <= bsize)
     if(pos < 0) {
       binsertAtImpl(bsize + pos, l)
@@ -487,7 +487,7 @@ sealed abstract class List[+T] {
       res.content == this.content ++ l.content
   }
 
-  def binsertAt[TT >: T](pos: BigInt, e: TT): List[TT] = {
+  def binsertAt[TT >: T](pos: BigInt, e: TT)(using CanEqual[TT, TT]): List[TT] = {
     require(-pos <= bsize && pos <= bsize)
     binsertAt(pos, e :: Nil)
  }.ensuring { res =>
@@ -496,7 +496,7 @@ sealed abstract class List[+T] {
       res.content == this.content ++ Set(e)
   }
 
-  private def breplaceAtImpl[TT >: T](pos: BigInt, l: List[TT]): List[TT] = {
+  private def breplaceAtImpl[TT >: T](pos: BigInt, l: List[TT])(using CanEqual[TT, TT]): List[TT] = {
     require(0 <= pos && pos <= bsize)
     decreases(pos)
     if (pos == BigInt(0)) {
@@ -513,7 +513,7 @@ sealed abstract class List[+T] {
     res.content.subsetOf(l.content ++ this.content)
   }
 
-  def breplaceAt[TT >: T](pos: BigInt, l: List[TT]): List[TT] = {
+  def breplaceAt[TT >: T](pos: BigInt, l: List[TT])(using CanEqual[TT, TT]): List[TT] = {
     require(-pos <= bsize && pos <= bsize)
     if(pos < 0) {
       breplaceAtImpl(bsize + pos, l)
@@ -524,7 +524,7 @@ sealed abstract class List[+T] {
     res.content.subsetOf(l.content ++ this.content)
   }
 
-  def brotate(s: BigInt): List[T] = {
+  def brotate(s: BigInt)(using CanEqual[T, T]): List[T] = {
     if (isEmpty) {
       Nil
     } else {
@@ -569,12 +569,12 @@ sealed abstract class List[+T] {
       f(h, h1) :: rest
   }}.ensuring { !_.isEmpty }
 
-  def flatMap[R](f: T => List[R]): List[R] = this match {
+  def flatMap[R](f: T => List[R])(using CanEqual[R, R]): List[R] = this match {
     case Nil => Nil
     case h :: t => f(h) ++ t.flatMap(f)
   }
 
-  def filter(p: T => Boolean): List[T] = { this match {
+  def filter(p: T => Boolean)(using CanEqual[T, T]): List[T] = { this match {
     case Nil => Nil
     case h :: t if p(h) => h :: t.filter(p)
     case _ :: t => t.filter(p)
@@ -585,14 +585,14 @@ sealed abstract class List[+T] {
       res.forall(p)
   }
 
-  def filterNot(p: T => Boolean): List[T] =
+  def filterNot(p: T => Boolean)(using CanEqual[T, T]): List[T] =
     filter(!p(_)).ensuring { res =>
       res.size <= this.size &&
         res.content.subsetOf(this.content) &&
         res.forall(!p(_))
     }
 
-  def partition(p: T => Boolean): (List[T], List[T]) = { this match {
+  def partition(p: T => Boolean)(using CanEqual[T, T]): (List[T], List[T]) = { this match {
     case Nil => (Nil, Nil)
     case h :: t =>
       val (l1, l2) = t.partition(p)
@@ -604,7 +604,7 @@ sealed abstract class List[+T] {
   }
 
   // In case we implement for-comprehensions
-  def withFilter(p: T => Boolean): List[T] = {
+  def withFilter(p: T => Boolean)(using CanEqual[T, T]): List[T] = {
     filter(p)
  }.ensuring { res =>
     res.size <= this.size &&
@@ -620,7 +620,7 @@ sealed abstract class List[+T] {
 
   def exists(p: T => Boolean): Boolean = !forall(!p(_))
 
-  def find(p: T => Boolean): Option[T] = { this match {
+  def find(p: T => Boolean)(using CanEqual[T, T]): Option[T] = { this match {
     case Nil => None
     case h :: t => if (p(h)) Some(h) else t.find(p)
   }}.ensuring { res => res match {
@@ -628,7 +628,7 @@ sealed abstract class List[+T] {
     case None => true
   }}
 
-  def groupBy[TT >: T, R](f: TT => R): Map[R, List[TT]] = this match {
+  def groupBy[TT >: T, R](f: TT => R)(using CanEqual[R, R]): Map[R, List[TT]] = this match {
      case Nil => Map.empty[R, List[TT]]
      case h :: t =>
        val key: R = f(h)
@@ -641,7 +641,7 @@ sealed abstract class List[+T] {
        (rest ++ Map((key, h :: prev))) : Map[R, List[TT]]
   }
 
-  def takeWhile(p: T => Boolean): List[T] = { this match {
+  def takeWhile(p: T => Boolean)(using CanEqual[T, T]): List[T] = { this match {
     case h :: t if p(h) => h :: t.takeWhile(p)
     case _ => Nil
   }}.ensuring { res =>
@@ -651,7 +651,7 @@ sealed abstract class List[+T] {
       (res.content.subsetOf(this.content))
   }
 
-  def dropWhile(p: T => Boolean): List[T] = { this match {
+  def dropWhile(p: T => Boolean)(using CanEqual[T, T]): List[T] = { this match {
     case h :: t if p(h) => t.dropWhile(p)
     case _ => this
   }}.ensuring { res =>
@@ -661,7 +661,7 @@ sealed abstract class List[+T] {
       (res.isEmpty || !p(res.head))
   }
 
-  def count(p: T => Boolean): Int = {
+  def count(p: T => Boolean)(using CanEqual[T, T]): Int = {
     this match {
       case Nil => 0
       case h :: t =>
@@ -673,7 +673,7 @@ sealed abstract class List[+T] {
     _ == this.filter(p).size
   }
 
-  def bcount(p: T => Boolean): BigInt = { this match {
+  def bcount(p: T => Boolean)(using CanEqual[T, T]): BigInt = { this match {
     case Nil => BigInt(0)
     case h :: t =>
       (if (p(h)) BigInt(1) else BigInt(0)) + t.bcount(p)
@@ -707,7 +707,7 @@ sealed abstract class List[+T] {
   }
 
   // Translation to other collections
-  def toSet[TT >: T]: Set[TT] = foldLeft(Set[TT]()){
+  def toSet[TT >: T](using CanEqual[TT, TT]): Set[TT] = foldLeft(Set[TT]()){
     case (current, next) => current ++ Set[TT](next)
   }
 
@@ -724,11 +724,7 @@ final case class ::[+A](first: A, next: List[A]) extends List[A]
 object List {
   @ignore
   def apply[T](elems: T*): List[T] = {
-    var l: List[T] = Nil
-    for (e <- elems) {
-      l = e :: l
-    }
-    l.reverse
+    elems.foldRight(Nil: List[T])(_ :: _)
   }
 
   @library
@@ -741,7 +737,7 @@ object List {
   }
 
   @library
-  def fill[T](n: Int)(x: T) : List[T] = {
+  def fill[T](n: Int)(x: T)(using CanEqual[T, T]): List[T] = {
     decreases(max(n, 0))
     if (n <= 0) Nil
     else x :: fill[T](n-1)(x)
@@ -749,7 +745,7 @@ object List {
     res.size == (if (n <= 0) 0 else n))
 
   @library
-  def bfill[T](n: BigInt)(x: T) : List[T] = {
+  def bfill[T](n: BigInt)(x: T)(using CanEqual[T, T]): List[T] = {
     decreases(max(n, 0))
     if (n <= 0) Nil
     else x :: bfill[T](n-1)(x)

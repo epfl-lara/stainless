@@ -2,7 +2,7 @@ import stainless.lang._ // for the holds keyword
 import scala.language.postfixOps // to avoid warnings about postfix holds
 
 object Factorial {
-  sealed abstract class Nat
+  sealed abstract class Nat derives CanEqual
   case object O extends Nat
   case class S(n: Nat) extends Nat
 

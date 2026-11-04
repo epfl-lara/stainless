@@ -26,7 +26,7 @@ object Internal {
     }
 
     /** Short-hand for equational reasoning. */
-    def ==|(proof: Boolean): WithProof[A, A] = {
+    def ==|(proof: Boolean)(using CanEqual[A, A]): WithProof[A, A] = {
       require(proof)
       WithProof(x, _ == _, proof, prop)
     }

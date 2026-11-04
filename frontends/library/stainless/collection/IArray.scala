@@ -20,7 +20,7 @@ import stainless.collection.{List, Cons, Nil}
  * @param innerList The underlying immutable list used as specification.
  * @tparam T The type of elements contained in the array.
  */
-case class IArray[T: ClassTag](@ghost private val innerList: List[T]):
+case class IArray[T: ClassTag](@ghost private val innerList: List[T]) derives CanEqual:
   require(innerList.size <= Int.MaxValue)
 
   @ignore
@@ -44,13 +44,13 @@ case class IArray[T: ClassTag](@ghost private val innerList: List[T]):
   }.ensuring(_ == list.isize) 
 
   @pure @extern 
-  def apply(i: BigInt): T = {
+  def apply(i: BigInt)(using CanEqual[T, T]): T = {
     require(0 <= i && i < size)
     _arr(_offset + i.toInt)
   }.ensuring(_ == list.apply(i))
 
   @pure @extern
-  def slice(from: BigInt, until: BigInt): IArray[T] = {
+  def slice(from: BigInt, until: BigInt)(using CanEqual[T, T]): IArray[T] = {
     require(0 <= from && from <= until && until <= size)
     @ghost val list = this.list.slice(from, until)
     val res = IArray(list)
@@ -61,7 +61,7 @@ case class IArray[T: ClassTag](@ghost private val innerList: List[T]):
   }.ensuring(_ == IArray(list.slice(from, until)))
 
   @pure @extern
-  def concat(other: IArray[T]): IArray[T] = {
+  def concat(other: IArray[T])(using CanEqual[T, T]): IArray[T] = {
     require(this.size + other.size <= Int.MaxValue)
     @ghost val list = this.list ++ other.list
     val res = IArray(list)
@@ -75,7 +75,7 @@ case class IArray[T: ClassTag](@ghost private val innerList: List[T]):
   }.ensuring(_ == IArray(this.list ++ other.list))
 
   @pure @extern
-  def append(x: T): IArray[T] = {
+  def append(x: T)(using CanEqual[T, T]): IArray[T] = {
     require(this.size + 1 <= Int.MaxValue)
     @ghost val list = this.list :+ x
     val res = IArray(list)
@@ -89,7 +89,7 @@ case class IArray[T: ClassTag](@ghost private val innerList: List[T]):
   }.ensuring(_ == IArray(this.list :+ x))
 
   @pure @extern
-  def contains(x: T): Boolean = {
+  def contains(x: T)(using CanEqual[T, T]): Boolean = {
     var found = false
     var i: BigInt = 0
     val endI: BigInt = this._size
@@ -100,7 +100,7 @@ case class IArray[T: ClassTag](@ghost private val innerList: List[T]):
   }.ensuring(_ == list.contains(x))
 
   @pure @extern
-  def forall(p: T => Boolean): Boolean = {
+  def forall(p: T => Boolean)(using CanEqual[T, T]): Boolean = {
     var res = true
     var i: BigInt = 0
     val endI: BigInt = this._size
@@ -111,7 +111,7 @@ case class IArray[T: ClassTag](@ghost private val innerList: List[T]):
   }.ensuring(_ == list.forall(p))
   
   @pure @extern
-  def exists(p: T => Boolean): Boolean = {
+  def exists(p: T => Boolean)(using CanEqual[T, T]): Boolean = {
     var res = false
     var i: BigInt = 0
     val endI: BigInt = this._size
@@ -122,7 +122,7 @@ case class IArray[T: ClassTag](@ghost private val innerList: List[T]):
   }.ensuring(_ == list.exists(p))
 
   @pure @extern
-  def map[B: ClassTag](f: T => B): IArray[B] = {
+  def map[B: ClassTag](f: T => B)(using CanEqual[B, B], CanEqual[T, T]): IArray[B] = {
     @ghost val list = this.list.map(f)
     val res = IArray(list)
     res._arr = new Array[B](this._size.toInt)
@@ -136,7 +136,7 @@ case class IArray[T: ClassTag](@ghost private val innerList: List[T]):
   }.ensuring(_ == IArray(this.list.map(f)))
 
   @pure @extern
-  def filter(p: T => Boolean): IArray[T] = {
+  def filter(p: T => Boolean)(using CanEqual[T, T]): IArray[T] = {
     @ghost val list = this.list.filter(p)
     val res = IArray(list)
     val toKeep = new Array[Boolean](this._size.toInt)
@@ -162,7 +162,7 @@ case class IArray[T: ClassTag](@ghost private val innerList: List[T]):
   }.ensuring(_ == IArray(this.list.filter(p)))
 
   @pure @extern
-  def last: T = {
+  def last(using CanEqual[T, T]): T = {
     require(this.size > 0)
     this.apply(this.size - 1)
   }.ensuring(_ == this.list.last)
@@ -170,7 +170,7 @@ case class IArray[T: ClassTag](@ghost private val innerList: List[T]):
 @library
 object IArray:
   @pure @extern
-  def empty[T: ClassTag](): IArray[T] = {
+  def empty[T: ClassTag]()(using CanEqual[T, T]): IArray[T] = {
     val res = IArray[T](Nil())
     res._arr = new Array[T](0)
     res._offset = 0
@@ -179,7 +179,7 @@ object IArray:
   }.ensuring(_ == IArray[T](Nil()))
   
   @pure @extern
-  def fill[T: ClassTag](n: BigInt)(x: T): IArray[T] = {
+  def fill[T: ClassTag](n: BigInt)(x: T)(using CanEqual[T, T]): IArray[T] = {
     require(0 <= n && n <= Int.MaxValue)
     @ghost val list = List.fill(n)(x)
     val res = IArray(list)      
@@ -200,7 +200,7 @@ object IArray:
   }.ensuring(_.size == until - from)
 
   @pure @extern
-  def tabulate[T: ClassTag](n: BigInt)(f: BigInt => T): IArray[T] = {
+  def tabulate[T: ClassTag](n: BigInt)(f: BigInt => T)(using CanEqual[T, T]): IArray[T] = {
     require(0 <= n && n <= Int.MaxValue)
     @ghost val list = range(0, n).map(f)
     val res: IArray[T] = IArray(list)

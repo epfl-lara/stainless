@@ -49,32 +49,32 @@ object Berardi4 {
 
   type Pow[A] = A => Boolean
 
-  def jixx[A,B](i: A => B, j: B => A, x: A) = j(i(x)) == x
+  def jixx[A,B](i: A => B, j: B => A, x: A)(using CanEqual[A, A]) = j(i(x)) == x
 
-  def foralljixx[A,B](i: A => B, j: B => A) = forall((x: A) => jixx(i,j,x))
+  def foralljixx[A,B](i: A => B, j: B => A)(using CanEqual[A, A]) = forall((x: A) => jixx(i,j,x))
 
-  def foralljixx2[A,B](r: Retract[A,B], i: A => B, j: B => A) = forall((x: A) => jixx(i,j,x))
+  def foralljixx2[A,B](r: Retract[A,B], i: A => B, j: B => A)(using CanEqual[A, A]) = forall((x: A) => jixx(i,j,x))
 
-  case class Retract[A,B](i: A => B, j: B => A) {
+  case class Retract[A,B](i: A => B, j: B => A)(using CanEqual[A, A]) {
     require(foralljixx(i,j))
   }
 
-  case class RetractCond[A,B](i2: A => B, j2: B => A) {
+  case class RetractCond[A,B](i2: A => B, j2: B => A)(using CanEqual[A, A]) {
     require(forall((r: Retract[A,B]) => foralljixx(i2,j2)))
 
-    def instantiate(r: Retract[A,B]) = {
+    def instantiate(r: Retract[A,B])(using CanEqual[A, A]) = {
       assert(forall((r: Retract[A,B]) => foralljixx(i2,j2)))
       assert(forallElim((r: Retract[A,B]) => foralljixx(i2,j2), r))
       foralljixx(i2,j2)
     }.holds
   }
 
-  def helper1[A,B](nr: Retract[A,B] => False, r: Retract[A,B], i: A => B, j: B => A) = {
+  def helper1[A,B](nr: Retract[A,B] => False, r: Retract[A,B], i: A => B, j: B => A)(using CanEqual[A, A]) = {
     assert(mkFalse(nr(r)))
     foralljixx(i,j)
   }.holds
 
-  def helper2[A,B](nr: Retract[A,B] => False, i: A => B, j: B => A) = {
+  def helper2[A,B](nr: Retract[A,B] => False, i: A => B, j: B => A)(using CanEqual[A, A]) = {
     assert(forall((r: Retract[A,B]) => {
       helper1(nr,r,i,j) &&
       foralljixx(i,j)

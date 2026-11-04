@@ -85,7 +85,7 @@ object ImageProcessing {
    *                                                         Status     *
    **********************************************************************/
 
-  sealed abstract class Status {
+  sealed abstract class Status derives CanEqual {
     def isSuccess: Boolean = this.isInstanceOf[Success]
   }
 

@@ -4,7 +4,7 @@ import stainless.collection._
 
 object ListMonad {
 
-  def append[T](l1: List[T], l2: List[T]): List[T] = {
+  def append[T](l1: List[T], l2: List[T])(using CanEqual[T, T]): List[T] = {
     decreases(l1)
     l1 match {
       case Cons(head, tail) => Cons(head, append(tail, l2))
@@ -12,7 +12,7 @@ object ListMonad {
     }
  }.ensuring { res => (res == l1) || (l2 != Nil[T]()) }
 
-  def flatMap[T,U](list: List[T], f: T => List[U]): List[U] = {
+  def flatMap[T,U](list: List[T], f: T => List[U])(using CanEqual[U, U]): List[U] = {
     decreases(list)
     list match {
       case Cons(head, tail) => append(f(head), flatMap(tail, f))
@@ -20,11 +20,11 @@ object ListMonad {
     }
   }
 
-  def associative_lemma[T,U,V](list: List[T], f: T => List[U], g: U => List[V]): Boolean = {
+  def associative_lemma[T,U,V](list: List[T], f: T => List[U], g: U => List[V])(using CanEqual[V, V], CanEqual[U, U]): Boolean = {
     flatMap(flatMap(list, f), g) == flatMap(list, (x: T) => flatMap(f(x), g))
   }
 
-  def associative_lemma_induct[T,U,V](list: List[T], flist: List[U], glist: List[V], f: T => List[U], g: U => List[V]): Boolean = {
+  def associative_lemma_induct[T,U,V](list: List[T], flist: List[U], glist: List[V], f: T => List[U], g: U => List[V])(using CanEqual[V, V], CanEqual[U, U]): Boolean = {
     decreases(list, flist, glist)
     associative_lemma(list, f, g).because {
       (append(glist, flatMap(append(flist, flatMap(list, f)), g)) == append(append(glist, flatMap(flist, g)), flatMap(list, (x: T) => flatMap(f(x), g)))).because(
@@ -43,15 +43,15 @@ object ListMonad {
     }
   }.holds
 
-  def left_unit_law[T,U](x: T, f: T => List[U]): Boolean = {
+  def left_unit_law[T,U](x: T, f: T => List[U])(using CanEqual[U, U]): Boolean = {
     flatMap(Cons(x, Nil()), f) == f(x)
   }.holds
 
-  def right_unit_law[T](list: List[T]): Boolean = {
+  def right_unit_law[T](list: List[T])(using CanEqual[T, T]): Boolean = {
     flatMap(list, (x: T) => Cons(x, Nil[T]())) == list
   }
 
-  def right_unit_induct[T](list: List[T]): Boolean = {
+  def right_unit_induct[T](list: List[T])(using CanEqual[T, T]): Boolean = {
     decreases(list)
     right_unit_law(list).because((list match {
       case Cons(head, tail) => right_unit_induct(tail)
@@ -59,15 +59,15 @@ object ListMonad {
     }))
   }.holds
 
-  def flatMap_zero_law[T,U](f: T => List[U]): Boolean = {
+  def flatMap_zero_law[T,U](f: T => List[U])(using CanEqual[U, U]): Boolean = {
     flatMap(Nil[T](), f) == Nil[U]()
   }.holds
 
-  def flatMap_to_zero_law[T](list: List[T]): Boolean = {
+  def flatMap_to_zero_law[T](list: List[T])(using CanEqual[T, T]): Boolean = {
     flatMap(list, (x: T) => Nil[T]()) == Nil[T]()
   }
 
-  def flatMap_to_zero_induct[T](list: List[T]): Boolean = {
+  def flatMap_to_zero_induct[T](list: List[T])(using CanEqual[T, T]): Boolean = {
     decreases(list)
     flatMap_to_zero_law(list).because((list match {
       case Cons(head, tail) => flatMap_to_zero_induct(tail)
@@ -75,11 +75,11 @@ object ListMonad {
     }))
   }.holds
 
-  def add_zero_law[T](list: List[T]): Boolean = {
+  def add_zero_law[T](list: List[T])(using CanEqual[T, T]): Boolean = {
     append(list, Nil()) == list
   }.holds
 
-  def zero_add_law[T](list: List[T]): Boolean = {
+  def zero_add_law[T](list: List[T])(using CanEqual[T, T]): Boolean = {
     append(Nil(), list) == list
   }.holds
 

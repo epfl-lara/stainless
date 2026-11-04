@@ -11,7 +11,7 @@ object AbstractRefinementMap {
     }
   }
 
-  def map2[A, B](l: List[A], f: A ~>> B): List[B] = {
+  def map2[A, B](l: List[A], f: A ~>> B)(using CanEqual[A, A], CanEqual[B, B]): List[B] = {
     require(forall((x:A) => l.contains(x) ==> f.pre(x)))
     l match {
       case Cons(x, xs) => Cons[B](f(x), map2(xs, f))

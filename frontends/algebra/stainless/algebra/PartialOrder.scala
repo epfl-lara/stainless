@@ -4,7 +4,7 @@ import stainless.annotation._
 import stainless.lang._
 
 @library
-abstract class PartialOrder[A] extends Eq[A] {
+abstract class PartialOrder[A](using CanEqual[A, A]) extends Eq[A] {
     def lteq(x: A, y: A): Boolean
 
     final def partialOrder(x: A, y: A): Option[BigInt] = {

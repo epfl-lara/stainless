@@ -24,7 +24,7 @@ object MessageQueue {
       queue.addFirst(msg)
     }
 
-    def take(): Option[A] = {
+    def take()(using CanEqual[A, A]): Option[A] = {
       val result = _take()
       msgs = msgs.tailOption.getOrElse(Nil())
       result
@@ -33,7 +33,7 @@ object MessageQueue {
     }
 
     @extern @pure
-    private def _take(): Option[A] = {
+    private def _take()(using CanEqual[A, A]): Option[A] = {
       Option(queue.pollFirst())
    }.ensuring { res =>
       res == msgs.headOption

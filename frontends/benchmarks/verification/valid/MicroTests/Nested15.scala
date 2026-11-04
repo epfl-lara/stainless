@@ -6,8 +6,8 @@ object Nested15 {
 
   def foo[A](i: List[A]): BigInt = {
     val n = i
-    def rec1[B](j: List[B]) = j ++ j
-    def rec2[C](l: List[C], j: BigInt) = {
+    def rec1[B](j: List[B])(using CanEqual[B, B]) = j ++ j
+    def rec2[C](l: List[C], j: BigInt)(using CanEqual[C, C]) = {
       require(l.nonEmpty)
       def rec3(k: C) = k :: rec1[C](l)
       rec3(l.head).size + j + n.size + i.size

@@ -4,7 +4,7 @@ import stainless.annotation._
 import stainless.lang._
 
 object ListWithSize {
-    sealed abstract class List
+    sealed abstract class List derives CanEqual
     case class Cons(head: Int, tail: List) extends List
     case class Nil() extends List
 

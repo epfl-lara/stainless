@@ -6,7 +6,7 @@ import stainless.proof.check
 import stainless.lang.StaticChecks._
 
 object StackExample {
-  final case class Node(val value: BigInt, var nextOpt: Option[Node]) extends AnyHeapRef {}
+  final case class Node(val value: BigInt, var nextOpt: Option[Node]) extends AnyHeapRef derives CanEqual {}
 
   final case class Q(var first: Option[Node],
                      @ghost var nodes: List[AnyHeapRef])

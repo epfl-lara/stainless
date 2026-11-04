@@ -46,6 +46,8 @@ trait ASTExtractors {
     */
   lazy val ignoredParameterTypes = Set(
     defn.ClassTagClass,
+    // `CanEqual` evidence only matters to the Scala typer: the sanitizer checks the derived instances
+    defn.CanEqualClass,
   )
 
   /** Should parameters and arguments of type `tp` be ignored during extraction?
@@ -1437,10 +1439,11 @@ trait ASTExtractors {
       import ExpressionExtractors._
 
       def unapply(tree: tpd.Apply) : Option[(tpd.Tree, tpd.Tree, List[tpd.CaseDef])] = tree match {
+        // The lambda is followed by the `CanEqual` evidence of the outputs
         case ExCall(Some(rec),
           ExSymbol("stainless", "lang", "package$", "Passes", "passes"),
           _,
-          Seq(ExLambda(_, Match(_, cases)))
+          Seq(ExLambda(_, Match(_, cases)), _*)
         ) =>
           def extract(t: tpd.Tree): Option[tpd.Tree] = t match {
             case Apply(TypeApply(ExSymbol("stainless", "lang", "package$", "Passes"), _), Seq(body)) =>
@@ -1610,6 +1613,9 @@ trait ASTExtractors {
       def unapply(tree: tpd.Apply): Option[(tpd.Tree, tpd.Tree, List[tpd.Tree])] = tree match {
         case Apply(TypeApply(ExSymbol("stainless", "lang", "Map$", "apply"), List(tptFrom, tptTo)), args) =>
           Some((tptFrom, tptTo, args))
+        // with the `CanEqual` evidence of the keys
+        case Apply(Apply(TypeApply(ExSymbol("stainless", "lang", "Map$", "apply"), List(tptFrom, tptTo)), args), _) =>
+          Some((tptFrom, tptTo, args))
         case _ => None
       }
     }
@@ -1618,6 +1624,9 @@ trait ASTExtractors {
       def unapply(tree: tpd.Apply): Option[(tpd.Tree,List[tpd.Tree])] = tree match {
         case Apply(TypeApply(ExSymbol("stainless", "lang", "Set$", "apply"), List(tpt)), args) =>
           Some(tpt, args)
+        // with the `CanEqual` evidence of the elements
+        case Apply(Apply(TypeApply(ExSymbol("stainless", "lang", "Set$", "apply"), List(tpt)), args), _) =>
+          Some(tpt, args)
         case _ => None
       }
     }
@@ -1625,6 +1634,9 @@ trait ASTExtractors {
     object ExFiniteBag {
       def unapply(tree: tpd.Apply): Option[(tpd.Tree, List[tpd.Tree])] = tree match {
         case Apply(TypeApply(ExSymbol("stainless", "lang", "Bag$", "apply"), List(tpt)), args) =>
+          Some(tpt, args)
+        // with the `CanEqual` evidence of the elements
+        case Apply(Apply(TypeApply(ExSymbol("stainless", "lang", "Bag$", "apply"), List(tpt)), args), _) =>
           Some(tpt, args)
         case _ => None
       }

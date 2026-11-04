@@ -17,7 +17,7 @@ object FunctionCaching {
   }
 
   def funWronglyCached(x: BigInt, trash: List[BigInt]): Boolean = {
-    implicit val cache = FunCache(Map())
+    implicit val cache: FunCache = FunCache(Map())
     val res1 = fun(x)
     multipleCalls(trash)
     val res2 = fun(x)

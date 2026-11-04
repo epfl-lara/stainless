@@ -3,7 +3,7 @@
 import stainless.lang._
 
 object Monads2 {
-  sealed abstract class Option[T]
+  sealed abstract class Option[T] derives CanEqual
   case class Some[T](t: T) extends Option[T]
   case class None[T]() extends Option[T]
 
@@ -17,31 +17,31 @@ object Monads2 {
     case None() => o2
   }
 
-  def associative_law[T,U,V](opt: Option[T], f: T => Option[U], g: U => Option[V]): Boolean = {
+  def associative_law[T,U,V](opt: Option[T], f: T => Option[U], g: U => Option[V])(using CanEqual[V, V]): Boolean = {
     flatMap(flatMap(opt, f), g) == flatMap(opt, (x: T) => flatMap(f(x), g))
   }.holds
 
-  def left_unit_law[T,U](x: T, f: T => Option[U]): Boolean = {
+  def left_unit_law[T,U](x: T, f: T => Option[U])(using CanEqual[U, U]): Boolean = {
     flatMap(Some(x), f) == f(x)
   }.holds
 
-  def right_unit_law[T,U](opt: Option[T]): Boolean = {
+  def right_unit_law[T,U](opt: Option[T])(using CanEqual[T, T]): Boolean = {
     flatMap(opt, (x: T) => Some[T](x)) == opt
   }.holds
 
-  def flatMap_zero_law[T,U](none: None[T], f: T => Option[U]): Boolean = {
+  def flatMap_zero_law[T,U](none: None[T], f: T => Option[U])(using CanEqual[U, U]): Boolean = {
     flatMap(none, f) == None[U]()
   }.holds
 
-  def flatMap_to_zero_law[T,U](opt: Option[T]): Boolean = {
+  def flatMap_to_zero_law[T,U](opt: Option[T])(using CanEqual[U, U]): Boolean = {
     flatMap(opt, (x: T) => None[U]()) == None[U]()
   }.holds
 
-  def add_zero_law[T](opt: Option[T]): Boolean = {
+  def add_zero_law[T](opt: Option[T])(using CanEqual[T, T]): Boolean = {
     add(opt, None[T]()) == opt
   }.holds
 
-  def zero_add_law[T](opt: Option[T]): Boolean = {
+  def zero_add_law[T](opt: Option[T])(using CanEqual[T, T]): Boolean = {
     add(None[T](), opt) == opt
   }.holds
 }

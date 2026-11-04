@@ -6,7 +6,7 @@ import lang.Set
 import lang.StaticChecks._
 
 @library
-sealed abstract class Option[+T] {
+sealed abstract class Option[+T] derives CanEqual {
 
   def get: T = {
     require(this.isDefined)
@@ -62,7 +62,7 @@ sealed abstract class Option[+T] {
 
   def exists(p: T => Boolean) = !forall(!p(_))
 
-  def toSet[TT >: T]: Set[TT] = this match {
+  def toSet[TT >: T](using CanEqual[TT, TT]): Set[TT] = this match {
     case None => Set[TT]()
     case Some(x) => Set(x)
   }
@@ -77,8 +77,8 @@ case object None extends Option[Nothing]
 @library
 object Option {
   @library @extern @pure
-  def apply[A](x: A): Option[A] = {
-    if (x == null) None else Some[A](x)
+  def apply[A](x: A)(using CanEqual[A, A]): Option[A] = {
+    if (x.asInstanceOf[AnyRef] eq null) None else Some[A](x)
  }.ensuring { res =>
     res == None || res == Some[A](x)
   }

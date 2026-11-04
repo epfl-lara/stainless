@@ -27,7 +27,7 @@ object InnerClassTypeMember {
       def toBigInt(n: BigInt): BigInt = n
     }
 
-    assert(bigIntNat.succ(bigIntNat.one) == bigIntNat.two)
+    assert(bigIntNat.toBigInt(bigIntNat.succ(bigIntNat.one)) == bigIntNat.toBigInt(bigIntNat.two))
   }
 
   sealed abstract class N
@@ -51,7 +51,7 @@ object InnerClassTypeMember {
       }
     }
 
-    assert(nNat.succ(nNat.one) == nNat.two)
+    assert(nNat.toBigInt(nNat.succ(nNat.one)) == nNat.toBigInt(nNat.two))
   }
 }
 

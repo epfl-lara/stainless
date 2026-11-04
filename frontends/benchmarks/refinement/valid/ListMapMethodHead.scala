@@ -1,9 +1,9 @@
 package listMapMethodHead
 
-sealed abstract class MyList[T]:
+sealed abstract class MyList[T] derives CanEqual:
   def nonEmpty: Boolean
   def map[U](f: T => U): MyList[U]
-  def head: T = {
+  def head(using CanEqual[T, T]): T = {
     require(this != MyNil[T]())
     val MyCons(h, _) = this: @unchecked
     h
@@ -19,4 +19,4 @@ case class MyCons[T](h: T, t: MyList[T]) extends MyList[T]:
 
 type NonEmptyList[T] = {l: MyList[T] with l.nonEmpty}
 
-def mapHead[T](l: MyList[NonEmptyList[T]]) = l.map(_.head)
+def mapHead[T](l: MyList[NonEmptyList[T]])(using CanEqual[T, T]) = l.map(_.head)

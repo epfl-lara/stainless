@@ -4,7 +4,7 @@ import stainless.lang._
 
 object IndexOfInjective {
   @opaque
-  def indexOfInjective[T](l: List[T], x1: T, x2: T): Unit = {
+  def indexOfInjective[T](l: List[T], x1: T, x2: T)(using CanEqual[T, T]): Unit = {
     require(l.contains(x1) && l.contains(x2) && x1 != x2)
     decreases(l)
 

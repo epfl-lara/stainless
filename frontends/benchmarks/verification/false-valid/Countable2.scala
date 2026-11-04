@@ -6,7 +6,7 @@ object Countable2 {
   // an instance of Countable[T] gives a bijection between T and BigInt
   abstract class Countable[T] {
     @law
-    def isBijective = {
+    def isBijective (using CanEqual[T, T]) = {
       forall((t: T) => g(f(t)) == t) &&
       forall((h: BigInt) => f(g(h)) == h)
     }

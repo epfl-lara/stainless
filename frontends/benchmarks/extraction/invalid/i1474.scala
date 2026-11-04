@@ -8,7 +8,7 @@ object i1474 {
   case class NONE[@mutable T]() extends Opt[T]
   case class SOME[@mutable T](value: T) extends Opt[T]
 
-  final case class Node(var head: Int, var next: Cell[Opt[Node]])
+  final case class Node(var head: Int, var next: Cell[Opt[Node]]) derives CanEqual
 
   @extern
   def getLast(n: Node): Node = {

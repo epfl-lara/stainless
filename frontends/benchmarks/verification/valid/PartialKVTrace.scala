@@ -6,7 +6,7 @@ import stainless.collection._
 
 object kv {
 
-  sealed abstract class Label
+  sealed abstract class Label derives CanEqual
   object Label {
     case class Get(key: String)                extends Label
     case class Put(key: String, value: String) extends Label

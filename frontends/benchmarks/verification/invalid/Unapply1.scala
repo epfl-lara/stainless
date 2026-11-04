@@ -9,7 +9,7 @@ object Unap1 {
   
 object Unapply1 {
 
-  sealed abstract class Bool
+  sealed abstract class Bool derives CanEqual
   case class True() extends Bool
   case class False() extends Bool
   

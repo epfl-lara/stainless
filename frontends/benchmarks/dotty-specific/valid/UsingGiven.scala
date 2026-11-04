@@ -1,9 +1,9 @@
 import stainless.lang._
 
 object UsingGiven {
-  case class PostalAddress(city: String, zipCode: Int, street: String, extra: String)
+  case class PostalAddress(city: String, zipCode: Int, street: String, extra: String) derives CanEqual
   // We also profit to test enum classes
-  enum Stamp {
+  enum Stamp derives CanEqual {
     case AMail, BMail
   }
 

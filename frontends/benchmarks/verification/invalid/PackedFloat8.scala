@@ -3,7 +3,7 @@ import stainless.math._
 
 // Variant of Float8, but with a packed representation
 object PackedFloat8 {
-  final case class PackedFloat8(underlying: Byte) {
+  final case class PackedFloat8(underlying: Byte) derives CanEqual {
     def mant: Int = ((underlying) >> 4) & 0xF
 
     def exp: Int = underlying & 0xF

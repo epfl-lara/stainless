@@ -1,7 +1,7 @@
 import stainless.annotation._
 
 object ContainerTest {
-  case class Container[@mutable T](t: T)
+  case class Container[@mutable T](t: T) derives CanEqual
 
   @extern
   def f(b: Container[BigInt]): Unit = ???

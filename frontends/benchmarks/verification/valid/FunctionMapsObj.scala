@@ -8,7 +8,7 @@ object FunctionMapsObj {
 
     def isDefined(k: K): Boolean = apply(k).isDefined
 
-    def update(k: K, v: V): Env[K, V] = {
+    def update(k: K, v: V)(using CanEqual[K, K]): Env[K, V] = {
       Env((k1: K) => if (k1 == k) Some(v) else apply(k1))
     }
 
@@ -19,18 +19,18 @@ object FunctionMapsObj {
   object Env {
     def empty[K, V]: Env[K, V] = Env((k: K) => None())
 
-    def single[K, V](k: K, v: V): Env[K, V] =
+    def single[K, V](k: K, v: V)(using CanEqual[K, K]): Env[K, V] =
       Env.empty[K, V].update(k, v)
 
-    def leftIden[K, V](env: Env[K, V], k0: K): Boolean = {
+    def leftIden[K, V](env: Env[K, V], k0: K)(using CanEqual[V, V]): Boolean = {
       Env.empty[K, V].merge(env)(k0) == env(k0)
     }.holds
 
-    def rightIden[K, V](env: Env[K, V], k0: K): Boolean = {
+    def rightIden[K, V](env: Env[K, V], k0: K)(using CanEqual[V, V]): Boolean = {
       env.merge(Env.empty[K, V])(k0) == env(k0)
     }.holds
 
-    def assoc[K, V](env1: Env[K, V], env2: Env[K, V], env3: Env[K, V], k0: K): Boolean = {
+    def assoc[K, V](env1: Env[K, V], env2: Env[K, V], env3: Env[K, V], k0: K)(using CanEqual[V, V]): Boolean = {
       env1.merge(env2).merge(env3)(k0) ==
       env1.merge(env2.merge(env3))(k0)
     }.holds

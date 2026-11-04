@@ -10,7 +10,7 @@ import ListOps._
 @library
 object ListSpecs {
 
-  def snocIndex[T](l: List[T], t: T, i: BigInt): Boolean = {
+  def snocIndex[T](l: List[T], t: T, i: BigInt)(using CanEqual[T, T]): Boolean = {
     require(0 <= i && i < l.bsize + 1)
     decreases(l)
     l match {
@@ -20,14 +20,14 @@ object ListSpecs {
     ((l :+ t).bapply(i) == (if (i < l.bsize) l.bapply(i) else t))
   }.holds
 
-  def consIndex[T](h: T, t: List[T], i: BigInt): Boolean = {
+  def consIndex[T](h: T, t: List[T], i: BigInt)(using CanEqual[T, T]): Boolean = {
     require(0 <= i && i < t.bsize + 1)
     decreases(t)
     check(t.isEmpty || i == 0 || consIndex(h, t.tail, i-1))
     (h :: t).bapply(i) == (if (i == 0) h else t.bapply(i - 1))
   }.holds
 
-  def reverseIndex[T](l: List[T], i: BigInt): Boolean = {
+  def reverseIndex[T](l: List[T], i: BigInt)(using CanEqual[T, T]): Boolean = {
     require(0 <= i && i < l.bsize)
     decreases(l)
     l match {
@@ -39,7 +39,7 @@ object ListSpecs {
     l.reverse.bapply(i) == l.bapply(l.bsize - 1 - i)
   }.holds
 
-  def snocLast[T](l: List[T], x: T): Boolean = {
+  def snocLast[T](l: List[T], x: T)(using CanEqual[T, T]): Boolean = {
     decreases(l)
 
     l match {
@@ -55,7 +55,7 @@ object ListSpecs {
     ((l :+ x).last == x)
   }.holds
 
-  def headReverseLast[T](l: List[T]): Boolean = {
+  def headReverseLast[T](l: List[T])(using CanEqual[T, T]): Boolean = {
     require (!l.isEmpty)
     (l.head == l.reverse.last)
   }.holds because {
@@ -68,7 +68,7 @@ object ListSpecs {
     }.qed
   }
 
-  def appendIndex[T](l1: List[T], l2: List[T], i: BigInt): Boolean = {
+  def appendIndex[T](l1: List[T], l2: List[T], i: BigInt)(using CanEqual[T, T]): Boolean = {
     require(0 <= i && i < l1.bsize + l2.bsize)
     decreases(l1)
     l1 match {
@@ -79,21 +79,21 @@ object ListSpecs {
     (l1 ++ l2).bapply(i) == (if (i < l1.bsize) l1.bapply(i) else l2.bapply(i - l1.bsize))
   }.holds
 
-  def appendAssoc[T](@induct l1: List[T], l2: List[T], l3: List[T]): Boolean = {
+  def appendAssoc[T](@induct l1: List[T], l2: List[T], l3: List[T])(using CanEqual[T, T]): Boolean = {
     (l1 ++ l2) ++ l3 == l1 ++ (l2 ++ l3)
   }.holds
 
-  def rightUnitAppend[T](@induct l1: List[T]): Boolean = {
+  def rightUnitAppend[T](@induct l1: List[T])(using CanEqual[T, T]): Boolean = {
     l1 ++ Nil == l1
   }.holds
 
   // This follows immediately from the definition of `++` but we
   // include it here anyway for completeness.
-  def leftUnitAppend[T](l1: List[T]): Boolean = {
+  def leftUnitAppend[T](l1: List[T])(using CanEqual[T, T]): Boolean = {
     Nil ++ l1 == l1
   }.holds
 
-  def snocIsAppend[T](l: List[T], t: T): Boolean = {
+  def snocIsAppend[T](l: List[T], t: T)(using CanEqual[T, T]): Boolean = {
     decreases(l)
     l match {
       case Nil => true
@@ -102,7 +102,7 @@ object ListSpecs {
     (l :+ t) == l ++ (t :: Nil)
   }.holds
 
-  def snocAfterAppend[T](l1: List[T], l2: List[T], t: T): Boolean = {
+  def snocAfterAppend[T](l1: List[T], l2: List[T], t: T)(using CanEqual[T, T]): Boolean = {
     decreases(l1)
     l1 match {
       case Nil => true
@@ -111,7 +111,7 @@ object ListSpecs {
     (l1 ++ l2) :+ t == l1 ++ (l2 :+ t)
   }.holds
 
-  def snocReverse[T](l: List[T], t: T): Boolean = {
+  def snocReverse[T](l: List[T], t: T)(using CanEqual[T, T]): Boolean = {
     decreases(l)
     l match {
       case Nil => true
@@ -120,7 +120,7 @@ object ListSpecs {
     (l :+ t).reverse == t :: l.reverse
   }.holds
 
-  def reverseReverse[T](l: List[T]): Boolean = {
+  def reverseReverse[T](l: List[T])(using CanEqual[T, T]): Boolean = {
     decreases(l)
     l match {
       case Nil       => trivial
@@ -133,7 +133,7 @@ object ListSpecs {
     l.reverse.reverse == l
   }.holds
 
-  def reverseAppend[T](l1: List[T], l2: List[T]): Boolean = {
+  def reverseAppend[T](l1: List[T], l2: List[T])(using CanEqual[T, T]): Boolean = {
     decreases(l1)
     l1 match {
       case Nil => {
@@ -155,7 +155,7 @@ object ListSpecs {
     (l1 ++ l2).reverse == l2.reverse ++ l1.reverse
   }.holds
 
-  def snocFoldRight[A, B](xs: List[A], y: A, z: B, f: (A, B) => B): Boolean = {
+  def snocFoldRight[A, B](xs: List[A], y: A, z: B, f: (A, B) => B)(using CanEqual[A, A], CanEqual[B, B]): Boolean = {
     decreases(xs)
     xs match {
       case Nil => true
@@ -164,7 +164,7 @@ object ListSpecs {
     (xs :+ y).foldRight(z)(f) == xs.foldRight(f(y, z))(f)
   }.holds
 
-  def folds[A, B](xs: List[A], z: B, f: (B, A) => B): Boolean = {
+  def folds[A, B](xs: List[A], z: B, f: (B, A) => B)(using CanEqual[A, A], CanEqual[B, B]): Boolean = {
     decreases(xs)
     val f2 = (x: A, z: B) => f(z, x)
     ( xs.foldLeft(z)(f) == xs.reverse.foldRight(z)(f2) ) because {
@@ -183,7 +183,7 @@ object ListSpecs {
     }
   }.holds
 
-  def scanVsFoldLeft[A, B](l: List[A], z: B, f: (B, A) => B): Boolean = {
+  def scanVsFoldLeft[A, B](l: List[A], z: B, f: (B, A) => B)(using CanEqual[A, A], CanEqual[B, B]): Boolean = {
     decreases(l)
     l match {
       case Nil => true
@@ -192,15 +192,15 @@ object ListSpecs {
     ( l.scanLeft(z)(f).last == l.foldLeft(z)(f) )
   }.holds
 
-  def scanVsFoldRight[A,B](@induct l: List[A], z: B, f: (A,B) => B): Boolean = {
+  def scanVsFoldRight[A,B](@induct l: List[A], z: B, f: (A,B) => B)(using CanEqual[A, A], CanEqual[B, B]): Boolean = {
     l.scanRight(z)(f).head == l.foldRight(z)(f)
   }.holds
 
-  def appendContent[A](l1: List[A], l2: List[A]) = {
+  def appendContent[A](l1: List[A], l2: List[A])(using CanEqual[A, A]) = {
     l1.content ++ l2.content == (l1 ++ l2).content
   }.holds
 
-  def flattenPreservesContent[T](ls: List[List[T]]): Boolean = {
+  def flattenPreservesContent[T](ls: List[List[T]])(using CanEqual[T, T]): Boolean = {
     decreases(ls)
     val f: (List[T], Set[T]) => Set[T] = _.content ++ _
     ( flatten(ls).content[T] == ls.foldRight(Set[T]())(f) ) because {
@@ -219,7 +219,7 @@ object ListSpecs {
   }.holds
 
   // A lemma about `append` and `updated`
-  def appendUpdate[T](l1: List[T], l2: List[T], i: BigInt, y: T): Boolean = {
+  def appendUpdate[T](l1: List[T], l2: List[T], i: BigInt, y: T)(using CanEqual[T, T]): Boolean = {
     require(0 <= i && i < l1.bsize + l2.bsize)
     decreases(l1)
 
@@ -237,7 +237,7 @@ object ListSpecs {
   }.holds
 
   // a lemma about `append`, `take` and `drop`
-  def appendTakeDrop[T](l1: List[T], l2: List[T], n: BigInt): Boolean = {
+  def appendTakeDrop[T](l1: List[T], l2: List[T], n: BigInt)(using CanEqual[T, T]): Boolean = {
     require(n >= 0)
     decreases(l1)
     l1 match {
@@ -281,7 +281,7 @@ object ListSpecs {
   }.holds
   */
   /** A way to apply the forall axiom */
-  def applyForAll[T](l: List[T], i: BigInt, p: T => Boolean): Boolean = {
+  def applyForAll[T](l: List[T], i: BigInt, p: T => Boolean)(using CanEqual[T, T]): Boolean = {
     require(i >= 0 && i < l.bsize && l.forall(p))
     decreases(l)
 
@@ -293,7 +293,7 @@ object ListSpecs {
     p(l.bapply(i))
   }.holds
 
-  def listFilterValidProp[A](l: List[A], p: A => Boolean, f: A => Boolean): Unit = {
+  def listFilterValidProp[A](l: List[A], p: A => Boolean, f: A => Boolean)(using CanEqual[A, A]): Unit = {
     require(l.forall(p))
     decreases(l)
     l match {
@@ -304,7 +304,7 @@ object ListSpecs {
     }
  }.ensuring(_ => l.filter(f).forall(p))
 
-  def listAppendValidProp[A](l: List[A], as: List[A], p: A => Boolean): Unit = {
+  def listAppendValidProp[A](l: List[A], as: List[A], p: A => Boolean)(using CanEqual[A, A]): Unit = {
     require(l.forall(p) && as.forall(p))
     decreases(as)
     as match {
@@ -328,7 +328,7 @@ object ListSpecs {
  }.ensuring(_ => l.map(f).forall(p))
 
   @opaque
-  def subsetContains[T](l1: List[T], l2: List[T]): Unit = {
+  def subsetContains[T](l1: List[T], l2: List[T])(using CanEqual[T, T]): Unit = {
     require(l1.content.subsetOf(l2.content))
     decreases(l1)
     l1 match {
@@ -340,10 +340,10 @@ object ListSpecs {
  }.ensuring(_ => l1.forall(l2.contains[T]))
 
   @inline
-  def noDuplicate[T](l: List[T]): Boolean = ListOps.noDuplicate(l)
+  def noDuplicate[T](l: List[T])(using CanEqual[T, T]): Boolean = ListOps.noDuplicate(l)
 
   @opaque
-  def forallContained[T](l: List[T], p: T => Boolean, x: T): Unit = {
+  def forallContained[T](l: List[T], p: T => Boolean, x: T)(using CanEqual[T, T]): Unit = {
     require(l.forall(p) && l.contains(x))
     decreases(l.bsize)
     if (!l.isEmpty && l.tail.contains(x))
@@ -352,14 +352,14 @@ object ListSpecs {
  }.ensuring(_ => p(x))
 
   @opaque
-  def subsetContained[T](l1: List[T], l2: List[T], x: T): Unit = {
+  def subsetContained[T](l1: List[T], l2: List[T], x: T)(using CanEqual[T, T]): Unit = {
     require(l1.forall(l2.contains[T]) && l1.contains(x))
     forallContained(l1, l2.contains[T], x)
  }.ensuring(_ =>
     l2.contains(x)
   )
 
-  def subseq[T](l1: List[T], l2: List[T]): Boolean = {
+  def subseq[T](l1: List[T], l2: List[T])(using CanEqual[T, T]): Boolean = {
     decreases(l2.bsize)
     (l1, l2) match {
       case (Nil, _) => true
@@ -370,7 +370,7 @@ object ListSpecs {
     }
   }
 
-  def subseqTail[T](l1: List[T], l2: List[T]): Unit = {
+  def subseqTail[T](l1: List[T], l2: List[T])(using CanEqual[T, T]): Unit = {
     require(!l1.isEmpty && subseq(l1, l2))
     decreases(l2.bsize)
 
@@ -389,7 +389,7 @@ object ListSpecs {
   )
 
   @opaque
-  def subseqContains[T](l1: List[T], l2: List[T], t: T): Unit = {
+  def subseqContains[T](l1: List[T], l2: List[T], t: T)(using CanEqual[T, T]): Unit = {
     require(subseq(l1, l2) && l1.contains(t))
     decreases(l2.bsize)
     (l1, l2) match {
@@ -407,7 +407,7 @@ object ListSpecs {
   )
 
   @opaque
-  def subseqNotContains[T](l1: List[T], l2: List[T], t: T): Unit = {
+  def subseqNotContains[T](l1: List[T], l2: List[T], t: T)(using CanEqual[T, T]): Unit = {
     require(subseq(l1, l2) && !l2.contains(t))
     decreases(l1)
     if (l1.contains(t))
@@ -418,7 +418,7 @@ object ListSpecs {
   )
 
   @opaque
-  def noDuplicateSubseq[T](l1: List[T], l2: List[T]): Unit = {
+  def noDuplicateSubseq[T](l1: List[T], l2: List[T])(using CanEqual[T, T]): Unit = {
     decreases(l2.bsize)
     require(subseq(l1, l2) && noDuplicate(l2))
 
@@ -448,7 +448,7 @@ object ListSpecs {
   )
 
   @opaque
-  def mapSubseq[A, B](l1: List[A], l2: List[A], f: A => B): Unit = {
+  def mapSubseq[A, B](l1: List[A], l2: List[A], f: A => B)(using CanEqual[A, A], CanEqual[B, B]): Unit = {
     decreases(l2.bsize)
     require(subseq(l1, l2))
 
@@ -465,12 +465,12 @@ object ListSpecs {
  }.ensuring(_ => subseq(l1.map(f), l2.map(f)))
 
   @opaque
-  def filterSubseq[A](@induct l: List[A], p: A => Boolean): Unit = {
+  def filterSubseq[A](@induct l: List[A], p: A => Boolean)(using CanEqual[A, A]): Unit = {
 
  }.ensuring(_ => subseq(l.filter(p), l))
 
   @opaque
-  def noDuplicateMapFilter[A, B](l: List[A], p: A => Boolean, f: A => B): Unit = {
+  def noDuplicateMapFilter[A, B](l: List[A], p: A => Boolean, f: A => B)(using CanEqual[B, B], CanEqual[A, A]): Unit = {
     require(noDuplicate(l.map(f)))
 
     filterSubseq(l, p)
@@ -482,14 +482,14 @@ object ListSpecs {
   )
 
   @opaque
-  def filterMapNotIn[A, B](@induct l: List[(A, B)], a: A): Unit = {
+  def filterMapNotIn[A, B](@induct l: List[(A, B)], a: A)(using CanEqual[A, A], CanEqual[B, B]): Unit = {
 
  }.ensuring(_ =>
     !l.filter(_._1 != a).map(_._1).contains(a)
   )
 
   @opaque
-  def containedTail[T](l1: List[T], l2: List[T]): Unit = {
+  def containedTail[T](l1: List[T], l2: List[T])(using CanEqual[T, T]): Unit = {
     require(!l2.isEmpty && l1.forall(l2.tail.contains[T]))
     decreases(l1)
     l1 match {
@@ -503,7 +503,7 @@ object ListSpecs {
   )
 
   @opaque
-  def subsetRefl[T](l: List[T]): Unit = {
+  def subsetRefl[T](l: List[T])(using CanEqual[T, T]): Unit = {
     decreases(l.bsize)
     if (!l.isEmpty) {
       subsetRefl(l.tail)
@@ -514,7 +514,7 @@ object ListSpecs {
   )
 
   @opaque
-  def forallContainsSubset[T](l1: List[T], l2: List[T]): Unit = {
+  def forallContainsSubset[T](l1: List[T], l2: List[T])(using CanEqual[T, T]): Unit = {
     require(l1.forall(l2.contains[T]))
     decreases(l1)
     if (!l1.isEmpty) {

@@ -15,7 +15,7 @@ import BalancedParenthesesUtils._
 
 object BalancedParenthesesLists {
 
-  sealed abstract class List[A] {
+  sealed abstract class List[A] derives CanEqual {
 
     def foldRight[B](z: B)(f: (A, B) => B): B = {
       decreases(this)
@@ -129,7 +129,7 @@ object BalancedParentheses {
   case class OpenParenthesis() extends Parenthesis
   case class CloseParenthesis() extends Parenthesis
 
-  case class Balance(extraOpen: BigInt, extraClose: BigInt) {
+  case class Balance(extraOpen: BigInt, extraClose: BigInt) derives CanEqual {
 
     def nonNegative: Boolean = extraOpen >= 0 && extraClose >= 0
 
@@ -271,7 +271,7 @@ object BalancedParenthesesSpecs {
   }.holds
 
   @induct
-  def foldRight_accumulator_equivalence[A](xs: List[A], z: A, f: (A, A) => A): Boolean = {
+  def foldRight_accumulator_equivalence[A](xs: List[A], z: A, f: (A, A) => A)(using CanEqual[A, A]): Boolean = {
     xs.foldRight(z)(f) == xs.append(Cons(z, Nil())).foldRight1(f)
   }.holds
 

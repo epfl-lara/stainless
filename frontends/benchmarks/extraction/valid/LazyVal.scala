@@ -8,8 +8,11 @@ import math._
 
 object LazyVal {
 
-  sealed abstract class Stream[T] {
-    def isEmpty: Boolean = this == SNil[T]()
+  sealed abstract class Stream[T] derives CanEqual {
+    def isEmpty: Boolean = this match {
+      case SNil() => true
+      case _ => false
+    }
     def isCons: Boolean = !isEmpty
 
     lazy val stail: Stream[T] = {

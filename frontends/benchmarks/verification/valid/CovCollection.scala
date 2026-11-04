@@ -12,7 +12,7 @@ object CovCollection {
   }
 
   // Unsealed hierarchy
-  trait UnsealedSeal {
+  trait UnsealedSeal derives CanEqual {
     def x: BigInt
   }
   case class EmpressLeakySeal(x: BigInt, y: BigInt) extends UnsealedSeal

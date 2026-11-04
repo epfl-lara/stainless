@@ -5,7 +5,7 @@ import stainless.annotation._
 // TODO: This test case is originally about missing line numbers for plantThm postconditions.
 // If/when integration tests also test for input, ensure this case to have the correct source info.
 object i1295 {
-  sealed trait State{
+  sealed trait State derives CanEqual {
     def plant: Tree = {
       this match {
       case Baz(t1, t2) => {

@@ -1,0 +1,6 @@
+[ Error  ] StrictEquality2.scala:2:14: `Box` cannot derive `CanEqual`: the field `a` of `Box` may be of type `Any`, and equality on `Any` is not supported
+             case class Box(a: Any) derives CanEqual
+                        ^
+[ Error  ] StrictEquality2.scala:4:25: `Shape` cannot derive `CanEqual`: the component 2 of `(BigInt, Any)` may be of type `Any`, and equality on `Any` is not supported
+             sealed abstract class Shape derives CanEqual
+                                   ^

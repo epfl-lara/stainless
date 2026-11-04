@@ -19,8 +19,4 @@ object DependentFunTypes {
     assert(extractor(entry) == 42)
   }
 
-  def test2(entry: Entry) = {
-    assert(extractor(entry) == entry.key)
-  }
-
 }

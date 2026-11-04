@@ -4,7 +4,7 @@ object ObjectParamMutation8 {
 
   case class A[B](var y: B)
 
-  def update[B](a: A[B], b: B): B = {
+  def update[B](a: A[B], b: B)(using CanEqual[B, B]): B = {
     a.y = b
     a.y
  }.ensuring(res => res == b)

@@ -4,7 +4,7 @@ import stainless.collection._
 
 // Set[T <: AnyHeapRef]#asRefs is convenient for specifying reads and modifies clauses
 object AsHeapRefSetExample {
-  case class Cell(var value: BigInt) extends AnyHeapRef
+  case class Cell(var value: BigInt) extends AnyHeapRef derives CanEqual
 
   def increasing(cells: List[Cell], bound: BigInt = 0): Boolean = {
     reads(cells.content.asRefs)

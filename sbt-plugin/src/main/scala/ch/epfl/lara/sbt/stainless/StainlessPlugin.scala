@@ -245,6 +245,7 @@ object StainlessPlugin extends sbt.AutoPlugin {
               "-language:experimental.qualifiedTypes",
               "-language:experimental.qualifiedTypes.silent",
               "-Yqualified-types-anf",
+              "-language:strictEquality",
             )
           else
             Seq.empty

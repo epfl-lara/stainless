@@ -8,6 +8,15 @@ import stainless.lang.Cell
 
 package object lang {
 
+  /** Functions can be compared with `==` in ghost code (the tree sanitizer rejects it in executable code):
+    * such a comparison is not about boxed values, so instances are provided for the function types.
+    * They are `implicit def`s rather than `given`s so that `import stainless.lang._` brings them in scope. */
+  @library
+  implicit def canEqualFunction1[A, B]: CanEqual[A => B, A => B] = CanEqual.derived
+
+  @library
+  implicit def canEqualFunction2[A, B, C]: CanEqual[(A, B) => C, (A, B) => C] = CanEqual.derived
+
   // TODO: should be renamed to ghostExpr
   @library
   def ghost[A](@ghost value: => A): Unit = ()
@@ -133,7 +142,7 @@ package object lang {
     val (in, out) = io
 
     @ignore
-    def passes(tests: A => B): Boolean = try {
+    def passes(tests: A => B)(using CanEqual[B, B]): Boolean = try {
       tests(in) == out
     } catch {
       case _ : MatchError => true
@@ -252,7 +261,7 @@ package object lang {
   // This --full-imperative stuff should perhaps move to a separate object.
 
   @extern @library @mutable @anyHeapRef
-  trait AnyHeapRef {
+  trait AnyHeapRef derives CanEqual {
     @refEq
     def refEq(that: AnyHeapRef): Boolean = true
   }
@@ -273,7 +282,7 @@ package object lang {
   def objectId[T <: AnyHeapRef](x: T): BigInt = ???
 
   @library
-  case class Heap(/*opaque*/) {
+  case class Heap(/*opaque*/) derives CanEqual {
     // Evaluates a value expression in the given heap.
     // Caveat: Reads and modifies clauses are currently unchecked in the value expression.
     @extern @library

@@ -3,9 +3,9 @@ import stainless.collection._
 
 object BVMaxInterpret {
 
-  case class Reg(n: BigInt)
+  case class Reg(n: BigInt) derives CanEqual
 
-  sealed abstract class Op {
+  sealed abstract class Op derives CanEqual {
     def out: Reg
   }
   case class BVSge(out: Reg, ra: Reg, rb: Reg) extends Op

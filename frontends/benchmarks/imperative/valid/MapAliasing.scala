@@ -2,7 +2,7 @@ import stainless.lang._
 
 object MapAliasing {
 
-  case class A(var x: BigInt)
+  case class A(var x: BigInt) derives CanEqual
 
   def f(m: MutableMap[BigInt, A], n: Int): A = {
     m(0)

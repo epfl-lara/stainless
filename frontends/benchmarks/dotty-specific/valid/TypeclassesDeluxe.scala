@@ -8,7 +8,7 @@ object TypeclassesDeluxe {
     extension (x: T) def combine(y: T): T
 
     @law
-    def law_associativity(x: T, y: T, z: T) =
+    def law_associativity(x: T, y: T, z: T)(using CanEqual[T, T]) =
       x.combine(y.combine(z)) == x.combine(y).combine(z)
   }
 
@@ -16,11 +16,11 @@ object TypeclassesDeluxe {
     def unit: T
 
     @law
-    def law_leftIdentity(x: T) =
+    def law_leftIdentity(x: T)(using CanEqual[T, T]) =
       unit.combine(x) == x
 
     @law
-    def law_rightIdentity(x: T) =
+    def law_rightIdentity(x: T)(using CanEqual[T, T]) =
       x.combine(unit) == x
   }
 

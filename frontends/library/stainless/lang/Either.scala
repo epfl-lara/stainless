@@ -10,7 +10,7 @@ import stainless.lang.StaticChecks._
  * @author Viktor
  */
 @library
-sealed abstract class Either[A, B] {
+sealed abstract class Either[A, B] derives CanEqual {
   def isLeft: Boolean
   def isRight: Boolean
   def swap: Either[B, A]
@@ -45,7 +45,7 @@ sealed abstract class Either[A, B] {
     case _ => or
   }
 
-  def contains[B1 >: B](elem: B1): Boolean = this match {
+  def contains[B1 >: B](elem: B1)(using CanEqual[B1, B1]): Boolean = this match {
     case Right(b) => b == elem
     case _ => false
   }
@@ -70,7 +70,7 @@ sealed abstract class Either[A, B] {
     case _ => None()
   }
 
-  def toList: List[B] = this match {
+  def toList(using CanEqual[B, B]): List[B] = this match {
     case Right(b) => List(b)
     case _ => Nil()
   }
@@ -152,7 +152,7 @@ object Either {
       case _ => None()
     }
 
-    def toList: List[A] = e match {
+    def toList(using CanEqual[A, A]): List[A] = e match {
       case Left(a) => List(a)
       case Right(_) => List.empty
     }

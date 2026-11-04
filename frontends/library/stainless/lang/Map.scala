@@ -13,10 +13,10 @@ import stainless.collection.TupleListOpsGenK
 object Map {
   @library @inline
   @isabelle.function(term = "Map.empty")
-  def empty[A,B] = Map[A,B]()
+  def empty[A,B] (using CanEqual[A, A])= Map[A,B]()
 
   @ignore
-  def apply[A,B](elems: (A,B)*) = {
+  def apply[A,B](elems: (A,B)*)(using CanEqual[A, A]) = {
     new Map[A,B](scala.collection.immutable.Map[A,B](elems*))
   }
 
@@ -42,7 +42,7 @@ object Map {
     }
 
     @extern @pure
-    def keysPost(a: A): Unit = {
+    def keysPost(a: A)(using CanEqual[A, A]): Unit = {
       ()
    }.ensuring { _ =>
       map.contains(a) == keys.contains(a)
@@ -55,20 +55,20 @@ object Map {
     }
 
     @extern @pure
-    def valuesPost1(a: A): Unit = {
+    def valuesPost1(a: A)(using CanEqual[B, B], CanEqual[A, A]): Unit = {
       ()
    }.ensuring { _ =>
       !map.contains(a) || values.contains(map(a))
     }
 
     @extern @pure
-    def valuesPost2(b: B): A = {
+    def valuesPost2(b: B)(using CanEqual[B, B], CanEqual[A, A]): A = {
       require(values.contains(b))
       (??? : A)
    }.ensuring((a:A) => b == map(a) && map.contains(a))
 
     @extern @pure
-    def toList: List[(A, B)] = {
+    def toList(using CanEqual[A, A], CanEqual[B, B]): List[(A, B)] = {
       List.fromScala(map.theMap.toList)
     }.ensuring(res => TupleListOpsGenK.noDuplicatedKeys(res))
 
@@ -78,12 +78,12 @@ object Map {
       * @return
       */
     @pure @ghost
-    def toListMap: ListMap[A, B] = {
+    def toListMap(using CanEqual[A, A], CanEqual[B, B]): ListMap[A, B] = {
       ListMap(map.toList)
     }
 
     @extern @pure
-    def toListPost(a: A): Unit = {
+    def toListPost(a: A)(using CanEqual[A, A], CanEqual[B, B]): Unit = {
       ()
    }.ensuring(_ => map.contains(a) ==> toList.contains((a, map(a))))
 
@@ -94,34 +94,34 @@ object Map {
   }
 
   @library
-  def fromList[K, V](l: List[(K, V)]): Map[K, V] = l.foldLeft(Map[K, V]()) {
+  def fromList[K, V](l: List[(K, V)])(using CanEqual[K, K]): Map[K, V] = l.foldLeft(Map[K, V]()) {
     case (current, (k, v)) => current ++ Map(k -> v)
   }
 
   @library
   implicit class ToMapOps[K, V](l: List[(K, V)]) {
-    def toMap: Map[K, V] = fromList(l)
+    def toMap(using CanEqual[K, K]): Map[K, V] = fromList(l)
   }
 }
 
 @ignore
-case class Map[A, B] (theMap: scala.collection.immutable.Map[A,B]) {
-  def apply(k: A): B = theMap.apply(k)
-  def updated(k: A, v: B): Map[A,B] = new Map(theMap.updated(k, v))
-  def removed(k: A): Map[A, B] = new Map(theMap - k)
-  def contains(a: A): Boolean = theMap.contains(a)
-  def isDefinedAt(a: A): Boolean = contains(a)
+case class Map[A, B] (theMap: scala.collection.immutable.Map[A,B]) derives CanEqual {
+  def apply(k: A)(using CanEqual[A, A]): B = theMap.apply(k)
+  def updated(k: A, v: B)(using CanEqual[A, A]): Map[A,B] = new Map(theMap.updated(k, v))
+  def removed(k: A)(using CanEqual[A, A]): Map[A, B] = new Map(theMap - k)
+  def contains(a: A)(using CanEqual[A, A]): Boolean = theMap.contains(a)
+  def isDefinedAt(a: A)(using CanEqual[A, A]): Boolean = contains(a)
 
-  def +(kv: (A, B)): Map[A,B] = updated(kv._1, kv._2)
-  def +(k: A, v: B): Map[A,B] = updated(k, v)
-  def -(k: A): Map[A, B] = removed(k)
+  def +(kv: (A, B))(using CanEqual[A, A]): Map[A,B] = updated(kv._1, kv._2)
+  def +(k: A, v: B)(using CanEqual[A, A]): Map[A,B] = updated(k, v)
+  def -(k: A)(using CanEqual[A, A]): Map[A, B] = removed(k)
 
-  def ++(b: Map[A, B]): Map[A,B] = new Map(theMap ++ b.theMap)
-  def --(b: Set[A]): Map[A,B] = new Map(theMap -- b.theSet)
+  def ++(b: Map[A, B])(using CanEqual[A, A]): Map[A,B] = new Map(theMap ++ b.theMap)
+  def --(b: Set[A])(using CanEqual[A, A]): Map[A,B] = new Map(theMap -- b.theSet)
 
-  def getOrElse(k: A, default: B): B = get(k).getOrElse(default)
+  def getOrElse(k: A, default: B)(using CanEqual[A, A]): B = get(k).getOrElse(default)
 
-  def get(k: A): Option[B] = if (contains(k)) {
+  def get(k: A)(using CanEqual[A, A]): Option[B] = if (contains(k)) {
     Some[B](apply(k))
   } else {
     None[B]()

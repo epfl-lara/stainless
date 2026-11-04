@@ -1,6 +1,6 @@
 object PassByRef {
   case class Box(var value: BigInt)
-  case class Container(b: Box)
+  case class Container(b: Box) derives CanEqual
 
   def f2(b: Container): Unit = b.b.value = 3
 

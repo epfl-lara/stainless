@@ -7,7 +7,7 @@ import stainless.lang.StaticChecks._
 
 @library
 @isabelle.typ(name = "Option.option")
-sealed abstract class Option[T] {
+sealed abstract class Option[T] derives CanEqual {
 
   def get : T = {
     require(this.isDefined)
@@ -73,7 +73,7 @@ sealed abstract class Option[T] {
   }
   */
 
-  def toSet: Set[T] = this match {
+  def toSet(using CanEqual[T, T]): Set[T] = this match {
     case None() => Set[T]()
     case Some(x) => Set(x)
   }
@@ -90,8 +90,8 @@ case class None[T]() extends Option[T]
 @library
 object Option {
   @library @extern @pure
-  def apply[A](x: A): Option[A] = {
-    if (x == null) None[A]() else Some[A](x)
+  def apply[A](x: A)(using CanEqual[A, A]): Option[A] = {
+    if (x.asInstanceOf[AnyRef] eq null) None[A]() else Some[A](x)
  }.ensuring { res =>
     res == None[A]() || res == Some[A](x)
   }

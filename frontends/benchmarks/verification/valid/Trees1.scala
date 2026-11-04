@@ -3,7 +3,7 @@
 import stainless.lang._
 
 object Trees1 {
-  sealed abstract class Tree[T]
+  sealed abstract class Tree[T] derives CanEqual
   case class Node[T](left: Tree[T], right: Tree[T]) extends Tree[T]
   case class Leaf[T](value: T) extends Tree[T]
 
@@ -12,11 +12,11 @@ object Trees1 {
     case Leaf(value) => Leaf(f(value))
   }
 
-  def associative_lemma[T,U,V](tree: Tree[T], f: T => U, g: U => V): Boolean = {
+  def associative_lemma[T,U,V](tree: Tree[T], f: T => U, g: U => V)(using CanEqual[V, V]): Boolean = {
     map(map(tree, f), g) == map(tree, (x: T) => g(f(x)))
   }
 
-  def associative_lemma_induct[T,U,V](tree: Tree[T], f: T => U, g: U => V): Boolean = {
+  def associative_lemma_induct[T,U,V](tree: Tree[T], f: T => U, g: U => V)(using CanEqual[V, V]): Boolean = {
     tree match {
       case Node(left, right) => associative_lemma_induct(left, f, g) && associative_lemma_induct(right, f, g) && associative_lemma(tree, f, g)
       case Leaf(value) => associative_lemma(tree, f, g)

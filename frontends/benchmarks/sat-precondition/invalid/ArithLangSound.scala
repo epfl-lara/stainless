@@ -50,7 +50,7 @@ object ArithLangSound:
           case _ => None[Value]()
 
   // Type expressions are Bool or Int
-  sealed trait TypeExpr
+  sealed trait TypeExpr derives CanEqual
   case class BoolType() extends TypeExpr
   case class IntType() extends TypeExpr
   
@@ -83,7 +83,8 @@ object ArithLangSound:
   // If we require an expression to have a type, then it always returns value.
   // This means that well-typed expressions do not get stuck.
   def evalTyped(e: Expr, @ghost t: TypeExpr): Value = {
-    require(typeOf(e) == t)
+    // Unsatisfiable: `e` cannot both have the type `t` and no type
+    require(typeOf(e) == Some[TypeExpr](t) && typeOf(e).isEmpty)
     decreases(e)
     e match {
       case IntConst(c) => IntVal(c)

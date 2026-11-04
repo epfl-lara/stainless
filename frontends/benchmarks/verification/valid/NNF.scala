@@ -5,7 +5,7 @@ import stainless.annotation._
 
 object NNF {
 
-  sealed abstract class Formula
+  sealed abstract class Formula derives CanEqual
   case class And(lhs: Formula, rhs: Formula) extends Formula
   case class Or(lhs: Formula, rhs: Formula) extends Formula
   case class Implies(lhs: Formula, rhs: Formula) extends Formula

@@ -5,7 +5,7 @@ import stainless.annotation._
 import stainless.collection.List._
 
 object QueueAlmost {
-  final case class Node(val value: BigInt, var nextOpt: Option[Node]) extends AnyHeapRef {}
+  final case class Node(val value: BigInt, var nextOpt: Option[Node]) extends AnyHeapRef derives CanEqual {}
 
   final case class Q(private var first: Node,
                      private var size: BigInt,

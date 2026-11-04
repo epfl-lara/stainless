@@ -1,6 +1,7 @@
 object TypeAliasOpaque {
   object OpaqueLongWrap {
     opaque type OpaqueLong = Long
+    given CanEqual[OpaqueLong, OpaqueLong] = CanEqual.derived
     extension (ol: OpaqueLong) {
       def toLong: Long = ol
     }

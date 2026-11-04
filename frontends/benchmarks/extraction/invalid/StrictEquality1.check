@@ -1,0 +1,12 @@
+[ Error  ] StrictEquality1.scala:5:5: Values of types Any and Any cannot be compared with == or !=
+               a == b
+               ^
+[ Error  ] StrictEquality1.scala:7:32: Values of types Any and Int cannot be compared with == or !=
+             def mixed(a: Any): Boolean = a == 5
+                                          ^
+[ Error  ] StrictEquality1.scala:9:39: Values of types T and T cannot be compared with == or !=
+             def param[T](x: T, y: T): Boolean = x == y
+                                                 ^
+[ Error  ] StrictEquality1.scala:13:45: Values of types StrictEquality1.Point and StrictEquality1.Point cannot be compared with == or !=
+             def points(p: Point, q: Point): Boolean = p == q
+                                                       ^

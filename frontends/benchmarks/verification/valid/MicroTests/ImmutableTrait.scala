@@ -1,4 +1,4 @@
-trait ImmutableTrait
+trait ImmutableTrait derives CanEqual
 
 trait B {
   def f(a: ImmutableTrait): Unit

@@ -8,8 +8,8 @@ object i1399c {
   case class A(m: M)
   case class M(b: B)
   case class B(d: D)
-  case class D(a: AA)
-  case class AA(x: BigInt)
+  case class D(a: AA) derives CanEqual
+  case class AA(x: BigInt) derives CanEqual
 
   def foo(key: Boolean): Boolean = false
 

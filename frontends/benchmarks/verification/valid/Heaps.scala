@@ -9,11 +9,11 @@ object Heaps {
   /*~~~~~~~~~~~~~~~~~~~~~~~*/
   case class Node(rank : BigInt, elem : Int, nodes : Heap)
   
-  sealed abstract class Heap
+  sealed abstract class Heap derives CanEqual
   private case class  Nodes(head : Node, tail : Heap) extends Heap
   private case object Empty extends Heap
   
-  sealed abstract class OptInt
+  sealed abstract class OptInt derives CanEqual
   case class Some(value : Int) extends OptInt
   case object None extends OptInt
   

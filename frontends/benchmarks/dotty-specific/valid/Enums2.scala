@@ -3,7 +3,7 @@ import stainless.lang._
 
 object Enums2 {
 
-  enum Option[+T] {
+  enum Option[+T] derives CanEqual {
     case Some(x: T) extends Option[T]
     case None       extends Option[Nothing]
   }

@@ -32,15 +32,15 @@ object Berardi2 {
 
   type Pow[A] = A => Boolean
 
-  def jixx[A,B](i: A => B, j: B => A, x: A) = j(i(x)) == x
+  def jixx[A,B](i: A => B, j: B => A, x: A)(using CanEqual[A, A]) = j(i(x)) == x
 
-  def foralljixx[A,B](i: A => B, j: B => A) = forall((x: A) => jixx(i,j,x))
+  def foralljixx[A,B](i: A => B, j: B => A)(using CanEqual[A, A]) = forall((x: A) => jixx(i,j,x))
 
-  case class Retract[A,B](i: A => B, j: B => A) {
+  case class Retract[A,B](i: A => B, j: B => A)(using CanEqual[A, A]) {
     require(foralljixx(i,j))
   }
 
-  case class RetractCond[A,B](i2: A => B, j2: B => A) {
+  case class RetractCond[A,B](i2: A => B, j2: B => A)(using CanEqual[A, A]) {
     require(forall((r: Retract[A,B]) => foralljixx(i2,j2)))
   }
 

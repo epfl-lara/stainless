@@ -29,7 +29,7 @@ object Lists2 {
     }))
   }.holds
 
-  def remove[T](list: List[T], e: T) : List[T] = {
+  def remove[T](list: List[T], e: T)(using CanEqual[T, T]): List[T] = {
     list match {
       case Nil() => Nil()
       case Cons(x, xs) if x == e => remove(xs, e)
@@ -37,11 +37,11 @@ object Lists2 {
     }
   } //ensuring { (res: List[T]) => forall(res, (x : T) => x != e) }
 
-  def remove_lemma[T](list: List[T], e: T): Boolean = {
+  def remove_lemma[T](list: List[T], e: T)(using CanEqual[T, T]): Boolean = {
     forall(remove(list, e), (x : T) => x != e)
   }
 
-  def remove_lemma_induct[T](list: List[T], e: T): Boolean = {
+  def remove_lemma_induct[T](list: List[T], e: T)(using CanEqual[T, T]): Boolean = {
     remove_lemma(list, e).because((list match {
       case Nil() => true
       case Cons(head, tail) => remove_lemma_induct(tail, e)

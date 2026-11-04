@@ -3,8 +3,8 @@ import stainless.lang._
 import stainless.lang.StaticChecks._
 
 object ContainerTest2 {
-  case class Box(var value: BigInt)
-  case class Container[@mutable T](t: T)
+  case class Box(var value: BigInt) derives CanEqual
+  case class Container[@mutable T](t: T) derives CanEqual
 
   @extern
   def f2(b: Container[Box]): Unit = ???

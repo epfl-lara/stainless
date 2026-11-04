@@ -6,11 +6,11 @@ import stainless.proof._
 
 object ParBalance {
 
-  sealed abstract class List
+  sealed abstract class List derives CanEqual
   case class Cons(head: BigInt, tail: List) extends List
   case class Nil() extends List
 
-  sealed abstract class Option
+  sealed abstract class Option derives CanEqual
   case class Some(x: BigInt) extends Option
   case class None() extends Option
 

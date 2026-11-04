@@ -29,7 +29,7 @@ object TaskParallelExample {
     // task1 and task2 join before this function returns
   }
 
-  case class IntBox(var value: Int) extends AnyHeapRef
+  case class IntBox(var value: Int) extends AnyHeapRef derives CanEqual
 
   case class IncTask(box: IntBox) extends Task {
     @ghost override def readSet: Set[AnyHeapRef] = Set[AnyHeapRef](box)

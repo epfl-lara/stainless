@@ -7,7 +7,7 @@ object Countable {
     def f(t: T): BigInt
     def g(x: BigInt): T
 
-    def gof(t: T) = {
+    def gof(t: T)(using CanEqual[T, T]) = {
       (??? : Unit)
    }.ensuring(_ => g(f(t)) == t)
   }

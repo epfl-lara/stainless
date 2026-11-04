@@ -11,7 +11,7 @@ object AssociativeList {
   case class Cons(head: KeyValuePairAbs, tail: List) extends List
   case class Nil() extends List
 
-  sealed abstract class OptionInt
+  sealed abstract class OptionInt derives CanEqual
   case class Some(i: Int) extends OptionInt
   case class None() extends OptionInt
 

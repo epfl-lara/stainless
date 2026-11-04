@@ -1,7 +1,7 @@
 object StateMonad {
 
-  case class St[A,S](fun: S => (A,S)) {
-    def ^=(that: St[A,S])(implicit anyS: S): St[A,S] = {
+  case class St[A,S](fun: S => (A,S)) derives CanEqual {
+    def ^=(that: St[A,S])(implicit anyS: S, ceA: CanEqual[A, A], ceS: CanEqual[S, S]): St[A,S] = {
       assert(this.fun(anyS) == that.fun(anyS))
       that
     }
@@ -21,7 +21,7 @@ object StateMonad {
         (s:S) => (a,s)
       }
 
-    def leftUnit[A,S,B](a: A, f: A => St[B,S])(implicit anyS: S): Unit = {
+    def leftUnit[A,S,B](a: A, f: A => St[B,S])(implicit anyS: S, ceB: CanEqual[B, B], ceS: CanEqual[S, S]): Unit = {
       (unit(a).flatMap(f) ^=
       St((s:S) => (a:A,s:S)).flatMap(f) ^=
       St { (s0:S) =>

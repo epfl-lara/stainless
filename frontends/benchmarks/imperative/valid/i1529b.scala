@@ -1,8 +1,8 @@
 import stainless.lang.*
 
 object i1529b {
-  case class Key(i: BigInt)
-  case class Value(i: BigInt)
+  case class Key(i: BigInt) derives CanEqual
+  case class Value(i: BigInt) derives CanEqual
   type MutableMapAlias = MutableMap[Key, Value]
 
   case class MutableMapWrapper(mm: MutableMapAlias)

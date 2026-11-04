@@ -3,7 +3,7 @@ import stainless.collection._
 
 object FunnyScalacInference {
 
-  sealed trait Color
+  sealed trait Color derives CanEqual
   case class Red() extends Color
   case class Green() extends Color
   case class Blue() extends Color

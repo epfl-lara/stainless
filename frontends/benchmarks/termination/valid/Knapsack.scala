@@ -6,7 +6,7 @@ import annotation._
 import math._
 
 object Knapscak {
-  sealed abstract class IList {
+  sealed abstract class IList derives CanEqual {
     def size: BigInt = {
       this match {
         case Cons(_, tail) => 1 + tail.size

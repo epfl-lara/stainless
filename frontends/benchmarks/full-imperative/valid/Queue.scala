@@ -6,7 +6,7 @@ import stainless.collection.List._
 import stainless.proof._
 
 object QueueExample {
-  final case class Node(val value: BigInt, var nextOpt: Option[Node]) extends AnyHeapRef
+  final case class Node(val value: BigInt, var nextOpt: Option[Node]) extends AnyHeapRef derives CanEqual
 
   def inv(asList: List[Node], i: BigInt): Boolean = {
     require(0 <= i && i <= asList.size - 1)
@@ -148,14 +148,14 @@ object QueueExample {
                 valid)
   }
 
-  def snocLast[T](l: List[T], x: T): Unit = {
+  def snocLast[T](l: List[T], x: T)(using CanEqual[T, T]): Unit = {
     l match {
       case Nil() => ()
       case Cons(y, ys) => snocLast(ys, x)
     }
  }.ensuring(_ => (l :+ x).last == x)
 
-  def snocIndex[T](l: List[T], t: T, i: BigInt): Unit = {
+  def snocIndex[T](l: List[T], t: T, i: BigInt)(using CanEqual[T, T]): Unit = {
     require(0 <= i && i < l.size + 1)
     decreases(l)
     l match {
@@ -164,7 +164,7 @@ object QueueExample {
     }
  }.ensuring(_ => ((l :+ t).apply(i) == (if (i < l.size) l(i) else t)))
 
-  def snocNoDuplicate[T](l: List[T], t: T): Unit = {
+  def snocNoDuplicate[T](l: List[T], t: T)(using CanEqual[T, T]): Unit = {
     require(ListOps.noDuplicate(l) && !l.contains(t))
     l match {
       case Nil() => ()
@@ -173,7 +173,7 @@ object QueueExample {
  }.ensuring(_ => ListOps.noDuplicate(l :+ t))
 
 
-  def tailIndex[T](l: List[T], i: BigInt): Unit = {
+  def tailIndex[T](l: List[T], i: BigInt)(using CanEqual[T, T]): Unit = {
     require(0 < l.size && 0 <= i && i < l.size - 1)
     decreases(l)
     l match {
@@ -181,14 +181,14 @@ object QueueExample {
     }
  }.ensuring(_ => l.tail(i) == l(i + 1))
 
-  def applyContent[T](list: List[T], index: BigInt): Unit = {
+  def applyContent[T](list: List[T], index: BigInt)(using CanEqual[T, T]): Unit = {
     require(0 <= index && index < list.size)
     list match {
       case Cons(_, xs) => if (index > 0) applyContent[T](xs, index-1) else ()
     }
  }.ensuring(_ => list.content.contains(list.apply(index)))
 
-  def noDuplicateDistinct[T](list: List[T], i: BigInt, j: BigInt): Unit = {
+  def noDuplicateDistinct[T](list: List[T], i: BigInt, j: BigInt)(using CanEqual[T, T]): Unit = {
     require(ListOps.noDuplicate(list) &&
             0 <= i && i < list.size &&
             0 <= j && j < list.size &&

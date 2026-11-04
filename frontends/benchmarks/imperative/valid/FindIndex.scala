@@ -3,7 +3,7 @@ import stainless.lang._
 import stainless.io._
 
 object FindIndex {
-  def containsFrom[T](a: Array[T], t: T, j: Int): Boolean = {
+  def containsFrom[T](a: Array[T], t: T, j: Int)(using CanEqual[T, T]): Boolean = {
     require(0 <= j && j < a.length)
     var i = j
     (while (i < a.length) {
@@ -15,7 +15,7 @@ object FindIndex {
   }
 
   @pure @extern // admitted lemma
-  def containsFromLemma[T](a: Array[T], t: T, j: Int): Unit = {
+  def containsFromLemma[T](a: Array[T], t: T, j: Int)(using CanEqual[T, T]): Unit = {
     require(0 <= j && j < a.length && containsFrom(a, t, j) && a(j) != t)
 
  }.ensuring(_ =>
@@ -23,7 +23,7 @@ object FindIndex {
   )
 
   @inline
-  def contains[T](a: Array[T], t: T): Boolean = a.length > 0 && containsFrom(a, t, 0)
+  def contains[T](a: Array[T], t: T)(using CanEqual[T, T]): Boolean = a.length > 0 && containsFrom(a, t, 0)
 
   def testContains: Unit = {
     assert(contains(Array(0,100,200,250), 0))
@@ -33,7 +33,7 @@ object FindIndex {
     assert(!contains(Array(0,100,200,250), 150))
   }
 
-  def findIndex[T](a: Array[T], t: T): Int = {
+  def findIndex[T](a: Array[T], t: T)(using CanEqual[T, T]): Int = {
     require(contains(a, t))
 
     var i: Int = 0

@@ -1,0 +1,3 @@
+[ Error  ] StrictEquality3.scala:4:3: Only `derives CanEqual`, or an instance for an opaque type over a primitive type, `String` or `BigInt`, is supported to make values comparable with `==`
+             given CanEqual[Point, Point] = CanEqual.derived
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

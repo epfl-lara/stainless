@@ -1,0 +1,18 @@
+[ Error  ] StrictEquality5.scala:7:46: Values of types Any and Any cannot be compared with == or !=
+             def test(): Boolean = same[Any](5: Byte, 5)
+                                                        ^
+[ Error  ] StrictEquality5.scala:9:50: Values of types Any and Any cannot be compared with == or !=
+             def list(l: List[Any]): Boolean = l.contains(1)
+                                                            ^
+[ Error  ] StrictEquality5.scala:11:48: Values of types Any and Any cannot be compared with == or !=
+             def set(s: Set[Any]): Boolean = s.contains(1)
+                                                          ^
+[ Error  ] StrictEquality5.scala:15:50: Values of types StrictEquality5.Box[Any] and StrictEquality5.Box[Any] cannot be compared with == or !=.
+[ Error  ] I found:
+[ Error  ]
+[ Error  ]     StrictEquality5.Box.derived$CanEqual[Any, Any](using
+[ Error  ]       /* missing */summon[CanEqual[Any, Any]])
+[ Error  ]
+[ Error  ] But no implicit values were found that match type CanEqual[Any, Any].
+             def boxes(a: Box[Any], b: Box[Any]): Boolean = a == b
+                                                            ^

@@ -322,6 +322,8 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
   case object IsAbstract extends Flag("abstract", Seq.empty)
   case object IsSealed extends Flag("sealed", Seq.empty)
   case object IsCaseObject extends Flag("caseObject", Seq.empty)
+  /** The class derives a `CanEqual` instance, so its values may be compared with `==`. */
+  case object DerivesCanEqual extends Flag("derivesCanEqual", Seq.empty)
   case class Bounds(lo: Type, hi: Type) extends Flag("bounds", Seq(lo, hi))
   case class Variance(variance: Boolean) extends Flag("variance", Seq.empty)
   case class IsTypeMemberOf(id: Identifier) extends Flag("typeMember", Seq(id))

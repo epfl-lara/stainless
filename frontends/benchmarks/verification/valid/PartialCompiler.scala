@@ -17,7 +17,7 @@ object PartialCompiler {
   @extern
   def random(max: Int): Int = 42
 
-  case class Error(msg: String)
+  case class Error(msg: String) derives CanEqual
 
   def interpret(expr: Expr, ctx: Context)(fuel: Int): Either[Error, Int] = {
     require(fuel >= 0)

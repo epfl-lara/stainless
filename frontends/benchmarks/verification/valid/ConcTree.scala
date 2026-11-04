@@ -12,9 +12,9 @@ object ConcTrees {
   def max(x: BigInt, y: BigInt): BigInt = if (x >= y) x else y
   def abs(x: BigInt): BigInt = if (x < 0) -x else x
 
-  sealed abstract class Conc[T] {
+  sealed abstract class Conc[T] derives CanEqual {
 
-    def isEmpty: Boolean = {
+    def isEmpty(using CanEqual[T, T]): Boolean = {
       this == Empty[T]()
     }
 
@@ -27,7 +27,7 @@ object ConcTrees {
     }
 
     @inline
-    def valid: Boolean = {
+    def valid(using CanEqual[T, T]): Boolean = {
       concInv && balanced
     }
 
@@ -35,7 +35,7 @@ object ConcTrees {
      * (a) left and right trees of conc node should be non-empty
      * (b) they cannot be append nodes
      */
-    def concInv: Boolean = this match {
+    def concInv(using CanEqual[T, T]): Boolean = this match {
       case CC(l, r) =>
         !l.isEmpty && !r.isEmpty &&
           l.concInv && r.concInv
@@ -69,7 +69,7 @@ object ConcTrees {
       }): BigInt
    }.ensuring(_ >= 0)
 
-    def toList: List[T] = {
+    def toList(using CanEqual[T, T]): List[T] = {
       this match {
         case Empty()   => Nil[T]()
         case Single(x) => Cons(x, Nil[T]())
@@ -88,7 +88,7 @@ object ConcTrees {
     override def toString = s"Chunk(${array.mkString("", ", ", "")}; $size; $k)"
   }*/
 
-  def lookup[T](xs: Conc[T], i: BigInt): T = {
+  def lookup[T](xs: Conc[T], i: BigInt)(using CanEqual[T, T]): T = {
     require(xs.valid && !xs.isEmpty && i >= 0 && i < xs.size)
     xs match {
       case Single(x) => x
@@ -101,7 +101,7 @@ object ConcTrees {
     instAppendIndexAxiom(xs, i) &&
       res == xs.toList(i)) // lookup time is linear in the height
 
-  def instAppendIndexAxiom[T](xs: Conc[T], i: BigInt): Boolean = {
+  def instAppendIndexAxiom[T](xs: Conc[T], i: BigInt)(using CanEqual[T, T]): Boolean = {
     require(0 <= i && i < xs.size)
     xs match {
       case CC(l, r) =>
@@ -110,7 +110,7 @@ object ConcTrees {
     }
   }.holds
 
-  def update[T](xs: Conc[T], i: BigInt, y: T): Conc[T] = {
+  def update[T](xs: Conc[T], i: BigInt, y: T)(using CanEqual[T, T]): Conc[T] = {
     require(xs.valid && !xs.isEmpty && i >= 0 && i < xs.size)
     xs match {
       case Single(x) => Single(y)
@@ -123,7 +123,7 @@ object ConcTrees {
     res.valid && // tree invariants are preserved
     res.toList == xs.toList.updated(i, y)) // update time is linear in the height of the tree
 
-  def instAppendUpdateAxiom[T](xs: Conc[T], i: BigInt, y: T): Boolean = {
+  def instAppendUpdateAxiom[T](xs: Conc[T], i: BigInt, y: T)(using CanEqual[T, T]): Boolean = {
     require(i >= 0 && i < xs.size)
     xs match {
       case CC(l, r) =>
@@ -140,7 +140,7 @@ object ConcTrees {
   //    concatNormalized(normalize(xs), normalize(ys))
   //  }
 
-  def concatNonEmpty[T](xs: Conc[T], ys: Conc[T]): Conc[T] = {
+  def concatNonEmpty[T](xs: Conc[T], ys: Conc[T])(using CanEqual[T, T]): Conc[T] = {
     require(xs.valid && ys.valid && !xs.isEmpty && !ys.isEmpty)
     val diff = ys.level - xs.level
     if (diff >= -1 && diff <= 1) CC(xs, ys)
@@ -182,7 +182,7 @@ object ConcTrees {
       appendAssocInst(xs, ys) && // instantiation of an axiom
       concatCorrectness(res, xs, ys)) // time bounds
 
-  def appendAssocInst[T](xs: Conc[T], ys: Conc[T]): Boolean = {
+  def appendAssocInst[T](xs: Conc[T], ys: Conc[T])(using CanEqual[T, T]): Boolean = {
     (xs match {
       case CC(l, r) =>
         appendAssoc(l.toList, r.toList, ys.toList) && //instantiation of associativity of concatenation
@@ -211,7 +211,7 @@ object ConcTrees {
    * This concat applies only to normalized trees.
    * This prevents concat from being recursive
    */
-  def concatNormalized[T](xs: Conc[T], ys: Conc[T]): Conc[T] = {
+  def concatNormalized[T](xs: Conc[T], ys: Conc[T])(using CanEqual[T, T]): Conc[T] = {
     require(xs.valid && ys.valid)
     (xs, ys) match {
       case (xs, Empty()) => xs
@@ -223,10 +223,10 @@ object ConcTrees {
     res.level >= max(xs.level, ys.level) &&
     concatCorrectness(res, xs, ys))
 
-  def concatCorrectness[T](res: Conc[T], xs: Conc[T], ys: Conc[T]): Boolean =
+  def concatCorrectness[T](res: Conc[T], xs: Conc[T], ys: Conc[T])(using CanEqual[T, T]): Boolean =
     (res.toList == xs.toList ++ ys.toList)
 
-  def insert[T](xs: Conc[T], i: BigInt, y: T): Conc[T] = {
+  def insert[T](xs: Conc[T], i: BigInt, y: T)(using CanEqual[T, T]): Conc[T] = {
     require(xs.valid && i >= 0 && i <= xs.size) //note the precondition
     xs match {
       case Empty() => Single(y)
@@ -263,7 +263,7 @@ object ConcTrees {
   }
 
   // A lemma about `append` and `insertAtIndex`
-  def appendInsertIndex[T](l1: List[T], l2: List[T], i: BigInt, y: T): Boolean = {
+  def appendInsertIndex[T](l1: List[T], l2: List[T], i: BigInt, y: T)(using CanEqual[T, T]): Boolean = {
     require(0 <= i && i <= l1.size + l2.size)
     (l1 match {
       case Nil()       => true
@@ -275,7 +275,7 @@ object ConcTrees {
         else l1 ++ insertAtIndex(l2, (i - l1.size), y)))
   }.holds
 
-  def insertAppendAxiomInst[T](xs: Conc[T], i: BigInt, y: T): Boolean = {
+  def insertAppendAxiomInst[T](xs: Conc[T], i: BigInt, y: T)(using CanEqual[T, T]): Boolean = {
     require(i >= 0 && i <= xs.size)
     xs match {
       case CC(l, r) => appendInsertIndex(l.toList, r.toList, i, y)
@@ -283,7 +283,7 @@ object ConcTrees {
     }
   }.holds
 
-  def split[T](xs: Conc[T], n: BigInt): (Conc[T], Conc[T]) = {
+  def split[T](xs: Conc[T], n: BigInt)(using CanEqual[T, T]): (Conc[T], Conc[T]) = {
     require(xs.valid)
     xs match {
       case Empty() => (Empty[T](), Empty[T]())
@@ -306,11 +306,11 @@ object ConcTrees {
     instSplitAxiom(xs, n) && // instantiation of an axiom
     splitCorrectness(res, xs, n))
 
-  def splitCorrectness[T](r: (Conc[T], Conc[T]), xs: Conc[T], n: BigInt): Boolean = {
+  def splitCorrectness[T](r: (Conc[T], Conc[T]), xs: Conc[T], n: BigInt)(using CanEqual[T, T]): Boolean = {
     r._1.toList == xs.toList.take(n) && r._2.toList == xs.toList.drop(n)
   }
 
-  def instSplitAxiom[T](xs: Conc[T], n: BigInt): Boolean = {
+  def instSplitAxiom[T](xs: Conc[T], n: BigInt)(using CanEqual[T, T]): Boolean = {
     xs match {
       case CC(l, r) =>
         appendTakeDrop(l.toList, r.toList, n)

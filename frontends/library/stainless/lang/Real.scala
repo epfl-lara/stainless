@@ -5,7 +5,7 @@ package stainless.lang
 import stainless.annotation._
 
 @ignore
-class Real(val theReal: scala.math.BigDecimal) {
+class Real(val theReal: scala.math.BigDecimal) derives CanEqual {
 
    def +(a: Real): Real = new Real(theReal + a.theReal)
    def -(a: Real): Real = new Real(theReal - a.theReal)

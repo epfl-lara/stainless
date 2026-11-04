@@ -7,11 +7,11 @@ object TestEnsuresForall {
 
   // Opaque Forall test
 
-  def commutes[D](op: (D,D) => D)(d1: D, d2: D): Boolean = {
+  def commutes[D](op: (D,D) => D)(d1: D, d2: D)(using CanEqual[D, D]): Boolean = {
     op(d1, d2) == op(d2, d1)
   }
 
-  def three[D](op: (D, D) => D, d1: D, d2: D, d3: D) = {
+  def three[D](op: (D, D) => D, d1: D, d2: D, d3: D)(using CanEqual[D, D]) = {
     require(Forall2(commutes(op)))
     ghostExpr:
       Forall2of(commutes(op))(d1, op(d2, d3))

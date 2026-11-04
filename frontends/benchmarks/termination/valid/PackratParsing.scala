@@ -12,7 +12,7 @@ import math._
  */
 object PackratParsing {
 
-  sealed abstract class Terminal
+  sealed abstract class Terminal derives CanEqual
   case class Open() extends Terminal
   case class Close() extends Terminal
   case class Plus() extends Terminal

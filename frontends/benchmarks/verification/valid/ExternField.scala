@@ -18,7 +18,7 @@ object ExternField {
     }
 
     @extern
-    def insert(k: K, v: V): Unit = {
+    def insert(k: K, v: V)(using CanEqual[V, V]): Unit = {
       theMap.update(k, v)
    }.ensuring {
       this.contains(k) &&

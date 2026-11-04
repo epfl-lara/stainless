@@ -10,17 +10,17 @@ object BigIntMonoidLaws {
     def append(x: A, y: A): A
 
     @law
-    def law_leftIdentity(x: A) = {
+    def law_leftIdentity(x: A)(using CanEqual[A, A]) = {
       append(empty, x) == x
     }
 
     @law
-    def law_rightIdentity(x: A) = {
+    def law_rightIdentity(x: A)(using CanEqual[A, A]) = {
       append(x, empty) == x
     }
 
     @law
-    def law_associativity(x: A, y: A, z: A) = {
+    def law_associativity(x: A, y: A, z: A)(using CanEqual[A, A]) = {
       append(x, append(y, z)) == append(append(x, y), z)
     }
   }

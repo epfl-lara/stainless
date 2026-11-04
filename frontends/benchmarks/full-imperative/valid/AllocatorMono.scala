@@ -5,7 +5,7 @@ import stainless.annotation.{ghost => ghostAnnot, _}
 import stainless.lang.StaticChecks._
 
 object AllocatorMonoExample {
-  case class Box(var v: BigInt) extends AnyHeapRef
+  case class Box(var v: BigInt) extends AnyHeapRef derives CanEqual
 
   // >> Lemmas
   def decreasingIds(is: List[BigInt], from: BigInt): Boolean =

@@ -3,7 +3,7 @@ package stainless.algebra
 import stainless.annotation._
 
 @library
-abstract class MeetSemilattice[A] {
+abstract class MeetSemilattice[A](using CanEqual[A, A]) {
   def meet(x: A, y: A): A
 
   final def lteqv(x: A, y: A): Boolean = meet(x, y) == x

@@ -7,7 +7,7 @@ object MakeFalse {
 
   // The dummy Int is there to ensure that the Scala compiler does not synthesize
   // a default-constructed False object (which would trigger the class invariant).
-  case class False(dummy: Int) {
+  case class False(dummy: Int) derives CanEqual {
     require(false)
   }
 
