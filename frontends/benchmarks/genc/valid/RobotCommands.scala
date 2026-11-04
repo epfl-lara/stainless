@@ -63,10 +63,7 @@ object RobotCommands {
 
   def step(r: Robot, c: Command): Unit = c match {
     case Move(n) =>
-      // Note: GenC does not accept a field selection (`r.dir`) as a match
-      // scrutinee, so it is bound to a local first.
-      val d = r.dir
-      d match {
+      r.dir match {
         case North() => r.y = add(r.y, n)
         case South() => r.y = sub(r.y, n)
         case East()  => r.x = add(r.x, n)
