@@ -158,6 +158,24 @@ class CheckFilesUtilsTest extends AnyFunSuite with Matchers {
     gotCheckResult `shouldBe` Right(())
   }
 
+  test("checkFileLines should give lines that parse back to the VC results") {
+    val unknown = VCInfo(Some(SimplePosition(14, 20, file1)), "someFunction", VCKind.Postcondition, VCStatus.Unknown)
+    val vcResults = scala.util.Random.shuffle(expected1 :+ unknown).map(mkVCWithStatus)
+    val lines = checkFileLines(file1, vcResults).getOrElse(fail("Expected to be a Right(.)"))
+    lines.last `shouldBe` "14:20;someFunction;postcondition;inconclusive"
+    val positions = lines.map(_.split(";").head.split(":").map(_.toInt)).map(p => (p(0), p(1)))
+    positions `shouldBe` positions.sorted
+    val parsed = parse(file1, file1, lines).getOrElse(fail("Expected the lines to parse"))
+    checkVCResults(parsed, vcResults) `shouldBe` Right(())
+  }
+
+  test("checkFileLines should reject VCs that a check file cannot represent") {
+    val otherFile = VCInfo(Some(SimplePosition(10, 20, file2)), "someFunction", VCKind.Precondition, VCStatus.Valid)
+    val semicolon = VCInfo(Some(SimplePosition(11, 20, file1)), "someFunction", VCKind.AssertErr("a; b"), VCStatus.Valid)
+    val vcResults = (expected1 ++ Seq(otherFile, semicolon)).map(mkVCWithStatus)
+    checkFileLines(file1, vcResults) `shouldBe` Left(Seq(otherFile.pretty, semicolon.pretty))
+  }
+
   ////////////////////////////////////////////////////////////////
 
   // For the testing purposes, we need to map a string to a unique identifier.

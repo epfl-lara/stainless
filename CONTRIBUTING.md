@@ -28,7 +28,7 @@ sbtn shutdown  # stops the server
 ```
 
 Note that the server keeps the environment variables and JVM options (`-D...`, `-J...`) it was
-started with: commands that depend on them, such as `STAINLESS_GENC_UPDATE_EXPECTED` or
+started with: commands that depend on them, such as `STAINLESS_UPDATE_EXPECTED` or
 `-Dtestsuite-parallelism` below, must be run with `sbt` or after restarting the server.
 
 ---
@@ -108,11 +108,35 @@ sbt -batch "stainless-dotty / IntegrationTest / testOnly stainless.GenCSuite"
 
 The GenC benchmarks in `frontends/benchmarks/genc/valid` are verified, translated to C, compared
 against the committed `<Name>.expected.c` and `<Name>.expected.h` golden files, and compiled with
-`gcc`. To (re)generate the golden files after an intended change in the generated code:
+`gcc`. The benchmarks with a `<Name>.check` file are also run, and their output (with the lines
+concatenated) must match it. To update these files after an intended change, see below.
+
+---
+
+### Update the expected outputs of the tests
+
+Several integration tests compare what they obtain with files of `frontends/benchmarks`:
+
+- `GenCSuite`: the golden C files `<Name>.expected.c` and `<Name>.expected.h`, and the `<Name>.check`
+  files with the output of the compiled programs (also checked by `TailRecGenCSuite`);
+- `DottyExtractionSuite`: the `.check` files with the errors reported for the programs of
+  `extraction/invalid`;
+- `VerificationSuite`: the `.check` files listing the VCs of the programs of `verification/invalid`
+  (one `position;function;kind;status` line per VC). `<Name>.check` is shared by all the solvers,
+  unless a solver has its own `<Name>.check.z3`, `<Name>.check.cvc5` or `<Name>.check.princess`.
+
+When `STAINLESS_UPDATE_EXPECTED=1` is set, these tests write what they obtain to the expected
+files that do not match it, instead of failing; the changes are then reviewed with `git diff`:
 
 ```bash
-STAINLESS_GENC_UPDATE_EXPECTED=1 sbt -batch "stainless-dotty / IntegrationTest / testOnly stainless.GenCSuite"
+STAINLESS_UPDATE_EXPECTED=1 sbt -batch "stainless-dotty / IntegrationTest / testOnly stainless.GenCSuite"
 ```
+
+The extraction check files and the GenC golden files are created when they are missing. The
+optional `.check` files (GenC outputs and VCs) are not: to add one, create it empty and run the
+tests in update mode. When several solvers share a VC check file, the first test that checks it
+updates it, and the others fail if they obtain different results; the solvers that disagree then
+need their own check file.
 
 ---
 

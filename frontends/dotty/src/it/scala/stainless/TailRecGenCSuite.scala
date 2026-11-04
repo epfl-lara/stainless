@@ -58,17 +58,22 @@ class TailRecGenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUti
     val checkValue = Files.readAllLines(Paths.get(checkFile)).toArray.mkString
     test(s"Checking that $name outputs $checkValue") {
       val output = runCHelper(file)
-      assert(output == checkValue, s"Output '$output' should be $checkValue")
+      if (ExpectedFiles.updateMode) {
+        ExpectedFiles.updateLines(new File(checkFile), output)(_.mkString == output.mkString)
+      } else {
+        assert(output.mkString == checkValue, s"Output '${output.mkString}' should be $checkValue. ${ExpectedFiles.updateHint}")
+      }
     }
   }
 
-  def runCHelper(filename: String): String = {
-    val file = validFiles.find(_.contains(filename)).get
+  /** The lines output by the compiled program of the benchmark `file`. They are compared
+    * concatenated with the contents of the `.check` files, without newlines between them.
+    */
+  def runCHelper(file: String): Seq[String] = {
     val outFile = file.replace(".scala", ".out")
     ctx.reporter.info(s"Running: $outFile")
     val (std, _) = runCommand(outFile)
     undefinedBehavior(std).foreach(ub => fail(s"$outFile has undefined behavior: $ub"))
-    // Note: lines are concatenated without adding newlines between them
-    std.mkString
+    std
   }
 }
