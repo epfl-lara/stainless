@@ -16,8 +16,10 @@ val circeVersion = "0.14.1"
 // The number of test suites (e.g. VerificationSuite, UncheckedSuite) run in parallel
 // Note that this does not dictate the parallelism per test case (e.g. verification/valid/AbstractPost.scala,
 // verification/valid/AbstractRefinementMap$.scala) which is instead set with -Dtestcase-parallelism=<...>
+// The property is the one that Inox's build reads: Inox is loaded as part of this build and sets
+// `Global / concurrentRestrictions` too, replacing the definition below, so both must compute the same limit.
 lazy val nTestSuiteParallelism = {
-  val p = System.getProperty("testsuite-parallelism")
+  val p = System.getProperty("test-parallelism")
   if (p ne null) {
     try {
       p.toInt
