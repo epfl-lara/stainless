@@ -7,6 +7,8 @@ import stainless.extraction.utils._
 class NamedLeonPhase[F, T](val name: String,
                            val underlying: LeonPipeline[F, T])
                           (using context: inox.Context) extends LeonPipeline[F, T](context) {
+  require(stainless.extraction.phaseNames contains name, s"Phase $name is missing from stainless.extraction.phases, so --debug-phases rejects it")
+
   lazy val phases = context.options.findOption(optDebugPhases).map(_.toSet)
 
   lazy val debugTrees: Boolean =
