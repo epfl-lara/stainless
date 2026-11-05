@@ -99,11 +99,10 @@ abstract class ExtractionSuite extends AnyFunSpec with inox.ResourceUtils with I
       val t: xt.type = xt
     }
 
+    // The expected errors of each negative test, which are missing if it has no check file
     val checkFiles = files.map { f =>
-      f -> Try(scala.io.Source.fromFile(f.replace(".scala", ".check")))
-        .toOption
-        .getOrElse(fail(s"Could not find check file for negative test $f"))
-        .getLines().map(_.stripTrailing()).toSeq
+      val checkFile = java.io.File(f.replace(".scala", ".check"))
+      f -> Option.when(checkFile.exists())(checkFileLines(checkFile))
     }.toMap
 
     val tryPrograms = files.map { f =>
@@ -146,15 +145,30 @@ abstract class ExtractionSuite extends AnyFunSpec with inox.ResourceUtils with I
         val fname = java.io.File(f).getName
         it(s"should fail for $fname") {
           val gotErrors = gotErrorsLzy.get
-          val expected = checkFiles(f)
           if (gotErrors.isEmpty) {
             fail(s"No errors found for negative test $fname")
+          } else if (ExpectedFiles.updateMode) {
+            ExpectedFiles.updateLines(java.io.File(f.replace(".scala", ".check")), gotErrors) { lines =>
+              lines.map(_.stripTrailing()) == gotErrors
+            }
           } else {
-            assert(gotErrors == expected, s"Incorrect reported errors for negative test $fname")
+            checkFiles(f) match {
+              case Some(expected) =>
+                assert(gotErrors == expected, s"Incorrect reported errors for negative test $fname. ${ExpectedFiles.updateHint}")
+              case None =>
+                fail(s"Could not find check file for negative test $f. Run with STAINLESS_UPDATE_EXPECTED=1 to create it.")
+            }
           }
         }
       }
     }
+  }
+
+  /** The lines of the check file `f`, without trailing whitespace. */
+  private def checkFileLines(f: java.io.File): Seq[String] = {
+    val src = scala.io.Source.fromFile(f)
+    try src.getLines().map(_.stripTrailing()).toSeq
+    finally src.close()
   }
 
   // A simple reporter that collect all errors.
