@@ -316,7 +316,17 @@ private class S2IRImpl(override val s: tt.type,
 
     def isLogical: Boolean = ops forall { _.isLogical }
     def isIntegral: Boolean = ops forall { _.isIntegral }
-    def isPairOfT: Boolean = (ops.size == 2) && (ops forall { _ == ops(0) }) // or use <=???
+    /** Whether `==` can compare values of types `t1` and `t2`. The classes of a hierarchy are all represented
+      * by the C type of its top class (see ClassLifter), the static length of an array field is not part of
+      * its type in Stainless, and C promotes integers before comparing them as Scala widens them (a literal
+      * pattern can compare a `Byte` scrutinee with an `Int` literal, for instance).
+      */
+    def isComparable(t1: CIR.Type, t2: CIR.Type): Boolean = (t1, t2) match {
+      case (CIR.ClassType(cd1), CIR.ClassType(cd2)) => cd1.hierarchyTop == cd2.hierarchyTop
+      case (CIR.ArrayType(base1, _), CIR.ArrayType(base2, _)) => base1 == base2
+      case _ => t1 == t2 || (t1.isIntegral && t2.isIntegral)
+    }
+    def isPairOfT: Boolean = (ops.size == 2) && isComparable(ops(0), ops(1))
 
     op match {
       case _: O.FromPairOfT => check(isPairOfT)
@@ -357,7 +367,7 @@ private class S2IRImpl(override val s: tt.type,
     val lhs = rec(lhs0)
     val rhs = rec(rhs0)
 
-    checkOp(op, Seq(lhs.getType, lhs.getType), pos)
+    checkOp(op, Seq(lhs.getType, rhs.getType), pos)
 
     CIR.BinOp(op, lhs, rhs)
   }
