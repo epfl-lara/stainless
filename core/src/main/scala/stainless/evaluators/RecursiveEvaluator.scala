@@ -87,6 +87,10 @@ abstract class RecursiveEvaluator(override val program: Program,
       case (le, re) => throw EvalError("Unexpected operation: (" + le.asString + ") % (" + re.asString + ")")
     }
 
+    // the bit-vector shifts of inox follow SMT-LIB: the amount has to be taken modulo the width first
+    case shift: JVMShift =>
+      e(shift.masked)
+
     case Error(tpe, msg) =>
       throw RuntimeError("Error reached in evaluation: " + msg)
 

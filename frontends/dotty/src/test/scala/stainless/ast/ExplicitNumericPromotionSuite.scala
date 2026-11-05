@@ -290,18 +290,18 @@ class ExplicitNumericPromotionSuite extends AnyFunSuite with InputUtils {
 
   test("Shift operations with different operand types") {
     funDefBody("Shifts.fun1") match {
-      case BVShiftLeft(BVWideningCast(`i8`, Int32Type()), BVWideningCast(`j8`, Int32Type())) => // OK
-      case b => fail(s"[01] Expected a BV << with explicit cast, got '$b'")
+      case JVMShiftLeft(BVWideningCast(`i8`, Int32Type()), BVWideningCast(`j8`, Int32Type())) => // OK
+      case b => fail(s"[01] Expected a JVM << with explicit cast, got '$b'")
     }
 
     funDefBody("Shifts.fun2") match {
-      case BVLShiftRight(BVWideningCast(`i8`, Int32Type()), BVWideningCast(`j16`, Int32Type())) => // OK
-      case b => fail(s"[02] Expected a BV >>> with explicit cast, got '$b'")
+      case JVMLShiftRight(BVWideningCast(`i8`, Int32Type()), BVWideningCast(`j16`, Int32Type())) => // OK
+      case b => fail(s"[02] Expected a JVM >>> with explicit cast, got '$b'")
     }
 
     funDefBody("Shifts.fun3") match {
-      case BVAShiftRight(BVWideningCast(`i8`, Int32Type()), `j32`) => // OK
-      case b => fail(s"[03] Expected a BV >> with explicit cast, got '$b'")
+      case JVMAShiftRight(BVWideningCast(`i8`, Int32Type()), `j32`) => // OK
+      case b => fail(s"[03] Expected a JVM >> with explicit cast, got '$b'")
     }
 
     /*
@@ -311,18 +311,18 @@ class ExplicitNumericPromotionSuite extends AnyFunSuite with InputUtils {
      */
 
     funDefBody("Shifts.fun5") match {
-      case BVLShiftRight(BVWideningCast(`i16`, Int32Type()), BVWideningCast(`j8`, Int32Type())) => // OK
-      case b => fail(s"[05] Expected a BV >>> with explicit cast, got '$b'")
+      case JVMLShiftRight(BVWideningCast(`i16`, Int32Type()), BVWideningCast(`j8`, Int32Type())) => // OK
+      case b => fail(s"[05] Expected a JVM >>> with explicit cast, got '$b'")
     }
 
     funDefBody("Shifts.fun6") match {
-      case BVAShiftRight(BVWideningCast(`i16`, Int32Type()), BVWideningCast(`j16`, Int32Type())) => // OK
-      case b => fail(s"[06] Expected a BV >> with explicit cast, got '$b'")
+      case JVMAShiftRight(BVWideningCast(`i16`, Int32Type()), BVWideningCast(`j16`, Int32Type())) => // OK
+      case b => fail(s"[06] Expected a JVM >> with explicit cast, got '$b'")
     }
 
     funDefBody("Shifts.fun7") match {
-      case BVShiftLeft(BVWideningCast(`i16`, Int32Type()), `j32`) => // OK
-      case b => fail(s"[07] Expected a BV << with explicit cast, got '$b'")
+      case JVMShiftLeft(BVWideningCast(`i16`, Int32Type()), `j32`) => // OK
+      case b => fail(s"[07] Expected a JVM << with explicit cast, got '$b'")
     }
 
     /*
@@ -332,18 +332,18 @@ class ExplicitNumericPromotionSuite extends AnyFunSuite with InputUtils {
      */
 
     funDefBody("Shifts.fun9") match {
-      case BVAShiftRight(`i32`, BVWideningCast(`j8`, Int32Type())) => // OK
-      case b => fail(s"[09] Expected a BV >> with explicit cast, got '$b'")
+      case JVMAShiftRight(`i32`, BVWideningCast(`j8`, Int32Type())) => // OK
+      case b => fail(s"[09] Expected a JVM >> with explicit cast, got '$b'")
     }
 
     funDefBody("Shifts.fun10") match {
-      case BVShiftLeft(`i32`, BVWideningCast(`j16`, Int32Type())) => // OK
-      case b => fail(s"[10] Expected a BV << with explicit cast, got '$b'")
+      case JVMShiftLeft(`i32`, BVWideningCast(`j16`, Int32Type())) => // OK
+      case b => fail(s"[10] Expected a JVM << with explicit cast, got '$b'")
     }
 
     funDefBody("Shifts.fun11") match {
-      case BVLShiftRight(`i32`, `j32`) => // OK
-      case b => fail(s"[11] Expected a BV >>> with explicit cast, got '$b'")
+      case JVMLShiftRight(`i32`, `j32`) => // OK
+      case b => fail(s"[11] Expected a JVM >>> with explicit cast, got '$b'")
     }
 
     /*
@@ -353,23 +353,23 @@ class ExplicitNumericPromotionSuite extends AnyFunSuite with InputUtils {
      */
 
     funDefBody("Shifts.fun13") match {
-      case BVShiftLeft(`i64`, BVWideningCast(BVWideningCast(`j8`, Int32Type()), Int64Type())) => // OK
-      case b => fail(s"[13] Expected a BV << with explicit cast, got '$b'")
+      case JVMShiftLeft(`i64`, BVWideningCast(BVWideningCast(`j8`, Int32Type()), Int64Type())) => // OK
+      case b => fail(s"[13] Expected a JVM << with explicit cast, got '$b'")
     }
 
     funDefBody("Shifts.fun14") match {
-      case BVLShiftRight(`i64`, BVWideningCast(BVWideningCast(`j16`, Int32Type()), Int64Type())) => // OK
-      case b => fail(s"[14] Expected a BV >>> with explicit cast, got '$b'")
+      case JVMLShiftRight(`i64`, BVWideningCast(BVWideningCast(`j16`, Int32Type()), Int64Type())) => // OK
+      case b => fail(s"[14] Expected a JVM >>> with explicit cast, got '$b'")
     }
 
     funDefBody("Shifts.fun15") match {
-      case BVAShiftRight(`i64`, BVWideningCast(`j32`, Int64Type())) => // OK
-      case b => fail(s"[15] Expected a BV >> with explicit cast, got '$b'")
+      case JVMAShiftRight(`i64`, BVWideningCast(`j32`, Int64Type())) => // OK
+      case b => fail(s"[15] Expected a JVM >> with explicit cast, got '$b'")
     }
 
     funDefBody("Shifts.fun16") match {
-      case BVShiftLeft(`i64`, `j64`) => // OK
-      case b => fail(s"[16] Expected a BV << with explicit cast, got '$b'")
+      case JVMShiftLeft(`i64`, `j64`) => // OK
+      case b => fail(s"[16] Expected a JVM << with explicit cast, got '$b'")
     }
   }
 

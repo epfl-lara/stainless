@@ -344,7 +344,7 @@ class AssertionInjector(override val s: ast.Trees, override val t: ast.Trees, va
         ).copiedFrom(e)
       }
 
-    case BVTyped(signed, size, BVShift(rhs, recons)) if strictArithmetic =>
+    case BVTyped(signed, size, Shift(jvm, rhs, recons)) if strictArithmetic =>
       bindIfCannotDuplicate(rhs, "rhs") { rhsx =>
         // the amount must be less than the width: on the JVM, `1 << 32 == 1`, but SMT-LIB `bvshl` gives 0
         val leq = t.LessEquals(rhsx, t.BVLiteral(signed, size - 1, size).copiedFrom(rhs)).copiedFrom(rhs)
@@ -353,11 +353,11 @@ class AssertionInjector(override val s: ast.Trees, override val t: ast.Trees, va
         // TODO: explain why `checkOverflow` here and `strictArithmetic` in the guard?
         val range = if (signed && checkOverflow) t.And(pos, leq).copiedFrom(rhs) else leq
         // Ensure the operation doesn't shift more bits than there are.
-        t.Assert(range, Some("Shift semantics"), recons(jvmShiftAmount(signed, size, rhsx))).copiedFrom(e)
+        t.Assert(range, Some("Shift semantics"), recons(shiftAmount(jvm, size, rhsx))).copiedFrom(e)
       }
 
-    case BVTyped(signed, size, BVShift(rhs, recons)) =>
-      recons(jvmShiftAmount(signed, size, transform(rhs)))
+    case BVTyped(_, size, Shift(true, rhs, recons)) =>
+      recons(shiftAmount(true, size, transform(rhs)))
 
     case s.FPGreaterEquals(e1, e2) if checkOverflow => checkNaNBinop(e)(t.FPGreaterEquals.apply, e1, e2)
     case s.FPLessEquals(e1, e2) if checkOverflow => checkNaNBinop(e)(t.FPLessEquals.apply, e1, e2)
@@ -382,22 +382,28 @@ class AssertionInjector(override val s: ast.Trees, override val t: ast.Trees, va
     }
   }
 
-  private object BVShift {
-    // Extract rhs of any shift operation, and return a reconstructor
-    def unapply(e: s.Expr): Option[(s.Expr, t.Expr => t.Expr)] = e match {
-      case s.BVShiftLeft(lhs, rhs) => Some((rhs, (r: t.Expr) => t.BVShiftLeft(transform(lhs), r).copiedFrom(e)))
-      case s.BVAShiftRight(lhs, rhs) => Some((rhs, (r: t.Expr) => t.BVAShiftRight(transform(lhs), r).copiedFrom(e)))
-      case s.BVLShiftRight(lhs, rhs) => Some((rhs, (r: t.Expr) => t.BVLShiftRight(transform(lhs), r).copiedFrom(e)))
+  private object Shift {
+    /** Extracts whether a shift has the JVM semantics (see [[ast.Expressions.JVMShift]]), its amount, and
+      * a function building the bit-vector shift of its transformed left-hand side by a given amount. */
+    def unapply(e: s.Expr): Option[(Boolean, s.Expr, t.Expr => t.Expr)] = e match {
+      case s.BVShiftLeft(lhs, rhs) => Some((false, rhs, (r: t.Expr) => t.BVShiftLeft(transform(lhs), r).copiedFrom(e)))
+      case s.BVAShiftRight(lhs, rhs) => Some((false, rhs, (r: t.Expr) => t.BVAShiftRight(transform(lhs), r).copiedFrom(e)))
+      case s.BVLShiftRight(lhs, rhs) => Some((false, rhs, (r: t.Expr) => t.BVLShiftRight(transform(lhs), r).copiedFrom(e)))
+      case s.JVMShiftLeft(lhs, rhs) => Some((true, rhs, (r: t.Expr) => t.BVShiftLeft(transform(lhs), r).copiedFrom(e)))
+      case s.JVMAShiftRight(lhs, rhs) => Some((true, rhs, (r: t.Expr) => t.BVAShiftRight(transform(lhs), r).copiedFrom(e)))
+      case s.JVMLShiftRight(lhs, rhs) => Some((true, rhs, (r: t.Expr) => t.BVLShiftRight(transform(lhs), r).copiedFrom(e)))
       case _ => None
     }
   }
 
-  /** On the JVM, the amount of `Int` and `Long` shifts is taken modulo the width (`1 << 33 == 2`), whereas
-    * SMT-LIB shifts give 0 (or -1) for amounts at least the width. Masks the `amount` of a shift on signed
-    * bit vectors of 32 or 64 bits, which are `Int` and `Long`, accordingly, unless [[checkOverflow]] ensures
-    * it is between 0 and `size - 1`. Unsigned shifts already give 0 for such amounts (see `stainless.math`). */
-  private def jvmShiftAmount(signed: Boolean, size: Int, amount: t.Expr): t.Expr =
-    if (signed && (size == 32 || size == 64) && !checkOverflow)
+  /** The `amount` of the bit-vector shift a shift of `size` bits is lowered to.
+    *
+    * On the JVM, the amount of `Int` and `Long` shifts is taken modulo the width (`1 << 33 == 2`), whereas
+    * SMT-LIB shifts give 0 (or -1) for amounts at least the width. The amount of a shift with the JVM
+    * semantics (`jvm`) is masked accordingly, unless [[checkOverflow]] ensures it is between 0 and
+    * `size - 1`. The other shifts are those of `stainless.math.Unsigned`, which give 0 for such amounts. */
+  private def shiftAmount(jvm: Boolean, size: Int, amount: t.Expr): t.Expr =
+    if (jvm && !checkOverflow)
       t.BVAnd(amount, t.BVLiteral(true, size - 1, size).copiedFrom(amount)).copiedFrom(amount)
     else amount
 

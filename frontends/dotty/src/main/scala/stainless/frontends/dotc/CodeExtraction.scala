@@ -2313,9 +2313,10 @@ class CodeExtraction(inoxCtx: inox.Context,
         case (xt.BVType(_, _), "|",   Seq(rhs)) => injectCasts(xt.BVOr.apply)(lhs, rhs)
         case (xt.BVType(_, _), "&",   Seq(rhs)) => injectCasts(xt.BVAnd.apply)(lhs, rhs)
         case (xt.BVType(_, _), "^",   Seq(rhs)) => injectCasts(xt.BVXor.apply)(lhs, rhs)
-        case (xt.BVType(_, _), "<<",  Seq(rhs)) => injectCastsForShift(xt.BVShiftLeft.apply)(lhs, rhs)
-        case (xt.BVType(_, _), ">>",  Seq(rhs)) => injectCastsForShift(xt.BVAShiftRight.apply)(lhs, rhs)
-        case (xt.BVType(_, _), ">>>", Seq(rhs)) => injectCastsForShift(xt.BVLShiftRight.apply)(lhs, rhs)
+        // `Int` and `Long` shifts take their amount modulo the width, unlike the bit-vector shifts of inox
+        case (xt.BVType(_, _), "<<",  Seq(rhs)) => injectCastsForShift(xt.JVMShiftLeft.apply)(lhs, rhs)
+        case (xt.BVType(_, _), ">>",  Seq(rhs)) => injectCastsForShift(xt.JVMAShiftRight.apply)(lhs, rhs)
+        case (xt.BVType(_, _), ">>>", Seq(rhs)) => injectCastsForShift(xt.JVMLShiftRight.apply)(lhs, rhs)
 
         case (xt.BooleanType(), "|", Seq(rhs)) => xt.BoolBitwiseOr(extractTree(lhs), extractTree(rhs))
         case (xt.BooleanType(), "&", Seq(rhs)) => xt.BoolBitwiseAnd(extractTree(lhs), extractTree(rhs))
