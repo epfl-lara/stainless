@@ -1393,6 +1393,26 @@ class CodeExtraction(inoxCtx: inox.Context,
     case _ => tpe
   }
 
+  /** Extracts `math.max` or `math.min` on floating point numbers, which return NaN when either
+    * argument is NaN, as on the JVM. Inox's FPMax and FPMin follow SMT-LIB instead and only return
+    * NaN when both arguments are NaN.
+    */
+  private def extractFPMinMax(lhs: tpd.Tree, rhs: tpd.Tree, pos: SourcePosition)
+                             (op: (xt.Expr, xt.Expr) => xt.Expr)
+                             (using dctx: DefContext): xt.Expr = {
+    val a = xt.ValDef.fresh("a", extractType(lhs)).setPos(pos)
+    val b = xt.ValDef.fresh("b", extractType(rhs)).setPos(pos)
+    xt.Let(a, extractTree(lhs),
+      xt.Let(b, extractTree(rhs),
+        xt.IfExpr(xt.FPIsNaN(a.toVariable).setPos(pos), a.toVariable,
+          xt.IfExpr(xt.FPIsNaN(b.toVariable).setPos(pos), b.toVariable,
+            op(a.toVariable, b.toVariable).setPos(pos)
+          ).setPos(pos)
+        ).setPos(pos)
+      ).setPos(pos)
+    ).setPos(pos)
+  }
+
   private def extractTree(tr: tpd.Tree)(using dctx: DefContext): xt.Expr = (tr match {
     case SingletonTypeTree(tree) => extractTree(tree)
 
@@ -1911,8 +1931,8 @@ class CodeExtraction(inoxCtx: inox.Context,
     case ExCeilCall(rhs) => xt.FPRound(xt.RoundTowardPositive.setPos(tr.sourcePos), extractTree(rhs)).setPos(tr.sourcePos)
     case ExRintCall(rhs) => xt.FPRound(xt.RoundNearestTiesToEven.setPos(tr.sourcePos), extractTree(rhs)).setPos(tr.sourcePos)
     case ExFPAbsCall(rhs) => xt.FPAbs(extractTree(rhs)).setPos(tr.sourcePos)
-    case ExFPMaxCall(lhs, rhs) => xt.FPMax(extractTree(lhs), extractTree(rhs)).setPos(tr.sourcePos)
-    case ExFPMinCall(lhs, rhs) => xt.FPMin(extractTree(lhs), extractTree(rhs)).setPos(tr.sourcePos)
+    case ExFPMaxCall(lhs, rhs) => extractFPMinMax(lhs, rhs, tr.sourcePos)(xt.FPMax(_, _))
+    case ExFPMinCall(lhs, rhs) => extractFPMinMax(lhs, rhs, tr.sourcePos)(xt.FPMin(_, _))
 
     case ExDoubleToLongBits(arg) =>
       val pos = tr.sourcePos
