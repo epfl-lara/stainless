@@ -8,7 +8,7 @@ object defs {
     feature: Option[Feature],
     resource: Option[Resource],
     construction: Option[Construction]
-  )
+  ) derives CanEqual
 
   // Hexagon tiles, cylinder world (i.e. wraps around x-axis)
   case class WorldMap(tiles: List[Tile], width: BigInt, height: BigInt) {
