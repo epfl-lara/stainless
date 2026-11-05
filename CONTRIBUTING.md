@@ -100,6 +100,27 @@ sbt -batch \
 
 ---
 
+### Run the tests in parallel
+
+Three JVM properties control what the tests run in parallel. Without them, nothing runs in parallel.
+
+| Property | What runs in parallel | Scope of the number |
+|---|---|---|
+| `-Dtest-parallelism=N` | Test suites (`VerificationSuite`, `LibrarySuite`, ...) | `N` suites at a time, for the whole sbt run |
+| `-Dtestcase-parallelism=N` | Test cases of a suite (a benchmark file with one configuration) | `N` test cases at a time, in each suite |
+| `-Dparallel=N` | VCs of a Stainless run (a test case) | one pool of `N` threads, shared by the whole JVM |
+
+`-Dtest-parallelism` is handled by sbt (see `build.sbt`), and `-Dtestcase-parallelism` by ScalaTest
+(see `ComponentTestSuite`). `-Dparallel` is read by Stainless itself (see `stainless/package.scala`),
+not by the tests: without it, a Stainless run checks its VCs one after another.
+
+The pool of `-Dparallel` is shared by all the test cases, so it caps the number of VCs checked at a
+time in the whole run. Give it at least as many threads as there are test cases running at once
+(suites × test cases). The CI runs the integration tests with
+`-Dtest-parallelism=6 -Dtestcase-parallelism=5 -Dparallel=32` (see `stainless-ci.sh`).
+
+---
+
 ### Run the GenC golden tests
 
 ```bash
