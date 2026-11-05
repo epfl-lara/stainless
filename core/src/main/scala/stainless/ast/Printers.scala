@@ -35,6 +35,7 @@ trait Printer extends inox.ast.Printer {
     case (FunctionOperator("+", _, _) | FunctionOperator("-", _, _))   => 7
     case (FunctionOperator("*", _, _) | FunctionOperator("/", _, _))   => 8
     case (FunctionOperator("%", _, _))                                 => 8
+    case (_: JVMShift)                                                 => 4
     case _ => super.precedence(ex)
   }
 
@@ -164,6 +165,18 @@ trait Printer extends inox.ast.Printer {
       } else {
         p"Array(_) (of size $size)"
       }
+
+    case JVMShiftLeft(lhs, rhs) => optP {
+      p"$lhs << $rhs"
+    }
+
+    case JVMAShiftRight(lhs, rhs) => optP {
+      p"$lhs >> $rhs"
+    }
+
+    case JVMLShiftRight(lhs, rhs) => optP {
+      p"$lhs >>> $rhs"
+    }
 
     case ArraySelect(array, index) =>
       p"$array($index)"

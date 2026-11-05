@@ -285,6 +285,18 @@ trait TransformerWithType extends TreeTransformer {
       val atpe = getArithmeticType(lhs, tpe)
       t.BVLShiftRight(transform(lhs, atpe), transform(rhs, atpe)).copiedFrom(expr)
 
+    case s.JVMShiftLeft(lhs, rhs) =>
+      val atpe = getArithmeticType(lhs, tpe)
+      t.JVMShiftLeft(transform(lhs, atpe), transform(rhs, atpe)).copiedFrom(expr)
+
+    case s.JVMAShiftRight(lhs, rhs) =>
+      val atpe = getArithmeticType(lhs, tpe)
+      t.JVMAShiftRight(transform(lhs, atpe), transform(rhs, atpe)).copiedFrom(expr)
+
+    case s.JVMLShiftRight(lhs, rhs) =>
+      val atpe = getArithmeticType(lhs, tpe)
+      t.JVMLShiftRight(transform(lhs, atpe), transform(rhs, atpe)).copiedFrom(expr)
+
     case s.BVNarrowingCast(e, tpe) =>
       t.BVNarrowingCast(transform(e), transform(tpe).asInstanceOf[t.BVType]).copiedFrom(expr)
 

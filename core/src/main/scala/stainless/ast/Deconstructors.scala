@@ -171,6 +171,15 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
         t.Passes(newIn, newOut, crecons(ids, vs, nes, tps))
       })
 
+    case s.JVMShiftLeft(lhs, rhs) =>
+      (Seq(), Seq(), Seq(lhs, rhs), Seq(), Seq(), (_, _, es, _, _) => t.JVMShiftLeft(es(0), es(1)))
+
+    case s.JVMAShiftRight(lhs, rhs) =>
+      (Seq(), Seq(), Seq(lhs, rhs), Seq(), Seq(), (_, _, es, _, _) => t.JVMAShiftRight(es(0), es(1)))
+
+    case s.JVMLShiftRight(lhs, rhs) =>
+      (Seq(), Seq(), Seq(lhs, rhs), Seq(), Seq(), (_, _, es, _, _) => t.JVMLShiftRight(es(0), es(1)))
+
     case s.FiniteArray(elems, base) =>
       (Seq(), Seq(), elems, Seq(base), Seq(), (_, _, es, tps, _) => t.FiniteArray(es, tps.head))
 
