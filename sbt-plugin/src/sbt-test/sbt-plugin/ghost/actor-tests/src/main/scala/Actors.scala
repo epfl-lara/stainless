@@ -5,7 +5,7 @@ import akka.actor.actorRef2Scala
 
 object Actors {
 
-  abstract class Msg
+  abstract class Msg derives CanEqual
 
   abstract class Behavior {
     def processMsg(msg: Msg)(implicit ctx: ActorContext): Behavior
@@ -15,7 +15,7 @@ object Actors {
     name: String,
     @extern @pure
     underlying: akka.actor.ActorRef
-  ) {
+  ) derives CanEqual {
 
     @inline
     def !(msg: Msg)(implicit ctx: ActorContext): Unit = {
