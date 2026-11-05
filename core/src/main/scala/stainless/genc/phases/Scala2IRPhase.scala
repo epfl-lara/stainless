@@ -198,9 +198,11 @@ private class S2IRImpl(override val s: tt.type,
       registered += fd
       val vd = CIR.ValDef(buildId(fd), rec(fd.returnType)(using Map.empty), false)
       if (fd.isDropped) {
+        checkDefinedTypes(vd.typ, fd.getPos)
         declResults += ((CIR.Decl(vd, None), flagsToModes(fd.flags)))
       } else {
         val modes = valModes(vd, fd.flags)
+        if (modes.contains(Define)) checkDefinedTypes(vd.typ, fd.getPos) else checkDeclaredType(vd.typ, fd.getPos)
         val initEnv = emptyEnv(fd.isExported, inGlobalInit = true, inHeaderInit = isDefinedInHeader(modes))
         val init = translateValue(fd)(rec(fd.fullBody)(using initEnv, Map.empty))
         declResults += ((CIR.Decl(vd, Some(init)), modes))
@@ -239,6 +241,9 @@ private class S2IRImpl(override val s: tt.type,
   private def buildLet(x: ValDef, e: Expr, body: Expr, isVar: Boolean)
                       (using env: Env, tm: TypeMapping): CIR.Expr = {
     val tpe = rec(x.tpe)
+    checkDeclaredType(tpe, x.getPos)
+    if (isMutableFunctionPointer(tpe) && isVariableOrField(e))
+      reporter.fatalError(x.getPos, "References to mutable classes with a single field of function type are not supported by GenC")
     val vd = CIR.ValDef(env.localNames(x.id), tpe, isVar)
     val newBindings = env.bindings + ((x, instantiateType(x.tpe, tm)) -> vd)
 
@@ -418,6 +423,64 @@ private class S2IRImpl(override val s: tt.type,
 
   private def castNotSupported(ct: ClassType): Boolean =
     ct.tcd.cd.isAbstract && ct.tcd.parents.nonEmpty
+
+  /** Whether GenC represents the values of type `typ` by C function pointers: the values of function types, and
+    * those of classes with a single field of such a type, which StructInliner replaces with their field. The C
+    * printer can only declare variables, fields and parameters of such types: it cannot print arrays of them,
+    * pointers to them, or function types taking or returning them.
+    */
+  private def isFunctionPointer(typ: CIR.Type): Boolean = typ match {
+    case _: CIR.FunType => true
+    case CIR.ClassType(cd) => cd.parent.isEmpty && cd.fields.size == 1 && isFunctionPointer(cd.fields.head._1.typ)
+    case _ => false
+  }
+
+  /** Rejects at `pos` the type `typ` of a variable, field or parameter that GenC declares, if the C printer cannot
+    * print it: a function type taking or returning functions, or a type for which [[checkDefinedTypes]] fails.
+    */
+  private def checkDeclaredType(typ: CIR.Type, pos: Position): Unit = {
+    typ match {
+      case CIR.FunType(_, params, ret) if (ret +: params) exists isFunctionPointer =>
+        reporter.fatalError(pos, "Function types taking or returning functions are not supported by GenC")
+      case _ =>
+    }
+    checkDefinedTypes(typ, pos)
+  }
+
+  /** Rejects at `pos` the type `typ` if GenC defines types for it that the C printer cannot print: an array of
+    * function pointers, or a tuple with an element of a type for which [[checkDeclaredType]] fails. (Classes
+    * check their fields themselves.) GenC defines these types even for the parameters of the dropped and the
+    * manually defined functions, whose signatures it does not print.
+    */
+  private def checkDefinedTypes(typ: CIR.Type, pos: Position): Unit = typ match {
+    case CIR.ArrayType(base, _) =>
+      if (isFunctionPointer(base))
+        reporter.fatalError(pos, "Arrays of functions are not supported by GenC")
+      checkDefinedTypes(base, pos)
+    case CIR.FunType(_, params, ret) =>
+      (ret +: params) foreach { checkDefinedTypes(_, pos) }
+    case CIR.ClassType(cd) if tupleResultsById.get(cd.id).contains(cd) =>
+      cd.fields foreach { case (vd, _) => checkDeclaredType(vd.typ, pos) }
+    case _ =>
+  }
+
+  /** Whether `typ` is a mutable class with a single field of function type, of which a reference would be a pointer
+    * to a function (see [[isFunctionPointer]]). GenC passes the parameters of mutable types by reference, and makes
+    * the local variables initialised with a variable or a field of such types references to them.
+    */
+  private def isMutableFunctionPointer(typ: CIR.Type): Boolean = typ.isMutable && isFunctionPointer(typ)
+
+  /** Whether the value of `e` is a variable or a field, of which a local variable initialised with `e` becomes a
+    * reference if it has a mutable type.
+    */
+  private def isVariableOrField(e: Expr): Boolean = e match {
+    case _: Variable | _: ClassSelector | _: TupleSelect => true
+    case Annotated(body, _) => isVariableOrField(body)
+    case Let(_, _, body) => isVariableOrField(body)
+    case LetVar(_, _, body) => isVariableOrField(body)
+    case Block(_, last) => isVariableOrField(last)
+    case _ => false
+  }
 
   /****************************************************************************************************
    *                                                       Pattern Matching helper functions          *
@@ -720,9 +783,27 @@ private class S2IRImpl(override val s: tt.type,
 
     val funCtx = ctxDBAbs map { c => convertVarInfoToArg(c) }
 
+    // Captured variables are passed by reference, but the C printer cannot print pointers to functions
+    for ((c, vd) <- ctxDBAbs zip funCtx if isFunctionPointer(vd.typ))
+      reporter.fatalError(fa.getPos, s"Nested functions capturing a function (${c.vd.id.asString}) are not supported by GenC")
+
     val returnType = rec(fa.returnType)
     if (!fa.isManuallyDefined && !fa.isDropped && returnType.containsArray)
       reporter.fatalError(fa.getPos, "Returning arrays from function is not supported by GenC")
+
+    // The C printer prints the signatures of the functions that GenC defines, not those of the dropped and the
+    // manually defined functions
+    if (!fa.isManuallyDefined && !fa.isDropped) {
+      for ((p, typ) <- newParams zip paramTypes) {
+        checkDeclaredType(typ, p.getPos)
+        if (isMutableFunctionPointer(typ))
+          reporter.fatalError(p.getPos, "References to mutable classes with a single field of function type are not supported by GenC")
+      }
+      checkDeclaredType(returnType, fa.getPos)
+    } else {
+      for ((p, typ) <- newParams zip paramTypes) checkDefinedTypes(typ, p.getPos)
+      checkDefinedTypes(returnType, fa.getPos)
+    }
 
     val isPure = fa.flags.contains(IsPure) || (
       analysis.effects(fa.fullBody).isEmpty &&
@@ -857,6 +938,7 @@ private class S2IRImpl(override val s: tt.type,
           case typ =>
             (CIR.ValDef(buildFieldId(vd), rec(typ), vd.flags.contains(IsVar)), flagsToModes(vd.flags))
         })
+        (fields zip tcd.fields) foreach { case ((field, _), vd) => checkDeclaredType(field.typ, vd.getPos) }
 
         val newClazz = CIR.ClassDef(id, parent, fields, cd.isAbstract, cd.isExported, cd.isPacked)
         classResultsById.update(id, newClazz)
@@ -1109,6 +1191,7 @@ private class S2IRImpl(override val s: tt.type,
 
     case tuple @ Tuple(args0) =>
       val clazz = tuple2Class(tuple.getType)
+      checkDefinedTypes(CIR.ClassType(clazz), tuple.getPos)
       val args = recArgs(args0)
       val poss = args0 map { _.getPos }
 
@@ -1162,11 +1245,13 @@ private class S2IRImpl(override val s: tt.type,
 
     case array @ FiniteArray(elems, base) =>
       val arrayType = CIR.ArrayType(rec(base), None)
+      checkDefinedTypes(arrayType, array.getPos)
       val length = elems.size
       CIR.ArrayInit(CIR.ArrayAllocStatic(arrayType, length, Right(elems.map(rec))))
 
     case array @ LargeArray(elems, default, size, base) =>
       val arrayType = CIR.ArrayType(rec(base), None)
+      checkDefinedTypes(arrayType, array.getPos)
 
       // Convert to VLA or normal array
       val alloc = rec(exprOps.simplifyArithmetic(size)) match {

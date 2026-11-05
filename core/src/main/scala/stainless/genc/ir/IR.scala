@@ -473,7 +473,7 @@ private[genc] sealed trait IR { ir =>
     case FunType(ctx, params, ret) =>
       val ctxRep = ctx map repId mkString "_"
       val paramsRep = params map repId mkString "_"
-      "function_" + ctx + "_" + params + "_" + repId(ret)
+      "function_" + ctxRep + "_" + paramsRep + "_" + repId(ret)
     case ClassType(clazz) => clazz.id
     case ArrayType(base, None) => "array_" + repId(base)
     case ArrayType(base, Some(length)) => s"${repId(base)}[$length]"
