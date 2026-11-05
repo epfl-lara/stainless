@@ -1,0 +1,12 @@
+[ Error  ] AnyEquality2.scala:6:40: Cannot compare values of type `Box` with `==`: the field `a` of `Box` may be of type `Any`, and equality on `Any` is not supported
+             def boxes(x: Box, y: Box): Boolean = x == y
+                                                  ^^^^^^
+[ Error  ] AnyEquality2.scala:12:45: Cannot compare values of type `Shape` with `==`: the field `tag` of `Tagged` may be of type `Any`, and equality on `Any` is not supported
+             def shapes(x: Shape, y: Shape): Boolean = x != y
+                                                       ^^^^^^
+[ Error  ] AnyEquality2.scala:14:61: Cannot compare values of type `(BigInt, Any)` with `==`: the component 2 of `(BigInt, Any)` may be of type `Any`, and equality on `Any` is not supported
+             def tuples(x: (BigInt, Any), y: (BigInt, Any)): Boolean = x == y
+                                                                       ^^^^^^
+[ Error  ] AnyEquality2.scala:16:53: Cannot compare values of type `List[Int]` and `List[Byte]` with `==`: the field `h` of `Cons[Any]` may be of type `Any`, and equality on `Any` is not supported
+             def lists(x: List[Int], y: List[Byte]): Boolean = x == y
+                                                               ^^^^^^

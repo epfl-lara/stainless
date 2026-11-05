@@ -1,0 +1,6 @@
+[ Error  ] AnyEquality6.scala:9:9: Cannot define the type member `Repr` as `Any`: values of type `Repr` are compared with `==` (in `Nat.isZero`), and equality on `Any` is not supported
+               def zero: Any = 0
+                   ^
+[ Error  ] AnyEquality6.scala:17:27: Cannot define the type member `Elem` as `Any`: values of type `Elem` are compared with `==` (in `Container.contains`), and equality on `Any` is not supported
+             case class AnyContainer(elem: Any) extends Container:
+                                     ^

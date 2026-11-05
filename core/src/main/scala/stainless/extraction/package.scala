@@ -29,6 +29,7 @@ package object extraction {
     "PartialFunctions"          -> "Lift partial function preconditions",
     "XlangLowering"             -> "Lowering phase at the end of xlang phases",
     "InnerClasses"              -> "Lift inner classes",
+    "EqualityCheck"             -> "Reject equalities on values that may be of type Any",
     "Laws"                      -> "Rewrite laws as abstract functions with contracts",
     "SuperInvariants"           -> "Ensure super class invariant cannot be weakened in subclasses",
     "SuperCalls"                -> "Resolve super-function calls",
