@@ -40,7 +40,7 @@ object SoundInvariants {
     x != IEmp(0)
   }
 
-  sealed abstract class IADT {
+  sealed abstract class IADT derives CanEqual {
     require(this match {
       case that @ _ => isValid2(that)
     })
