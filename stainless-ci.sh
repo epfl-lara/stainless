@@ -155,8 +155,10 @@ else
     exit 1
   fi
 
-  # Run the integration tests
-  $SBT -batch -Dtest-parallelism=6 -Dtestcase-parallelism=5 it:test
+  # Run the integration tests: 6 suites at a time, 5 test cases at a time in each suite, and the VCs
+  # of all of them on one pool of 32 threads. The pool is shared by the whole JVM, so it needs at
+  # least as many threads as there are test cases running at once (6 * 5), or it slows the tests down.
+  $SBT -batch -Dtest-parallelism=6 -Dtestcase-parallelism=5 -Dparallel=32 it:test
   if [ $? -ne 0 ]; then
     echo "************** Integration tests failed **************"
     exit 1
