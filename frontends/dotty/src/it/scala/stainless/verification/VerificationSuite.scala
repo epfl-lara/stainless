@@ -74,6 +74,7 @@ class VerificationSuite extends VerificationComponentTestSuite {
       "verification/valid/FloatingPoints2",
       "verification/valid/FloatingPoints4",
       "verification/valid/FloatingPointFunctionProperties",
+      "verification/valid/FloatingPointMinMax",
 
       // valid/
       "verification/valid/ArraySlice",
