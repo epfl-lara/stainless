@@ -35,7 +35,9 @@ abstract class Visitor[S <: IR](val ir: S) {
   private val funCache = MutableSet[FunDef]()
 
   private def rec(prog: Prog): Unit = {
+    prog.decls.foreach { case (decl, _) => rec(decl) }
     prog.functions.foreach(rec)
+    prog.classes.foreach(rec)
     visit(prog)
   }
 
