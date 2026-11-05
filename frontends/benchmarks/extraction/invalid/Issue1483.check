@@ -1,0 +1,6 @@
+[ Error  ] Issue1483.scala:6:12: Cannot compare values of type `A` with `==`: `A` is not a case class, so its values are compared by reference on the JVM
+             val ok = x1 == x2
+                      ^^^^^^^^
+[ Error  ] Issue1483.scala:9:12: Cannot compare values of type `A` with `==`: `A` is not a case class, so its values are compared by reference on the JVM
+               assert(x1 == x2)
+                      ^^^^^^^^

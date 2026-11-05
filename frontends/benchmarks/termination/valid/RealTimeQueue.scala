@@ -11,7 +11,7 @@ import collection._
 object RealTimeQueue {
 
   sealed abstract class Stream[T] {
-    def isEmpty: Boolean = this == SNil[T]()
+    def isEmpty: Boolean = this match { case SNil() => true; case _ => false }
     def isCons: Boolean = !isEmpty
 
     lazy val tail: Stream[T] = {

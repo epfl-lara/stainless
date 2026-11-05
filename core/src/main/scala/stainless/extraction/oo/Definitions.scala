@@ -322,6 +322,10 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
   case object IsAbstract extends Flag("abstract", Seq.empty)
   case object IsSealed extends Flag("sealed", Seq.empty)
   case object IsCaseObject extends Flag("caseObject", Seq.empty)
+
+  /** A concrete class that is neither a case class, an object nor a value class: on the JVM, its values are
+    * compared by reference, which Stainless does not model. See [[methods.EqualityCheck]]. */
+  case object IsPlainClass extends Flag("plainClass", Seq.empty)
   case class Bounds(lo: Type, hi: Type) extends Flag("bounds", Seq(lo, hi))
   case class Variance(variance: Boolean) extends Flag("variance", Seq.empty)
   case class IsTypeMemberOf(id: Identifier) extends Flag("typeMember", Seq(id))

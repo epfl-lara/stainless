@@ -59,26 +59,39 @@ runtime.
 
 Stainless rejects programs in which an equality may compare values of
 type ``Any``, directly or through the fields of a class, the components
-of a tuple, the elements of a collection or a type parameter:
+of a tuple or the elements of a collection. Type parameters and abstract
+type members are *equality types* by default: their values can be
+compared with ``==``, and in exchange they can only be instantiated with
+types that do not contain ``Any``. The ``@noeq`` annotation lifts this
+restriction for a type parameter or type member whose values are never
+compared, in the same way as ``@mutable`` allows mutable type arguments:
 
 * ``==``, literal patterns, the elements of ``Set`` and ``Bag`` and the
-  keys of ``Map`` cannot involve a type that contains ``Any``;
-* a type parameter whose values are compared with ``==`` (as in
-  ``def same[T](x: T, y: T) = x == y`` or in ``List.contains``) cannot
-  be instantiated with a type that contains ``Any``;
-* an abstract type member whose values are compared with ``==`` cannot
-  be defined as a type that contains ``Any``.
+  keys of ``Map`` cannot involve a type that contains ``Any`` or a
+  ``@noeq`` type parameter or type member;
+* a type parameter that is not ``@noeq`` (as ``T`` in
+  ``def same[T](x: T, y: T) = x == y`` or in ``List[T]``) cannot be
+  instantiated with such a type, and an abstract type member that is not
+  ``@noeq`` cannot be defined as such a type;
+* a method overriding a method with a ``@noeq`` type parameter must
+  annotate the parameter as well.
 
-Which type parameters and type members have their values compared is
-not declared but inferred: Stainless runs a whole-program analysis that
-finds every ``==``, literal pattern and collection key, follows the type
-parameters they involve through calls, class hierarchies and structural
-equality until a fixpoint, and then rejects the instantiations of these
-parameters with types that contain ``Any``. An instantiation is thus
-rejected because of a comparison that may be far from it, in another
-function or in the library, and the error message names that comparison
-(``List[Any]`` is rejected because of ``List.contains``).
+As ``Any`` is also a mutable type for Stainless, a type parameter must be
+both ``@noeq`` and ``@mutable`` to be instantiated with ``Any``:
+
+.. code-block:: scala
+
+  def first[@noeq @mutable T](x: T, y: T): T = x
+
+  def test = first[Any](1, 2L) // ok: the values are not compared
 
 Values of type ``Any`` remain supported as long as they are not
 compared, for instance with ``isInstanceOf`` and pattern matching on
 types. To compare such values, narrow them to a concrete type first.
+
+For the same reason, a disagreement with the JVM, ``==`` is rejected on
+a class that is not a case class (its values are compared by reference
+on the JVM), such a class is treated like ``Any`` in the rules above,
+and a class cannot override ``equals``. Lambdas can only be compared in
+ghost code, also when they are reached through the fields of the
+compared values.

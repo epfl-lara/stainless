@@ -526,7 +526,8 @@ class CodeExtraction(inoxCtx: inox.Context,
       (if (isValueClass) Some(xt.ValueClass) else None) ++
       (if (isAbstractClass) Some(xt.IsAbstract) else None) ++
       (if (sym `is` Sealed) Some(xt.IsSealed) else None) ++
-      (if ((sym `is` ModuleClass) && (sym `is` Case)) Some(xt.IsCaseObject) else None)
+      (if ((sym `is` ModuleClass) && (sym `is` Case)) Some(xt.IsCaseObject) else None) ++
+      (if (!isAbstractClass && !isValueClass && !(sym `is` Case) && !(sym `is` ModuleClass)) Some(xt.IsPlainClass) else None)
 
     val tparams = extractTypeParams(sym.asClass.typeParams)(using DefContext())
 

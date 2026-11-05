@@ -1,0 +1,15 @@
+[ Error  ] NoEq1.scala:8:48: Cannot compare values of type `T @noeq` with `==`: the type parameter `T` is annotated `@noeq`
+             def compared[@noeq T](x: T, y: T): Boolean = x == y
+                                                          ^^^^^^
+[ Error  ] NoEq1.scala:10:47: Cannot call `same` with the type argument `T @noeq`: the type parameter `T` is annotated `@noeq`, and the type parameter `T` of `same` is not annotated `@noeq`
+             def viaCall[@noeq T](x: T, y: T): Boolean = same(x, y)
+                                                         ^^^^^^^^^^
+[ Error  ] NoEq1.scala:12:23: Cannot use the type `List[T @noeq]`: the type parameter `T` is annotated `@noeq`, and the type parameter `T` of `List` is not annotated `@noeq`
+             def listed[@noeq T](l: List[T]): Boolean = l.isEmpty
+                                 ^
+[ Error  ] NoEq1.scala:14:27: Cannot use a `Set` with elements of type `T @noeq`: elements are compared with `==`, and the type parameter `T` is annotated `@noeq`
+             def set[@noeq T](x: T): Set[T] = Set(x)
+                                     ^^^^^^
+[ Error  ] NoEq1.scala:18:55: Cannot compare values of type `Box[T @noeq]` with `==`: the field `x` of `Box[T @noeq]` is of type `T`, a type parameter annotated `@noeq`
+             def boxes[@noeq T](a: Box[T], b: Box[T]): Boolean = a == b
+                                                                 ^^^^^^

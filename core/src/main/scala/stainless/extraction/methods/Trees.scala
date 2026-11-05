@@ -262,6 +262,15 @@ trait Trees extends throwing.Trees { self =>
   case class IsMethodOf(id: Identifier) extends Flag("method", Seq(id))
 
   case object ValueClass extends Flag("valueClass", Seq.empty)
+
+  /** Marks a type parameter or abstract type member whose values are never compared with `==`: it may be
+    * instantiated or defined with a type that has no well-defined equality, such as `Any`. See [[EqualityCheck]]. */
+  case object NoEq extends Flag("noeq", Seq.empty)
+
+  override def extractFlag(name: String, args: Seq[Expr]): Flag = (name, args) match {
+    case ("noeq", Seq()) => NoEq
+    case _ => super.extractFlag(name, args)
+  }
   case class FieldDefPosition(i: Int) extends Flag("fieldDefPosition", Seq(i))
 
   implicit class ClassDefWrapper(cd: ClassDef) {
@@ -466,6 +475,7 @@ trait TreeDeconstructor extends throwing.TreeDeconstructor {
     case s.IsMethodOf(id) => (Seq(id), Seq(), Seq(), (ids, _, _) => t.IsMethodOf(ids.head))
     case s.IsAccessor(id) => (id.toSeq, Seq(), Seq(), (ids, _, _) => t.IsAccessor(ids.headOption))
     case s.ValueClass => (Seq(), Seq(), Seq(), (_, _, _) => t.ValueClass)
+    case s.NoEq => (Seq(), Seq(), Seq(), (_, _, _) => t.NoEq)
     case s.FieldDefPosition(i) => (Seq(), Seq(), Seq(), (_, _, _) => t.FieldDefPosition(i))
     case _ => super.deconstruct(f)
   }

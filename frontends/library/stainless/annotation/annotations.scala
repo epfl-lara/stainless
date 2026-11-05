@@ -78,6 +78,13 @@ class law extends Annotation
 @ignore
 class mutable extends Annotation
 
+/** Used to mark a type parameter or an abstract type member whose values are
+  * never compared with `==`: it can then be instantiated or defined with a
+  * type that has no well-defined equality, such as `Any`.
+  */
+@ignore
+class noeq extends Annotation
+
 /** Can be used to mark a library function/class/object so that it is not
   * filtered out by the keep objects. Use the command-line option `--keep=g` to
   * keep all objects marked by `@keepFor(g)`
