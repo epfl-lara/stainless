@@ -29,7 +29,7 @@ sbtn shutdown  # stops the server
 
 Note that the server keeps the environment variables and JVM options (`-D...`, `-J...`) it was
 started with: commands that depend on them, such as `STAINLESS_UPDATE_EXPECTED` or
-`-Dtestsuite-parallelism` below, must be run with `sbt` or after restarting the server.
+`-Dtest-parallelism` below, must be run with `sbt` or after restarting the server.
 
 ---
 
@@ -93,7 +93,7 @@ Example for `stainless.DottyExtractionSuite`
 
 ```bash
 sbt -batch \
-  -Dtestsuite-parallelism=3 \
+  -Dtest-parallelism=3 \
   -Dtestcase-parallelism=5 \
   "stainless-dotty / IntegrationTest / testOnly stainless.DottyExtractionSuite"
 ```

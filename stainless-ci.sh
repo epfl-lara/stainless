@@ -149,14 +149,14 @@ if [ "$SKIP_TESTS" = true ]; then
   echo "************** Skipping tests **************"
 else
   # Run the tests
-  $SBT -batch -Dtestsuite-parallelism=5 test
+  $SBT -batch -Dtest-parallelism=5 test
   if [ $? -ne 0 ]; then
     echo "************** Unit tests failed **************"
     exit 1
   fi
 
   # Run the integration tests
-  $SBT -batch -Dtestsuite-parallelism=6 -Dtestcase-parallelism=5 it:test
+  $SBT -batch -Dtest-parallelism=6 -Dtestcase-parallelism=5 it:test
   if [ $? -ne 0 ]; then
     echo "************** Integration tests failed **************"
     exit 1
