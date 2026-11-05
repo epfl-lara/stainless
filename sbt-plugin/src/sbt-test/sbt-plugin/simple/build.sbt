@@ -8,6 +8,9 @@ val unsupportedScalaVersion = "2.11.7"
 
 val checkScalaFailures = taskKey[Unit]("checkScalaFailures")
 val assertLogMessage = taskKey[Unit]("checks a log message emitted")
+val checkExtraResolvers = taskKey[Unit]("checks that the resolvers of stainlessExtraResolvers are added to the resolvers")
+
+val extraResolver = "extra-resolver" at "https://example.org/maven"
 
 assertLogMessage := checkLogContains(
   s"Project uses unsupported Scala version: $unsupportedScalaVersion."
@@ -30,6 +33,18 @@ lazy val ignore = (project in file("ignore"))
 lazy val unsupported = (project in file("unsupported"))
   .enablePlugins(StainlessPlugin)
   .settings(scalaVersion := unsupportedScalaVersion)
+
+// This is a project with an extra resolver, which should be added to its resolvers to fetch `stainlessExtraDeps`
+lazy val extraResolvers = (project in file("extraResolvers"))
+  .enablePlugins(StainlessPlugin)
+  .settings(commonSettings)
+  .settings(
+    stainlessExtraResolvers += extraResolver,
+    checkExtraResolvers := {
+      val rs = resolvers.value
+      assert(rs.contains(extraResolver), s"Resolvers should contain $extraResolver, but are: ${rs.mkString(", ")}")
+    }
+  )
 
 def checkScalaFailuresTask(expectedErrorMessage: String) = Def.task {
   val reporter = savedReporter.value
