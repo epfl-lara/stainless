@@ -65,7 +65,7 @@ class UnsignedSemanticsSuite extends AnyFunSuite with inox.ResourceUtils with In
     }
 
     test(s"unsigned/$name: JVM") {
-      val program = compileForJVM(file)
+      val program = compileForJVM(file, compilerOutput => info(compilerOutput))
       val module = program.module(name)
       for ((fn, value) <- expected) {
         val results = module.call(fn)
@@ -226,18 +226,35 @@ object UnsignedSemanticsSuite {
     }
   }
 
-  /** Compiles the Stainless program `file` with the Scala compiler, against the Stainless library. */
-  def compileForJVM(file: String): CompiledProgram = {
+  /** Compiles the Stainless program `file` with the Scala compiler, against the Stainless library.
+    *
+    * The warnings and errors of the compiler are captured instead of printed, so that they stay with the
+    * output of the test: they are passed to `report` if the compilation succeeds, and are part of the
+    * failure otherwise.
+    */
+  def compileForJVM(file: String, report: String => Unit): CompiledProgram = {
     val classesDir = Files.createTempDirectory("stainless-jvm")
     classesDir.toFile.deleteOnExit()
     val args = Array(
       "-d", classesDir.toString,
       "-classpath", libraryClasspath,
       "-language:experimental.qualifiedTypes",
+      "-color:never",
       file,
     )
-    val reporter = dotty.tools.dotc.Main.process(args)
-    assert(!reporter.hasErrors, s"Compilation of $file for the JVM failed with ${reporter.errorCount} error(s)")
+    val out = new ByteArrayOutputStream()
+    val stream = new PrintStream(out, true, StandardCharsets.UTF_8)
+    val reporter = Console.withOut(stream) {
+      Console.withErr(stream) {
+        dotty.tools.dotc.Main.process(args)
+      }
+    }
+    val compilerOutput = out.toString(StandardCharsets.UTF_8).trim
+    assert(
+      !reporter.hasErrors,
+      s"Compilation of $file for the JVM failed with ${reporter.errorCount} error(s):\n$compilerOutput"
+    )
+    if (compilerOutput.nonEmpty) report(compilerOutput)
     new CompiledProgram(classesDir)
   }
 }
