@@ -553,13 +553,6 @@ trait CoqEncoder {
         SeparatorComment(s"End of ${fd.id.name}")
       }
       tmp
-      //if (ctx.options.findOptionOrDefault(optAdmitAll)) {
-      /*if (fd.flags.contains("library")) {
-        tmp $
-        RawCommand("Admit Obligations.")
-      } else {
-        tmp
-      }*/
     }
   }
 
@@ -649,7 +642,7 @@ trait CoqEncoder {
           makeTactic(p.symbols.sorts.values.toSeq)`$`
           manyCommands(p.symbols.sorts.values.toSeq.map(transformADT))`$`
           transformFunctionsInOrder(d,true) `$`
-          transformFunction(f)))
+          transformFunction(f, ctx.options.findOptionOrDefault(optAdmitAll))))
       }
 
   }
