@@ -1,0 +1,3 @@
+[ Error  ] InternallyMutablePattern.scala:9:16: Field last of class Cache is @internallyMutable and cannot be bound in a pattern
+               case Cache(l, _) => l
+                          ^

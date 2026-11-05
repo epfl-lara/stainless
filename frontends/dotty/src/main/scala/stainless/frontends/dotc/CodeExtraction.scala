@@ -551,6 +551,8 @@ class CodeExtraction(inoxCtx: inox.Context,
       val vdSym = vd.symbol
       val id = getIdentifier(vdSym)
       val flags = annotationsOf(vdSym, ignoreOwner = true)
+      if (flags.contains(xt.IsInternallyMutable) && !(vdSym `is` Private))
+        outOfSubsetError(vd, "Fields annotated with @internallyMutable must be private")
       val tpe = stainlessType(vd.tpt.tpe)(using tpCtx, vd.tpt.sourcePos)
       val (isExtern, isPure) = (flags contains xt.Extern, flags contains xt.IsPure)
       val isMutable = (vdSym `is` Mutable) || isExtern && !isPure
@@ -934,14 +936,65 @@ class CodeExtraction(inoxCtx: inox.Context,
       finalBody
     }
 
+    val obsPureFlag = if (isObservationallyPure(fullBody)) Seq(xt.IsObservationallyPure) else Seq.empty
+
     new xt.FunDef(
       id,
       ntparams.map(tp => xt.TypeParameterDef(tp)),
       newParams,
       returnType,
       fullBody,
-      flags.distinct
+      (flags ++ obsPureFlag).distinct
     ).setPos(sym.sourcePos)
+  }
+
+  /** Returns whether the function with the given (extracted) full body is observationally pure, that is,
+    * whether one of the top-level conjuncts of its postcondition is `sameAs(e)` applied to the result.
+    * The argument `e` of `sameAs` must be a function call (its purity is checked in `SameAsLowering`).
+    *
+    * Any other occurrence of `sameAs` in the body or specs of the function (e.g. under a disjunction or a
+    * negation, or in a precondition) is rejected, since it would not guarantee observational equivalence.
+    * Nested local functions and local classes are skipped: they are checked by their own `extractFunction` call.
+    */
+  private def isObservationallyPure(fullBody: xt.Expr): Boolean = {
+    def stripGhost(e: xt.Expr): xt.Expr = e match {
+      case xt.Annotated(inner, flags) if flags.contains(xt.Ghost) => stripGhost(inner)
+      case _ => e
+    }
+
+    def conjuncts(e: xt.Expr): Seq[xt.Expr] = stripGhost(e) match {
+      case xt.And(es) => es.flatMap(conjuncts)
+      case other => Seq(other)
+    }
+
+    val allowed: Seq[xt.SameAs] = xt.exprOps.BodyWithSpecs(fullBody).specs.flatMap {
+      case xt.exprOps.Postcondition(xt.Lambda(Seq(res), post)) =>
+        conjuncts(post).collect {
+          case xt.Application(sa: xt.SameAs, Seq(v: xt.Variable)) if v.id == res.id => sa
+        }
+      case _ => Seq.empty
+    }
+
+    object SameAsChecker extends xt.ConcreteStainlessSelfTreeTraverser {
+      override def traverse(e: xt.Expr): Unit = e match {
+        case xt.LetRec(_, body) => traverse(body)
+        case xt.LetClass(_, body) => traverse(body)
+        case sa: xt.SameAs =>
+          if (!allowed.exists(_ eq sa))
+            outOfSubsetError(sa.getPos,
+              "`sameAs` can only appear as a top-level conjunct of a postcondition, applied to the result")
+          sa.e match {
+            case _: xt.FunctionInvocation | _: xt.MethodInvocation | _: xt.ApplyLetRec => ()
+            case other =>
+              outOfSubsetError(other.getPos, "`sameAs` must be applied to a function call, e.g. `sameAs(f(x))`")
+          }
+          super.traverse(e)
+        case _ => super.traverse(e)
+      }
+    }
+    SameAsChecker.traverse(fullBody)
+
+    allowed.nonEmpty
   }
 
   private def typeParamSymbols(tdefs: Seq[tpd.TypeDef]): Seq[Symbol] = tdefs.flatMap(_.tpe match {
@@ -1588,6 +1641,8 @@ class CodeExtraction(inoxCtx: inox.Context,
       xt.Tuple(args.map(extractTree))
 
     case ExOldExpression(e) => xt.Old(extractTree(e))
+
+    case ExSameAsExpression(e) => xt.SameAs(extractTree(e))
 
     case ExSnapshotExpression(e) => xt.Snapshot(extractTree(e))
 
