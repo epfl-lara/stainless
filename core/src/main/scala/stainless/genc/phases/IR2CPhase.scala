@@ -394,7 +394,13 @@ private class IR2CImpl()(using ctx: inox.Context) {
      *      See comment in CmpFactory.
      */
     case BinOp(op @ (Equals | NotEquals), lhs, rhs) if !lhs.getType.isLogical && !lhs.getType.isIntegral && !lhs.getType.isInstanceOf[TypeDefType] =>
-      val cmp = CmpFactory(lhs.getType)
+      // All the classes of a hierarchy are represented by the C type of its top class (see ClassLifter),
+      // including an instance of a subclass on the left, such as a constructor, which keeps its own type.
+      val typ = lhs.getType match {
+        case ClassType(cd) => ClassType(cd.hierarchyTop)
+        case typ => typ
+      }
+      val cmp = CmpFactory(typ)
       val equals = App(cmp, Seq(), Seq(lhs, rhs))
       val test = if (op == Equals) equals else UnOp(Not, equals)
       rec(test)
