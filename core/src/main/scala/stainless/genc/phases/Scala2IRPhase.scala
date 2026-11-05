@@ -226,6 +226,16 @@ private class S2IRImpl(override val s: tt.type,
     case _ => false
   }
 
+  /** Whether `typ` contains an array whose length no class invariant fixes. C represents such an array by a
+    * pointer to its elements and its length, which zero-filling would turn into an empty array.
+    */
+  private def containsVariableLengthArray(typ: CIR.Type): Boolean = typ match {
+    case CIR.ArrayType(_, None) => true
+    case CIR.ArrayType(base, Some(_)) => containsVariableLengthArray(base)
+    case CIR.ClassType(cd) => cd.fields exists { case (vd, _) => containsVariableLengthArray(vd.typ) }
+    case _ => false
+  }
+
   private def buildLet(x: ValDef, e: Expr, body: Expr, isVar: Boolean)
                       (using env: Env, tm: TypeMapping): CIR.Expr = {
     val tpe = rec(x.tpe)
@@ -235,7 +245,8 @@ private class S2IRImpl(override val s: tt.type,
     val decl: Seq[CIR.Expr] = try {
       Seq(CIR.Decl(vd, Some(rec(e))))
     } catch {
-      case t: Throwable if onlyZeroes(e) && (t.toString.contains("VLAs cannot") || t.toString.contains("VLA elements")) =>
+      // A value that only contains zeroes can be zero-filled instead, unless it contains a variable-length array
+      case t: Throwable if onlyZeroes(e) && !containsVariableLengthArray(tpe) && (t.toString.contains("VLAs cannot") || t.toString.contains("VLA elements")) =>
         reporter.reset()
         Seq(
           CIR.Decl(vd, None),
