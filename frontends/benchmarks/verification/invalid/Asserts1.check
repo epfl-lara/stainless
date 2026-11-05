@@ -1,5 +1,5 @@
-12:12;foo;body assertion;valid
+12:12;foo;body assertion: Hey now;valid
 13:5;foo;postcondition;invalid
 13:9;foo;precondition;valid
-21:12;bar;body assertion;valid
+21:12;bar;body assertion: Hey now;valid
 22:5;bar;postcondition;invalid
