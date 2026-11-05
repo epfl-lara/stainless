@@ -6,7 +6,8 @@ on:
     branches:
       - main
 
-# Cancel a pull request's superseded runs when new commits are pushed.
+# Cancel a pull request's superseded runs, with the jobs of both JDKs, when new
+# commits are pushed.
 # Runs on main are never cancelled, so every merge still gets a result.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -14,13 +15,23 @@ concurrency:
 
 jobs:
   tests:
+    name: tests (JDK ${{ matrix.java }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - java: 17
+            extra-java-opts: ""
+          - java: 25
+            extra-java-opts: "-XX:+UseCompactObjectHeaders"
     runs-on:
       labels: [self-hosted, linux]
     env:
       # define Java options for both official sbt and sbt-extras
-      JAVA_OPTS: -Dsbt.io.implicit.relative.glob.conversion=allow -Xss512M -Xms1024M -Xmx12G -XX:MaxMetaspaceSize=2G -XX:+UseCodeCacheFlushing -XX:ReservedCodeCacheSize=768M 
-      JVM_OPTS:  -Dsbt.io.implicit.relative.glob.conversion=allow -Xss512M -Xms1024M -Xmx12G -XX:MaxMetaspaceSize=2G -XX:+UseCodeCacheFlushing -XX:ReservedCodeCacheSize=768M 
-      JAVA_OPTS_TMP_DIR: /tmp/tmp_${{ github.run_id }}_${{ github.run_attempt }}
+      JAVA_OPTS: -Dsbt.io.implicit.relative.glob.conversion=allow -Xss512M -Xms1024M -Xmx12G -XX:MaxMetaspaceSize=2G -XX:+UseCodeCacheFlushing -XX:ReservedCodeCacheSize=768M ${{ matrix.extra-java-opts }}
+      JVM_OPTS:  -Dsbt.io.implicit.relative.glob.conversion=allow -Xss512M -Xms1024M -Xmx12G -XX:MaxMetaspaceSize=2G -XX:+UseCodeCacheFlushing -XX:ReservedCodeCacheSize=768M ${{ matrix.extra-java-opts }}
+      # one directory per matrix entry, as the jobs of a run can share a machine
+      JAVA_OPTS_TMP_DIR: /tmp/tmp_${{ github.run_id }}_${{ github.run_attempt }}_jdk${{ matrix.java }}
     steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -30,7 +41,7 @@ jobs:
       uses: actions/setup-java@v4
       with:
         distribution: temurin
-        java-version: 17
+        java-version: ${{ matrix.java }}
     - name: Setup java options
       run: |
           echo "JAVA_OPTS=$JAVA_OPTS -Djava.io.tmpdir=$JAVA_OPTS_TMP_DIR" >> "$GITHUB_ENV" && \
@@ -52,7 +63,7 @@ jobs:
     - name: Build and Package
       run: ./stainless-ci.sh --build-only && echo "PATH=./frontends/dotty/target/universal/stage/bin:$PATH" >> "$GITHUB_ENV"
     - name: Run Tests and Integration Tests
-      run: ./stainless-ci.sh --skip-build --skip-bolts --skip-sbt-plugin 
+      run: ./stainless-ci.sh --skip-build --skip-bolts --skip-sbt-plugin
     - name: Sbt Plugin Tests
       run: ./stainless-ci.sh --skip-build --skip-tests --skip-bolts
     - name: Clean up
