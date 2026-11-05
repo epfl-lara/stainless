@@ -1,0 +1,246 @@
+{
+  "recursive": true,
+  "codegen": true,
+  "successful": [
+    {
+      "function": "shl31",
+      "expected": "expectedShl31"
+    },
+    {
+      "function": "shl33",
+      "expected": "expectedShl33"
+    },
+    {
+      "function": "shlNegative",
+      "expected": "expectedShlNegative"
+    },
+    {
+      "function": "shlMinValueNegative",
+      "expected": "expectedShlMinValueNegative"
+    },
+    {
+      "function": "ashr32",
+      "expected": "expectedAshr32"
+    },
+    {
+      "function": "ashr33",
+      "expected": "expectedAshr33"
+    },
+    {
+      "function": "ashrNegative",
+      "expected": "expectedAshrNegative"
+    },
+    {
+      "function": "lshr33",
+      "expected": "expectedLshr33"
+    },
+    {
+      "function": "lshrNegative",
+      "expected": "expectedLshrNegative"
+    },
+    {
+      "function": "shl33Literal",
+      "expected": "expectedShl33Literal"
+    },
+    {
+      "function": "shlNegativeLiteral",
+      "expected": "expectedShlNegativeLiteral"
+    },
+    {
+      "function": "ashr32Literal",
+      "expected": "expectedAshr32Literal"
+    },
+    {
+      "function": "longShl65",
+      "expected": "expectedLongShl65"
+    },
+    {
+      "function": "longShlNegative",
+      "expected": "expectedLongShlNegative"
+    },
+    {
+      "function": "longAshr64",
+      "expected": "expectedLongAshr64"
+    },
+    {
+      "function": "longAshr65",
+      "expected": "expectedLongAshr65"
+    },
+    {
+      "function": "longLshr65",
+      "expected": "expectedLongLshr65"
+    },
+    {
+      "function": "longShlLongAmount",
+      "expected": "expectedLongShlLongAmount"
+    },
+    {
+      "function": "longShl65Literal",
+      "expected": "expectedLongShl65Literal"
+    },
+    {
+      "function": "longLshr64Literal",
+      "expected": "expectedLongLshr64Literal"
+    },
+    {
+      "function": "byteShl7",
+      "expected": "expectedByteShl7"
+    },
+    {
+      "function": "byteShl7ToByte",
+      "expected": "expectedByteShl7ToByte"
+    },
+    {
+      "function": "byteShl8",
+      "expected": "expectedByteShl8"
+    },
+    {
+      "function": "byteShl33",
+      "expected": "expectedByteShl33"
+    },
+    {
+      "function": "byteShlNegative",
+      "expected": "expectedByteShlNegative"
+    },
+    {
+      "function": "byteShlByteAmount",
+      "expected": "expectedByteShlByteAmount"
+    },
+    {
+      "function": "byteAshr33",
+      "expected": "expectedByteAshr33"
+    },
+    {
+      "function": "byteLshr33",
+      "expected": "expectedByteLshr33"
+    },
+    {
+      "function": "byteLshrNegative",
+      "expected": "expectedByteLshrNegative"
+    },
+    {
+      "function": "shortShl15",
+      "expected": "expectedShortShl15"
+    },
+    {
+      "function": "shortShl15ToShort",
+      "expected": "expectedShortShl15ToShort"
+    },
+    {
+      "function": "shortShl16",
+      "expected": "expectedShortShl16"
+    },
+    {
+      "function": "shortShl34",
+      "expected": "expectedShortShl34"
+    },
+    {
+      "function": "shortShlNegative",
+      "expected": "expectedShortShlNegative"
+    },
+    {
+      "function": "shortShlShortAmount",
+      "expected": "expectedShortShlShortAmount"
+    },
+    {
+      "function": "shortAshr32",
+      "expected": "expectedShortAshr32"
+    },
+    {
+      "function": "shortLshr33",
+      "expected": "expectedShortLshr33"
+    },
+    {
+      "function": "ubyteShl4",
+      "expected": "expectedUbyteShl4"
+    },
+    {
+      "function": "ubyteShl1Wraps",
+      "expected": "expectedUbyteShl1Wraps"
+    },
+    {
+      "function": "ubyteLshr4",
+      "expected": "expectedUbyteLshr4"
+    },
+    {
+      "function": "ubyteShl8",
+      "expected": "expectedUbyteShl8"
+    },
+    {
+      "function": "ubyteShl128",
+      "expected": "expectedUbyteShl128"
+    },
+    {
+      "function": "ubyteLshr8",
+      "expected": "expectedUbyteLshr8"
+    },
+    {
+      "function": "ubyteLshr255",
+      "expected": "expectedUbyteLshr255"
+    },
+    {
+      "function": "ushortShl15",
+      "expected": "expectedUshortShl15"
+    },
+    {
+      "function": "ushortLshr15",
+      "expected": "expectedUshortLshr15"
+    },
+    {
+      "function": "ushortShl16",
+      "expected": "expectedUshortShl16"
+    },
+    {
+      "function": "ushortLshr16",
+      "expected": "expectedUshortLshr16"
+    },
+    {
+      "function": "ushortLshr65535",
+      "expected": "expectedUshortLshr65535"
+    },
+    {
+      "function": "uintShl31",
+      "expected": "expectedUintShl31"
+    },
+    {
+      "function": "uintLshr31",
+      "expected": "expectedUintLshr31"
+    },
+    {
+      "function": "uintShl32",
+      "expected": "expectedUintShl32"
+    },
+    {
+      "function": "uintShl33",
+      "expected": "expectedUintShl33"
+    },
+    {
+      "function": "uintLshr2Pow31",
+      "expected": "expectedUintLshr2Pow31"
+    },
+    {
+      "function": "uintLshrMax",
+      "expected": "expectedUintLshrMax"
+    },
+    {
+      "function": "ulongShl62",
+      "expected": "expectedUlongShl62"
+    },
+    {
+      "function": "ulongLshr63",
+      "expected": "expectedUlongLshr63"
+    },
+    {
+      "function": "ulongShl64",
+      "expected": "expectedUlongShl64"
+    },
+    {
+      "function": "ulongShl65",
+      "expected": "expectedUlongShl65"
+    },
+    {
+      "function": "ulongLshrMax",
+      "expected": "expectedUlongLshrMax"
+    }
+  ]
+}
