@@ -1,8 +1,7 @@
 /* Copyright 2009-2021 EPFL, Lausanne */
 
-import scala.collection.parallel.ForkJoinTasks
 import scala.concurrent.ExecutionContext
-import java.util.concurrent.Executors
+import java.util.concurrent.{Executors, ForkJoinPool}
 import java.io.PrintWriter
 import java.io.StringWriter
 import inox.transformers._
@@ -167,7 +166,7 @@ package object stainless {
     ExecutionContext.fromExecutor(Executors.newFixedThreadPool(1))
 
   private lazy val multiThreadedExecutor: java.util.concurrent.ExecutorService =
-    nParallel.map(Executors.newFixedThreadPool(_)).getOrElse(ForkJoinTasks.defaultForkJoinPool)
+    nParallel.map(Executors.newFixedThreadPool(_)).getOrElse(ForkJoinPool.commonPool())
   lazy val multiThreadedExecutionContext: ExecutionContext =
     ExecutionContext.fromExecutor(multiThreadedExecutor)
 
