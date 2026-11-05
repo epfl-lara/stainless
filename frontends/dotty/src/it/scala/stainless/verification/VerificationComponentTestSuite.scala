@@ -98,10 +98,10 @@ trait VerificationComponentTestSuite extends ComponentTestSuite { self =>
         val fileRel = benchFolder.toPath.relativize(scalaFile.toPath).toFile.getPath
         if (allowMissingCheckFile) {
           // We shouldn't be doing this here, that said, we shouldn't allow for missing check files either
-          warnPrintln(Seq(
-            s"The Scala file $fileRel did not have a check file for solver $solver (note: allowMissingCheckFile is set to true)",
-            "To add one, create an empty check file and run with STAINLESS_UPDATE_EXPECTED=1 to fill it"
-          ))
+          // Reported through the test instead of printed, so that it stays with the output of its suite
+          // when the suites run in parallel.
+          info(s"The Scala file $fileRel did not have a check file for solver $solver (note: allowMissingCheckFile is set to true)")
+          info("To add one, create an empty check file and run with STAINLESS_UPDATE_EXPECTED=1 to fill it")
         } else {
           fail(s"The Scala file $fileRel did not have a check file for solver $solver")
         }
@@ -169,14 +169,6 @@ trait VerificationComponentTestSuite extends ComponentTestSuite { self =>
     }
 
     loadRes.expectedVCInfosBySolver
-  }
-
-  final def warnPrintln(lines: Seq[String]): Unit = {
-    lines.foreach { l =>
-      val warn = s"${Console.BOLD}${Console.YELLOW}[warning]${Console.RESET}"
-      val msg = s"${Console.YELLOW}$l${Console.RESET}"
-      println(s"$warn $msg")
-    }
   }
 
   final def checkFileMapIgnore2Filter(ignore: Map[Solver, Set[String]]): (File, Solver) => Boolean =

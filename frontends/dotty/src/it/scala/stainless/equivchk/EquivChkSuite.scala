@@ -34,10 +34,10 @@ class EquivChkSuite extends ComponentTestSuite {
 
   for (Benchmark(benchmarkDir, runs, programSymbols) <- benchmarkData) {
     for (Run(num, conf) <- runs) {
+      val testName = s"$benchmarkDir${num.map(n => s" (variant $n)").getOrElse("")}"
       if (ignoredTests.exists { case (dir, variant) => dir == benchmarkDir && variant == num }) {
-        println(s"Skipping test $benchmarkDir${num.map(n => s" (variant $n)").getOrElse("")}.")
+        test(testName, _ => Ignore)(())
       } else {
-        val testName = s"$benchmarkDir${num.map(n => s" (variant $n)").getOrElse("")}"
         test(testName, ctx => filter(ctx, benchmarkDir)) { ctx0 ?=>
           val opts = Seq(
             optModels(conf.models.toSeq.sorted),
