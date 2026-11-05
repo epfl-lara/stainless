@@ -40,6 +40,10 @@ class CodeExtraction(inoxCtx: inox.Context,
 
   val reporter = inoxCtx.reporter
 
+  /** Whether out-of-range shift amounts are rejected by the `AssertionInjector` (`--strict-arithmetic`)
+    * rather than masked at extraction, see [[jvmShiftAmount]]. */
+  private val strictArithmetic: Boolean = inoxCtx.options.findOptionOrDefault(verification.optStrictArithmetic)
+
   given givenDebugSection: inox.DebugSection = frontend.DebugSectionExtraction
 
   private def getIdentifier(sym: Symbol): SymbolIdentifier = {
@@ -867,6 +871,7 @@ class CodeExtraction(inoxCtx: inox.Context,
       .withNewVars(paramsMap)
       .copy(tparams = dctx.tparams ++ (tparams.map(_.symbol) zip ntparams))
       .copy(isExtern = dctx.isExtern || (flags contains xt.Extern))
+      .copy(wrappingArithmetic = dctx.wrappingArithmetic || (flags contains xt.Wrapping))
 
     lazy val retType = extractType(tree.tpt)(using nctx)
     val (finalBody, returnType) = if (isAbstract) {
@@ -2518,6 +2523,33 @@ class CodeExtraction(inoxCtx: inox.Context,
     injectCastsImpl(ctor)(lhs0, rhs0, shift = true)
   }
 
+  /** The `amount` of a shift whose operands were promoted to `tpe`, masked as on the JVM when
+    * out-of-range amounts are not rejected.
+    *
+    * The JVM takes the amount of `Int` and `Long` shifts modulo the width (`1 << 33 == 2`,
+    * `1 << -1 == Int.MinValue`), whereas the SMT-LIB shifts the solvers and the inox evaluator
+    * compute give 0 (or copies of the sign bit for `>>`) for any amount at least the width. With
+    * `--strict-arithmetic`, the `AssertionInjector` requires the amount to be in range, where both
+    * agree. Otherwise, and in `wrapping` code (`stainless.math.wrapping` blocks and `@wrapping`
+    * functions), the amount is masked here (`n & 31` or `n & 63`), so that every consumer of the
+    * trees computes the JVM result. Literal amounts are masked directly. The
+    * `stainless.math.Unsigned` shifts give 0 from the size on in every backend and are left as
+    * they are.
+    */
+  private def jvmShiftAmount(amount: xt.Expr, tpe: xt.Type)(using dctx: DefContext): xt.Expr = tpe match {
+    case xt.BVType(true, size @ (32 | 64)) if !strictArithmetic || dctx.wrappingArithmetic =>
+      val mask = BigInt(size - 1)
+      amount match {
+        case lit: xt.BVLiteral =>
+          xt.BVLiteral(true, lit.toBigInt & mask, size).copiedFrom(amount)
+        case xt.BVWideningCast(lit: xt.BVLiteral, _) =>
+          xt.BVLiteral(true, lit.toBigInt & mask, size).copiedFrom(amount)
+        case _ =>
+          xt.BVAnd(amount, xt.BVLiteral(true, mask, size).copiedFrom(amount)).copiedFrom(amount)
+      }
+    case _ => amount
+  }
+
   private def injectCastsImpl(ctor: (xt.Expr, xt.Expr) => xt.Expr)
                              (lhs0: tpd.Tree, rhs0: tpd.Tree, shift: Boolean)
                              (using dctx: DefContext): xt.Expr = {
@@ -2570,7 +2602,9 @@ class CodeExtraction(inoxCtx: inox.Context,
       case (_, _) => (id, id, ltpe)
     }
 
-    (ctor(lctor(lhs), rctor(rhs)), tpe) match {
+    val amount = if (shift) jvmShiftAmount(rctor(rhs), tpe) else rctor(rhs)
+
+    (ctor(lctor(lhs), amount), tpe) match {
       case (xt.Plus(lhs, rhs),           xt.FPType(_, _)) => xt.FPAdd(xt.RoundNearestTiesToEven, lhs, rhs)
       case (xt.Minus(lhs, rhs),          xt.FPType(_, _)) => xt.FPSub(xt.RoundNearestTiesToEven, lhs, rhs)
       case (xt.Times(lhs, rhs),          xt.FPType(_, _)) => xt.FPMul(xt.RoundNearestTiesToEven, lhs, rhs)

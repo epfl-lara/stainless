@@ -42,7 +42,7 @@ trait ConfigurableTests extends inox.ResourceUtils with InputUtils {
 
     /////////////////////////////////////
 
-    val dummyCtx: inox.Context = inox.TestContext.empty
+    val dummyCtx: inox.Context = inox.TestContext(inox.Options(ComponentTestSuite.defaultExtractionOptions))
     import dummyCtx.given
     val (_, program) = loadFiles(scalaFiles.map(_.getPath))
     assert(dummyCtx.reporter.errorCount == 0, "There should be no error while loading the files")

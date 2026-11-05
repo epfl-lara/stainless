@@ -20,6 +20,8 @@ class StrictArithmeticSuite extends VerificationComponentTestSuite {
   testNegAll("strictarithmetic/invalid", invalid)
 }
 object StrictArithmeticSuite {
-  private lazy val valid = ComponentTestSuite.loadPrograms("strictarithmetic/valid")
-  private lazy val invalid = ComponentTestSuite.loadPrograms("strictarithmetic/invalid")
+  // extracted with strict arithmetic, as they are verified (see `configurations`)
+  private val options = Seq(optStrictArithmetic(true))
+  private lazy val valid = ComponentTestSuite.loadPrograms("strictarithmetic/valid", options = options)
+  private lazy val invalid = ComponentTestSuite.loadPrograms("strictarithmetic/invalid", options = options)
 }

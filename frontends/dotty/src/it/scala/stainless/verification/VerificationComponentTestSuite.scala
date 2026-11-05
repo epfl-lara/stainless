@@ -181,8 +181,9 @@ trait VerificationComponentTestSuite extends ComponentTestSuite { self =>
 object VerificationComponentTestSuite {
   type LoadedProgramsWithCheckFiles = LoadedProgramsWithResource[CheckFilesUtils.LoadingResult]
 
-  def loadProgramsWithCheckFiles(dir: String, recursive: Boolean = false, keepOnly: String => Boolean = _ => true): LoadedProgramsWithCheckFiles =
-    ComponentTestSuite.loadProgramsWithResource(dir, recursive, keepOnly) { lp =>
+  def loadProgramsWithCheckFiles(dir: String, recursive: Boolean = false, keepOnly: String => Boolean = _ => true,
+                                 options: Seq[inox.OptionValue[?]] = ComponentTestSuite.defaultExtractionOptions): LoadedProgramsWithCheckFiles =
+    ComponentTestSuite.loadProgramsWithResource(dir, recursive, keepOnly, options) { lp =>
       // Note the units also contains the Stainless library in form of tasty files which we are not interested in
       CheckFilesUtils.load(lp.unitsWithFile.map(_._2).filter(_.getPath.endsWith(".scala")))
     }
