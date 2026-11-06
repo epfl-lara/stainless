@@ -194,7 +194,7 @@ class MeasureInference(override val s: Trees, override val t: Trees)(using overr
   override protected def extractSymbols(context: TransformerContext, symbols: s.Symbols): (t.Symbols, AllSummaries) = {
     // Note: fnsSummaries is just a Seq of Unit as of now, but is still combined with sortSummaries (Seq of () as well)
     // for possible future extension
-    val (results, fnsSummaries): (Seq[(t.FunDef, MutableMap[Identifier,s.Lambda])], Seq[FunctionSummary]) =
+    val (results, fnsSummaries) =
       symbols.functions.values.map(fd =>
         funCache.cached(fd, context)(extractFunction(context,fd))
       ).toSeq.unzip

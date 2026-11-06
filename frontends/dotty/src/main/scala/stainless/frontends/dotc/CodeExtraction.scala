@@ -2005,6 +2005,8 @@ class CodeExtraction(inoxCtx: inox.Context,
           xt.FPCast(e, s, xt.RoundNearestTiesToEven, extractTree(expr))
         case (xt.FPType(_, _), xt.FPType(e, s)) =>
           xt.FPCast(e, s, xt.RoundNearestTiesToEven, extractTree(expr))
+        case (fromType, toType) =>
+          outOfSubsetError(tr, s"Stainless does not support casts from $fromType to $toType")
       }
 
     case c@ExCall(rec, sym, tps, args) =>
