@@ -238,26 +238,6 @@ private class S2IRImpl(override val s: tt.type,
     case _ => false
   }
 
-  /** Translates the length `size` of an array: a constant (`Right`) if GenC can allocate the array statically, and
-    * an expression (`Left`) if it has to allocate a variable-length array (VLA).
-    */
-  private def recLength(size: Expr)(using Env, TypeMapping): Either[CIR.Expr, Int] =
-    rec(exprOps.simplifyArithmetic(size)) match {
-      case CIR.Lit(L.Int32Lit(length)) => Right(length.toInt)
-      case length => Left(length)
-    }
-
-  /** Whether the value `e` needs a VLA whose elements contain arrays, which the `LargeArray` case of `rec`
-    * rejects. Only looks through the expressions that [[onlyZeroes]] accepts.
-    */
-  private def needsVLAOfArrays(e: Expr)(using Env, TypeMapping): Boolean = e match {
-    case ClassConstructor(_, args) => args.exists(needsVLAOfArrays)
-    case FiniteArray(elems, _) => elems.exists(needsVLAOfArrays)
-    case LargeArray(_, default, size, base) =>
-      (recLength(size).isLeft && rec(base).containsArray) || needsVLAOfArrays(default)
-    case _ => false
-  }
-
   private def buildLet(x: ValDef, e: Expr, body: Expr, isVar: Boolean)
                       (using env: Env, tm: TypeMapping): CIR.Expr = {
     val tpe = rec(x.tpe)
@@ -267,12 +247,13 @@ private class S2IRImpl(override val s: tt.type,
     val vd = CIR.ValDef(env.localNames(x.id), tpe, isVar)
     val newBindings = env.bindings + ((x, instantiateType(x.tpe, tm)) -> vd)
 
-    // GenC cannot translate a value that needs a VLA of elements containing arrays. If the value only contains
-    // zeroes, the variable is zero-filled instead, unless its type contains an array whose length no class
-    // invariant fixes (see `containsVariableLengthArray`). The sizes of the arrays of the value are then not
-    // evaluated: the class invariants give their lengths.
+    // An array field whose length is fixed by a class invariant is part of the C struct, and can only be
+    // initialised from within the struct literal, which GenC only does for static arrays of scalars. A value
+    // that only contains zeroes is therefore built by zero-filling the variable, if its type contains arrays
+    // and all their lengths are fixed (see `containsVariableLengthArray`). The sizes given to the arrays of the
+    // value are then not evaluated: the class invariants give their lengths.
     val decl: Seq[CIR.Expr] =
-      if (onlyZeroes(e) && !containsVariableLengthArray(tpe) && needsVLAOfArrays(e))
+      if (onlyZeroes(e) && tpe.containsArray && !containsVariableLengthArray(tpe))
         Seq(
           CIR.Decl(vd, None),
           CIR.MemSet(CIR.Binding(vd), CIR.Lit(L.Int8Lit(0)), CIR.SizeOf(tpe))
@@ -385,6 +366,8 @@ private class S2IRImpl(override val s: tt.type,
       case CIR.Binding(vd) => isVdMutable(vd)
       case CIR.Block(exprs :+ CIR.Binding(vd)) => isVdMutable(vd) && !exprs.exists {
         case CIR.Decl(`vd`, Some(e)) => !isRefToMutableVar((e, arg._2))
+        // A variable that the block declares without initial value is zero-filled (see `buildLet`)
+        case CIR.Decl(`vd`, None) => true
         case _ => false
       }
       case _ => false
@@ -1275,18 +1258,18 @@ private class S2IRImpl(override val s: tt.type,
       checkDefinedTypes(arrayType, array.getPos)
 
       // Convert to VLA or normal array
-      val alloc = recLength(size) match {
-        case Right(length) =>
+      val alloc = rec(exprOps.simplifyArithmetic(size)) match {
+        case CIR.Lit(L.Int32Lit(length)) =>
           // Optimisation for zero: don't generate values at all to speed up processing within GenC.
           val values = default match {
             case Int32Literal(0) | Int8Literal(0) => Left(CIR.Zero)
-            case default => Right((0 until length) map { _ =>
+            case default => Right((0 until length.toInt) map { _ =>
               rec(exprOps.freshenLocals(default))
             })
           }
-          CIR.ArrayAllocStatic(arrayType, length, values)
+          CIR.ArrayAllocStatic(arrayType, length.toInt, values)
 
-        case Left(length) =>
+        case length =>
           if (arrayType.base.containsArray)
             reporter.fatalError(array.getPos, s"VLAs cannot have elements being/containing other array")
 
