@@ -1275,7 +1275,7 @@ object FdLibm {
       && ((y.isPosInfinity && x.isPosInfinity) ==> (res == Pi / 4))
       && ((y.isNegInfinity && x.isPosInfinity) ==> (res == - Pi / 4))
       && ((y.isPosInfinity && x.isNegInfinity) ==> (res == 3 * Pi / 4))
-      && ((y.isNegInfinity && x.isNegInfinity) ==> (res == - 3 * Pi / 4))
+      && ((y.isNegInfinity && x.isNegInfinity) ==> (res == -3 * Pi / 4))
       && ((y.isFinite && y.isPositive && x.isPosInfinity) ==> (res.isZero && y.isPositive))
       && ((y.isFinite && y.isNegative && x.isPosInfinity) ==> (res.isZero && y.isNegative))
       && ((y.isFinite && y.isPositive && x.isNegInfinity) ==> (res == Pi))

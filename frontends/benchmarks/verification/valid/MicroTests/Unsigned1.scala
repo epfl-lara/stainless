@@ -71,7 +71,7 @@ object Unsigned1 {
   def test14() = {
     val zero: UInt = 0.toUInt
     assert(~zero == UInt.MaxValue)
-    assert(-1.toUInt == UInt.MaxValue)
+    assert((-1).toUInt == UInt.MaxValue)
   }
 
   def test15(n: UInt) = {
