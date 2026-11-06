@@ -173,6 +173,12 @@ class CodeGenEvaluator(override val program: Program,
 
         case e: java.lang.OutOfMemoryError =>
           EvaluationResults.RuntimeError("Out of memory")
+
+        // The JVM rejects, when it loads them, the classes that have a method with more than 64 KB
+        // of code. The expression to evaluate is compiled to a single method, whatever its size:
+        // `FunctionSplitting` only splits the bodies of the functions.
+        case e: java.lang.ClassFormatError =>
+          EvaluationResults.EvaluatorError(s"The JVM rejected a generated class: ${e.getMessage}")
       }
     }).recover {
       case t: Throwable =>
