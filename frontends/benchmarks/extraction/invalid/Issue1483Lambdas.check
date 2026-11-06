@@ -1,0 +1,6 @@
+[ Error  ] Issue1483Lambdas.scala:8:12: Testing lambdas for equality in non-ghost code is unsound (through the field `l` of `A`)
+               assert(a1 == a2)
+                      ^^^^^^^^
+[ Error  ] Issue1483Lambdas.scala:20:12: Testing lambdas for equality in non-ghost code is unsound (through the field `l` of `Wrapper`)
+               assert(a1 == a2)
+                      ^^^^^^^^

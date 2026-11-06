@@ -1,0 +1,6 @@
+[ Error  ] NoEq2.scala:8:9: The type parameter `T` of `same` must be annotated `@noeq`, as in the method it overrides
+               def same[T](x: T, y: T): Boolean = x == y
+                   ^
+[ Error  ] NoEq2.scala:13:38: Cannot compare values of type `this.Elem` with `==`: the type member `Elem` is annotated `@noeq`
+               def contains(x: Elem): Boolean = elem == x
+                                                ^^^^^^^^^

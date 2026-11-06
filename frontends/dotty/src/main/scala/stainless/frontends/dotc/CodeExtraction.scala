@@ -526,7 +526,8 @@ class CodeExtraction(inoxCtx: inox.Context,
       (if (isValueClass) Some(xt.ValueClass) else None) ++
       (if (isAbstractClass) Some(xt.IsAbstract) else None) ++
       (if (sym `is` Sealed) Some(xt.IsSealed) else None) ++
-      (if ((sym `is` ModuleClass) && (sym `is` Case)) Some(xt.IsCaseObject) else None)
+      (if ((sym `is` ModuleClass) && (sym `is` Case)) Some(xt.IsCaseObject) else None) ++
+      (if (!isAbstractClass && !isValueClass && !(sym `is` Case) && !(sym `is` ModuleClass)) Some(xt.IsPlainClass) else None)
 
     val tparams = extractTypeParams(sym.asClass.typeParams)(using DefContext())
 
@@ -1031,6 +1032,10 @@ class CodeExtraction(inoxCtx: inox.Context,
     case ExBigIntPattern(l) =>
       val lit = xt.IntegerLiteral(BigInt(l.const.stringValue))
       (xt.LiteralPattern(binder, lit), dctx)
+
+    // An `Int` literal matched against a `BigInt` compares the values on the JVM, as `==` does
+    case ExInt32Literal(i) if expectedTpe.contains(xt.IntegerType()) =>
+      (xt.LiteralPattern(binder, xt.IntegerLiteral(BigInt(i))), dctx)
 
     case ExFloatLiteral(f)   => (xt.LiteralPattern(binder, xt.Float32Literal(f)), dctx)
     case ExDoubleLiteral(f)  => (xt.LiteralPattern(binder, xt.Float64Literal(f)), dctx)
@@ -2451,6 +2456,10 @@ class CodeExtraction(inoxCtx: inox.Context,
     * An unsigned value can only be compared with a value of the same type: on the JVM, comparing it with a number
     * of another type would compare that number with the signed representation of the unsigned value. The Scala
     * compiler already rejects comparisons with numbers (`Int`, `BigInt`, ...), as these have `CanEqual` instances.
+    *
+    * Two numbers are compared after the JVM's numeric promotion. A number compared with a value of another kind
+    * (`Any`, a type parameter, `BigInt`, ...) is extracted as an equality at their least upper bound, which the
+    * `EqualityCheck` phase rejects.
     */
   private def extractEquals(tr: tpd.Tree, l: tpd.Tree, r: tpd.Tree)(using dctx: DefContext): xt.Expr =
     (extractTree(l), extractType(l), extractTree(r), extractType(r)) match {
@@ -2464,8 +2473,15 @@ class CodeExtraction(inoxCtx: inox.Context,
         if (tpeL == tpeR) xt.Equals(l2, r2)
         else outOfSubsetError(tr, "Unsigned values can only be compared with values of the same type.")
 
+      case (l2, tpeL, r2, tpeR) if isNumber(tpeL) != isNumber(tpeR) => xt.Equals(l2, r2)
+
       case _ => injectCasts(xt.Equals.apply)(l, r)
     }
+
+  private def isNumber(tpe: xt.Type): Boolean = tpe match {
+    case xt.BVType(_, _) | xt.FPType(_, _) => true
+    case _ => false
+  }
 
   /** Inject implicit widening casts according to the Java semantics (5.6.2. Binary Numeric Promotion).
    *  Also converts to floating-point versions of operators when necessary. */

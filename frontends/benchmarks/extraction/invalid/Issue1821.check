@@ -1,0 +1,36 @@
+[ Error  ] Issue1821.scala:10:13: Cannot compare values of type `Any` with `==`: equality on `Any` is not supported
+               assert((a == b) == false)
+                       ^^^^^^
+[ Error  ] Issue1821.scala:15:13: Cannot compare values of type `Any` with `==`: equality on `Any` is not supported
+               assert((a == b) == false)
+                       ^^^^^^
+[ Error  ] Issue1821.scala:20:13: Cannot compare values of type `Any` with `==`: equality on `Any` is not supported
+               assert((a == b) == false)
+                       ^^^^^^
+[ Error  ] Issue1821.scala:25:13: Cannot compare values of type `Any` with `==`: equality on `Any` is not supported
+               assert((a == b) == false)
+                       ^^^^^^
+[ Error  ] Issue1821.scala:29:34: Cannot call `eq` with the type argument `Any`: equality on `Any` is not supported, and the type parameter `T` of `eq` is not annotated `@noeq`
+             def typeParam(): Unit = assert(eq[Any](5: Byte, 5) == false)
+                                            ^^^^^^^^^^^^^^^^^^^
+[ Error  ] Issue1821.scala:33:40: Cannot compare values of type `CA` with `==`: the field `a` of `CA` may be of type `Any`, and equality on `Any` is not supported
+             def caseClassField(): Unit = assert((CA(5: Byte) == CA(5)) == false)
+                                                  ^^^^^^^^^^^^^^^^^^^^
+[ Error  ] Issue1821.scala:38:13: Cannot compare values of type `Any` with `==`: equality on `Any` is not supported
+               assert((a == b) == true)
+                       ^^^^^^
+[ Error  ] Issue1821.scala:43:13: Cannot compare values of type `Any` with `==`: equality on `Any` is not supported
+               assert((a == b) == false)
+                       ^^^^^^
+[ Error  ] Issue1821.scala:46:36: Cannot compare values of type `P` with `==`: `P` is not a case class, so its values are compared by reference on the JVM
+             def plainClass(): Unit = assert((new P(1) == new P(1)) == true)
+                                              ^^^^^^^^^^^^^^^^^^^^
+[ Error  ] Issue1821.scala:49:18: Cannot override `equals` in `Q`: Stainless compares values structurally
+               override def equals(that: Any): Boolean = that match
+                            ^
+[ Error  ] Issue1821.scala:63:13: Cannot compare values of type `Any` with `==`: equality on `Any` is not supported
+               assert((a == b) == true)
+                       ^^^^^^
+[ Error  ] Issue1821.scala:68:13: Cannot compare values of type `Any` with `==`: equality on `Any` is not supported
+               assert((a == b) == false)
+                       ^^^^^^

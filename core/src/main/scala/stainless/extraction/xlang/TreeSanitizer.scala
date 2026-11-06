@@ -280,6 +280,10 @@ trait TreeSanitizer { self =>
       ancestors.exists(tcd => !tcd.cd.flags.exists(_.name == "anyHeapRef") && tcd.cd.isAbstract && !tcd.cd.isSealed)
     }
 
+    /** Heap references of the full imperative mode are compared by identity, not by their fields. */
+    def isHeapRef(tcd: TypedClassDef): Boolean =
+      (tcd +: tcd.ancestors).exists(_.cd.flags.exists(_.name == "anyHeapRef"))
+
     val ghostTraverser = new GhostTraverserImpl(self.trees)(using sanitizer.symbols)
 
     class GhostTraverserImpl(override val trees: self.trees.type)(using override val symbols: sanitizer.symbols.type)
@@ -315,6 +319,29 @@ trait TreeSanitizer { self =>
 
           rec(lhs.getType)
           rec(rhs.getType)
+
+          // The equality of class values compares their fields, so a lambda in a field of the compared
+          // classes, or of their descendants, is compared too; `where` names the field it is reached through.
+          val seen = scala.collection.mutable.Set.empty[Type]
+          def lambdaField(tp: Type, where: String): Unit = if (seen.add(tp)) tp match {
+            case ft: FunctionType =>
+              if (where.nonEmpty)
+                errors += MalformedStainlessCode(e, s"Testing lambdas for equality in non-ghost code is unsound$where")
+
+            case ct: ClassType =>
+              ct.tps.foreach(lambdaField(_, where))
+              if (!isHeapRef(ct.tcd))
+                (ct.tcd +: ct.tcd.descendants).foreach { tcd =>
+                  tcd.fields.foreach(vd => lambdaField(vd.getType, s" (through the field `${vd.id.name}` of `${tcd.id.name}`)"))
+                }
+
+            case tp =>
+              val TypeOperator(es, _) = tp: @unchecked
+              es.foreach(lambdaField(_, where))
+          }
+
+          lambdaField(lhs.getType, "")
+          lambdaField(rhs.getType, "")
 
         case _ => super.traverse(e, ctx)
       }

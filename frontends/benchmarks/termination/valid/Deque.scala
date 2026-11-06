@@ -12,7 +12,7 @@ import math._
  */
 object RealTimeDeque {
   sealed abstract class Stream[T] {
-    def isEmpty: Boolean = this == SNil[T]()
+    def isEmpty: Boolean = this match { case SNil() => true; case _ => false }
     def isCons: Boolean = !isEmpty
 
     lazy val stail: Stream[T] = {
@@ -113,7 +113,7 @@ object RealTimeDeque {
         lenf > i
     })
     decreases(r.size)
-    if (i < 2 || r == SNil[T]()) {               // A bug in Okasaki implementation: we must check for: 'rval = SNil()'
+    if (i < 2 || r.isEmpty) {               // A bug in Okasaki implementation: we must check for: 'rval = SNil()'
       rotateRev(r, drop(i, f), SNil[T]())
     } else {
       r match {

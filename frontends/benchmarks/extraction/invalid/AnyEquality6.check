@@ -1,0 +1,6 @@
+[ Error  ] AnyEquality6.scala:9:9: Cannot define the type member `Repr` as `Any`: equality on `Any` is not supported, and `Repr` is not annotated `@noeq`
+               def zero: Any = 0
+                   ^
+[ Error  ] AnyEquality6.scala:17:27: Cannot define the type member `Elem` as `Any`: equality on `Any` is not supported, and `Elem` is not annotated `@noeq`
+             case class AnyContainer(elem: Any) extends Container:
+                                     ^

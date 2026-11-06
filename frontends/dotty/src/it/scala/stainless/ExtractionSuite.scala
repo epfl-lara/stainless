@@ -127,6 +127,9 @@ abstract class ExtractionSuite extends AnyFunSpec with inox.ResourceUtils with I
             reporter.allErrors
           case Failure(e: (ExtractionError | SanitizationError)) =>
             reporter.allErrors
+          case Failure(extraction.ExtractionFailed()) =>
+            // The errors have already been reported
+            reporter.allErrors
           case Failure(e: extraction.MalformedStainlessCode) =>
             reporter.error(e.tree.getPos, e.msg)
             reporter.allErrors

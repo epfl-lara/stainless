@@ -1,0 +1,9 @@
+[ Error  ] AnyEquality5.scala:8:46: Cannot use the type `Container[Any]`: equality on `Any` is not supported, and the type parameter `A` of `Container` is not annotated `@noeq`
+             case class AnyContainer(elem: Any) extends Container[Any]
+                                                        ^^^^^^^^^^^^^^
+[ Error  ] AnyEquality5.scala:10:12: Cannot use the type `Container[Any]`: equality on `Any` is not supported, and the type parameter `A` of `Container` is not annotated `@noeq`
+             def test(c: Container[Any]): Boolean = c.holds(1)
+                      ^
+[ Error  ] AnyEquality5.scala:17:28: Cannot use the type `Derived[Int, Any]`: equality on `Any` is not supported, and the type parameter `B` of `Derived` is not annotated `@noeq`
+             def build(): Base[Int] = Derived[Int, Any](1, 2)
+                                      ^^^^^^^^^^^^^^^^^^^^^^^
