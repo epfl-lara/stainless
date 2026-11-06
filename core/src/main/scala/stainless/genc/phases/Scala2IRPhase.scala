@@ -392,7 +392,7 @@ private class S2IRImpl(override val s: tt.type,
       case CIR.ArrayInit(_: CIR.ArrayAllocStatic) =>
       case _ =>
         reporter.fatalError(pos, s"The array field ${field.id} has a fixed length: it must be initialised with " +
-          "an array literal or with `Array.fill`, with a size that has no effects")
+          "an array literal or with `Array.fill`")
     }
   }
 
@@ -1194,10 +1194,12 @@ private class S2IRImpl(override val s: tt.type,
       val cd = syms.getClass(ct.id)
       val ct2 = rec(ct)
       // The array given to a field of a fixed length has the length that the class invariant gives, so its size
-      // need not be evaluated (unless that has effects, which `checkFixedArrayArgs` rejects)
+      // is not evaluated, and must not have effects
       val sizedArgs = args.zip(ct2.fields).map {
-        case (array @ LargeArray(elems, default, size, base), (CIR.ValDef(_, CIR.ArrayType(_, Some(length)), _), _))
-            if analysis.effects(size).isEmpty =>
+        case (array @ LargeArray(elems, default, size, base), (field @ CIR.ValDef(_, CIR.ArrayType(_, Some(length)), _), _)) =>
+          if (analysis.effects(size).nonEmpty)
+            reporter.fatalError(array.getPos, s"The array field ${field.id} has a fixed length, so the size given to " +
+              "`Array.fill` is not evaluated: it must not have effects")
           LargeArray(elems, default, Int32Literal(length), base).copiedFrom(array)
         case (arg, _) => arg
       }
