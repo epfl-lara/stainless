@@ -67,7 +67,7 @@ object Actors {
       val behavior = behaviors(actor)
 
       val ctx = ActorContext(actor, Nil())
-      val nextBehavior = behavior.processMsg(msg)(ctx)
+      val nextBehavior = behavior.processMsg(msg)(using ctx)
 
       (nextBehavior, ctx.toSend)
     }
@@ -80,7 +80,7 @@ object Actors {
       case msg: Msg =>
         val me = ActorRef(context.self.path.name, context.self)
         val ctx = ActorContext(me, Nil())
-        val newBehavior = behavior.processMsg(msg)(ctx)
+        val newBehavior = behavior.processMsg(msg)(using ctx)
 
         log.info(s"Received: $msg, becoming $newBehavior")
         context.become(handler(newBehavior), discardOld = true)

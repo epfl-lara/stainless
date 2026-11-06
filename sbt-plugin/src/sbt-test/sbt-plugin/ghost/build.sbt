@@ -1,7 +1,9 @@
 
+// Also sets the Scala version of the root project, which otherwise falls back to the one of sbt with a warning
+ThisBuild / scalaVersion := sys.props("dotty.version")
+
 def commonSettings = Seq(
-  version := "0.1",
-  scalaVersion := sys.props("dotty.version")
+  version := "0.1"
 )
 
 lazy val basic = (project in file("basic"))
