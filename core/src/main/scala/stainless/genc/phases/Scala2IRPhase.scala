@@ -224,7 +224,9 @@ private class S2IRImpl(override val s: tt.type,
       val cd = syms.getClass(ct.id)
       cd.parents.isEmpty && cd.children.isEmpty && args.forall(onlyZeroes(_, debug))
     case FiniteArray(elems, _) => elems.forall(onlyZeroes(_, debug))
-    case LargeArray(elems, default, _, _) => elems.values.forall(onlyZeroes(_, debug)) && onlyZeroes(default)
+    case LargeArray(elems, default, size, _) =>
+      // The size is not evaluated when the value is zero-filled
+      analysis.effects(size).isEmpty && elems.values.forall(onlyZeroes(_, debug)) && onlyZeroes(default)
     case _ => false
   }
 
@@ -251,7 +253,7 @@ private class S2IRImpl(override val s: tt.type,
     // initialised from within the struct literal, which GenC only does for static arrays of scalars. A value
     // that only contains zeroes is therefore built by zero-filling the variable, if its type contains arrays
     // and all their lengths are fixed (see `containsVariableLengthArray`). The sizes given to the arrays of the
-    // value are then not evaluated: the class invariants give their lengths.
+    // value are then not evaluated: the class invariants give their lengths (see `onlyZeroes` for their effects).
     val decl: Seq[CIR.Expr] =
       if (onlyZeroes(e) && tpe.containsArray && !containsVariableLengthArray(tpe))
         Seq(
@@ -1178,7 +1180,15 @@ private class S2IRImpl(override val s: tt.type,
     case ClassConstructor(ct, args) =>
       val cd = syms.getClass(ct.id)
       val ct2 = rec(ct)
-      val args2 = recArgs(args)
+      // The array given to a field of a fixed length has the length that the class invariant gives, so its size
+      // need not be evaluated (unless that has effects), and the array is never a VLA
+      val sizedArgs = args.zip(ct2.fields).map {
+        case (array @ LargeArray(elems, default, size, base), (CIR.ValDef(_, CIR.ArrayType(_, Some(length)), _), _))
+            if analysis.effects(size).isEmpty =>
+          LargeArray(elems, default, Int32Literal(length), base).copiedFrom(array)
+        case (arg, _) => arg
+      }
+      val args2 = recArgs(sizedArgs)
       val positions = args map { _.getPos }
 
       checkConstructArgs(args2 zip positions)
