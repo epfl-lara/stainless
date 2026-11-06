@@ -99,7 +99,10 @@ class MathLibrarySuite extends AbstractLibrarySuite(Seq(
   termination.optInferMeasures(true),
   termination.optCheckMeasures(YesNoOnly.Yes),
   inox.optSelectedSolvers(Set("smt-cvc5")),
-  inox.optTimeout(30.seconds),
+  // The postcondition of `scalb` is by far the slowest VC of the suite: it takes about 20 seconds
+  // when the machine is loaded, where no other VC takes more than 7 seconds. It timed out with a
+  // limit of 30 seconds when other CI jobs were running on the same machine.
+  inox.optTimeout(60.seconds),
 )) {
   // only keep math library functions
   override protected def keep(tr: ast.Trees)(fd: tr.FunDef): Boolean =
