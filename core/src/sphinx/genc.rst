@@ -162,6 +162,13 @@ See below for a case class with a fixed length array and its transformation in C
     int32_t y;
   } W;
 
+.. NOTE::
+
+  As such an array is part of the ``struct`` of its case class, it cannot refer to another
+  array: the constructor of the case class must be given an array literal or a call to
+  ``Array.fill`` for it. The array always gets the length specified in the invariant, so the
+  size given to ``Array.fill`` is not evaluated, and must not have side effects.
+
 Classes
 ^^^^^^^
 

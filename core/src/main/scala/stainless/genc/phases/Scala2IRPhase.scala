@@ -383,6 +383,19 @@ private class S2IRImpl(override val s: tt.type,
     }
   }
 
+  /** Rejects the arguments `args` of the constructor of `cd` that give something else than a new array of a
+    * constant length to a field that is an array of a fixed length. Such an array is part of the C struct of the
+    * class: it has to be initialised within the struct literal, and cannot refer to another array.
+    */
+  private def checkFixedArrayArgs(cd: CIR.ClassDef, args: Seq[(CIR.Expr, Position)]): Unit = {
+    for (((arg, pos), (field, _)) <- args zip cd.fields if field.typ.isFixedArray) arg match {
+      case CIR.ArrayInit(_: CIR.ArrayAllocStatic) =>
+      case _ =>
+        reporter.fatalError(pos, s"The array field ${field.id} has a fixed length: it must be initialised with " +
+          "an array literal or with `Array.fill`, with a size that has no effects")
+    }
+  }
+
   private def buildBinOp(lhs0: Expr, op: O.BinaryOperator, rhs0: Expr)
                         (pos: Position)
                         (using env: Env, tm: TypeMapping) = {
@@ -1181,7 +1194,7 @@ private class S2IRImpl(override val s: tt.type,
       val cd = syms.getClass(ct.id)
       val ct2 = rec(ct)
       // The array given to a field of a fixed length has the length that the class invariant gives, so its size
-      // need not be evaluated (unless that has effects), and the array is never a VLA
+      // need not be evaluated (unless that has effects, which `checkFixedArrayArgs` rejects)
       val sizedArgs = args.zip(ct2.fields).map {
         case (array @ LargeArray(elems, default, size, base), (CIR.ValDef(_, CIR.ArrayType(_, Some(length)), _), _))
             if analysis.effects(size).isEmpty =>
@@ -1192,6 +1205,7 @@ private class S2IRImpl(override val s: tt.type,
       val positions = args map { _.getPos }
 
       checkConstructArgs(args2 zip positions)
+      checkFixedArrayArgs(ct2, args2 zip positions)
 
       CIR.Construct(ct2, args2)
 
