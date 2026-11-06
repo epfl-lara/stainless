@@ -1393,20 +1393,25 @@ class CodeExtraction(inoxCtx: inox.Context,
     case _ => tpe
   }
 
-  /** Extracts `math.max` or `math.min` on floating point numbers, which return NaN when either
-    * argument is NaN, as on the JVM. Inox's FPMax and FPMin follow SMT-LIB instead and only return
-    * NaN when both arguments are NaN.
+  /** Extracts `math.max` or `math.min` on floating point numbers with their JVM semantics: NaN when
+    * either argument is NaN, and -0.0 ordered below +0.0. Inox's FPMax and FPMin follow SMT-LIB instead,
+    * which only returns NaN when both arguments are NaN, and may return either zero for two zeros.
     */
-  private def extractFPMinMax(lhs: tpd.Tree, rhs: tpd.Tree, pos: SourcePosition)
-                             (op: (xt.Expr, xt.Expr) => xt.Expr)
+  private def extractFPMinMax(lhs: tpd.Tree, rhs: tpd.Tree, pos: SourcePosition, max: Boolean)
                              (using dctx: DefContext): xt.Expr = {
     val a = xt.ValDef.fresh("a", extractType(lhs)).setPos(pos)
     val b = xt.ValDef.fresh("b", extractType(rhs)).setPos(pos)
+    val (av, bv) = (a.toVariable, b.toVariable)
+    // among two zeros, max picks `a` unless it is -0.0, and min picks `a` if it is -0.0
+    val zeros =
+      if (max) xt.IfExpr(xt.FPIsNegative(av).setPos(pos), bv, av).setPos(pos)
+      else xt.IfExpr(xt.FPIsNegative(av).setPos(pos), av, bv).setPos(pos)
+    val op = if (max) xt.FPMax(av, bv).setPos(pos) else xt.FPMin(av, bv).setPos(pos)
     xt.Let(a, extractTree(lhs),
       xt.Let(b, extractTree(rhs),
-        xt.IfExpr(xt.FPIsNaN(a.toVariable).setPos(pos), a.toVariable,
-          xt.IfExpr(xt.FPIsNaN(b.toVariable).setPos(pos), b.toVariable,
-            op(a.toVariable, b.toVariable).setPos(pos)
+        xt.IfExpr(xt.FPIsNaN(av).setPos(pos), av,
+          xt.IfExpr(xt.FPIsNaN(bv).setPos(pos), bv,
+            xt.IfExpr(xt.And(xt.FPIsZero(av).setPos(pos), xt.FPIsZero(bv).setPos(pos)).setPos(pos), zeros, op).setPos(pos)
           ).setPos(pos)
         ).setPos(pos)
       ).setPos(pos)
@@ -1931,8 +1936,8 @@ class CodeExtraction(inoxCtx: inox.Context,
     case ExCeilCall(rhs) => xt.FPRound(xt.RoundTowardPositive.setPos(tr.sourcePos), extractTree(rhs)).setPos(tr.sourcePos)
     case ExRintCall(rhs) => xt.FPRound(xt.RoundNearestTiesToEven.setPos(tr.sourcePos), extractTree(rhs)).setPos(tr.sourcePos)
     case ExFPAbsCall(rhs) => xt.FPAbs(extractTree(rhs)).setPos(tr.sourcePos)
-    case ExFPMaxCall(lhs, rhs) => extractFPMinMax(lhs, rhs, tr.sourcePos)(xt.FPMax(_, _))
-    case ExFPMinCall(lhs, rhs) => extractFPMinMax(lhs, rhs, tr.sourcePos)(xt.FPMin(_, _))
+    case ExFPMaxCall(lhs, rhs) => extractFPMinMax(lhs, rhs, tr.sourcePos, max = true)
+    case ExFPMinCall(lhs, rhs) => extractFPMinMax(lhs, rhs, tr.sourcePos, max = false)
 
     case ExDoubleToLongBits(arg) =>
       val pos = tr.sourcePos
@@ -2370,8 +2375,8 @@ class CodeExtraction(inoxCtx: inox.Context,
         case (tpe, "toByte", Seq()) => tpe match {
           case xt.BVType(true, 8) => extractTree(lhs)
           case xt.BVType(true, 16 | 32 | 64) => xt.BVNarrowingCast(extractTree(lhs), xt.BVType(true, 8))
-          case xt.FPType(8, 24) => xt.FPToBVJVM(8, 24, 8, extractTree(lhs))
-          case xt.FPType(11, 53) => xt.FPToBVJVM(11, 53, 8, extractTree(lhs))
+          case xt.FPType(8, 24) => xt.FPToBV(8, true, xt.RoundTowardZero, extractTree(lhs))
+          case xt.FPType(11, 53) => xt.FPToBV(8, true, xt.RoundTowardZero, extractTree(lhs))
           case tpe => outOfSubsetError(tr, s"Unexpected cast .toByte from $tpe")
         }
 
@@ -2379,8 +2384,8 @@ class CodeExtraction(inoxCtx: inox.Context,
           case xt.BVType(true, 8) => xt.BVWideningCast(extractTree(lhs), xt.BVType(true, 16))
           case xt.BVType(true, 16) => extractTree(lhs)
           case xt.BVType(true, 32 | 64) => xt.BVNarrowingCast(extractTree(lhs), xt.BVType(true, 16))
-          case xt.FPType(8, 24) => xt.FPToBVJVM(8, 24, 16, extractTree(lhs))
-          case xt.FPType(11, 53) => xt.FPToBVJVM(11, 53, 16, extractTree(lhs))
+          case xt.FPType(8, 24) => xt.FPToBV(16, true, xt.RoundTowardZero, extractTree(lhs))
+          case xt.FPType(11, 53) => xt.FPToBV(16, true, xt.RoundTowardZero, extractTree(lhs))
           case tpe => outOfSubsetError(tr, s"Unexpected cast .toShort from $tpe")
         }
 
@@ -2388,16 +2393,16 @@ class CodeExtraction(inoxCtx: inox.Context,
           case xt.BVType(true, 8 | 16) => xt.BVWideningCast(extractTree(lhs), xt.BVType(true, 32))
           case xt.BVType(true, 32) => extractTree(lhs)
           case xt.BVType(true, 64) => xt.BVNarrowingCast(extractTree(lhs), xt.BVType(true, 32))
-          case xt.FPType(8, 24) => xt.FPToBVJVM(8, 24, 32, extractTree(lhs))
-          case xt.FPType(11, 53) => xt.FPToBVJVM(11, 53, 32, extractTree(lhs))
+          case xt.FPType(8, 24) => xt.FPToBV(32, true, xt.RoundTowardZero, extractTree(lhs))
+          case xt.FPType(11, 53) => xt.FPToBV(32, true, xt.RoundTowardZero, extractTree(lhs))
           case tpe => outOfSubsetError(tr, s"Unexpected cast .toInt from $tpe")
         }
 
         case (tpe, "toLong", Seq()) => tpe match {
           case xt.BVType(true, 8 | 16 | 32 ) => xt.BVWideningCast(extractTree(lhs), xt.BVType(true, 64))
           case xt.BVType(true, 64) => extractTree(lhs)
-          case xt.FPType(8, 24) => xt.FPToBVJVM(8, 24, 64, extractTree(lhs))
-          case xt.FPType(11, 53) => xt.FPToBVJVM(11, 53, 64, extractTree(lhs))
+          case xt.FPType(8, 24) => xt.FPToBV(64, true, xt.RoundTowardZero, extractTree(lhs))
+          case xt.FPType(11, 53) => xt.FPToBV(64, true, xt.RoundTowardZero, extractTree(lhs))
           case tpe => outOfSubsetError(tr, s"Unexpected cast .toLong from $tpe")
         }
 

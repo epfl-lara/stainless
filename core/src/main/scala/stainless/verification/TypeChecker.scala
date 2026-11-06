@@ -500,7 +500,7 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
         (tpe, tr)
 
 
-      case Remainder(lhs, rhs) => inferOperationType("remainer", e, tc, t => t.isInstanceOf[BVType] || t.isInstanceOf[IntegerType], None, lhs, rhs)
+      case Remainder(lhs, rhs) => inferOperationType("remainder", e, tc, t => t.isInstanceOf[BVType] || t.isInstanceOf[IntegerType], None, lhs, rhs)
       case Modulo(lhs, rhs) => inferOperationType("modulo", e, tc, t => t.isInstanceOf[BVType] || t.isInstanceOf[IntegerType], None, lhs, rhs)
 
       case GreaterEquals(lhs, rhs) => inferOperationType(">=", e, tc, isComparableType, Some(BooleanType()), lhs, rhs)
@@ -772,13 +772,6 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
         stripRefinementsAndAnnotations(tpe) match {
           case FPType(_, _) => (BVType(signed, size), tr ++ checkType(tc, roundingMode, RoundingMode))
           case _ => reporter.fatalError(e.getPos, s"Cannot convert type ${tpe.asString} using FPToBV")
-        }
-
-      case FPToBVJVM(eb, sb, size, e2) =>
-        val (tpe, tr) = inferType(tc, e2)
-        stripRefinementsAndAnnotations(tpe) match {
-          case FPType(_, _) => (BVType(true, size), tr)
-          case _ => reporter.fatalError(e.getPos, s"Cannot convert type ${tpe.asString} using FPToBVJVM")
         }
 
       case RoundNearestTiesToEven | RoundNearestTiesToAway | RoundTowardZero | RoundTowardNegative | RoundTowardPositive =>

@@ -73,6 +73,20 @@ abstract class RecursiveEvaluator(override val program: Program,
     case m: Max =>
       e(maxToIfThenElse(m))
 
+    // In Stainless, `Division` and `Remainder` on integers are the JVM's `BigInt./` and `BigInt.%`, which
+    // round toward zero (Inox's are SMT-LIB's euclidean `div` and `mod`, see InoxEncoder)
+    case Division(l, r) if expr.getType == IntegerType() => (e(l), e(r)) match {
+      case (IntegerLiteral(i1), IntegerLiteral(i2)) =>
+        if (i2 != 0) IntegerLiteral(i1 / i2) else throw RuntimeError("Division by 0.")
+      case (le, re) => throw EvalError("Unexpected operation: (" + le.asString + ") / (" + re.asString + ")")
+    }
+
+    case Remainder(l, r) if expr.getType == IntegerType() => (e(l), e(r)) match {
+      case (IntegerLiteral(i1), IntegerLiteral(i2)) =>
+        if (i2 != 0) IntegerLiteral(i1 % i2) else throw RuntimeError("Remainder of division by 0.")
+      case (le, re) => throw EvalError("Unexpected operation: (" + le.asString + ") % (" + re.asString + ")")
+    }
+
     case Error(tpe, msg) =>
       throw RuntimeError("Error reached in evaluation: " + msg)
 

@@ -49,10 +49,11 @@ final class BitVector(private val signed: Boolean, private val bits: Array[Boole
   def mult(that: BitVector): BitVector = new BitVector(signed, toBigInteger.multiply(that.toBigInteger), size)
   def div(that: BitVector): BitVector = new BitVector(signed, toBigInteger.divide(that.toBigInteger), size)
   def rem(that: BitVector): BitVector = new BitVector(signed, toBigInteger.remainder(that.toBigInteger), size)
+  // SMT-LIB's `bvsmod` (or `bvurem`), whose result has the sign of the divisor
   def mod(that: BitVector): BitVector = new BitVector(signed, {
     val (bi, tbi) = (toBigInteger, that.toBigInteger)
-    if (tbi.compareTo(BigInteger.ZERO) < 0) bi.mod(tbi.negate)
-    else bi.mod(tbi)
+    val r = bi.mod(tbi.abs)
+    if (tbi.signum < 0 && r.signum != 0) r.add(tbi) else r
   }, size)
 
   def not: BitVector = new BitVector(signed, bits map (!_))
