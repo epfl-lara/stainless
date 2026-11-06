@@ -77,6 +77,8 @@ trait Core extends Definitions { ocbsl =>
     if (pluggedMap.size > plugCacheThreshold) {
       pluggedMap.clear()
       unplugMap.clear()
+      // Filled together with the two maps above, in `CodeRes.selfPlugged`
+      pluggedOccMap.clear()
     }
     if (negCodeCache.size > negCodeCacheThreshold) {
       negCodeCache.clear()
