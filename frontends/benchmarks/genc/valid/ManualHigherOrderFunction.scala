@@ -3,9 +3,7 @@ import stainless.io.*
 
 /** A manually defined function with a parameter whose type is a function type
  *  taking a function. GenC does not print the signatures of manually defined
- *  functions, so it accepts such types there. The C code takes the functions as
- *  `void*`, as the declaration that GenC extracts from it ends at its first
- *  closing parenthesis.
+ *  functions, so it accepts such types there.
  */
 object ManualHigherOrderFunction:
 
@@ -14,8 +12,7 @@ object ManualHigherOrderFunction:
   def callWithOne(g: Int => Int): Int = g(1)
 
   @cCode.function(
-    code =
-      "int32_t __FUNCTION__(void* f, void* g) { return ((int32_t (*)(int32_t (*)(int32_t))) f)((int32_t (*)(int32_t)) g); }",
+    code = "int32_t __FUNCTION__(int32_t (*f)(int32_t (*)(int32_t)), int32_t (*g)(int32_t)) { return f(g); }",
     headerIncludes = "",
     cIncludes = ""
   )

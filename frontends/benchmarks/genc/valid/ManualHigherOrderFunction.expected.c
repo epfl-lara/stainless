@@ -26,7 +26,7 @@
 
 /* ---------------------- function declarations ----- */
 
-static int32_t applyTo(void* f, void* g);
+static int32_t applyTo(int32_t (*f)(int32_t (*)(int32_t)), int32_t (*g)(int32_t));
 static STAINLESS_FUNC_PURE int32_t callWithOne(int32_t (*g)(int32_t));
 static STAINLESS_FUNC_PURE int32_t inc(int32_t x);
 static 
@@ -39,7 +39,7 @@ static void println_1(void);
 
 /* ----------------------- function definitions ----- */
 
-int32_t applyTo(void* f, void* g) { return ((int32_t (*)(int32_t (*)(int32_t))) f)((int32_t (*)(int32_t)) g); }
+int32_t applyTo(int32_t (*f)(int32_t (*)(int32_t)), int32_t (*g)(int32_t)) { return f(g); }
 
 static STAINLESS_FUNC_PURE int32_t callWithOne(int32_t (*g)(int32_t)) {
     return g(1);
