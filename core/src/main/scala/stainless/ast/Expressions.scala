@@ -17,17 +17,9 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
 
   /* Specifications */
 
-  /** Computational errors (unmatched case, taking min of an empty set,
-    * division by zero, etc.). Corresponds to the ``error[T](description)``
-    * Stainless library function.
-    * It should always be typed according to the expected type.
-    *
-    * @param tpe The type of this expression
-    * @param description The description of the error
-    */
-  sealed case class Error(tpe: Type, description: String) extends Expr with Terminal {
-    override def getTpe(stripRefinements: Boolean)(using Symbols): Type = tpe.getTpe(stripRefinements)
-  }
+  // Computational errors (unmatched case, taking min of an empty set, division by zero, etc.),
+  // which correspond to the ``error[T](description)`` Stainless library function, are Inox's
+  // [[inox.ast.Expressions.Error Error]] trees.
 
 
   /** Precondition of an [[Expressions.Expr]]. Corresponds to the Stainless keyword *require*
