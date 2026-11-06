@@ -20,11 +20,11 @@ object FloatEquiv {
   }.holds
 
   def floatPlusMinusZeroNonEq(): Boolean = {
-    !(-0.0f.equiv(0.0f))
+    !((-0.0f).equiv(0.0f))
   }.holds
 
   def doublePlusMinusZeroNonEq(): Boolean = {
-    !(-0.0d.equiv(0.0d))
+    !((-0.0d).equiv(0.0d))
   }.holds
 
   // the equiv method is an equivalence relation //

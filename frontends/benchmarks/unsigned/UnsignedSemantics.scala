@@ -110,7 +110,7 @@ object UnsignedSemantics {
   def test66: UShort = wrapping(60000.toUShort * 60000.toUShort)
   def test67: UByte = wrapping((0x81.toUByte << 1.toUByte) >>> 1.toUByte)
   def test68: UByte = wrapping((~0.toUByte) >>> 4.toUByte)
-  def test69: UByte = wrapping((-1.toUByte) >>> 4.toUByte)
+  def test69: UByte = wrapping((-1).toUByte >>> 4.toUByte)
   def test70: UShort = wrapping((0.toUShort - 1.toUShort) / 2.toUShort)
   def test71: UInt = wrapping((200.toUByte + 100.toUByte).toUInt)
 
