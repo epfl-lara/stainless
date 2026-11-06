@@ -78,7 +78,6 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
   libraryDependencies ++= Seq(
     // "ch.epfl.lara"    %% "inox"          % inoxVersion,
     // "ch.epfl.lara"    %% "inox"          % inoxVersion % "test" classifier "tests",
-    "org.scala-lang.modules" %% "scala-parallel-collections" % "1.0.3",
     "io.circe"               %% "circe-core"                 % circeVersion,
     "io.circe"               %% "circe-generic"              % circeVersion,
     "io.circe"               %% "circe-parser"               % circeVersion,

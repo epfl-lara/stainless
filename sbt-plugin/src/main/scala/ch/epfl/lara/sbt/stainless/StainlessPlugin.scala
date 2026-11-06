@@ -39,7 +39,7 @@ object StainlessPlugin extends sbt.AutoPlugin {
 
   override def globalSettings: Seq[Def.Setting[?]] = Seq(
     onLoad := onLoad.value andThen checkProjectsScalaVersion,
-    stainlessExtraResolvers := Resolver.sonatypeOssRepos("releases")
+    stainlessExtraResolvers := Seq.empty
   )
 
   /**
@@ -96,8 +96,9 @@ object StainlessPlugin extends sbt.AutoPlugin {
     resolvers ++= Seq(
       // https://stackoverflow.com/a/37604126
       "local-repo" at file("stainless").toURI.toASCIIString,
-      ("uuverifiers" at "http://logicrunch.research.it.uu.se/maven").withAllowInsecureProtocol(true),
-    )
+    ),
+    // Extra resolvers set by the user, e.g. to fetch `stainlessExtraDeps`
+    resolvers ++= stainlessExtraResolvers.value
   ) ++
     inConfig(Compile)(stainlessConfigSettings) ++ // overrides settings that are scoped (by sbt) at the `Compile` configuration
     inConfig(Test)(stainlessConfigSettings) ++    // overrides settings that are scoped (by sbt) at the `Test` configuration

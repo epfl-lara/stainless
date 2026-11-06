@@ -361,11 +361,11 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
     }
 
 
-  def isIgnoredSymbol(sym: Symbol, additionalCases: Boolean = false): Boolean = {
-    val ExternAnnotation = getClassIfDefinedOrNone("stainless.annotation.extern")
-    val IgnoreAnnotation = getClassIfDefinedOrNone("stainless.annotation.ignore")
-    val ScalaEnsuringMethod = requiredMethod("scala.Predef.Ensuring")
+  private val ExternAnnotation = getClassIfDefinedOrNone("stainless.annotation.extern")
+  private val IgnoreAnnotation = getClassIfDefinedOrNone("stainless.annotation.ignore")
+  private val ScalaEnsuringMethod = requiredMethod("scala.Predef.Ensuring")
 
+  def isIgnoredSymbol(sym: Symbol, additionalCases: Boolean = false): Boolean = {
     val isExtern = ExternAnnotation.exists(sym.hasAnnotation)
     val isIgnore = IgnoreAnnotation.exists(sym.hasAnnotation)
     // * If it's a synthetic symbol, we will still visit if it is either:
@@ -373,17 +373,13 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
     //    -an anonymous function
     //    -an anonymous class
     // * We furthermore ignore ClassTag[T].apply() that appear for Array operations, which we can still extract.
-    isExtern || isIgnore || ((sym `is` Synthetic) && (sym ne ScalaEnsuringMethod) && !sym.isAnonymousFunction && !sym.isAnonymousFunction) ||
+    isExtern || isIgnore || ((sym `is` Synthetic) && (sym ne ScalaEnsuringMethod) && !sym.isAnonymousFunction && !sym.isAnonymousClass) ||
       (sym.owner eq defn.ClassTagModule_apply)
       || additionalCases
   }
 
   class Checker extends tpd.TreeTraverser {
-    private val ScalaEnsuringMethod = requiredMethod("scala.Predef.Ensuring")
-
     private val StainlessLangPackage = getClassIfDefinedOrNone("stainless.lang.package$")
-    private val ExternAnnotation = getClassIfDefinedOrNone("stainless.annotation.extern")
-    private val IgnoreAnnotation = getClassIfDefinedOrNone("stainless.annotation.ignore")
     private val StainlessOld = StainlessLangPackage.map(_.info.decl(Names.termName("old")).symbol)
 
     private val BigInt_ApplyMethods =
