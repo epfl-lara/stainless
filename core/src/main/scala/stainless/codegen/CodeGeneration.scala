@@ -554,7 +554,7 @@ trait CodeGeneration { self: CompilationUnit =>
           hch.freeze
         }
 
-        loader.register(cf)
+        registerClass(cf)
 
         afName
     }

@@ -43,5 +43,36 @@ class CodeGenEvaluatorSuite extends EvaluatorSuite {
     // as a failed evaluation and not thrown.
     eval(e, sum(1, 9000), Map(x -> IntegerLiteral(7))).failed
   }
+
+  test("Concurrent evaluations with the same evaluator") {
+    import inox.trees._
+    import java.util.concurrent.{Callable, Executors}
+    import scala.jdk.CollectionConverters._
+
+    // The solvers of the VCs of a program share one evaluator, and call it from several threads
+    // when the VCs are checked in parallel. Each evaluation generates a class, registers it with
+    // the class loader of the evaluator, and loads it.
+    val e = evaluator(ctx)
+    val threads = 16
+    val evaluationsPerThread = 2000
+
+    val pool = Executors.newFixedThreadPool(threads)
+    try {
+      val tasks = (0 until threads).map { t =>
+        new Callable[Unit] {
+          def call(): Unit = {
+            for (i <- 0 until evaluationsPerThread) {
+              val n = t * evaluationsPerThread + i
+              eval(e, Plus(IntegerLiteral(n), IntegerLiteral(1))) === IntegerLiteral(n + 1)
+            }
+          }
+        }
+      }
+      // `get` rethrows what the task has thrown, wrapped in an `ExecutionException`
+      pool.invokeAll(tasks.asJava).asScala.foreach(_.get())
+    } finally {
+      pool.shutdown()
+    }
+  }
 }
 
