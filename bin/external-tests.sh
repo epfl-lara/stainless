@@ -135,7 +135,7 @@ cd "$BASE_DIR" || exit 1
 
 if [[ "$SKIP_BUILD" = false ]]; then
   echo "Compiling Stainless..."
-  sbt universal:stage
+  sbt Universal/stage
 
   # Publish Stainless local and save the version
 
