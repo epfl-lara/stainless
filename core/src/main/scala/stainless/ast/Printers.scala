@@ -181,6 +181,12 @@ trait Printer extends inox.ast.Printer {
     case Max(es) =>
       p"""max($es)"""
 
+    // Stainless's casts from floating point numbers (see InoxEncoder)
+    case FPToBV(8, true, RoundTowardZero, e) => p"$e.toByte"
+    case FPToBV(16, true, RoundTowardZero, e) => p"$e.toShort"
+    case FPToBV(32, true, RoundTowardZero, e) => p"$e.toInt"
+    case FPToBV(64, true, RoundTowardZero, e) => p"$e.toLong"
+
     case _ => super.ppBody(tree)
   }
 

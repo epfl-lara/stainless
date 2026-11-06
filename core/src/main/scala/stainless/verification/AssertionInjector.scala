@@ -323,7 +323,8 @@ class AssertionInjector(override val s: ast.Trees, override val t: ast.Trees, va
       }
 
 
-    case s.FPToBVJVM(exponent, significand, toSize, expr) if checkOverflow =>
+    // Casts from floating point numbers, which have the JVM's semantics in Stainless (see InoxEncoder)
+    case s.FPToBV(toSize, true, s.RoundTowardZero, FPTyped(exponent, significand, expr)) if checkOverflow =>
       bindIfCannotDuplicate(expr, "expr") { expr =>
         // a FP -> BV cast of the value `f` is considered safe iff `f` is not NaN and `bvLb < f < bvUb`.
         val bvLb = t.BVLiteral(true, -BigInt(2).pow(toSize-1) - 1, toSize + 1).copiedFrom(e)
@@ -337,7 +338,7 @@ class AssertionInjector(override val s: ast.Trees, override val t: ast.Trees, va
             t.Assert(
               t.FPLessEquals(expr, t.FPCast(exponent, significand, t.RoundTowardPositive, bvUb)).copiedFrom(e),
               Some("Safe floating-point to integer cast upper bound"),
-              t.FPToBVJVM(exponent, significand, toSize, expr).copiedFrom(e)
+              t.FPToBV(toSize, true, t.RoundTowardZero, expr).copiedFrom(e)
             ).copiedFrom(e)
           ).copiedFrom(e)
         ).copiedFrom(e)
@@ -370,6 +371,13 @@ class AssertionInjector(override val s: ast.Trees, override val t: ast.Trees, va
   private object BVTyped {
     def unapply(e: s.Expr): Option[(Boolean, Int, s.Expr)] = e.getType match {
       case s.BVType(signed, size) => Some((signed, size, e))
+      case _ => None
+    }
+  }
+
+  private object FPTyped {
+    def unapply(e: s.Expr): Option[(Int, Int, s.Expr)] = e.getType match {
+      case s.FPType(exponent, significand) => Some((exponent, significand, e))
       case _ => None
     }
   }
