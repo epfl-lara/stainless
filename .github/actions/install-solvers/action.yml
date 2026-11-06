@@ -1,0 +1,32 @@
+name: Install solvers
+description: >
+  Installs cvc5, CVC4 and z3 into .local/bin with stainless-ci.sh and puts them
+  on the PATH. The solvers only change with the versions set in stainless-ci.sh,
+  so they are cached under that script's hash rather than downloaded again by
+  every run.
+inputs:
+  stainless-dir:
+    description: The Stainless checkout, relative to the workspace.
+    default: .
+runs:
+  using: composite
+  steps:
+    - name: Restore solvers
+      id: cache
+      uses: actions/cache@v6
+      with:
+        path: .local/bin
+        key: stainless-solvers-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles(format('{0}/stainless-ci.sh', inputs.stainless-dir)) }}
+    - name: Install solvers
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      working-directory: ${{ inputs.stainless-dir }}
+      run: ./stainless-ci.sh --install-solvers "$GITHUB_WORKSPACE/.local/bin"
+    - name: Add solvers to PATH
+      shell: bash
+      run: echo "$GITHUB_WORKSPACE/.local/bin" >> "$GITHUB_PATH"
+    - name: Test solvers availability
+      shell: bash
+      run: |
+        export PATH="$GITHUB_WORKSPACE/.local/bin:$PATH"
+        cvc5 --version && z3 --version && cvc4 --version
