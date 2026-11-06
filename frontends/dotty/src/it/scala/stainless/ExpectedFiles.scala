@@ -11,8 +11,8 @@ import org.scalatest.Assertions
 
 /** The update mode of the tests that compare their results against expected
  *  files of `frontends/benchmarks`: the golden C files of [[GenCSuite]] and the
- *  `.check` files of [[GenCSuite]], [[TailRecGenCSuite]], [[ExtractionSuite]]
- *  and [[verification.VerificationComponentTestSuite]].
+ *  `.check` files of [[GenCSuite]], [[ExtractionSuite]] and
+ *  [[verification.VerificationComponentTestSuite]].
  *
  *  When the environment variable `STAINLESS_UPDATE_EXPECTED` is set to `1` or
  *  `true`, these tests write what they obtain to the expected files that do not
