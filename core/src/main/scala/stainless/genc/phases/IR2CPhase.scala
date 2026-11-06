@@ -756,7 +756,8 @@ private class IR2CImpl()(using ctx: inox.Context) {
       val result =
         if (cd.getFullHierarchy.size == 1) buildLeafClassCmpBody(cd, lhs, rhs)
         else {
-          val subs = cd.getHierarchyLeaves map { leaf =>
+          // Sort by id (getHierarchyLeaves is a Set) so the order of the tests is deterministic.
+          val subs = cd.getHierarchyLeaves.toSeq.sortBy(_.id) map { leaf =>
             val ct = ClassType(leaf)
             val typeTest = foldAnd(IsA(lhs, ct) :: IsA(rhs, ct) :: Nil)
             val lhs2 = AsA(lhs, ct)

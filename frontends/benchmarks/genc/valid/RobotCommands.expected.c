@@ -136,11 +136,11 @@ static STAINLESS_FUNC_PURE int32_t dirCode(enum_Direction d) {
 }
 
 static STAINLESS_FUNC_PURE bool equals_Command(Command lhs, Command rhs) {
-    return (lhs.tag == tag_Teleport && rhs.tag == tag_Teleport) && (lhs.value.Teleport_v.x == rhs.value.Teleport_v.x && lhs.value.Teleport_v.y == rhs.value.Teleport_v.y) || ((lhs.tag == tag_TurnLeft && rhs.tag == tag_TurnLeft) && true || ((lhs.tag == tag_TurnRight && rhs.tag == tag_TurnRight) && true || (lhs.tag == tag_Move && rhs.tag == tag_Move) && lhs.value.Move_v.steps == rhs.value.Move_v.steps));
+    return (lhs.tag == tag_Move && rhs.tag == tag_Move) && lhs.value.Move_v.steps == rhs.value.Move_v.steps || ((lhs.tag == tag_Teleport && rhs.tag == tag_Teleport) && (lhs.value.Teleport_v.x == rhs.value.Teleport_v.x && lhs.value.Teleport_v.y == rhs.value.Teleport_v.y) || ((lhs.tag == tag_TurnLeft && rhs.tag == tag_TurnLeft) && true || (lhs.tag == tag_TurnRight && rhs.tag == tag_TurnRight) && true));
 }
 
 static STAINLESS_FUNC_PURE bool equals_Direction(enum_Direction lhs, enum_Direction rhs) {
-    return (lhs == tag_West && rhs == tag_West) && true || ((lhs == tag_South && rhs == tag_South) && true || ((lhs == tag_East && rhs == tag_East) && true || (lhs == tag_North && rhs == tag_North) && true));
+    return (lhs == tag_East && rhs == tag_East) && true || ((lhs == tag_North && rhs == tag_North) && true || ((lhs == tag_South && rhs == tag_South) && true || (lhs == tag_West && rhs == tag_West) && true));
 }
 
 void main(void) {
