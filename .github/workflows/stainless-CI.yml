@@ -16,6 +16,9 @@ concurrency:
 jobs:
   tests:
     name: tests (JDK ${{ matrix.java }})
+    # A job takes about 10 minutes. Without this limit, a test that hangs keeps a runner
+    # busy until GitHub cancels the job, after 6 hours.
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
