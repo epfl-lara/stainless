@@ -20,7 +20,7 @@ import inox.utils.Position
 trait VCFilter extends (StainlessVC => Boolean) { self =>
   def inverse: VCFilter = vc => !self(vc)
   def withEmitVCs(emit: Boolean): VCFilter =
-    vc => emit || vc.kind.isMeasureRelated // We always emit VCs for measures, even under DropVCs
+    vc => self(vc) && (emit || vc.kind.isMeasureRelated) // We always emit VCs for measures, even under DropVCs
 }
 
 object VCFilter {
@@ -34,7 +34,7 @@ object VCFilter {
 
   def except(kinds: VCKind*): VCFilter = {
     val set = kinds.toSet
-    vc => set.contains(vc.kind)
+    vc => !set.contains(vc.kind)
   }
 
   val measuresOnly: VCFilter = only(VCKind.MeasureDecreases, VCKind.MeasurePositive)
