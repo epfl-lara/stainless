@@ -171,9 +171,14 @@ package object stainless {
   lazy val multiThreadedExecutionContext: ExecutionContext =
     ExecutionContext.fromExecutor(multiThreadedExecutor)
 
-  implicit def executionContext(using ctx: inox.Context): ExecutionContext =
-    if (useParallelism && ctx.reporter.debugSections.isEmpty) multiThreadedExecutionContext
+  /** A single thread is used when a debug section is enabled, so that the debug output of concurrent tasks
+    * is not interleaved. The `stack` section does not count: it only prints the stack trace of a crash.
+    */
+  implicit def executionContext(using ctx: inox.Context): ExecutionContext = {
+    val interleavingSections = ctx.reporter.debugSections - frontend.DebugSectionStack
+    if (useParallelism && interleavingSections.isEmpty) multiThreadedExecutionContext
     else singleThreadExecutionContext
+  }
 
   def shutdown(): Unit = if (useParallelism) multiThreadedExecutor.shutdown()
 }
