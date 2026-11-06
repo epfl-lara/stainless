@@ -8,6 +8,8 @@ import CPrinterHelpers._
 import ir.PrimitiveTypes._
 import ir.Literals._
 
+import scala.annotation.tailrec
+
 class CPrinter(
   hFileName: String,
   // `printC` is true when we print the *.c file, false when we print the *.h file
@@ -395,9 +397,9 @@ class CPrinter(
     case TypeId(typ, id, true) => c"const $typ $id"
     case TypeId(typ, id, false) => c"$typ $id"
 
-    case FunSign(Fun(id, _, _, Right(s), isExported, isPure)) =>
-      val header = s.takeWhile(_ != ')').replace("__FUNCTION__", id.name)
-      c"${static(isExported)}${purity(isPure)}$header)"
+    case FunSign(Fun(id, _, _, Right(code), isExported, isPure)) =>
+      val signature = CPrinter.manualSignature(code).replace("__FUNCTION__", id.name)
+      c"${static(isExported)}${purity(isPure)}$signature"
 
     case FunSign(Fun(id, FunType(retret, retparamTypes), params, _, isExported, isPure)) =>
       c"${static(isExported)}${purity(isPure)}$retret (*$id(${FunSignParams(params)}))(${FunSignParams(retparamTypes)})"
@@ -494,5 +496,55 @@ class CPrinter(
       case UnOp(op, _) => Some(op.precedence)
       case _ => None
     }
+  }
+}
+
+object CPrinter {
+
+  /** The signature of a manually defined function (`@cCode.function`): its `code` up to the last token
+    * before the `{` that opens its body.
+    *
+    * A C function definition is `declaration-specifiers declarator compound-statement` and its declaration
+    * is `declaration-specifiers declarator;`, so the signature is all that precedes the body. The parameter
+    * list is not always the first parenthesis of the definition (`int32_t (*f(int32_t x))(int32_t) { ... }`
+    * returns a function pointer), which is why the code is not cut at a closing parenthesis.
+    *
+    * The body starts at the first `{` that is not nested in parentheses or brackets (a parameter list and
+    * an array size are the only places where a declarator can have one), and that is not part of a comment,
+    * a string literal or a character constant. This assumes that the specifiers do not define a `struct`, a
+    * `union` or an `enum`, which C99 does not allow to repeat in the declaration anyway.
+    *
+    * The comments between the declarator and the body are left out: a `//` comment would hide the `;` that
+    * ends the declaration. If the code has no body, the signature is the whole code.
+    */
+  private[genc] def manualSignature(code: String): String = {
+    def skipPast(delimiter: String, from: Int): Int = {
+      val i = code.indexOf(delimiter, from)
+      if (i < 0) code.length else i + delimiter.length
+    }
+
+    @tailrec def skipLiteral(i: Int, quote: Char): Int =
+      if (i >= code.length) code.length
+      else if (code(i) == quote) i + 1
+      else if (code(i) == '\\') skipLiteral(i + 2, quote)
+      else skipLiteral(i + 1, quote)
+
+    // `depth` is the number of parentheses and brackets open at `i`, `end` the end of the last token before `i`.
+    @tailrec def signatureEnd(i: Int, depth: Int, end: Int): Int =
+      if (i >= code.length) end
+      else code(i) match {
+        case '{' if depth == 0 => end
+        case c if c.isWhitespace => signatureEnd(i + 1, depth, end)
+        case '/' if code.startsWith("/*", i) => signatureEnd(skipPast("*/", i + 2), depth, end)
+        case '/' if code.startsWith("//", i) => signatureEnd(skipPast("\n", i + 2), depth, end)
+        case quote @ ('"' | '\'') =>
+          val next = skipLiteral(i + 1, quote)
+          signatureEnd(next, depth, next)
+        case '(' | '[' => signatureEnd(i + 1, depth + 1, i + 1)
+        case ')' | ']' => signatureEnd(i + 1, depth - 1, i + 1)
+        case _ => signatureEnd(i + 1, depth, i + 1)
+      }
+
+    code.take(signatureEnd(0, 0, 0))
   }
 }
