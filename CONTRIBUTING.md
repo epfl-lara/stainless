@@ -139,7 +139,7 @@ concatenated) must match it. To update these files after an intended change, see
 Several integration tests compare what they obtain with files of `frontends/benchmarks`:
 
 - `GenCSuite`: the golden C files `<Name>.expected.c` and `<Name>.expected.h`, and the `<Name>.check`
-  files with the output of the compiled programs (also checked by `TailRecGenCSuite`);
+  files with the output of the compiled programs;
 - `DottyExtractionSuite`: the `.check` files with the errors reported for the programs of
   `extraction/invalid`;
 - `VerificationSuite`: the `.check` files listing the VCs of the programs of `verification/invalid`
