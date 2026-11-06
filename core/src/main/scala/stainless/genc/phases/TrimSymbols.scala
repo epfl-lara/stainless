@@ -140,7 +140,7 @@ class Trimmer(override val s: tt.type, // to get `FunAbsOps` implicit class for 
     val newClasses = collection.mutable.ArrayBuffer[t.ClassDef]()
 
     while (!kept.subsetOf(visited)) {
-      for (id <- (kept -- visited).toSeq) {
+      for (id <- kept.diff(visited).toSeq) {
         visited += id
         syms.lookupFunction(id).foreach(fd => newFunctions += transform(fd))
         syms.lookupClass(id).foreach(cd => newClasses += transform(cd))
