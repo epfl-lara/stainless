@@ -149,16 +149,18 @@ if [ "$SKIP_TESTS" = true ]; then
   echo "************** Skipping tests **************"
 else
   # Run the tests
-  $SBT -batch -Dtest-parallelism=5 test
+  $SBT -batch -Dtest-parallelism=4 test
   if [ $? -ne 0 ]; then
     echo "************** Unit tests failed **************"
     exit 1
   fi
 
-  # Run the integration tests: 6 suites at a time, 5 test cases at a time in each suite, and the VCs
-  # of all of them on one pool of 32 threads. The pool is shared by the whole JVM, so it needs at
-  # least as many threads as there are test cases running at once (6 * 5), or it slows the tests down.
-  $SBT -batch -Dtest-parallelism=6 -Dtestcase-parallelism=5 -Dparallel=32 it:test
+  # Run the integration tests: 4 suites at a time, 5 test cases at a time in each suite, and the VCs
+  # of all of them on one pool of 20 threads. The pool is shared by the whole JVM, so it needs at
+  # least as many threads as there are test cases running at once (4 * 5), or it slows the tests down.
+  # The numbers are moderate on purpose: several CI jobs run at once on one machine, which has to
+  # stay usable.
+  $SBT -batch -Dtest-parallelism=4 -Dtestcase-parallelism=5 -Dparallel=20 it:test
   if [ $? -ne 0 ]; then
     echo "************** Integration tests failed **************"
     exit 1

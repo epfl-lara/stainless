@@ -43,8 +43,13 @@ jobs:
         distribution: temurin
         java-version: ${{ matrix.java }}
     - name: Setup java options
+      # The runners share one machine, with each other and with its users. Without
+      # -XX:ActiveProcessorCount, each JVM sizes its GC threads, its JIT threads and its default
+      # thread pools for all the processors of the machine. The option replaces the number of
+      # processors that the JVM detects, even with a larger one, hence the minimum with nproc.
       run: |
-          echo "JAVA_OPTS=$JAVA_OPTS -Djava.io.tmpdir=$JAVA_OPTS_TMP_DIR" >> "$GITHUB_ENV" && \
+          PROCESSORS=$(( $(nproc) < 16 ? $(nproc) : 16 )) && \
+          echo "JAVA_OPTS=$JAVA_OPTS -XX:ActiveProcessorCount=$PROCESSORS -Djava.io.tmpdir=$JAVA_OPTS_TMP_DIR" >> "$GITHUB_ENV" && \
           echo "SBT_OPTS=-Djava.io.tmpdir=$JAVA_OPTS_TMP_DIR --sbt-dir $JAVA_OPTS_TMP_DIR --ivy $JAVA_OPTS_TMP_DIR/ivy2" >> "$GITHUB_ENV"
     - name: Creating temp folder
       run: rm -rf $JAVA_OPTS_TMP_DIR && mkdir -p $JAVA_OPTS_TMP_DIR && chmod 777 $JAVA_OPTS_TMP_DIR

@@ -117,7 +117,12 @@ not by the tests: without it, a Stainless run checks its VCs one after another.
 The pool of `-Dparallel` is shared by all the test cases, so it caps the number of VCs checked at a
 time in the whole run. Give it at least as many threads as there are test cases running at once
 (suites × test cases). The CI runs the integration tests with
-`-Dtest-parallelism=6 -Dtestcase-parallelism=5 -Dparallel=32` (see `stainless-ci.sh`).
+`-Dtest-parallelism=4 -Dtestcase-parallelism=5 -Dparallel=20` (see `stainless-ci.sh`).
+
+The CI jobs share one machine, with each other and with its users, so these numbers are moderate on
+purpose. For the same reason, the workflows pass `-XX:ActiveProcessorCount` to the JVM, with 16 or
+the number of processors of the machine if it has fewer: without it, each JVM sizes its GC threads,
+its JIT threads and its default thread pools for all the processors of the machine.
 
 ---
 
