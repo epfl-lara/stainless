@@ -133,8 +133,8 @@ else
     cd $ROOT_DIR
     echo Testing $SBT --version
     $SBT --version
-    echo *******     $SBT universal:stage ********
-    $SBT universal:stage
+    echo "*******     $SBT Universal/stage ********"
+    $SBT Universal/stage
   if [ $? -ne 0 ]; then
     echo "************** Failed to build the universal package **************"
     exit 1
@@ -160,7 +160,7 @@ else
   # least as many threads as there are test cases running at once (4 * 5), or it slows the tests down.
   # The numbers are moderate on purpose: several CI jobs run at once on one machine, which has to
   # stay usable.
-  $SBT -batch -Dtest-parallelism=4 -Dtestcase-parallelism=5 -Dparallel=20 it:test
+  $SBT -batch -Dtest-parallelism=4 -Dtestcase-parallelism=5 -Dparallel=20 IntegrationTest/test
   if [ $? -ne 0 ]; then
     echo "************** Integration tests failed **************"
     exit 1

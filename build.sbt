@@ -72,7 +72,6 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
     "-feature"
   ),
 
-  resolvers ++= Resolver.sonatypeOssRepos("releases"),
   resolvers += ("uuverifiersStainless" at "https://eldarica.org/maven"),
 
   libraryDependencies ++= Seq(
@@ -101,7 +100,7 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
     ExclusionRule("org.scala-lang", "scala-library"),
   ),
 
-  // disable documentation packaging in universal:stage to speedup development
+  // disable documentation packaging in Universal/stage to speedup development
   Compile / packageDoc / mappings := Seq(),
 
   Compile / sourcesInBase := false,
@@ -131,7 +130,7 @@ lazy val stainlessLibSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
     "-language:experimental.qualifiedTypes"
   ),
 
-  // disable documentation packaging in universal:stage to speedup development
+  // disable documentation packaging in Universal/stage to speedup development
   Compile / packageDoc / mappings := Seq(),
 
   Compile / sourcesInBase := false,
@@ -198,7 +197,7 @@ def libraryFiles(baseDir: File): Seq[(String, File)] = {
   libFiles.map(file => (file.getPath drop dropCount, file)) // Drop the prefix of the path (i.e. everything before "library")
 }
 
-lazy val frontendSettings: Seq[Setting[_]] = Defaults.itSettings ++ Seq(
+lazy val frontendSettings: Seq[Setting[_]] = inConfig(IntegrationTest)(Defaults.testSettings) ++ Seq(
 
   // The stainless library is compiled with qualified types enabled, which marks all its
   // definitions @experimental; referencing them requires experimental mode here as well.
