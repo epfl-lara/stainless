@@ -20,8 +20,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - java: 17
-            extra-java-opts: ""
           - java: 25
             extra-java-opts: "-XX:+UseCompactObjectHeaders"
     runs-on:
