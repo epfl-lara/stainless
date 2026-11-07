@@ -3,7 +3,7 @@ package stainless.algebra
 import stainless.annotation._
 
 @library
-abstract class Semigroup[A] {
+abstract class Semigroup[A](using CanEqual[A, A]) {
   def combine(x: A, y: A): A
 
   @law

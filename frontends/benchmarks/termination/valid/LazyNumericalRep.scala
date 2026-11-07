@@ -20,7 +20,7 @@ object DigitObject {
 import DigitObject._
 object LazyNumericalRep {
 
-  sealed abstract class NumList {
+  sealed abstract class NumList derives CanEqual {
     @inline
     lazy val isTip = this == Tip()
     @inline

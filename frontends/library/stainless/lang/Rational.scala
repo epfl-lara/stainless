@@ -8,7 +8,7 @@ import stainless.lang.StaticChecks._
 import scala.language.implicitConversions
 
 @library
-case class Rational(numerator: BigInt, denominator: BigInt) {
+case class Rational(numerator: BigInt, denominator: BigInt) derives CanEqual {
 
   require(denominator > 0)
 

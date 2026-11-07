@@ -4,7 +4,7 @@ import stainless.annotation._
 
 object SuperCall5 {
 
-  sealed abstract class Nat {
+  sealed abstract class Nat derives CanEqual {
     def +(m: Nat): Nat = {
       decreases(this)
       this match {

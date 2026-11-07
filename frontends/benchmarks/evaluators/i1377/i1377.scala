@@ -1,5 +1,5 @@
 object i1377 {
-  sealed abstract class List[+A] {
+  sealed abstract class List[+A] derives CanEqual {
     def :: [B >: A](elem: B): List[B] = Cons(elem, this)
 
     def ++[B >: A](that: List[B]): List[B] = {
@@ -9,14 +9,14 @@ object i1377 {
       }
     }
 
-    def tail: List[A] = {
+    def tail(using CanEqual[A, A]): List[A] = {
       require(this != Nil)
       this match {
         case Cons(a, as) => as
       }
     }
 
-    def head: A = {
+    def head(using CanEqual[A, A]): A = {
       require(this != Nil)
       this match {
         case Cons(a, as) => a

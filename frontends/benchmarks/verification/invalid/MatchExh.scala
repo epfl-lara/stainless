@@ -22,7 +22,7 @@ object MatchExh {
     case 0 => 42
   }
 
-  def err2[A](l: List[A]) = l match {
+  def err2[A](l: List[A])(using CanEqual[A, A]) = l match {
     case Nil() => 0
     case Cons(a, Nil()) => 1
     case Cons(a, Cons(b, _)) if a == b => 2

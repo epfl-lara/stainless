@@ -3,7 +3,7 @@ package stainless.algebra
 import stainless.annotation._
 
 @library
-abstract class Ring[A] {
+abstract class Ring[A](using CanEqual[A, A]) {
   def addition: AbelianGroup[A]
 
   def multiplication: Monoid[A]

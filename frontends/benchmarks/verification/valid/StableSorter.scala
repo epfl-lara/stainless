@@ -6,7 +6,7 @@ import stainless.proof._
 object StableSorter {
 
   // Inserting into a stable list adds to the content and increases the length
-  def insert[T](t: T, l: List[T], key: T => BigInt): List[T] = {
+  def insert[T](t: T, l: List[T], key: T => BigInt)(using CanEqual[T, T]): List[T] = {
     l match {
       case Nil() => t :: l
       case Cons(hd, tl) if key(t) <= key(hd) => t :: l
@@ -15,7 +15,7 @@ object StableSorter {
  }.ensuring { res => res.content == Set(t) ++ l.content && res.length == 1 + l.length }
 
   // Sorting a list preserves the content and preserves the length
-  def sort[T](l: List[T], key: T => BigInt): List[T] = { l match {
+  def sort[T](l: List[T], key: T => BigInt)(using CanEqual[T, T]): List[T] = { l match {
     case Nil() => l
     case Cons(hd, tl) => {
       val tlSorted = sort(tl, key)
@@ -67,7 +67,7 @@ object StableSorter {
   }
 
   // The insertion sort we initially defined is stable:
-  def sortStableProp[T](l: List[T], key: T => BigInt): Boolean = {
+  def sortStableProp[T](l: List[T], key: T => BigInt)(using CanEqual[T, T]): Boolean = {
     require(sortStablePropInt(l, 0, key))
     val lAnn = annotateList(l, 0)
     val keyAnn = (tn: (T, BigInt)) => key(tn._1)
@@ -76,7 +76,7 @@ object StableSorter {
   }.holds
 
   // To prove that insertion sort is stable, we first show that insertion is stable:
-  def insertStableProp[T](t: T, n: BigInt, @induct l: List[(T, BigInt)], key: T => BigInt): Boolean = {
+  def insertStableProp[T](t: T, n: BigInt, @induct l: List[(T, BigInt)], key: T => BigInt)(using CanEqual[T, T]): Boolean = {
     require(isStableSorted(l, key) && l2AtLeast(l, n))
     val keyAnn = (tn: (T, BigInt)) => key(tn._1)
     val res = insert((t, n), l, keyAnn)
@@ -84,7 +84,7 @@ object StableSorter {
   }.holds
 
   // ... and complete the proof of stability.
-  def sortStablePropInt[T](l: List[T], n: BigInt, key: T => BigInt): Boolean = {
+  def sortStablePropInt[T](l: List[T], n: BigInt, key: T => BigInt)(using CanEqual[T, T]): Boolean = {
     val lAnn = annotateList(l, n)
     val keyAnn = (tn: (T, BigInt)) => key(tn._1)
     val lAnnSorted = sort(lAnn, keyAnn)

@@ -10,7 +10,7 @@ object MutListSetsOnlyExample {
     var value: BigInt,
     var nextOpt: Option[Node],
     var repr: Set[AnyHeapRef]
-  ) extends AnyHeapRef {
+  ) extends AnyHeapRef derives CanEqual {
 
     @ghost
     def valid: Boolean = {

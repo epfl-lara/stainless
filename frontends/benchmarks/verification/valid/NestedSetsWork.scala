@@ -3,7 +3,7 @@ import stainless.collection.*
 
 object NestedSetsWork:
   def meAndEmpty(s: Set[Int]): Set[Set[Int]] = {
-    Set(s, Set())
+    Set(s, Set[Int]())
  }.ensuring(result => (result.contains(s)) && (result.contains(Set())))
 
   def unionOfSets(lst: List[Set[Int]], s: Set[Int]): Set[Set[Int]] = {

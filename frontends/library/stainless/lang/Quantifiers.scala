@@ -90,7 +90,7 @@ object Quantifiers {
   // in the class below. So we need both the body (inline def) and a function
 
   @ghost
-  inline def semiInverseBody[X, Y](f: X => Y, g: Y => X): Boolean = Forall((y: Y) => f(g(y)) == y)
+  inline def semiInverseBody[X, Y](f: X => Y, g: Y => X)(using CanEqual[Y, Y]): Boolean = Forall((y: Y) => f(g(y)) == y)
 
   /**
     * https://en.wikipedia.org/wiki/Section_%28category_theory%29
@@ -105,16 +105,16 @@ object Quantifiers {
     * @return
     */
   @ghost
-  def semiInverse[X, Y](f: X => Y, g: Y => X): Boolean = semiInverseBody(f, g)
+  def semiInverse[X, Y](f: X => Y, g: Y => X)(using CanEqual[Y, Y]): Boolean = semiInverseBody(f, g)
 
-  case class Bijection[A, B](f: A => B, g: B => A):
+  case class Bijection[A, B](f: A => B, g: B => A)(using CanEqual[A, A], CanEqual[B, B]):
     StaticChecks.require(semiInverse(f, g))
     StaticChecks.require(semiInverse(g, f))
     @ghost def lemmaInv(): Unit = {}.ensuring(_ => semiInverse(f, g) && semiInverse(g, f))
   end Bijection
 
   
-  case class Injection[A, B](f: A => B, witness: B => A):
+  case class Injection[A, B](f: A => B, witness: B => A)(using CanEqual[A, A]):
     StaticChecks.require(semiInverse(witness, f)) // witness(f(a)) == a
     def apply(a: A): B = f(a)
     @ghost def lemmaInv(): Unit = {}.ensuring(_ => semiInverse(witness, f))

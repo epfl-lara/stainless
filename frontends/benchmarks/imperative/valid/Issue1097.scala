@@ -3,7 +3,7 @@ import stainless.annotation._
 
 object Mutable {
   sealed case class MutCell[@mutable T](var value: T)
-  sealed case class Container[T](field: MutCell[Option[T]])
+  sealed case class Container[T](field: MutCell[Option[T]]) derives CanEqual
 
   sealed abstract class Option[@mutable T]
   case class None[@mutable T]()               extends Option[T]

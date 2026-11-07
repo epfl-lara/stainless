@@ -35,7 +35,7 @@ object TreeImmutMapExample {
 
   // Parallel tree map
 
-  def lemmaMapConcat[T, R](xs: List[T], ys: List[T], f: T => R): Unit = {
+  def lemmaMapConcat[T, R](xs: List[T], ys: List[T], f: T => R)(using CanEqual[R, R], CanEqual[T, T]): Unit = {
     xs match {
       case Nil() =>
       case Cons(_, xs) => lemmaMapConcat(xs, ys, f)
@@ -44,7 +44,7 @@ object TreeImmutMapExample {
 
   case class Cell[T](var value: T) extends AnyHeapRef
 
-  sealed abstract class Tree {
+  sealed abstract class Tree derives CanEqual {
     def repr: Set[AnyHeapRef] =
       this match {
         case Leaf(_, valueCell) => Set[AnyHeapRef](valueCell)

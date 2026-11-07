@@ -6,7 +6,7 @@ import stainless.proof._
 import stainless.math.Nat
 
 @library
-abstract class TotalOrder[A] extends PartialOrder[A] {
+abstract class TotalOrder[A](using CanEqual[A, A]) extends PartialOrder[A] {
     final def compare(x: A, y: A): BigInt = {
         assert(law_connex(x, y))
 

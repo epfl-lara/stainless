@@ -1,5 +1,5 @@
 object SATPrecond3 {
-  case class Egg(x: BigInt) 
+  case class Egg(x: BigInt) derives CanEqual
   case class Chicken(e: Egg)
   def f(x: BigInt, egg: Egg, chicken: Chicken): BigInt = {
     require(x > 0)

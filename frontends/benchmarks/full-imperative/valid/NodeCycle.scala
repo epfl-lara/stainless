@@ -8,7 +8,7 @@ object NodeCycleExample {
   /* Auxiliary definitions and lemmas */
 
   object ListLemmas {
-    def lastByIndex[T](xs: List[T]): Unit = {
+    def lastByIndex[T](xs: List[T])(using CanEqual[T, T]): Unit = {
       require(xs.nonEmpty)
       xs.tail match {
         case Nil() => ()
@@ -16,19 +16,19 @@ object NodeCycleExample {
       }
    }.ensuring(_ => xs(xs.size - 1) == xs.last)
 
-    def initByIndex[T](xs: List[T], i: BigInt): Unit = {
+    def initByIndex[T](xs: List[T], i: BigInt)(using CanEqual[T, T]): Unit = {
       require(xs.nonEmpty && 0 <= i && i < xs.size - 1)
       if (i > 0) initByIndex(xs.tail, i - 1)
    }.ensuring(_ => xs(i) == xs.init(i))
 
-    def applyContent[T](xs: List[T], i: BigInt): Unit = {
+    def applyContent[T](xs: List[T], i: BigInt)(using CanEqual[T, T]): Unit = {
       require(0 <= i && i < xs.size)
       xs match {
         case Cons(_, xs0) => if (i > 0) applyContent[T](xs0, i - 1)
       }
    }.ensuring(_ => xs.content.contains(xs.apply(i)))
 
-    def noDuplicateLast[T](xs: List[T]): Unit = {
+    def noDuplicateLast[T](xs: List[T])(using CanEqual[T, T]): Unit = {
       require(xs.nonEmpty && noDuplicate(xs))
       if (xs.size > 1) noDuplicateLast(xs.tail)
       ()
@@ -37,7 +37,7 @@ object NodeCycleExample {
 
   /* Node data structure and cyclicity property */
 
-  case class Node(var next: Option[Node]) extends AnyHeapRef
+  case class Node(var next: Option[Node]) extends AnyHeapRef derives CanEqual
 
   def cyclic(nodes: List[Node], i: BigInt = 0): Boolean = {
     reads(nodes.content.asRefs)

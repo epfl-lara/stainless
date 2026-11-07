@@ -6,19 +6,19 @@ import stainless.collection._
 
 sealed abstract class Queue[T] {
 
-   def size: BigInt = {
+   def size(using CanEqual[T, T]): BigInt = {
       this match {
          case QEmpty() => BigInt(0)
          case QCons(f, r) => f.size + r.size
       }
   }.ensuring(res => res == this.toList.size && res >= 0)
 
-   def toList: List[T] = (this match {
+   def toList(using CanEqual[T, T]): List[T] = (this match {
       case QEmpty() => Nil[T]()
       case QCons(f, r) => f ++ r.reverse
    }).ensuring (resOne => this.content == resOne.content && resOne.size >= 0)
 
-   def content: Set[T] = this match {
+   def content(using CanEqual[T, T]): Set[T] = this match {
       case QEmpty() => Set()
       case QCons(f, r) => f.content ++ r.content
    }

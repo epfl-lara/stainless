@@ -3,11 +3,11 @@ import stainless.collection._
 object PostFailure {
 
   case class PostBox(letters: List[Letter])
-  case class Letter(from: String, msg: String, to: String)
+  case class Letter(from: String, msg: String, to: String) derives CanEqual
 
   def put(pb: PostBox, l: Letter): PostBox = {
     pb
- }.ensuring(_ == l :: pb.letters) // oh no, post fails :(
+ }.ensuring(_.letters == l :: pb.letters) // oh no, post fails :(
 
   def ohno: PostBox = put(
     PostBox(Nil()),

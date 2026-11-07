@@ -2,7 +2,7 @@ import stainless.lang._
 import stainless.annotation._
 
 object LambdaEquality2 {
-  sealed abstract class Nat
+  sealed abstract class Nat derives CanEqual
   case class Zero() extends Nat
   case class Succ(n: Nat) extends Nat
 
@@ -17,7 +17,7 @@ object LambdaEquality2 {
   }.holds
 
   @ghost
-  def equalFunctions[X,Y](y1: Y, y2: Y) = {
+  def equalFunctions[X,Y](y1: Y, y2: Y)(using CanEqual[Y, Y]) = {
     require(y1 == y2)
 
     val f1 = (x: X) => y1

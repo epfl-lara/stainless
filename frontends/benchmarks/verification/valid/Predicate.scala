@@ -18,7 +18,7 @@ object Predicate {
 
   // All monads are also functors, and they define the map function
   @inline
-  def map[A,B](p: A => Boolean, f: A => B): B => Boolean = {
+  def map[A,B](p: A => Boolean, f: A => B)(using CanEqual[B, B]): B => Boolean = {
     (b: B) => exists[A](a => p(a) && f(a) == b)
   }
 
@@ -39,7 +39,7 @@ object Predicate {
     forall[A](a => p(a) == that(a))
   }
 
-  def test[A,B,C](p: A => Boolean, f: A => B, g: B => C): Boolean = {
+  def test[A,B,C](p: A => Boolean, f: A => B, g: B => C)(using CanEqual[B, B], CanEqual[C, C]): Boolean = {
     equals[C](map[B,C](map[A,B](p, f), g), map[A,C](p, (a: A) => g(f(a))))
   }.holds
 

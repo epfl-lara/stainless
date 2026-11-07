@@ -3,7 +3,7 @@ import stainless.annotation._
 
 object ExternFallback2 {
 
-  sealed trait Test {
+  sealed trait Test derives CanEqual {
     def something: BigInt
   }
 

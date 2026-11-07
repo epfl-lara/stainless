@@ -1,7 +1,7 @@
 
 object InnerClassInequality {
 
-  abstract class Test {
+  abstract class Test derives CanEqual {
     def bar: BigInt
   }
 

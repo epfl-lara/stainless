@@ -4,7 +4,7 @@ import stainless.annotation._
 
 object i1264 {
 
-  def split[T](l: List[T], x: T): List[List[T]] = {
+  def split[T](l: List[T], x: T)(using CanEqual[T, T]): List[List[T]] = {
     decreases(l)
     l match {
       case Nil() => List[List[T]](List[T]())
@@ -16,7 +16,7 @@ object i1264 {
     }
   }
 
-  def join[T](ll: List[List[T]], l: List[T]): List[T] = {
+  def join[T](ll: List[List[T]], l: List[T])(using CanEqual[T, T]): List[T] = {
     decreases(ll)
     ll match {
       case Nil() => Nil[T]()
@@ -25,7 +25,7 @@ object i1264 {
     }
   }
 
-  def replace[T](l1: List[T], x: T, l2: List[T]): List[T] = {
+  def replace[T](l1: List[T], x: T, l2: List[T])(using CanEqual[T, T]): List[T] = {
     decreases(l1)
     l1 match {
       case Nil() => Nil[T]()
@@ -34,6 +34,6 @@ object i1264 {
     }
   }
 
-  def slowReplace[T](l1: List[T], x: T, l2: List[T]): List[T] = join(split(l1, x), l2)
+  def slowReplace[T](l1: List[T], x: T, l2: List[T])(using CanEqual[T, T]): List[T] = join(split(l1, x), l2)
 
 }

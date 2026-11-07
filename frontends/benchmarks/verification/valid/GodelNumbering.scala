@@ -4,7 +4,7 @@ import stainless.annotation._
 import stainless.proof.check
 
 object GodelNumbering {
-  sealed abstract class Nat {
+  sealed abstract class Nat derives CanEqual {
     def +(that: Nat): Nat = {
       decreases(this)
       this match {

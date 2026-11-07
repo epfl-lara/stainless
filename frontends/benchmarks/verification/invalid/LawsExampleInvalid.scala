@@ -10,17 +10,17 @@ object LawsExampleInvalid {
     def f(x: T, y: T): T
 
     @law
-    def uniqueRight(x: T, y: T, z: T): Boolean = {
+    def uniqueRight(x: T, y: T, z: T)(using CanEqual[T, T]): Boolean = {
       f(x,y) != f(x,z) || y == z
     }
 
-    def something(x: T, y: T): Boolean = {
+    def something(x: T, y: T)(using CanEqual[T, T]): Boolean = {
       require(f(x,y) == f(x,a))
       uniqueRight(x,y,a)
       y == this.a
     }.holds
 
-    def somethingelse(y: T): Unit = {
+    def somethingelse(y: T)(using CanEqual[T, T]): Unit = {
       require(f(a,a) == f(a,y))
       assert(something(a,y))
    }.ensuring(y == a)

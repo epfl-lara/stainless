@@ -22,10 +22,10 @@ package object equations {
   def trivial: Boolean = true
 
   @library @inline
-  implicit def any2EqProof[A](x: => A): EqProof[A] = EqProof(() => x, () => x)
+  implicit def any2EqProof[A](x: => A)(using CanEqual[A, A]): EqProof[A] = EqProof(() => x, () => x)
 
   @library
-  case class EqEvidence[A](x: () => A, y: () => A, evidence: () => Boolean) {
+  case class EqEvidence[A](x: () => A, y: () => A, evidence: () => Boolean)(using CanEqual[A, A]) {
     require(x() == y() && evidence())
 
     @inline
@@ -42,7 +42,7 @@ package object equations {
   }
 
   @library
-  case class EqProof[A](x: () => A, y: () => A) {
+  case class EqProof[A](x: () => A, y: () => A)(using CanEqual[A, A]) {
     require(x() == y())
 
     @inline
@@ -56,13 +56,13 @@ package object equations {
   }
 
   @library @inline
-  implicit def any2RAEqEvidence[A](x: => A): RAEqEvidence[A, Unit] = RAEqEvidence(() => x, () => x, () => ())
+  implicit def any2RAEqEvidence[A](x: => A)(using CanEqual[A, A]): RAEqEvidence[A, Unit] = RAEqEvidence(() => x, () => x, () => ())
 
   @library
   def keepEvidence[C](x: C): Boolean = true
 
   @library
-  case class RAEqEvidence[A, B](x: () => A, y: () => A, evidence: () => B) {
+  case class RAEqEvidence[A, B](x: () => A, y: () => A, evidence: () => B)(using CanEqual[A, A]) {
     require(x() == y())
 
     @inline

@@ -6,74 +6,74 @@ import stainless.lang.StaticChecks._
 import stainless.proof.check
 
 object CellDataStructuresAndRepr {
-  def lemmaListContainsElem[T](l: List[T], i: BigInt): Boolean = {
+  def lemmaListContainsElem[T](l: List[T], i: BigInt)(using CanEqual[T, T]): Boolean = {
     require(0 <= i && i < l.size)
     if (i > 0)
       lemmaListContainsElem(l.tail, i - 1)
     l.contains(l(i))
   }.holds
 
-  def lemmaListNotContainsElem[T](x: T, l: List[T], i: BigInt): Boolean = {
+  def lemmaListNotContainsElem[T](x: T, l: List[T], i: BigInt)(using CanEqual[T, T]): Boolean = {
     require(0 <= i && i < l.size && !l.contains(x))
     if (i > 0)
       lemmaListNotContainsElem(x, l.tail, i - 1)
     l(i) != x
   }.holds
 
-  def lemmaListNoDupNotFirst[T](l: List[T], i: BigInt): Boolean = {
+  def lemmaListNoDupNotFirst[T](l: List[T], i: BigInt)(using CanEqual[T, T]): Boolean = {
     require(0 < i && i < l.size && ListOps.noDuplicate(l))
     lemmaListNotContainsElem(l(0), l.tail, i - 1)
     l(0) != l(i)
   }.holds
 
-  def lemmaListTailElem[T](l: List[T], i: BigInt): Boolean = {
+  def lemmaListTailElem[T](l: List[T], i: BigInt)(using CanEqual[T, T]): Boolean = {
     require(0 < i && i < l.size)
     if (i > 1)
       lemmaListTailElem(l.tail, i - 1)
     l(i) == l.tail(i - 1)
   }.holds
 
-  def lemmaListTakeElem[T](l: List[T], n: BigInt, i: BigInt): Boolean = {
+  def lemmaListTakeElem[T](l: List[T], n: BigInt, i: BigInt)(using CanEqual[T, T]): Boolean = {
     require(0 <= i && i < n && n <= l.size)
     if (i > 0)
       lemmaListTakeElem(l.tail, n - 1, i - 1)
     l.take(n)(i) == l(i)
   }.holds
 
-  def lemmaListDropElem[T](l: List[T], n: BigInt, i: BigInt): Boolean = {
+  def lemmaListDropElem[T](l: List[T], n: BigInt, i: BigInt)(using CanEqual[T, T]): Boolean = {
     require(0 <= n && 0 <= i && n + i < l.size)
     if (n > 0)
       lemmaListDropElem(l.tail, n - 1, i)
     l.drop(n)(i) == l(n + i)
   }.holds
 
-  def lemmaListDropIndexOf[T](l: List[T], n: BigInt, x: T): Boolean = {
+  def lemmaListDropIndexOf[T](l: List[T], n: BigInt, x: T)(using CanEqual[T, T]): Boolean = {
     require(0 <= n && n < l.size && ListOps.noDuplicate(l) && l.drop(n).contains(x))
     if (n > 0)
       lemmaListDropIndexOf(l.tail, n - 1, x)
     l.indexOf(x) == l.drop(n).indexOf(x) + n
   }.holds
 
-  def lemmaListTakeIndexOf[T](l: List[T], n: BigInt, x: T): Boolean = {
+  def lemmaListTakeIndexOf[T](l: List[T], n: BigInt, x: T)(using CanEqual[T, T]): Boolean = {
     require(0 < n && n <= l.size && l.take(n).contains(x))
     if (l.head != x)
       lemmaListTakeIndexOf(l.tail, n - 1, x)
     l.indexOf(x) == l.take(n).indexOf(x)
   }.holds
 
-  def lemmaListDropHead[T](l: List[T], i: BigInt): Unit = {
+  def lemmaListDropHead[T](l: List[T], i: BigInt)(using CanEqual[T, T]): Unit = {
     require(0 <= i && i < l.size)
     if (i > 0)
       lemmaListDropHead(l.tail, i - 1)
  }.ensuring(_ => l(i) == l.drop(i).head)
 
-  def lemmaListDropPlusOne[T](l: List[T], i: BigInt): Unit = {
+  def lemmaListDropPlusOne[T](l: List[T], i: BigInt)(using CanEqual[T, T]): Unit = {
     require(0 <= i && i < l.size)
     if (i > 0)
       lemmaListDropPlusOne(l.tail, i - 1)
  }.ensuring(_ => l.drop(i + 1) == l.drop(i).tail)
 
-  def lemmaListDropTakeConcat[T](l: List[T], from: BigInt, until: BigInt, i: BigInt): Unit = {
+  def lemmaListDropTakeConcat[T](l: List[T], from: BigInt, until: BigInt, i: BigInt)(using CanEqual[T, T]): Unit = {
     require(
       0 <= from && from < until && until <= l.size &&
       0 <= i && i < until - from
@@ -130,7 +130,7 @@ object CellDataStructuresAndRepr {
 
   /* Ref Cell */
 
-  case class IntCell(var value: Int) extends AnyHeapRef
+  case class IntCell(var value: Int) extends AnyHeapRef derives CanEqual
 
 
   /* Simple pair of cells */
@@ -201,7 +201,7 @@ object CellDataStructuresAndRepr {
 
   /* CellArraySlice */
 
-  case class CellArraySlice(array: CellArray, from: BigInt, until: BigInt) {
+  case class CellArraySlice(array: CellArray, from: BigInt, until: BigInt) derives CanEqual {
     require(0 <= from && from <= until && until <= array.cells.size)
 
     @inline

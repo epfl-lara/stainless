@@ -1,7 +1,7 @@
 import stainless.lang._
 import stainless.annotation._
 
-trait MutableTrait {
+trait MutableTrait derives CanEqual {
   var x: BigInt
 }
 

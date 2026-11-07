@@ -1,4 +1,4 @@
-case class A(var x: BigInt)
+case class A(var x: BigInt) derives CanEqual
 trait B { var a: A }
 
 object AccessorAliasing {

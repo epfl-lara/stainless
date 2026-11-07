@@ -5,18 +5,18 @@ import scala.language.postfixOps
 object SetIsEmpty {
 
   def emptySetIsEmpty: Boolean = {
-    Set().isEmpty
+    Set[BigInt]().isEmpty
   }.holds
 
-   def emptyContainsNothing[A](set: Set[A]): Boolean = {
+   def emptyContainsNothing[A](set: Set[A])(using CanEqual[A, A]): Boolean = {
      set.isEmpty ==> forall((x: A) => !set.contains(x))
    }.holds
 
-   def complementItselfEmpty[A](set: Set[A]): Boolean = {
+   def complementItselfEmpty[A](set: Set[A])(using CanEqual[A, A]): Boolean = {
      (set -- set).isEmpty
    }.holds
 
-   def addToEmptyNonEmpty[A](set: Set[A], x: A): Boolean = {
+   def addToEmptyNonEmpty[A](set: Set[A], x: A)(using CanEqual[A, A]): Boolean = {
      require(set.isEmpty)
      !((set + x).isEmpty)
    }.holds

@@ -2,7 +2,7 @@ import stainless.lang._
 import stainless.annotation._
 
 object FirstClassHeapExample {
-  case class Cell(var value: BigInt) extends AnyHeapRef
+  case class Cell(var value: BigInt) extends AnyHeapRef derives CanEqual
 
   def getAndCompareHeapRegions(c1: Cell, c2: Cell): Unit = {
     reads(Set(c1, c2))

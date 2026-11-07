@@ -1,7 +1,7 @@
 import stainless.collection._
 
 object PreFailure {
-  sealed trait Topping
+  sealed trait Topping derives CanEqual
   case object Mozzarella extends Topping
   case object Pineapple extends Topping
   case object Capers extends Topping

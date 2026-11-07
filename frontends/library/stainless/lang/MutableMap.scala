@@ -16,20 +16,20 @@ object MutableMap {
 }
 
 @ignore
-case class MutableMap[A, @mutable B] (theMap: scala.collection.mutable.Map[A,B], default: () => B) {
-  def apply(k: A): B = if (theMap.contains(k)) {
+case class MutableMap[A, @mutable B] (theMap: scala.collection.mutable.Map[A,B], default: () => B) derives CanEqual {
+  def apply(k: A)(using CanEqual[A, A]): B = if (theMap.contains(k)) {
     theMap(k)
   } else {
     default()
   }
 
-  def update(k: A, v: B): Unit = {
+  def update(k: A, v: B)(using CanEqual[A, A]): Unit = {
     theMap(k) = v
   }
 
   // To avoid the creation of aliases on the elements of `B`,
   // `updated` and `duplicate` can only be used when `B` is an immutable type
-  def updated(k: A, v: B) = {
+  def updated(k: A, v: B)(using CanEqual[A, A]) = {
     MutableMap(theMap.clone() += ((k, v)), default)
   }
 

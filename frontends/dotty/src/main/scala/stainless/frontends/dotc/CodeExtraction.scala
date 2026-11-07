@@ -398,6 +398,9 @@ class CodeExtraction(inoxCtx: inox.Context,
       case ExLazyFieldDef(fsym, _, _) if isSyntheticArrayAccessor(fsym) =>
         // ignore
 
+      case t: tpd.ValOrDefDef if isCanEqualInstance(t.symbol) =>
+        checkCanEqualInstance(t)
+
       // Normal fields
       case t@ExNonCtorFieldDef(fsym, _, rhs) =>
         val fd0 = extractFunction(fsym, t, Seq(), Seq(), rhs)
@@ -506,6 +509,44 @@ class CodeExtraction(inoxCtx: inox.Context,
     (module, allClasses, allFunctions, allTypeDefs)
   }
 
+  private def isCanEqualInstance(sym: Symbol): Boolean =
+    sym.info.finalResultType.derivesFrom(defn.CanEqualClass)
+
+  /** `CanEqual` instances are not extracted: they only matter to the Scala typer, which demands one
+    * for every `==`. The ones derived with `derives CanEqual` are checked by the tree sanitizer through
+    * the `DerivesCanEqual` flag of the class, the ones of opaque types over primitive types are sound,
+    * the ones of the library are trusted, and the others are rejected as they could make values of type
+    * `Any` comparable.
+    */
+  private def checkCanEqualInstance(t: tpd.ValOrDefDef): Unit =
+    if (!isDerivedCanEqual(t.symbol) && !isOpaqueCanEqual(t.symbol) && !annotationsOf(t.symbol).exists(_.name == "library"))
+      outOfSubsetError(t, "Only `derives CanEqual`, or an instance for an opaque type over a primitive type, `String` or `BigInt`, is supported to make values comparable with `==`")
+
+  /** Is `sym` an instance `CanEqual[X, X]` for an opaque type `X` whose underlying type is a primitive
+    * type, `String` or `BigInt`? Values of these types are compared by value on the JVM and in Stainless. */
+  private def isOpaqueCanEqual(sym: Symbol): Boolean =
+    sym.info.finalResultType.argTypes match {
+      case Seq(l, r) if l.typeSymbol.isOpaqueAlias && l.typeSymbol == r.typeSymbol =>
+        val underlying = l.typeSymbol.opaqueAlias.typeSymbol
+        underlying.isPrimitiveValueClass || underlying == defn.StringClass || isBigIntSym(underlying)
+      case _ => false
+    }
+
+  /** Does the class `cls` derive `CanEqual`, i.e. does its companion hold the derived instance? */
+  private def derivesCanEqual(cls: ClassSymbol): Boolean =
+    cls.companionModule.exists && cls.companionModule.moduleClass.info.decls.exists(isDerivedCanEqual)
+
+  /** Is `sym` the instance that `derives CanEqual` adds to the companion object of a class? It is
+    * named `derived$CanEqual` and its type applies `CanEqual` to that class twice. */
+  private def isDerivedCanEqual(sym: Symbol): Boolean =
+    sym.name.toString == "derived$CanEqual" && (sym.owner `is` ModuleClass) && {
+      val cls = sym.owner.companionClass
+      cls.exists && (sym.info.finalResultType.argTypes match {
+        case Seq(l, r) => l.typeSymbol == cls && r.typeSymbol == cls
+        case _ => false
+      })
+    }
+
   private def isValidParentType(parent: Type, inLibrary: Boolean = false): Boolean = {
     !isIgnored(parent) && !((parent frozen_=:= defn.ThrowableType) && inLibrary)
   }
@@ -526,7 +567,8 @@ class CodeExtraction(inoxCtx: inox.Context,
       (if (isValueClass) Some(xt.ValueClass) else None) ++
       (if (isAbstractClass) Some(xt.IsAbstract) else None) ++
       (if (sym `is` Sealed) Some(xt.IsSealed) else None) ++
-      (if ((sym `is` ModuleClass) && (sym `is` Case)) Some(xt.IsCaseObject) else None)
+      (if ((sym `is` ModuleClass) && (sym `is` Case)) Some(xt.IsCaseObject) else None) ++
+      (if (derivesCanEqual(sym)) Some(xt.DerivesCanEqual) else None)
 
     val tparams = extractTypeParams(sym.asClass.typeParams)(using DefContext())
 
@@ -587,6 +629,9 @@ class CodeExtraction(inoxCtx: inox.Context,
           ()
         else
           methods ++= extractAccessor(classType, isAbstractClass, vd, i)(using tpCtx)
+
+      case t: tpd.ValOrDefDef if isCanEqualInstance(t.symbol) =>
+        checkCanEqualInstance(t)
 
       case t if t.symbol.is(Synthetic) && !canExtractSynthetic(t.symbol) =>
         // ignore
@@ -1032,6 +1077,10 @@ class CodeExtraction(inoxCtx: inox.Context,
       val lit = xt.IntegerLiteral(BigInt(l.const.stringValue))
       (xt.LiteralPattern(binder, lit), dctx)
 
+    // An `Int` literal matched against a `BigInt` compares the values on the JVM, as `==` does
+    case ExInt32Literal(i) if expectedTpe.contains(xt.IntegerType()) =>
+      (xt.LiteralPattern(binder, xt.IntegerLiteral(BigInt(i))), dctx)
+
     case ExFloatLiteral(f)   => (xt.LiteralPattern(binder, xt.Float32Literal(f)), dctx)
     case ExDoubleLiteral(f)  => (xt.LiteralPattern(binder, xt.Float64Literal(f)), dctx)
     case ExInt8Literal(i)    => (xt.LiteralPattern(binder, xt.Int8Literal(i)),    dctx)
@@ -1229,7 +1278,7 @@ class CodeExtraction(inoxCtx: inox.Context,
       val tparamDefs = ntparams.map(tp => xt.TypeParameterDef(tp).copiedFrom(tp))
 
       val tpe = xt.FunctionType(
-        vparams.map { param =>
+        vparams.filterNot(param => isIgnoredParameterType(param.tpe)).map { param =>
           val tpe = stainlessType(param.tpe)(using nctx, param.tpt.sourcePos)
           param.tpt match {
             case ByNameTypeTree(_) => xt.FunctionType(Seq(), tpe).setPos(param.tpt.sourcePos)
@@ -2115,7 +2164,8 @@ class CodeExtraction(inoxCtx: inox.Context,
       case pi: xt.PiType =>
         xt.Application(extractTree(lhs), args.map(extractTree)).setPos(pi)
 
-      case tpe => (tpe, sym.name.decode.toString, args) match {
+      // Evidence arguments (`CanEqual`) are not part of the shapes matched below
+      case tpe => (tpe, sym.name.decode.toString, args.filterNot(a => isIgnoredParameterType(a.tpe))) match {
         case (xt.StringType(), "+", Seq(rhs)) => xt.StringConcat(extractTree(lhs), extractTree(rhs))
         case (xt.IntegerType() | xt.BVType(_,_) | xt.RealType() | xt.FPType(_,_), "+", Seq(rhs)) =>
           injectCasts(xt.Plus.apply)(lhs, rhs)
@@ -2478,6 +2528,10 @@ class CodeExtraction(inoxCtx: inox.Context,
     * An unsigned value can only be compared with a value of the same type: on the JVM, comparing it with a number
     * of another type would compare that number with the signed representation of the unsigned value. The Scala
     * compiler already rejects comparisons with numbers (`Int`, `BigInt`, ...), as these have `CanEqual` instances.
+    *
+    * Two numbers are compared after the JVM's numeric promotion. A number compared with a value of another kind
+    * that the Scala typer accepts (`BigInt`, `Char`) is rejected: the JVM compares their values, which the
+    * encoding does not model.
     */
   private def extractEquals(tr: tpd.Tree, l: tpd.Tree, r: tpd.Tree)(using dctx: DefContext): xt.Expr =
     (extractTree(l), extractType(l), extractTree(r), extractType(r)) match {
@@ -2491,8 +2545,22 @@ class CodeExtraction(inoxCtx: inox.Context,
         if (tpeL == tpeR) xt.Equals(l2, r2)
         else outOfSubsetError(tr, "Unsigned values can only be compared with values of the same type.")
 
+      case (_, tpeL, _, tpeR) if (isNumber(tpeL) && isComparedByValue(tpeR)) || (isComparedByValue(tpeL) && isNumber(tpeR)) =>
+        outOfSubsetError(tr, s"Cannot compare values of type `$tpeL` and `$tpeR` with `==`: convert one of them to the other type first")
+
       case _ => injectCasts(xt.Equals.apply)(l, r)
     }
+
+  private def isNumber(tpe: xt.Type): Boolean = tpe match {
+    case xt.BVType(_, _) | xt.FPType(_, _) => true
+    case _ => false
+  }
+
+  /** The non-numeric types that the JVM compares with numbers by value */
+  private def isComparedByValue(tpe: xt.Type): Boolean = tpe match {
+    case xt.IntegerType() | xt.CharType() => true
+    case _ => false
+  }
 
   /** Inject implicit widening casts according to the Java semantics (5.6.2. Binary Numeric Promotion).
    *  Also converts to floating-point versions of operators when necessary. */

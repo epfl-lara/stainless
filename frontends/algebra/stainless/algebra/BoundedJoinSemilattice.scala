@@ -4,7 +4,7 @@ import stainless.annotation._
 import stainless.math.Nat
 
 @library
-abstract class BoundedJoinSemilattice[A] extends JoinSemilattice[A] {
+abstract class BoundedJoinSemilattice[A](using CanEqual[A, A]) extends JoinSemilattice[A] {
   def zero: A
 
   @law

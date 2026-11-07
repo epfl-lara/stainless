@@ -13,7 +13,7 @@ object FunSpecialization1Example {
   def concatBigInt(xs: List[BigInt], ys: List[BigInt]): List[BigInt] =
     specialize(concat[BigInt](xs, ys))
 
-  def snoc[T](xs: List[T], y: T): List[T] =
+  def snoc[T](xs: List[T], y: T)(using CanEqual[T, T]): List[T] =
     specialize(concat(xs, List(y)))
 
   // Fails because original, non-specialized parameters must come first
@@ -25,7 +25,7 @@ object FunSpecialization1Example {
   //   specialize(concat(List(y), xs))
 
   // We can also strengthen the pre- and postcondition
-  def snocStrong[T](xs: List[T], y: T): List[T] = {
+  def snocStrong[T](xs: List[T], y: T)(using CanEqual[T, T]): List[T] = {
     specialize(concat(xs, List(y)))
  }.ensuring { _.size >= 1 }
 
@@ -57,7 +57,7 @@ object FunSpecialization1Example {
     specialize(concat(xs, ys))
  }.ensuring { _ => concat(xs, ys).forall(f) }
 
-  def concatAssoc[T](xs: List[T], ys: List[T], zs: List[T]): List[T] = {
+  def concatAssoc[T](xs: List[T], ys: List[T], zs: List[T])(using CanEqual[T, T]): List[T] = {
     specialize(concat(xs, ys))
  }.ensuring { _ => concat(concat(xs, ys), zs) == concat(xs, concat(ys, zs)) }
 

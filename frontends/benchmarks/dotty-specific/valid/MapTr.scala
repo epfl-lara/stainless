@@ -71,7 +71,7 @@ object MapTr {
         // case l is empty
         case Nil[Int]() => {
           Nil[Int]().map(f)                                 ==|  MapNil(f)                          |
-          Nil[Int]()                                        ==|  MapTrNil(f, Nil[Int]())            |
+          (Nil[Int](): List[Int])                           ==|  MapTrNil(f, Nil[Int]())            |
           Nil[Int]().mapTr(f, Nil[Int]())
         }.qed
         // case l is not empty

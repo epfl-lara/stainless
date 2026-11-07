@@ -7,7 +7,7 @@ import stainless.lang.StaticChecks._
 import stainless.proof.check
 
 object MutListExample {
-  final case class Node private (var value: BigInt, var nextOpt: Option[Node], @ghostAnnot var repr: List[AnyHeapRef]) extends AnyHeapRef {
+  final case class Node private (var value: BigInt, var nextOpt: Option[Node], @ghostAnnot var repr: List[AnyHeapRef]) extends AnyHeapRef derives CanEqual {
     @ghostAnnot
     def valid: Boolean = {
       reads(repr.content ++ Set(this))

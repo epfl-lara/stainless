@@ -3,7 +3,7 @@ import stainless.annotation._
 import stainless.proof._
 
 object LawTypeArgsElim {
-  abstract class Structure[A] {
+  abstract class Structure[A](using CanEqual[A, A]) {
     def doSomething(x: A, y: A): A
 
     @law
@@ -24,12 +24,12 @@ object LawTypeArgsElim {
     }
   }
 
-  def ok1[A](s: Structure[A], a: A, b: A) = {
+  def ok1[A](s: Structure[A], a: A, b: A)(using CanEqual[A, A]) = {
     assert(s.someLaw(a, b))                            // valid
     assert(s.doSomething(a, b) == s.doSomething(b, a)) // valid
   }
 
-  case class OptionStructure[A](ev: Structure[A]) extends Structure[Option[A]] {
+  case class OptionStructure[A](ev: Structure[A])(using CanEqual[A, A]) extends Structure[Option[A]] {
     override def doSomething(x: Option[A], y: Option[A]): Option[A] = {
       (x, y) match {
         case (None(), None())   => None()
@@ -51,7 +51,7 @@ object LawTypeArgsElim {
     }
   }
 
-  def ok2[A](s: Structure[Option[A]], a: Option[A], b: Option[A]) = {
+  def ok2[A](s: Structure[Option[A]], a: Option[A], b: Option[A])(using CanEqual[A, A]) = {
     assert(s.someLaw(a, b))                            // valid
     assert(s.doSomething(a, b) == s.doSomething(b, a)) // valid
   }

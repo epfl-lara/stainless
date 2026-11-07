@@ -5,12 +5,12 @@ import stainless.annotation.{partialEval => _}
 
 object split {
 
-  sealed abstract class P
+  sealed abstract class P derives CanEqual
   case object Alice   extends P;
   case object Bob     extends P;
   case object Charlie extends P;
 
-  case class S(who: P, amount: BigInt)
+  case class S(who: P, amount: BigInt) derives CanEqual
 
   val spent = List(
     S(Alice   ,     0),

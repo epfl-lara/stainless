@@ -6,7 +6,7 @@ import stainless.proof._
 import stainless.lang.StaticChecks._
 
 object ArraySliceExample {
-  def updateSizeLemma[T](xs: List[T], i: BigInt, y: T): Boolean = {
+  def updateSizeLemma[T](xs: List[T], i: BigInt, y: T)(using CanEqual[T, T]): Boolean = {
     require(0 <= i && i < xs.size)
     decreases(xs)
 
@@ -19,7 +19,7 @@ object ArraySliceExample {
   }.holds
 
   final case class SArray[T](var content: List[T]) extends AnyHeapRef {
-    def fill(n: BigInt)(default: T): Unit = {
+    def fill(n: BigInt)(default: T)(using CanEqual[T, T]): Unit = {
       // should become a constructor eventually instead of a method
       // Creates visible sharing, so needs support for allocator
       reads(Set(this))
@@ -28,13 +28,13 @@ object ArraySliceExample {
       content = List.fill(n)(default)
    }.ensuring { _ => content.size == n }
 
-    def apply(i: BigInt): T = {
+    def apply(i: BigInt)(using CanEqual[T, T]): T = {
       reads(Set(this))
       require(0 <= i && i < content.size)
       content(i)
     }
 
-    def update(i: BigInt, v: T): Unit = {
+    def update(i: BigInt, v: T)(using CanEqual[T, T]): Unit = {
       reads(Set(this))
       require(0 <= i && i < content.size)
       modifies(Set(this))
@@ -52,14 +52,14 @@ object ArraySliceExample {
       until <= a.content.size
     }
 
-    def apply(i: BigInt): T = {
+    def apply(i: BigInt)(using CanEqual[T, T]): T = {
       reads(Set(a))
       require(from <= i && i < until && valid)
 
       a(i)
     }
 
-    def update(i: BigInt, v: T): Unit = {
+    def update(i: BigInt, v: T)(using CanEqual[T, T]): Unit = {
       reads(Set(a))
       require(from <= i && i < until && valid)
       modifies(Set(a))

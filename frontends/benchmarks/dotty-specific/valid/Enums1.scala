@@ -3,7 +3,7 @@ import stainless.lang._
 
 object Enums1 {
 
-  enum Color {
+  enum Color derives CanEqual {
     case Red, Green, Blue
   }
 

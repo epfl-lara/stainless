@@ -4,7 +4,7 @@ import stainless.lang._
 
 object AbstractRefinementMap2 {
 
-  def map[A, B](l: List[A], f: A ~>> B): List[B] = {
+  def map[A, B](l: List[A], f: A ~>> B)(using CanEqual[A, A]): List[B] = {
     require(forall((x:A) => l.contains(x) ==> f.pre(x)))
     l match {
       case Cons(x, xs) => Cons[B](f(x), map(xs, f))

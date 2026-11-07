@@ -4,7 +4,7 @@ import stainless.lang._
 
 object ForallAssoc {
 
-  def ex[A](x1: A, x2: A, x3: A, x4: A, x5: A, f: (A, A) => A) = {
+  def ex[A](x1: A, x2: A, x3: A, x4: A, x5: A, f: (A, A) => A)(using CanEqual[A, A]) = {
     require(forall {
       (x: A, y: A, z: A) => f(x, f(y, z)) == f(f(x, y), z)
     })

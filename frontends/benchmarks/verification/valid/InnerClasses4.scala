@@ -5,7 +5,7 @@ import stainless.annotation._
 
 object InnerClasses4 {
 
-  abstract class Semigroup[A] {
+  abstract class Semigroup[A](using CanEqual[A, A]) {
     def append(l: A, r: A): A
 
     @law
@@ -14,7 +14,7 @@ object InnerClasses4 {
     }
   }
 
-  abstract class Monoid[A] extends Semigroup[A] {
+  abstract class Monoid[A](using CanEqual[A, A]) extends Semigroup[A] {
     def empty: A
 
     @law
@@ -29,11 +29,11 @@ object InnerClasses4 {
   }
 
   @induct
-  def listAppendIsAssociative[A](x: List[A], y: List[A], z: List[A]): Boolean = {
+  def listAppendIsAssociative[A](x: List[A], y: List[A], z: List[A])(using CanEqual[A, A]): Boolean = {
     (x ++ y) ++ z == x ++ (y ++ z)
   }.holds
 
-  implicit def listMonoid[A](implicit ev: Monoid[A]): Monoid[List[A]] = new Monoid[List[A]] {
+  implicit def listMonoid[A](implicit ev: Monoid[A], ce: CanEqual[A, A]): Monoid[List[A]] = new Monoid[List[A]] {
     def empty: List[A] = Nil()
     def append(l: List[A], r: List[A]) = l ++ r
 
@@ -42,7 +42,7 @@ object InnerClasses4 {
     }
   }
 
-  case class Sum(get: BigInt)
+  case class Sum(get: BigInt) derives CanEqual
   object Sum {
     implicit def sumMonoid: Monoid[Sum] = new Monoid[Sum] {
       def empty: Sum = Sum(0)
@@ -50,7 +50,7 @@ object InnerClasses4 {
     }
   }
 
-  case class Prod(get: BigInt)
+  case class Prod(get: BigInt) derives CanEqual
   object Prod {
     implicit def prodMonoid: Monoid[Prod] = new Monoid[Prod] {
       def empty: Prod = Prod(1)

@@ -41,6 +41,7 @@ trait TreeSanitizer { self =>
       new GhostOverrides(symbols, ctx),
       new SealedClassesChildren(symbols, ctx),
       new SoundEquality(symbols, ctx),
+      new SoundCanEqual(symbols, ctx),
       new SoundInvariants(symbols, ctx),
       new AbstractValsOverride(symbols, ctx),
     )
@@ -318,6 +319,54 @@ trait TreeSanitizer { self =>
 
         case _ => super.traverse(e, ctx)
       }
+    }
+  }
+
+  /** Check that a class deriving `CanEqual` cannot hold a value of type `Any`.
+    *
+    * On the JVM, `==` on values of type `Any` compares boxed numbers by value across numeric types, which
+    * the encoding does not model, so `CanEqual` instances must not exist for types reaching `Any`. The
+    * Scala typer refuses to derive an instance for a type argument that has none, but it derives one for
+    * a class whatever the types of its fields: this check completes it.
+    */
+  private class SoundCanEqual(syms: Symbols, ctx: inox.Context) extends Sanitizer(syms, ctx) {
+    import symbols.given
+
+    override def sanitize(): Seq[MalformedStainlessCode] = for {
+      cd <- symbols.classes.values.toSeq.sortBy(_.getPos)
+      if cd.flags contains DerivesCanEqual
+      where <- anyReachedFrom(ClassType(cd.id, cd.typeArgs))
+    } yield MalformedStainlessCode(cd,
+      s"`${cd.id.name}` cannot derive `CanEqual`: $where may be of type `Any`, and equality on `Any` is not supported")
+
+    /** Where structural equality on values of type `tpe` reaches a value of type `Any` (or of an
+      * abstract type, which may be defined as `Any`), through the fields of the classes it mentions and
+      * of their descendants, tuple components and collection elements. */
+    private def anyReachedFrom(tpe: Type): Option[String] = {
+      val seen = scala.collection.mutable.Set.empty[Type]
+      def rec(tpe: Type, where: String): Option[String] = if (!seen.add(tpe)) None else tpe match {
+        case AnyType() => Some(where)
+        case ct: ClassType =>
+          ct.lookupClass.toSeq.flatMap(tcd => tcd +: tcd.descendants).view.flatMap { tcd =>
+            tcd.fields.view.flatMap(vd => rec(vd.tpe, s"the field `${vd.id.name}` of `${tcd.toType.asString}`"))
+          }.headOption
+        case TupleType(tps) =>
+          tps.zipWithIndex.view.flatMap { case (tp, i) => rec(tp, s"the component ${i + 1} of `${tpe.asString}`") }.headOption
+        case SetType(base) => rec(base, s"the elements of `${tpe.asString}`")
+        case BagType(base) => rec(base, s"the elements of `${tpe.asString}`")
+        case ArrayType(base) => rec(base, s"the elements of `${tpe.asString}`")
+        case MapType(from, to) =>
+          rec(from, s"the keys of `${tpe.asString}`") orElse rec(to, s"the values of `${tpe.asString}`")
+        case MutableMapType(from, to) =>
+          rec(from, s"the keys of `${tpe.asString}`") orElse rec(to, s"the values of `${tpe.asString}`")
+        case RefinementType(vd, _) => rec(vd.tpe, where)
+        case ta: TypeApply =>
+          // `lookupTypeDef` fails on some path-dependent selections, which are then treated as abstract
+          val concrete = scala.util.Try(ta.lookupTypeDef).toOption.flatten.exists(!_.isAbstract)
+          if (concrete) rec(ta.resolve, where) else Some(where)
+        case _ => None
+      }
+      rec(tpe, "a value of this type")
     }
   }
 

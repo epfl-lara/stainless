@@ -4,7 +4,7 @@ import stainless.annotation._
 import stainless.lang._
 
 @library
-abstract class Eq[A] {
+abstract class Eq[A](using CanEqual[A, A]) {
     def eq(x: A, y: A): Boolean
 
     @law

@@ -127,7 +127,9 @@ lazy val stainlessLibSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
     "-deprecation",
     "-unchecked",
     "-feature",
-    "-language:experimental.qualifiedTypes"
+    "-language:experimental.qualifiedTypes",
+    // Stainless programs are compiled with strict equality (see DottyCompiler), and so is the library
+    "-language:strictEquality"
   ),
 
   // disable documentation packaging in Universal/stage to speedup development

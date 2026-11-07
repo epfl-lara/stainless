@@ -6,21 +6,21 @@ import stainless.lang.StaticChecks._
 import stainless.proof.check
 
 object CellArrayMergeSortExample {
-  def listToSet[T](l: List[T]): Set[T] =
+  def listToSet[T](l: List[T])(using CanEqual[T, T]): Set[T] =
     l match {
       case Nil() => Set[T]()
       case Cons(h, t) => listToSet(t) ++ Set(h)
     }
 
-  def lemmaListToSetContains[T](@induct l: List[T], x: T): Boolean = {
+  def lemmaListToSetContains[T](@induct l: List[T], x: T)(using CanEqual[T, T]): Boolean = {
     l.contains(x) == listToSet(l).contains(x)
   }.holds
 
-  def lemmaListTakeAll[T](@induct l: List[T]): Boolean = {
+  def lemmaListTakeAll[T](@induct l: List[T])(using CanEqual[T, T]): Boolean = {
     l.take(l.size) == l
   }.holds
 
-  def lemmaListTakeEquals1[T](l1: List[T], l2: List[T], i: BigInt): Boolean = {
+  def lemmaListTakeEquals1[T](l1: List[T], l2: List[T], i: BigInt)(using CanEqual[T, T]): Boolean = {
     require(
       i >= 0 && i < l1.size && l1.size == l2.size &&
       l1.take(i) == l2.take(i) && l1(i) == l2(i)
@@ -30,7 +30,7 @@ object CellArrayMergeSortExample {
     l1.take(i + 1) == l2.take(i + 1)
   }.holds
 
-  def lemmaListUpdatedInvPrefix[T](l: List[T], i: BigInt, v: T): Boolean = {
+  def lemmaListUpdatedInvPrefix[T](l: List[T], i: BigInt, v: T)(using CanEqual[T, T]): Boolean = {
     require(0 <= i && i < l.size)
     if (i > 0)
       lemmaListUpdatedInvPrefix(l.tail, i - 1, v)
@@ -38,7 +38,7 @@ object CellArrayMergeSortExample {
   }.holds
 
 
-  final case class IntCell(var value: Int) extends AnyHeapRef
+  final case class IntCell(var value: Int) extends AnyHeapRef derives CanEqual
 
   final case class IntArray(content: List[IntCell]) {
     def validIndex(i: BigInt): Boolean =

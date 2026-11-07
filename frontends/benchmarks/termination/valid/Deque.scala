@@ -11,8 +11,11 @@ import math._
  * Here, both front and rear streams are scheduled.
  */
 object RealTimeDeque {
-  sealed abstract class Stream[T] {
-    def isEmpty: Boolean = this == SNil[T]()
+  sealed abstract class Stream[T] derives CanEqual {
+    def isEmpty: Boolean = this match {
+      case SNil() => true
+      case _ => false
+    }
     def isCons: Boolean = !isEmpty
 
     lazy val stail: Stream[T] = {
@@ -105,7 +108,7 @@ object RealTimeDeque {
 
  }.ensuring(res => res.finite && res.size == r.size + f.size + a.size)
 
-  def rotateDrop[T](r: Stream[T], i: BigInt, f: Stream[T]): Stream[T] = {
+  def rotateDrop[T](r: Stream[T], i: BigInt, f: Stream[T])(using CanEqual[T, T]): Stream[T] = {
     require(f.finite && r.finite && i >= 0 && {
       val lenf = f.size
       val lenr = r.size
@@ -139,7 +142,7 @@ object RealTimeDeque {
    * A function that takes streams where the size of front and rear streams violate
    * the balance invariant, and restores the balance.
    */
-  def createQueue[T](f: Stream[T], sf: Stream[T], r: Stream[T], sr: Stream[T]): Queue[T] = {
+  def createQueue[T](f: Stream[T], sf: Stream[T], r: Stream[T], sr: Stream[T])(using CanEqual[T, T]): Queue[T] = {
     require {
       val lenf = f.size
       val lenr = r.size
@@ -200,7 +203,7 @@ object RealTimeDeque {
   /**
    * Adding an element to the front of the list
    */
-  def cons[T](x: T, q: Queue[T]): Queue[T] = {
+  def cons[T](x: T, q: Queue[T])(using CanEqual[T, T]): Queue[T] = {
     require(q.valid)
     // force the front and rear scheds once
     val nsf = force(q.sf)
@@ -211,7 +214,7 @@ object RealTimeDeque {
   /**
    * Removing the element at the front, and returning the tail
    */
-  def tail[T](q: Queue[T]): Queue[T] = {
+  def tail[T](q: Queue[T])(using CanEqual[T, T]): Queue[T] = {
     require(!q.isEmpty && q.valid)
     force(q.f) match { // the match construct guards against optimizing this away
       case _ =>
@@ -234,7 +237,7 @@ object RealTimeDeque {
     Queue(q.r, q.sr, q.f, q.sf)
  }.ensuring(_ => q.valid)
 
-  def snoc[T](x: T, q: Queue[T]): Queue[T] = {
+  def snoc[T](x: T, q: Queue[T])(using CanEqual[T, T]): Queue[T] = {
     require(q.valid)
     reverse(cons(x, reverse(q)))
   }

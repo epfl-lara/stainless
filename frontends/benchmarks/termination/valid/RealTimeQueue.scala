@@ -10,8 +10,11 @@ import collection._
  */
 object RealTimeQueue {
 
-  sealed abstract class Stream[T] {
-    def isEmpty: Boolean = this == SNil[T]()
+  sealed abstract class Stream[T] derives CanEqual {
+    def isEmpty: Boolean = this match {
+      case SNil() => true
+      case _ => false
+    }
     def isCons: Boolean = !isEmpty
 
     lazy val tail: Stream[T] = {
@@ -39,7 +42,7 @@ object RealTimeQueue {
   }
 
   case class Queue[T](f: Stream[T], r: List[T], s: Stream[T]) {
-    def isEmpty = f.isEmpty
+    def isEmpty(using CanEqual[T, T]) = f.isEmpty
   }
 
   def createQ[T](f: Stream[T], r: List[T], s: Stream[T]) = {
@@ -56,7 +59,7 @@ object RealTimeQueue {
     Queue(a, Nil(), a)
   }
 
-  def head[T](q: Queue[T]): T = {
+  def head[T](q: Queue[T])(using CanEqual[T, T]): T = {
     require(!q.isEmpty)
     q.f match {
       case SCons(x, _) => x
@@ -67,7 +70,7 @@ object RealTimeQueue {
     createQ(q.f, Cons(x, q.r), q.s)
   }
 
-  def dequeue[T](q: Queue[T]): Queue[T] = {
+  def dequeue[T](q: Queue[T])(using CanEqual[T, T]): Queue[T] = {
     require(!q.isEmpty)
     q.f match {
       case c@SCons(x, _) =>

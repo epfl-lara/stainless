@@ -9,7 +9,7 @@ object ExternFallbackMut {
   case class Wrapper(
     @extern
     stuff: ANewHope
-  ) {
+  ) derives CanEqual {
 
     @extern
     def doStuff(): Unit = {

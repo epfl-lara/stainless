@@ -11,7 +11,7 @@ import StaticChecks._
 @library
 object ListOps {
   @isabelle.function(term = "List.concat")
-  def flatten[T](ls: List[List[T]]): List[T] = ls match {
+  def flatten[T](ls: List[List[T]])(using CanEqual[T, T]): List[T] = ls match {
     case Cons(h, t) => h ++ flatten(t)
     case Nil() => Nil()
   }
@@ -45,7 +45,7 @@ object ListOps {
   def sum(l: List[BigInt]): BigInt = l.foldLeft(BigInt(0))(_ + _)
 
   @tailrec
-  def noDuplicate[T](l: List[T]): Boolean = l match {
+  def noDuplicate[T](l: List[T])(using CanEqual[T, T]): Boolean = l match {
     case Nil() => true
     case Cons(h, t) => !t.contains(h) && noDuplicate(t)
   }
@@ -61,7 +61,7 @@ object ListOps {
 
   @library
   implicit class FlattenableListOps[A](l: List[List[A]]) {
-    def flatten: List[A] = ListOps.flatten(l)
+    def flatten(using CanEqual[A, A]): List[A] = ListOps.flatten(l)
   }
 
 }

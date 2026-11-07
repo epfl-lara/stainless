@@ -9,7 +9,7 @@ object MutableValInObject {
 
   val c = Counter(0)
 
-  case class A(x: BigInt) {
+  case class A(x: BigInt) derives CanEqual {
     def y: BigInt = c.next()
   }
 

@@ -8,23 +8,23 @@ import stainless.proof.check
 object TreeImmutMapGenericExample {
   // Parallel tree map
 
-  def lemmaMapConcat[T, R](xs: List[T], ys: List[T], f: T => R): Unit = {
+  def lemmaMapConcat[T, R](xs: List[T], ys: List[T], f: T => R)(using CanEqual[R, R], CanEqual[T, T]): Unit = {
     xs match {
       case Nil() =>
       case Cons(_, xs) => lemmaMapConcat(xs, ys, f)
     }
  }.ensuring(_ => xs.map(f) ++ ys.map(f) == (xs ++ ys).map(f))
 
-  case class Cell[T](var value: T) extends AnyHeapRef
+  case class Cell[T](var value: T) extends AnyHeapRef derives CanEqual
 
   sealed abstract class Tree[T] {
-    @ghostAnnot def repr: Set[Cell[T]] =
+    @ghostAnnot def repr(using CanEqual[T, T]): Set[Cell[T]] =
       this match {
         case Leaf(data) => Set[Cell[T]](data)
         case Branch(left, right) => left.repr ++ right.repr
       }
 
-    @ghostAnnot def valid: Boolean =
+    @ghostAnnot def valid(using CanEqual[T, T]): Boolean =
       this match {
         case Leaf(data) => true
         case Branch(left, right) =>
@@ -32,7 +32,7 @@ object TreeImmutMapGenericExample {
           left.valid && right.valid
       }
 
-    def toList: List[T] = {
+    def toList(using CanEqual[T, T]): List[T] = {
       reads(repr.asRefs)
       this match {
         case Leaf(data) => List(data.value)
@@ -40,7 +40,7 @@ object TreeImmutMapGenericExample {
       }
     }
 
-    def map(f: T => T): Unit = {
+    def map(f: T => T)(using CanEqual[T, T]): Unit = {
       reads(repr.asRefs)
       modifies(repr.asRefs)
       require(valid)

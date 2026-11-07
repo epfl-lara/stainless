@@ -8,7 +8,7 @@ import stainless.lang.StaticChecks._
 object ArraySimpleExample {
   final case class SArray[T](var list: List[T]) extends AnyHeapRef
   {
-    def fill(n: BigInt)(default: T): Unit = {
+    def fill(n: BigInt)(default: T)(using CanEqual[T, T]): Unit = {
       // should become a constructor eventually instead of a method
       reads(Set(this))
       require(0 <= n)
@@ -16,13 +16,13 @@ object ArraySimpleExample {
       list = List.fill(n)(default)
     }
 
-    def apply(i: BigInt): T = {
+    def apply(i: BigInt)(using CanEqual[T, T]): T = {
       reads(Set(this))
       require(0 <= i && i < list.size)
       list(i)
     }
 
-    def update(i: BigInt, v: T): Unit = {
+    def update(i: BigInt, v: T)(using CanEqual[T, T]): Unit = {
       reads(Set(this))
       require(0 <= i && i < list.size)
       modifies(Set(this))

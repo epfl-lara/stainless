@@ -5,7 +5,7 @@ import stainless.lang.StaticChecks
 
 object TreeSanitizerTest {
 
-  abstract class NonSealed {
+  abstract class NonSealed derives CanEqual {
     def bar: BigInt
   }
 
@@ -25,7 +25,7 @@ object TreeSanitizerTest {
     assert(foo(1) != foo(2))
   }
 
-  sealed abstract class Sealed {
+  sealed abstract class Sealed derives CanEqual {
     def bar: BigInt
   }
 
@@ -98,7 +98,7 @@ object TreeSanitizerTest {
     iamALambdaA == iamALambdaB // bad
   }
 
-  def oops8[A](optA: Option[A], optB: Option[A]) = {
+  def oops8[A](optA: Option[A], optB: Option[A])(using CanEqual[A, A]) = {
     optA == optB // bad when PEDANTIC is on
   }
 }

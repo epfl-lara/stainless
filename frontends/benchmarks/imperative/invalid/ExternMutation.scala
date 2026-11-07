@@ -3,8 +3,8 @@ import stainless.annotation._
 import StaticChecks._
 
 object ExternMutation {
-  case class Box(var value: BigInt)
-  case class Container[@mutable T](t: T)
+  case class Box(var value: BigInt) derives CanEqual
+  case class Container[@mutable T](t: T) derives CanEqual
 
   @extern
   def f2(b: Container[Box]): Unit = ???

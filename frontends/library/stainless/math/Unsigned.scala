@@ -48,6 +48,16 @@ import stainless.annotation.*
 @ignore
 object Unsigned:
 
+  // Values of an opaque type are only comparable with `==` through an explicit instance
+
+  given CanEqual[UByte, UByte] = CanEqual.derived
+
+  given CanEqual[UShort, UShort] = CanEqual.derived
+
+  given CanEqual[UInt, UInt] = CanEqual.derived
+
+  given CanEqual[ULong, ULong] = CanEqual.derived
+
   opaque type UByte = Byte
   opaque type UShort = Short
   opaque type UInt = Int

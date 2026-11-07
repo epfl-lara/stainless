@@ -3,7 +3,7 @@ import stainless.annotation._
 import StaticChecks._
 
 object UnfoldOpaqueMutate {
-  case class Box(var cnt: BigInt)
+  case class Box(var cnt: BigInt) derives CanEqual
 
   case class WrappedBox(var box: Box) {
     @opaque

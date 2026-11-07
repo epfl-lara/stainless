@@ -11,9 +11,9 @@ object BadConcRope {
   def max(x: BigInt, y: BigInt): BigInt = if (x >= y) x else y
   def abs(x: BigInt): BigInt = if (x < 0) -x else x
 
-  sealed abstract class Conc[T] {
+  sealed abstract class Conc[T] derives CanEqual {
 
-    def isEmpty: Boolean = {
+    def isEmpty(using CanEqual[T, T]): Boolean = {
       this == Empty[T]()
     }
 
@@ -30,7 +30,7 @@ object BadConcRope {
       case _ => true
     }
 
-    def valid: Boolean = {
+    def valid(using CanEqual[T, T]): Boolean = {
       concInv && balanced && appendInv
     }
 
@@ -38,7 +38,7 @@ object BadConcRope {
      * (a) left and right trees of conc node should be non-empty
      * (b) they cannot be append nodes
      */
-    def concInv: Boolean = this match {
+    def concInv(using CanEqual[T, T]): Boolean = this match {
       case CC(l, r) =>
         !l.isEmpty && !r.isEmpty &&
           l.isNormalized && r.isNormalized &&
@@ -61,7 +61,7 @@ object BadConcRope {
      * 		a.right.level < b.right.level
      * (c) left and right are not empty
      */
-    def appendInv: Boolean = this match {
+    def appendInv(using CanEqual[T, T]): Boolean = this match {
       case Append(l, r) =>
         !l.isEmpty && !r.isEmpty &&
           l.valid && r.valid &&
@@ -97,7 +97,7 @@ object BadConcRope {
       }): BigInt
    }.ensuring(_ >= 0)
 
-    def toList: List[T] = {
+    def toList(using CanEqual[T, T]): List[T] = {
       this match {
         case Empty() => Nil[T]()
         case Single(x) => Cons(x, Nil[T]())
@@ -114,7 +114,7 @@ object BadConcRope {
   case class CC[T](left: Conc[T], right: Conc[T]) extends Conc[T]
   case class Append[T](left: Conc[T], right: Conc[T]) extends Conc[T]
 
-  def lookup[T](xs: Conc[T], i: BigInt): T = {
+  def lookup[T](xs: Conc[T], i: BigInt)(using CanEqual[T, T]): T = {
     require(xs.valid && !xs.isEmpty && i >= 0 && i < xs.size)
     xs match {
       case Single(x) => x
@@ -129,7 +129,7 @@ object BadConcRope {
     res == xs.toList(i)) // correctness
 
 
-  def instAppendIndexAxiom[T](xs: Conc[T], i: BigInt): Boolean = {
+  def instAppendIndexAxiom[T](xs: Conc[T], i: BigInt)(using CanEqual[T, T]): Boolean = {
     require(0 <= i && i < xs.size)
     xs match {
       case CC(l, r) =>
@@ -140,7 +140,7 @@ object BadConcRope {
     }
   }.holds
 
-  def update[T](xs: Conc[T], i: BigInt, y: T): Conc[T] = {
+  def update[T](xs: Conc[T], i: BigInt, y: T)(using CanEqual[T, T]): Conc[T] = {
     require(xs.valid && !xs.isEmpty && i >= 0 && i < xs.size)
     xs match {
       case Single(x) => Single(y)
@@ -156,7 +156,7 @@ object BadConcRope {
     res.toList == xs.toList.updated(i, y) && // correctness
     numTrees(res) == numTrees(xs)) //auxiliary property that preserves the potential function
 
-  def instAppendUpdateAxiom[T](xs: Conc[T], i: BigInt, y: T): Boolean = {
+  def instAppendUpdateAxiom[T](xs: Conc[T], i: BigInt, y: T)(using CanEqual[T, T]): Boolean = {
     require(i >= 0 && i < xs.size)
     xs match {
       case CC(l, r) =>
@@ -170,7 +170,7 @@ object BadConcRope {
   /**
    * A generic concat that applies to general concTrees
    */
-  def concat[T](xs: Conc[T], ys: Conc[T]): Conc[T] = {
+  def concat[T](xs: Conc[T], ys: Conc[T])(using CanEqual[T, T]): Conc[T] = {
     require(xs.valid && ys.valid)
     concatNormalized(normalize(xs), normalize(ys))
   }
@@ -179,7 +179,7 @@ object BadConcRope {
    * This concat applies only to normalized trees.
    * This prevents concat from being recursive
    */
-  def concatNormalized[T](xs: Conc[T], ys: Conc[T]): Conc[T] = {
+  def concatNormalized[T](xs: Conc[T], ys: Conc[T])(using CanEqual[T, T]): Conc[T] = {
     require(xs.valid && ys.valid &&
       xs.isNormalized && ys.isNormalized)
     (xs, ys) match {
@@ -195,7 +195,7 @@ object BadConcRope {
     res.isNormalized //auxiliary properties
     )
 
-  def concatNonEmpty[T](xs: Conc[T], ys: Conc[T]): Conc[T] = {
+  def concatNonEmpty[T](xs: Conc[T], ys: Conc[T])(using CanEqual[T, T]): Conc[T] = {
     require(xs.valid && ys.valid &&
       xs.isNormalized && ys.isNormalized &&
       !xs.isEmpty && !ys.isEmpty)
@@ -250,7 +250,7 @@ object BadConcRope {
     )
 
 
-  def appendAssocInst[T](xs: Conc[T], ys: Conc[T]): Boolean = {
+  def appendAssocInst[T](xs: Conc[T], ys: Conc[T])(using CanEqual[T, T]): Boolean = {
     (xs match {
       case CC(l, r) =>
         appendAssoc(l.toList, r.toList, ys.toList) && //instantiation of associativity of concatenation
@@ -276,7 +276,7 @@ object BadConcRope {
   }.holds
 
 
-  def insert[T](xs: Conc[T], i: BigInt, y: T): Conc[T] = {
+  def insert[T](xs: Conc[T], i: BigInt, y: T)(using CanEqual[T, T]): Conc[T] = {
     require(xs.valid && i >= 0 && i <= xs.size &&
       xs.isNormalized) //note the precondition
     xs match {
@@ -314,7 +314,7 @@ object BadConcRope {
   }
 
   // A lemma about `append` and `insertAtIndex`
-  def appendInsertIndex[T](l1: List[T], l2: List[T], i: BigInt, y: T): Boolean = {
+  def appendInsertIndex[T](l1: List[T], l2: List[T], i: BigInt, y: T)(using CanEqual[T, T]): Boolean = {
     require(0 <= i && i <= l1.size + l2.size)
     (l1 match {
       case Nil() => true
@@ -326,7 +326,7 @@ object BadConcRope {
         else l1 ++ insertAtIndex(l2, (i - l1.size), y)))
   }.holds
 
-  def insertAppendAxiomInst[T](xs: Conc[T], i: BigInt, y: T): Boolean = {
+  def insertAppendAxiomInst[T](xs: Conc[T], i: BigInt, y: T)(using CanEqual[T, T]): Boolean = {
     require(i >= 0 && i <= xs.size)
     xs match {
       case CC(l, r) => appendInsertIndex(l.toList, r.toList, i, y)
@@ -334,7 +334,7 @@ object BadConcRope {
     }
   }.holds
 
-  def split[T](xs: Conc[T], n: BigInt): (Conc[T], Conc[T]) = {
+  def split[T](xs: Conc[T], n: BigInt)(using CanEqual[T, T]): (Conc[T], Conc[T]) = {
     require(xs.valid && xs.isNormalized)
     xs match {
       case Empty() =>
@@ -363,7 +363,7 @@ object BadConcRope {
     res._1.toList == xs.toList.take(n) && res._2.toList == xs.toList.drop(n) // correctness
     )
 
-  def instSplitAxiom[T](xs: Conc[T], n: BigInt): Boolean = {
+  def instSplitAxiom[T](xs: Conc[T], n: BigInt)(using CanEqual[T, T]): Boolean = {
     xs match {
       case CC(l, r) =>
         appendTakeDrop(l.toList, r.toList, n)
@@ -371,7 +371,7 @@ object BadConcRope {
     }
   }.holds
 
-  def append[T](xs: Conc[T], x: T): Conc[T] = {
+  def append[T](xs: Conc[T], x: T)(using CanEqual[T, T]): Conc[T] = {
     require(xs.valid)
     val ys = Single[T](x)
     xs match {
@@ -391,7 +391,7 @@ object BadConcRope {
    * This is a private method and is not exposed to the
    * clients of conc trees
    */
-  def appendPriv[T](xs: Append[T], ys: Conc[T]): Conc[T]  = {
+  def appendPriv[T](xs: Append[T], ys: Conc[T])(using CanEqual[T, T]): Conc[T]  = {
     require(xs.valid && ys.valid &&
       !ys.isEmpty && ys.isNormalized &&
       xs.right.level >= ys.level)
@@ -413,7 +413,7 @@ object BadConcRope {
     res.toList == xs.toList ++ ys.toList && //correctness invariants
     res.level <= xs.level + 1 )
 
-  def appendAssocInst2[T](xs: Conc[T], ys: Conc[T]): Boolean = {
+  def appendAssocInst2[T](xs: Conc[T], ys: Conc[T])(using CanEqual[T, T]): Boolean = {
     xs match {
       case CC(l, r) =>
         appendAssoc(l.toList, r.toList, ys.toList)
@@ -430,7 +430,7 @@ object BadConcRope {
     }
  }.ensuring(res => res >= 0)
 
-  def normalize[T](t: Conc[T]): Conc[T] = {
+  def normalize[T](t: Conc[T])(using CanEqual[T, T]): Conc[T] = {
     require(t.valid)
     t match {
       case Append(l @ Append(_, _), r) =>
@@ -445,7 +445,7 @@ object BadConcRope {
     res.size == t.size && res.level <= t.level //normalize preserves level and size
     )
 
-  def wrap[T](xs: Append[T], ys: Conc[T]): Conc[T] = {
+  def wrap[T](xs: Append[T], ys: Conc[T])(using CanEqual[T, T]): Conc[T] = {
     require(xs.valid && ys.valid && ys.isNormalized &&
       xs.right.level >= ys.level)
     val nr  = concatNormalized(xs.right, ys)

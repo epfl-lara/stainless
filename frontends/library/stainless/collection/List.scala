@@ -11,7 +11,7 @@ import stainless.annotation._
 
 @library
 @isabelle.typ(name = "List.list")
-sealed abstract class List[T] {
+sealed abstract class List[T] derives CanEqual {
 
   @isabelle.function(term = "Int.int o List.length")
   def size: BigInt = (this match {
@@ -31,19 +31,19 @@ sealed abstract class List[T] {
   }).ensuring(res => 0 <= res && res <= Int.MaxValue)
 
   @isabelle.function(term = "List.list.set")
-  def content: Set[T] = this match {
+  def content(using CanEqual[T, T]): Set[T] = this match {
     case Nil() => Set()
     case Cons(h, t) => Set(h) ++ t.content
   }
 
   @isabelle.function(term = "List.member")
-  def contains(v: T): Boolean = (this match {
+  def contains(v: T)(using CanEqual[T, T]): Boolean = (this match {
     case Cons(h, t) => h == v || t.contains(v)
     case Nil() => false
   }).ensuring { _ == (content.contains(v)) }
 
   @isabelle.function(term = "List.append")
-  def ++(that: List[T]): List[T] = (this match {
+  def ++(that: List[T])(using CanEqual[T, T]): List[T] = (this match {
     case Nil() => that
     case Cons(x, xs) => Cons(x, xs ++ that)
   }).ensuring { res =>
@@ -53,19 +53,19 @@ sealed abstract class List[T] {
   }
 
   def head: T = {
-    require(this != Nil[T]())
+    require(nonEmpty)
     val Cons(h, _) = this: @unchecked // Be quiet!
     h
   }
 
   def tail: List[T] = {
-    require(this != Nil[T]())
+    require(nonEmpty)
     val Cons(_, t) = this: @unchecked
     t
   }
 
   @isabelle.fullBody
-  def apply(index: BigInt): T = {
+  def apply(index: BigInt)(using CanEqual[T, T]): T = {
     require(0 <= index && index < size)
     decreases(index)
     if (index == BigInt(0)) {
@@ -75,7 +75,7 @@ sealed abstract class List[T] {
     }
  }.ensuring(contains)
 
-  def iapply(index: Int): T = {
+  def iapply(index: Int)(using CanEqual[T, T]): T = {
     require(0 <= index && index < isize)
     decreases(index)
     if (index == 0) {
@@ -89,7 +89,7 @@ sealed abstract class List[T] {
   def ::(t:T): List[T] = Cons(t, this)
 
   @isabelle.function(term = "%xs x. xs @ [x]")
-  def :+(t:T): List[T] = {
+  def :+(t:T)(using CanEqual[T, T]): List[T] = {
     this match {
       case Nil() => Cons(t, this)
       case Cons(x, xs) => Cons(x, xs :+ (t))
@@ -97,14 +97,14 @@ sealed abstract class List[T] {
  }.ensuring(res => (res.size == size + 1) && (if (isize < Int.MaxValue) res.isize == isize + 1 else res.isize == isize) && (res.content == content ++ Set(t)) && res == this ++ Cons(t, Nil[T]()))
 
   @isabelle.function(term = "List.rev")
-  def reverse: List[T] = {
+  def reverse(using CanEqual[T, T]): List[T] = {
     this match {
       case Nil() => this
       case Cons(x,xs) => xs.reverse :+ x
     }
  }.ensuring(res => (res.size == size) && (res.isize == isize) && (res.content == content))
 
-  def take(i: BigInt): List[T] = { 
+  def take(i: BigInt)(using CanEqual[T, T]): List[T] = { 
     decreases(this.length)
     (this, i) match {
       case (Nil(), _) => Nil[T]()
@@ -123,7 +123,7 @@ sealed abstract class List[T] {
     ))
   }
 
-  def itake(i: Int): List[T] = {
+  def itake(i: Int)(using CanEqual[T, T]): List[T] = {
     require(0 <= i)
     (this, i) match {
       case (Nil(), _) => Nil[T]()
@@ -142,7 +142,7 @@ sealed abstract class List[T] {
      ))
   }
 
-  def drop(i: BigInt): List[T] = { 
+  def drop(i: BigInt)(using CanEqual[T, T]): List[T] = { 
     decreases(this.length)
     (this, i) match {
       case (Nil(), _) => Nil[T]()
@@ -160,7 +160,7 @@ sealed abstract class List[T] {
     ))
   }
 
-  def idrop(i: Int): List[T] = {
+  def idrop(i: Int)(using CanEqual[T, T]): List[T] = {
     require(0 <= i)
     decreases(i)
     (this, i) match {
@@ -176,12 +176,12 @@ sealed abstract class List[T] {
     res.content.subsetOf(this.content)
   }
 
-  def slice(from: BigInt, to: BigInt): List[T] = {
+  def slice(from: BigInt, to: BigInt)(using CanEqual[T, T]): List[T] = {
     require(0 <= from && from <= to && to <= size)
     drop(from).take(to-from)
   }
 
-  def islice(from: Int, to: Int): List[T] = {
+  def islice(from: Int, to: Int)(using CanEqual[T, T]): List[T] = {
     require(0 <= from && from <= to && to <= isize)
     decreases(to)
     // idrop(from).itake(to-from)
@@ -201,7 +201,7 @@ sealed abstract class List[T] {
     res.content.subsetOf(content) && res.isize == to - from
   }
 
-  def replace(from: T, to: T): List[T] = { 
+  def replace(from: T, to: T)(using CanEqual[T, T]): List[T] = { 
     decreases(this.length)
     this match {
       case Nil() => Nil[T]()
@@ -220,7 +220,7 @@ sealed abstract class List[T] {
     )
   }
 
-  private def chunk0(s: BigInt, l: List[T], acc: List[T], res: List[List[T]], s0: BigInt): List[List[T]] = {
+  private def chunk0(s: BigInt, l: List[T], acc: List[T], res: List[List[T]], s0: BigInt)(using CanEqual[T, T]): List[List[T]] = {
     require(s > 0 && s0 >= 0)
     l match {
       case Nil() =>
@@ -238,7 +238,7 @@ sealed abstract class List[T] {
     }
   }
 
-  def chunks(s: BigInt): List[List[T]] = {
+  def chunks(s: BigInt)(using CanEqual[T, T]): List[List[T]] = {
     require(s > 0)
 
     chunk0(s, this, Nil(), Nil(), s)
@@ -258,7 +258,7 @@ sealed abstract class List[T] {
   )}
 
   @isabelle.function(term = "%xs x. removeAll x xs")
-  def -(e: T): List[T] = { 
+  def -(e: T)(using CanEqual[T, T]): List[T] = { 
     decreases(this.length)
     this match {
       case Cons(h, t) =>
@@ -274,7 +274,7 @@ sealed abstract class List[T] {
     res.content == this.content -- Set(e)
   }
 
-  def --(that: List[T]): List[T] = { 
+  def --(that: List[T])(using CanEqual[T, T]): List[T] = { 
     decreases(this.length)
     this match {
       case Cons(h, t) =>
@@ -290,7 +290,7 @@ sealed abstract class List[T] {
     res.content == this.content -- that.content
   }
 
-  def &(that: List[T]): List[T] = { 
+  def &(that: List[T])(using CanEqual[T, T]): List[T] = { 
     decreases(this.length)
     this match {
       case Cons(h, t) =>
@@ -306,7 +306,7 @@ sealed abstract class List[T] {
     res.content == (this.content & that.content)
   }
 
-  def padTo(s: BigInt, e: T): List[T] = { (this, s) match {
+  def padTo(s: BigInt, e: T)(using CanEqual[T, T]): List[T] = { (this, s) match {
     case (_, s) if s <= 0 =>
       this
     case (Nil(), s) =>
@@ -321,7 +321,7 @@ sealed abstract class List[T] {
       res.content == this.content ++ Set(e)
   }
 
-  def indexOf(elem: T): BigInt = { 
+  def indexOf(elem: T)(using CanEqual[T, T]): BigInt = { 
     decreases(this.length)
     this match {
       case Nil() => BigInt(-1)
@@ -335,7 +335,7 @@ sealed abstract class List[T] {
     res < size
   }
 
-  def init: List[T] = {
+  def init(using CanEqual[T, T]): List[T] = {
     require(!isEmpty)
     decreases(this.length)
     (this : @unchecked) match {
@@ -349,7 +349,7 @@ sealed abstract class List[T] {
     r.content.subsetOf(this.content)
   )
 
-  def last: T = {
+  def last(using CanEqual[T, T]): T = {
     require(!isEmpty)
     decreases(this.length)
     (this : @unchecked) match {
@@ -381,7 +381,7 @@ sealed abstract class List[T] {
       None[List[T]]()
   }}.ensuring { _.isDefined != this.isEmpty }
 
-  def unique: List[T] = {
+  def unique(using CanEqual[T, T]): List[T] = {
     decreases(this.length)
     this match {
       case Nil() => Nil()
@@ -390,9 +390,9 @@ sealed abstract class List[T] {
     }
   }
 
-  def splitAt(e: T): List[List[T]] =  split(Cons(e, Nil()))
+  def splitAt(e: T)(using CanEqual[T, T]): List[List[T]] =  split(Cons(e, Nil()))
 
-  def split(seps: List[T]): List[List[T]] = {
+  def split(seps: List[T])(using CanEqual[T, T]): List[List[T]] = {
     decreases(this.length)
     this match {
       case Cons(h, t) =>
@@ -407,12 +407,12 @@ sealed abstract class List[T] {
     }
   }
 
-  def evenSplit: (List[T], List[T]) = {
+  def evenSplit(using CanEqual[T, T]): (List[T], List[T]) = {
     val c = size/2
     (take(c), drop(c))
   }
 
-  def splitAtIndex(index: BigInt) : (List[T], List[T]) = { 
+  def splitAtIndex(index: BigInt)(using CanEqual[T, T]): (List[T], List[T]) = { 
     decreases(this.length)
     this match {
       case Nil() => (Nil[T](), Nil[T]())
@@ -428,7 +428,7 @@ sealed abstract class List[T] {
     res._1 == take(index) && res._2 == drop(index)
   }
 
-  def updated(i: BigInt, y: T): List[T] = {
+  def updated(i: BigInt, y: T)(using CanEqual[T, T]): List[T] = {
     require(0 <= i && i < this.size)
     decreases(i)
     (this: @unchecked) match {
@@ -439,7 +439,7 @@ sealed abstract class List[T] {
     }
  }.ensuring(res => res.size == this.size && res(i) == y)
 
-  def iupdated(i: Int, y: T): List[T] = {
+  def iupdated(i: Int, y: T)(using CanEqual[T, T]): List[T] = {
     require(0 <= i && i < isize)
     decreases(i)
     (this: @unchecked) match {
@@ -450,7 +450,7 @@ sealed abstract class List[T] {
     }
  }.ensuring(res => res.isize == this.isize && res.iapply(i) == y)
 
-  private def insertAtImpl(pos: BigInt, l: List[T]): List[T] = {
+  private def insertAtImpl(pos: BigInt, l: List[T])(using CanEqual[T, T]): List[T] = {
     require(0 <= pos && pos <= size)
     decreases(pos)
     if(pos == BigInt(0)) {
@@ -468,7 +468,7 @@ sealed abstract class List[T] {
     res.content == this.content ++ l.content
   }
 
-  def insertAt(pos: BigInt, l: List[T]): List[T] = {
+  def insertAt(pos: BigInt, l: List[T])(using CanEqual[T, T]): List[T] = {
     require(-pos <= size && pos <= size)
     if(pos < 0) {
       insertAtImpl(size + pos, l)
@@ -480,7 +480,7 @@ sealed abstract class List[T] {
     res.content == this.content ++ l.content
   }
 
-  def insertAt(pos: BigInt, e: T): List[T] = {
+  def insertAt(pos: BigInt, e: T)(using CanEqual[T, T]): List[T] = {
     require(-pos <= size && pos <= size)
     insertAt(pos, Cons[T](e, Nil()))
  }.ensuring { res =>
@@ -488,7 +488,7 @@ sealed abstract class List[T] {
     res.content == this.content ++ Set(e)
   }
 
-  private def replaceAtImpl(pos: BigInt, l: List[T]): List[T] = {
+  private def replaceAtImpl(pos: BigInt, l: List[T])(using CanEqual[T, T]): List[T] = {
     require(0 <= pos && pos <= size)
     decreases(this.length)
     if (pos == BigInt(0)) {
@@ -505,7 +505,7 @@ sealed abstract class List[T] {
     res.content.subsetOf(l.content ++ this.content)
   }
 
-  def replaceAt(pos: BigInt, l: List[T]): List[T] = {
+  def replaceAt(pos: BigInt, l: List[T])(using CanEqual[T, T]): List[T] = {
     require(-pos <= size && pos <= size)
     if(pos < 0) {
       replaceAtImpl(size + pos, l)
@@ -516,7 +516,7 @@ sealed abstract class List[T] {
     res.content.subsetOf(l.content ++ this.content)
   }
 
-  def rotate(s: BigInt): List[T] = {
+  def rotate(s: BigInt)(using CanEqual[T, T]): List[T] = {
     if (isEmpty) {
       Nil[T]()
     } else {
@@ -578,7 +578,7 @@ sealed abstract class List[T] {
   }}.ensuring { !_.isEmpty }
 
   @isabelle.function(term = "List.bind")
-  def flatMap[R](f: T => List[R]): List[R] = {
+  def flatMap[R](f: T => List[R])(using CanEqual[R, R]): List[R] = {
     decreases(this.length)
     this match {
       case Nil() => Nil()
@@ -586,7 +586,7 @@ sealed abstract class List[T] {
     }
   }
 
-  def filter(p: T => Boolean): List[T] = { 
+  def filter(p: T => Boolean)(using CanEqual[T, T]): List[T] = { 
     decreases(this.length)
     this match {
       case Nil() => Nil[T]()
@@ -598,14 +598,14 @@ sealed abstract class List[T] {
     res.forall(p)
   }
 
-  def filterNot(p: T => Boolean): List[T] =
+  def filterNot(p: T => Boolean)(using CanEqual[T, T]): List[T] =
     filter(!p(_)).ensuring { res =>
       res.size <= this.size &&
       res.content.subsetOf(this.content) &&
       res.forall(!p(_))
     }
 
-  def partition(p: T => Boolean): (List[T], List[T]) = { 
+  def partition(p: T => Boolean)(using CanEqual[T, T]): (List[T], List[T]) = { 
     decreases(this.length)
     this match {
       case Nil() => (Nil[T](), Nil[T]())
@@ -619,7 +619,7 @@ sealed abstract class List[T] {
   }
 
   // In case we implement for-comprehensions
-  def withFilter(p: T => Boolean): List[T] = {
+  def withFilter(p: T => Boolean)(using CanEqual[T, T]): List[T] = {
     filter(p)
  }.ensuring { res =>
     res.size <= this.size &&
@@ -640,7 +640,7 @@ sealed abstract class List[T] {
   def exists(p: T => Boolean) = !forall(!p(_))
 
   @isabelle.function(term = "%xs P. List.find P xs")
-  def find(p: T => Boolean): Option[T] = { 
+  def find(p: T => Boolean)(using CanEqual[T, T]): Option[T] = { 
     decreases(this.length)
     this match {
       case Nil() => None[T]()
@@ -650,7 +650,7 @@ sealed abstract class List[T] {
     case None() => true
   }}
 
-  def groupBy[R](f: T => R): Map[R, List[T]] = {
+  def groupBy[R](f: T => R)(using CanEqual[R, R]): Map[R, List[T]] = {
     decreases(this.length)
     this match {
       case Nil() => Map.empty[R, List[T]]
@@ -662,7 +662,7 @@ sealed abstract class List[T] {
     }
   }
 
-  def takeWhile(p: T => Boolean): List[T] = { 
+  def takeWhile(p: T => Boolean)(using CanEqual[T, T]): List[T] = { 
     decreases(this.length)
     this match {
       case Cons(h,t) if p(h) => Cons(h, t.takeWhile(p))
@@ -673,7 +673,7 @@ sealed abstract class List[T] {
     (res.content.subsetOf(this.content))
   }
 
-  def dropWhile(p: T => Boolean): List[T] = { 
+  def dropWhile(p: T => Boolean)(using CanEqual[T, T]): List[T] = { 
     decreases(this.length)
     this match {
       case Cons(h,t) if p(h) => t.dropWhile(p)
@@ -684,7 +684,7 @@ sealed abstract class List[T] {
     (res.isEmpty || !p(res.head))
   }
 
-  def count(p: T => Boolean): BigInt = { 
+  def count(p: T => Boolean)(using CanEqual[T, T]): BigInt = { 
     decreases(this.length)
     this match {
       case Nil() => BigInt(0)
@@ -709,7 +709,7 @@ sealed abstract class List[T] {
 
   // Translation to other collections
 
-  def toSet: Set[T] = foldLeft(Set[T]()){
+  def toSet(using CanEqual[T, T]): Set[T] = foldLeft(Set[T]()){
     case (current, next) => current ++ Set(next)
   }
 
@@ -728,11 +728,7 @@ case class Nil[T]() extends List[T]
 object List {
   @ignore
   def apply[T](elems: T*): List[T] = {
-    var l: List[T] = Nil[T]()
-    for (e <- elems) {
-      l = Cons(e, l)
-    }
-    l.reverse
+    elems.foldRight(Nil[T](): List[T])(_ :: _)
   }
 
   @library
@@ -744,7 +740,7 @@ object List {
   }
 
   @library
-  def fill[T](n: BigInt)(x: T) : List[T] = {
+  def fill[T](n: BigInt)(x: T)(using CanEqual[T, T]): List[T] = {
     decreases(if (n <= BigInt(0)) BigInt(0) else n)
     if (n <= 0) Nil[T]()
     else Cons[T](x, fill[T](n-1)(x))
@@ -752,7 +748,7 @@ object List {
                     res.size == (if (n <= BigInt(0)) BigInt(0) else n))
 
   @library
-  def ifill[T](n: Int)(x: T) : List[T] = {
+  def ifill[T](n: Int)(x: T)(using CanEqual[T, T]): List[T] = {
     decreases(if (n <= 0) 0 else n)
     if (n <= 0) Nil[T]()
     else Cons[T](x, ifill[T](n - 1)(x))

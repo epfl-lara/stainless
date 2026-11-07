@@ -25,7 +25,7 @@ object ListMapLemmas {
   @opaque
   @inlineOnce
   @ghost
-  def lemmaForallPairsThenForLookup[K, B](map: ListMap[K, B], k: K, p: ((K, B)) => Boolean): Unit = {
+  def lemmaForallPairsThenForLookup[K, B](map: ListMap[K, B], k: K, p: ((K, B)) => Boolean)(using CanEqual[B, B], CanEqual[K, K]): Unit = {
     require(TupleListOpsGenK.invariantList(map.toList))
     require(map.forall(p))
     require(map.contains(k))
@@ -50,7 +50,7 @@ object ListMapLemmas {
   @opaque
   @inlineOnce
   @ghost
-  def lemmaUpdatePreservesForallPairs[K, B](map: ListMap[K, B], k: K, v: B, p: ((K, B)) => Boolean): Unit = {
+  def lemmaUpdatePreservesForallPairs[K, B](map: ListMap[K, B], k: K, v: B, p: ((K, B)) => Boolean)(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(TupleListOpsGenK.invariantList(map.toList))
     require(map.forall(p))
     require(p((k, v)))
@@ -70,7 +70,7 @@ object ListMapLemmas {
   @opaque
   @inlineOnce
   @ghost
-  def lemmaRemovePreservesForallPairs[K, B](map: ListMap[K, B], k: K, p: ((K, B)) => Boolean): Unit = {
+  def lemmaRemovePreservesForallPairs[K, B](map: ListMap[K, B], k: K, p: ((K, B)) => Boolean)(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(TupleListOpsGenK.invariantList(map.toList))
     require(map.forall(p))
 
@@ -81,7 +81,7 @@ object ListMapLemmas {
 
   @opaque
   @inlineOnce
-  def removeNotPresentStillSame[K, B](lm: ListMap[K, B], a: K): Unit = {
+  def removeNotPresentStillSame[K, B](lm: ListMap[K, B], a: K)(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(!lm.contains(a))
     TupleListOpsGenK.lemmaRemovePresrvNoDuplicatedKeysNotPresentPreserves(lm.toList, a)
   }.ensuring(_ => lm - a == lm)
@@ -93,7 +93,7 @@ object ListMapLemmas {
       a: K,
       b1: B,
       b2: B
-  ): Unit = {
+  )(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     TupleListOpsGenK.lemmaInsertNoDuplicatedKeysErasesIfSameKey(lm.toList, a, b1, b2)
   }.ensuring(_ => lm + (a, b2) == (lm + (a, b1) + (a, b2)))
 
@@ -104,7 +104,7 @@ object ListMapLemmas {
       a1: K,
       b1: B,
       a2: K
-  ): Unit = {
+  )(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(a1 != a2)
     TupleListOpsGenK.lemmaInsertAndRemovePresrvNoDuplicatedKeysCommutative(
       lm.toList,
@@ -120,7 +120,7 @@ object ListMapLemmas {
       lm: ListMap[K, B],
       a1: K,
       b1: B
-  ): Unit = {
+  )(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(!lm.contains(a1))
     TupleListOpsGenK.lemmaInsertNoDuplicatedKeysThenRemoveIsSame(lm.toList, a1, b1)
   }.ensuring(_ => lm + (a1, b1) - a1 == lm)
@@ -131,13 +131,13 @@ object ListMapLemmas {
       lm: ListMap[K, B],
       a1: K,
       b1: B
-  ): Unit = {
+  )(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     TupleListOpsGenK.lemmaRemoveThenInsertNoDuplicatedKeysIsSameAsInsert(lm.toList, a1, b1)
   }.ensuring(_ => (lm - a1 + (a1, b1)).eq(lm + (a1, b1)))
 
   @opaque
   @inlineOnce
-  def removeCommutative[K, B](lm: ListMap[K, B], a1: K, a2: K): Unit = {
+  def removeCommutative[K, B](lm: ListMap[K, B], a1: K, a2: K)(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     TupleListOpsGenK.lemmaRemovePresrvNoDuplicatedKeysCommutative(lm.toList, a1, a2)
   }.ensuring(_ => lm - a1 - a2 == lm - a2 - a1)
 
@@ -149,7 +149,7 @@ object ListMapLemmas {
       b1: B,
       a2: K,
       b2: B
-  ): Unit = {
+  )(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(a1 != a2)
     TupleListOpsGenK.lemmainsertNoDuplicatedKeysCommutative(lm.toList, a1, b1, a2, b2)
   }.ensuring(_ => (lm + (a1, b1) + (a2, b2)).eq(lm + (a2, b2) + (a1, b1)))
@@ -161,7 +161,7 @@ object ListMapLemmas {
       p: ((K, B)) => Boolean,
       a: K,
       b: B
-  ): Unit = {
+  )(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(lm.forall(p) && p(a, b))
     decreases(lm.toList.size)
 
@@ -179,7 +179,7 @@ object ListMapLemmas {
       lm: ListMap[K, B],
       p: ((K, B)) => Boolean,
       a: K
-  ): Unit = {
+  )(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(lm.forall(p))
     decreases(lm.toList.size)
     if (!lm.isEmpty)
@@ -196,7 +196,7 @@ object ListMapLemmas {
       lm: ListMap[K, B],
       kvs: List[(K, B)],
       p: ((K, B)) => Boolean
-  ): Unit = {
+  )(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(lm.forall(p) && kvs.forall(p))
     decreases(kvs)
 
@@ -216,7 +216,7 @@ object ListMapLemmas {
       lm: ListMap[K, B],
       l: List[K],
       p: ((K, B)) => Boolean
-  ): Unit = {
+  )(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(lm.forall(p))
     decreases(l)
 
@@ -237,7 +237,7 @@ object ListMapLemmas {
       a: K,
       b: B,
       a0: K
-  ): Unit = {
+  )(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(lm.contains(a0) && a0 != a)
     TupleListOpsGenK.lemmaInsertNoDuplicatedKeysDoesNotModifyOtherKeyValues(
       lm.toList,
@@ -256,7 +256,7 @@ object ListMapLemmas {
       a: K,
       b: B,
       a0: K
-  ): Unit = {
+  )(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(lm.contains(a0))
 
     if (a != a0)
@@ -276,7 +276,7 @@ object ListMapLemmas {
       a: K,
       b: B,
       a0: K
-  ): Unit = {
+  )(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(!lm.contains(a0) && a != a0)
 
     TupleListOpsGenK.lemmaInsertNoDuplicatedKeysDoesNotModifyOtherKeysNotContained(
@@ -294,7 +294,7 @@ object ListMapLemmas {
       lm: ListMap[K, B],
       p: ((K, B)) => Boolean,
       k: K
-  ): Unit = {
+  )(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(lm.forall(p) && lm.contains(k))
     decreases(lm.toList.size)
 
@@ -309,7 +309,7 @@ object ListMapLemmas {
       lm: ListMap[K, B],
       p: ((K, B)) => Boolean,
       k: K
-  ): Unit = {
+  )(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(lm.forall(p))
     decreases(lm.toList.size)
 
@@ -320,7 +320,7 @@ object ListMapLemmas {
 
   @opaque
   @inlineOnce
-  def uniqueImage[K, B](lm: ListMap[K, B], a: K, b: B): Unit = {
+  def uniqueImage[K, B](lm: ListMap[K, B], a: K, b: B)(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(lm.toList.contains((a, b)))
 
     TupleListOpsGenK.lemmaContainsTupleThenContainsKey(lm.toList, a, b)
@@ -330,7 +330,7 @@ object ListMapLemmas {
 
   @opaque
   @inlineOnce
-  def lemmaContainsAllItsOwnKeys[K, B](lm: ListMap[K, B]): Unit = {
+  def lemmaContainsAllItsOwnKeys[K, B](lm: ListMap[K, B])(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     decreases(lm.toList.size)
     lm.toList match
       case Cons(h, t) => {
@@ -344,7 +344,7 @@ object ListMapLemmas {
 
   @opaque
   @inlineOnce
-  def lemmaInsertPairStillContainsAll[K, B](lm: ListMap[K, B], l: List[(K, B)], k: K, v: B): Unit = {
+  def lemmaInsertPairStillContainsAll[K, B](lm: ListMap[K, B], l: List[(K, B)], k: K, v: B)(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(l.forall(p => lm.contains(p._1)))
     decreases(l)
     l match {
@@ -359,7 +359,7 @@ object ListMapLemmas {
 
   @opaque
   @inlineOnce
-  def lemmaInsertPairStillContainsAllEq[K, B](lm: ListMap[K, B], lm2: ListMap[K, B], l: List[(K, B)], k: K, v: B): Unit = {
+  def lemmaInsertPairStillContainsAllEq[K, B](lm: ListMap[K, B], lm2: ListMap[K, B], l: List[(K, B)], k: K, v: B)(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(lm + (k, v) == lm2)
     require(l.forall(p => lm.contains(p._1)))
     decreases(l)
@@ -380,7 +380,7 @@ object ListMapLemmas {
       other: ListMap[K, B],
       a: K,
       b: B
-  ): Unit = {
+  )(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require((lm + (a, b)).toList.forall(p => other.contains(p._1)))
     decreases(lm.toList.size)
 
@@ -397,7 +397,7 @@ object ListMapLemmas {
 
   @opaque
   @inlineOnce
-  def lemmaGetValueImpliesTupleContained[K, B](lm: ListMap[K, B], a: K, b: B): Unit = {
+  def lemmaGetValueImpliesTupleContained[K, B](lm: ListMap[K, B], a: K, b: B)(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(lm.contains(a))
     require(lm.get(a) == Some[B](b))
 
@@ -405,7 +405,7 @@ object ListMapLemmas {
   }.ensuring(_ => lm.toList.contains((a, b)))
 
   @opaque
-  def keysOfSound[K, B](@induct lm: ListMap[K, B], value: B): Unit = {
+  def keysOfSound[K, B](@induct lm: ListMap[K, B], value: B)(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     // trivial by postcondition of getKeysOf
   }.ensuring(_ => lm.keysOf(value).forall((key: K) => lm.get(key) == Some[B](value)))
 
@@ -415,7 +415,7 @@ object ListMapLemmas {
       lm: ListMap[K, B],
       key: K,
       value: B
-  ): Unit = {
+  )(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(!lm.contains(key))
     TupleListOpsGenK.lemmaInsertNoDuplicatedKeysNotContainedContent(
       lm.toList,
@@ -436,7 +436,7 @@ object ListMapLemmas {
       lm2: ListMap[K, B],
       key: K,
       value: B
-  ): Unit = {
+  )(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(lm1.eq(lm2))
     if (lm1.contains(key)) {
       lemmaAddToEqMapsPreservesEqIfContainsKey(lm1, lm2, key, value)
@@ -453,7 +453,7 @@ object ListMapLemmas {
       lm2: ListMap[K, B],
       key: K,
       value: B
-  ): Unit = {
+  )(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(lm1.eq(lm2))
     require(!lm1.contains(key))
     decreases(lm1.toList.size)
@@ -474,7 +474,7 @@ object ListMapLemmas {
       lm2: ListMap[K, B],
       key: K,
       value: B
-  ): Unit = {
+  )(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(lm1.eq(lm2))
     require(lm1.contains(key))
     decreases(lm1.toList.size)
@@ -508,7 +508,7 @@ object ListMapLemmas {
       lm1: ListMap[K, B],
       lm2: ListMap[K, B],
       key: K
-  ): Unit = {
+  )(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(lm1.eq(lm2))
     if (lm1.contains(key)) {
       val v = lm1.apply(key)
@@ -531,7 +531,7 @@ object ListMapLemmas {
       lm1: ListMap[K, B],
       lm2: ListMap[K, B],
       key: K
-  ): Unit = {
+  )(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(lm1.eq(lm2))
     lemmaEquivalentThenSameContains(lm1, lm2, key)
     if (lm1.contains(key)) {
@@ -562,7 +562,7 @@ object ListMapLemmas {
       lm1: ListMap[K, B],
       lm2: ListMap[K, B],
       key: K
-  ): Unit = {
+  )(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(lm1.eq(lm2))
     lemmaEquivalentThenSameContains(lm1, lm2, key)
     if (lm1.contains(key)) {

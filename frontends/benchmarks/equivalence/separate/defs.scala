@@ -18,6 +18,11 @@ object defs {
 
     def length: Int = size
 
+    def isEmpty: Boolean = this match {
+      case Nil => true
+      case _ => false
+    }
+
     def ++[TT >: T](that: List[TT]): List[TT] = {
       this match {
         case Nil => that
@@ -26,13 +31,13 @@ object defs {
     }
 
     def head: T = {
-      require(this != Nil)
+      require(!isEmpty)
       val h :: _ = this: @unchecked
       h
     }
 
     def tail: List[T] = {
-      require(this != Nil)
+      require(!isEmpty)
       val _ :: t = this: @unchecked
       t
     }

@@ -7,7 +7,7 @@ import stainless.annotation._
 import stainless.lang.StaticChecks._
 
 @library
-final case class Nat(toBigInt: BigInt) { n =>
+final case class Nat(toBigInt: BigInt) derives CanEqual { n =>
   require(toBigInt >= 0)
 
   def +(m: Nat): Nat = Nat(n.toBigInt + m.toBigInt)

@@ -3,7 +3,7 @@ package stainless.algebra
 import stainless.annotation._
 
 @library
-abstract class BoundedMeetSemilattice[A] extends MeetSemilattice[A] {
+abstract class BoundedMeetSemilattice[A](using CanEqual[A, A]) extends MeetSemilattice[A] {
   def one: A
 
   @law

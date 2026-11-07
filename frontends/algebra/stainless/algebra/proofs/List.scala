@@ -9,7 +9,7 @@ import stainless.collection._
 object List {
 
   @library
-  def foldLeftEqualsFoldRight[A](xs: List[A])(implicit M: Monoid[A]): Boolean = {
+  def foldLeftEqualsFoldRight[A](xs: List[A])(implicit M: Monoid[A], ce: CanEqual[A, A]): Boolean = {
     decreases(xs.size)
 
     (xs.foldLeft(M.identity)(M.combine) == xs.foldRight(M.identity)(M.combine)) because {

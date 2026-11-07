@@ -1,5 +1,5 @@
 object Float8 {
-  final case class Float8(mant: Int, exp: Int) {
+  final case class Float8(mant: Int, exp: Int) derives CanEqual {
     require(0 <= mant && mant <= 15 && 0 <= exp && exp <= 15)
 
     def value: Int = mant << exp

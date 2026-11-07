@@ -8,7 +8,7 @@ object Return {
     return 10
   }
 
-  def findIndex[T](a: Array[T], t: T): Int = {
+  def findIndex[T](a: Array[T], t: T)(using CanEqual[T, T]): Int = {
     var i: Int = 0
     (while (i < a.length) {
       decreases(a.length - i)

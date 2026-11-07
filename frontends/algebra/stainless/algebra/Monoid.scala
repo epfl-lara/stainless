@@ -7,7 +7,7 @@ import stainless.proof._
 import stainless.math.Nat
 
 @library
-abstract class Monoid[A] extends Semigroup[A] {
+abstract class Monoid[A](using CanEqual[A, A]) extends Semigroup[A] {
   def identity: A
 
   @law
@@ -23,8 +23,8 @@ abstract class Monoid[A] extends Semigroup[A] {
 
 @library
 object Monoid {
-  case class Product[A](toProduct: A)
-  case class Sum[A](toSum: A)
+  case class Product[A](toProduct: A) derives CanEqual
+  case class Sum[A](toSum: A) derives CanEqual
 
   // Monoid, multiplication of integers
   def multiplicationBigIntMonoid: Monoid[Product[BigInt]] = new Monoid[Product[BigInt]] {
@@ -51,7 +51,7 @@ object Monoid {
   }
 
   // Monoid, concatenation of lists
-  implicit def listConcatMonoid[T]: Monoid[List[T]] = new Monoid[List[T]] {
+  implicit def listConcatMonoid[T](using CanEqual[T, T]): Monoid[List[T]] = new Monoid[List[T]] {
     def identity: List[T] = Nil[T]()
     def combine(x: List[T], y: List[T]): List[T] = x ++ y
 
@@ -61,14 +61,14 @@ object Monoid {
   }
 
   @induct
-  private def lemma_associativity[T](x: List[T], y: List[T], z: List[T]): Boolean = {
+  private def lemma_associativity[T](x: List[T], y: List[T], z: List[T])(using CanEqual[T, T]): Boolean = {
     x ++ (y ++ z) == (x ++ y) ++ z
   }.holds
 
   // Monoid of options
   /* Termination doesn't work yet on this instance, if uncommented, termination checks of other instances fail as well
 
-  implicit def optionMonoid[T](implicit ev: Semigroup[T]): Monoid[Option[T]] = new Monoid[Option[T]] {
+  implicit def optionMonoid[T](implicit ev: Semigroup[T], ce: CanEqual[T, T]): Monoid[Option[T]] = new Monoid[Option[T]] {
     def identity: Option[T] = None[T]()
     def combine(x: Option[T], y: Option[T]): Option[T] = {
       (x, y) match {

@@ -15,13 +15,13 @@ import stainless.io._
  */
 object RobotCommands {
 
-  sealed abstract class Direction
+  sealed abstract class Direction derives CanEqual
   case class North() extends Direction
   case class East() extends Direction
   case class South() extends Direction
   case class West() extends Direction
 
-  sealed abstract class Command
+  sealed abstract class Command derives CanEqual
   case class Move(steps: Int) extends Command
   case class TurnLeft() extends Command
   case class TurnRight() extends Command

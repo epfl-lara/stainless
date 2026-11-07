@@ -6,7 +6,7 @@ import stainless.lang._
 
 object MergeSort2 {
 
-  def bag[T](list: List[T]): Bag[T] = list match {
+  def bag[T](list: List[T])(using CanEqual[T, T]): Bag[T] = list match {
     case Nil() => Bag.empty[T]
     case Cons(x, xs) => bag(xs) + x
   }

@@ -3,17 +3,17 @@ import stainless.annotation._
 
 object i1379g {
 
-  trait Animal
+  trait Animal derives CanEqual
   case class Cow(id: BigInt) extends Animal
 
-  sealed abstract class List[+A] {
+  sealed abstract class List[+A] derives CanEqual {
     def :: [B >: A](elem: B): List[B] = new ::(elem, this)
   }
   final case class ::[+A](first: A, next: List[A]) extends List[A]
   case object Nil extends List[Nothing]
 
   // It would be quite ironic for Seal to be non-sealed...
-  sealed trait Seal
+  sealed trait Seal derives CanEqual
   case class EmpressSeal(name: String) extends Seal
   case class EmperorSeal(name: String) extends Seal
 
@@ -59,7 +59,7 @@ object i1379g {
     assert(groupedConcreteSealed(Nil) == Nil)
   }
 
-  def testAbstract[A](a1: A, a2: A, a3: A, a4: A): Unit = {
+  def testAbstract[A](a1: A, a2: A, a3: A, a4: A)(using CanEqual[A, A]): Unit = {
     assert(groupedAbstract(a1 :: a2 :: a3 :: a4 :: Nil) == (a1 :: a2 :: Nil) :: (a3 :: a4 :: Nil) :: Nil)
     assert(groupedAbstract(a1 :: a2 :: a3 :: Nil) == (a1 :: a2 :: Nil) :: (a3 :: Nil) :: Nil)
     assert(groupedAbstract(a1 :: Nil) == (a1 :: Nil) :: Nil)

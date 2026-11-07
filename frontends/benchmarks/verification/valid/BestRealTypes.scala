@@ -5,7 +5,7 @@ import stainless.lang._
 /** This benchmarks tests some potential issues with the legacy "bestRealType" function, which was original introduced to work around
  * Scala's well-too-precise-for-Leon type inference. */
 object BestRealTypes {
-  sealed abstract class Num
+  sealed abstract class Num derives CanEqual
   case class Zero() extends Num
   case class Succ(pred : Num) extends Num
 

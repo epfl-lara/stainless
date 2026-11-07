@@ -10,14 +10,14 @@ import StaticChecks._
 /** List-backed Map implementation */
 
 @library
-case class ListMap[K, B](toList: List[(K, B)]) {
+case class ListMap[K, B](toList: List[(K, B)])(using CanEqual[K, K], CanEqual[B, B]) derives CanEqual {
   require(TupleListOpsGenK.invariantList(toList))
 
   def isEmpty: Boolean = {
     toList.isEmpty
   }.ensuring(res => toList.size >= Integer.MAX_VALUE || res == (size == 0))
 
-  def eq(other: ListMap[K, B]): Boolean = toList.content == other.toList.content
+  def eq(other: ListMap[K, B])(using CanEqual[K, K], CanEqual[B, B]): Boolean = toList.content == other.toList.content
 
   def head: (K, B) = {
     require(!isEmpty)
@@ -34,7 +34,7 @@ case class ListMap[K, B](toList: List[(K, B)]) {
     ListMap(toList.tail)
   }
 
-  def contains(key: K): Boolean = {
+  def contains(key: K)(using CanEqual[K, K], CanEqual[B, B]): Boolean = {
     val res = TupleListOpsGenK.containsKey(toList, key)
     if (res) {
       TupleListOpsGenK.lemmaContainsKeyImpliesGetValueByKeyDefined(toList, key)
@@ -61,16 +61,16 @@ case class ListMap[K, B](toList: List[(K, B)]) {
     (res && this.get(key).isDefined && this.keys().contains(key)))
 
   @inline
-  def get(key: K): Option[B] = {
+  def get(key: K)(using CanEqual[K, K], CanEqual[B, B]): Option[B] = {
     TupleListOpsGenK.getValueByKey(toList, key)
   }
 
   @inline
-  def keysOf(value: B): List[K] = {
+  def keysOf(value: B)(using CanEqual[K, K], CanEqual[B, B]): List[K] = {
     TupleListOpsGenK.getKeysOf(toList, value)
   }
 
-  def keys(): List[K] = {
+  def keys()(using CanEqual[K, K], CanEqual[B, B]): List[K] = {
     TupleListOpsGenK.getKeysList(toList)
   }.ensuring(res =>
     ListSpecs.noDuplicate(res)
@@ -79,12 +79,12 @@ case class ListMap[K, B](toList: List[(K, B)]) {
       && res.content == this.toList.map(_._1).content
   )
 
-  def apply(key: K): B = {
+  def apply(key: K)(using CanEqual[K, K], CanEqual[B, B]): B = {
     require(contains(key))
     get(key).get
   }
 
-  def +(keyValue: (K, B)): ListMap[K, B] = {
+  def +(keyValue: (K, B))(using CanEqual[K, K], CanEqual[B, B]): ListMap[K, B] = {
     val newList =
       TupleListOpsGenK.insertNoDuplicatedKeys(toList, keyValue._1, keyValue._2)
 
@@ -101,21 +101,21 @@ case class ListMap[K, B](toList: List[(K, B)]) {
     ) && res.toList.contains(keyValue)
   )
 
-  def ++(keyValues: List[(K, B)]): ListMap[K, B] = {
+  def ++(keyValues: List[(K, B)])(using CanEqual[K, K], CanEqual[B, B]): ListMap[K, B] = {
     decreases(keyValues)
     keyValues match {
       case Nil()                => this
       case Cons(keyValue, rest) => (this + keyValue) ++ rest
     }
   }
-  def -(key: K): ListMap[K, B] = {
+  def -(key: K)(using CanEqual[K, K], CanEqual[B, B]): ListMap[K, B] = {
     ListMap(TupleListOpsGenK.removePresrvNoDuplicatedKeys(toList, key))
   }.ensuring(res =>
     !res.contains(key)
       && this.keys().content - key == res.keys().content
   )
 
-  def --(keys: List[K]): ListMap[K, B] = {
+  def --(keys: List[K])(using CanEqual[K, K], CanEqual[B, B]): ListMap[K, B] = {
     decreases(keys)
     keys match {
       case Nil()           => this
@@ -131,16 +131,16 @@ case class ListMap[K, B](toList: List[(K, B)]) {
 @library
 object ListMap {
   @library
-  def empty[A, B]: ListMap[A, B] = ListMap(List.empty[(A, B)])
+  def empty[A, B](using CanEqual[A, A], CanEqual[B, B]): ListMap[A, B] = ListMap(List.empty[(A, B)])
 
   @library
-  def fromList[K, V](l: List[(K, V)]): ListMap[K, V] = l.foldLeft(ListMap.empty[K, V]) {
+  def fromList[K, V](l: List[(K, V)])(using CanEqual[K, K], CanEqual[V, V]): ListMap[K, V] = l.foldLeft(ListMap.empty[K, V]) {
     case (current, (k, v)) => current + (k -> v)
   }
 
   @library
   implicit class ToListMapOps[K, V](l: List[(K, V)]) {
-    def toListMap: ListMap[K, V] = fromList(l)
+    def toListMap(using CanEqual[K, K], CanEqual[V, V]): ListMap[K, V] = fromList(l)
   }
 }
 
@@ -148,11 +148,11 @@ object ListMap {
 object TupleListOpsGenK {
 
   // @inline
-  def invariantList[K, B](l: List[(K, B)]): Boolean = {
+  def invariantList[K, B](l: List[(K, B)])(using CanEqual[K, K], CanEqual[B, B]): Boolean = {
     noDuplicatedKeys(l)
   }
 
-  def getKeysList[K, B](l: List[(K, B)]): List[K] = {
+  def getKeysList[K, B](l: List[(K, B)])(using CanEqual[K, K], CanEqual[B, B]): List[K] = {
     require(invariantList(l))
     decreases(l)
     l match {
@@ -189,7 +189,7 @@ object TupleListOpsGenK {
     }
   }.ensuring(res => res >= 0 && (l.isEmpty == (res == 0)))
 
-  def getKeysOf[K, B](l: List[(K, B)], value: B): List[K] = {
+  def getKeysOf[K, B](l: List[(K, B)], value: B)(using CanEqual[K, K], CanEqual[B, B]): List[K] = {
     require(invariantList(l))
     decreases(l)
 
@@ -223,7 +223,7 @@ object TupleListOpsGenK {
 
   }.ensuring(res => res.forall(getValueByKey(l, _) == Some[B](value)))
 
-  def filterByValue[K, B](l: List[(K, B)], value: B): List[(K, B)] = {
+  def filterByValue[K, B](l: List[(K, B)], value: B)(using CanEqual[K, K], CanEqual[B, B]): List[(K, B)] = {
     require(invariantList(l))
     decreases(l)
 
@@ -245,7 +245,7 @@ object TupleListOpsGenK {
     }
   }.ensuring(res => res.forall(_._2 == value) && ListSpecs.subseq(res, l) && invariantList(res))
 
-  def getValueByKey[K, B](l: List[(K, B)], key: K): Option[B] = {
+  def getValueByKey[K, B](l: List[(K, B)], key: K)(using CanEqual[K, K], CanEqual[B, B]): Option[B] = {
     require(invariantList(l))
     decreases(l)
 
@@ -261,7 +261,7 @@ object TupleListOpsGenK {
       l: List[(K, B)],
       newKey: K,
       newValue: B
-  ): List[(K, B)] = {
+  )(using CanEqual[K, K], CanEqual[B, B]): List[(K, B)] = {
     require(invariantList(l))
     decreases(l)
 
@@ -288,7 +288,7 @@ object TupleListOpsGenK {
   def removePresrvNoDuplicatedKeys[K, B](
       l: List[(K, B)],
       key: K
-  ): List[(K, B)] = {
+  )(using CanEqual[K, K], CanEqual[B, B]): List[(K, B)] = {
     require(invariantList(l))
     decreases(l)
     l match {
@@ -324,7 +324,7 @@ object TupleListOpsGenK {
        })
   )
 
-  def noDuplicatedKeys[K, B](l: List[(K, B)]): Boolean = {
+  def noDuplicatedKeys[K, B](l: List[(K, B)])(using CanEqual[K, K], CanEqual[B, B]): Boolean = {
     decreases(l)
     l match {
       case Nil()                                  => true
@@ -334,7 +334,7 @@ object TupleListOpsGenK {
     }
   }
 
-  def containsKey[K, B](l: List[(K, B)], key: K): Boolean = {
+  def containsKey[K, B](l: List[(K, B)], key: K)(using CanEqual[K, K], CanEqual[B, B]): Boolean = {
     decreases(l)
     l match {
       case Cons(head, _) if (head._1 == key) => true
@@ -348,7 +348,7 @@ object TupleListOpsGenK {
 
   @opaque
   @inlineOnce
-  def lemmaRemoveFromListThenKeysSetRemove[K, B](l: List[(K, B)], key: K): Unit = {
+  def lemmaRemoveFromListThenKeysSetRemove[K, B](l: List[(K, B)], key: K)(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(invariantList(l))
     decreases(l)
     l match {
@@ -374,7 +374,7 @@ object TupleListOpsGenK {
 
   @opaque
   @inlineOnce
-  def lemmaEqMapSameKeysSet[K, B](lm1: ListMap[K, B], lm2: ListMap[K, B]): Unit = {
+  def lemmaEqMapSameKeysSet[K, B](lm1: ListMap[K, B], lm2: ListMap[K, B])(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(lm1.eq(lm2))
     ListSpecs.subsetRefl(lm1.toList)
     ListSpecs.subsetRefl(lm2.toList)
@@ -384,7 +384,7 @@ object TupleListOpsGenK {
 
   @opaque
   @inlineOnce
-  def lemmaSubsetThenKeysSubset[K, B](l1: List[(K, B)], l2: List[(K, B)]): Unit = {
+  def lemmaSubsetThenKeysSubset[K, B](l1: List[(K, B)], l2: List[(K, B)])(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(invariantList(l1))
     require(invariantList(l2))
     require(l1.content.subsetOf(l2.content))
@@ -402,7 +402,7 @@ object TupleListOpsGenK {
 
   @opaque
   @inlineOnce
-  def lemmaMapFirstElmtContains[K, B](l: List[(K, B)], p: (K, B)): Unit = {
+  def lemmaMapFirstElmtContains[K, B](l: List[(K, B)], p: (K, B))(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(invariantList(l))
     require(l.contains(p))
     decreases(l)
@@ -419,7 +419,7 @@ object TupleListOpsGenK {
       l1: List[(K, B)],
       l2: List[(K, B)],
       p: ((K, B)) => Boolean
-  ): Unit = {
+  )(using CanEqual[B, B], CanEqual[K, K]): Unit = {
     require(invariantList(l1))
     require(invariantList(l2))
     require(l2.forall(p) && l1.content.subsetOf(l2.content))
@@ -442,7 +442,7 @@ object TupleListOpsGenK {
       key: K,
       value: B,
       p: ((K, B)) => Boolean
-  ): Unit = {
+  )(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(invariantList(l))
     require(l.forall(p))
     require(p((key, value)))
@@ -463,7 +463,7 @@ object TupleListOpsGenK {
       key: K,
       v1: B,
       v2: B
-  ): Unit = {
+  )(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(l.contains((key, v1)) && l.contains((key, v2)))
     require(invariantList(l))
     decreases(l)
@@ -491,7 +491,7 @@ object TupleListOpsGenK {
 
   @opaque
   @inlineOnce
-  def lemmaInListThenGetKeysListContains[K, B](l: List[(K, B)], key: K): Unit = {
+  def lemmaInListThenGetKeysListContains[K, B](l: List[(K, B)], key: K)(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(invariantList(l))
     require(containsKey(l, key))
     decreases(l)
@@ -505,7 +505,7 @@ object TupleListOpsGenK {
 
   @inlineOnce
   @opaque
-  def lemmaInGetKeysListThenContainsKey[K, B](l: List[(K, B)], key: K): Unit = {
+  def lemmaInGetKeysListThenContainsKey[K, B](l: List[(K, B)], key: K)(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(invariantList(l))
     require(getKeysList(l).contains(key))
     decreases(l)
@@ -519,7 +519,7 @@ object TupleListOpsGenK {
 
   @inlineOnce
   @opaque
-  def lemmaSubseqRefl[B](l: List[B]): Unit = {
+  def lemmaSubseqRefl[B](l: List[B])(using CanEqual[B, B]): Unit = {
     decreases(l.size)
     l match {
       case Nil()        => ()
@@ -529,7 +529,7 @@ object TupleListOpsGenK {
 
   @opaque
   @inlineOnce
-  def lemmaForallContainsAddHeadPreserves[K, B](l: List[(K, B)], keys: List[K], other: (K, B)): Unit = {
+  def lemmaForallContainsAddHeadPreserves[K, B](l: List[(K, B)], keys: List[K], other: (K, B))(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(invariantList(l))
     require(keys.forall(k => containsKey(l, k)))
     require(!containsKey(l, other._1))
@@ -547,7 +547,7 @@ object TupleListOpsGenK {
 
   @opaque
   @inlineOnce
-  def lemmaGetValueByKeyImpliesContainsTuple[K, B](l: List[(K, B)], key: K, v: B): Unit = {
+  def lemmaGetValueByKeyImpliesContainsTuple[K, B](l: List[(K, B)], key: K, v: B)(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(invariantList(l))
     require(getValueByKey(l, key) == Some[B](v))
     decreases(l)
@@ -565,7 +565,7 @@ object TupleListOpsGenK {
       key1: K,
       v1: B,
       key2: K
-  ): Unit = {
+  )(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(key1 != key2)
     require(invariantList(l))
     decreases(l)
@@ -594,7 +594,7 @@ object TupleListOpsGenK {
       l: List[(K, B)],
       key1: K,
       v1: B
-  ): Unit = {
+  )(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(invariantList(l))
     require(!containsKey(l, key1))
     decreases(l)
@@ -615,7 +615,7 @@ object TupleListOpsGenK {
       l: List[(K, B)],
       key1: K,
       v1: B
-  ): Unit = {
+  )(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(invariantList(l))
     decreases(l)
 
@@ -637,7 +637,7 @@ object TupleListOpsGenK {
       v1: B,
       key2: K,
       v2: B
-  ): Unit = {
+  )(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(key1 != key2)
     require(invariantList(l))
     decreases(l)
@@ -668,7 +668,7 @@ object TupleListOpsGenK {
       l: List[(K, B)],
       key1: K,
       key2: K
-  ): Unit = {
+  )(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(invariantList(l))
     decreases(l)
 
@@ -694,7 +694,7 @@ object TupleListOpsGenK {
   def lemmaRemovePresrvNoDuplicatedKeysNotPresentPreserves[K, B](
       l: List[(K, B)],
       key: K
-  ): Unit = {
+  )(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(invariantList(l))
     require(!containsKey(l, key))
     decreases(l)
@@ -716,7 +716,7 @@ object TupleListOpsGenK {
       key1: K,
       v1: B,
       v2: B
-  ): Unit = {
+  )(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(invariantList(l))
     decreases(l)
 
@@ -745,7 +745,7 @@ object TupleListOpsGenK {
       l: List[(K, B)],
       key: K,
       value: B
-  ): Unit = {
+  )(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(invariantList(l))
     require(!containsKey(l, key))
     decreases(l)
@@ -767,7 +767,7 @@ object TupleListOpsGenK {
       l: List[(K, B)],
       key: K,
       value: B
-  ): Unit = {
+  )(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     decreases(l)
     require(invariantList(l))
     require(containsKey(l, key))
@@ -789,7 +789,7 @@ object TupleListOpsGenK {
   def lemmaGetValueByKeyIsDefinedImpliesContainsKey[K, B](
       l: List[(K, B)],
       key: K
-  ): Unit = {
+  )(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(invariantList(l) && getValueByKey(l, key).isDefined)
     decreases(l)
     l match {
@@ -805,7 +805,7 @@ object TupleListOpsGenK {
   def lemmaContainsKeyImpliesGetValueByKeyDefined[K, B](
       l: List[(K, B)],
       key: K
-  ): Unit = {
+  )(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(invariantList(l))
     require(containsKey(l, key))
     decreases(l)
@@ -823,7 +823,7 @@ object TupleListOpsGenK {
       keys: List[K],
       value: B,
       newHead: (K, B)
-  ): Unit = {
+  )(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(invariantList(l))
     require(!l.isEmpty)
     require(keys.forall(getValueByKey(l, _) == Some[B](value)))
@@ -849,7 +849,7 @@ object TupleListOpsGenK {
       key: K,
       value: B,
       test: K
-  ): Unit = {
+  )(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(invariantList(l))
     require(containsKey(l, test))
     require(!containsKey(l, key))
@@ -868,7 +868,7 @@ object TupleListOpsGenK {
   def lemmaTailStillNotContainsKey[K, B](
       l: List[(K, B)],
       test: K
-  ): Unit = {
+  )(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(invariantList(l))
     require(!containsKey(l, test))
     require(!l.isEmpty)
@@ -893,7 +893,7 @@ object TupleListOpsGenK {
       newKey: K,
       newValue: B,
       otherKey: K
-  ): Unit = {
+  )(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(invariantList(l) && newKey != otherKey)
     decreases(l)
 
@@ -929,7 +929,7 @@ object TupleListOpsGenK {
       newKey: K,
       newValue: B,
       otherKey: K
-  ): Unit = {
+  )(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(invariantList(l))
     require(!containsKey(l, otherKey))
     require(otherKey != newKey)
@@ -955,7 +955,7 @@ object TupleListOpsGenK {
       newKey: K,
       newValue: B,
       otherKey: K
-  ): Unit = {
+  )(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(invariantList(l) && containsKey(l, otherKey) && otherKey != newKey)
     decreases(l)
 
@@ -977,7 +977,7 @@ object TupleListOpsGenK {
       l: List[(K, B)],
       newKey: K,
       newValue: B
-  ): Unit = {
+  )(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(invariantList(l))
     require(!containsKey(l, newKey))
     decreases(l)
@@ -1004,7 +1004,7 @@ object TupleListOpsGenK {
       l: List[(K, B)],
       key: K,
       value: B
-  ): Unit = {
+  )(using CanEqual[B, B], CanEqual[K, K]): Unit = {
     require(invariantList(l))
     require(!containsKey(l, key))
     decreases(l)
@@ -1023,7 +1023,7 @@ object TupleListOpsGenK {
       l: List[(K, B)],
       key: K,
       value: B
-  ): Unit = {
+  )(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(invariantList(l))
     require(l.contains((key, value)))
     decreases(l)
@@ -1041,7 +1041,7 @@ object TupleListOpsGenK {
       l: List[(K, B)],
       key: K,
       value: B
-  ): Unit = {
+  )(using CanEqual[K, K], CanEqual[B, B]): Unit = {
     require(invariantList(l) && containsKey(l, key) && l.contains((key, value)))
     decreases(l)
 

@@ -3,7 +3,7 @@
 import stainless.lang._
 
 object Monads1 {
-  sealed abstract class Try[T]
+  sealed abstract class Try[T] derives CanEqual
   case class Success[T](value: T) extends Try[T]
   case class Failure[T](error: Int) extends Try[T]
 
@@ -12,15 +12,15 @@ object Monads1 {
     case fail @ Failure(error) => Failure(error)
   }
 
-  def associative_law[T,U,V](t: Try[T], f: T => Try[U], g: U => Try[V]): Boolean = {
+  def associative_law[T,U,V](t: Try[T], f: T => Try[U], g: U => Try[V])(using CanEqual[V, V]): Boolean = {
     flatMap(flatMap(t, f), g) == flatMap(t, (x: T) => flatMap(f(x), g))
   }.holds
 
-  def left_unit_law[T,U](x: T, f: T => Try[U]): Boolean = {
+  def left_unit_law[T,U](x: T, f: T => Try[U])(using CanEqual[U, U]): Boolean = {
     flatMap(Success(x), f) == f(x)
   }.holds
 
-  def right_unit_law[T,U](t: Try[T]): Boolean = {
+  def right_unit_law[T,U](t: Try[T])(using CanEqual[T, T]): Boolean = {
     flatMap(t, (x: T) => Success[T](x)) == t
   }.holds
 }

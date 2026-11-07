@@ -3,7 +3,7 @@ import stainless.lang._
 import stainless.annotation._
 
 object Cached {
-  final case class Cached[K,V](f: K => V, var cache: Option[(K, V)]) {
+  final case class Cached[K,V](f: K => V, var cache: Option[(K, V)])(using CanEqual[K, K], CanEqual[V, V]) {
     require(
       cache match {
         case None() => true

@@ -44,7 +44,7 @@ object TreeImmutMapGenericExample {
 [info] [Warning ]   heap0: Map[HeapRef, Object] -> {HeapRef(12) -> Cell(Cell[Object](Open(7))), * -> SignedBitvector32(2)}
 */
 
-  def test[T](t: Tree[T], c: Cell[T], y: T) = {
+  def test[T](t: Tree[T], c: Cell[T], y: T)(using CanEqual[T, T]) = {
     reads(t.repr ++ Set[AnyHeapRef](c))
     modifies(t.repr)
 

@@ -1,5 +1,5 @@
 object MatchGuard {
-  sealed abstract class Nat
+  sealed abstract class Nat derives CanEqual
   case object Zero extends Nat
   case class Succ(n: Nat) extends Nat
 

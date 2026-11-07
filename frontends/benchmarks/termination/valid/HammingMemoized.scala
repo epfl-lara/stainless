@@ -10,7 +10,7 @@ import math._
  * section 4.3 of Type-based allocation analysis for Co-recursion.
  */
 object Hamming {
-  sealed abstract class IList
+  sealed abstract class IList derives CanEqual
   case class Cons(x: BigInt, tail: IList) extends IList {
     @extern
     override def toString: String = {

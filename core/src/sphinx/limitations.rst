@@ -38,3 +38,56 @@ and postconditions that enforce a bound on the maximum size
 of the data structures that your application
 manipulates. For this purpose, you can define size functions
 that return `BigInt` data types.
+
+Equality on ``Any``
+^^^^^^^^^^^^^^^^^^^
+
+On the JVM, ``==`` between two values of static type ``Any`` compares
+boxed numbers by value across numeric types, and compares boxed
+floating-point numbers with IEEE semantics:
+
+.. code-block:: scala
+
+  val a: Any = (5: Byte)
+  val b: Any = 5
+  a == b // true on the JVM
+
+Stainless encodes values of type ``Any`` with a structural equality in
+which values of different types are never equal, so it would prove
+``a != b`` and could therefore prove properties that do not hold at
+runtime.
+
+Stainless therefore compiles programs with Scala's `multiversal
+equality <https://docs.scala-lang.org/scala3/reference/contextual/multiversal-equality.html>`_
+enabled (``-language:strictEquality``): ``==`` and ``!=`` between
+values of types ``L`` and ``R`` require a ``CanEqual[L, R]`` instance.
+Scala provides instances for the primitive types, ``String``,
+``BigInt`` and tuples of comparable types, and the Stainless library
+provides them for its classes; the type arguments of ``List``, ``Set``,
+``Map`` or ``Option`` must be comparable for their values to be. A user
+class is made comparable with ``derives CanEqual``, which requires an
+instance for each of its type arguments, and a function comparing
+values of a type parameter ``T`` takes one as a context parameter:
+
+.. code-block:: scala
+
+  case class Box[T](x: T) derives CanEqual
+
+  def same[T](x: T, y: T)(using CanEqual[T, T]): Boolean = x == y
+
+There is no instance for ``Any``, so the comparison above as well as
+``same[Any]``, ``Box[Any] == Box[Any]`` or ``List[Any].contains`` are
+rejected by the compiler. Stainless adds two checks of its own: a class
+deriving ``CanEqual`` cannot hold a value of type ``Any`` through its
+fields, as the derivation only considers the type arguments, and a
+number cannot be compared with a value of another kind that the JVM
+compares by value (``BigInt``, ``Char``). ``CanEqual`` instances other
+than the derived ones are not supported, except ``given CanEqual[X, X] =
+CanEqual.derived`` for an opaque type ``X`` over a primitive type,
+``String`` or ``BigInt``. The ``stainless.lang`` package provides
+instances for function types, whose values can be compared in ghost
+code only.
+
+Values of type ``Any`` remain supported as long as they are not
+compared, for instance with ``isInstanceOf`` and pattern matching on
+types. To compare such values, narrow them to a concrete type first.

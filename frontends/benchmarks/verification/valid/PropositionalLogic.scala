@@ -5,7 +5,7 @@ import stainless.annotation.*
 
 object PropositionalLogic:
 
-  sealed abstract class Formula:
+  sealed abstract class Formula derives CanEqual:
     def size: BigInt = { // just to be clear what measure we are using
       this match
         case And(l, r)  => l.size + r.size + 1

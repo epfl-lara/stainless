@@ -4,7 +4,7 @@ import stainless.lang._
 import stainless.proof._
 
 object Lists4 {
-  sealed abstract class List[T]
+  sealed abstract class List[T] derives CanEqual
   case class Cons[T](head: T, tail: List[T]) extends List[T]
   case class Nil[T]() extends List[T]
 
@@ -13,11 +13,11 @@ object Lists4 {
     case Nil() => Nil()
   }
 
-  def map_lemma[A,B,C](list: List[A], f: A => B, g: B => C): Boolean = {
+  def map_lemma[A,B,C](list: List[A], f: A => B, g: B => C)(using CanEqual[C, C]): Boolean = {
     map(list, (x: A) => g(f(x))) == map(map(list, f), g)
   }
 
-  def map_lemma_induct[D,E,F](list: List[D], f: D => E, g: E => F): Boolean = {
+  def map_lemma_induct[D,E,F](list: List[D], f: D => E, g: E => F)(using CanEqual[F, F]): Boolean = {
     map_lemma(list, f, g).because((list match {
       case Nil() => true
       case Cons(head, tail) => map_lemma_induct(tail, f, g)

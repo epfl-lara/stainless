@@ -4,7 +4,7 @@ import stainless.collection.*
 import stainless.annotation.*
 
 object MTailList:
-  sealed abstract class MutableList[T]  
+  sealed abstract class MutableList[T] derives CanEqual
   case class MNil[T]() extends MutableList[T]
   case class MCons[T](val hd: T, var tail: MutableList[T]) extends MutableList[T]
 
@@ -15,7 +15,7 @@ object MTailList:
         case MNil() => Nil()
         case MCons(h, t) => Cons(h, t.toList)
 
-  def mapTR[T,U](l: MutableList[T], f: T => U): MutableList[U] = {
+  def mapTR[T,U](l: MutableList[T], f: T => U)(using CanEqual[U, U]): MutableList[U] = {
     l match
       case MNil() => MNil[U]()
       case MCons(hd, tl) =>
@@ -29,7 +29,7 @@ object MTailList:
       l: MutableList[T],
       f: T => U,
       acc: MCons[U]
-  ): Unit = {
+  )(using CanEqual[U, U]): Unit = {
     require(acc.tail == MNil[U]())
     l match
       case MNil() => ()

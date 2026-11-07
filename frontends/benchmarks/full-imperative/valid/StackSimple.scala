@@ -11,14 +11,14 @@ object SimpleStackExample {
       data
     }
 
-    def push(a: T): Unit = {
+    def push(a: T)(using CanEqual[T, T]): Unit = {
       reads(Set(this))
       modifies(Set(this))
 
       data = a :: data
    }.ensuring(_ => list == a :: old(list))
 
-    def pop: T = {
+    def pop(using CanEqual[T, T]): T = {
       reads(Set(this))
       require(!list.isEmpty)
       modifies(Set(this))

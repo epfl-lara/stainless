@@ -6,7 +6,7 @@ import annotation._
 
 @library
 object ListOps {
-  def flatten[T](ls: List[List[T]]): List[T] = ls match {
+  def flatten[T](ls: List[List[T]])(using CanEqual[T, T]): List[T] = ls match {
     case h :: t => h ++ flatten(t)
     case Nil => Nil
   }
@@ -39,11 +39,11 @@ object ListOps {
 
   def sum(l: List[BigInt]): BigInt = l.foldLeft(BigInt(0))(_ + _)
 
-  def toMap[K, V](l: List[(K, V)]): Map[K, V] = l.foldLeft(Map[K, V]()){
+  def toMap[K, V](l: List[(K, V)])(using CanEqual[K, K]): Map[K, V] = l.foldLeft(Map[K, V]()){
     case (current, (k, v)) => current ++ Map(k -> v)
   }
 
-  def noDuplicate[T](l: List[T]): Boolean = l match {
+  def noDuplicate[T](l: List[T])(using CanEqual[T, T]): Boolean = l match {
     case Nil => true
     case h :: t => !t.contains(h) && noDuplicate(t)
   }
@@ -59,11 +59,11 @@ object ListOps {
 
   @library
   implicit class FlattenableListOps[A](l: List[List[A]]) {
-    def flatten: List[A] = ListOps.flatten(l)
+    def flatten(using CanEqual[A, A]): List[A] = ListOps.flatten(l)
   }
 
   @library
   implicit class ToMapOps[K, V](l: List[(K, V)]) {
-    def toMap: Map[K, V] = ListOps.toMap(l)
+    def toMap(using CanEqual[K, K]): Map[K, V] = ListOps.toMap(l)
   }
 }

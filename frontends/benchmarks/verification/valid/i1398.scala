@@ -23,7 +23,7 @@ object i1398 {
   def dupdupdupdupAndThened[A] = dup[A] andThen dupdup[A]
   def dupdupdupdupComposed[A] = dupdup[A] compose dup[A]
 
-  def test3[A](x: A): Unit = {
+  def test3[A](x: A)(using CanEqual[A, A]): Unit = {
     assert(dupdupdupdupAndThened(x) == dupdupdupdupComposed(x))
     assert(dupdupdupdupAndThened(x) == ((x, x), (x, x)))
   }

@@ -12,12 +12,12 @@ object Generics {
     case Cons(h, t) => 1+size(t)
   })ensuring { _ >= 0 }
 
-  def content[T](l: List[T]): Set[T] = l match {
+  def content[T](l: List[T])(using CanEqual[T, T]): Set[T] = l match {
     case Nil() => Set()
     case Cons(h, t) => Set(h) ++ content(t)
   }
 
-  def insert[T](a: T, l: List[T]): List[T] = {
+  def insert[T](a: T, l: List[T])(using CanEqual[T, T]): List[T] = {
     Cons(a, l)
  }.ensuring { res => (size(res) == size(l) + 1) && (content(res) == content(l) ++ Set(a))}
 }

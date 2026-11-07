@@ -1,0 +1,3 @@
+[ Error  ] StrictEquality4.scala:2:47: Cannot compare values of type `Int` and `BigInt` with `==`: convert one of them to the other type first
+             def intBigInt(x: Int, y: BigInt): Boolean = x == y
+                                                         ^^^^^^

@@ -4,7 +4,7 @@ import stainless.annotation._
 import stainless.lang.Real
 
 @library
-abstract class AbelianGroup[A] extends Group[A] {
+abstract class AbelianGroup[A](using CanEqual[A, A]) extends Group[A] {
   @law
   def law_commutative(x: A, y: A): Boolean = {
     combine(x, y) == combine(y, x)

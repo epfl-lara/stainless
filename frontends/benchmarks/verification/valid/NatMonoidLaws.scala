@@ -5,7 +5,7 @@ import stainless.annotation._
 
 object NatMonoidLaws {
 
-  sealed abstract class Nat {
+  sealed abstract class Nat derives CanEqual {
     def +(m: Nat): Nat = this match {
       case Zero => m
       case Succ(n) => Succ(n + m)

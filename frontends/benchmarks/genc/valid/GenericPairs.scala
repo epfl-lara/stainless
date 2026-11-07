@@ -15,7 +15,7 @@ import stainless.io._
  */
 object GenericPairs {
 
-  case class Pair[A, B](first: A, second: B)
+  case class Pair[A, B](first: A, second: B) derives CanEqual
 
   def swap[A, B](p: Pair[A, B]): Pair[B, A] = Pair(p.second, p.first)
 

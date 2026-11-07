@@ -7,7 +7,7 @@ import stainless.proof._
 
 // Slightly less comprehensive proof of Queue correctness (doesn't reestablish `valid` invariant).
 object QueueWeakerExample {
-  final case class Node(val value: BigInt, var nextOpt: Option[Node]) extends AnyHeapRef {
+  final case class Node(val value: BigInt, var nextOpt: Option[Node]) extends AnyHeapRef derives CanEqual {
   }
 
   final case class Q(var first: Node,

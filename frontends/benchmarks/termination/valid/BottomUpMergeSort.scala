@@ -27,7 +27,7 @@ object BottomUpMergeSortPrecise {
   case class Cons[T](x: T, tail: List[T]) extends List[T]
   case class Nil[T]() extends List[T]
 
-  private sealed abstract class LList {
+  private sealed abstract class LList derives CanEqual {
     def size = this match {
       case SCons(_, _, sz) if sz >= 0 => sz
       case _ => BigInt(0)

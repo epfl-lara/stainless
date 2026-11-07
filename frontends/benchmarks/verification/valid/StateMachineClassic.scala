@@ -20,11 +20,11 @@ object StateMachineClassic {
     }
   }
 
-  sealed abstract class MyState
+  sealed abstract class MyState derives CanEqual
   case object A extends MyState
   case object B extends MyState
 
-  sealed abstract class MyLetter
+  sealed abstract class MyLetter derives CanEqual
   case object L1 extends MyLetter
   case object L2 extends MyLetter
 
