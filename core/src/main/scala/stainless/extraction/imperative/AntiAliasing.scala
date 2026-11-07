@@ -137,17 +137,17 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
       val newFd = fd.copy(returnType = analysis.getReturnType(fd))
 
       if (aliasedParams.isEmpty) {
-        newFd.copy(fullBody = makeSideEffectsExplicit(fd.fullBody, fd, env, Seq.empty))
+        newFd.copy(fullBody = makeSideEffectsExplicit(analysis.substBody(fd, Map.empty, fd.fullBody), fd, env, Seq.empty))
       } else {
         val (specs, body) = exprOps.deconstructSpecs(fd.fullBody)
         val freshLocals: Seq[ValDef] = aliasedParams.map(v => v.freshen)
         val freshSubst = aliasedParams.zip(freshLocals).map(p => p._1.toVariable -> p._2.toVariable).toMap
 
         val newBody = body.map { body =>
-          val freshBody = exprOps.replaceFromSymbols(freshSubst, body)
+          val freshBody = analysis.substBody(fd, freshSubst, body)
           val explicitBody = makeSideEffectsExplicit(freshBody, fd, env `withBindings` freshLocals, freshLocals.map(_.toVariable))
 
-          val tmp = ValDef(FreshIdentifier("res"), typeOps.replaceFromSymbols(freshSubst, fd.returnType))
+          val tmp = ValDef(FreshIdentifier("res"), analysis.substReturnType(fd, freshSubst))
           val finalBody: Expr =
             Let(tmp, explicitBody, Tuple(freshLocals.map(_.toVariable) :+ tmp.toVariable).copiedFrom(body)).copiedFrom(body)
 
@@ -297,6 +297,53 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
         //
         // To properly fix this, we would need to distinguish pre/post transformation `getTargets` computation,
         // which would require significant changes to EffectsAnalyzer.
+        
+        /* The return type of the callee may be refined by predicates referring to its parameters
+         * (cf. `getReturnType`). At call sites, we rebind these to the corresponding arguments so
+         * that the binding of the call result is typed consistently with the invocation (the type
+         * checker infers the invocation type by let-binding parameters to arguments). Arguments
+         * that are not referentially transparent cannot be duplicated inside a type, so we
+         * conservatively widen the refinements referring to them.
+         */
+        def bindCallSiteType(tpe: Type, formalArgs: Seq[ValDef], args: Seq[Expr]): Type = {
+          val argOfParam: Map[Identifier, Expr] = formalArgs.map(_.id).zip(args).toMap
+          val transparent: Map[Identifier, Expr] = argOfParam.filter { case (_, arg) => isReferentiallyTransparent(arg) }
+
+          object exprBinder extends ConcreteSelfTreeTransformer {
+            override def transform(e: Expr): Expr = e match {
+              case v: Variable => transparent.getOrElse(v.id, super.transform(v))
+              case _ => super.transform(e)
+            }
+          }
+
+          object typeBinder extends ConcreteSelfTreeTransformer {
+            override def transform(tpe: Type): Type = tpe match {
+              case RefinementType(vd, pred) =>
+                val referenced = exprOps.variablesOf(pred).map(_.id)
+                if (referenced.exists(id => argOfParam.contains(id) && !transparent.contains(id)))
+                  transform(vd.tpe)
+                else
+                  RefinementType(transform(vd), exprBinder.transform(pred)).copiedFrom(tpe)
+              case _ => super.transform(tpe)
+            }
+          }
+
+          typeBinder.transform(tpe)
+        }
+
+        /* Whether `tpe` contains a (necessarily stray, at a call site) `old(...)` occurrence. */
+        def containsOld(tpe: Type): Boolean = {
+          var found = false
+          object finder extends ConcreteSelfTreeTransformer {
+            override def transform(e: Expr): Expr = e match {
+              case Old(_) => found = true; e
+              case _ => super.transform(e)
+            }
+          }
+          finder.transform(tpe)
+          found
+        }
+
         def mapApplication(formalArgs: Seq[ValDef], args: Seq[Expr], nfi: Expr, nfiType: Type, fiEffects: Set[Effect], isOpaqueOrExtern: Boolean, selectResult: Boolean, env: Env): Expr = {
 
           def affectedBindings(updTarget: Target, isReplacement: Boolean): Map[ValDef, Set[Target]] = {
@@ -318,7 +365,7 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
                 (vd.toVariable, fiEffects.filter(_.receiver == vd.toVariable), arg)
               }.filter { case (_, effects, _) => effects.nonEmpty }
 
-            val freshRes = ValDef(FreshIdentifier("res"), nfiType).copiedFrom(nfi)
+            val freshRes = ValDef(FreshIdentifier("res"), bindCallSiteType(nfiType, formalArgs, args)).copiedFrom(nfi)
 
             val assgns = localEffects.zipWithIndex.flatMap {
               case ((vd, effects, arg), effIndex) =>
@@ -846,6 +893,24 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
             val newExpr = transform(e, env)
             val newBody = transform(b, env `withBinding` vd)
             LetVar(vd, newExpr, newBody).copiedFrom(l)
+
+          // The frontend infers `vd`'s type from the callee's declared return type, substituting
+          // formal parameters by the actual arguments -- including within `old(...)`, which it is
+          // not aware is only meaningful within the callee's own definition. We must instead rebind
+          // `vd`'s type the same way we do for the (transformed) call itself, so that `old(...)`
+          // occurrences referring to referentially transparent arguments are properly eliminated
+          // (see `bindCallSiteType`), rather than leaking into the caller's tree as stray `old(...)`.
+          // Guarded on `containsOld`: `vd.tpe` may otherwise be a (possibly widened) ascription
+          // unrelated to the callee's declared return type -- e.g. `val l: List[Int] = x :: xs` --
+          // which we must not clobber with the callee's raw return type.
+          case l @ Let(vd, fi @ FunctionInvocation(_, _, args), b) if !isMutableType(vd.tpe) && containsOld(vd.tpe) =>
+            val fd = Outer(fi.tfd.fd)
+            // Note: unlike `nfiType` in `mapFnInvoc` below, this must NOT go through
+            // `analysis.getReturnType`, which sigma-wraps the return type with the callee's
+            // post-effect state when it has aliased params: at this (pre-transformation) call
+            // site, `vd` is still bound to the plain (single-valued) declared return type.
+            val newVd = vd.copy(tpe = bindCallSiteType(fi.tfd.instantiate(analysis.substReturnType(fd, Map.empty)), fd.params, args))
+            Let(newVd, transform(fi, env), transform(b, env)).copiedFrom(l)
 
           case up @ ArrayUpdate(arr, i, v) =>
             assertReferentiallyTransparent(i)

@@ -253,6 +253,31 @@ trait EffectsChecker { self: EffectsAnalyzer =>
 
       traverser.traverse(fd.fullBody)
       for (param <- fd.params) traverser.traverse(param.tpe)
+      checkReturnTypeRefinement(fd)
+    }
+
+    /* A refinement of the return type plays the same role as a postcondition, so we enforce
+     * the same restrictions as for `Ensuring` (see `checkEffectsLocations`): the predicate
+     * may refer to the pre-state via `old(...)`, but must not have effects nor mutate it.
+     */
+    def checkReturnTypeRefinement(fd: FunAbstraction): Unit = fd.returnType match {
+      case RefinementType(_, pred) =>
+        // The predicate may have lost its position, so we fall back to the
+        // position of the enclosing function.
+        val tree = if (pred.getPos != inox.utils.NoPosition) pred else fd
+
+        val predEffects = effects(pred)
+        if (predEffects.nonEmpty)
+          throw ImperativeEliminationException(tree, "Refinement type predicate has effects on: " + predEffects.head.receiver.asString)
+
+        val oldEffects = effects(exprOps.postMap {
+          case Old(e) => Some(e)
+          case _ => None
+        } (pred))
+        if (oldEffects.nonEmpty)
+          throw ImperativeEliminationException(tree, s"Postcondition tries to mutate ${Old(oldEffects.head.receiver).asString}")
+
+      case _ => ()
     }
 
     def checkMutableField(fd: FunAbstraction): Unit = {
