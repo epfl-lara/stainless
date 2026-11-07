@@ -828,6 +828,15 @@ trait EffectsAnalyzer extends oo.CachingPhase {
         else
           rec(e, env) ++ rec(b, env + (vd.toVariable -> effect(e, env)))
 
+      case LetVar(vd, e, b) if symbols.isMutableType(vd.tpe) =>
+        val assigned = exprOps.collect[Expr] {
+          case Assignment(v, value) if v.id == vd.id => Set(value)
+          case _ => Set.empty
+        }(b)
+        val aliased = (assigned + e).filterNot(isExpressionFresh).flatMap(effect(_, env))
+
+        rec(e, env) ++ rec(b, env + (vd.toVariable -> aliased))
+
       case MatchExpr(scrut, cses) if symbols.isMutableType(scrut.getType) =>
         rec(scrut, env) ++ cses.flatMap { case MatchCase(pattern, guard, rhs) =>
           val newEnv = env ++ mapForPattern(scrut, pattern).map {
