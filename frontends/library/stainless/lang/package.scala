@@ -123,6 +123,13 @@ package object lang {
   @ignore
   def freshCopy[T](value: T): T = (??? : T)
 
+  opaque type Purified[@mutable A] = A
+  extension [@mutable A](a: Purified[A]) {
+    def get: A = a: A
+  }
+
+  def freshPureCopy[@mutable A](a: A): Purified[A] = a
+
   @library
   @partialEval
   def partialEval[A](x: A): A = x
@@ -247,7 +254,6 @@ package object lang {
 
   val IntMaxValue: BigInt = BigInt(2147483647)
   // This type can be used to represent Array indices for example
-  type UInt31 = {v: BigInt with 0 <= v && v <= IntMaxValue} 
 
   // This --full-imperative stuff should perhaps move to a separate object.
 
