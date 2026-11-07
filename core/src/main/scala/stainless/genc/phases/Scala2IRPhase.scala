@@ -1334,6 +1334,10 @@ private class S2IRImpl(override val s: tt.type,
     case BVShiftLeft(lhs, rhs)    => buildBinOp(lhs, O.BLeftShift, rhs)(e.getPos)
     case BVAShiftRight(lhs, rhs)  => reporter.fatalError(e.getPos, "Operator >> is not supported by GenC")
     case BVLShiftRight(lhs, rhs)  => buildBinOp(lhs, O.BRightShift, rhs)(e.getPos)
+    // GenC programs are verified with `--strict-arithmetic`, which requires the amount to be within the width
+    case JVMShiftLeft(lhs, rhs)   => buildBinOp(lhs, O.BLeftShift, rhs)(e.getPos)
+    case JVMAShiftRight(lhs, rhs) => reporter.fatalError(e.getPos, "Operator >> is not supported by GenC")
+    case JVMLShiftRight(lhs, rhs) => buildBinOp(lhs, O.BRightShift, rhs)(e.getPos)
 
     case BVWideningCast(e, t)  => CIR.IntegralCast(rec(e), rec(t).asInstanceOf[CIR.PrimitiveType].primitive.asInstanceOf[PT.IntegralPrimitiveType])
     case BVNarrowingCast(e, t) => CIR.IntegralCast(rec(e), rec(t).asInstanceOf[CIR.PrimitiveType].primitive.asInstanceOf[PT.IntegralPrimitiveType])
