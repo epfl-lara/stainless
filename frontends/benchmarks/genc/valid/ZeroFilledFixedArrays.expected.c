@@ -34,6 +34,11 @@ typedef struct {
   int32_t size;
 } Grid;
 
+typedef struct {
+  Grid grid;
+  int32_t turn;
+} Board;
+
 
 
 /* ---------------------- function declarations ----- */
@@ -68,6 +73,30 @@ static void printZeroFilled(int32_t n) {
     println(g.cells[2].values[1]);
     println(g.cells[2].count);
     println(g.size);
+    Grid h;
+    memset(&h, 0, sizeof(Grid));
+    h.cells[0].values[1] = 6;
+    println(h.cells[0].values[1]);
+    println(h.cells[2].values[0]);
+    Cell c;
+    memset(&c, 0, sizeof(Cell));
+    c.values[1] = 8;
+    println(c.values[0]);
+    println(c.values[1]);
+    Board b;
+    memset(&b, 0, sizeof(Board));
+    b.grid.cells[2].values[0] = 7;
+    println(b.grid.cells[2].values[0]);
+    println(b.grid.cells[0].values[1]);
+    println(b.turn);
+    Grid tmp;
+    memset(&tmp, 0, sizeof(Grid));
+    Grid* norm_0 = &tmp;
+    Board d = (Board) { .grid = (*norm_0), .turn = 4 };
+    d.grid.cells[1].values[1] = 9;
+    println(d.grid.cells[1].values[1]);
+    println(d.grid.cells[1].values[0]);
+    println(d.turn);
 }
 
 

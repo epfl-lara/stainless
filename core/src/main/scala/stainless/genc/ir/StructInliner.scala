@@ -14,9 +14,13 @@ final class StructInliner(val ctx: inox.Context) extends Transformer(RIR, SIR) w
 
   private given givenDebugSection: DebugSectionGenC.type = DebugSectionGenC
 
+  /** A class with a single field and no parent, which is replaced with its field. A class whose field is an array
+    * of a fixed length is kept: the array is part of the C struct of the class, and cannot be declared, passed by
+    * reference or zero-filled on its own.
+    */
   object SimplifiableClassDef {
     def unapply(cd: ClassDef): Option[ClassDef] = {
-      if (cd.fields.length == 1 && cd.parent.isEmpty) Some(cd)
+      if (cd.fields.length == 1 && cd.parent.isEmpty && !cd.fields.head._1.typ.isFixedArray) Some(cd)
       else None
     }
   }

@@ -346,6 +346,9 @@ final class Normaliser(val ctx: inox.Context) extends Transformer(CIR, NIR) with
       case to.App(to.FunVal(fd), extra, args) if allowTopLevelApp => fd.isPure && extra.forall(rec) && args.forall(rec)
       case to.ArrayInit(to.ArrayAllocStatic(_, _, Left(_))) if allowArray => true
       case to.ArrayInit(to.ArrayAllocStatic(_, _, Right(elems))) if allowArray => elems.forall(rec)
+      // Class values can be the elements of an array given to a field of a fixed length, which has to remain
+      // in the struct literal that initialises the field
+      case to.Construct(_, args) => args.forall(rec)
       case _ => false
     }
     rec(e)

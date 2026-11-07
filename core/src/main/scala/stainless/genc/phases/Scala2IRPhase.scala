@@ -224,7 +224,9 @@ private class S2IRImpl(override val s: tt.type,
       val cd = syms.getClass(ct.id)
       cd.parents.isEmpty && cd.children.isEmpty && args.forall(onlyZeroes(_, debug))
     case FiniteArray(elems, _) => elems.forall(onlyZeroes(_, debug))
-    case LargeArray(elems, default, _, _) => elems.values.forall(onlyZeroes(_, debug)) && onlyZeroes(default)
+    case LargeArray(elems, default, size, _) =>
+      // The size is not evaluated when the value is zero-filled
+      analysis.effects(size).isEmpty && elems.values.forall(onlyZeroes(_, debug)) && onlyZeroes(default)
     case _ => false
   }
 
@@ -247,17 +249,19 @@ private class S2IRImpl(override val s: tt.type,
     val vd = CIR.ValDef(env.localNames(x.id), tpe, isVar)
     val newBindings = env.bindings + ((x, instantiateType(x.tpe, tm)) -> vd)
 
-    val decl: Seq[CIR.Expr] = try {
-      Seq(CIR.Decl(vd, Some(rec(e))))
-    } catch {
-      // A value that only contains zeroes can be zero-filled instead, unless it contains a variable-length array
-      case t: Throwable if onlyZeroes(e) && !containsVariableLengthArray(tpe) && (t.toString.contains("VLAs cannot") || t.toString.contains("VLA elements")) =>
-        reporter.reset()
+    // An array field whose length is fixed by a class invariant is part of the C struct, and can only be
+    // initialised from within the struct literal, which GenC only does for static arrays of scalars. A value
+    // that only contains zeroes is therefore built by zero-filling the variable, if its type contains arrays
+    // and all their lengths are fixed (see `containsVariableLengthArray`). The sizes given to the arrays of the
+    // value are then not evaluated: the class invariants give their lengths (see `onlyZeroes` for their effects).
+    val decl: Seq[CIR.Expr] =
+      if (onlyZeroes(e) && tpe.containsArray && !containsVariableLengthArray(tpe))
         Seq(
           CIR.Decl(vd, None),
           CIR.MemSet(CIR.Binding(vd), CIR.Lit(L.Int8Lit(0)), CIR.SizeOf(tpe))
         )
-    }
+      else
+        Seq(CIR.Decl(vd, Some(rec(e))))
     val rest = rec(body)(using env.copy(bindings = newBindings), tm)
     CIR.buildBlock(decl :+ rest)
   }
@@ -364,6 +368,8 @@ private class S2IRImpl(override val s: tt.type,
       case CIR.Binding(vd) => isVdMutable(vd)
       case CIR.Block(exprs :+ CIR.Binding(vd)) => isVdMutable(vd) && !exprs.exists {
         case CIR.Decl(`vd`, Some(e)) => !isRefToMutableVar((e, arg._2))
+        // A variable that the block declares without initial value is zero-filled (see `buildLet`)
+        case CIR.Decl(`vd`, None) => true
         case _ => false
       }
       case _ => false
@@ -374,6 +380,19 @@ private class S2IRImpl(override val s: tt.type,
         reporter.fatalError(pos, s"Invalid reference: cannot construct an object from a mutable variable.")
 
       case _ =>
+    }
+  }
+
+  /** Rejects the arguments `args` of the constructor of `cd` that give something else than a new array of a
+    * constant length to a field that is an array of a fixed length. Such an array is part of the C struct of the
+    * class: it has to be initialised within the struct literal, and cannot refer to another array.
+    */
+  private def checkFixedArrayArgs(cd: CIR.ClassDef, args: Seq[(CIR.Expr, Position)]): Unit = {
+    for (((arg, pos), (field, _)) <- args zip cd.fields if field.typ.isFixedArray) arg match {
+      case CIR.ArrayInit(_: CIR.ArrayAllocStatic) =>
+      case _ =>
+        reporter.fatalError(pos, s"The array field ${field.id} has a fixed length: it must be initialised with " +
+          "an array literal or with `Array.fill`")
     }
   }
 
@@ -1174,10 +1193,21 @@ private class S2IRImpl(override val s: tt.type,
     case ClassConstructor(ct, args) =>
       val cd = syms.getClass(ct.id)
       val ct2 = rec(ct)
-      val args2 = recArgs(args)
+      // The array given to a field of a fixed length has the length that the class invariant gives, so its size
+      // is not evaluated, and must not have effects
+      val sizedArgs = args.zip(ct2.fields).map {
+        case (array @ LargeArray(elems, default, size, base), (field @ CIR.ValDef(_, CIR.ArrayType(_, Some(length)), _), _)) =>
+          if (analysis.effects(size).nonEmpty)
+            reporter.fatalError(array.getPos, s"The array field ${field.id} has a fixed length, so the size given to " +
+              "`Array.fill` is not evaluated: it must not have effects")
+          LargeArray(elems, default, Int32Literal(length), base).copiedFrom(array)
+        case (arg, _) => arg
+      }
+      val args2 = recArgs(sizedArgs)
       val positions = args map { _.getPos }
 
       checkConstructArgs(args2 zip positions)
+      checkFixedArrayArgs(ct2, args2 zip positions)
 
       CIR.Construct(ct2, args2)
 
