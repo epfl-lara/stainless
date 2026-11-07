@@ -97,11 +97,18 @@ object ComponentTestSuite extends inox.ResourceUtils with InputUtils {
   case class LoadedPrograms(unitsWithFile: Seq[(xt.UnitDef, File)], programSymbols: xt.Symbols)
   case class LoadedProgramsWithResource[R](lp: LoadedPrograms, resource: R)
 
+  /** The options the programs are extracted with by default. The frontend reads `--strict-arithmetic`
+    * (the amounts of `Int` and `Long` shifts are masked when it is off), so these must agree with the
+    * configuration the programs are then run with, see [[ComponentTestSuite.configurations]].
+    */
+  val defaultExtractionOptions: Seq[inox.OptionValue[?]] = Seq(verification.optStrictArithmetic(false))
+
   // Note: Scala files that are not kept will not even be loaded and extracted.
-  def loadProgramsWithResource[R](dir: String, recursive: Boolean = false, keepOnly: String => Boolean = _ => true)
+  def loadProgramsWithResource[R](dir: String, recursive: Boolean = false, keepOnly: String => Boolean = _ => true,
+                                  options: Seq[inox.OptionValue[?]] = defaultExtractionOptions)
                                  (mkResource: LoadedPrograms => R): LoadedProgramsWithResource[R] = {
     val fs = resourceFiles(dir, f => f.endsWith(".scala") && keepOnly(f), recursive).toList
-    val ctx: inox.Context = inox.TestContext.empty
+    val ctx: inox.Context = inox.TestContext(inox.Options(options))
     import ctx.given
 
     val (unitsWithFile, program) = loadFiles(fs.map(_.getPath))
@@ -121,6 +128,7 @@ object ComponentTestSuite extends inox.ResourceUtils with InputUtils {
     LoadedProgramsWithResource(lp, resource)
   }
 
-  def loadPrograms(dir: String, recursive: Boolean = false, keepOnly: String => Boolean = _ => true): LoadedPrograms =
-    loadProgramsWithResource(dir, recursive, keepOnly)(_ => ()).lp
+  def loadPrograms(dir: String, recursive: Boolean = false, keepOnly: String => Boolean = _ => true,
+                   options: Seq[inox.OptionValue[?]] = defaultExtractionOptions): LoadedPrograms =
+    loadProgramsWithResource(dir, recursive, keepOnly, options)(_ => ()).lp
 }
