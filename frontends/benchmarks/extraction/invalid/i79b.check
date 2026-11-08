@@ -1,0 +1,3 @@
+[ Error  ] i79b.scala:8:27: Method equals on Object is not supported
+               def foo(a: A, b: B) = this.equals((a, b))
+                                     ^^^^^^^^^^^^^^^^^^^
