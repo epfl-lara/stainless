@@ -1,0 +1,5 @@
+[ Error  ] i79a.scala:10:27: Reference to equals is ambiguous.
+[ Error  ] It is both defined in object i79a
+[ Error  ] and inherited subsequently in class Table
+               def foo(a: A, b: B) = equals(a, b)
+                                     ^
