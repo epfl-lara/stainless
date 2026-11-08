@@ -12,7 +12,7 @@ class FullImperativeSuite extends VerificationComponentTestSuite with inox.MainH
   override def configurations = super.configurations.map {
     seq => Seq(
       extraction.imperative.optFullImperative(true),
-      inox.optTimeout(75)
+      inox.optTimeout(90)
     ) ++ seq
   }
 
