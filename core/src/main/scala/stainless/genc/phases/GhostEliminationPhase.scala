@@ -93,6 +93,12 @@ class GhostElimination(override val s: tt.type, // to use `isExported` from `gen
     ).setPos(fd)
   }
 
+  /** Replaces type aliases with what they stand for, as the next phases do not handle them. */
+  override def transform(tpe: s.Type, env: Env): t.Type = tpe match {
+    case ta: s.TypeApply if !ta.isAbstract(using symbols) => transform(ta.resolve(using symbols), env)
+    case _ => super.transform(tpe, env)
+  }
+
   override def transform(expr: s.Expr, env: Env): t.Expr = expr match {
     case fi: s.FunctionInvocation =>
       val fd = symbols.getFunction(fi.id)
