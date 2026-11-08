@@ -1309,9 +1309,13 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
         tr ++ isSubtype(tc2, freshener.transform(to1), freshener.transform(to2))
 
       case (RefinementType(vd1, prop1), RefinementType(vd2, prop2)) if (vd1.tpe == vd2.tpe) =>
+        // The binder is freshened as `vd1` can already be in the context, e.g. when the same
+        // refinement type appears several times in a type
+        val (tc2, id) = tc.freshBind(vd1)
+        val v = vd1.copy(id = id).toVariable
         buildVC(
-          tc.bind(vd1).withTruth(prop1).withVCKind(VCKind.RefinementSubtype),
-          substVar(prop2, vd2.id, vd1.toVariable)
+          tc2.withTruth(substVar(prop1, vd1.id, v)).withVCKind(VCKind.RefinementSubtype),
+          substVar(prop2, vd2.id, v)
         )
 
       case (_, RefinementType(vd, prop)) =>
