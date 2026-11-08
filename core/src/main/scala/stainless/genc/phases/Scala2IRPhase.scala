@@ -807,7 +807,7 @@ private class S2IRImpl(override val s: tt.type,
       reporter.fatalError(fa.getPos, s"Nested functions capturing a function (${c.vd.id.asString}) are not supported by GenC")
 
     val returnType = rec(fa.returnType)
-    if (!fa.isManuallyDefined && !fa.isDropped && returnType.mayHoldArray)
+    if (!fa.isManuallyDefined && !fa.isDropped && returnType.containsArray)
       reporter.fatalError(fa.getPos, "Returning arrays from function is not supported by GenC")
 
     // The C printer prints the signatures of the functions that GenC defines, not those of the dropped and the

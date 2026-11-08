@@ -373,8 +373,10 @@ private[genc] sealed trait IR { ir =>
       // Functions currently do not capture anything
       case FunType(_, _, _) => false
 
-      // We do *NOT* answer this question for the whole class hierarchy!
-      case ClassType(clazz) => clazz.fields exists { _._1.getType.containsArray }
+      // A value of a class can be of any of its subclasses
+      case ClassType(clazz) =>
+        (clazz.fields exists { _._1.getType.containsArray }) ||
+        (clazz.getDirectChildren exists { ClassType(_).containsArray })
 
       case ArrayType(_, _) => true
       case ReferenceType(t) => t.containsArray
@@ -385,15 +387,6 @@ private[genc] sealed trait IR { ir =>
       case DroppedType => false
 
       case NoType => false
-    }
-
-    /** Whether a value of this type can hold an array, including in the fields of the subclasses of its classes. */
-    def mayHoldArray: Boolean = this match {
-      case ClassType(clazz) =>
-        (clazz.fields exists { _._1.getType.mayHoldArray }) ||
-        (clazz.getDirectChildren exists { ClassType(_).mayHoldArray })
-      case ReferenceType(t) => t.mayHoldArray
-      case _ => containsArray
     }
 
     def isMutable: Boolean = this match {
