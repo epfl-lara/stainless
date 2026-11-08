@@ -387,6 +387,15 @@ private[genc] sealed trait IR { ir =>
       case NoType => false
     }
 
+    /** Whether a value of this type can hold an array, including in the fields of the subclasses of its classes. */
+    def mayHoldArray: Boolean = this match {
+      case ClassType(clazz) =>
+        (clazz.fields exists { _._1.getType.mayHoldArray }) ||
+        (clazz.getDirectChildren exists { ClassType(_).mayHoldArray })
+      case ReferenceType(t) => t.mayHoldArray
+      case _ => containsArray
+    }
+
     def isMutable: Boolean = this match {
       case PrimitiveType(_) => false
 
