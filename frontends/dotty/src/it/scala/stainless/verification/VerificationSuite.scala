@@ -211,8 +211,6 @@ class VerificationSuite extends VerificationComponentTestSuite {
     )
 
   private val ignoreCodegen = Set(
-    // Does not work with --feeling-lucky. See #490
-    "verification/valid/MsgQueue",
     // assertion failed in `compileLambda`
     "verification/valid/GodelNumbering",
     // codegen for floating-point <-> ieee bit-representation conversions not implemented
