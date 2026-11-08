@@ -42,3 +42,7 @@ jobs:
       run: ./stainless-ci.sh --build-only
     - name: Bolts Tests
       run: ./stainless-ci.sh --skip-build --skip-tests --skip-sbt-plugin
+    - name: Clean up
+      # Even after a failure, a timeout or a cancellation, so that jobs don't fill the runners' disk
+      if: always()
+      run: rm -rf $JAVA_OPTS_TMP_DIR
