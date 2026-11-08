@@ -373,8 +373,10 @@ private[genc] sealed trait IR { ir =>
       // Functions currently do not capture anything
       case FunType(_, _, _) => false
 
-      // We do *NOT* answer this question for the whole class hierarchy!
-      case ClassType(clazz) => clazz.fields exists { _._1.getType.containsArray }
+      // A value of a class can be of any of its subclasses
+      case ClassType(clazz) =>
+        (clazz.fields exists { _._1.getType.containsArray }) ||
+        (clazz.getDirectChildren exists { ClassType(_).containsArray })
 
       case ArrayType(_, _) => true
       case ReferenceType(t) => t.containsArray
