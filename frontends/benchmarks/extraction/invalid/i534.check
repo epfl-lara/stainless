@@ -1,0 +1,3 @@
+[ Error  ] i534.scala:2:21: Unexpected `ensuring` (This error message might occur when a function has return type Unit while its body has another type).
+             def foo(): Unit = {
+                               ^...
