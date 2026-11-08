@@ -27,7 +27,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
     override def toString: String = "Equivalence checking"
   }
 
-  override protected def getOptions: Map[inox.OptionDef[?], Description] = super.getOptions - inox.solvers.optAssumeChecked ++ Map(
+  override protected def getOptions: Map[inox.OptionDef[?], Description] = super.getOptions - inox.solvers.optAssumeChecked - inox.solvers.optStringsBMP ++ Map(
     optVersion -> Description(General, "Display the version number"),
     optConfigFile -> Description(General, "Path to configuration file, set to false to disable (default: stainless.conf or .stainless.conf)"),
     optFunctions -> Description(General, "Only consider functions f1,f2,..."),
