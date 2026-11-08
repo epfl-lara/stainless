@@ -177,7 +177,7 @@ static STAINLESS_FUNC_PURE int32_t inc(int32_t x) {
 static STAINLESS_FUNC_PURE bool isEmpty_int32(Option_int32 thiss) {
     if (thiss.tag == tag_Some_int32) {
         return false;
-    } else if (thiss.tag == tag_None_int32) {
+    } else {
         return true;
     }
 }
@@ -252,7 +252,7 @@ static STAINLESS_FUNC_PURE Tuple_int32_int32 minMax(array_int32 a) {
 static STAINLESS_FUNC_PURE int32_t optionToInt(Option_int32 o) {
     if (o.tag == tag_Some_int32) {
         return o.value.Some_int32_v.v;
-    } else if (o.tag == tag_None_int32) {
+    } else {
         return -1;
     }
 }

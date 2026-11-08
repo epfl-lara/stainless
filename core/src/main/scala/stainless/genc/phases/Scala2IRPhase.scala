@@ -515,13 +515,6 @@ private class S2IRImpl(override val s: tt.type,
     }
   }
 
-  private object ElseCase {
-    def unapply(caze: PMCase): Option[CIR.Expr] = {
-      if (CIR.True == caze.fullCondition) Some(caze.body)
-      else None
-    }
-  }
-
   private def convertPatMap(scrutinee0: Expr, cases0: Seq[MatchCase])(using env: Env, tm: TypeMapping): CIR.Expr = {
     require(cases0.nonEmpty)
 
@@ -573,14 +566,10 @@ private class S2IRImpl(override val s: tt.type,
 
     val cases = cases0 map { caze => convertCase(scrutinee, caze)(using newEnv, tm) }
 
-    // Identify the last case
-    val last = cases.last match {
-      case ElseCase(body) => body
-      case caze => CIR.If(caze.fullCondition, caze.body)
-    }
-
-    // Combine all cases, using a foldRight
-    val patmat = cases.init.foldRight(last) { case (caze, acc) =>
+    // Stainless verifies that matches are exhaustive, so the last case needs no condition (as in `matchToIfThenElse`):
+    // with one, the C compiler would see a path through no case, and warn that the function may not return a value.
+    // Guards have no effects (see `EffectsChecker`), so dropping the last one drops no effect.
+    val patmat = cases.init.foldRight(cases.last.body) { case (caze, acc) =>
       CIR.IfElse(caze.fullCondition, caze.body, acc)
     }
 

@@ -110,7 +110,7 @@ static const int32_t DoubleBuffer = BufferSize * 2;
 static STAINLESS_FUNC_PURE int32_t area(Shape s) {
     if (s.tag == tag_Circle) {
         return (3 * s.value.Circle_v.radius) * s.value.Circle_v.radius;
-    } else if (s.tag == tag_Square) {
+    } else {
         return s.value.Square_v.side * s.value.Square_v.side;
     }
 }
@@ -134,7 +134,7 @@ static STAINLESS_FUNC_PURE int32_t incImpl(int32_t x) {
 static STAINLESS_FUNC_PURE bool isGreen(enum_Color c) {
     if (c == tag_Green) {
         return true;
-    } else if (c == tag_Red) {
+    } else {
         return false;
     }
 }
