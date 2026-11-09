@@ -72,10 +72,15 @@ class MeasureInference(override val s: Trees, override val t: Trees)(using overr
       }
     }
 
-    def needsMeasure(fd: FunDef): Boolean = symbols.isRecursive(fd.id) && {
-      val specced = exprOps.BodyWithSpecs(fd.fullBody)
-      !specced.specs.exists(_.kind == exprOps.MeasureKind)
-    }
+    def hasMeasure(fd: FunDef): Boolean =
+      exprOps.BodyWithSpecs(fd.fullBody).specs.exists(_.kind == exprOps.MeasureKind)
+
+    // A function with a measure also needs an inferred one when a function that is mutually recursive with it has
+    // none: the `DecreasesProcessor` then derives measures of the same type for all of them from the existing ones
+    def needsMeasure(fd: FunDef): Boolean = symbols.isRecursive(fd.id) && (
+      !hasMeasure(fd) ||
+      (symbols.transitiveCallees(fd) intersect symbols.transitiveCallers(fd)).exists(!hasMeasure(_))
+    )
 
     def getPosts(id: Identifier): Postconditions =
       postconditionCache.getOrElse(id, MutableMap())
