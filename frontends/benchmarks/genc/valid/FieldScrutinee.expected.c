@@ -142,7 +142,7 @@ static void bump(Box* b) {
 static STAINLESS_FUNC_PURE int32_t dirCode(enum_Direction d) {
     if (d == tag_North) {
         return 0;
-    } else if (d == tag_South) {
+    } else {
         return 1;
     }
 }
@@ -151,7 +151,7 @@ static STAINLESS_FUNC_PURE int32_t elementDir(array_Robot rs, int32_t i) {
     enum_Direction tmp = rs.data[i].dir;
     if (tmp == tag_North) {
         return 7;
-    } else if (tmp == tag_South) {
+    } else {
         return 8;
     }
 }
@@ -161,7 +161,7 @@ static int32_t flip(Robot* r) {
     if (tmp == tag_North) {
         r->dir = tag_South;
         return dirCode(tmp);
-    } else if (tmp == tag_South) {
+    } else {
         r->dir = tag_North;
         return dirCode(tmp);
     }
@@ -171,7 +171,7 @@ static void grow(Holder* h) {
     Shape* tmp = &h->shape;
     if (tmp->tag == tag_Circle) {
         tmp->value.Circle_v.radius = tmp->value.Circle_v.radius + 1;
-    } else if (tmp->tag == tag_Square) {
+    } else {
         tmp->value.Square_v.side = tmp->value.Square_v.side + 2;
     }
 }
@@ -181,7 +181,7 @@ static STAINLESS_FUNC_PURE int32_t madeDir(void) {
     enum_Direction tmp = norm_0.dir;
     if (tmp == tag_North) {
         return 100;
-    } else if (tmp == tag_South) {
+    } else {
         return 200;
     }
 }
@@ -258,7 +258,7 @@ static STAINLESS_FUNC_PURE int32_t size(Holder* h) {
     Shape* tmp = &h->shape;
     if (tmp->tag == tag_Circle) {
         return tmp->value.Circle_v.radius;
-    } else if (tmp->tag == tag_Square) {
+    } else {
         return tmp->value.Square_v.side;
     }
 }
@@ -267,7 +267,7 @@ static void step(Robot* r, int32_t n) {
     enum_Direction tmp = r->dir;
     if (tmp == tag_North) {
         r->y = r->y + n;
-    } else if (tmp == tag_South) {
+    } else {
         r->y = r->y - n;
     }
 }
@@ -278,7 +278,7 @@ static STAINLESS_FUNC_PURE int32_t steps(Robot* r) {
         return tmp.value.Move_v.steps;
     } else if (tmp.tag == tag_Move) {
         return 0;
-    } else if (tmp.tag == tag_Stop) {
+    } else {
         return -1;
     }
 }
@@ -287,7 +287,7 @@ static STAINLESS_FUNC_PURE int32_t tupleDir(Tuple_int32_Direction t) {
     enum_Direction tmp = t._2;
     if (tmp == tag_North) {
         return t._1;
-    } else if (tmp == tag_South) {
+    } else {
         return 1000 + t._1;
     }
 }
@@ -296,7 +296,7 @@ static STAINLESS_FUNC_PURE int32_t worldDir(World* w) {
     enum_Direction tmp = w->robot.dir;
     if (tmp == tag_North) {
         return 10;
-    } else if (tmp == tag_South) {
+    } else {
         return 20;
     }
 }

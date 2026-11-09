@@ -71,7 +71,8 @@ class GenCSuite extends AnyFunSuite with inox.ResourceUtils with InputUtils with
       // changes to the emitted code (not just compilation/behaviour) are caught.
       checkGolden(cFile, file.replace(".scala", ".expected.c"))
       checkGolden(hFile, file.replace(".scala", ".expected.h"))
-      val gccCompile = s"$gccWithSanitizer $cFile -o $outFile"
+      // Every path of a C function that returns a value must return one, see ExhaustiveMatch.scala
+      val gccCompile = s"$gccWithSanitizer -Werror=return-type $cFile -o $outFile"
       ctx.reporter.info(s"Running: $gccCompile")
       val (std, exitCode) = runCommand(gccCompile)
       assert(exitCode == 0, "gcc failed with output:\n" + std.mkString("\n"))

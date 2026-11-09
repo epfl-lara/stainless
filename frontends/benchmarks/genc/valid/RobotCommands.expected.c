@@ -130,7 +130,7 @@ static STAINLESS_FUNC_PURE int32_t dirCode(enum_Direction d) {
         return 1;
     } else if (d == tag_South) {
         return 2;
-    } else if (d == tag_West) {
+    } else {
         return 3;
     }
 }
@@ -198,7 +198,7 @@ static void step(Robot* r, Command c) {
             r->y = sub(r->y, c.value.Move_v.steps);
         } else if (tmp == tag_East) {
             r->x = add(r->x, c.value.Move_v.steps);
-        } else if (tmp == tag_West) {
+        } else {
             r->x = sub(r->x, c.value.Move_v.steps);
         }
         r->moves = add(r->moves, 1);
@@ -206,7 +206,7 @@ static void step(Robot* r, Command c) {
         r->dir = turnLeft(r->dir);
     } else if (c.tag == tag_TurnRight) {
         r->dir = turnRight(r->dir);
-    } else if (c.tag == tag_Teleport) {
+    } else {
         r->x = c.value.Teleport_v.x;
         r->y = c.value.Teleport_v.y;
     }
@@ -229,7 +229,7 @@ static STAINLESS_FUNC_PURE enum_Direction turnLeft(enum_Direction d) {
         return tag_South;
     } else if (d == tag_South) {
         return tag_East;
-    } else if (d == tag_East) {
+    } else {
         return tag_North;
     }
 }
@@ -241,7 +241,7 @@ static STAINLESS_FUNC_PURE enum_Direction turnRight(enum_Direction d) {
         return tag_South;
     } else if (d == tag_South) {
         return tag_West;
-    } else if (d == tag_West) {
+    } else {
         return tag_North;
     }
 }

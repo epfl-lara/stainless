@@ -242,7 +242,9 @@ a sequence of equivalent statements.
 Imperative ``while`` loops are also supported.
 
 *Pattern matching* is supported, with the exception of the *Unapply
-Patterns*, as long as it is exempt of side effect.
+Patterns*, as long as it is exempt of side effect. As verification checks that
+matches are exhaustive, the C code does not test the pattern and the guard of
+the last case of a match.
 
 Assertions, invariant, pre- and post-conditions are not translated into C99 and are simply ignored.
 
