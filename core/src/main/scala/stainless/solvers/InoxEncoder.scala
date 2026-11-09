@@ -246,6 +246,10 @@ private class TreeEncoder[Prog <: Program](val sourceProgram: Prog)
             ).copiedFrom(e)
         }
 
+      // the bit-vector shifts of inox follow SMT-LIB: the amount has to be taken modulo the width first
+      case shift: s.JVMShift =>
+        transform(shift.masked)
+
       case _ => super.transform(e)
     }
   }

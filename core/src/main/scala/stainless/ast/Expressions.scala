@@ -226,6 +226,53 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
     }
   }
 
+  /* Shifts with the JVM semantics */
+
+  /** A shift on `Int`s or `Long`s as the JVM computes it: the amount is taken modulo the width
+    * (`1 << 33 == 2`, `1 << -1 == Int.MinValue`).
+    *
+    * The bit-vector shifts of inox ([[BVShiftLeft]], [[BVAShiftRight]] and [[BVLShiftRight]]) follow
+    * SMT-LIB instead: the amount is read as an unsigned value, and shifting by the width or more gives
+    * 0, or copies of the sign bit for `>>`. Both agree when the amount is at least 0 and less than the
+    * width.
+    */
+  sealed abstract class JVMShift extends Expr with CachingTyped {
+    val lhs: Expr
+    val rhs: Expr
+
+    /** The bit-vector shift of `lhs` by `amount` that corresponds to this shift. */
+    def bvShift(lhs: Expr, amount: Expr): Expr
+
+    /** The bit-vector shift equivalent to this shift: by the amount modulo the width. */
+    def masked(using Symbols): Expr = lhs.getType match {
+      case BVType(_, size) =>
+        val mask = BVLiteral(true, size - 1, size).copiedFrom(rhs)
+        bvShift(lhs, BVAnd(rhs, mask).copiedFrom(rhs)).copiedFrom(this)
+      case _ => bvShift(lhs, rhs).copiedFrom(this)
+    }
+
+    override protected def computeTpe(stripRefinements: Boolean)(using Symbols): Type = getBVType(lhs, rhs) match {
+      case tpe @ BVType(true, 32 | 64) => tpe
+      case _ => Untyped
+    }
+  }
+
+  /** $encodingof `... << ...` on `Int`s and `Long`s */
+  sealed case class JVMShiftLeft(lhs: Expr, rhs: Expr) extends JVMShift {
+    override def bvShift(lhs: Expr, amount: Expr): Expr = BVShiftLeft(lhs, amount)
+  }
+
+  /** $encodingof `... >> ...` on `Int`s and `Long`s (arithmetic shift, sign-preserving) */
+  sealed case class JVMAShiftRight(lhs: Expr, rhs: Expr) extends JVMShift {
+    override def bvShift(lhs: Expr, amount: Expr): Expr = BVAShiftRight(lhs, amount)
+  }
+
+  /** $encodingof `... >>> ...` on `Int`s and `Long`s (logical shift) */
+  sealed case class JVMLShiftRight(lhs: Expr, rhs: Expr) extends JVMShift {
+    override def bvShift(lhs: Expr, amount: Expr): Expr = BVLShiftRight(lhs, amount)
+  }
+
+
   /* Array Operations */
 
   /** $encodingof `Array(elems...)` */
