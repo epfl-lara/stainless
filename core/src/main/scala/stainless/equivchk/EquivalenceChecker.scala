@@ -688,8 +688,19 @@ class EquivalenceChecker(override val trees: Trees,
       case _ => (fun1, fun2)
     }
 
+    // Functions are equivalent when they agree on all inputs: Inox rejects comparing functions with
+    // `==` under `--function-equality=none`, and only compares their bodies otherwise.
+    def equivalent(e1: Expr, e2: Expr, tpe: Type): Expr = tpe match {
+      case FunctionType(from, to) =>
+        val args = from.map(ValDef.fresh("x", _))
+        Forall(args, equivalent(Application(e1, args.map(_.toVariable)), Application(e2, args.map(_.toVariable)), to))
+      case TupleType(tps) =>
+        andJoin(tps.indices.map(i => equivalent(TupleSelect(e1, i + 1), TupleSelect(e2, i + 1), tps(i))))
+      case _ => Equals(e1, e2)
+    }
+
     val res = ValDef.fresh("res", UnitType())
-    val cond = Equals(normFun1, normFun2)
+    val cond = equivalent(normFun1, normFun2, normFun1.getType(using symbols))
     val post = Postcondition(Lambda(Seq(res), cond))
     val body = UnitLiteral()
     val withPre = exprOps.reconstructSpecs(pre, Some(body), UnitType())

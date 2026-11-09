@@ -56,6 +56,14 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
 
   protected def filter(ctx: inox.Context, name: String): FilterStatus = Test
 
+  /** The options that the benchmark `name` (such as `verification/valid/Countable`) adds to each
+    * configuration.
+    */
+  protected def options(name: String): Seq[inox.OptionValue[?]] =
+    if (ComponentTestSuite.comparesFunctions(name.split('/').last))
+      Seq(inox.solvers.unrolling.optFunctionEquality(inox.solvers.unrolling.FunctionEquality.Intensional))
+    else Seq.empty
+
   def testAll(dir: String, lp: LoadedPrograms, identifierFilter: Identifier => Boolean = _ => true)
              (block: inox.Context ?=> (component.Analysis, inox.Reporter, xt.UnitDef, File) => Unit): Unit = {
     for {
@@ -63,7 +71,8 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
       if unit.isMain
       name = unit.id.name
     } {
-      test(s"$dir/$name", ctx => filter(ctx, s"$dir/$name")) { ctx ?=>
+      test(s"$dir/$name", ctx => filter(ctx, s"$dir/$name")) { testCtx ?=>
+        given ctx: inox.Context = testCtx.withOpts(options(s"$dir/$name")*)
         val defs = (unit.allFunctions(using lp.programSymbols).toSet ++ unit.allClasses).filter(identifierFilter)
 
         val deps = defs.flatMap(id => lp.programSymbols.dependencies(id) + id)
@@ -94,6 +103,11 @@ trait ComponentTestSuite extends inox.TestSuite with inox.ResourceUtils with Inp
   }
 }
 object ComponentTestSuite extends inox.ResourceUtils with InputUtils {
+  /** The benchmarks that compare functions, which they need intensional function equality for, as
+    * Inox rejects such comparisons by default.
+    */
+  val comparesFunctions: Set[String] = Set("Countable", "Countable2", "Berardi1", "Berardi2", "Berardi3", "Berardi4")
+
   case class LoadedPrograms(unitsWithFile: Seq[(xt.UnitDef, File)], programSymbols: xt.Symbols)
   case class LoadedProgramsWithResource[R](lp: LoadedPrograms, resource: R)
 
