@@ -1,0 +1,3 @@
+[ Error  ] i801.scala:7:5: Mutable fields in concrete classes cannot appear in the body of the class. Consider making counter a constructor parameter.
+               var counter: Int = 0
+               ^^^^^^^^^^^^^^^^^^^^
