@@ -1318,6 +1318,33 @@ trait CodeGeneration { self: CompilationUnit =>
 
       mkUnbox(choose.getType, ch)
 
+    // The model gives uninterpreted functions, which the monitor applies to the arguments
+    case uc: UninterpretedCall =>
+      val id = registerUninterpreted(uc, locals.tparams)
+
+      loadImpl(monitorID, ch)
+      ch << Ldc(id)
+      if (locals.tparams.nonEmpty) {
+        loadImpl(tpsID, ch)
+      } else {
+        ch << Ldc(0) << NewArray.primitive("T_INT")
+      }
+
+      ch << Ldc(uc.args.size)
+      ch << NewArray(ObjectClass)
+
+      for ((arg, i) <- uc.args.zipWithIndex) {
+        ch << DUP
+        ch << Ldc(i)
+        mkExpr(arg, ch)
+        mkBox(arg.getType, ch)
+        ch << AASTORE
+      }
+
+      ch << InvokeVirtual(MonitorClass, "onUninterpretedInvocation", s"(I[I[L$ObjectClass;)L$ObjectClass;")
+
+      mkUnbox(uc.getType, ch)
+
     case gv @ GenericValue(tp, int) =>
       val id = runtime.GenericValues.register(gv)
       ch << Ldc(id)
