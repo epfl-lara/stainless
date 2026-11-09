@@ -11,7 +11,9 @@ class FunctionClosure(override val s: Trees, override  val t: ast.Trees)
      with SimplyCachedFunctions
      with IdentitySorts { self =>
 
-  type RefinementVar[V] = (v: V, refine: (s.Type, Map[s.TypeParameter, s.Type]) => s.Type)
+  // A captured variable, with the refinement of its type and, for a captured binding that is
+  // bound again in the closed function rather than passed to it, the expression it is bound to.
+  type RefinementVar[V] = (v: V, refine: (s.Type, Map[s.TypeParameter, s.Type]) => s.Type, definition: Option[s.Expr])
 
   override protected type FunctionResult = Seq[t.FunDef]
   override protected type TransformerContext = s.Symbols
@@ -35,6 +37,19 @@ class FunctionClosure(override val s: Trees, override  val t: ast.Trees)
       case RefinementType(param, _) if param.tpe == UnitType() && vd.id.name == "prop" => true
       case _ => false
     }
+
+    // The functions that closing `fd` can make mutually recursive with a closed function: `fd`
+    // itself and the functions nested in it.
+    val enclosingFunctions: Set[Identifier] = exprOps.collect[Identifier] {
+      case LetRec(fds, _) => fds.map(_.id).toSet
+      case _ => Set.empty
+    } (fd.fullBody) + fd.id
+
+    def callsEnclosingFunction(e: Expr): Boolean = exprOps.exists {
+      case fi: FunctionInvocation => enclosingFunctions(fi.id)
+      case app: ApplyLetRec => enclosingFunctions(app.id)
+      case _ => false
+    } (e)
 
     // Keep captured variables ordered by their lexical definition in `fd`.
     // This is important because types of later vars may depend on earlier ones.
@@ -62,19 +77,31 @@ class FunctionClosure(override val s: Trees, override  val t: ast.Trees)
 
       val inst = new typeOps.TypeInstantiator(tparamsMap)
 
-      val (paramSubst, freshVals) = (free ++ params.map((_, (tpe: Type, tparamsMap: Map[s.TypeParameter, s.Type]) => tpe)))
-        .foldLeft((Map[ValDef, Expr](), Seq[(ValDef, ValDef)]())) {
-          case ((paramSubst, params), (vdOld, refine)) =>
+      // A captured binding with a definition becomes a binding of the closed function's body
+      // instead of a parameter. The types of the parameters after it refer to its definition, while
+      // the definitions of later bindings refer to the binding itself.
+      val (paramSubst, _, freshVals, bindings) = (free ++ params.map((_, (tpe: Type, tparamsMap: Map[s.TypeParameter, s.Type]) => tpe, None)))
+        .foldLeft((Map[ValDef, Expr](), Map[ValDef, Expr](), Seq[(ValDef, ValDef)](), Seq[(ValDef, Expr)]())) {
+          case ((paramSubst, bindingSubst, vals, bindings), (vdOld, refine, definition)) =>
             val vd = vdOld.copy(tpe = typeOps.instantiateType(vdOld.tpe, tparamsMap))
-            val newName = vd.id.freshen
             val refined = refine(vd.tpe, tparamsMap)
-            val ntpe = typeOps.replaceFromSymbols(paramSubst, refined)
-            val nvd = ValDef(vd.id.freshen, ntpe, vd.flags).copiedFrom(vd)
-            (paramSubst + (vd -> nvd.toVariable), params :+ (vdOld -> nvd))
+            val nvd = ValDef(vd.id.freshen, typeOps.replaceFromSymbols(paramSubst, refined), vd.flags).copiedFrom(vd)
+            definition match {
+              case Some(e) =>
+                val instantiated = typeOps.instantiateType(e, tparamsMap)
+                val inParams = exprOps.replaceFromSymbols(paramSubst, instantiated)
+                val inBody = exprOps.replaceFromSymbols(bindingSubst, instantiated)
+                // The binding's own type may refer to earlier bindings, which are in scope
+                val bvd = nvd.copy(tpe = typeOps.replaceFromSymbols(bindingSubst, refined))
+                (paramSubst + (vd -> inParams), bindingSubst + (vd -> bvd.toVariable), vals :+ (vdOld -> bvd), bindings :+ (bvd -> inBody))
+              case None =>
+                (paramSubst + (vd -> nvd.toVariable), bindingSubst + (vd -> nvd.toVariable), vals :+ (vdOld -> nvd), bindings)
+            }
         }
 
       val freeMap = freshVals.toMap
-      val freshParams = freshVals.map(_._2)
+      val boundVals = bindings.map(_._1).toSet
+      val freshParams = freshVals.map(_._2).filterNot(boundVals)
 
       object bodyTransformer extends ConcreteStainlessSelfTreeTransformer {
         override def transform(e: Expr): Expr = e match {
@@ -100,7 +127,11 @@ class FunctionClosure(override val s: Trees, override  val t: ast.Trees)
         }
       }
 
-      val newBody = exprOps.freshenLocals(bodyTransformer.transform(fullBody))
+      // The bindings are added after freshening, as calls in the body refer to them. They don't
+      // generate verification conditions, which the outer function already has.
+      val newBody = bindings.foldRight(exprOps.freshenLocals(bodyTransformer.transform(fullBody))) {
+        case ((vd, e), body) => Let(vd, annotated(e, DropVCs), body).copiedFrom(body)
+      }
 
       val newFd = new s.FunDef(
         id,
@@ -232,28 +263,31 @@ class FunctionClosure(override val s: Trees, override  val t: ast.Trees)
             // already checked in the outer function.
             val fromPath: Seq[RefinementVar[Variable]] = path.elements.collect {
               case Path.CloseBound(vd, e) if allVars.contains(vd.toVariable) => 
-                (vd.toVariable, (tpe: Type, tparamsMap: Map[s.TypeParameter, s.Type]) => {
-                  val param = ValDef(FreshIdentifier("param"), tpe)
-                  RefinementType(param, Annotated(Equals(param.toVariable, typeOps.instantiateType(e, tparamsMap)), Seq(DropVCs)))
-                })
+                // A captured binding is bound again to its definition in the closed function rather
+                // than passed with an equality to it, which `--function-equality=none` rejects for
+                // values that contain functions. When the definition calls an enclosing function, the
+                // closed function would call it too and become mutually recursive with it, so the
+                // binding is passed as is.
+                val definition = if (callsEnclosingFunction(e)) None else Some(e)
+                (vd.toVariable, (tpe: Type, _: Map[s.TypeParameter, s.Type]) => tpe, definition)
               case Path.Condition(cond) if exprOps.variablesOf(cond).intersect(allVars.toSet).nonEmpty => 
                 val v = ValDef(FreshIdentifier("prop"), UnitType())
                 (v.toVariable, (tpe: Type, tparamsMap: Map[s.TypeParameter, s.Type]) => {
                   val param = ValDef(FreshIdentifier("param"), tpe)
                   RefinementType(param, Annotated(typeOps.instantiateType(cond, tparamsMap), Seq(DropVCs, DropConjunct)))
-                })
+                }, None)
             }
             val filteredVars: Seq[RefinementVar[Variable]] = allVars
               .filterNot(boundVars).toSeq
               .sortBy(v => definitionOrder.getOrElse(v.id, v.id.globalId))
-              .map(v => (v, (tpe: Type, tparamsMap: Map[s.TypeParameter, s.Type]) => tpe))
+              .map(v => (v, (tpe: Type, tparamsMap: Map[s.TypeParameter, s.Type]) => tpe, None))
             fid -> (filteredVars ++ fromPath)
         }
       }
 
       // Closed functions along with a map (old var -> new var).
       val closed = nestedFuns.map { inner =>
-        inner.id -> closeFd(inner, fd, transFree(inner.id).map{ case (v, rhs) => (v.toVal, rhs) })
+        inner.id -> closeFd(inner, fd, transFree(inner.id).map { case (v, refine, definition) => (v.toVal, refine, definition) })
       }.toMap
 
       class ClosingTransformer(override val s: self.s.type,

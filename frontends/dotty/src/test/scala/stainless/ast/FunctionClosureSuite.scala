@@ -50,7 +50,14 @@ class FunctionClosureSuite extends AnyFunSuite with InputUtils {
     val inner3B = funDef("InnerFunctions.inner3B")
     assert(inner1.params.isEmpty)
     assert(inner2.params.size == 1)
-    assert(inner3A.params.map(_.id.name) == Seq("x", "y", "prop", "prop", "a"))
-    assert(inner3B.params.map(_.id.name) == Seq("x", "y", "prop", "prop", "a"))
+    // `a` is bound again to its definition in the closed functions rather than passed to them
+    assert(inner3A.params.map(_.id.name) == Seq("x", "y", "prop", "prop"))
+    assert(inner3B.params.map(_.id.name) == Seq("x", "y", "prop", "prop"))
+    for (fd <- Seq(inner3A, inner3B)) {
+      assert(fd.fullBody match {
+        case Let(vd, _, _) => vd.id.name == "a"
+        case _ => false
+      }, fd.fullBody.toString)
+    }
   }
 }
