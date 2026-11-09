@@ -135,7 +135,7 @@ static STAINLESS_FUNC_PURE Tuple_int32_int32 swapped(int32_t a, int32_t b) {
 static STAINLESS_FUNC_PURE int32_t xOrZero(Shape s) {
     if (s.tag == tag_Dot) {
         return s.value.Dot_v.p.x;
-    } else if (s.tag == tag_Empty) {
+    } else {
         return 0;
     }
 }
