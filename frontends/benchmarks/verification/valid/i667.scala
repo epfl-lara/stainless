@@ -9,3 +9,11 @@ object i667:
     val y: BigInt = BigInt(x)
     true
   }
+
+  def inEnsuringReceiver(x: Int): BigInt = {
+    BigInt(x)
+  } ensuring (_ == BigInt(x))
+
+  def inRequireAndAssert(x: Int): Unit =
+    require(BigInt(x) == BigInt(x))
+    assert(BigInt(x) == BigInt(x))

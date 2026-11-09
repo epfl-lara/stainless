@@ -1,0 +1,3 @@
+[ Error  ] i667c.scala:7:7: Conversion from Int to BigInt
+               f(i)
+                 ^
