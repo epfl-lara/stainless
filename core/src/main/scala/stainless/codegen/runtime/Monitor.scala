@@ -12,6 +12,8 @@ abstract class Monitor {
 
   def onChooseInvocation(id: Int, tps: Array[Int], args: Array[AnyRef]): AnyRef
 
+  def onUninterpretedInvocation(id: Int, tps: Array[Int], args: Array[AnyRef]): AnyRef
+
   def onForallInvocation(id: Int, tps: Array[Int], args: Array[AnyRef]): Boolean
 }
 
