@@ -98,9 +98,9 @@ class CodeGenEvaluator(override val program: Program,
           }
 
         case None =>
-          val groundChoose = inlineUninterpreted(exprOps.replaceFromSymbols(inputsMap, tpChoose), model.chooses)
+          val groundChoose = exprOps.replaceFromSymbols(inputsMap, tpChoose)
           try {
-            self.onChooseInvocation(groundChoose.asInstanceOf[Choose])
+            self.onChooseInvocation(groundChoose.asInstanceOf[Choose], model.chooses)
           } catch {
             case e: java.lang.RuntimeException =>
               throw new runtime.CodeGenRuntimeException(e.getMessage)
@@ -156,10 +156,10 @@ class CodeGenEvaluator(override val program: Program,
         case (v, ref) => v -> jvmToValue(ref, v.getType)
       }.toMap
 
-      val groundForall = inlineUninterpreted(exprOps.replaceFromSymbols(inputsMap, tpForall), model.chooses)
+      val groundForall = exprOps.replaceFromSymbols(inputsMap, tpForall)
 
       val BooleanLiteral(res) = (try {
-        self.onForallInvocation(groundForall.asInstanceOf[Forall])
+        self.onForallInvocation(groundForall.asInstanceOf[Forall], model.chooses)
       } catch {
         case e: java.lang.RuntimeException =>
           throw new runtime.CodeGenRuntimeException(e.getMessage)
