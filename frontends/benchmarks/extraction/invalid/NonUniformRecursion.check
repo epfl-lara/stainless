@@ -1,0 +1,6 @@
+[ Error  ] NonUniformRecursion.scala:6:21: Non-uniform recursive types are not supported: Exp[Var[A]] refers back to Lam, so its type arguments must be type parameters or types without type parameters
+             case class Lam[A](body: Exp[Var[A]]) extends Exp[A]
+                               ^^^^^^^^^^^^^^^^^
+[ Error  ] NonUniformRecursion.scala:8:28: Non-uniform recursive types are not supported: Nest[(A, A)] refers back to Nest, so its type arguments must be type parameters or types without type parameters
+             case class Nest[A](a: A, next: Option[Nest[(A, A)]])
+                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^
