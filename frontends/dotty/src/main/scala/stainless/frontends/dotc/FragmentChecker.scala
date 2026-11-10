@@ -380,6 +380,7 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
 
   class Checker extends tpd.TreeTraverser {
     private val StainlessLangPackage = getClassIfDefinedOrNone("stainless.lang.package$")
+    private val InternallyMutableAnnotation = getClassIfDefinedOrNone("stainless.annotation.internallyMutable")
     private val StainlessOld = StainlessLangPackage.map(_.info.decl(Names.termName("old")).symbol)
 
     private val BigInt_ApplyMethods =
@@ -588,6 +589,14 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
         }
       }
 
+      // `@internallyMutable` may only annotate constructor fields of a class (whether they are private is
+      // checked during extraction). Constructor parameters themselves are not traversed here.
+      tree match {
+        case md: tpd.MemberDef if sym.exists && InternallyMutableAnnotation.exists(sym.hasAnnotation) && !(sym `is` ParamAccessor) =>
+          reportError(tree.sourcePos, "@internallyMutable can only annotate constructor fields of a class")
+        case _ => ()
+      }
+
       tree match {
         case cd @ ExClassDef() =>
           val isSupported =
@@ -622,6 +631,8 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
           traverse(dd.rhs)
 
         case dd @ DefDef(_, _, _, _) =>
+          for (param <- dd.termParamss.flatten if InternallyMutableAnnotation.exists(param.symbol.hasAnnotation))
+            reportError(param.sourcePos, "@internallyMutable can only annotate constructor fields of a class")
           // recur only inside `dd.rhs`, as parameter/type parameters have been checked already in `checkType`
           traverse(dd.rhs)
 

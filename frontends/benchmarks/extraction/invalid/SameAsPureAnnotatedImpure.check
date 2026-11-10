@@ -1,0 +1,3 @@
+[ Error  ] SameAsPureAnnotatedImpure.scala:10:7: Functions marked @pure cannot have side-effects
+             def impureNext(b: Box): BigInt = {
+                 ^

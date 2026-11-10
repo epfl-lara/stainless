@@ -57,61 +57,66 @@ Annotations
 Stainless provides some special annotations in the package ``stainless.annotation``,
 which instruct Stainless to handle some functions or objects in a specialized way.
 
-+-------------------+----------------------------------------------------------------+
-| Annotation        | Meaning                                                        |
-+===================+================================================================+
-| ``@library``      | Treat this object/function as library, don't try               |
-|                   | to verify its specification. Can be overridden by              |
-|                   | including a function name in the ``--functions``               |
-|                   | command line option.                                           |
-+-------------------+----------------------------------------------------------------+
-| ``@induct``       | Use the inductive tactic when generating                       |
-|                   | verification conditions.                                       |
-+-------------------+----------------------------------------------------------------+
-| ``@invariant``    | Treat the annotated method as an invariant of the enclosing    |
-|                   | class. Can be used instead of ``require`` within a value class |
-|                   | body. For soundness, invariants can only refer to fields of    |
-|                   | their class, and thus cannot call methods on ``this``.         |
-+-------------------+----------------------------------------------------------------+
-| ``@ghost``        | Drop the annotated field or method during compilation.         |
-|                   | See the :doc:`corresponding section <ghost>` for more          |
-|                   | information.                                                   |
-+-------------------+----------------------------------------------------------------+
-| ``@extern``       | Only extract the contracts of a function, replacing            |
-|                   | its body by a ``choose`` expression.                           |
-+-------------------+----------------------------------------------------------------+
-| ``@opaque``       | Used to hide a function ``f``'s body when doing verification   |
-|                   | of functions (``f`` itself, or others) invoking ``f``. Does    |
-|                   | not hide pre and postconditions.                               |
-+-------------------+----------------------------------------------------------------+
-| ``@dropVCs``      | Do not generate verification conditions for this function.     |
-+-------------------+----------------------------------------------------------------+
-| ``@pure``         | Specify that this function is pure, which will then            |
-|                   | be checked. If the function is also annotated with             |
-|                   | ``@extern``, it will not be checked, but assumed pure.         |
-+-------------------+----------------------------------------------------------------+
-| ``@ignore``       | Ignore this definition when extracting Stainless trees.        |
-|                   | This annotation is useful to define functions                  |
-|                   | that are not in Stainless's language but will be               |
-|                   | hard-coded into specialized trees, or to include               |
-|                   | code written in full Scala which is not verifiable             |
-|                   | by Stainless. Can also be used on class fields whose type      |
-|                   | cannot be understood by Stainless, eg. because it comes from   |
-|                   | an external library, the JDK, or some other code which         |
-|                   | does not understand.                                           |
-|                   | See the corresponding :doc:`documentation page <wrap>`.        |
-+-------------------+----------------------------------------------------------------+
-| ``@inline``       | Inline this function. Stainless will refuse to inline          |
-|                   | (mutually) recursive functions.                                |
-+-------------------+----------------------------------------------------------------+
-| ``@inlineOnce``   | Inline this function but only once, which is allowed           |
-|                   | even on (mutually) recursive functions.                        |
-|                   | Note: A recursive function will not be inlined within itself.  |
-+-------------------+----------------------------------------------------------------+
-| ``@partialEval``  | Partially evaluate calls to this function.                     |
-|                   | Note: ``stainless.lang.partialEval`` can also be used to       |
-|                   | partially evaluate an expression.                              |
-+-------------------+----------------------------------------------------------------+
++------------------------+----------------------------------------------------------------+
+| Annotation             | Meaning                                                        |
++========================+================================================================+
+| ``@library``           | Treat this object/function as library, don't try               |
+|                        | to verify its specification. Can be overridden by              |
+|                        | including a function name in the ``--functions``               |
+|                        | command line option.                                           |
++------------------------+----------------------------------------------------------------+
+| ``@induct``            | Use the inductive tactic when generating                       |
+|                        | verification conditions.                                       |
++------------------------+----------------------------------------------------------------+
+| ``@invariant``         | Treat the annotated method as an invariant of the enclosing    |
+|                        | class. Can be used instead of ``require`` within a value class |
+|                        | body. For soundness, invariants can only refer to fields of    |
+|                        | their class, and thus cannot call methods on ``this``.         |
++------------------------+----------------------------------------------------------------+
+| ``@ghost``             | Drop the annotated field or method during compilation.         |
+|                        | See the :doc:`corresponding section <ghost>` for more          |
+|                        | information.                                                   |
++------------------------+----------------------------------------------------------------+
+| ``@extern``            | Only extract the contracts of a function, replacing            |
+|                        | its body by a ``choose`` expression.                           |
++------------------------+----------------------------------------------------------------+
+| ``@opaque``            | Used to hide a function ``f``'s body when doing verification   |
+|                        | of functions (``f`` itself, or others) invoking ``f``. Does    |
+|                        | not hide pre and postconditions.                               |
++------------------------+----------------------------------------------------------------+
+| ``@dropVCs``           | Do not generate verification conditions for this function.     |
++------------------------+----------------------------------------------------------------+
+| ``@pure``              | Specify that this function is pure, which will then            |
+|                        | be checked. If the function is also annotated with             |
+|                        | ``@extern``, it will not be checked, but assumed pure.         |
++------------------------+----------------------------------------------------------------+
+| ``@internallyMutable`` | Mark a private constructor field whose mutation is not         |
+|                        | observable from outside its class, e.g. a cache, so that       |
+|                        | methods with a ``sameAs`` postcondition can be used as pure    |
+|                        | functions. See :ref:`internally-mutable-objects`.              |
++------------------------+----------------------------------------------------------------+
+| ``@ignore``            | Ignore this definition when extracting Stainless trees.        |
+|                        | This annotation is useful to define functions                  |
+|                        | that are not in Stainless's language but will be               |
+|                        | hard-coded into specialized trees, or to include               |
+|                        | code written in full Scala which is not verifiable             |
+|                        | by Stainless. Can also be used on class fields whose type      |
+|                        | cannot be understood by Stainless, eg. because it comes from   |
+|                        | an external library, the JDK, or some other code which         |
+|                        | does not understand.                                           |
+|                        | See the corresponding :doc:`documentation page <wrap>`.        |
++------------------------+----------------------------------------------------------------+
+| ``@inline``            | Inline this function. Stainless will refuse to inline          |
+|                        | (mutually) recursive functions.                                |
++------------------------+----------------------------------------------------------------+
+| ``@inlineOnce``        | Inline this function but only once, which is allowed           |
+|                        | even on (mutually) recursive functions.                        |
+|                        | Note: A recursive function will not be inlined within itself.  |
++------------------------+----------------------------------------------------------------+
+| ``@partialEval``       | Partially evaluate calls to this function.                     |
+|                        | Note: ``stainless.lang.partialEval`` can also be used to       |
+|                        | partially evaluate an expression.                              |
++------------------------+----------------------------------------------------------------+
 
 Stainless also has some special keywords defined in ``stainless.lang`` that can be used around
 function calls. `Here <https://github.com/epfl-lara/stainless/blob/master/frontends/benchmarks/verification/valid/MicroTests/VisibleOpaque.scala>`_ is an example for ``unfold``.

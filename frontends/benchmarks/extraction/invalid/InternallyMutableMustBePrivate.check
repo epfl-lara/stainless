@@ -1,0 +1,3 @@
+[ Error  ] InternallyMutableMustBePrivate.scala:3:37: Fields annotated with @internallyMutable must be private
+           case class InvalidInternallyMutable(@internallyMutable var x: Int) {
+                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
