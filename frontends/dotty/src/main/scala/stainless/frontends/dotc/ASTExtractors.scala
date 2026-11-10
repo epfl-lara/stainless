@@ -1332,7 +1332,7 @@ trait ASTExtractors {
             Literal(Constant(()))
           )
         ) =>
-          args match {
+          args.map(stripInlineMarkers) match {
             case List(Literal(cnst: Constant)) => Some((body, Some(cnst.stringValue), false))
             case _ => Some((body, None, false))
           }
@@ -1343,11 +1343,12 @@ trait ASTExtractors {
           Nil,
           Apply(ExSymbol("scala", "runtime", "Scala3RunTime$", "assertFailed"), args)
         ) =>
-          args match {
+          args.map(stripInlineMarkers) match {
             case List(Literal(cnst: Constant)) => Some((tpd.Literal(Constant(false)), Some(cnst.stringValue), false))
             case _ => Some((tpd.Literal(Constant(false)), None, false))
           }
 
+        // Scala 3 does not inline the calls to Scala's assert in the body of an inline method.
         case Apply(ExSymbol("scala", "Predef$", "assert"), Seq(body)) =>
           Some((body, None, false))
 

@@ -26,6 +26,7 @@ package object extraction {
   val phases: Seq[(String, String)] = Seq(
     "UserFiltering"             -> "Remove all the library functions not used by the user",
     "Preprocessing"             -> "A preprocessing phase before the pipeline",
+    "ConstructsUsage"           -> "Collect uses of `choose`, `@extern` and `???` for the summary report",
     "PartialFunctions"          -> "Lift partial function preconditions",
     "XlangLowering"             -> "Lowering phase at the end of xlang phases",
     "InnerClasses"              -> "Lift inner classes",
@@ -38,6 +39,7 @@ package object extraction {
     "MethodLifting"             -> "Lift methods into dispatching functions",
     "MergeInvariants"           -> "Merge all class invariants into a single method",
     "ValueClasses"              -> "Erase value classes",
+    "MethodsLowering"           -> "Lowering phase at the end of methods phases",
     "ExceptionLifting"          -> "Removes all throw statements, and replaces them with an assertion with false condition",
     "FieldAccessors"            -> "Inline field accessors of concrete classes",
     "SameAsLowering"            -> "Lower `sameAs` postconditions of observationally pure functions to equalities",
@@ -64,14 +66,15 @@ package object extraction {
     "PartialEvaluation"         -> "Partially evaluate marked function calls",
     "AssertionInjector"         -> "Insert assertions which verify array accesses, casts, division by zero, etc.",
 
-    "ComputeDependencies"       -> "(GenC) Compute the dependencies of a given definition",
     "ComputeFunCtx"             -> "(GenC) Compute the context of each given function definition",
     "GhostElimination"          -> "(GenC) Remove ghost code",
+    "TrimSymbols"               -> "(GenC) Keep only the definitions that exported functions depend on",
     "Scala2IR"                  -> "(GenC) Convert the Stainless AST into GenC's IR",
     "StructInlining"            -> "(GenC) Inline structs which have just one member",
     "Normalisation"             -> "(GenC) Normalise IR to match the C execution model",
     "Lifting"                   -> "(GenC) Lift class types to their hierarchy top class",
     "Referencing"               -> "(GenC) Add 'referencing' to the input LIR program to produce a RIR program",
+    "TailRecElim"               -> "(GenC) Rewrite tail-recursive functions into loops",
     "IR2C"                      -> "(GenC) From IR to C",
   )
 

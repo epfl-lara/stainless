@@ -35,6 +35,7 @@ trait Printer extends inox.ast.Printer {
     case (FunctionOperator("+", _, _) | FunctionOperator("-", _, _))   => 7
     case (FunctionOperator("*", _, _) | FunctionOperator("/", _, _))   => 8
     case (FunctionOperator("%", _, _))                                 => 8
+    case (_: JVMShift)                                                 => 4
     case _ => super.precedence(ex)
   }
 
@@ -165,6 +166,18 @@ trait Printer extends inox.ast.Printer {
         p"Array(_) (of size $size)"
       }
 
+    case JVMShiftLeft(lhs, rhs) => optP {
+      p"$lhs << $rhs"
+    }
+
+    case JVMAShiftRight(lhs, rhs) => optP {
+      p"$lhs >> $rhs"
+    }
+
+    case JVMLShiftRight(lhs, rhs) => optP {
+      p"$lhs >>> $rhs"
+    }
+
     case ArraySelect(array, index) =>
       p"$array($index)"
 
@@ -180,6 +193,12 @@ trait Printer extends inox.ast.Printer {
 
     case Max(es) =>
       p"""max($es)"""
+
+    // Stainless's casts from floating point numbers (see InoxEncoder)
+    case FPToBV(8, true, RoundTowardZero, e) => p"$e.toByte"
+    case FPToBV(16, true, RoundTowardZero, e) => p"$e.toShort"
+    case FPToBV(32, true, RoundTowardZero, e) => p"$e.toInt"
+    case FPToBV(64, true, RoundTowardZero, e) => p"$e.toLong"
 
     case _ => super.ppBody(tree)
   }

@@ -35,28 +35,23 @@
 74:48;append;postcondition;valid
 76:26;append;postcondition;valid
 77:54;append;postcondition;valid
-80:19;nilAppend;non-negative measure;valid
 80:42;nilAppend;body assertion: match exhaustiveness;valid
 80:42;nilAppend;postcondition;valid
 80:42;nilAppend;postcondition;valid
 80:42;nilAppend;postcondition;valid
-83:21;appendAssoc;non-negative measure;valid
 84:8;appendAssoc;body assertion: match exhaustiveness;valid
 84:8;appendAssoc;postcondition;valid
 84:8;appendAssoc;postcondition;valid
 84:8;appendAssoc;postcondition;valid
 86:9;revAuxBroken;postcondition;invalid
-91:20;sizeAppend;non-negative measure;valid
 92:8;sizeAppend;body assertion: match exhaustiveness;valid
 92:8;sizeAppend;postcondition;valid
 92:8;sizeAppend;postcondition;valid
 92:8;sizeAppend;postcondition;valid
-95:16;concat;non-negative measure;valid
 96:7;concat;body assertion: match exhaustiveness;valid
 96:7;concat;postcondition;valid
 96:7;concat;postcondition;valid
 96:7;concat;postcondition;valid
-99:17;concat0;non-negative measure;valid
 99:57;concat0;body assertion: match exhaustiveness;valid
 99:57;concat0;body assertion: match exhaustiveness;valid
 99:57;concat0;body assertion: match exhaustiveness;valid

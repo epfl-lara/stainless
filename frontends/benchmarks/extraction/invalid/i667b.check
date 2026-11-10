@@ -1,0 +1,9 @@
+[ Error  ] i667b.scala:8:28: Only literal, Int or Long arguments are allowed for BigInt.
+               val y: BigInt = BigInt(s)
+                                      ^
+[ Error  ] i667b.scala:13:12: Only literal, Int or Long arguments are allowed for BigInt.
+               BigInt(s)
+                      ^
+[ Error  ] i667b.scala:17:5: Method eq on Object is not supported
+               a eq b
+               ^^^^^^

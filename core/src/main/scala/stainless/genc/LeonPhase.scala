@@ -7,6 +7,8 @@ import stainless.extraction.utils._
 class NamedLeonPhase[F, T](val name: String,
                            val underlying: LeonPipeline[F, T])
                           (using context: inox.Context) extends LeonPipeline[F, T](context) {
+  require(stainless.extraction.phaseNames contains name, s"Phase $name is missing from stainless.extraction.phases, so --debug-phases rejects it")
+
   lazy val phases = context.options.findOption(optDebugPhases).map(_.toSet)
 
   lazy val debugTrees: Boolean =
@@ -41,6 +43,8 @@ class NamedLeonPhase[F, T](val name: String,
       val lines = res.toString.count(_ == '\n') + 1
       val size = res match {
         case symbols: stainless.extraction.throwing.trees.Symbols => symbols.astSize
+        case (symbols: stainless.extraction.throwing.trees.Symbols, _) => symbols.astSize // ComputeFunCtx
+        case prog: ir.IRs.TIR.Prog => prog.size
         case prog: ir.IRs.SIR.Prog => prog.size
         case prog: ir.IRs.CIR.Prog => prog.size
         case prog: ir.IRs.RIR.Prog => prog.size

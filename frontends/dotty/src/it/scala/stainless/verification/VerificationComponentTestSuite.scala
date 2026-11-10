@@ -75,17 +75,21 @@ trait VerificationComponentTestSuite extends ComponentTestSuite { self =>
       return
     }
 
-    expectedVCInfos.get(solver).flatMap(_.projected(scalaFile)) match {
-      case Some(expectedVCInfos) =>
-        val checkingResult = CheckFilesUtils.checkVCResults(expectedVCInfos, analysis.vrs.map { case (vc, vcRes) => (vc, vcRes.status) })
+    val results = analysis.vrs.map { case (vc, vcRes) => (vc, vcRes.status) }
+    (CheckFilesUtils.checkFileOf(scalaFile, solver), expectedVCInfos.get(solver).flatMap(_.projected(scalaFile))) match {
+      case (Some(checkFile), _) if ExpectedFiles.updateMode =>
+        updateCheckFile(scalaFile, checkFile, results)
+
+      case (_, Some(expectedVCInfos)) =>
+        val checkingResult = CheckFilesUtils.checkVCResults(expectedVCInfos, results)
         checkingResult match {
           case Left(err) =>
             val prettyErrs = err.prettyLines(indent = 2, prefixFile = Some(benchFolder)).mkString("\n")
-            fail(s"The results do not match their check files:\n$prettyErrs")
+            fail(s"The results do not match their check files:\n$prettyErrs\n${ExpectedFiles.updateHint}")
           case Right(()) => ()
         }
 
-      case None =>
+      case _ =>
         // No check file for this test. If allowMissingCheckFile is set to false,
         // the earlier validation would have caught a missing .check file.
         // However, it cannot catch the case where there are no base .check file
@@ -94,10 +98,34 @@ trait VerificationComponentTestSuite extends ComponentTestSuite { self =>
         val fileRel = benchFolder.toPath.relativize(scalaFile.toPath).toFile.getPath
         if (allowMissingCheckFile) {
           // We shouldn't be doing this here, that said, we shouldn't allow for missing check files either
-          warnPrintln(Seq(s"The Scala file $fileRel did not have a check file for solver $solver (note: allowMissingCheckFile is set to true)"))
+          // Reported through the test instead of printed, so that it stays with the output of its suite
+          // when the suites run in parallel.
+          info(s"The Scala file $fileRel did not have a check file for solver $solver (note: allowMissingCheckFile is set to true)")
+          info("To add one, create an empty check file and run with STAINLESS_UPDATE_EXPECTED=1 to fill it")
         } else {
           fail(s"The Scala file $fileRel did not have a check file for solver $solver")
         }
+    }
+  }
+
+  /** In update mode, rewrites the check file `checkFile` of `scalaFile` with the VC `results` if they do not match.
+    *
+    * A check file without solver extension is shared by all the solvers that do not have their own: the first test
+    * of the run that checks it updates it, and the next ones fail if they obtain different results. A solver-specific
+    * check file `X.check.<solver>` can then be added for the solvers that disagree. Missing check files are not
+    * created: to add one, create an empty file and run in update mode.
+    */
+  private def updateCheckFile[T <: ast.Trees, M](scalaFile: File, checkFile: File, results: Seq[(VC[T], VCStatus[M])]): Unit = {
+    val lines = CheckFilesUtils.checkFileLines(scalaFile, results) match {
+      case Right(lines) => lines
+      case Left(unrepresentable) =>
+        fail(s"The following VCs cannot be written to the check file $checkFile:\n" + unrepresentable.map("  " + _).mkString("\n"))
+    }
+    ExpectedFiles.updateLines(checkFile, lines) { expectedLines =>
+      CheckFilesUtils.parse(scalaFile, checkFile, expectedLines) match {
+        case Right(expected) => CheckFilesUtils.checkVCResults(expected, results).isRight
+        case Left(_) => false
+      }
     }
   }
 
@@ -132,7 +160,8 @@ trait VerificationComponentTestSuite extends ComponentTestSuite { self =>
         fail(header + "\n" + files.mkString("\n"))
       }
     }
-    if (loadRes.errs.nonEmpty) {
+    // In update mode, the check files with parsing errors are rewritten by the tests
+    if (loadRes.errs.nonEmpty && !ExpectedFiles.updateMode) {
       val header = "The following check files have parsing errors:"
       val errsStr = loadRes.errs.flatMap(prettyLines).toSeq
       val combined = header + "\n" + errsStr.mkString("\n")
@@ -140,14 +169,6 @@ trait VerificationComponentTestSuite extends ComponentTestSuite { self =>
     }
 
     loadRes.expectedVCInfosBySolver
-  }
-
-  final def warnPrintln(lines: Seq[String]): Unit = {
-    lines.foreach { l =>
-      val warn = s"${Console.BOLD}${Console.YELLOW}[warning]${Console.RESET}"
-      val msg = s"${Console.YELLOW}$l${Console.RESET}"
-      println(s"$warn $msg")
-    }
   }
 
   final def checkFileMapIgnore2Filter(ignore: Map[Solver, Set[String]]): (File, Solver) => Boolean =

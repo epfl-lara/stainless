@@ -146,8 +146,6 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
   override def deconstruct(expr: s.Expr): Deconstructed[t.Expr] = expr match {
     case s.NoTree(tpe) =>
       (Seq(), Seq(), Seq(), Seq(tpe), Seq(), (_, _, _, tps, _) => t.NoTree(tps.head))
-    case s.Error(tpe, desc) =>
-      (Seq(), Seq(), Seq(), Seq(tpe), Seq(), (_, _, _, tps, _) => t.Error(tps.head, desc))
     case s.Require(pred, body) =>
       (Seq(), Seq(), Seq(pred, body), Seq(), Seq(), (_, _, es, _, _) => t.Require(es(0), es(1)))
     case s.Ensuring(body, pred) =>
@@ -172,6 +170,15 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
         val newIn +: newOut +: nes = es: @unchecked
         t.Passes(newIn, newOut, crecons(ids, vs, nes, tps))
       })
+
+    case s.JVMShiftLeft(lhs, rhs) =>
+      (Seq(), Seq(), Seq(lhs, rhs), Seq(), Seq(), (_, _, es, _, _) => t.JVMShiftLeft(es(0), es(1)))
+
+    case s.JVMAShiftRight(lhs, rhs) =>
+      (Seq(), Seq(), Seq(lhs, rhs), Seq(), Seq(), (_, _, es, _, _) => t.JVMAShiftRight(es(0), es(1)))
+
+    case s.JVMLShiftRight(lhs, rhs) =>
+      (Seq(), Seq(), Seq(lhs, rhs), Seq(), Seq(), (_, _, es, _, _) => t.JVMLShiftRight(es(0), es(1)))
 
     case s.FiniteArray(elems, base) =>
       (Seq(), Seq(), elems, Seq(base), Seq(), (_, _, es, tps, _) => t.FiniteArray(es, tps.head))

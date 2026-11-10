@@ -122,9 +122,6 @@ trait TransformerWithType extends TreeTransformer {
     case s.FPToBV(size, signed, rm, e) =>
       t.FPToBV(size, signed, transform(rm), transform(e)).copiedFrom(expr)
 
-    case s.FPToBVJVM(exponent, significand, toSize, e) =>
-      t.FPToBVJVM(exponent, significand, toSize, transform(e)).copiedFrom(expr)
-
     case s.FPFromBinary(e, s, expr) =>
       t.FPFromBinary(e, s, transform(expr)).copiedFrom(expr)
 
@@ -287,6 +284,18 @@ trait TransformerWithType extends TreeTransformer {
     case s.BVLShiftRight(lhs, rhs) =>
       val atpe = getArithmeticType(lhs, tpe)
       t.BVLShiftRight(transform(lhs, atpe), transform(rhs, atpe)).copiedFrom(expr)
+
+    case s.JVMShiftLeft(lhs, rhs) =>
+      val atpe = getArithmeticType(lhs, tpe)
+      t.JVMShiftLeft(transform(lhs, atpe), transform(rhs, atpe)).copiedFrom(expr)
+
+    case s.JVMAShiftRight(lhs, rhs) =>
+      val atpe = getArithmeticType(lhs, tpe)
+      t.JVMAShiftRight(transform(lhs, atpe), transform(rhs, atpe)).copiedFrom(expr)
+
+    case s.JVMLShiftRight(lhs, rhs) =>
+      val atpe = getArithmeticType(lhs, tpe)
+      t.JVMLShiftRight(transform(lhs, atpe), transform(rhs, atpe)).copiedFrom(expr)
 
     case s.BVNarrowingCast(e, tpe) =>
       t.BVNarrowingCast(transform(e), transform(tpe).asInstanceOf[t.BVType]).copiedFrom(expr)

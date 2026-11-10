@@ -133,8 +133,8 @@ else
     cd $ROOT_DIR
     echo Testing $SBT --version
     $SBT --version
-    echo *******     $SBT universal:stage ********
-    $SBT universal:stage
+    echo "*******     $SBT Universal/stage ********"
+    $SBT Universal/stage
   if [ $? -ne 0 ]; then
     echo "************** Failed to build the universal package **************"
     exit 1
@@ -149,14 +149,18 @@ if [ "$SKIP_TESTS" = true ]; then
   echo "************** Skipping tests **************"
 else
   # Run the tests
-  $SBT -batch -Dtestsuite-parallelism=5 test
+  $SBT -batch -Dtest-parallelism=4 test
   if [ $? -ne 0 ]; then
     echo "************** Unit tests failed **************"
     exit 1
   fi
 
-  # Run the integration tests
-  $SBT -batch -Dtestsuite-parallelism=6 -Dtestcase-parallelism=5 it:test
+  # Run the integration tests: 4 suites at a time, 5 test cases at a time in each suite, and the VCs
+  # of all of them on one pool of 20 threads. The pool is shared by the whole JVM, so it needs at
+  # least as many threads as there are test cases running at once (4 * 5), or it slows the tests down.
+  # The numbers are moderate on purpose: several CI jobs run at once on one machine, which has to
+  # stay usable.
+  $SBT -batch -Dtest-parallelism=4 -Dtestcase-parallelism=5 -Dparallel=20 IntegrationTest/test
   if [ $? -ne 0 ]; then
     echo "************** Integration tests failed **************"
     exit 1

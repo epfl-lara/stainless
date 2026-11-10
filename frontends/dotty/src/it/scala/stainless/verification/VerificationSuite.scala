@@ -25,6 +25,10 @@ class VerificationSuite extends VerificationComponentTestSuite {
     Set(
       // Flaky
       "verification/valid/PackedFloat8",
+      // The buggyAdd postcondition counterexample depends on z3's random seed:
+      // replaying the same SMT session, half of the seeds find it in under a
+      // minute and the others run into the 300 s timeout.
+      "verification/invalid/RedBlackTree2",
     )
 
   private val ignoreCVC = ignoreCommon ++
@@ -70,6 +74,7 @@ class VerificationSuite extends VerificationComponentTestSuite {
       "verification/valid/FloatingPoints2",
       "verification/valid/FloatingPoints4",
       "verification/valid/FloatingPointFunctionProperties",
+      "verification/valid/FloatingPointMinMax",
 
       // valid/
       "verification/valid/ArraySlice",
@@ -206,8 +211,6 @@ class VerificationSuite extends VerificationComponentTestSuite {
     )
 
   private val ignoreCodegen = Set(
-    // Does not work with --feeling-lucky. See #490
-    "verification/valid/MsgQueue",
     // assertion failed in `compileLambda`
     "verification/valid/GodelNumbering",
     // codegen for floating-point <-> ieee bit-representation conversions not implemented

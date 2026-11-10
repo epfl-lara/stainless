@@ -1,0 +1,30 @@
+[ Error  ] i667a.scala:4:12: Only literal, Int or Long arguments are allowed for BigInt.
+               BigInt(s)
+                      ^
+[ Error  ] i667a.scala:9:28: Only literal, Int or Long arguments are allowed for BigInt.
+               val y: BigInt = BigInt(s)
+                                      ^
+[ Error  ] i667a.scala:14:12: Only literal, Int or Long arguments are allowed for BigInt.
+               BigInt(s)
+                      ^
+[ Error  ] i667a.scala:18:20: Only literal, Int or Long arguments are allowed for BigInt.
+               require(BigInt(s) == 0)
+                              ^
+[ Error  ] i667a.scala:23:28: Only literal, Int or Long arguments are allowed for BigInt.
+               ((t: String) => BigInt(t) == 0)(s)
+                                      ^
+[ Error  ] i667a.scala:27:12: Only literal, Int or Long arguments are allowed for BigInt.
+               BigInt(if true then 0 else 1)
+                      ^^^^^^^^^^^^^^^^^^^^^
+[ Error  ] i667a.scala:33:5: Method eq on Object is not supported
+               a eq b
+               ^^^^^^
+[ Error  ] i667a.scala:37:5: Method eq on Object is not supported
+               a eq b
+               ^^^^^^
+[ Error  ] i667a.scala:43:5: Scala API `scala.collection.immutable.List` is not directly supported, please use `stainless.collection.List` instead.
+               val l = scala.collection.immutable.List(x)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[ Error  ] i667a.scala:48:5: Scala API `scala.collection.immutable.List` is not directly supported, please use `stainless.collection.List` instead.
+               scala.collection.immutable.List(x).head
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

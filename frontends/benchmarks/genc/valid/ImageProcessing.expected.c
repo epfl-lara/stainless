@@ -96,14 +96,14 @@ typedef enum {
 /* ---------------------- data type definitions ----- */
 
 typedef struct {
-  int32_t* data;
+  int8_t* data;
   int32_t length;
-} array_int32;
+} array_int8;
 
 typedef struct {
   int32_t size;
   int32_t scale;
-  array_int32 kernel;
+  array_int8 kernel;
 } Kernel;
 
 typedef struct {
@@ -113,11 +113,6 @@ typedef struct {
   int32_t w;
   int32_t h;
 } Image;
-
-typedef struct {
-  int8_t* data;
-  int32_t length;
-} array_int8;
 
 typedef struct {
   enum_Status status;
@@ -474,7 +469,7 @@ static STAINLESS_FUNC_PURE int8_t apply_1(Kernel* thiss, array_int8 channel, int
             int32_t kcol = p + mid;
             int32_t krow = q + mid;
             int32_t kidx = krow * thiss->size + kcol;
-            res = res + at(thiss, channel, &width, &height, &index, i + p, j + q) * thiss->kernel.data[kidx];
+            res = res + at(thiss, channel, &width, &height, &index, i + p, j + q) * ((int32_t)thiss->kernel.data[kidx]);
             q = q + 1;
             check(inRange(q, -mid, mid + 1));
         }
@@ -490,7 +485,7 @@ static STAINLESS_FUNC_PURE int32_t at(Kernel* thiss, array_int8 channel, int32_t
     int32_t r = fix(thiss, channel, width, height, index, row, *height);
     int8_t component = channel.data[r * (*width) + c];
     if (((int32_t)component) < 0) {
-        return ((int32_t)component) + 255;
+        return ((int32_t)component) + 256;
     } else {
         return (int32_t)component;
     }
@@ -582,7 +577,7 @@ static STAINLESS_FUNC_PURE MaybeResult_Tuple_int32_int32_int32 combine_int32_int
     MaybeResult_Tuple_Tuple_int32_int32_int32 tmp = combine_Tuple_int32_int32_int32(combine_int32_int32(a, b), c);
     if (tmp.tag == tag_Result_Tuple_Tuple_int32_int32_int32) {
         return (MaybeResult_Tuple_int32_int32_int32) { .tag = tag_Result_Tuple_int32_int32_int32, .value = (union_MaybeResult_Tuple_int32_int32_int32) { .Result_Tuple_int32_int32_int32_v = (Result_Tuple_int32_int32_int32) { .result = (Tuple_int32_int32_int32) { ._1 = tmp.value.Result_Tuple_Tuple_int32_int32_int32_v.result._1._1, ._2 = tmp.value.Result_Tuple_Tuple_int32_int32_int32_v.result._1._2, ._3 = tmp.value.Result_Tuple_Tuple_int32_int32_int32_v.result._2 } } } };
-    } else if (tmp.tag == tag_Failure_Tuple_Tuple_int32_int32_int32) {
+    } else {
         return (MaybeResult_Tuple_int32_int32_int32) { .tag = tag_Failure_Tuple_int32_int32_int32, .value = (union_MaybeResult_Tuple_int32_int32_int32) { .Failure_Tuple_int32_int32_int32_v = (Failure_Tuple_int32_int32_int32) { .status = tmp.value.Failure_Tuple_Tuple_int32_int32_int32_v.status } } };
     }
 }
@@ -591,7 +586,7 @@ static STAINLESS_FUNC_PURE MaybeResult_Tuple_int32_int32_int32_int32 combine_int
     MaybeResult_Tuple_Tuple_int32_int32_int32_int32 tmp = combine_Tuple_int32_int32_int32_int32(combine_int32_int32_int32(a, b, c), d);
     if (tmp.tag == tag_Result_Tuple_Tuple_int32_int32_int32_int32) {
         return (MaybeResult_Tuple_int32_int32_int32_int32) { .tag = tag_Result_Tuple_int32_int32_int32_int32, .value = (union_MaybeResult_Tuple_int32_int32_int32_int32) { .Result_Tuple_int32_int32_int32_int32_v = (Result_Tuple_int32_int32_int32_int32) { .result = (Tuple_int32_int32_int32_int32) { ._1 = tmp.value.Result_Tuple_Tuple_int32_int32_int32_int32_v.result._1._1, ._2 = tmp.value.Result_Tuple_Tuple_int32_int32_int32_int32_v.result._1._2, ._3 = tmp.value.Result_Tuple_Tuple_int32_int32_int32_int32_v.result._1._3, ._4 = tmp.value.Result_Tuple_Tuple_int32_int32_int32_int32_v.result._2 } } } };
-    } else if (tmp.tag == tag_Failure_Tuple_Tuple_int32_int32_int32_int32) {
+    } else {
         return (MaybeResult_Tuple_int32_int32_int32_int32) { .tag = tag_Failure_Tuple_int32_int32_int32_int32, .value = (union_MaybeResult_Tuple_int32_int32_int32_int32) { .Failure_Tuple_int32_int32_int32_int32_v = (Failure_Tuple_int32_int32_int32_int32) { .status = tmp.value.Failure_Tuple_Tuple_int32_int32_int32_int32_v.status } } };
     }
 }
@@ -664,9 +659,7 @@ static STAINLESS_FUNC_PURE enum_Status getStatus_int32(MaybeResult_int32 thiss) 
 }
 
 static STAINLESS_FUNC_PURE int8_t get_int8(Option_int8 thiss) {
-    if (thiss.tag == tag_Some_int8) {
-        return thiss.value.Some_int8_v.v;
-    }
+    return thiss.value.Some_int8_v.v;
 }
 
 
@@ -728,7 +721,7 @@ static STAINLESS_FUNC_PURE bool isDefined_int8(Option_int8 thiss) {
 static STAINLESS_FUNC_PURE bool isEmpty_int8(Option_int8 thiss) {
     if (thiss.tag == tag_Some_int8) {
         return false;
-    } else if (thiss.tag == tag_None_int8) {
+    } else {
         return true;
     }
 }
@@ -832,16 +825,14 @@ static MaybeResult_BitmapHeader maybeReadBitmapHeader(FileInputStream fis, State
         return (MaybeResult_BitmapHeader) { .tag = tag_Failure_BitmapHeader, .value = (union_MaybeResult_BitmapHeader) { .Failure_BitmapHeader_v = (Failure_BitmapHeader) { .status = tag_ReadError } } };
     } else if (tmp.tag == tag_Failure_Tuple_int32_int32_int32_int32) {
         return (MaybeResult_BitmapHeader) { .tag = tag_Failure_BitmapHeader, .value = (union_MaybeResult_BitmapHeader) { .Failure_BitmapHeader_v = (Failure_BitmapHeader) { .status = tmp.value.Failure_Tuple_int32_int32_int32_int32_v.status } } };
-    } else if (tmp.tag == tag_Result_Tuple_int32_int32_int32_int32) {
-        if (((tmp.value.Result_Tuple_int32_int32_int32_int32_v.result._1 < 0 || tmp.value.Result_Tuple_int32_int32_int32_int32_v.result._2 < 0) || tmp.value.Result_Tuple_int32_int32_int32_int32_v.result._3 != 24) || tmp.value.Result_Tuple_int32_int32_int32_int32_v.result._4 != 0) {
-            log("width", tmp.value.Result_Tuple_int32_int32_int32_int32_v.result._1);
-            log("height", tmp.value.Result_Tuple_int32_int32_int32_int32_v.result._2);
-            log("bpp", tmp.value.Result_Tuple_int32_int32_int32_int32_v.result._3);
-            log("compression", tmp.value.Result_Tuple_int32_int32_int32_int32_v.result._4);
-            return (MaybeResult_BitmapHeader) { .tag = tag_Failure_BitmapHeader, .value = (union_MaybeResult_BitmapHeader) { .Failure_BitmapHeader_v = (Failure_BitmapHeader) { .status = tag_InvalidBitmapHeaderError } } };
-        } else {
-            return (MaybeResult_BitmapHeader) { .tag = tag_Result_BitmapHeader, .value = (union_MaybeResult_BitmapHeader) { .Result_BitmapHeader_v = (Result_BitmapHeader) { .result = (BitmapHeader) { .width = tmp.value.Result_Tuple_int32_int32_int32_int32_v.result._1, .height = tmp.value.Result_Tuple_int32_int32_int32_int32_v.result._2 } } } };
-        }
+    } else if (((tmp.value.Result_Tuple_int32_int32_int32_int32_v.result._1 < 0 || tmp.value.Result_Tuple_int32_int32_int32_int32_v.result._2 < 0) || tmp.value.Result_Tuple_int32_int32_int32_int32_v.result._3 != 24) || tmp.value.Result_Tuple_int32_int32_int32_int32_v.result._4 != 0) {
+        log("width", tmp.value.Result_Tuple_int32_int32_int32_int32_v.result._1);
+        log("height", tmp.value.Result_Tuple_int32_int32_int32_int32_v.result._2);
+        log("bpp", tmp.value.Result_Tuple_int32_int32_int32_int32_v.result._3);
+        log("compression", tmp.value.Result_Tuple_int32_int32_int32_int32_v.result._4);
+        return (MaybeResult_BitmapHeader) { .tag = tag_Failure_BitmapHeader, .value = (union_MaybeResult_BitmapHeader) { .Failure_BitmapHeader_v = (Failure_BitmapHeader) { .status = tag_InvalidBitmapHeaderError } } };
+    } else {
+        return (MaybeResult_BitmapHeader) { .tag = tag_Result_BitmapHeader, .value = (union_MaybeResult_BitmapHeader) { .Result_BitmapHeader_v = (Result_BitmapHeader) { .result = (BitmapHeader) { .width = tmp.value.Result_Tuple_int32_int32_int32_int32_v.result._1, .height = tmp.value.Result_Tuple_int32_int32_int32_int32_v.result._2 } } } };
     }
 }
 
@@ -874,12 +865,10 @@ static MaybeResult_FileHeader maybeReadFileHeader(FileInputStream fis, State sta
         return (MaybeResult_FileHeader) { .tag = tag_Failure_FileHeader, .value = (union_MaybeResult_FileHeader) { .Failure_FileHeader_v = (Failure_FileHeader) { .status = tag_ReadError } } };
     } else if (tmp.tag == tag_Failure_Tuple_int32_int32) {
         return (MaybeResult_FileHeader) { .tag = tag_Failure_FileHeader, .value = (union_MaybeResult_FileHeader) { .Failure_FileHeader_v = (Failure_FileHeader) { .status = tmp.value.Failure_Tuple_int32_int32_v.status } } };
-    } else if (tmp.tag == tag_Result_Tuple_int32_int32) {
-        if ((14 <= tmp.value.Result_Tuple_int32_int32_v.result._1 && 14 + 40 <= tmp.value.Result_Tuple_int32_int32_v.result._2) && tmp.value.Result_Tuple_int32_int32_v.result._2 <= tmp.value.Result_Tuple_int32_int32_v.result._1) {
-            return (MaybeResult_FileHeader) { .tag = tag_Result_FileHeader, .value = (union_MaybeResult_FileHeader) { .Result_FileHeader_v = (Result_FileHeader) { .result = (FileHeader) { .size = tmp.value.Result_Tuple_int32_int32_v.result._1, .offset = tmp.value.Result_Tuple_int32_int32_v.result._2 } } } };
-        } else {
-            return (MaybeResult_FileHeader) { .tag = tag_Failure_FileHeader, .value = (union_MaybeResult_FileHeader) { .Failure_FileHeader_v = (Failure_FileHeader) { .status = tag_InvalidFileHeaderError } } };
-        }
+    } else if ((14 <= tmp.value.Result_Tuple_int32_int32_v.result._1 && 14 + 40 <= tmp.value.Result_Tuple_int32_int32_v.result._2) && tmp.value.Result_Tuple_int32_int32_v.result._2 <= tmp.value.Result_Tuple_int32_int32_v.result._1) {
+        return (MaybeResult_FileHeader) { .tag = tag_Result_FileHeader, .value = (union_MaybeResult_FileHeader) { .Result_FileHeader_v = (Result_FileHeader) { .result = (FileHeader) { .size = tmp.value.Result_Tuple_int32_int32_v.result._1, .offset = tmp.value.Result_Tuple_int32_int32_v.result._2 } } } };
+    } else {
+        return (MaybeResult_FileHeader) { .tag = tag_Failure_FileHeader, .value = (union_MaybeResult_FileHeader) { .Failure_FileHeader_v = (Failure_FileHeader) { .status = tag_InvalidFileHeaderError } } };
     }
 }
 
@@ -967,9 +956,9 @@ static void println_2(char* s) {
 }
 
 static enum_Status process(FileInputStream fis, FileOutputStream fos, State state) {
-    int32_t stainless_buffer_0[25] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 };
-    array_int32 norm_18 = (array_int32) { .data = stainless_buffer_0, .length = 25 };
-    array_int32 norm_19 = norm_18;
+    int8_t stainless_buffer_0[25] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 };
+    array_int8 norm_18 = (array_int8) { .data = stainless_buffer_0, .length = 25 };
+    array_int8 norm_19 = norm_18;
     Kernel kernel = (Kernel) { .size = 5, .scale = 25, .kernel = norm_19 };
     MaybeResult_FileHeader fileHeaderRes = maybeReadFileHeader(fis, state);
     MaybeResult_BitmapHeader bitmapHeaderRes = maybeReadBitmapHeader(fis, state);
@@ -979,7 +968,7 @@ static enum_Status process(FileInputStream fis, FileOutputStream fos, State stat
         status = tmp.value.Failure_Tuple_FileHeader_BitmapHeader_v.status;
     } else if (tmp.tag == tag_Result_Tuple_FileHeader_BitmapHeader && tmp.value.Result_Tuple_FileHeader_BitmapHeader_v.result._1.size <= 14 + 40) {
         status = tag_CorruptedDataError;
-    } else if (tmp.tag == tag_Result_Tuple_FileHeader_BitmapHeader) {
+    } else {
         log_1(tmp.value.Result_Tuple_FileHeader_BitmapHeader_v.result._1);
         log_2(tmp.value.Result_Tuple_FileHeader_BitmapHeader_v.result._2);
         int32_t toSkip = tmp.value.Result_Tuple_FileHeader_BitmapHeader_v.result._1.offset - (14 + 18);
@@ -1065,7 +1054,7 @@ static int32_t statusCode(enum_Status s) {
     } else if (s == tag_WriteError) {
         println_2("couldn't write image");
         return 8;
-    } else if (s == tag_NotImplementedError) {
+    } else {
         println_2("not yet implemented");
         return 99;
     }

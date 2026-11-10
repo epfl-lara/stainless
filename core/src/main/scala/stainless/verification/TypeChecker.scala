@@ -20,7 +20,7 @@ import inox.utils.Position
 trait VCFilter extends (StainlessVC => Boolean) { self =>
   def inverse: VCFilter = vc => !self(vc)
   def withEmitVCs(emit: Boolean): VCFilter =
-    vc => emit || vc.kind.isMeasureRelated // We always emit VCs for measures, even under DropVCs
+    vc => self(vc) && (emit || vc.kind.isMeasureRelated) // We always emit VCs for measures, even under DropVCs
 }
 
 object VCFilter {
@@ -34,7 +34,7 @@ object VCFilter {
 
   def except(kinds: VCKind*): VCFilter = {
     val set = kinds.toSet
-    vc => set.contains(vc.kind)
+    vc => !set.contains(vc.kind)
   }
 
   val measuresOnly: VCFilter = only(VCKind.MeasureDecreases, VCKind.MeasurePositive)
@@ -455,7 +455,7 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
     reporter.debug(s"${tc0.indent}in context:")
     reporter.debug(tc0.asString(tc0.indent))
     val tc = tc0.inc()
-    val (t, tr): (Type, TyperResult) = e match {
+    val (t, tr) = (e match {
       case UnitLiteral() => (UnitType(), TyperResult.valid)
       case BooleanLiteral(_) => (BooleanType(), TyperResult.valid)
       case IntegerLiteral(_) => (IntegerType(), TyperResult.valid)
@@ -500,7 +500,7 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
         (tpe, tr)
 
 
-      case Remainder(lhs, rhs) => inferOperationType("remainer", e, tc, t => t.isInstanceOf[BVType] || t.isInstanceOf[IntegerType], None, lhs, rhs)
+      case Remainder(lhs, rhs) => inferOperationType("remainder", e, tc, t => t.isInstanceOf[BVType] || t.isInstanceOf[IntegerType], None, lhs, rhs)
       case Modulo(lhs, rhs) => inferOperationType("modulo", e, tc, t => t.isInstanceOf[BVType] || t.isInstanceOf[IntegerType], None, lhs, rhs)
 
       case GreaterEquals(lhs, rhs) => inferOperationType(">=", e, tc, isComparableType, Some(BooleanType()), lhs, rhs)
@@ -772,13 +772,6 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
         stripRefinementsAndAnnotations(tpe) match {
           case FPType(_, _) => (BVType(signed, size), tr ++ checkType(tc, roundingMode, RoundingMode))
           case _ => reporter.fatalError(e.getPos, s"Cannot convert type ${tpe.asString} using FPToBV")
-        }
-
-      case FPToBVJVM(eb, sb, size, e2) =>
-        val (tpe, tr) = inferType(tc, e2)
-        stripRefinementsAndAnnotations(tpe) match {
-          case FPType(_, _) => (BVType(true, size), tr)
-          case _ => reporter.fatalError(e.getPos, s"Cannot convert type ${tpe.asString} using FPToBVJVM")
         }
 
       case RoundNearestTiesToEven | RoundNearestTiesToAway | RoundTowardZero | RoundTowardNegative | RoundTowardPositive =>
@@ -1104,7 +1097,7 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
 
       case _ =>
         reporter.fatalError(e.getPos, s"The type-checker doesn't support expressions: ${e.getClass}")
-    }
+    }): (Type, TyperResult)
 
     reporter.debug(s"\n${tc0.indent}Inferred type: ${t.asString} for ${e.asString}")
 
@@ -1316,9 +1309,13 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
         tr ++ isSubtype(tc2, freshener.transform(to1), freshener.transform(to2))
 
       case (RefinementType(vd1, prop1), RefinementType(vd2, prop2)) if (vd1.tpe == vd2.tpe) =>
+        // The binder is freshened as `vd1` can already be in the context, e.g. when the same
+        // refinement type appears several times in a type
+        val (tc2, id) = tc.freshBind(vd1)
+        val v = vd1.copy(id = id).toVariable
         buildVC(
-          tc.bind(vd1).withTruth(prop1).withVCKind(VCKind.RefinementSubtype),
-          substVar(prop2, vd2.id, vd1.toVariable)
+          tc2.withTruth(substVar(prop1, vd1.id, v)).withVCKind(VCKind.RefinementSubtype),
+          substVar(prop2, vd2.id, v)
         )
 
       case (_, RefinementType(vd, prop)) =>
@@ -1460,18 +1457,18 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
     // arguments of the function
     // `trArgs` are the verification conditions for ensuring that the type of
     // the arguments are well-formed
-    val (tc0, trArgs): (TypingContext, TyperResult) = fd.params.foldLeft(nonMutuallyRecursiveContext, TyperResult.valid) {
+    val (tc0, trArgs) = (fd.params.foldLeft(nonMutuallyRecursiveContext, TyperResult.valid) {
       case ((tcAcc, trAcc), vd) =>
         val freshVd: ValDef = freshener.transform(vd)
         (
           tcAcc.bind(freshVd),
           trAcc ++ isType(tcAcc, freshVd.tpe)
         )
-    }
+    }): (TypingContext, TyperResult)
 
     // `tcWithPre` is `tc0` to which we add the preconditions and lets
     // and `trPre` is the `TyperResult` corresponding to type-checking those
-    val (tcWithPre, trPre): (TypingContext, TyperResult) = specced.specs.filter(spec => spec.kind == LetKind || spec.kind == PreconditionKind).foldLeft (tc0, TyperResult.valid) {
+    val (tcWithPre, trPre) = (specced.specs.filter(spec => spec.kind == LetKind || spec.kind == PreconditionKind).foldLeft (tc0, TyperResult.valid) {
       case ((tcAcc, trAcc), LetInSpec(vd, e)) =>
         val e2 = freshener.transform(e)
         val freshVd = freshener.transform(vd)
@@ -1480,7 +1477,7 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
         val cond2 = freshener.transform(cond)
         (tcAcc.withTruth(cond2), trAcc ++ checkType(tcAcc, cond2, BooleanType()))
       case _ => sys.error("shouldn't be possible because of the filtering above")
-    }
+    }): (TypingContext, TyperResult)
 
     // We check that the specification is SAT to avoid false => P(body(x)) type of proofs
     // To do so, we create a VC phi(x) => false, where phi(x) is the precondition. This will be checked as phi(x) => not false
@@ -1489,8 +1486,8 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
 
     val measureOpt = specced.getSpec(MeasureKind).map(measure => freshener.transform(measure.expr))
 
-    val (measureType, trMeasure): (Option[Type], TyperResult) =
-      if (measureOpt.isDefined) {
+    val (measureType, trMeasure) =
+      (if (measureOpt.isDefined) {
         val measure = measureOpt.get
         val (measureType, trMeasureType) = inferType(tcWithPre, measure)
         val trMeasurePos = buildVC(
@@ -1501,7 +1498,7 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
         (Some(measureType), trMeasureType ++ trMeasurePos)
       } else {
         (None, TyperResult.valid)
-      }
+      }): (Option[Type], TyperResult)
 
     val postOpt = specced.getSpec(PostconditionKind).map(post => freshener.transform(post.expr))
 

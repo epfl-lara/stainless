@@ -198,9 +198,11 @@ private class S2IRImpl(override val s: tt.type,
       registered += fd
       val vd = CIR.ValDef(buildId(fd), rec(fd.returnType)(using Map.empty), false)
       if (fd.isDropped) {
+        checkDefinedTypes(vd.typ, fd.getPos)
         declResults += ((CIR.Decl(vd, None), flagsToModes(fd.flags)))
       } else {
         val modes = valModes(vd, fd.flags)
+        if (modes.contains(Define)) checkDefinedTypes(vd.typ, fd.getPos) else checkDeclaredType(vd.typ, fd.getPos)
         val initEnv = emptyEnv(fd.isExported, inGlobalInit = true, inHeaderInit = isDefinedInHeader(modes))
         val init = translateValue(fd)(rec(fd.fullBody)(using initEnv, Map.empty))
         declResults += ((CIR.Decl(vd, Some(init)), modes))
@@ -222,26 +224,44 @@ private class S2IRImpl(override val s: tt.type,
       val cd = syms.getClass(ct.id)
       cd.parents.isEmpty && cd.children.isEmpty && args.forall(onlyZeroes(_, debug))
     case FiniteArray(elems, _) => elems.forall(onlyZeroes(_, debug))
-    case LargeArray(elems, default, _, _) => elems.values.forall(onlyZeroes(_, debug)) && onlyZeroes(default)
+    case LargeArray(elems, default, size, _) =>
+      // The size is not evaluated when the value is zero-filled
+      analysis.effects(size).isEmpty && elems.values.forall(onlyZeroes(_, debug)) && onlyZeroes(default)
+    case _ => false
+  }
+
+  /** Whether `typ` contains an array whose length no class invariant fixes. C represents such an array by a
+    * pointer to its elements and its length, which zero-filling would turn into an empty array.
+    */
+  private def containsVariableLengthArray(typ: CIR.Type): Boolean = typ match {
+    case CIR.ArrayType(_, None) => true
+    case CIR.ArrayType(base, Some(_)) => containsVariableLengthArray(base)
+    case CIR.ClassType(cd) => cd.fields exists { case (vd, _) => containsVariableLengthArray(vd.typ) }
     case _ => false
   }
 
   private def buildLet(x: ValDef, e: Expr, body: Expr, isVar: Boolean)
                       (using env: Env, tm: TypeMapping): CIR.Expr = {
     val tpe = rec(x.tpe)
+    checkDeclaredType(tpe, x.getPos)
+    if (isMutableFunctionPointer(tpe) && isVariableOrField(e))
+      reporter.fatalError(x.getPos, "References to mutable classes with a single field of function type are not supported by GenC")
     val vd = CIR.ValDef(env.localNames(x.id), tpe, isVar)
     val newBindings = env.bindings + ((x, instantiateType(x.tpe, tm)) -> vd)
 
-    val decl: Seq[CIR.Expr] = try {
-      Seq(CIR.Decl(vd, Some(rec(e))))
-    } catch {
-      case t: Throwable if onlyZeroes(e) && (t.toString.contains("VLAs cannot") || t.toString.contains("VLA elements")) =>
-        reporter.reset()
+    // An array field whose length is fixed by a class invariant is part of the C struct, and can only be
+    // initialised from within the struct literal, which GenC only does for static arrays of scalars. A value
+    // that only contains zeroes is therefore built by zero-filling the variable, if its type contains arrays
+    // and all their lengths are fixed (see `containsVariableLengthArray`). The sizes given to the arrays of the
+    // value are then not evaluated: the class invariants give their lengths (see `onlyZeroes` for their effects).
+    val decl: Seq[CIR.Expr] =
+      if (onlyZeroes(e) && tpe.containsArray && !containsVariableLengthArray(tpe))
         Seq(
           CIR.Decl(vd, None),
           CIR.MemSet(CIR.Binding(vd), CIR.Lit(L.Int8Lit(0)), CIR.SizeOf(tpe))
         )
-    }
+      else
+        Seq(CIR.Decl(vd, Some(rec(e))))
     val rest = rec(body)(using env.copy(bindings = newBindings), tm)
     CIR.buildBlock(decl :+ rest)
   }
@@ -316,7 +336,17 @@ private class S2IRImpl(override val s: tt.type,
 
     def isLogical: Boolean = ops forall { _.isLogical }
     def isIntegral: Boolean = ops forall { _.isIntegral }
-    def isPairOfT: Boolean = (ops.size == 2) && (ops forall { _ == ops(0) }) // or use <=???
+    /** Whether `==` can compare values of types `t1` and `t2`. The classes of a hierarchy are all represented
+      * by the C type of its top class (see ClassLifter), the static length of an array field is not part of
+      * its type in Stainless, and C promotes integers before comparing them as Scala widens them (a literal
+      * pattern can compare a `Byte` scrutinee with an `Int` literal, for instance).
+      */
+    def isComparable(t1: CIR.Type, t2: CIR.Type): Boolean = (t1, t2) match {
+      case (CIR.ClassType(cd1), CIR.ClassType(cd2)) => cd1.hierarchyTop == cd2.hierarchyTop
+      case (CIR.ArrayType(base1, _), CIR.ArrayType(base2, _)) => base1 == base2
+      case _ => t1 == t2 || (t1.isIntegral && t2.isIntegral)
+    }
+    def isPairOfT: Boolean = (ops.size == 2) && isComparable(ops(0), ops(1))
 
     op match {
       case _: O.FromPairOfT => check(isPairOfT)
@@ -338,6 +368,8 @@ private class S2IRImpl(override val s: tt.type,
       case CIR.Binding(vd) => isVdMutable(vd)
       case CIR.Block(exprs :+ CIR.Binding(vd)) => isVdMutable(vd) && !exprs.exists {
         case CIR.Decl(`vd`, Some(e)) => !isRefToMutableVar((e, arg._2))
+        // A variable that the block declares without initial value is zero-filled (see `buildLet`)
+        case CIR.Decl(`vd`, None) => true
         case _ => false
       }
       case _ => false
@@ -351,13 +383,26 @@ private class S2IRImpl(override val s: tt.type,
     }
   }
 
+  /** Rejects the arguments `args` of the constructor of `cd` that give something else than a new array of a
+    * constant length to a field that is an array of a fixed length. Such an array is part of the C struct of the
+    * class: it has to be initialised within the struct literal, and cannot refer to another array.
+    */
+  private def checkFixedArrayArgs(cd: CIR.ClassDef, args: Seq[(CIR.Expr, Position)]): Unit = {
+    for (((arg, pos), (field, _)) <- args zip cd.fields if field.typ.isFixedArray) arg match {
+      case CIR.ArrayInit(_: CIR.ArrayAllocStatic) =>
+      case _ =>
+        reporter.fatalError(pos, s"The array field ${field.id} has a fixed length: it must be initialised with " +
+          "an array literal or with `Array.fill`")
+    }
+  }
+
   private def buildBinOp(lhs0: Expr, op: O.BinaryOperator, rhs0: Expr)
                         (pos: Position)
                         (using env: Env, tm: TypeMapping) = {
     val lhs = rec(lhs0)
     val rhs = rec(rhs0)
 
-    checkOp(op, Seq(lhs.getType, lhs.getType), pos)
+    checkOp(op, Seq(lhs.getType, rhs.getType), pos)
 
     CIR.BinOp(op, lhs, rhs)
   }
@@ -398,6 +443,64 @@ private class S2IRImpl(override val s: tt.type,
   private def castNotSupported(ct: ClassType): Boolean =
     ct.tcd.cd.isAbstract && ct.tcd.parents.nonEmpty
 
+  /** Whether GenC represents the values of type `typ` by C function pointers: the values of function types, and
+    * those of classes with a single field of such a type, which StructInliner replaces with their field. The C
+    * printer can only declare variables, fields and parameters of such types: it cannot print arrays of them,
+    * pointers to them, or function types taking or returning them.
+    */
+  private def isFunctionPointer(typ: CIR.Type): Boolean = typ match {
+    case _: CIR.FunType => true
+    case CIR.ClassType(cd) => cd.parent.isEmpty && cd.fields.size == 1 && isFunctionPointer(cd.fields.head._1.typ)
+    case _ => false
+  }
+
+  /** Rejects at `pos` the type `typ` of a variable, field or parameter that GenC declares, if the C printer cannot
+    * print it: a function type taking or returning functions, or a type for which [[checkDefinedTypes]] fails.
+    */
+  private def checkDeclaredType(typ: CIR.Type, pos: Position): Unit = {
+    typ match {
+      case CIR.FunType(_, params, ret) if (ret +: params) exists isFunctionPointer =>
+        reporter.fatalError(pos, "Function types taking or returning functions are not supported by GenC")
+      case _ =>
+    }
+    checkDefinedTypes(typ, pos)
+  }
+
+  /** Rejects at `pos` the type `typ` if GenC defines types for it that the C printer cannot print: an array of
+    * function pointers, or a tuple with an element of a type for which [[checkDeclaredType]] fails. (Classes
+    * check their fields themselves.) GenC defines these types even for the parameters of the dropped and the
+    * manually defined functions, whose signatures it does not print.
+    */
+  private def checkDefinedTypes(typ: CIR.Type, pos: Position): Unit = typ match {
+    case CIR.ArrayType(base, _) =>
+      if (isFunctionPointer(base))
+        reporter.fatalError(pos, "Arrays of functions are not supported by GenC")
+      checkDefinedTypes(base, pos)
+    case CIR.FunType(_, params, ret) =>
+      (ret +: params) foreach { checkDefinedTypes(_, pos) }
+    case CIR.ClassType(cd) if tupleResultsById.get(cd.id).contains(cd) =>
+      cd.fields foreach { case (vd, _) => checkDeclaredType(vd.typ, pos) }
+    case _ =>
+  }
+
+  /** Whether `typ` is a mutable class with a single field of function type, of which a reference would be a pointer
+    * to a function (see [[isFunctionPointer]]). GenC passes the parameters of mutable types by reference, and makes
+    * the local variables initialised with a variable or a field of such types references to them.
+    */
+  private def isMutableFunctionPointer(typ: CIR.Type): Boolean = typ.isMutable && isFunctionPointer(typ)
+
+  /** Whether the value of `e` is a variable or a field, of which a local variable initialised with `e` becomes a
+    * reference if it has a mutable type.
+    */
+  private def isVariableOrField(e: Expr): Boolean = e match {
+    case _: Variable | _: ClassSelector | _: TupleSelect => true
+    case Annotated(body, _) => isVariableOrField(body)
+    case Let(_, _, body) => isVariableOrField(body)
+    case LetVar(_, _, body) => isVariableOrField(body)
+    case Block(_, last) => isVariableOrField(last)
+    case _ => false
+  }
+
   /****************************************************************************************************
    *                                                       Pattern Matching helper functions          *
    ****************************************************************************************************/
@@ -409,13 +512,6 @@ private class S2IRImpl(override val s: tt.type,
       case None => cond
       case Some(guard) if cond == CIR.True => guard
       case Some(guard) => CIR.BinOp(O.And, cond, guard)
-    }
-  }
-
-  private object ElseCase {
-    def unapply(caze: PMCase): Option[CIR.Expr] = {
-      if (CIR.True == caze.fullCondition) Some(caze.body)
-      else None
     }
   }
 
@@ -439,8 +535,12 @@ private class S2IRImpl(override val s: tt.type,
       case Block(Nil, v: Variable) => (v, None, env)
       case Block(init, v: Variable) => (v, Some(rec(Block(init.init, init.last))), env)
 
-      // case field @ CaseClassSelector(_, _: Variable, _) => (field, None, env)
-      case field @ ADTSelector(_, _) => (field, None, env)
+      // A field selection is bound to a temporary rather than re-evaluated in each case, so that a
+      // case body that reassigns the field does not change what the pattern binders refer to. If
+      // the field has a mutable type, the Referentiator makes the temporary a pointer to the field,
+      // so mutations through the binders still reach the original object.
+      case _: ClassSelector | _: TupleSelect =>
+        withTmp(scrutinee0.getType, scrutinee0, env)
 
       case select @ ArraySelect(_: Variable, _: Variable | _: BVLiteral) => (select, None, env)
       case select @ ArraySelect(array: Variable, index) =>
@@ -466,14 +566,10 @@ private class S2IRImpl(override val s: tt.type,
 
     val cases = cases0 map { caze => convertCase(scrutinee, caze)(using newEnv, tm) }
 
-    // Identify the last case
-    val last = cases.last match {
-      case ElseCase(body) => body
-      case caze => CIR.If(caze.fullCondition, caze.body)
-    }
-
-    // Combine all cases, using a foldRight
-    val patmat = cases.init.foldRight(last) { case (caze, acc) =>
+    // Stainless verifies that matches are exhaustive, so the last case needs no condition (as in `matchToIfThenElse`):
+    // with one, the C compiler would see a path through no case, and warn that the function may not return a value.
+    // Guards have no effects (see `EffectsChecker`), so dropping the last one drops no effect.
+    val patmat = cases.init.foldRight(cases.last.body) { case (caze, acc) =>
       CIR.IfElse(caze.fullCondition, caze.body, acc)
     }
 
@@ -695,9 +791,27 @@ private class S2IRImpl(override val s: tt.type,
 
     val funCtx = ctxDBAbs map { c => convertVarInfoToArg(c) }
 
+    // Captured variables are passed by reference, but the C printer cannot print pointers to functions
+    for ((c, vd) <- ctxDBAbs zip funCtx if isFunctionPointer(vd.typ))
+      reporter.fatalError(fa.getPos, s"Nested functions capturing a function (${c.vd.id.asString}) are not supported by GenC")
+
     val returnType = rec(fa.returnType)
     if (!fa.isManuallyDefined && !fa.isDropped && returnType.containsArray)
       reporter.fatalError(fa.getPos, "Returning arrays from function is not supported by GenC")
+
+    // The C printer prints the signatures of the functions that GenC defines, not those of the dropped and the
+    // manually defined functions
+    if (!fa.isManuallyDefined && !fa.isDropped) {
+      for ((p, typ) <- newParams zip paramTypes) {
+        checkDeclaredType(typ, p.getPos)
+        if (isMutableFunctionPointer(typ))
+          reporter.fatalError(p.getPos, "References to mutable classes with a single field of function type are not supported by GenC")
+      }
+      checkDeclaredType(returnType, fa.getPos)
+    } else {
+      for ((p, typ) <- newParams zip paramTypes) checkDefinedTypes(typ, p.getPos)
+      checkDefinedTypes(returnType, fa.getPos)
+    }
 
     val isPure = fa.flags.contains(IsPure) || (
       analysis.effects(fa.fullBody).isEmpty &&
@@ -822,10 +936,17 @@ private class S2IRImpl(override val s: tt.type,
 
         val fields = tcd.fields.map(vd => vd.tpe match {
           case ArrayType(base) if arrayLengthsMap.contains(vd.id) =>
-            (CIR.ValDef(buildFieldId(vd), CIR.ArrayType(rec(base), Some(arrayLengthsMap(vd.id))), vd.flags.contains(IsVar)), flagsToModes(vd.flags))
+            val length = arrayLengthsMap(vd.id)
+            // The array is a fixed-length C array, and C forbids zero-length arrays
+            if (length <= 0)
+              reporter.fatalError(vd.getPos,
+                s"The length of array ${vd.id.asString} specified in the class invariant of ${cd.id.asString} " +
+                s"must be positive, but is $length")
+            (CIR.ValDef(buildFieldId(vd), CIR.ArrayType(rec(base), Some(length)), vd.flags.contains(IsVar)), flagsToModes(vd.flags))
           case typ =>
             (CIR.ValDef(buildFieldId(vd), rec(typ), vd.flags.contains(IsVar)), flagsToModes(vd.flags))
         })
+        (fields zip tcd.fields) foreach { case ((field, _), vd) => checkDeclaredType(field.typ, vd.getPos) }
 
         val newClazz = CIR.ClassDef(id, parent, fields, cd.isAbstract, cd.isExported, cd.isPacked)
         classResultsById.update(id, newClazz)
@@ -1061,10 +1182,21 @@ private class S2IRImpl(override val s: tt.type,
     case ClassConstructor(ct, args) =>
       val cd = syms.getClass(ct.id)
       val ct2 = rec(ct)
-      val args2 = recArgs(args)
+      // The array given to a field of a fixed length has the length that the class invariant gives, so its size
+      // is not evaluated, and must not have effects
+      val sizedArgs = args.zip(ct2.fields).map {
+        case (array @ LargeArray(elems, default, size, base), (field @ CIR.ValDef(_, CIR.ArrayType(_, Some(length)), _), _)) =>
+          if (analysis.effects(size).nonEmpty)
+            reporter.fatalError(array.getPos, s"The array field ${field.id} has a fixed length, so the size given to " +
+              "`Array.fill` is not evaluated: it must not have effects")
+          LargeArray(elems, default, Int32Literal(length), base).copiedFrom(array)
+        case (arg, _) => arg
+      }
+      val args2 = recArgs(sizedArgs)
       val positions = args map { _.getPos }
 
       checkConstructArgs(args2 zip positions)
+      checkFixedArrayArgs(ct2, args2 zip positions)
 
       CIR.Construct(ct2, args2)
 
@@ -1078,6 +1210,7 @@ private class S2IRImpl(override val s: tt.type,
 
     case tuple @ Tuple(args0) =>
       val clazz = tuple2Class(tuple.getType)
+      checkDefinedTypes(CIR.ClassType(clazz), tuple.getPos)
       val args = recArgs(args0)
       val poss = args0 map { _.getPos }
 
@@ -1131,11 +1264,13 @@ private class S2IRImpl(override val s: tt.type,
 
     case array @ FiniteArray(elems, base) =>
       val arrayType = CIR.ArrayType(rec(base), None)
+      checkDefinedTypes(arrayType, array.getPos)
       val length = elems.size
       CIR.ArrayInit(CIR.ArrayAllocStatic(arrayType, length, Right(elems.map(rec))))
 
     case array @ LargeArray(elems, default, size, base) =>
       val arrayType = CIR.ArrayType(rec(base), None)
+      checkDefinedTypes(arrayType, array.getPos)
 
       // Convert to VLA or normal array
       val alloc = rec(exprOps.simplifyArithmetic(size)) match {
@@ -1188,6 +1323,10 @@ private class S2IRImpl(override val s: tt.type,
     case BVShiftLeft(lhs, rhs)    => buildBinOp(lhs, O.BLeftShift, rhs)(e.getPos)
     case BVAShiftRight(lhs, rhs)  => reporter.fatalError(e.getPos, "Operator >> is not supported by GenC")
     case BVLShiftRight(lhs, rhs)  => buildBinOp(lhs, O.BRightShift, rhs)(e.getPos)
+    // GenC programs are verified with `--strict-arithmetic`, which requires the amount to be within the width
+    case JVMShiftLeft(lhs, rhs)   => buildBinOp(lhs, O.BLeftShift, rhs)(e.getPos)
+    case JVMAShiftRight(lhs, rhs) => reporter.fatalError(e.getPos, "Operator >> is not supported by GenC")
+    case JVMLShiftRight(lhs, rhs) => buildBinOp(lhs, O.BRightShift, rhs)(e.getPos)
 
     case BVWideningCast(e, t)  => CIR.IntegralCast(rec(e), rec(t).asInstanceOf[CIR.PrimitiveType].primitive.asInstanceOf[PT.IntegralPrimitiveType])
     case BVNarrowingCast(e, t) => CIR.IntegralCast(rec(e), rec(t).asInstanceOf[CIR.PrimitiveType].primitive.asInstanceOf[PT.IntegralPrimitiveType])

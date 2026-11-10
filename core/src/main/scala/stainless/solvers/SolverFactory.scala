@@ -18,9 +18,14 @@ object SolverFactory {
                     val targetProgram: StainlessProgram
                   })(using sem: p.Semantics): SolverFactory { val program: p.type; type S <: TimeoutSolver { val program: p.type } } = {
     if (inox.solvers.SolverFactory.supportedSolver(name)) {
-      val newCtx: inox.Context =
+      val checkedCtx: inox.Context =
         if (ctx.options.findOption(optAssumeChecked).isDefined) ctx
         else ctx.withOpts(optAssumeChecked(true))
+      // Scala strings are sequences of UTF-16 code units, which are the characters of Inox's strings
+      // in the BMP
+      val newCtx: inox.Context =
+        if (ctx.options.findOption(optStringsBMP).isDefined) checkedCtx
+        else checkedCtx.withOpts(optStringsBMP(true))
 
       inox.solvers.SolverFactory.getFromName(name)(p, newCtx)(
         enc `andThen` InoxEncoder(enc.targetProgram, ctx)

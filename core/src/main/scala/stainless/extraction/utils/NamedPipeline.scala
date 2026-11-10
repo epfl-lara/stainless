@@ -128,6 +128,8 @@ class NamedPipeline private(override val name: String, override val context: ino
                            (override val s: underlying.s.type, override val t: underlying.t.type)
   extends ExtractionPipeline with DebugSymbols { self =>
 
+  require(phaseNames contains name, s"Phase $name is missing from stainless.extraction.phases, so --debug-phases rejects it")
+
   def this(name: String, underlying: ExtractionPipeline) =
     this(name, underlying.context, underlying)(underlying.s, underlying.t)
 

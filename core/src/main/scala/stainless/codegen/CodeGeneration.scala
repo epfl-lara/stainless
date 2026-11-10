@@ -554,7 +554,7 @@ trait CodeGeneration { self: CompilationUnit =>
           hch.freeze
         }
 
-        loader.register(cf)
+        registerClass(cf)
 
         afName
     }
@@ -1027,6 +1027,10 @@ trait CodeGeneration { self: CompilationUnit =>
     case BVShiftLeft(l, r)   => mkBVShift(l, r, ch, ISHL,  LSHL,  "shiftLeft")
     case BVLShiftRight(l, r) => mkBVShift(l, r, ch, IUSHR, LUSHR, "lShiftRight")
     case BVAShiftRight(l, r) => mkBVShift(l, r, ch, ISHR,  LSHR,  "aShiftRight")
+    // these are `Int` or `Long` shifts, whose JVM instructions take the amount modulo the width
+    case JVMShiftLeft(l, r)   => mkBVShift(l, r, ch, ISHL,  LSHL,  "shiftLeft")
+    case JVMLShiftRight(l, r) => mkBVShift(l, r, ch, IUSHR, LUSHR, "lShiftRight")
+    case JVMAShiftRight(l, r) => mkBVShift(l, r, ch, ISHR,  LSHR,  "aShiftRight")
 
     case BVUnsignedToSigned(e) =>
       e.getType match

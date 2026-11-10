@@ -174,20 +174,26 @@ class AssertionInjector(override val s: ast.Trees, override val t: ast.Trees, va
     case BVTyped(signed, size, e0 @ s.Times(lhs0, rhs0)) if checkOverflow =>
       bindIfCannotDuplicate(lhs0, "lhs") { lhsx =>
       bindIfCannotDuplicate(rhs0, "rhs") { rhsx =>
-        t.Assert(
-          // when lhs is not null, rhs === (lhs * rhs) / lhs
-          t.Or(
-            t.Equals(lhsx, zero(signed, size, e.getPos)).copiedFrom(e),
-            t.Equals(
-              rhsx,
-              t.Division(
-                t.Times(lhsx, rhsx).copiedFrom(e),
-                lhsx
-              ).copiedFrom(e)
-            ).copiedFrom(e)
+        // The product of two `size`-bit values fits in `2 * size` bits, so it is computed exactly on that
+        // width and compared with the bounds of the `size`-bit type. Checking `rhs == (lhs * rhs) / lhs` in
+        // the original width instead needs a bitvector division, which is much harder for the solvers (tens
+        // of seconds even for small bounded operands), and it accepts `-1 * MinValue` for signed bitvectors.
+        val wide = t.BVType(signed, 2 * size)
+        val (lo, hi) =
+          if (signed) (-BigInt(2).pow(size - 1), BigInt(2).pow(size - 1) - 1)
+          else        (BigInt(0),               BigInt(2).pow(size) - 1)
+        val product = t.ValDef.fresh("product", wide).setPos(e)
+        val fits = t.And(
+          t.GreaterEquals(product.toVariable, t.BVLiteral(signed, lo, 2 * size).copiedFrom(e)).copiedFrom(e),
+          t.LessEquals(product.toVariable, t.BVLiteral(signed, hi, 2 * size).copiedFrom(e)).copiedFrom(e)
+        ).copiedFrom(e)
+        t.Let(
+          product,
+          t.Times(
+            t.BVWideningCast(lhsx, wide).copiedFrom(lhs0),
+            t.BVWideningCast(rhsx, wide).copiedFrom(rhs0)
           ).copiedFrom(e),
-          Some("Multiplication overflow"),
-          t.Times(lhsx, rhsx).copiedFrom(e)
+          t.Assert(fits, Some("Multiplication overflow"), t.Times(lhsx, rhsx).copiedFrom(e)).copiedFrom(e)
         ).copiedFrom(e)
       }}
 
@@ -317,7 +323,8 @@ class AssertionInjector(override val s: ast.Trees, override val t: ast.Trees, va
       }
 
 
-    case s.FPToBVJVM(exponent, significand, toSize, expr) if checkOverflow =>
+    // Casts from floating point numbers, which have the JVM's semantics in Stainless (see InoxEncoder)
+    case s.FPToBV(toSize, true, s.RoundTowardZero, FPTyped(exponent, significand, expr)) if checkOverflow =>
       bindIfCannotDuplicate(expr, "expr") { expr =>
         // a FP -> BV cast of the value `f` is considered safe iff `f` is not NaN and `bvLb < f < bvUb`.
         val bvLb = t.BVLiteral(true, -BigInt(2).pow(toSize-1) - 1, toSize + 1).copiedFrom(e)
@@ -331,13 +338,13 @@ class AssertionInjector(override val s: ast.Trees, override val t: ast.Trees, va
             t.Assert(
               t.FPLessEquals(expr, t.FPCast(exponent, significand, t.RoundTowardPositive, bvUb)).copiedFrom(e),
               Some("Safe floating-point to integer cast upper bound"),
-              t.FPToBVJVM(exponent, significand, toSize, expr).copiedFrom(e)
+              t.FPToBV(toSize, true, t.RoundTowardZero, expr).copiedFrom(e)
             ).copiedFrom(e)
           ).copiedFrom(e)
         ).copiedFrom(e)
       }
 
-    case BVTyped(signed, size, BVShift(rhs, recons)) if strictArithmetic =>
+    case BVTyped(signed, size, Shift(jvm, rhs, recons)) if strictArithmetic =>
       bindIfCannotDuplicate(rhs, "rhs") { rhsx =>
         // the amount must be less than the width: on the JVM, `1 << 32 == 1`, but SMT-LIB `bvshl` gives 0
         val leq = t.LessEquals(rhsx, t.BVLiteral(signed, size - 1, size).copiedFrom(rhs)).copiedFrom(rhs)
@@ -346,11 +353,11 @@ class AssertionInjector(override val s: ast.Trees, override val t: ast.Trees, va
         // TODO: explain why `checkOverflow` here and `strictArithmetic` in the guard?
         val range = if (signed && checkOverflow) t.And(pos, leq).copiedFrom(rhs) else leq
         // Ensure the operation doesn't shift more bits than there are.
-        t.Assert(range, Some("Shift semantics"), recons(jvmShiftAmount(signed, size, rhsx))).copiedFrom(e)
+        t.Assert(range, Some("Shift semantics"), recons(shiftAmount(jvm, size, rhsx))).copiedFrom(e)
       }
 
-    case BVTyped(signed, size, BVShift(rhs, recons)) =>
-      recons(jvmShiftAmount(signed, size, transform(rhs)))
+    case BVTyped(_, size, Shift(true, rhs, recons)) =>
+      recons(shiftAmount(true, size, transform(rhs)))
 
     case s.FPGreaterEquals(e1, e2) if checkOverflow => checkNaNBinop(e)(t.FPGreaterEquals.apply, e1, e2)
     case s.FPLessEquals(e1, e2) if checkOverflow => checkNaNBinop(e)(t.FPLessEquals.apply, e1, e2)
@@ -368,22 +375,35 @@ class AssertionInjector(override val s: ast.Trees, override val t: ast.Trees, va
     }
   }
 
-  private object BVShift {
-    // Extract rhs of any shift operation, and return a reconstructor
-    def unapply(e: s.Expr): Option[(s.Expr, t.Expr => t.Expr)] = e match {
-      case s.BVShiftLeft(lhs, rhs) => Some((rhs, (r: t.Expr) => t.BVShiftLeft(transform(lhs), r).copiedFrom(e)))
-      case s.BVAShiftRight(lhs, rhs) => Some((rhs, (r: t.Expr) => t.BVAShiftRight(transform(lhs), r).copiedFrom(e)))
-      case s.BVLShiftRight(lhs, rhs) => Some((rhs, (r: t.Expr) => t.BVLShiftRight(transform(lhs), r).copiedFrom(e)))
+  private object FPTyped {
+    def unapply(e: s.Expr): Option[(Int, Int, s.Expr)] = e.getType match {
+      case s.FPType(exponent, significand) => Some((exponent, significand, e))
       case _ => None
     }
   }
 
-  /** On the JVM, the amount of `Int` and `Long` shifts is taken modulo the width (`1 << 33 == 2`), whereas
-    * SMT-LIB shifts give 0 (or -1) for amounts at least the width. Masks the `amount` of a shift on signed
-    * bit vectors of 32 or 64 bits, which are `Int` and `Long`, accordingly, unless [[checkOverflow]] ensures
-    * it is between 0 and `size - 1`. Unsigned shifts already give 0 for such amounts (see `stainless.math`). */
-  private def jvmShiftAmount(signed: Boolean, size: Int, amount: t.Expr): t.Expr =
-    if (signed && (size == 32 || size == 64) && !checkOverflow)
+  private object Shift {
+    /** Extracts whether a shift has the JVM semantics (see [[ast.Expressions.JVMShift]]), its amount, and
+      * a function building the bit-vector shift of its transformed left-hand side by a given amount. */
+    def unapply(e: s.Expr): Option[(Boolean, s.Expr, t.Expr => t.Expr)] = e match {
+      case s.BVShiftLeft(lhs, rhs) => Some((false, rhs, (r: t.Expr) => t.BVShiftLeft(transform(lhs), r).copiedFrom(e)))
+      case s.BVAShiftRight(lhs, rhs) => Some((false, rhs, (r: t.Expr) => t.BVAShiftRight(transform(lhs), r).copiedFrom(e)))
+      case s.BVLShiftRight(lhs, rhs) => Some((false, rhs, (r: t.Expr) => t.BVLShiftRight(transform(lhs), r).copiedFrom(e)))
+      case s.JVMShiftLeft(lhs, rhs) => Some((true, rhs, (r: t.Expr) => t.BVShiftLeft(transform(lhs), r).copiedFrom(e)))
+      case s.JVMAShiftRight(lhs, rhs) => Some((true, rhs, (r: t.Expr) => t.BVAShiftRight(transform(lhs), r).copiedFrom(e)))
+      case s.JVMLShiftRight(lhs, rhs) => Some((true, rhs, (r: t.Expr) => t.BVLShiftRight(transform(lhs), r).copiedFrom(e)))
+      case _ => None
+    }
+  }
+
+  /** The `amount` of the bit-vector shift a shift of `size` bits is lowered to.
+    *
+    * On the JVM, the amount of `Int` and `Long` shifts is taken modulo the width (`1 << 33 == 2`), whereas
+    * SMT-LIB shifts give 0 (or -1) for amounts at least the width. The amount of a shift with the JVM
+    * semantics (`jvm`) is masked accordingly, unless [[checkOverflow]] ensures it is between 0 and
+    * `size - 1`. The other shifts are those of `stainless.math.Unsigned`, which give 0 for such amounts. */
+  private def shiftAmount(jvm: Boolean, size: Int, amount: t.Expr): t.Expr =
+    if (jvm && !checkOverflow)
       t.BVAnd(amount, t.BVLiteral(true, size - 1, size).copiedFrom(amount)).copiedFrom(amount)
     else amount
 

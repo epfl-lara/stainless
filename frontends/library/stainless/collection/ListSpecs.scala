@@ -337,7 +337,7 @@ object ListSpecs {
     decreases(l)
     l match {
       case Cons(hd, tl) if !p(hd) => ()
-      case Cons(hd, tl) if p(hd)  => notForallThenExistsNot(tl, p)
+      case Cons(hd, tl)           => notForallThenExistsNot(tl, p)
       case Nil()                  => ()
     }
   }.ensuring(_ => l.exists(e => !p(e)))
@@ -657,7 +657,7 @@ object ListSpecs {
         ListSpecs.subseqTail(l, l)
         assert(ListSpecs.subseq(tl, l))
       }
-      case Cons(hd, tl) if hd != elmt => subseqRefl(l)
+      case Cons(hd, tl) => subseqRefl(l)
     }
   }.ensuring (_ => ListSpecs.subseq(l, Cons(elmt, l)))
   
@@ -744,7 +744,7 @@ object ListSpecs {
     decreases(l)
     l match {
       case Cons(hd, tl) if hd != e => removeNoDuplicateDecreasesSizeByOne(tl, e)
-      case Cons(hd, tl) if hd == e => noDuplicateRemoveHeadTail(l, e)
+      case Cons(hd, tl)            => noDuplicateRemoveHeadTail(l, e)
       case Nil()                   => check(false)
     }
   }.ensuring(_ => (l - e).size == l.size - 1)

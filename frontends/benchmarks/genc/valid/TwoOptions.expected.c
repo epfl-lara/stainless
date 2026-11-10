@@ -85,7 +85,7 @@ static STAINLESS_FUNC_PURE bool isEmpty_int64(Option_int64 thiss);
 static STAINLESS_FUNC_PURE bool isEmpty_int32(Option_int32 thiss) {
     if (thiss.tag == tag_Some_int32) {
         return false;
-    } else if (thiss.tag == tag_None_int32) {
+    } else {
         return true;
     }
 }
@@ -93,7 +93,7 @@ static STAINLESS_FUNC_PURE bool isEmpty_int32(Option_int32 thiss) {
 static STAINLESS_FUNC_PURE bool isEmpty_int64(Option_int64 thiss) {
     if (thiss.tag == tag_Some_int64) {
         return false;
-    } else if (thiss.tag == tag_None_int64) {
+    } else {
         return true;
     }
 }

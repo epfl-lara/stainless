@@ -16,8 +16,10 @@ val circeVersion = "0.14.1"
 // The number of test suites (e.g. VerificationSuite, UncheckedSuite) run in parallel
 // Note that this does not dictate the parallelism per test case (e.g. verification/valid/AbstractPost.scala,
 // verification/valid/AbstractRefinementMap$.scala) which is instead set with -Dtestcase-parallelism=<...>
+// The property is the one that Inox's build reads: Inox is loaded as part of this build and sets
+// `Global / concurrentRestrictions` too, replacing the definition below, so both must compute the same limit.
 lazy val nTestSuiteParallelism = {
-  val p = System.getProperty("testsuite-parallelism")
+  val p = System.getProperty("test-parallelism")
   if (p ne null) {
     try {
       p.toInt
@@ -70,13 +72,11 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
     "-feature"
   ),
 
-  resolvers ++= Resolver.sonatypeOssRepos("releases"),
   resolvers += ("uuverifiersStainless" at "https://eldarica.org/maven"),
 
   libraryDependencies ++= Seq(
     // "ch.epfl.lara"    %% "inox"          % inoxVersion,
     // "ch.epfl.lara"    %% "inox"          % inoxVersion % "test" classifier "tests",
-    "org.scala-lang.modules" %% "scala-parallel-collections" % "1.0.3",
     "io.circe"               %% "circe-core"                 % circeVersion,
     "io.circe"               %% "circe-generic"              % circeVersion,
     "io.circe"               %% "circe-parser"               % circeVersion,
@@ -100,7 +100,7 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
     ExclusionRule("org.scala-lang", "scala-library"),
   ),
 
-  // disable documentation packaging in universal:stage to speedup development
+  // disable documentation packaging in Universal/stage to speedup development
   Compile / packageDoc / mappings := Seq(),
 
   Compile / sourcesInBase := false,
@@ -130,7 +130,7 @@ lazy val stainlessLibSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
     "-language:experimental.qualifiedTypes"
   ),
 
-  // disable documentation packaging in universal:stage to speedup development
+  // disable documentation packaging in Universal/stage to speedup development
   Compile / packageDoc / mappings := Seq(),
 
   Compile / sourcesInBase := false,
@@ -197,7 +197,7 @@ def libraryFiles(baseDir: File): Seq[(String, File)] = {
   libFiles.map(file => (file.getPath drop dropCount, file)) // Drop the prefix of the path (i.e. everything before "library")
 }
 
-lazy val frontendSettings: Seq[Setting[_]] = Defaults.itSettings ++ Seq(
+lazy val frontendSettings: Seq[Setting[_]] = inConfig(IntegrationTest)(Defaults.testSettings) ++ Seq(
 
   // The stainless library is compiled with qualified types enabled, which marks all its
   // definitions @experimental; referencing them requires experimental mode here as well.
@@ -240,7 +240,7 @@ Global / concurrentRestrictions := Seq(
 def ghProject(repo: String, version: String) = RootProject(uri(s"${repo}#${version}"))
 
 lazy val inox = RootProject(file("./inox"))
-lazy val cafebabe = ghProject("https://git:git@github.com/epfl-lara/cafebabe.git", "8656f80ed6612161263612e9c35d14467006e451")
+lazy val cafebabe = ghProject("https://git:git@github.com/epfl-lara/cafebabe.git", "d55cd3fb2e5194a57766d585370a7c7790abff4d")
 
 // Allow integration test to use facilities from regular tests
 lazy val IntegrationTest = config("it") extend(Test)
@@ -375,15 +375,6 @@ lazy val `sbt-stainless` = (project in file("sbt-plugin"))
       (`stainless-dotty-plugin` / publishLocal).value
     }
   )
-
-lazy val `check-files-util` = (project in file("check-files-utils"))
-  .disablePlugins(AssemblyPlugin)
-  .settings(noPublishSettings)
-  .settings(name := "check-files-utils")
-  .settings(commonSettings)
-// Uncomment if you wish to attach a debugger at 5006. Note that the process will wait for the debugger to attach
-//  .settings(run / javaOptions += "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5006")
-  .dependsOn(`stainless-core`, `stainless-dotty`)
 
 lazy val root = (project in file("."))
   .disablePlugins(AssemblyPlugin)

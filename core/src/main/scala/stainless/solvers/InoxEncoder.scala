@@ -189,6 +189,67 @@ private class TreeEncoder[Prog <: Program](val sourceProgram: Prog)
       case m: s.Max =>
         transform(maxToIfThenElse(m))
 
+      // In Stainless, `Division` and `Remainder` on integers are the JVM's `BigInt./` and `BigInt.%`: the
+      // quotient rounds toward zero and the remainder has the sign of the dividend. Inox's are SMT-LIB's
+      // euclidean `div` and `mod`, which agree with them when the dividend is non-negative, so they are
+      // encoded as `sign(a) * (|a| div b)` and `sign(a) * (|a| mod b)`.
+      case s.Division(lhs, rhs) if e.getType == s.IntegerType() => lhs match {
+        case s.IntegerLiteral(n) if n >= 0 => t.Division(transform(lhs), transform(rhs)).copiedFrom(e)
+        case _ =>
+          val a = t.ValDef.fresh("a", t.IntegerType().copiedFrom(e), true).copiedFrom(e)
+          val q = t.ValDef.fresh("q", t.IntegerType().copiedFrom(e), true).copiedFrom(e)
+          val (av, qv) = (a.toVariable.copiedFrom(e), q.toVariable.copiedFrom(e))
+          val nonNegative = t.GreaterEquals(av, t.IntegerLiteral(0).copiedFrom(e)).copiedFrom(e)
+          t.Let(a, transform(lhs),
+            t.Let(q, t.Division(t.IfExpr(nonNegative, av, t.UMinus(av).copiedFrom(e)).copiedFrom(e), transform(rhs)).copiedFrom(e),
+              t.IfExpr(nonNegative, qv, t.UMinus(qv).copiedFrom(e)).copiedFrom(e)
+            ).copiedFrom(e)
+          ).copiedFrom(e)
+      }
+
+      case s.Remainder(lhs, rhs) if e.getType == s.IntegerType() => lhs match {
+        case s.IntegerLiteral(n) if n >= 0 => t.Remainder(transform(lhs), transform(rhs)).copiedFrom(e)
+        case _ =>
+          val a = t.ValDef.fresh("a", t.IntegerType().copiedFrom(e), true).copiedFrom(e)
+          val r = t.ValDef.fresh("r", t.IntegerType().copiedFrom(e), true).copiedFrom(e)
+          val (av, rv) = (a.toVariable.copiedFrom(e), r.toVariable.copiedFrom(e))
+          val nonNegative = t.GreaterEquals(av, t.IntegerLiteral(0).copiedFrom(e)).copiedFrom(e)
+          t.Let(a, transform(lhs),
+            t.Let(r, t.Remainder(t.IfExpr(nonNegative, av, t.UMinus(av).copiedFrom(e)).copiedFrom(e), transform(rhs)).copiedFrom(e),
+              t.IfExpr(nonNegative, rv, t.UMinus(rv).copiedFrom(e)).copiedFrom(e)
+            ).copiedFrom(e)
+          ).copiedFrom(e)
+      }
+
+      // In Stainless, `FPToBV` toward zero to a signed bit-vector is the JVM's cast from a floating point
+      // number (`.toInt` and others): NaN is 0 and values out of range saturate, which SMT-LIB leaves open.
+      case s.FPToBV(toSize, true, s.RoundTowardZero, expr) =>
+        val s.FPType(eb, sb) = expr.getType: @unchecked
+        toSize match {
+          // as on the JVM, conversions to `Byte` and `Short` go through `Int`
+          case 8 | 16 =>
+            t.BVNarrowingCast(transform(s.FPToBV(32, true, s.RoundTowardZero, expr).copiedFrom(e)), t.BVType(true, toSize)).copiedFrom(e)
+          case _ =>
+            val (maxVal, minVal) = (BigInt(2).pow(toSize - 1) - 1, -BigInt(2).pow(toSize - 1))
+            val max = t.BVLiteral(true, maxVal, toSize).copiedFrom(e)
+            val min = t.BVLiteral(true, minVal, toSize).copiedFrom(e)
+            val x = t.ValDef.fresh("x", t.FPType(eb, sb), true).copiedFrom(e)
+            val xv = x.toVariable.copiedFrom(e)
+            t.Let(x, transform(expr),
+              t.IfExpr(t.FPIsNaN(xv).copiedFrom(e), t.BVLiteral(true, 0, toSize).copiedFrom(e),
+                t.IfExpr(t.FPGreaterThan(xv, t.FPCast(eb, sb, t.RoundTowardZero, max).copiedFrom(e)).copiedFrom(e), max,
+                  t.IfExpr(t.FPLessThan(xv, t.FPCast(eb, sb, t.RoundTowardZero, min).copiedFrom(e)).copiedFrom(e), min,
+                    t.FPToBV(toSize, true, t.RoundTowardZero, xv).copiedFrom(e)
+                  ).copiedFrom(e)
+                ).copiedFrom(e)
+              ).copiedFrom(e)
+            ).copiedFrom(e)
+        }
+
+      // the bit-vector shifts of inox follow SMT-LIB: the amount has to be taken modulo the width first
+      case shift: s.JVMShift =>
+        transform(shift.masked)
+
       case _ => super.transform(e)
     }
   }

@@ -5,28 +5,38 @@ on:
   push:
     branches:
       - main
+
+# Cancel a pull request's superseded runs when new commits are pushed.
+# Runs on main are never cancelled, so every merge still gets a result.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   bolts-lite:
     runs-on: [self-hosted, linux]
     env:
-      # define Java options for both official sbt and sbt-extras
+      # Java options, read by the sbt launcher and the Stainless launcher scripts
       JAVA_OPTS: -Dsbt.io.implicit.relative.glob.conversion=allow -Xss512M -Xms1024M -Xmx12G -XX:MaxMetaspaceSize=2G -XX:+UseCodeCacheFlushing -XX:ReservedCodeCacheSize=768M 
-      JVM_OPTS:  -Dsbt.io.implicit.relative.glob.conversion=allow -Xss512M -Xms1024M -Xmx12G -XX:MaxMetaspaceSize=2G -XX:+UseCodeCacheFlushing -XX:ReservedCodeCacheSize=768M 
       JAVA_OPTS_TMP_DIR: /tmp/tmp_${{ github.run_id }}_${{ github.run_attempt }}
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
       with:
         submodules: recursive
     - name: Setup JDK
-      uses: actions/setup-java@v4
+      uses: actions/setup-java@v6
       with:
         distribution: temurin
         java-version: 17
     - name: Setup java options
+      # The runners share one machine, with each other and with its users. Without
+      # -XX:ActiveProcessorCount, each JVM sizes its GC threads, its JIT threads and its default
+      # thread pools for all the processors of the machine. The option replaces the number of
+      # processors that the JVM detects, even with a larger one, hence the minimum with nproc.
       run: |
-          echo "JAVA_OPTS=$JAVA_OPTS -Djava.io.tmpdir=$JAVA_OPTS_TMP_DIR" >> "$GITHUB_ENV" && \
-          echo "JVM_OPTS=$JVM_OPTS -Djava.io.tmpdir=$JAVA_OPTS_TMP_DIR" >> "$GITHUB_ENV" && \
+          PROCESSORS=$(( $(nproc) < 16 ? $(nproc) : 16 )) && \
+          echo "JAVA_OPTS=$JAVA_OPTS -XX:ActiveProcessorCount=$PROCESSORS -Djava.io.tmpdir=$JAVA_OPTS_TMP_DIR" >> "$GITHUB_ENV" && \
           echo "SBT_OPTS=-Djava.io.tmpdir=$JAVA_OPTS_TMP_DIR --sbt-dir $JAVA_OPTS_TMP_DIR" >> "$GITHUB_ENV"
     - name: Creating temp folder
       run: rm -rf $JAVA_OPTS_TMP_DIR && mkdir -p $JAVA_OPTS_TMP_DIR && chmod 777 $JAVA_OPTS_TMP_DIR
@@ -36,12 +46,12 @@ jobs:
         tar xfz sbt-1.10.1.tgz
         echo "PATH=./sbt/bin/:$PATH" >> "$GITHUB_ENV"
     - name: Install solvers
-      run: ./stainless-ci.sh --install-solvers $GITHUB_WORKSPACE/.local/bin
-    - name: Add solvers to PATH
-      run: echo "$GITHUB_WORKSPACE/.local/bin" >> $GITHUB_PATH
-    - name: Test solvers availability
-      run: cvc5 --version && z3 --version && cvc4 --version
+      uses: ./.github/actions/install-solvers
     - name: Build and Package
       run: ./stainless-ci.sh --build-only
     - name: Bolts Tests
       run: ./stainless-ci.sh --lite-bolts --skip-build --skip-tests --skip-sbt-plugin
+    - name: Clean up
+      # Even after a failure, a timeout or a cancellation, so that jobs don't fill the runners' disk
+      if: always()
+      run: rm -rf $JAVA_OPTS_TMP_DIR

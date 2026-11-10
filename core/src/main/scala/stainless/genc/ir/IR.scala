@@ -151,22 +151,21 @@ private[genc] sealed trait IR { ir =>
   case object Zero
 
   // Allocate an array with a compile-time size
+  //
+  // NOTE The array can be empty, in which case IR2C allocates no buffer, as C forbids zero-length arrays.
   case class ArrayAllocStatic(typ: ArrayType, length: Int, values: Either[Zero.type, Seq[Expr]]) extends ArrayAlloc {
     require(
-      values match {
+      (length >= 0) &&
+      (values match {
         case Left(z) =>
-          // No empty array
-          (length > 0) &&
           typ.base.isIntegral
 
         case Right(values) =>
           // The type of the values should match the type of the array elements
           (values forall { _.getType <= typ.base }) &&
           // The number of values should match the array size
-          (length == values.length) &&
-          // And empty arrays are forbidden
-          (length > 0)
-      }
+          (length == values.length)
+      })
     )
   }
 
@@ -374,8 +373,10 @@ private[genc] sealed trait IR { ir =>
       // Functions currently do not capture anything
       case FunType(_, _, _) => false
 
-      // We do *NOT* answer this question for the whole class hierarchy!
-      case ClassType(clazz) => clazz.fields exists { _._1.getType.containsArray }
+      // A value of a class can be of any of its subclasses
+      case ClassType(clazz) =>
+        (clazz.fields exists { _._1.getType.containsArray }) ||
+        (clazz.getDirectChildren exists { ClassType(_).containsArray })
 
       case ArrayType(_, _) => true
       case ReferenceType(t) => t.containsArray
@@ -474,7 +475,7 @@ private[genc] sealed trait IR { ir =>
     case FunType(ctx, params, ret) =>
       val ctxRep = ctx map repId mkString "_"
       val paramsRep = params map repId mkString "_"
-      "function_" + ctx + "_" + params + "_" + repId(ret)
+      "function_" + ctxRep + "_" + paramsRep + "_" + repId(ret)
     case ClassType(clazz) => clazz.id
     case ArrayType(base, None) => "array_" + repId(base)
     case ArrayType(base, Some(length)) => s"${repId(base)}[$length]"

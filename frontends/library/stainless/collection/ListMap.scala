@@ -206,7 +206,7 @@ object TupleListOpsGenK {
         }
         Cons(head._1, getKeysOf(tl, value))
       }
-      case Cons(head, tl) if (head._2 != value) => {
+      case Cons(head, tl) => {
         val r = getKeysOf(tl, value)
         if (!getKeysOf(tl, value).isEmpty) {
           lemmaForallGetValueByKeySameWithADiffHead(
@@ -238,7 +238,7 @@ object TupleListOpsGenK {
           lemmaContainsTupleThenContainsKey(tl, head._1, va)
         }
         res
-      case Cons(head, tl) if (head._2 != value) =>
+      case Cons(head, tl) =>
         val res = filterByValue(tl, value)
         res
       case Nil() => Nil[(K, B)]()
@@ -251,7 +251,7 @@ object TupleListOpsGenK {
 
     l match {
       case Cons(head, tl) if (head._1 == key) => Some[B](head._2)
-      case Cons(head, tl) if (head._1 != key) => getValueByKey(tl, key)
+      case Cons(head, tl)                     => getValueByKey(tl, key)
       case Nil()                              => None[B]()
     }
 
@@ -301,7 +301,7 @@ object TupleListOpsGenK {
         } else {
         }
         tl
-      case Cons(head, tl) if (head._1 != key) =>
+      case Cons(head, tl) =>
         val res = head :: removePresrvNoDuplicatedKeys(tl, key)
         if (getKeysList(tl).contains(head._1)) {
           lemmaInGetKeysListThenContainsKey(tl, head._1)
@@ -360,7 +360,7 @@ object TupleListOpsGenK {
           }
         } else {
         }
-      case Cons(head, tl) if (head._1 != key) =>
+      case Cons(head, tl) =>
         lemmaRemoveFromListThenKeysSetRemove(tl, key)
         if (getKeysList(tl).contains(head._1)) {
           lemmaInGetKeysListThenContainsKey(tl, head._1)

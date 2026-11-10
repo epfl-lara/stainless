@@ -15,7 +15,7 @@ object CheckFilesUtils {
   case class ExpectedVCInfos(infosByScalaFile: Map[File, Seq[VCInfo]]) {
     def check[T <: ast.Trees, M](vc: VC[T], vcStatus: VCStatus[M]): Either[CheckFailure, ExpectedVCInfos] = {
       val filename = vc.getPos.file
-      val gotInfo = VCInfo(toTestPos(vc.getPos), vc.fid.name, toTestVCKind(vc.kind), toTestVCStatus(vcStatus))
+      val gotInfo = VCInfo.of(vc, vcStatus)
       infosByScalaFile.get(filename) match {
         case Some(infos) =>
           val nbMatches = infos.count(_ == gotInfo)
@@ -43,18 +43,32 @@ object CheckFilesUtils {
   }
 
   case class VCInfo(pos: Option[SimplePosition], fn: String, vcKind: VCKind | ClassInvariant, vcStatus: VCStatus[Nothing] | InvalidVC.type) {
+    private def vcKindStr: String = vcKind match {
+      case ClassInvariant(clsName) => s"class invariant: $clsName"
+      case other => other.asInstanceOf[VCKind].name
+    }
+    private def vcStatusStr: String = vcStatus match {
+      case InvalidVC => "invalid"
+      case other => other.asInstanceOf[VCStatus[Nothing]].name
+    }
+
     def pretty: String = {
       val posStr = pos.map(p => s"${p.line}:${p.column}").getOrElse("?:?")
-      val vcKindStr = vcKind match {
-        case ClassInvariant(clsName) => s"class invariant: $clsName"
-        case other => other.asInstanceOf[VCKind].name
-      }
-      val vcStatusStr = vcStatus match {
-        case InvalidVC => "invalid"
-        case other => other.asInstanceOf[VCStatus[Nothing]].name
-      }
       s"VC @ $posStr in function $fn of kind $vcKindStr with status $vcStatusStr"
     }
+
+    /** This VC information as a line of a check file, which [[parse]] reads back. */
+    def checkLine: String = {
+      val posStr = pos.map(p => s"${p.line}:${p.column}").getOrElse("")
+      // The check files write the unknown status as in the verification reports
+      val statusStr = if (vcStatus == VCStatus.Unknown) "inconclusive" else vcStatusStr
+      s"$posStr;$fn;$vcKindStr;$statusStr"
+    }
+  }
+  object VCInfo {
+    /** The information about `vc` with status `vcStatus` that check files record. */
+    def of[T <: ast.Trees, M](vc: VC[T], vcStatus: VCStatus[M]): VCInfo =
+      VCInfo(toTestPos(vc.getPos), vc.fid.name, toTestVCKind(vc.kind), toTestVCStatus(vcStatus))
   }
 
   // VCKind.AdtInvariant expects an Identifier, which we do not have in a text file.
@@ -100,20 +114,16 @@ object CheckFilesUtils {
                            errs: Map[File, Seq[ParsingError]], // Per check file
                            expectedVCInfosBySolver: Map[Solver, ExpectedVCInfos])
 
-  def load(scalaFiles: Seq[File]): LoadingResult = {
-    def checkFileOf(scalaFile: File): Option[Map[Solver, File]] = {
-      val chkFileBaseStr = scalaFile.getPath.replace(".scala", ".check")
-      val chkFileBase = File(chkFileBaseStr)
-      val chkFileSolvers = Solver.values
-        .map(s => s -> File(s"${chkFileBaseStr}.${s.fileExt}"))
-        .filter(_._2.exists()) // Lame but simple
-        .toMap
+  /** The check file of `scalaFile` for `solver`: `X.check.<solver>` if it exists, and otherwise `X.check` if it
+    * exists, which is shared by the solvers that do not have their own check file. */
+  def checkFileOf(scalaFile: File, solver: Solver): Option[File] = {
+    val chkFileBaseStr = scalaFile.getPath.replace(".scala", ".check")
+    Seq(File(s"${chkFileBaseStr}.${solver.fileExt}"), File(chkFileBaseStr)).find(_.exists())
+  }
 
-      val baseFile = {
-        if (chkFileBase.exists()) Solver.values.map(_ -> chkFileBase).toMap
-        else Map.empty[Solver, File]
-      }
-      val combined = baseFile ++ chkFileSolvers
+  def load(scalaFiles: Seq[File]): LoadingResult = {
+    def checkFilesOf(scalaFile: File): Option[Map[Solver, File]] = {
+      val combined = Solver.values.flatMap(s => checkFileOf(scalaFile, s).map(s -> _)).toMap
       // See comment on LoadingResult w.r.t. totality of combined
       if (combined.isEmpty) None
       else Some(combined)
@@ -128,7 +138,7 @@ object CheckFilesUtils {
     }
 
     val (notFoundErrs, chkFiles0) = scalaFiles.partitionMap { scalaFile =>
-      checkFileOf(scalaFile) match {
+      checkFilesOf(scalaFile) match {
         case Some(chkFileBySolver) => Right(scalaFile -> chkFileBySolver)
         case None => Left(CheckFileError.FileNotFound(scalaFile))
       }
@@ -318,6 +328,18 @@ object CheckFilesUtils {
       if (remaining.isEmpty) Right(())
       else Left(CheckVCFailure.NotCovered(remaining))
     }
+  }
+
+  /** The lines of a check file of `scalaFile` that expects the VC `results`, sorted by position, or the VCs that
+    * such a file cannot represent: the ones outside of `scalaFile` (which [[checkVCResults]] does not expect in any
+    * check file) and the ones that [[parse]] would not read back from their line. */
+  def checkFileLines[T <: ast.Trees, M](scalaFile: File, results: Seq[(VC[T], VCStatus[M])]): Either[Seq[String], Seq[String]] = {
+    val (inFile, outside) = results.partition(_._1.getPos.file == scalaFile)
+    val infos = inFile.map((vc, status) => VCInfo.of(vc, status))
+    val unparsable = infos.filter(info => parse(scalaFile, scalaFile, Seq(info.checkLine)) != Right(ExpectedVCInfos(Map(scalaFile -> Seq(info)))))
+    val unrepresentable = outside.map((vc, status) => VCInfo.of(vc, status)) ++ unparsable
+    if (unrepresentable.nonEmpty) Left(unrepresentable.map(_.pretty))
+    else Right(infos.sortBy(info => (info.pos.get.line, info.pos.get.column, info.checkLine)).map(_.checkLine))
   }
 
   def toTestPos(pos: Position): Option[SimplePosition] =
