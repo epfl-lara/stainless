@@ -21,8 +21,8 @@ fi
 SCALA_VERSION="3.10.1-RC1-bin-20260903-e1f9361-NIGHTLY"
 LIB_SCALA_VERSION="3.10.1-RC1-bin-20260903-e1f9361-NIGHTLY"
 LIB_SCALA_VERSION_JAR_NAME_PART=$(echo $LIB_SCALA_VERSION | cut -d '.' -f 1)
-Z3_VERSION="5.0.0"
-CVC5_VERSION="1.3.4"
+Z3_VERSION="5.4.0"
+CVC5_VERSION="1.4.2"
 
 SBT_PACKAGE_DOTTY="sbt stainless-dotty-standalone/assembly"
 SBT_PACKAGE_LIB="sbt stainless-library/package stainless-library/packageSrc"
