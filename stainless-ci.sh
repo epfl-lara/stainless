@@ -138,10 +138,8 @@ else
     tar xfz $SBT_NAME
     
     cd $ROOT_DIR
-    echo Testing $SBT --version
-    $SBT --version
-    echo "*******     $SBT Universal/stage ********"
-    $SBT Universal/stage
+    echo "*******     $SBT sbtVersion Universal/stage ********"
+    $SBT sbtVersion Universal/stage
   if [ $? -ne 0 ]; then
     echo "************** Failed to build the universal package **************"
     exit 1
