@@ -40,6 +40,7 @@ trait TreeSanitizer { self =>
       new SettersOverrides(symbols, ctx),
       new GhostOverrides(symbols, ctx),
       new SealedClassesChildren(symbols, ctx),
+      new UniformRecursion(symbols, ctx),
       new SoundEquality(symbols, ctx),
       new SoundInvariants(symbols, ctx),
       new AbstractValsOverride(symbols, ctx),
@@ -109,6 +110,46 @@ trait TreeSanitizer { self =>
         cd <- symbols.classes.values.toSeq
         if cd.isAbstract && cd.isSealed && !hasLocalSubClasses(cd.id) && cd.children.isEmpty
       } yield MalformedStainlessCode(cd, "Illegal sealed abstract class with no children.")
+    }
+  }
+
+  /** Check that the recursive occurrences of a class only instantiate it with type parameters or
+    * ground types. Otherwise, e.g. with `case class Lam[A](body: Exp[Var[A]]) extends Exp[A]`,
+    * the instantiations of the class grow without bound, which the solvers can't encode.
+    */
+  private class UniformRecursion(syms: Symbols, ctx: inox.Context) extends Sanitizer(syms, ctx) {
+    import symbols.given
+
+    private def classTypes(tpe: Type): Set[ClassType] = typeOps.collect[ClassType] {
+      case ct: ClassType => Set(ct)
+      case _ => Set.empty
+    } (tpe)
+
+    // The classes of a hierarchy end up in the same datatype, so they all depend on each other
+    private val successors: Map[Identifier, Set[Identifier]] = symbols.classes.values.map { cd =>
+      cd.id -> (cd.fields.flatMap(vd => classTypes(vd.tpe)).map(_.id) ++
+        cd.parents.map(_.id) ++ cd.children.map(_.id)).toSet
+    }.toMap
+
+    private def reaches(from: Identifier, to: Identifier): Boolean = {
+      val seen = scala.collection.mutable.Set(from)
+      var next = List(from)
+      while (next.nonEmpty) {
+        next = next.flatMap(id => successors.getOrElse(id, Set.empty)).filter(seen.add)
+      }
+      seen(to)
+    }
+
+    def sanitize(): Seq[MalformedStainlessCode] = {
+      for {
+        cd <- symbols.classes.values.toSeq
+        vd <- cd.fields
+        ct <- classTypes(vd.tpe).toSeq.sortBy(_.toString)
+        if ct.tps.exists(tp => !tp.isInstanceOf[TypeParameter] && typeOps.typeParamsOf(tp).nonEmpty)
+        if reaches(ct.id, cd.id)
+      } yield MalformedStainlessCode(vd,
+        s"Non-uniform recursive types are not supported: ${ct.asString} refers back to ${cd.id.asString}, " +
+        "so its type arguments must be type parameters or types without type parameters")
     }
   }
 
