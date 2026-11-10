@@ -90,6 +90,14 @@ class CompilationUnit(val program: Program, val context: inox.Context)(using val
     id
   }
 
+  private var runtimeUninterpretedMap = Map[Int, (Seq[TypeParameter], UninterpretedCall)]()
+  protected def getUninterpreted(id: Int): (Seq[TypeParameter], UninterpretedCall) = synchronized(runtimeUninterpretedMap(id))
+  protected def registerUninterpreted(uc: UninterpretedCall, tps: Seq[TypeParameter]): Int = synchronized {
+    val id = runtimeCounter.nextGlobal
+    runtimeUninterpretedMap += id -> (tps, uc)
+    id
+  }
+
   private var runtimeForallMap = Map[Int, (Seq[TypeParameter], Forall)]()
   protected def getForall(id: Int): (Seq[TypeParameter], Forall) = synchronized(runtimeForallMap(id))
   protected def registerForall(f: Forall, tps: Seq[TypeParameter]): Int = synchronized {

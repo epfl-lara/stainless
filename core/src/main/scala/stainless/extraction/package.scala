@@ -215,6 +215,11 @@ package object extraction {
           type S <: inox.solvers.combinators.TimeoutSolver { val program: self.program.type }
         } = solvers.SolverFactory.getFromSettings(self.program, ctx)(encoder)(using self.asInstanceOf[self.program.Semantics])
 
+        override protected def createSolver(ctx: inox.Context, model: self.program.Model): inox.solvers.SolverFactory {
+          val program: self.program.type
+          type S <: inox.solvers.combinators.TimeoutSolver { val program: self.program.type }
+        } = solvers.SolverFactory.getFromSettings(self.program, ctx, Some(model))(encoder)(using self.asInstanceOf[self.program.Semantics])
+
         protected def createEvaluator(ctx: inox.Context): inox.evaluators.DeterministicEvaluator {
           val program: self.program.type
         } = inox.evaluators.EncodingEvaluator(self.program)(encoder)(evaluators.Evaluator(encoder.targetProgram, ctx))

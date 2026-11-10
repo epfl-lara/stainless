@@ -100,13 +100,45 @@ class CodeGenEvaluator(override val program: Program,
         case None =>
           val groundChoose = exprOps.replaceFromSymbols(inputsMap, tpChoose)
           try {
-            self.onChooseInvocation(groundChoose.asInstanceOf[Choose])
+            self.onChooseInvocation(groundChoose.asInstanceOf[Choose], model.chooses)
           } catch {
             case e: java.lang.RuntimeException =>
               throw new runtime.CodeGenRuntimeException(e.getMessage)
           }
       }
 
+
+      valueToJVM(res)(using this)
+    }
+
+    def onUninterpretedInvocation(id: Int, tps: Array[Int], inputs: Array[AnyRef]): AnyRef = {
+      val (tparams, uc) = getUninterpreted(id)
+
+      val newTypes = tps.toSeq.map(getType)
+      val tpMap = (tparams zip newTypes).toMap
+      val tpCall = typeOps.instantiateType(uc, tpMap).asInstanceOf[UninterpretedCall]
+
+      val args = (tpCall.args zip inputs.toSeq).map {
+        case (arg, ref) => jvmToValue(ref, arg.getType)
+      }
+
+      val res = model.chooses.get(tpCall.id -> tpCall.tps) match {
+        case Some(Lambda(params, body)) if params.size == args.size =>
+          val subModel = inox.Model(model.program)((params zip args).toMap, model.chooses)
+
+          eval(body, subModel) match {
+            case EvaluationResults.Successful(result) =>
+              result
+            case EvaluationResults.RuntimeError(msg) =>
+              throw new runtime.CodeGenRuntimeException(msg)
+            case EvaluationResults.EvaluatorError(msg) =>
+              throw new runtime.CodeGenRuntimeException(msg)
+          }
+
+        case _ =>
+          throw new runtime.CodeGenRuntimeException(
+            s"Cannot call uninterpreted function ${tpCall.id.asString} that the model doesn't define")
+      }
 
       valueToJVM(res)(using this)
     }
@@ -127,7 +159,7 @@ class CodeGenEvaluator(override val program: Program,
       val groundForall = exprOps.replaceFromSymbols(inputsMap, tpForall)
 
       val BooleanLiteral(res) = (try {
-        self.onForallInvocation(groundForall.asInstanceOf[Forall])
+        self.onForallInvocation(groundForall.asInstanceOf[Forall], model.chooses)
       } catch {
         case e: java.lang.RuntimeException =>
           throw new runtime.CodeGenRuntimeException(e.getMessage)
