@@ -255,6 +255,110 @@ For instance:
   }
 
 
+.. _internally-mutable-objects:
+
+Internally Mutable Objects
+--------------------------
+
+Some objects are mutable only for efficiency but still behaves like pure functions. Examples of such objects are
+memoized functions using a mutable cache internally. From the outside, such an object behaves like a pure function. 
+Stainless lets you express this, and then use such an object as a pure value, e.g. as the argument of ``map``.
+
+Two constructs are involved:
+
+* ``@internallyMutable`` (in ``stainless.annotation``) marks a field of a class whose mutation is not
+  observable from the outside, such as a cache.
+* ``sameAs(f(args))`` (in ``stainless.lang``), used in a postcondition, states that a method returns the
+  same result as the pure function call ``f(args)``. A function whose postcondition contains ``sameAs`` is
+  called *observationally pure*.
+
+.. code-block:: scala
+
+  import stainless.annotation._
+  import stainless.lang._
+  import stainless.lang.StaticChecks._ // required: `sameAs` is ghost
+  import stainless.collection._
+
+  @mutable case class Cache(var value: Option[(BigInt, BigInt)]) {
+    require(value match {
+      case Some((x, absX)) => absX == abs(x)
+      case _ => true
+    })
+  }
+
+  @pure def abs(x: BigInt): BigInt = if (x < 0) -x else x
+
+  case class PureMemAbs(@internallyMutable private val cache: Cache) {
+    def apply(x: BigInt): BigInt = {
+      cache.value match {
+        case Some((cachedX, cachedAbs)) if cachedX == x => cachedAbs
+        case _ =>
+          val result = abs(x)
+          cache.value = Some((x, result))
+          result
+      }
+    }.ensuring(sameAs(abs(x)))
+  }
+
+  // The memoized function is used as a pure function
+  def memListAbs(xs: List[BigInt], memAbs: PureMemAbs): List[BigInt] = {
+    xs.map(memAbs(_))
+  }.ensuring(res => res == xs.map(abs))
+
+Stainless verifies ``apply`` against the postcondition ``res == abs(x)``, where ``abs(x)`` is evaluated
+in the state before the call. Every call ``o.m(args)`` to an observationally pure method ``m`` is
+then treated as a call to the pure function in its ``sameAs``, here ``memAbs(y)`` as ``abs(y)``. Such
+calls have no effects for the verifier, so they can appear in lambdas, in specifications, and be
+repeated freely.
+
+``sameAs``
+**********
+
+* ``sameAs(f(args))`` must be a top-level conjunct of the postcondition, applied to the result, e.g.
+  ``.ensuring(sameAs(f(x)))`` or ``.ensuring(res => sameAs(f(x))(res) && cacheIsValid)``. It cannot appear
+  anywhere else (under a disjunction or a negation, in a precondition or in the body).
+* Its argument must be a call, and the called function ``f`` must
+
+  * be annotated ``@pure`` (its purity is then checked as usual);
+  * be defined outside of any class with ``@internallyMutable`` fields.
+
+* The precondition of the observationally pure method must imply the precondition of ``f``, since
+  ``f(args)`` is evaluated in the postcondition. It can be stronger: callers must then establish it.
+* Other conjuncts of the postcondition are verified, but are not visible to callers, who only see
+  ``f(args)``.
+* An observationally pure method cannot be overridden: it must be concrete, and its class must be
+  concrete (not abstract or a trait).
+* An observationally pure function may only modify ``@internallyMutable`` fields of ``this``. It cannot
+  modify its arguments or other fields. It can also be annotated ``@pure``.
+
+``@internallyMutable``
+**********************
+
+* It can only annotate constructor fields of a class (not methods, local variables or parameters).
+  Both ``var`` and ``val`` fields are allowed, in classes and case classes.
+* The field must be ``private``.
+* The field can only be read or written on ``this``, from observationally pure methods, ghost methods
+  and the class invariant of its class. In particular, it cannot be accessed from other methods of the
+  class (even ``private`` or ``@pure`` ones), from the companion object, on another instance, by a
+  pattern match, or through ``copy``.
+* Equality (``==`` and ``!=``) cannot be used on values whose type may contain a class with
+  ``@internallyMutable`` fields (directly, or through a field, a subclass, a type argument or a tuple),
+  since it would compare the hidden state.
+* Inside observationally pure, ghost and invariant methods of the class, calls to observationally pure
+  methods on ``this`` keep their effect on the field, so that a method can reuse the cache, e.g.
+  ``def applyTwice(x: BigInt) = apply(x) + apply(x)``.
+
+Limitations
+***********
+
+* A class with ``@internallyMutable`` fields is still a mutable type. Calls to its observationally pure
+  methods are pure, but the object itself is subject to the usual aliasing restrictions (see `Aliasing`_).
+* If the precondition of an observationally pure method refers to ``this``, a lambda calling the method
+  captures the (mutable) object and is rejected. Prefer stating conditions on the hidden state in the
+  class invariant.
+* Equality on a type parameter instantiated with such a class is not detected.
+
+
 Extern functions and abstract methods
 -------------------------------------
 
