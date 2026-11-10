@@ -1,0 +1,4 @@
+x.value          = 1
+m(0).value       = 0
+key 0 in the map = false
+m(0).value == 1  = false

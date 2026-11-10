@@ -1,0 +1,20 @@
+import stainless.lang._
+
+object AliasKillMechanism {
+  case class Box(var value: BigInt)
+  case class Holder(var b: Box)
+
+  def f: Unit = {
+    val a = Box(4)
+    val h = Holder(a)
+
+    h.b = Box(1)
+
+    assert(h.b.value == 1)
+
+    a.value = 99
+
+    assert(a.value == 99)
+    assert(h.b.value == 1)
+  }
+}
