@@ -30,8 +30,15 @@ SKIP_TESTS=false
 
 ROOT_DIR=$PWD
 SBT_TEMP=$ROOT_DIR/sbt-temp
-# if TEMP_DIR is not set, set it to the default
-JAVA_OPTS_TMP_DIR=${JAVA_OPTS_TMP_DIR:-$ROOT_DIR/temporary}
+# The directory for temporary files. A caller that sets JAVA_OPTS_TMP_DIR owns the directory: the CI
+# workflows keep the global directory of sbt in it, run this script several times with it, and delete
+# it themselves. Otherwise the script uses a directory of its own, and deletes it at the end.
+if [ -n "$JAVA_OPTS_TMP_DIR" ]; then
+  OWNS_TMP_DIR=false
+else
+  OWNS_TMP_DIR=true
+  JAVA_OPTS_TMP_DIR=$ROOT_DIR/temporary
+fi
 mkdir -p $JAVA_OPTS_TMP_DIR
 chmod 777 $JAVA_OPTS_TMP_DIR
 SBT_DIR=$ROOT_DIR/temp  # make better later
@@ -131,10 +138,8 @@ else
     tar xfz $SBT_NAME
     
     cd $ROOT_DIR
-    echo Testing $SBT --version
-    $SBT --version
-    echo "*******     $SBT Universal/stage ********"
-    $SBT Universal/stage
+    echo "*******     $SBT sbtVersion Universal/stage ********"
+    $SBT sbtVersion Universal/stage
   if [ $? -ne 0 ]; then
     echo "************** Failed to build the universal package **************"
     exit 1
@@ -218,5 +223,7 @@ echo ""
 echo "********************************* CI PASSED! *********************************"
 
 # Too bad we have all those `exit` commands all over place, so they do not see this cleanup!
-rm -rf $JAVA_OPTS_TMP_DIR
+if [ "$OWNS_TMP_DIR" = true ]; then
+  rm -rf $JAVA_OPTS_TMP_DIR
+fi
 echo "Total time: $DURATION seconds"
