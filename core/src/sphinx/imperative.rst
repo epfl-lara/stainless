@@ -279,7 +279,7 @@ Two constructs are involved:
   import stainless.lang.StaticChecks._ // required: `sameAs` is ghost
   import stainless.collection._
 
-  @mutable case class Cache(var value: Option[(BigInt, BigInt)]) {
+  case class Cache(var value: Option[(BigInt, BigInt)]) {
     require(value match {
       case Some((x, absX)) => absX == abs(x)
       case _ => true
@@ -288,7 +288,7 @@ Two constructs are involved:
 
   @pure def abs(x: BigInt): BigInt = if (x < 0) -x else x
 
-  case class PureMemAbs(@internallyMutable private val cache: Cache) {
+  @mutable case class PureMemAbs(@internallyMutable private val cache: Cache) {
     def apply(x: BigInt): BigInt = {
       cache.value match {
         case Some((cachedX, cachedAbs)) if cachedX == x => cachedAbs
