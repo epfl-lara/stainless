@@ -398,8 +398,8 @@ class ExprOps(override val trees: Trees) extends innerfuns.ExprOps(trees) {
    * Freshening of local variables
    * ============================= */
 
-  protected class OOFreshener(freshenChooses: Boolean)
-    extends InnerFunsFreshener(freshenChooses) {
+  protected class OOFreshener
+    extends InnerFunsFreshener() {
 
       override def transformAndGetEnv(pat: Pattern, env: Env): (Pattern, Env) = pat match {
 
@@ -426,8 +426,8 @@ class ExprOps(override val trees: Trees) extends innerfuns.ExprOps(trees) {
       }
   }
 
-  override def freshenLocals(expr: Expr, freshenChooses: Boolean = false): Expr = {
-    new OOFreshener(freshenChooses).transform(expr, Map.empty[Identifier, Identifier])
+  override def freshenLocals(expr: Expr): Expr = {
+    new OOFreshener().transform(expr, Map.empty[Identifier, Identifier])
   }
 }
 

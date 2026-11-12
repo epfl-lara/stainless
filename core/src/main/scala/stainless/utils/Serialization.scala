@@ -28,6 +28,7 @@ class StainlessSerializer(override val trees: ast.Trees, serializeProducts: Bool
   override protected def classSerializers: Map[Class[?], Serializer[?]] =
     super.classSerializers ++ Map(
       stainlessClassSerializer[NoTree]             (120),
+      stainlessClassSerializer[Choose]             (16),
       stainlessClassSerializer[Error]              (121),
       stainlessClassSerializer[Require]            (122),
       stainlessClassSerializer[Annotated]          (123),

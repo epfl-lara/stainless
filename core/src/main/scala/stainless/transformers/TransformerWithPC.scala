@@ -21,6 +21,9 @@ trait TransformerWithPC extends inox.transformers.TransformerWithPC with Transfo
         t.Lambda(Seq(transform(vd, env)), transform(post, env `withBinding` (vd -> body))).copiedFrom(l)
       ).copiedFrom(e)
 
+    case s.Choose(res, p) =>
+      t.Choose(transform(res, env), transform(p, env `withBound` res)).copiedFrom(e)
+
     case s.Require(pre, body) =>
       t.Require(transform(pre, env), transform(body, env `withCond` pre)).copiedFrom(e)
 

@@ -259,7 +259,7 @@ trait VerificationChecker { self =>
       val newAdt = ADT(adt.id, adt.tps, newArgs)
       val adtVar = Variable(FreshIdentifier("adt"), adt.getType(using symbols), Seq())
       val newInv = FunctionInvocation(invId, inv.tps, Seq(adtVar))
-      val newModel = inox.Model(program)(model.vars + (adtVar.toVal -> newAdt), model.chooses)
+      val newModel = inox.Model(program)(model.vars + (adtVar.toVal -> newAdt), model.interpretations)
       val newCondition = exprOps.replace(Map(inv -> newInv), vc.condition)
 
       evaluator.eval(newCondition, newModel) match {

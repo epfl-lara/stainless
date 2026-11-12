@@ -703,8 +703,8 @@ class ExprOps(override val trees: Trees) extends oo.ExprOps(trees) { self =>
    * Freshening of local variables
    * ============================= */
 
-  protected class ImperativeFreshener(freshenChooses: Boolean)
-    extends OOFreshener(freshenChooses) {
+  protected class ImperativeFreshener
+    extends OOFreshener() {
 
     override def transform(e: Expr, env: Env): Expr = e match {
       case LetVar(vd, v, b) =>
@@ -715,8 +715,8 @@ class ExprOps(override val trees: Trees) extends oo.ExprOps(trees) { self =>
     }
   }
 
-  override def freshenLocals(expr: Expr, freshenChooses: Boolean = false): Expr = {
-    new ImperativeFreshener(freshenChooses).transform(expr, Map.empty[Identifier, Identifier])
+  override def freshenLocals(expr: Expr): Expr = {
+    new ImperativeFreshener().transform(expr, Map.empty[Identifier, Identifier])
   }
 
 }

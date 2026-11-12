@@ -13,6 +13,31 @@ import stainless.transformers.TreeTraverser
 class ExprOps(override val trees: Trees) extends inox.ast.ExprOps(trees) { self =>
   import trees._
 
+  /** The uninterpreted call that encodes the choose `c` in Inox, which has no chooses: the call of
+    * the uninterpreted function identified by the choose's result, over its free variables and at
+    * the type parameters of its type, whose result is refined by the choose's predicate. The same
+    * choose at the same values of its free variables then gives the same value. */
+  def chooseCall(c: Choose): UninterpretedCall = {
+    val result = RefinementType(c.res, c.pred)
+
+    // The free variables of the choose, with those that their types refer to
+    def close(vs: Set[Variable]): Set[Variable] = {
+      val next = vs ++ vs.flatMap(v => typeOps.variablesOf(v.tpe))
+      if (next == vs) vs else close(next)
+    }
+
+    // A variable comes after the variables that its type refers to
+    def order(todo: Seq[Variable], done: Seq[Variable]): Seq[Variable] = {
+      val (ready, rest) = todo.partition(v => (typeOps.variablesOf(v.tpe) -- done - v).isEmpty)
+      if (ready.isEmpty) done ++ rest else order(rest, done ++ ready)
+    }
+
+    val args = order(close(typeOps.variablesOf(result)).toSeq.sortBy(_.id.globalId), Seq.empty)
+    val tpe = if (args.isEmpty) FunctionType(Seq.empty, result) else PiType(args.map(_.toVal), result)
+    val tps = typeOps.typeParamsOf(tpe).toSeq.sortBy(_.id.globalId)
+    UninterpretedCall(c.res.id, tps, args, tpe).copiedFrom(c)
+  }
+
   /* =================
    * Body manipulation
    * ================= */
@@ -413,8 +438,8 @@ class ExprOps(override val trees: Trees) extends inox.ast.ExprOps(trees) { self 
    * Freshening of local variables
    * ============================= */
 
-  protected class StainlessFreshener(freshenChooses: Boolean)
-    extends Freshener(freshenChooses) with transformers.Transformer {
+  protected class StainlessFreshener
+    extends Freshener() with transformers.Transformer {
 
     override def transformCase(cse: MatchCase, env: Env): MatchCase = {
       val MatchCase(pat, guard, rhs) = cse
@@ -500,8 +525,8 @@ class ExprOps(override val trees: Trees) extends inox.ast.ExprOps(trees) { self 
     }
   }
 
-  override def freshenLocals(expr: Expr, freshenChooses: Boolean = false): Expr = {
-    new StainlessFreshener(freshenChooses).transform(expr, Map.empty[Identifier, Identifier])
+  override def freshenLocals(expr: Expr): Expr = {
+    new StainlessFreshener().transform(expr, Map.empty[Identifier, Identifier])
   }
 
 }

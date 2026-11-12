@@ -51,6 +51,9 @@ trait Printer extends inox.ast.Printer {
         p"$a $id $b"
       }
 
+    case Choose(res, pred) =>
+      p"choose(($res) => $pred)"
+
     case Require(pred, body) =>
       p"""|require($pred)
           |$body"""

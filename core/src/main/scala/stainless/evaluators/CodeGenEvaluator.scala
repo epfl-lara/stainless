@@ -27,7 +27,7 @@ class CodeGenEvaluator(override val program: Program,
                       (using override val semantics: program.Semantics)
   extends CompilationUnit(program, context)
      with inox.evaluators.DeterministicEvaluator
-     with inox.evaluators.SolvingEvaluator { self =>
+     with ChooseSolving { self =>
 
   import context.{given, _}
   import program._
@@ -83,12 +83,14 @@ class CodeGenEvaluator(override val program: Program,
         case (vd, ref) => vd.toVariable -> jvmToValue(ref, vd.getType)
       }.toMap
 
-      val res = model.chooses.get(choose.res.id -> newTypes) match {
-        case Some(value) =>
-          val vars = inputsMap map { case (k, v) => k.toVal -> v }
-          val subModel = inox.Model(model.program)(vars, model.chooses)
+      // The chooses are lifted into functions of their scope (see `inlining.ChooseEncoder`), which
+      // the model gives as uninterpreted functions of their parameters (see `InoxEncoder`)
+      val res = model.interpretations.get(choose.res.id -> newTypes) match {
+        case Some(Lambda(lparams, body)) if lparams.size == realParams.size =>
+          val vars = (lparams zip realParams).map { case (lvd, vd) => lvd -> inputsMap(vd.toVariable) }.toMap
+          val subModel = inox.Model(model.program)(vars, model.interpretations)
 
-          eval(value, subModel) match {
+          eval(body, subModel) match {
             case EvaluationResults.Successful(result) =>
               result
             case EvaluationResults.RuntimeError(msg) =>
@@ -100,7 +102,7 @@ class CodeGenEvaluator(override val program: Program,
         case None =>
           val groundChoose = exprOps.replaceFromSymbols(inputsMap, tpChoose)
           try {
-            self.onChooseInvocation(groundChoose.asInstanceOf[Choose], model.chooses)
+            self.onChooseInvocation(groundChoose.asInstanceOf[Choose], model.interpretations)
           } catch {
             case e: java.lang.RuntimeException =>
               throw new runtime.CodeGenRuntimeException(e.getMessage)
@@ -122,9 +124,9 @@ class CodeGenEvaluator(override val program: Program,
         case (arg, ref) => jvmToValue(ref, arg.getType)
       }
 
-      val res = model.chooses.get(tpCall.id -> tpCall.tps) match {
+      val res = model.interpretations.get(tpCall.id -> tpCall.tps) match {
         case Some(Lambda(params, body)) if params.size == args.size =>
-          val subModel = inox.Model(model.program)((params zip args).toMap, model.chooses)
+          val subModel = inox.Model(model.program)((params zip args).toMap, model.interpretations)
 
           eval(body, subModel) match {
             case EvaluationResults.Successful(result) =>
@@ -159,7 +161,7 @@ class CodeGenEvaluator(override val program: Program,
       val groundForall = exprOps.replaceFromSymbols(inputsMap, tpForall)
 
       val BooleanLiteral(res) = (try {
-        self.onForallInvocation(groundForall.asInstanceOf[Forall], model.chooses)
+        self.onForallInvocation(groundForall.asInstanceOf[Forall], model.interpretations)
       } catch {
         case e: java.lang.RuntimeException =>
           throw new runtime.CodeGenRuntimeException(e.getMessage)
