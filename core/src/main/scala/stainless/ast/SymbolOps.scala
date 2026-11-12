@@ -57,7 +57,8 @@ trait SymbolOps extends inox.ast.SymbolOps with TypeOps { self =>
   }
 
   override def isImpureExpr(expr: Expr): Boolean = expr match {
-    case (_: Require) | (_: Ensuring) | (_: Assert) => true
+    case Choose(res, BooleanLiteral(true)) if hasInstance(res.tpe) == Some(true) => false
+    case (_: Require) | (_: Ensuring) | (_: Assert) | (_: Choose) => true
     case _ => super.isImpureExpr(expr)
   }
 

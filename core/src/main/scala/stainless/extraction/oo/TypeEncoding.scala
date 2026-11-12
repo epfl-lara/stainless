@@ -14,6 +14,10 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
   import t._
   import t.dsl._
 
+  /** A choice of a value of `res` that satisfies `pred` (Inox's DSL has no chooses). */
+  private def choose(res: t.ValDef)(pred: t.Variable => t.Expr): t.Expr =
+    t.Choose(res, pred(res.toVariable)).copiedFrom(res)
+
   override type FunctionResult = Seq[t.FunDef]
   protected def registerFunctions(symbols: t.Symbols, functions: Seq[FunctionResult]): t.Symbols =
     symbols.withFunctions(functions.flatten)

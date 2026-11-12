@@ -146,6 +146,8 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
   override def deconstruct(expr: s.Expr): Deconstructed[t.Expr] = expr match {
     case s.NoTree(tpe) =>
       (Seq(), Seq(), Seq(), Seq(tpe), Seq(), (_, _, _, tps, _) => t.NoTree(tps.head))
+    case s.Choose(res, pred) =>
+      (Seq(), Seq(res.toVariable), Seq(pred), Seq(), Seq(), (_, vs, es, _, _) => t.Choose(vs.head.toVal, es.head))
     case s.Require(pred, body) =>
       (Seq(), Seq(), Seq(pred, body), Seq(), Seq(), (_, _, es, _, _) => t.Require(es(0), es(1)))
     case s.Ensuring(body, pred) =>

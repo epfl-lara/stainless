@@ -6,13 +6,39 @@ package evaluators
 abstract class RecursiveEvaluator(override val program: Program,
                                   override val context: inox.Context)
                                  (using override protected val semantics: program.Semantics)
-  extends inox.evaluators.RecursiveEvaluator(program, context) {
+  extends inox.evaluators.RecursiveEvaluator(program, context) with ChooseSolving {
   import context.{given, _}
   import program._
   import program.trees._
   import program.symbols.{given, _}
 
+  /** The choose that is the body of the function `id`, which the model gives as an uninterpreted
+    * function of the function's parameters (see [[solvers.InoxEncoder]]). */
+  private def liftedChoose(id: Identifier): Option[Choose] = getFunction(id).fullBody match {
+    case c: Choose => Some(c)
+    case _ => None
+  }
+
   override def e(expr: Expr)(using rctx: RC, gctx: GC): Expr = expr match {
+    case FunctionInvocation(id, tps, args) if liftedChoose(id).isDefined =>
+      val Choose(res, _) = liftedChoose(id).get: @unchecked
+      rctx.interpretations.get(res.id -> tps) match {
+        case Some(l: Lambda) if l.params.size == args.size =>
+          e(l.body)(using rctx.withNewVars(l.paramSubst(args.map(e))), gctx)
+        case _ => super.e(expr)
+      }
+
+    // The model gives a choose as the uninterpreted function of its free variables that encodes it
+    // (see [[solvers.InoxEncoder]]), and the chooses it doesn't give are solved for
+    case c: Choose =>
+      val call = exprOps.chooseCall(c)
+      rctx.interpretations.get(call.id -> call.tps) match {
+        case Some(l: Lambda) if l.params.size == call.args.size =>
+          e(l.body)(using rctx.withNewVars(l.paramSubst(call.args.map(e))), gctx)
+        case _ =>
+          onChooseInvocation(exprOps.replaceFromSymbols(exprOps.variablesOf(c).map(v => v -> e(v)).toMap, c).asInstanceOf[Choose], rctx.interpretations)
+      }
+
     case Require(pred, body) =>
       if (!ignoreContractsOn(expr) && e(pred) != BooleanLiteral(true))
         throw RuntimeError("Requirement did not hold @" + expr.getPos)
