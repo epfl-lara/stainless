@@ -88,6 +88,30 @@ private class TreeEncoder[Prog <: Program](val sourceProgram: Prog)
   def this(sourceProgram: Prog)(using semantics: sourceProgram.Semantics, context: inox.Context) =
     this(sourceProgram)(sourceProgram.trees, inox.trees)
 
+  /** The functions whose body is a choose, into which chooses are lifted over the variables in their
+    * scope (see [[extraction.inlining.ChooseEncoder]]), call an uninterpreted function of their
+    * parameters, whose results satisfy the choose's predicate. The uninterpreted function is
+    * identified by the choose's result, so that models give the choose at the function's type
+    * arguments. */
+  override def transform(fd: s.FunDef): t.FunDef = fd.fullBody match {
+    case c @ s.Choose(res, pred) =>
+      val tparams = fd.tparams.map(transform)
+      val params = fd.params.map(transform)
+      val vd = transform(res)
+      val result = pred match {
+        case s.BooleanLiteral(true) => vd.tpe
+        case _ => t.RefinementType(vd, transform(pred)).copiedFrom(c)
+      }
+      val tpe = if (params.isEmpty) t.FunctionType(Seq.empty, result) else t.PiType(params, result)
+      new t.FunDef(
+        transform(fd.id), tparams, params, transform(fd.returnType),
+        t.UninterpretedCall(res.id, tparams.map(_.tp), params.map(_.toVariable), tpe.copiedFrom(c)).copiedFrom(c),
+        fd.flags.map(transform)
+      ).copiedFrom(fd)
+
+    case _ => super.transform(fd)
+  }
+
   override def transform(e: s.Expr): t.Expr = {
     e match {
       case m: s.MatchExpr =>
@@ -97,16 +121,15 @@ private class TreeEncoder[Prog <: Program](val sourceProgram: Prog)
         transform(matchToIfThenElse(p.asConstraint))
 
       case s.NoTree(tpe) =>
-        t.Choose(
-          t.ValDef(FreshIdentifier("empty", true), transform(tpe)).copiedFrom(e),
-          t.BooleanLiteral(true).copiedFrom(e)
-        ).copiedFrom(e)
+        t.exprOps.freshUninterpretedCall("empty", Seq.empty, transform(tpe)).copiedFrom(e)
 
       case s.Error(tpe, _) =>
-        t.Choose(
-          t.ValDef(FreshIdentifier("err", true), transform(tpe)).copiedFrom(e),
-          t.BooleanLiteral(true).copiedFrom(e)
-        ).copiedFrom(e)
+        t.exprOps.freshUninterpretedCall("err", Seq.empty, transform(tpe)).copiedFrom(e)
+
+      // The chooses that aren't the bodies of functions (see `transform(fd)`) depend on their free
+      // variables only
+      case c: s.Choose =>
+        transform(s.exprOps.chooseCall(c))
 
       case s.Require(pred, body) =>
         transform(body)
@@ -147,10 +170,7 @@ private class TreeEncoder[Prog <: Program](val sourceProgram: Prog)
             elems.zipWithIndex.map { case (e, i) => t.Int32Literal(i).copiedFrom(e) -> transform(e) },
             if (hasInstance(base) contains true) transform(simplestValue(base)).copiedFrom(e)
             else if (elems.nonEmpty) transform(elems.head)
-            else t.Choose(
-              t.ValDef(FreshIdentifier("res"), transform(base)).copiedFrom(e),
-              t.BooleanLiteral(true).copiedFrom(e)
-            ).copiedFrom(e),
+            else t.exprOps.freshUninterpretedCall("res", Seq.empty, transform(base)).copiedFrom(e),
             t.Int32Type(),
             transform(base)),
           t.Int32Literal(elems.size).copiedFrom(e)
@@ -312,6 +332,17 @@ private class TreeDecoder[Prog <: Program](val sourceProgram: Prog)
         transform(size),
         transform(base)
       ).copiedFrom(e)
+
+    // The refinements of the types of model values (e.g. the domains of the defaults of functions)
+    // may select the fields of arrays, or check their invariant
+    case s.ADTSelector(array, `size`) =>
+      t.ArrayLength(transform(array)).copiedFrom(e)
+
+    case s.MapApply(s.ADTSelector(array, `arr`), index) =>
+      t.ArraySelect(transform(array), transform(index)).copiedFrom(e)
+
+    case s.FunctionInvocation(`arrayInvariantID`, _, Seq(array)) =>
+      t.GreaterEquals(t.ArrayLength(transform(array)).copiedFrom(e), t.Int32Literal(0).copiedFrom(e)).copiedFrom(e)
 
     case _ => super.transform(e)
   }

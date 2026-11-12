@@ -40,8 +40,8 @@ object XLangTestGen extends utils.CtexRemapping {
   def generateTestCase(testCaseNbr: Int)(using tyParamSubst: TyParamSubst, tcCtx: TestCaseCtx, ctx: inox.Context): Option[(xt.FunDef, xt.FunDef)] = {
     import tcCtx._
 
-    if (cex.chooses.nonEmpty) {
-      recognizeFailure("due to the presence of 'chooses' in the model")
+    if (cex.interpretations.nonEmpty) {
+      recognizeFailure("due to the presence of uninterpreted functions in the model")
       return None
     }
 

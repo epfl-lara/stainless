@@ -198,8 +198,8 @@ class ExprOps(override val trees: Trees) extends extraction.ExprOps(trees) {
    * Freshening of local variables
    * ============================= */
 
-  protected class InnerFunsFreshener(freshenChooses: Boolean)
-    extends StainlessFreshener(freshenChooses) {
+  protected class InnerFunsFreshener
+    extends StainlessFreshener() {
 
       override def transform(expr: Expr, env: Env): Expr = expr match {
         case LetRec(lfds, rest) =>
@@ -227,8 +227,8 @@ class ExprOps(override val trees: Trees) extends extraction.ExprOps(trees) {
       }
   }
 
-  override def freshenLocals(expr: Expr, freshenChooses: Boolean = false): Expr = {
-    new InnerFunsFreshener(freshenChooses).transform(expr, Map.empty[Identifier, Identifier])
+  override def freshenLocals(expr: Expr): Expr = {
+    new InnerFunsFreshener().transform(expr, Map.empty[Identifier, Identifier])
   }
 
 }

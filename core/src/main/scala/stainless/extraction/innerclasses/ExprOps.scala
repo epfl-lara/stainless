@@ -44,8 +44,8 @@ class ExprOps(override val trees: Trees) extends methods.ExprOps(trees) {
    * Freshening of local variables
    * ============================= */
 
-  protected class InnerClassesFreshener(freshenChooses: Boolean)
-    extends ImperativeFreshener(freshenChooses) {
+  protected class InnerClassesFreshener
+    extends ImperativeFreshener() {
 
       def transform(lmd: LocalMethodDef, env: Env, methodsEnv: Env): LocalMethodDef = {
         val LocalMethodDef(id, tparams, params, returnType, fullBody, flags) = lmd
@@ -104,8 +104,8 @@ class ExprOps(override val trees: Trees) extends methods.ExprOps(trees) {
       }
   }
 
-  override def freshenLocals(expr: Expr, freshenChooses: Boolean = false): Expr = {
-    new InnerClassesFreshener(freshenChooses).transform(expr, Map.empty[Identifier, Identifier])
+  override def freshenLocals(expr: Expr): Expr = {
+    new InnerClassesFreshener().transform(expr, Map.empty[Identifier, Identifier])
   }
 
 }

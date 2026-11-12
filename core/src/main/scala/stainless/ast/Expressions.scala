@@ -14,6 +14,17 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
     override def getTpe(stripRefinements: Boolean)(using Symbols): Type = tpe.getTpe(stripRefinements)
   }
 
+  /** $encodingof `choose(...)` (returns a value satisfying the provided predicate)
+    *
+    * Chooses are encoded as uninterpreted calls (see [[solvers.InoxEncoder]]) when programs
+    * are given to Inox, after they have been lifted into functions whose parameters are the
+    * variables in their scope (see [[extraction.inlining.ChooseEncoder]]).
+    */
+  sealed case class Choose(res: ValDef, pred: Expr) extends Expr with CachingTyped {
+    override protected def computeTpe(stripRefinements: Boolean)(using Symbols): Type =
+      checkParamType(pred, BooleanType(), res.getTpe(stripRefinements))
+  }
+
 
   /* Specifications */
 
