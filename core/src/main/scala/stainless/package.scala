@@ -66,7 +66,7 @@ package object stainless {
     new inox.SemanticsProvider {
       val trees: stainless.trees.type = stainless.trees
 
-      def getSemantics(p: inox.Program { val trees: stainless.trees.type }): p.Semantics = new inox.Semantics { self =>
+      def getSemantics(p: inox.Program { val trees: stainless.trees.type }): p.Semantics = new inox.Semantics with evaluators.CodeGenCache { self =>
         val trees: p.trees.type = p.trees
         val symbols: p.symbols.type = p.symbols
         val program: Program { val trees: p.trees.type; val symbols: p.symbols.type } =
