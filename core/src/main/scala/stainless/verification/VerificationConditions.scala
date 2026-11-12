@@ -106,6 +106,8 @@ object VCStatus {
   case object Trivial extends VCStatus[Nothing]("trivial")
   case object Unknown extends VCStatus[Nothing]("unknown")
   case object Timeout extends VCStatus[Nothing]("timeout")
+  case object ResourceLimit extends VCStatus[Nothing]("resource limit reached")
+  case object UnrollBound extends VCStatus[Nothing]("unroll bound reached")
   case object Cancelled extends VCStatus[Nothing]("cancelled")
   case object Crashed extends VCStatus[Nothing]("crashed")
   case object Unsupported extends VCStatus[Nothing]("unsupported")
