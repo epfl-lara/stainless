@@ -241,18 +241,11 @@ object CodeGenEvaluator {
         .asInstanceOf[CompilationUnit { val program: split.targetProgram.type }]
   }
 
-  /** The options that the compiled program depends on. The evaluators of contexts that agree on
-    * them can share it. */
-  private[evaluators] def compilationKey(ctx: inox.Context): Any = (
-    ctx.options.findOptionOrDefault(inox.evaluators.optIgnoreContracts),
-    ctx.options.findOptionOrDefault(inox.evaluators.optMaxCalls),
-    ctx.options.findOptionOrDefault(codegen.optInstrumentFields),
-    ctx.options.findOptionOrDefault(codegen.optSmallArrays),
-  )
-
   def apply(p: StainlessProgram, ctx: inox.Context): DeterministicEvaluator { val program: p.type } = {
+    // The evaluators of contexts with the same options share the compiled program. The solvers of a
+    // factory have the same options, and only differ in their interrupt managers.
     val compiled = (p.getSemantics match {
-      case cache: CodeGenCache => cache.compiled(compilationKey(ctx))(new Compiled(p, ctx))
+      case cache: CodeGenCache => cache.compiled(ctx.options)(new Compiled(p, ctx))
       case _ => new Compiled(p, ctx)
     }).asInstanceOf[Compiled { val source: p.type }]
     import compiled.split
@@ -264,11 +257,11 @@ object CodeGenEvaluator {
   }
 }
 
-/** Semantics that keep the programs that [[CodeGenEvaluator]] compiled for their program, so that
-  * its evaluators share them. */
+/** Semantics that keep the programs that [[CodeGenEvaluator]] compiled for their program, by the
+  * options of the context, so that its evaluators share them. */
 trait CodeGenCache { self: inox.Semantics =>
-  private val compiledPrograms = scala.collection.mutable.Map[Any, CodeGenEvaluator.Compiled]()
+  private val compiledPrograms = scala.collection.mutable.Map[inox.Options, CodeGenEvaluator.Compiled]()
 
-  private[evaluators] def compiled(key: Any)(compile: => CodeGenEvaluator.Compiled): CodeGenEvaluator.Compiled =
-    synchronized(compiledPrograms.getOrElseUpdate(key, compile))
+  private[evaluators] def compiled(options: inox.Options)(compile: => CodeGenEvaluator.Compiled): CodeGenEvaluator.Compiled =
+    synchronized(compiledPrograms.getOrElseUpdate(options, compile))
 }
