@@ -329,6 +329,7 @@ trait VerificationChecker { self =>
           case Unknown =>
             VCResult(s match {
               case _ if s.resourceLimitReached => VCStatus.ResourceLimit
+              case _ if s.unrollBoundReached => VCStatus.UnrollBound
               case ts: inox.solvers.combinators.TimeoutSolver => ts.optTimeout match {
                 case Some(t) if t < time => VCStatus.Timeout
                 case _ => VCStatus.Unknown

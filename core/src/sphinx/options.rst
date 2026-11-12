@@ -164,6 +164,30 @@ These options are available to all Stainless components:
   repair one function (in sec.) When using the ``--eval`` component, one
   should use ``--max-calls`` instead.
 
+* ``--z3-rlimit=n`` and ``--cvc5-rlimit=n``
+
+  Set a resource limit for the ``smt-z3`` (resp. ``smt-cvc5``) solver, as a
+  deterministic alternative to ``--timeout``: unlike a wall-clock timeout, the
+  outcome does not depend on the machine or its load. The limit ``n`` is given in
+  millions of solver resource units (``--z3-rlimit=2`` passes ``rlimit=2000000``
+  to z3), and ``0`` (the default) means no limit. z3 accepts at most
+  ``--z3-rlimit=4294``; larger values are capped. A verification condition that
+  exceeds the limit is reported as ``resource limit reached``.
+
+  The limit applies to each solver query separately, not to a whole verification
+  condition: Stainless typically issues many queries per verification condition
+  while unfolding recursive functions, and the condition is given up as soon as
+  a single query exceeds the limit. How long a given limit takes therefore
+  depends on the program, so it should be calibrated for the programs at hand.
+
+  Since only individual queries are bounded, a verification condition whose
+  queries all stay below the limit may in principle run forever (in practice,
+  queries usually grow with each unfolding until one exceeds the limit). To bound
+  the total work, combine the resource limit with ``--unroll-bound=n``, which
+  caps the number of unfolding steps and keeps the outcome deterministic; a
+  verification condition that reaches the bound is reported as ``unroll bound
+  reached``. Alternatively, add ``--timeout`` as a wall-clock safety net.
+
 * ``--cache``
 
   Use persistent cache on disk to save the state of the verification and/or
