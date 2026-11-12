@@ -72,8 +72,8 @@ class CompilationUnit(val program: Program, val context: inox.Context)(using val
 
   private var runtimeTypeToIdMap = Map[Type, Int]()
   private var runtimeIdToTypeMap = Map[Int, Type]()
-  protected def getType(id: Int): Type = synchronized(runtimeIdToTypeMap(id))
-  protected def registerType(tpe: Type): Int = synchronized(runtimeTypeToIdMap.get(tpe) match {
+  private[stainless] def getType(id: Int): Type = synchronized(runtimeIdToTypeMap(id))
+  private[stainless] def registerType(tpe: Type): Int = synchronized(runtimeTypeToIdMap.get(tpe) match {
     case Some(id) => id
     case None =>
       val id = runtimeCounter.nextGlobal
@@ -83,24 +83,24 @@ class CompilationUnit(val program: Program, val context: inox.Context)(using val
   })
 
   private var runtimeChooseMap = Map[Int, (Seq[ValDef], Seq[TypeParameter], Choose)]()
-  protected def getChoose(id: Int): (Seq[ValDef], Seq[TypeParameter], Choose) = synchronized(runtimeChooseMap(id))
-  protected def registerChoose(c: Choose, params: Seq[ValDef], tps: Seq[TypeParameter]): Int = synchronized {
+  private[stainless] def getChoose(id: Int): (Seq[ValDef], Seq[TypeParameter], Choose) = synchronized(runtimeChooseMap(id))
+  private[stainless] def registerChoose(c: Choose, params: Seq[ValDef], tps: Seq[TypeParameter]): Int = synchronized {
     val id = runtimeCounter.nextGlobal
     runtimeChooseMap += id -> (params, tps, c)
     id
   }
 
   private var runtimeUninterpretedMap = Map[Int, (Seq[TypeParameter], UninterpretedCall)]()
-  protected def getUninterpreted(id: Int): (Seq[TypeParameter], UninterpretedCall) = synchronized(runtimeUninterpretedMap(id))
-  protected def registerUninterpreted(uc: UninterpretedCall, tps: Seq[TypeParameter]): Int = synchronized {
+  private[stainless] def getUninterpreted(id: Int): (Seq[TypeParameter], UninterpretedCall) = synchronized(runtimeUninterpretedMap(id))
+  private[stainless] def registerUninterpreted(uc: UninterpretedCall, tps: Seq[TypeParameter]): Int = synchronized {
     val id = runtimeCounter.nextGlobal
     runtimeUninterpretedMap += id -> (tps, uc)
     id
   }
 
   private var runtimeForallMap = Map[Int, (Seq[TypeParameter], Forall)]()
-  protected def getForall(id: Int): (Seq[TypeParameter], Forall) = synchronized(runtimeForallMap(id))
-  protected def registerForall(f: Forall, tps: Seq[TypeParameter]): Int = synchronized {
+  private[stainless] def getForall(id: Int): (Seq[TypeParameter], Forall) = synchronized(runtimeForallMap(id))
+  private[stainless] def registerForall(f: Forall, tps: Seq[TypeParameter]): Int = synchronized {
     val id = runtimeCounter.nextGlobal
     runtimeForallMap += id -> (tps, f)
     id
