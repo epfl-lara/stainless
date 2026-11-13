@@ -160,7 +160,8 @@ abstract class RecursiveEvaluator(override val program: Program,
         Some(obind(ob, e))
 
       case (ADTPattern(ob, id, tps, subs), ADT(id2, tps2, args)) =>
-        if (id == id2 && tps == tps2) {
+        // Values are erased (models have no refinements), so compare erased type arguments
+        if (id == id2 && tps.map(_.getType) == tps2.map(_.getType)) {
           val res = (subs zip args) map (p => matchesPattern(p._1, p._2))
           if (res.forall(_.isDefined)) {
             Some(obind(ob, expr) ++ res.flatten.flatten)
