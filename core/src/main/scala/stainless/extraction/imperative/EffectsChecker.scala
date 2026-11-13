@@ -373,7 +373,7 @@ trait EffectsChecker { self: EffectsAnalyzer =>
 
     def checkEnforcedPurity(fd: FunAbstraction, effs: Set[Effect], callsToImpure: Seq[(Identifier, Set[Variable])]): Unit = {
       val isPure = fd.flags.contains(IsPure)
-      val isObsPure = fd.flags.contains(IsObservationallyPure)
+      val isObsEquiv = fd.flags.contains(IsObservationallyEquivalent)
       val isInv = fd.flags.contains(IsInvariant)
       // println(f"\nEffects of ${fd.id.asString} (annotated as pure: $isPure): ${effs.map(_.asString).mkString(", ")}\n")
       if ((isPure || isInv) && effs.nonEmpty) {
@@ -395,10 +395,10 @@ trait EffectsChecker { self: EffectsAnalyzer =>
         }
         throw ImperativeEliminationException(fd, (head ++ hint1 ++ hint2).mkString("\n"))
       }
-      // Observationally pure functions (with a `sameAs` postcondition) must be pure except for their
+      // Observationally equivalent functions (with a `sameAs` postcondition) must be pure except for their
       // internally mutable state: every effect must be on an `@internallyMutable` field. Such fields can only
       // be accessed on `this` (see `methods.InternallyMutableFields`), so these effects are on `this`.
-      if (isObsPure) {
+      if (isObsEquiv) {
         val illegal = effs.filterNot { eff =>
           eff.path.toSeq.headOption match {
             case Some(ClassFieldAccessor(field)) => field.flags.contains(IsInternallyMutable)
@@ -408,7 +408,7 @@ trait EffectsChecker { self: EffectsAnalyzer =>
         if (illegal.nonEmpty) {
           val targets = illegal.map(eff => eff.receiver.asString + eff.path.asString).toSeq.sorted.mkString(", ")
           throw ImperativeEliminationException(fd,
-            s"Observationally pure functions (with a `sameAs` postcondition) can only have side-effects on " +
+            s"Observationally equivalent functions (with a `sameAs` postcondition) can only have side-effects on " +
             s"@internallyMutable fields, but ${fd.id.asString} has side-effects on: $targets")
         }
       }
