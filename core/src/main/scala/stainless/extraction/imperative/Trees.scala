@@ -250,8 +250,11 @@ trait Trees extends oo.Trees with Definitions { self =>
   case object IsPure extends Flag("pure", Seq.empty)
   case object IsMutable extends Flag("mutable", Seq.empty)
   case object IsInternallyMutable extends Flag("internallyMutable", Seq.empty)
-  /** Inferred (not user-written) flag for functions whose postcondition contains a top-level `sameAs` conjunct. */
-  case object IsObservationallyEquivalent extends Flag("observationallyEquivalent", Seq.empty)
+  /** Inferred (not user-written) flag for functions whose postcondition contains a top-level `sameAs(f(args))`
+    * conjunct. `params` are the parameters of the function that appear (as variables) in `args`: the function
+    * may only have effects on them, and on `@internallyMutable` fields.
+    */
+  case class IsObservationallyEquivalent(params: Seq[Identifier]) extends Flag("observationallyEquivalent", params)
 
   override val exprOps: ExprOps { val trees: self.type } = {
     class ExprOpsImpl(override val trees: self.type) extends ExprOps(trees)
@@ -520,7 +523,7 @@ trait TreeDeconstructor extends oo.TreeDeconstructor {
     case s.IsPure => (Seq(), Seq(), Seq(), (_, _, _) => t.IsPure)
     case s.IsMutable => (Seq(), Seq(), Seq(), (_, _, _) => t.IsMutable)
     case s.IsInternallyMutable => (Seq(), Seq(), Seq(), (_, _, _) => t.IsInternallyMutable)
-    case s.IsObservationallyEquivalent => (Seq(), Seq(), Seq(), (_, _, _) => t.IsObservationallyEquivalent)
+    case s.IsObservationallyEquivalent(ids) => (ids, Seq(), Seq(), (nids, _, _) => t.IsObservationallyEquivalent(nids))
     case _ => super.deconstruct(f)
   }
 }
