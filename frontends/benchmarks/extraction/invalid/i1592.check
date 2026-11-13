@@ -1,0 +1,3 @@
+[ Error  ] i1592.scala:4:7: Method wait on Object is not supported
+                 wait()
+                 ^^^^^^
