@@ -7,7 +7,7 @@ package methods
 /** Checks the accesses to `@internallyMutable` fields (this phase does not transform anything).
   *
   * An `@internallyMutable` field of a class `C` may only be read or written on `this`, from a method
-  * of `C` that is either observationally pure, ghost, the class invariant, or a synthetic/accessor
+  * of `C` that is either observationally equivalent, ghost, the class invariant, or a synthetic/accessor
   * member (such as the getter and setter of the field, or `copy$default$n`). This includes the
   * specifications and local functions of such a method. `@pure` and private methods are not allowed,
   * since a public method could then expose the field to callers.
@@ -42,7 +42,7 @@ trait InternallyMutableFields extends ExtractionPipeline {
   override def invalidate(id: Identifier): Unit = ()
 
   private def isAllowedMethod(fd: FunDef): Boolean = fd.flags.exists {
-    case IsObservationallyPure | IsInvariant | Ghost | Synthetic | IsAccessor(_) => true
+    case IsObservationallyEquivalent | IsInvariant | Ghost | Synthetic | IsAccessor(_) => true
     case _ => false
   }
 
@@ -99,7 +99,7 @@ trait InternallyMutableFields extends ExtractionPipeline {
       if (!(allowedClass.contains(cid) && isThis(recv)))
         throw MethodsException(pos,
           s"Field ${fid.asString} of class ${cid.asString} is @internallyMutable: it can only be accessed on `this`, " +
-          s"from observationally pure, ghost, or invariant methods of ${cid.asString}")
+          s"from observationally equivalent, ghost, or invariant methods of ${cid.asString}")
     }
 
     object Checker extends ConcreteOOSelfTreeTraverser {

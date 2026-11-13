@@ -4,9 +4,9 @@ package stainless
 package extraction
 package methods
 
-/** Replaces calls to observationally pure methods by their pure reference function.
+/** Replaces calls to observationally equivalent methods by their pure reference function.
   *
-  * An observationally pure method `m` has a postcondition with a top-level conjunct `sameAs(f(e1, ..., en))`,
+  * An observationally equivalent method `m` has a postcondition with a top-level conjunct `sameAs(f(e1, ..., en))`,
   * which is verified (after `imperative.SameAsLowering`) as `res == f(e1, ..., en)` evaluated in the pre-state.
   * Hence, for verification purposes, a call `o.m(a1, ..., ak)` is replaced by
   * {{{
@@ -19,7 +19,7 @@ package methods
   * `m` mutates its `@internallyMutable` fields at runtime. The method `m` itself is kept, and verified as usual.
   *
   * Calls on `this` from methods of the same class that can access its internally mutable fields (observationally
-  * pure, ghost, or invariant methods) are not replaced, as these methods may observe the updated fields.
+  * equivalent, ghost, or invariant methods) are not replaced, as these methods may observe the updated fields.
   *
   * For the replacement to be sound:
   *  - `f` must be defined outside of classes with `@internallyMutable` fields;
@@ -28,7 +28,7 @@ package methods
   *
   * This runs before `MethodLifting`, while methods are still attached to their class and `this` is explicit.
   */
-trait ObservationallyPureCalls extends ExtractionPipeline {
+trait ObservationallyEquivalentCalls extends ExtractionPipeline {
   val s: Trees
   val t: s.type
   import s._
@@ -42,19 +42,19 @@ trait ObservationallyPureCalls extends ExtractionPipeline {
 
     symbols.functions.values.foreach(checkReferenceFunction(_, imClasses))
 
-    // Observationally pure methods, with their `sameAs` reference call
-    val obsPureMethods: Map[Identifier, (FunDef, Expr)] = symbols.functions.values.flatMap { fd =>
-      if (!fd.flags.contains(IsObservationallyPure) || fd.flags.forall { case IsMethodOf(_) => false; case _ => true }) None
+    // Observationally equivalent methods, with their `sameAs` reference call
+    val obsEquivMethods: Map[Identifier, (FunDef, Expr)] = symbols.functions.values.flatMap { fd =>
+      if (!fd.flags.contains(IsObservationallyEquivalent) || fd.flags.forall { case IsMethodOf(_) => false; case _ => true }) None
       else referenceCall(fd).map { ref =>
         checkNotOverridable(fd)
         fd.id -> (fd, ref)
       }
     }.toMap
 
-    if (obsPureMethods.isEmpty) (symbols, ExtractionSummary.NoSummary)
+    if (obsEquivMethods.isEmpty) (symbols, ExtractionSummary.NoSummary)
     else {
       val newSymbols = NoSymbols
-        .withFunctions(symbols.functions.values.map(replaceCalls(_, obsPureMethods)).toSeq)
+        .withFunctions(symbols.functions.values.map(replaceCalls(_, obsEquivMethods)).toSeq)
         .withClasses(symbols.classes.values.toSeq)
         .withSorts(symbols.sorts.values.toSeq)
         .withTypeDefs(symbols.typeDefs.values.toSeq)
@@ -90,17 +90,17 @@ trait ObservationallyPureCalls extends ExtractionPipeline {
     }(fd.fullBody)
   }
 
-  /** Calls to an observationally pure method can only be replaced if they cannot dispatch to an override. */
+  /** Calls to an observationally equivalent method can only be replaced if they cannot dispatch to an override. */
   private def checkNotOverridable(fd: FunDef)(using symbols: s.Symbols): Unit = {
     val cd = symbols.getClass(classOf(fd).get)
     if (fd.isAbstract || cd.isAbstract)
       throw MethodsException(fd,
-        s"Observationally pure method ${fd.id.asString} must not be overridable: it must be concrete, " +
+        s"Observationally equivalent method ${fd.id.asString} must not be overridable: it must be concrete, " +
         s"and its class ${cd.id.asString} must be concrete (not abstract or a trait)")
   }
 
   private def isAllowedMethod(fd: FunDef): Boolean = fd.flags.exists {
-    case IsObservationallyPure | IsInvariant | Ghost => true
+    case IsObservationallyEquivalent | IsInvariant | Ghost => true
     case _ => false
   }
 
@@ -110,14 +110,14 @@ trait ObservationallyPureCalls extends ExtractionPipeline {
     case _ => false
   }
 
-  private def replaceCalls(fd: FunDef, obsPureMethods: Map[Identifier, (FunDef, Expr)])(using symbols: s.Symbols): FunDef = {
+  private def replaceCalls(fd: FunDef, obsEquivMethods: Map[Identifier, (FunDef, Expr)])(using symbols: s.Symbols): FunDef = {
     // Calls on `this` to methods of this class are kept in methods that may observe its internally mutable fields
     val keptClass: Option[Identifier] = if (isAllowedMethod(fd)) classOf(fd) else None
 
     val newBody = exprOps.postMap {
       case mi @ MethodInvocation(recv, id, tps, args)
-          if obsPureMethods.contains(id) && !(isThis(recv) && keptClass == classOf(obsPureMethods(id)._1)) =>
-        val (m, ref) = obsPureMethods(id)
+          if obsEquivMethods.contains(id) && !(isThis(recv) && keptClass == classOf(obsEquivMethods(id)._1)) =>
+        val (m, ref) = obsEquivMethods(id)
         Some(replacement(mi, recv, tps, args, m, ref))
       case _ => None
     }(fd.fullBody)
@@ -151,7 +151,7 @@ trait ObservationallyPureCalls extends ExtractionPipeline {
     val refCall = instantiate(ref).copiedFrom(call)
     val checked = pre match {
       case Some(p) =>
-        Assert(p, Some(s"Precondition of observationally pure method ${m.id.asString}"), refCall).copiedFrom(call)
+        Assert(p, Some(s"Precondition of observationally equivalent method ${m.id.asString}"), refCall).copiedFrom(call)
       case None => refCall
     }
     // When `this` is not used by the replacement, the receiver is not bound if it is a variable (so that, e.g.,
@@ -166,13 +166,13 @@ trait ObservationallyPureCalls extends ExtractionPipeline {
   }
 }
 
-object ObservationallyPureCalls {
+object ObservationallyEquivalentCalls {
   def apply(trees: Trees)(using inox.Context): ExtractionPipeline {
     val s: trees.type
     val t: trees.type
   } = {
     class Impl(override val s: trees.type, override val t: trees.type)(using override val context: inox.Context)
-      extends ObservationallyPureCalls
+      extends ObservationallyEquivalentCalls
     new Impl(trees, trees)
   }
 }

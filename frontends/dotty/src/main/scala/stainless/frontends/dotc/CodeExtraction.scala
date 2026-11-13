@@ -936,7 +936,7 @@ class CodeExtraction(inoxCtx: inox.Context,
       finalBody
     }
 
-    val obsPureFlag = if (isObservationallyPure(fullBody)) Seq(xt.IsObservationallyPure) else Seq.empty
+    val obsEquivFlag = if (isObservationallyEquivalent(fullBody)) Seq(xt.IsObservationallyEquivalent) else Seq.empty
 
     new xt.FunDef(
       id,
@@ -944,11 +944,11 @@ class CodeExtraction(inoxCtx: inox.Context,
       newParams,
       returnType,
       fullBody,
-      (flags ++ obsPureFlag).distinct
+      (flags ++ obsEquivFlag).distinct
     ).setPos(sym.sourcePos)
   }
 
-  /** Returns whether the function with the given (extracted) full body is observationally pure, that is,
+  /** Returns whether the function with the given (extracted) full body is observationally equivalent, that is,
     * whether one of the top-level conjuncts of its postcondition is `sameAs(e)` applied to the result.
     * The argument `e` of `sameAs` must be a function call (its purity is checked in `SameAsLowering`).
     *
@@ -956,7 +956,7 @@ class CodeExtraction(inoxCtx: inox.Context,
     * negation, or in a precondition) is rejected, since it would not guarantee observational equivalence.
     * Nested local functions and local classes are skipped: they are checked by their own `extractFunction` call.
     */
-  private def isObservationallyPure(fullBody: xt.Expr): Boolean = {
+  private def isObservationallyEquivalent(fullBody: xt.Expr): Boolean = {
     def stripGhost(e: xt.Expr): xt.Expr = e match {
       case xt.Annotated(inner, flags) if flags.contains(xt.Ghost) => stripGhost(inner)
       case _ => e

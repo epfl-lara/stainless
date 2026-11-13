@@ -4,13 +4,13 @@ package stainless
 package extraction
 package imperative
 
-/** Lowers the `sameAs` construct of observationally pure functions.
+/** Lowers the `sameAs` construct of observationally equivalent functions.
   *
   * The frontend only accepts `sameAs(f(x, ..., z))` as a top-level conjunct of a postcondition, applied to the
-  * result (see `IsObservationallyPure`). Each such conjunct `sameAs(f(x, ..., z))(res)` is replaced by 
+  * result (see `IsObservationallyEquivalent`). Each such conjunct `sameAs(f(x, ..., z))(res)` is replaced by 
   * `res == f(old(x), ..., old(z)))`. This ensures that
   * the pure reference value is computed in the pre-state, before the function updated its
-  * internally mutable fields. The `IsObservationallyPure` flag is kept on the function.
+  * internally mutable fields. The `IsObservationallyEquivalent` flag is kept on the function.
   *
   * This runs first in both imperative pipelines, so that the existing elimination of `old` on
   * parameters (in `AntiAliasing`/`ImperativeCodeElimination`, or `EffectElaboration`) applies.
