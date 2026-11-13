@@ -146,7 +146,7 @@ class XLangSerializer(override val trees: extraction.xlang.Trees, serializeProdu
       stainlessClassSerializer[IsVar.type]                  (198),
       stainlessClassSerializer[IsMutable.type]              (199),
       stainlessClassSerializer[IsInternallyMutable.type]    (264),
-      stainlessClassSerializer[IsObservationallyEquivalent.type] (265),
+      stainlessClassSerializer[IsObservationallyEquivalent] (265),
       stainlessClassSerializer[IsPure.type]                 (230),
       stainlessClassSerializer[Snapshot]                    (239),
       stainlessClassSerializer[MutableMapType]              (248),

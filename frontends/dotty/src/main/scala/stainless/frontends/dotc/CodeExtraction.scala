@@ -936,7 +936,7 @@ class CodeExtraction(inoxCtx: inox.Context,
       finalBody
     }
 
-    val obsEquivFlag = if (isObservationallyEquivalent(fullBody)) Seq(xt.IsObservationallyEquivalent) else Seq.empty
+    val obsEquivFlag = observationallyEquivalentFlag(newParams, fullBody).toSeq
 
     new xt.FunDef(
       id,
@@ -948,15 +948,16 @@ class CodeExtraction(inoxCtx: inox.Context,
     ).setPos(sym.sourcePos)
   }
 
-  /** Returns whether the function with the given (extracted) full body is observationally equivalent, that is,
-    * whether one of the top-level conjuncts of its postcondition is `sameAs(e)` applied to the result.
-    * The argument `e` of `sameAs` must be a function call (its purity is checked in `SameAsLowering`).
+  /** Returns the `IsObservationallyEquivalent` flag of the function with the given parameters and (extracted)
+    * full body, if one of the top-level conjuncts of its postcondition is `sameAs(f(args))` applied to the result.
+    * `f` must be a top-level function (not a method or a local function), so that its only effects are on its
+    * arguments. The flag records the parameters of the function that appear in `args` (see `SameAsLowering`).
     *
     * Any other occurrence of `sameAs` in the body or specs of the function (e.g. under a disjunction or a
     * negation, or in a precondition) is rejected, since it would not guarantee observational equivalence.
     * Nested local functions and local classes are skipped: they are checked by their own `extractFunction` call.
     */
-  private def isObservationallyEquivalent(fullBody: xt.Expr): Boolean = {
+  private def observationallyEquivalentFlag(params: Seq[xt.ValDef], fullBody: xt.Expr): Option[xt.Flag] = {
     def stripGhost(e: xt.Expr): xt.Expr = e match {
       case xt.Annotated(inner, flags) if flags.contains(xt.Ghost) => stripGhost(inner)
       case _ => e
@@ -984,7 +985,9 @@ class CodeExtraction(inoxCtx: inox.Context,
             outOfSubsetError(sa.getPos,
               "`sameAs` can only appear as a top-level conjunct of a postcondition, applied to the result")
           sa.e match {
-            case _: xt.FunctionInvocation | _: xt.MethodInvocation | _: xt.ApplyLetRec => ()
+            case _: xt.FunctionInvocation => ()
+            case _: xt.MethodInvocation | _: xt.ApplyLetRec =>
+              outOfSubsetError(sa.e.getPos, "`sameAs` must be applied to a call to a top-level function, not a method or a local function")
             case other =>
               outOfSubsetError(other.getPos, "`sameAs` must be applied to a function call, e.g. `sameAs(f(x))`")
           }
@@ -994,7 +997,12 @@ class CodeExtraction(inoxCtx: inox.Context,
     }
     SameAsChecker.traverse(fullBody)
 
-    allowed.nonEmpty
+    val paramIds = params.map(_.id).toSet
+    if (allowed.isEmpty) None
+    else Some(xt.IsObservationallyEquivalent(allowed.flatMap(_.e match {
+      case xt.FunctionInvocation(_, _, args) => args.collect { case v: xt.Variable if paramIds(v.id) => v.id }
+      case _ => Seq.empty
+    }).distinct))
   }
 
   private def typeParamSymbols(tdefs: Seq[tpd.TypeDef]): Seq[Symbol] = tdefs.flatMap(_.tpe match {

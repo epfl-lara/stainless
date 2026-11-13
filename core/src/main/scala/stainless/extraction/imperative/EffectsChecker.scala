@@ -373,7 +373,7 @@ trait EffectsChecker { self: EffectsAnalyzer =>
 
     def checkEnforcedPurity(fd: FunAbstraction, effs: Set[Effect], callsToImpure: Seq[(Identifier, Set[Variable])]): Unit = {
       val isPure = fd.flags.contains(IsPure)
-      val isObsEquiv = fd.flags.contains(IsObservationallyEquivalent)
+      val obsEquivParams = fd.flags.collectFirst { case IsObservationallyEquivalent(ids) => ids.toSet }
       val isInv = fd.flags.contains(IsInvariant)
       // println(f"\nEffects of ${fd.id.asString} (annotated as pure: $isPure): ${effs.map(_.asString).mkString(", ")}\n")
       if ((isPure || isInv) && effs.nonEmpty) {
@@ -395,21 +395,22 @@ trait EffectsChecker { self: EffectsAnalyzer =>
         }
         throw ImperativeEliminationException(fd, (head ++ hint1 ++ hint2).mkString("\n"))
       }
-      // Observationally equivalent functions (with a `sameAs` postcondition) must be pure except for their
-      // internally mutable state: every effect must be on an `@internallyMutable` field. Such fields can only
-      // be accessed on `this` (see `methods.InternallyMutableFields`), so these effects are on `this`.
-      if (isObsEquiv) {
+      // Observationally equivalent functions (with a `sameAs(f(args))` postcondition) can only have effects on
+      // their parameters that are passed to `f` (the postcondition then states that these effects are the same as
+      // those of `f`), and on their internally mutable state: `@internallyMutable` fields can only be accessed on
+      // `this` (see `methods.InternallyMutableFields`), so these effects are on `this`.
+      obsEquivParams.foreach { allowedParams =>
         val illegal = effs.filterNot { eff =>
-          eff.path.toSeq.headOption match {
+          allowedParams(eff.receiver.id) || (eff.path.toSeq.headOption match {
             case Some(ClassFieldAccessor(field)) => field.flags.contains(IsInternallyMutable)
             case _ => false
-          }
+          })
         }
         if (illegal.nonEmpty) {
           val targets = illegal.map(eff => eff.receiver.asString + eff.path.asString).toSeq.sorted.mkString(", ")
           throw ImperativeEliminationException(fd,
-            s"Observationally equivalent functions (with a `sameAs` postcondition) can only have side-effects on " +
-            s"@internallyMutable fields, but ${fd.id.asString} has side-effects on: $targets")
+            s"Observationally equivalent functions (with a `sameAs(f(args))` postcondition) can only have side-effects " +
+            s"on @internallyMutable fields and on the parameters passed to f, but ${fd.id.asString} has side-effects on: $targets")
         }
       }
     }

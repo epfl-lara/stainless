@@ -4,10 +4,11 @@ package stainless
 package extraction
 package methods
 
-/** Replaces calls to observationally equivalent methods by their pure reference function.
+/** Replaces calls to observationally equivalent methods by their reference function.
   *
   * An observationally equivalent method `m` has a postcondition with a top-level conjunct `sameAs(f(e1, ..., en))`,
-  * which is verified (after `imperative.SameAsLowering`) as `res == f(e1, ..., en)` evaluated in the pre-state.
+  * which is verified (after `imperative.SameAsLowering`) as: `m` returns the same result as `f(e1, ..., en)`
+  * evaluated in the pre-state, and leaves its arguments in the same state as `f`.
   * Hence, for verification purposes, a call `o.m(a1, ..., ak)` is replaced by
   * {{{
   *   val r = o; val p1 = a1; ...; val pk = ak
@@ -15,16 +16,18 @@ package methods
   *   f(e1, ..., en)[this := r, params := p]
   * }}}
   * (the receiver is only bound if `this` is used by the replacement or if it is not a variable),
-  * which has no effects: callers can thus use `m` as a pure function (e.g. as argument of `map`), although
-  * `m` mutates its `@internallyMutable` fields at runtime. The method `m` itself is kept, and verified as usual.
+  * which has the effects of `f` on the arguments, but none on `o`: callers can thus use `m` as `f` (e.g. as argument
+  * of `map` when `f` is pure), although `m` mutates its `@internallyMutable` fields at runtime. For mutable arguments,
+  * the bindings `pi = ai` are aliases, so the effects of `f` reach the caller's variables.
+  * The method `m` itself is kept, and verified as usual.
   *
   * Calls on `this` from methods of the same class that can access its internally mutable fields (observationally
   * equivalent, ghost, or invariant methods) are not replaced, as these methods may observe the updated fields.
   *
-  * For the replacement to be sound:
-  *  - `f` must be defined outside of classes with `@internallyMutable` fields;
-  *  - `m` must not be overridable, so that calls to `m` cannot dispatch to another implementation: `m` and its
-  *    class must be concrete (concrete classes cannot be extended in Stainless).
+  * For the replacement to be sound, `m` must not be overridable, so that calls to `m` cannot dispatch to another
+  * implementation: `m` and its class must be concrete (concrete classes cannot be extended in Stainless).
+  * `f` is a top-level function (checked by the frontend), hence not a method of a class with internally mutable
+  * fields.
   *
   * This runs before `MethodLifting`, while methods are still attached to their class and `this` is explicit.
   */
@@ -36,15 +39,9 @@ trait ObservationallyEquivalentCalls extends ExtractionPipeline {
   override def extract(symbols: s.Symbols): (t.Symbols, ExtractionSummary) = {
     given s.Symbols = symbols
 
-    val imClasses: Set[Identifier] = symbols.classes.values.collect {
-      case cd if cd.fields.exists(_.flags.contains(IsInternallyMutable)) => cd.id
-    }.toSet
-
-    symbols.functions.values.foreach(checkReferenceFunction(_, imClasses))
-
     // Observationally equivalent methods, with their `sameAs` reference call
     val obsEquivMethods: Map[Identifier, (FunDef, Expr)] = symbols.functions.values.flatMap { fd =>
-      if (!fd.flags.contains(IsObservationallyEquivalent) || fd.flags.forall { case IsMethodOf(_) => false; case _ => true }) None
+      if (!isObservationallyEquivalent(fd) || fd.flags.forall { case IsMethodOf(_) => false; case _ => true }) None
       else referenceCall(fd).map { ref =>
         checkNotOverridable(fd)
         fd.id -> (fd, ref)
@@ -64,6 +61,9 @@ trait ObservationallyEquivalentCalls extends ExtractionPipeline {
 
   override def invalidate(id: Identifier): Unit = ()
 
+  private def isObservationallyEquivalent(fd: FunDef): Boolean =
+    fd.flags.exists { case IsObservationallyEquivalent(_) => true; case _ => false }
+
   private def classOf(fd: FunDef): Option[Identifier] = fd.flags.collectFirst { case IsMethodOf(cid) => cid }
 
   /** The argument of the `sameAs` conjunct in the postcondition of `fd`, if any. */
@@ -77,19 +77,6 @@ trait ObservationallyEquivalentCalls extends ExtractionPipeline {
     }
   }
 
-  /** The function referenced in `sameAs` must be defined outside of classes with internally mutable fields. */
-  private def checkReferenceFunction(fd: FunDef, imClasses: Set[Identifier])(using symbols: s.Symbols): Unit = {
-    exprOps.preTraversal {
-      case sa @ SameAs(MethodInvocation(_, id, _, _)) =>
-        symbols.lookupFunction(id).flatMap(classOf).filter(imClasses).foreach { cid =>
-          throw MethodsException(sa,
-            s"The function in `sameAs` must be defined outside of classes with @internallyMutable fields, " +
-            s"but ${id.asString} is a method of ${cid.asString}")
-        }
-      case _ => ()
-    }(fd.fullBody)
-  }
-
   /** Calls to an observationally equivalent method can only be replaced if they cannot dispatch to an override. */
   private def checkNotOverridable(fd: FunDef)(using symbols: s.Symbols): Unit = {
     val cd = symbols.getClass(classOf(fd).get)
@@ -100,7 +87,7 @@ trait ObservationallyEquivalentCalls extends ExtractionPipeline {
   }
 
   private def isAllowedMethod(fd: FunDef): Boolean = fd.flags.exists {
-    case IsObservationallyEquivalent | IsInvariant | Ghost => true
+    case IsObservationallyEquivalent(_) | IsInvariant | Ghost => true
     case _ => false
   }
 

@@ -17,6 +17,8 @@ package methods
   *
   * Equality (`==` and `!=`) is not allowed on types that may contain a class with internally mutable fields
   * (directly, through a field, a subclass, or a type argument), since it would compare these fields.
+  * For the same reason, the arguments of the reference call in `sameAs(f(args))` cannot have such types (the
+  * lowering of `sameAs` compares the mutable arguments with `==`).
   *
   * This runs before `MethodLifting`, while methods are still attached to their class and `this` is explicit.
   */
@@ -42,7 +44,7 @@ trait InternallyMutableFields extends ExtractionPipeline {
   override def invalidate(id: Identifier): Unit = ()
 
   private def isAllowedMethod(fd: FunDef): Boolean = fd.flags.exists {
-    case IsObservationallyEquivalent | IsInvariant | Ghost | Synthetic | IsAccessor(_) => true
+    case IsObservationallyEquivalent(_) | IsInvariant | Ghost | Synthetic | IsAccessor(_) => true
     case _ => false
   }
 
@@ -111,6 +113,12 @@ trait InternallyMutableFields extends ExtractionPipeline {
             throw MethodsException(e,
               s"Equality cannot be used on values of type ${l.getType.asString}, " +
               s"as they may contain @internallyMutable fields")
+          case SameAs(FunctionInvocation(_, _, args)) =>
+            args.find(arg => mentions(arg.getType, imReachingClasses)).foreach { arg =>
+              throw MethodsException(arg,
+                s"Arguments of `sameAs` cannot contain @internallyMutable fields, " +
+                s"but ${arg.asString} has type ${arg.getType.asString}")
+            }
           case MethodInvocation(recv, id, _, _) =>
             symbols.lookupFunction(id).foreach { callee =>
               accessedThroughCall(callee, imFields).foreach(fid => checkAccess(fid, recv, e))
