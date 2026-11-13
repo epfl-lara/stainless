@@ -109,6 +109,7 @@ class VerificationSuite extends VerificationComponentTestSuite {
       "verification/valid/i1379e",
       "verification/valid/i1379f",
       "verification/valid/i1379g",
+      "verification/valid/i1549",
       "verification/valid/InnerClasses4",
       "verification/valid/InnerClassesInvariants",
       "verification/valid/InsertionSort",
