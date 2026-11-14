@@ -74,5 +74,21 @@ class CodeGenEvaluatorSuite extends EvaluatorSuite {
       pool.shutdown()
     }
   }
-}
 
+  test("Lambda whose compilation failed") {
+    import inox.trees._
+
+    // Codegen doesn't support `MapMerge`, so compiling the lambda fails after the compilation of
+    // the expressions that hold it has started. Evaluating them again must fail in the same way,
+    // and not with a `NoClassDefFoundError` for the class of the lambda.
+    val e = evaluator(ctx)
+    val mapType = MapType(Int32Type(), Int32Type())
+    val m = ValDef.fresh("m", mapType)
+    val lambda = Lambda(Seq(m), MapMerge(FiniteSet(Seq(), Int32Type()), m.toVariable, m.toVariable))
+    val call = Application(lambda, Seq(FiniteMap(Seq(), Int32Literal(0), Int32Type(), Int32Type())))
+
+    eval(e, call).failed
+    eval(e, call).failed
+    eval(e, Equals(lambda, lambda)).failed
+  }
+}
