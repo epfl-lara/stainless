@@ -236,7 +236,7 @@ package object extraction {
     override def transform(e: Expr)(using Symbols): Expr = {
       object inferrer extends ConcreteSelfTreeTransformer {
         private def retype(vd: ValDef, bound: Expr, in: Expr): Option[(ValDef, Expr)] =
-          asProposition(vd.tpe).filter(_ => bound.getType == PropType()).map { tpe =>
+          asProposition(vd.tpe, bound.getType).map { tpe =>
             val newVd = vd.copy(tpe = tpe).copiedFrom(vd)
             newVd -> exprOps.replaceFromSymbols(Map(vd -> newVd.toVariable), in)
           }

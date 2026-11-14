@@ -1,15 +1,34 @@
-[ Error  ] Berardi4.scala:43:12: cem uses a quantifier as a value. Quantifiers are propositions, which can only be stated:
-[ Error  ] choose$7[A](targetBound) is of type <untyped>
-[ Error  ]   targetBound is of type Prop because choose was instantiated with A:=A with type (Boolean) => A
-                 Left(choose((a: A) => true))
-                      ^^^^^^^^^^^^^^^^^^^^^^
-[ Error  ] Berardi4.scala:67:25: instantiate uses a quantifier as a value. Quantifiers are propositions, which can only be stated:
-[ Error  ] (r: Retract[A, B]) => foralljixx[A, B](thiss.i2, thiss.j2) is of type <untyped>
-[ Error  ]   foralljixx[A, B](thiss.i2, thiss.j2) is of type Prop
-[ Error  ]     thiss.i2 is of type (A) => B
-[ Error  ]       thiss is of type RetractCond[A, B]
-[ Error  ]     thiss.j2 is of type (B) => A
-[ Error  ]       thiss is of type RetractCond[A, B] because foralljixx was instantiated with A:=A,B:=B with type ((A) => B,(B) => A) => Prop
-                 assert(forallElim((r: Retract[A,B]) => foralljixx(i2,j2), r))
-                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-[ Fatal  ] 2 function(s) use a quantifier as a value
+[ Error  ] Berardi4.scala:42:5: cem uses a quantifier as a value. Quantifiers are propositions, which can only be stated:
+[ Error  ] if (targetBound) {
+[ Error  ]   Left[A, (A) => False]({
+[ Error  ]     assert(!forall((a: A) => !true), "Choose satisfiability")
+[ Error  ]     choose$6[A](targetBound)
+[ Error  ]   })
+[ Error  ] } else {
+[ Error  ]   assert(forall((x: A) => false))
+[ Error  ]   Right[A, (A) => False]((x: A) => False(123))
+[ Error  ] } is of type <untyped>
+[ Error  ]   targetBound is of type Prop
+[ Error  ]   Left[A, (A) => False]({
+[ Error  ]     assert(!forall((a: A) => !true), "Choose satisfiability")
+[ Error  ]     choose$6[A](targetBound)
+[ Error  ]   }) is of type Either[A, (A) => False]
+[ Error  ]     assert(!forall((a: A) => !true), "Choose satisfiability")
+[ Error  ]     choose$6[A](targetBound) is of type A
+[ Error  ]       !forall((a: A) => !true) is of type Prop
+[ Error  ]         forall((a: A) => !true) is of type Prop
+[ Error  ]           !true is of type Boolean
+[ Error  ]             true is of type Boolean
+[ Error  ]       choose$6[A](targetBound) is of type A
+[ Error  ]         targetBound is of type Prop because choose was instantiated with A:=A with type (Prop) => A because Left was instantiated with A:=A,B:=(A) => False with fields (A)
+[ Error  ]   assert(forall((x: A) => false))
+[ Error  ]   Right[A, (A) => False]((x: A) => False(123)) is of type Either[A, (A) => False]
+[ Error  ]     forall((x: A) => false) is of type Prop
+[ Error  ]       false is of type Boolean
+[ Error  ]     Right[A, (A) => False]((x: A) => False(123)) is of type Either[A, (A) => False]
+[ Error  ]       (x: A) => False(123) is of type (A) => False
+[ Error  ]         False(123) is of type False
+[ Error  ]           123 is of type Int because False was instantiated with  with fields (Int) because Right was instantiated with A:=A,B:=(A) => False with fields ((A) => False)
+               if (exists((a: A) => true))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^...
+[ Fatal  ] 1 function(s) use a quantifier as a value

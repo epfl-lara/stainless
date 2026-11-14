@@ -1,6 +1,32 @@
-[ Error  ] Berardi2.scala:26:22: cem uses a quantifier as a value. Quantifiers are propositions, which can only be stated:
-[ Error  ] choose$3[A](targetBound) is of type <untyped>
-[ Error  ]   targetBound is of type Prop because choose was instantiated with A:=A with type (Boolean) => A
+[ Error  ] Berardi2.scala:26:5: cem uses a quantifier as a value. Quantifiers are propositions, which can only be stated:
+[ Error  ] if (targetBound) {
+[ Error  ]   Left[A, (A) => Unit]({
+[ Error  ]     assert(!forall((x: A) => !true), "Choose satisfiability")
+[ Error  ]     choose$3[A](targetBound)
+[ Error  ]   })
+[ Error  ] } else {
+[ Error  ]   assert(no[A])
+[ Error  ]   Right[A, (A) => Unit]((x: A) => ())
+[ Error  ] } is of type <untyped>
+[ Error  ]   targetBound is of type Prop
+[ Error  ]   Left[A, (A) => Unit]({
+[ Error  ]     assert(!forall((x: A) => !true), "Choose satisfiability")
+[ Error  ]     choose$3[A](targetBound)
+[ Error  ]   }) is of type Either[A, (A) => Unit]
+[ Error  ]     assert(!forall((x: A) => !true), "Choose satisfiability")
+[ Error  ]     choose$3[A](targetBound) is of type A
+[ Error  ]       !forall((x: A) => !true) is of type Prop
+[ Error  ]         forall((x: A) => !true) is of type Prop
+[ Error  ]           !true is of type Boolean
+[ Error  ]             true is of type Boolean
+[ Error  ]       choose$3[A](targetBound) is of type A
+[ Error  ]         targetBound is of type Prop because choose was instantiated with A:=A with type (Prop) => A because Left was instantiated with A:=A,B:=(A) => Unit with fields (A)
+[ Error  ]   assert(no[A])
+[ Error  ]   Right[A, (A) => Unit]((x: A) => ()) is of type Either[A, (A) => Unit]
+[ Error  ]     no[A] is of type Prop because no was instantiated with A:=A with type () => Prop
+[ Error  ]     Right[A, (A) => Unit]((x: A) => ()) is of type Either[A, (A) => Unit]
+[ Error  ]       (x: A) => () is of type (A) => Unit
+[ Error  ]         () is of type Unit because Right was instantiated with A:=A,B:=(A) => Unit with fields ((A) => Unit)
                if (yes[A]) Left(choose((x: A) => true))
-                                ^^^^^^^^^^^^^^^^^^^^^^
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^...
 [ Fatal  ] 1 function(s) use a quantifier as a value

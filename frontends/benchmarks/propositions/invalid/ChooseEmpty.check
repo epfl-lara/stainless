@@ -1,6 +1,45 @@
-[ Error  ] ChooseEmpty.scala:22:26: theorem uses a quantifier as a value. Quantifiers are propositions, which can only be stated:
-[ Error  ] choose$8(targetBound) is of type <untyped>
-[ Error  ]   targetBound is of type Prop because choose was instantiated with  with type (Boolean) => Absurdity
-                 val e: Absurdity = choose((x: Absurdity) => true)
-                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[ Error  ] ChooseEmpty.scala:19:5: theorem uses a quantifier as a value. Quantifiers are propositions, which can only be stated:
+[ Error  ] if (targetBound) {
+[ Error  ]   assert(false)
+[ Error  ]   <empty tree>[{ x: Object | @dropConjunct false }]
+[ Error  ] } else {
+[ Error  ]   val e: Absurdity = {
+[ Error  ]     assert(!forall((x: Absurdity) => !true), "Choose satisfiability")
+[ Error  ]     choose$8(targetBound)
+[ Error  ]   }
+[ Error  ]   assert(lemma(e))
+[ Error  ]   assert(false)
+[ Error  ]   <empty tree>[{ x: Object | @dropConjunct false }]
+[ Error  ] } is of type <untyped>
+[ Error  ]   targetBound is of type Prop
+[ Error  ]   assert(false)
+[ Error  ]   <empty tree>[{ x: Object | @dropConjunct false }] is of type Object
+[ Error  ]     false is of type Boolean
+[ Error  ]     <empty tree>[{ x: Object | @dropConjunct false }] is of type Object
+[ Error  ]   val e: Absurdity = {
+[ Error  ]     assert(!forall((x: Absurdity) => !true), "Choose satisfiability")
+[ Error  ]     choose$8(targetBound)
+[ Error  ]   }
+[ Error  ]   assert(lemma(e))
+[ Error  ]   assert(false)
+[ Error  ]   <empty tree>[{ x: Object | @dropConjunct false }] is of type Object
+[ Error  ]     assert(!forall((x: Absurdity) => !true), "Choose satisfiability")
+[ Error  ]     choose$8(targetBound) is of type Absurdity
+[ Error  ]       !forall((x: Absurdity) => !true) is of type Prop
+[ Error  ]         forall((x: Absurdity) => !true) is of type Prop
+[ Error  ]           !true is of type Boolean
+[ Error  ]             true is of type Boolean
+[ Error  ]       choose$8(targetBound) is of type Absurdity
+[ Error  ]         targetBound is of type Prop because choose was instantiated with  with type (Prop) => Absurdity
+[ Error  ]     assert(lemma(e))
+[ Error  ]     assert(false)
+[ Error  ]     <empty tree>[{ x: Object | @dropConjunct false }] is of type Object
+[ Error  ]       lemma(e) is of type Boolean
+[ Error  ]         e is of type Absurdity because lemma was instantiated with  with type (Absurdity) => Boolean
+[ Error  ]       assert(false)
+[ Error  ]       <empty tree>[{ x: Object | @dropConjunct false }] is of type Object
+[ Error  ]         false is of type Boolean
+[ Error  ]         <empty tree>[{ x: Object | @dropConjunct false }] is of type Object
+               if (forall((x: Absurdity) => false))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^...
 [ Fatal  ] 1 function(s) use a quantifier as a value

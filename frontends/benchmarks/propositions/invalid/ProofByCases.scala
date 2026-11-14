@@ -3,9 +3,9 @@ import stainless.annotation.*
 import stainless.lang.StaticChecks.*
 import stainless.lang.Ensures.*
 import stainless.lang.unfold
-// A predicate that states a quantifier can't be a value: `p` and `pNot` below are lambdas that
-// return a proposition, and `exampleAE1` also decides between two proofs with a quantifier.
-object ForallExistsTest:
+// A term can't branch on a quantifier, even between two proofs: `exampleAE1` decides which
+// lemma to call with `Exists(pNot)`.
+object ProofByCases:
   @ghost
   def forAny(x: BigInt): Unit = {
       val x4 = x + x + x + x
@@ -35,21 +35,5 @@ object ForallExistsTest:
         forAny(w)
       else
         notExistsNot(p)
-    }.ensuring(_ => Forall(p))
-  }
-
-  @ghost @extern
-  def pickingAny[T](f: T => Unit, property: T => Boolean): Unit = {
-    require(ensures(f, (input:T, _:Unit) => property(input)))
-    ()
-  }.ensuring(_ => Forall(property))
-
-  @ghost
-  def exampleAE2: Unit = {
-    val p = (x:BigInt) => Exists((y: BigInt) => x + x + x + x < y && y % 2 == 0)
-    {
-      unfold(ensures(forAny, (x:BigInt, _:Unit) => p(x)))
-      assert(ensures(forAny, (x:BigInt, _:Unit) => p(x)), "stupid extensionality")
-      pickingAny(forAny, p)
     }.ensuring(_ => Forall(p))
   }

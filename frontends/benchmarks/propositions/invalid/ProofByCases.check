@@ -1,0 +1,19 @@
+[ Error  ] ProofByCases.scala:33:7: exampleAE1 uses a quantifier as a value. Quantifiers are propositions, which can only be stated:
+[ Error  ] if (targetBound) {
+[ Error  ]   val w: BigInt = pickWitness[BigInt](pNot)
+[ Error  ]   forAny(w)
+[ Error  ] } else {
+[ Error  ]   notExistsNot[BigInt](p)
+[ Error  ] } is of type <untyped>
+[ Error  ]   targetBound is of type Prop
+[ Error  ]   val w: BigInt = pickWitness[BigInt](pNot)
+[ Error  ]   forAny(w) is of type Unit
+[ Error  ]     pickWitness[BigInt](pNot) is of type BigInt
+[ Error  ]       pNot is of type (BigInt) => Prop because pickWitness was instantiated with T:=BigInt with type ((T) => Prop) => T
+[ Error  ]     forAny(w) is of type Unit
+[ Error  ]       w is of type BigInt because forAny was instantiated with  with type (BigInt) => Unit
+[ Error  ]   notExistsNot[BigInt](p) is of type Unit
+[ Error  ]     p is of type (BigInt) => Prop because notExistsNot was instantiated with T:=BigInt with type ((T) => Prop) => Unit
+                 if Exists(pNot) then
+                 ^^^^^^^^^^^^^^^^^^^^...
+[ Fatal  ] 1 function(s) use a quantifier as a value
