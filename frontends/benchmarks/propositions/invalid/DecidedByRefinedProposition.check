@@ -1,0 +1,30 @@
+[ Error  ] DecidedByRefinedProposition.scala:8:49: decide doesn't type under propositional quantifiers: Type error: val targetBound: Prop = isPositive(f)
+[ Error  ] if (targetBound) {
+[ Error  ]   f(0)
+[ Error  ] } else {
+[ Error  ]   1
+[ Error  ] }, expected BigInt,
+[ Error  ] found <untyped>
+[ Error  ]
+[ Error  ] Typing explanation:
+[ Error  ] val targetBound: Prop = isPositive(f)
+[ Error  ] if (targetBound) {
+[ Error  ]   f(0)
+[ Error  ] } else {
+[ Error  ]   1
+[ Error  ] } is of type <untyped>
+[ Error  ]   isPositive(f) is of type Prop
+[ Error  ]     f is of type (BigInt) => BigInt because isPositive was instantiated with  with type ((BigInt) => BigInt) => Prop
+[ Error  ]   if (targetBound) {
+[ Error  ]     f(0)
+[ Error  ]   } else {
+[ Error  ]     1
+[ Error  ]   } is of type <untyped>
+[ Error  ]     targetBound is of type Prop
+[ Error  ]     f(0) is of type BigInt
+[ Error  ]       f is of type (BigInt) => BigInt
+[ Error  ]       0 is of type BigInt
+[ Error  ]     1 is of type BigInt
+             def decide(f: BigInt => BigInt): BigInt = if (isPositive(f)) f(0) else BigInt(1)
+                                                           ^^^^^^^^^^^^^
+[ Fatal  ] 1 function(s) don't type under propositional quantifiers

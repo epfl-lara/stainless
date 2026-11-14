@@ -1,0 +1,28 @@
+[ Error  ] DecidedValue.scala:5:39: isEmpty doesn't type under propositional quantifiers: Type error: val targetBound: Prop = forall((a: A) => false)
+[ Error  ] if (targetBound) {
+[ Error  ]   0
+[ Error  ] } else {
+[ Error  ]   1
+[ Error  ] }, expected BigInt,
+[ Error  ] found <untyped>
+[ Error  ]
+[ Error  ] Typing explanation:
+[ Error  ] val targetBound: Prop = forall((a: A) => false)
+[ Error  ] if (targetBound) {
+[ Error  ]   0
+[ Error  ] } else {
+[ Error  ]   1
+[ Error  ] } is of type <untyped>
+[ Error  ]   forall((a: A) => false) is of type Prop
+[ Error  ]     false is of type Boolean
+[ Error  ]   if (targetBound) {
+[ Error  ]     0
+[ Error  ]   } else {
+[ Error  ]     1
+[ Error  ]   } is of type <untyped>
+[ Error  ]     targetBound is of type Prop
+[ Error  ]     0 is of type BigInt
+[ Error  ]     1 is of type BigInt
+             def isEmpty[A]: BigInt = if (forall((a: A) => false)) BigInt(0) else BigInt(1)
+                                                 ^^^^^^^^^^^^^^^
+[ Fatal  ] 1 function(s) don't type under propositional quantifiers

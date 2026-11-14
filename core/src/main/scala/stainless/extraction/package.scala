@@ -126,13 +126,18 @@ package object extraction {
   object trees extends Trees with inox.ast.SimpleSymbols {
     case class Symbols(
       functions: Map[Identifier, FunDef],
-      sorts: Map[Identifier, ADTSort]
+      sorts: Map[Identifier, ADTSort],
+      override val modes: inox.ast.TypingModes = inox.ast.TypingModes()
     ) extends SimpleSymbols with StainlessAbstractSymbols {
       override val symbols: this.type = this
     }
 
     override def mkSymbols(functions: Map[Identifier, FunDef], sorts: Map[Identifier, ADTSort]): Symbols = {
       Symbols(functions, sorts)
+    }
+
+    override def mkSymbols(functions: Map[Identifier, FunDef], sorts: Map[Identifier, ADTSort], modes: inox.ast.TypingModes): Symbols = {
+      Symbols(functions, sorts, modes)
     }
 
     object printer extends Printer { val trees: extraction.trees.type = extraction.trees }
@@ -152,7 +157,85 @@ package object extraction {
     innerfuns.extractor    `andThen`
     inlining.extractor     `andThen`
     trace.extractor        `andThen`
-    termination.extractor
+    termination.extractor  `andThen`
+    propositions
+  }
+
+  /** Checks the extracted program under propositional quantifiers, when
+    * `--quantifiers=propositional` asks for it (see [[inox.ast.Types.PropType]]).
+    *
+    * Quantifiers are then propositions, which have a truth value but no evaluation rule, so a
+    * term can't depend on one. Scala only has booleans, so the functions and the variables that
+    * are propositions are inferred, and every function that doesn't type is reported.
+    *
+    * The program is left as it is: verification handles propositions as booleans, as solvers
+    * do, so a program that passes the check is verified as before. */
+  def propositions(using inox.Context): ExtractionPipeline {
+    val s: trees.type
+    val t: trees.type
+  } = {
+    class PropositionsImpl(override val s: extraction.trees.type,
+                           override val t: extraction.trees.type)
+                          (using override val context: inox.Context)
+      extends ExtractionPipeline { self =>
+      import inox.ast.QuantifierMode
+
+      override def invalidate(id: Identifier): Unit = ()
+      override def extract(symbols: s.Symbols): (t.Symbols, ExtractionSummary) = {
+        context.options.findOptionOrDefault(inox.ast.optQuantifiers) match {
+          case QuantifierMode.Boolean =>
+          case mode @ QuantifierMode.Propositional =>
+            val typed = PropositionInference.transform(symbols.withQuantifiers(mode))
+            val errors = typed.functions.values.toSeq.sortBy(_.id.uniqueName).count { fd =>
+              try { typed.typeCheck(fd.fullBody, fd.getType(using typed)); false }
+              catch {
+                case e: typed.TypeErrorException =>
+                  context.reporter.error(e.pos,
+                    s"${fd.id.asString} doesn't type under propositional quantifiers: ${e.getMessage}")
+                  true
+              }
+            }
+            if (errors > 0) context.reporter.fatalError(
+              s"$errors function(s) don't type under propositional quantifiers")
+        }
+        (symbols, ExtractionSummary.NoSummary)
+      }
+    }
+    new PropositionsImpl(extraction.trees, extraction.trees)
+  }
+
+  /** Infers the propositions of the extracted trees: those of Inox, and the results of
+    * postconditions, which are propositions when the body they are bound to is one (as in a
+    * lemma that states a quantified property and `holds`). */
+  private object PropositionInference extends inox.transformers.PropositionInference {
+    override val s: extraction.trees.type = extraction.trees
+    override val t: extraction.trees.type = extraction.trees
+    import s._
+
+    override def transform(e: Expr)(using Symbols): Expr = {
+      object inferrer extends ConcreteSelfTreeTransformer {
+        private def retype(vd: ValDef, bound: Expr, in: Expr): Option[(ValDef, Expr)] =
+          asProposition(vd.tpe).filter(_ => bound.getType == PropType()).map { tpe =>
+            val newVd = vd.copy(tpe = tpe).copiedFrom(vd)
+            newVd -> exprOps.replaceFromSymbols(Map(vd -> newVd.toVariable), in)
+          }
+
+        override def transform(e: Expr): Expr = e match {
+          case Let(vd, value, body) =>
+            val newValue = transform(value)
+            val (newVd, newBody) = retype(vd, newValue, body).getOrElse(vd -> body)
+            Let(newVd, newValue, transform(newBody)).copiedFrom(e)
+
+          case Ensuring(body, l @ Lambda(Seq(res), post)) =>
+            val newBody = transform(body)
+            val (newRes, newPost) = retype(res, newBody, post).getOrElse(res -> post)
+            Ensuring(newBody, Lambda(Seq(newRes), transform(newPost)).copiedFrom(l)).copiedFrom(e)
+
+          case _ => super.transform(e)
+        }
+      }
+      inferrer.transform(e)
+    }
   }
 
   private def completeSymbols(symbols: trees.Symbols)(to: ast.Trees): to.Symbols = {

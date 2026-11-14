@@ -1,0 +1,14 @@
+[ Error  ] ReturnedPredicate.scala:6:5: bounded doesn't type under propositional quantifiers: Type error: (r: BigInt) => forall((x: BigInt) => (f(x) <= r)), expected (BigInt) => Boolean,
+[ Error  ] found <untyped>
+[ Error  ]
+[ Error  ] Typing explanation:
+[ Error  ] (r: BigInt) => forall((x: BigInt) => (f(x) <= r)) is of type <untyped>
+[ Error  ]   forall((x: BigInt) => (f(x) <= r)) is of type Prop
+[ Error  ]     f(x) <= r is of type Boolean
+[ Error  ]       f(x) is of type BigInt
+[ Error  ]         f is of type (BigInt) => BigInt
+[ Error  ]         x is of type BigInt
+[ Error  ]       r is of type BigInt
+               (r: BigInt) => forall((x: BigInt) => f(x) <= r)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[ Fatal  ] 1 function(s) don't type under propositional quantifiers

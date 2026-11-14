@@ -63,6 +63,8 @@ trait MainHelpers extends inox.MainHelpers { self =>
       "  bland (experimental) : Common simplification logic to OL and OCBSL, but without any boolean algebra flavor"),
     termination.optCheckMeasures -> Description(Termination, "Check that measures are valid (both inferred and user-defined)"),
     termination.optInferMeasures -> Description(Termination, "Automatically infer measures for recursive functions"),
+    inox.ast.optQuantifiers -> Description(General, "Whether quantifiers are booleans or propositions, whose value\n" +
+                                                    "a term can't depend on"),
     inox.optTimeout -> Description(General, "Set a timeout n (in sec) such that\n" +
       "  - verification: each proof attempt takes at most n seconds\n" +
       "  - termination: each solver call takes at most n / 100 seconds"),

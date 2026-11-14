@@ -1,0 +1,17 @@
+[ Error  ] StoredProposition.scala:6:5: pair doesn't type under propositional quantifiers: Type error: (forall((x: BigInt) => (f(x) > 0)), f(0)), expected (Boolean, BigInt),
+[ Error  ] found <untyped>
+[ Error  ]
+[ Error  ] Typing explanation:
+[ Error  ] (forall((x: BigInt) => (f(x) > 0)), f(0)) is of type <untyped>
+[ Error  ]   forall((x: BigInt) => (f(x) > 0)) is of type Prop
+[ Error  ]     f(x) > 0 is of type Boolean
+[ Error  ]       f(x) is of type BigInt
+[ Error  ]         f is of type (BigInt) => BigInt
+[ Error  ]         x is of type BigInt
+[ Error  ]       0 is of type BigInt
+[ Error  ]   f(0) is of type BigInt
+[ Error  ]     f is of type (BigInt) => BigInt
+[ Error  ]     0 is of type BigInt
+               (forall((x: BigInt) => f(x) > 0), f(0))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[ Fatal  ] 1 function(s) don't type under propositional quantifiers

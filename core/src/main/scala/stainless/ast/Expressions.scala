@@ -22,7 +22,7 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
     */
   sealed case class Choose(res: ValDef, pred: Expr) extends Expr with CachingTyped {
     override protected def computeTpe(stripRefinements: Boolean)(using Symbols): Type =
-      checkParamType(pred, BooleanType(), res.getTpe(stripRefinements))
+      checkProposition(pred, res.getTpe(stripRefinements))
   }
 
 
@@ -40,7 +40,7 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
     */
   sealed case class Require(pred: Expr, body: Expr) extends Expr with CachingTyped {
     override protected def computeTpe(stripRefinements: Boolean)(using s: Symbols): Type = {
-      if (s.isSubtypeOf(pred.getType, BooleanType())) body.getTpe(stripRefinements)
+      if (isPropositional(pred)) body.getTpe(stripRefinements)
       else Untyped
     }
   }
@@ -59,8 +59,10 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
     * @param pred The predicate to satisfy. It should be a function whose argument's type can handle the type of the body
     */
   sealed case class Ensuring(body: Expr, pred: Lambda) extends Expr with CachingTyped {
-    override protected def computeTpe(stripRefinements: Boolean)(using s: Symbols): Type = pred.getType match {
-      case FunctionType(Seq(bodyType), BooleanType()) if s.isSubtypeOf(body.getType, bodyType) =>
+    override protected def computeTpe(stripRefinements: Boolean)(using s: Symbols): Type = pred match {
+      // the postcondition may be a proposition, which a function can't return as a value: the
+      // predicate is then typed by its parameter and its body
+      case Lambda(Seq(res), post) if isPropositional(post) && s.isSubtypeOf(body.getType, res.getType) =>
         body.getTpe(stripRefinements)
       case _ =>
         Untyped
@@ -85,7 +87,7 @@ trait Expressions extends inox.ast.Expressions with Types { self: Trees =>
     */
   sealed case class Assert(pred: Expr, error: Option[String], body: Expr) extends Expr with CachingTyped {
     override protected def computeTpe(stripRefinements: Boolean)(using s: Symbols): Type = {
-      if (s.isSubtypeOf(pred.getType, BooleanType())) body.getTpe(stripRefinements)
+      if (isPropositional(pred)) body.getTpe(stripRefinements)
       else Untyped
     }
   }
