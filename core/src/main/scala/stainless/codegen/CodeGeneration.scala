@@ -358,7 +358,7 @@ trait CodeGeneration { self: CompilationUnit =>
 
   private val lambdaClasses = new Bijection[Lambda, String]
 
-  protected def jvmClassNameToLambda(className: String): Option[Lambda] = lambdaClasses.getA(className)
+  protected def jvmClassNameToLambda(className: String): Option[Lambda] = synchronized(lambdaClasses.getA(className))
 
   private val typeParams: ListBuffer[TypeParameter] = new ListBuffer[TypeParameter]
 
@@ -409,7 +409,6 @@ trait CodeGeneration { self: CompilationUnit =>
       case None =>
         val afId = FreshIdentifier("Stainless$CodeGen$Lambda$")
         val afName = afId.uniqueName
-        lambdaClasses += lambda -> afName
 
         val cf = new ClassFile(afName, Some(LambdaClass))
 
@@ -555,6 +554,10 @@ trait CodeGeneration { self: CompilationUnit =>
         }
 
         registerClass(cf)
+        // The lambda is only mapped to its class once the class is registered: compiling its body
+        // can fail, and the expressions compiled later would otherwise refer to a class that the
+        // loader doesn't have, and fail with a `NoClassDefFoundError` when they are loaded.
+        lambdaClasses += lambda -> afName
 
         afName
     }
