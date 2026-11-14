@@ -1,0 +1,6 @@
+[ Error  ] Berardi1.scala:32:12: cem uses a quantifier as a value. Quantifiers are propositions, which can only be stated:
+[ Error  ] choose$0[A](targetBound) is of type <untyped>
+[ Error  ]   targetBound is of type Prop because choose was instantiated with A:=A with type (Boolean) => A
+                 Left(choose((a: A) => true))
+                      ^^^^^^^^^^^^^^^^^^^^^^
+[ Fatal  ] 1 function(s) use a quantifier as a value

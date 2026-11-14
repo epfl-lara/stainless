@@ -1,0 +1,6 @@
+[ Error  ] Countable2.scala:36:22: theorem uses a quantifier as a value. Quantifiers are propositions, which can only be stated:
+[ Error  ] choose$10(targetBound) is of type <untyped>
+[ Error  ]   targetBound is of type Prop because choose was instantiated with  with type (Boolean) => Countable[(BigInt) => BigInt]
+                 val e: Empty = choose((x: Empty) => true)
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[ Fatal  ] 1 function(s) use a quantifier as a value

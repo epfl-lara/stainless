@@ -23,31 +23,8 @@ object ForallExistsTest:
          Exists((y: BigInt) => x4 < y && y % 2 == 0))
   }
 
-  @ghost
-  def exampleAE1: Unit = {
-    val pNot = (x:BigInt) => !Exists((y: BigInt) => (x + x + x + x) < y && y % 2 == 0)
-    val p = (x:BigInt) => Exists((y: BigInt) => (x + x + x + x) < y && y % 2 == 0)
-    {
-      if Exists(pNot) then
-        val w: BigInt = pickWitness[BigInt](pNot)
-        forAny(w)
-      else
-        notExistsNot(p)
-    }.ensuring(_ => Forall(p))
-  }
-
   @ghost @extern
   def pickingAny[T](f: T => Unit, property: T => Boolean): Unit = {
     require(ensures(f, (input:T, _:Unit) => property(input)))
     ()
   }.ensuring(_ => Forall(property))
-
-  @ghost
-  def exampleAE2: Unit = {
-    val p = (x:BigInt) => Exists((y: BigInt) => x + x + x + x < y && y % 2 == 0)
-    {
-      unfold(ensures(forAny, (x:BigInt, _:Unit) => p(x)))
-      assert(ensures(forAny, (x:BigInt, _:Unit) => p(x)), "stupid extensionality")
-      pickingAny(forAny, p)
-    }.ensuring(_ => Forall(p))
-  }

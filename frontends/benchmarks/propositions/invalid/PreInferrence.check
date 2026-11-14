@@ -1,0 +1,11 @@
+[ Error  ] PreInferrence.scala:5:5: isForall uses a quantifier as a value. Quantifiers are propositions, which can only be stated:
+[ Error  ] (p: (Boolean) => Boolean) => b == forall((x$511: Boolean) => p(x$511)) is of type <untyped>
+[ Error  ]   b == forall((x$511: Boolean) => p(x$511)) is of type Prop
+[ Error  ]     b is of type Boolean
+[ Error  ]     forall((x$511: Boolean) => p(x$511)) is of type Prop
+[ Error  ]       p(x$511) is of type Boolean
+[ Error  ]         p is of type (Boolean) => Boolean
+[ Error  ]         x$511 is of type Boolean
+               (p: Boolean => Boolean) => b == forall(p)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[ Fatal  ] 1 function(s) use a quantifier as a value

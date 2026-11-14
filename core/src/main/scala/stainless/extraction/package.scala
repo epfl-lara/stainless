@@ -161,12 +161,12 @@ package object extraction {
     propositions
   }
 
-  /** Checks the extracted program under propositional quantifiers, when
-    * `--quantifiers=propositional` asks for it (see [[inox.ast.Types.PropType]]).
+  /** Checks the extracted program under propositional quantifiers (see
+    * [[inox.ast.Types.PropType]]).
     *
-    * Quantifiers are then propositions, which have a truth value but no evaluation rule, so a
-    * term can't depend on one. Scala only has booleans, so the functions and the variables that
-    * are propositions are inferred, and every function that doesn't type is reported.
+    * Quantifiers are propositions, which have a truth value but no evaluation rule, so a term
+    * can't depend on one. Scala only has booleans, so the functions and the variables that are
+    * propositions are inferred, and every function that doesn't type is reported.
     *
     * The program is left as it is: verification handles propositions as booleans, as solvers
     * do, so a program that passes the check is verified as before. */
@@ -182,22 +182,43 @@ package object extraction {
 
       override def invalidate(id: Identifier): Unit = ()
       override def extract(symbols: s.Symbols): (t.Symbols, ExtractionSummary) = {
-        context.options.findOptionOrDefault(inox.ast.optQuantifiers) match {
-          case QuantifierMode.Boolean =>
-          case mode @ QuantifierMode.Propositional =>
-            val typed = PropositionInference.transform(symbols.withQuantifiers(mode))
-            val errors = typed.functions.values.toSeq.sortBy(_.id.uniqueName).count { fd =>
-              try { typed.typeCheck(fd.fullBody, fd.getType(using typed)); false }
-              catch {
-                case e: typed.TypeErrorException =>
-                  context.reporter.error(e.pos,
-                    s"${fd.id.asString} doesn't type under propositional quantifiers: ${e.getMessage}")
-                  true
-              }
+        val typed = PropositionInference.transform(symbols.withQuantifiers(QuantifierMode.Propositional))
+
+        // The expressions of `fd` that use a proposition as a value: those that don't type
+        // although their operands do. A function is only held to this if all its expressions
+        // type under boolean quantifiers, and to the type of its body otherwise.
+        def misuses(fd: s.FunDef): Seq[s.Expr] = {
+          import s._
+          def untyped(e: Expr)(using Symbols): Seq[Expr] = {
+            val inner = e match {
+              // the lambda of a postcondition states a specification: it isn't a value
+              case Ensuring(body, Lambda(_, post)) => untyped(body) ++ untyped(post)
+              case Operator(es, _) => es.flatMap(untyped)
             }
-            if (errors > 0) context.reporter.fatalError(
-              s"$errors function(s) don't type under propositional quantifiers")
+            if (inner.nonEmpty) inner else if (e.getType == Untyped) Seq(e) else Seq.empty
+          }
+          if (untyped(symbols.getFunction(fd.id).fullBody)(using symbols).nonEmpty) Seq.empty
+          else untyped(fd.fullBody)(using typed).distinct.sortBy(_.getPos)
         }
+
+        val errors = typed.functions.values.toSeq.sortBy(_.id.uniqueName).count { fd =>
+          val es = misuses(fd)
+          for (e <- es) context.reporter.error(e.getPos,
+            s"${fd.id.asString} uses a quantifier as a value. Quantifiers are propositions, " +
+            s"which can only be stated:\n${typed.explainTyping(e)(using new s.PrinterOptions())}")
+          es.nonEmpty || {
+            try { typed.typeCheck(fd.fullBody, fd.getType(using typed)); false }
+            catch {
+              case e: typed.TypeErrorException =>
+                context.reporter.error(e.pos,
+                  s"${fd.id.asString} uses a quantifier as a value. Quantifiers are propositions, " +
+                  s"which can only be stated:\n${e.getMessage}")
+                true
+            }
+          }
+        }
+        if (errors > 0) context.reporter.fatalError(
+          s"$errors function(s) use a quantifier as a value")
         (symbols, ExtractionSummary.NoSummary)
       }
     }

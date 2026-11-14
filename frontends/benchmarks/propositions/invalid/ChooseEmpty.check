@@ -1,0 +1,6 @@
+[ Error  ] ChooseEmpty.scala:22:26: theorem uses a quantifier as a value. Quantifiers are propositions, which can only be stated:
+[ Error  ] choose$8(targetBound) is of type <untyped>
+[ Error  ]   targetBound is of type Prop because choose was instantiated with  with type (Boolean) => Absurdity
+                 val e: Absurdity = choose((x: Absurdity) => true)
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[ Fatal  ] 1 function(s) use a quantifier as a value
