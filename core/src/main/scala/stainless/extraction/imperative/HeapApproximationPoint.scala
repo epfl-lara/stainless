@@ -4,259 +4,392 @@ package stainless
 package extraction
 package imperative
 
+import scala.annotation.tailrec
+import scala.reflect.ClassTag
+
 trait HeapApproximationPoints extends HeapApproximations {
   import s._
 
   case class HeapPointApproximation(
     scope: Int,
-    
     objects: Map[HeapObject, HeapScopedObject],
-    
     references: HeapReferences,
     results: Map[ExpressionID, HeapLocation]
   ) {
-    def withDeclareVariable(identifier: Identifier, location: HeapAddress): HeapPointApproximation = {
-      val variable = HeapVariable(identifier)
+    /** Whether nothing is registered. */
+    def isEmpty: Boolean = objects.isEmpty
 
-      withObject(variable).copy(references = references.updated(variable, ExactHeapReference(location)))
-    }
+    /** Whether `heapObject` is registered. */
+    def isAlive(heapObject: HeapObject): Boolean = objects.contains(heapObject)
 
-    def withAssignVariable(identifier: Identifier, location: HeapAddress): HeapPointApproximation = {
-      val variable = HeapVariable(identifier)
-      if (!isAlive(variable)) {
-        throw new IllegalStateException(s"$variable is assigned but not declared")
+    /** The registered variables. */
+    def variables: Set[HeapVariable] =
+      objects.keySet.collect { case variable: HeapVariable => variable }
+
+    /** The values `holder` resolves to, all of kind `T`. */
+    def resolveValues[T <: HeapValue](holder: HeapObject)(using tag: ClassTag[T]): Set[T] =
+      references.resolve(holder).collect {
+        case value: T => value
+        case value: HeapValue => throw new IllegalStateException(s"$value is not a ${tag.runtimeClass.getSimpleName}")
       }
 
-      copy(references = references.updated(variable, ExactHeapReference(location)))
-    }
+    /** The slots of `value` that the heap knows about: its fields, tuple components or elements. */
+    def resolveSlots(value: HeapValue): Seq[HeapSlot] =
+      children(value).toSeq.flatMap {
+        case elements: HeapElements => children(elements).toSeq
+        case child => Seq(child)
+      }.collect { case slot: HeapSlot => slot }
 
-    def withReference(source: HeapObject, reference: HeapReference): HeapPointApproximation =
-      withObject(source).copy(references = references.updated(source, reference))
-
-    def embed(instance: HeapObject, structure: HeapObjectStructure): Option[(HeapObjectRepresentation, HeapPointApproximation)] =
-      structure.children.foldLeft(Option((HeapObjectRepresentation(instance, Map.empty), this))) { case (embedded, (accessor, child)) =>
-        embedded.flatMap { case (representation, heap) =>
-          val (reference, resolvedHeap) = accessor match {
-            case FieldAccessor(identifier) => heap.resolveField(instance, identifier)
-            case TupleAccessor(index) => heap.resolveTuple(instance, index)
-            case ElementAccessor(_) => throw new IllegalArgumentException(s"$accessor cannot be embedded")
-          }
-          val targets = resolvedHeap.deref(reference).toSet()
-
-          val children = targets.foldLeft(Option.when(targets.nonEmpty)((Set.empty[HeapObjectRepresentation], resolvedHeap))) { case (children, target) =>
-            children.flatMap { case (children, heap) => heap.embed(target, child).map { case (embedded, embeddedHeap) => (children + embedded, embeddedHeap) } }
-          }
-
-          children.map { case (children, childrenHeap) => (representation.copy(children = representation.children + (accessor -> children)), childrenHeap) }
+    /** The objects registered under each object: slots under their owner or element set, element sets under their collection. */
+    private lazy val children: Map[HeapObject, Set[HeapObject]] =
+      objects.keySet.toSeq
+        .collect {
+          case slot: HeapSlot => slot.parent -> (slot: HeapObject)
+          case elements: HeapElements => (elements.owner: HeapObject) -> (elements: HeapObject)
         }
+        .groupMap(_._1)(_._2)
+        .map { case (parent, children) => parent -> children.toSet }
+        .withDefaultValue(Set.empty)
+
+    /** Registers `heapObject` at the current scope. */
+    private def withObject(heapObject: HeapObject): HeapPointApproximation = {
+      if (isAlive(heapObject)) {
+        return this
       }
 
-    def withVariable(identifier: Identifier): (HeapVariable, HeapPointApproximation) = {
-      val variable = HeapVariable(identifier)
-      (variable, withObject(variable))
+      copy(objects = objects + (heapObject -> HeapScopedObject(scope, heapObject)))
     }
 
-    /** What variable `identifier` currently points to. */
-    def resolveVariable(identifier: Identifier): HeapReference =
-      references(HeapVariable(identifier))
-
-    /** `receiver.identifier = value`: writes `location`, the location of `value`, into field `identifier` of every object `receiver` resolves to (strong update). */
-    def withAssignField(receiver: HeapObject, identifier: Identifier, location: HeapAddress): HeapPointApproximation = {
-      val owners = deref(ExactHeapReference(receiver))
-
-      references.resolve(receiver).foldLeft(this) { (heap, owner) =>
-        val target = HeapInstanceField(owner, identifier)
-        val previous = heap.references(target)
-
-        heap.withObject(target).copy(references = heap.references.updated(target, owners.mapLeaves(previous)(candidate => if (candidate == owner) ExactHeapReference(location) else previous)))
-      }
-    }
-
-    /** What field `identifier` of every object `owner` resolves to currently points to. */
-    def resolveField(owner: HeapObject, identifier: Identifier): (HeapReference, HeapPointApproximation) = {
-      val resolvedHeap = references.resolve(owner).foldLeft(this) { (heap, resolved) =>
-        val target = HeapInstanceField(resolved, identifier)
-        heap.withObject(target).withResolution(target)
-      }
-      val reference = resolvedHeap.deref(ExactHeapReference(owner)).mapLeaves(NoHeapReference)(instance => resolvedHeap.references(HeapInstanceField(instance, identifier)))
-
-      (reference, resolvedHeap)
-    }
-
-    /** Writes `location`, the location of `value`, into component `index` (1-based) of every tuple `receiver` resolves to (strong update). */
-    def withAssignTuple(receiver: HeapObject, index: Int, location: HeapAddress): HeapPointApproximation = {
-      val owners = deref(ExactHeapReference(receiver))
-
-      references.resolve(receiver).foldLeft(this) { (heap, owner) =>
-        val target = HeapTupleField(owner, index)
-        val previous = heap.references(target)
-
-        heap.withObject(target).copy(references = heap.references.updated(target, owners.mapLeaves(previous)(candidate => if (candidate == owner) ExactHeapReference(location) else previous)))
-      }
-    }
-
-    /** What component `index` (1-based) of every tuple `owner` resolves to currently points to. */
-    def resolveTuple(owner: HeapObject, index: Int): (HeapReference, HeapPointApproximation) = {
-      val resolvedHeap = references.resolve(owner).foldLeft(this) { (heap, resolved) =>
-        val target = HeapTupleField(resolved, index)
-        heap.withObject(target).withResolution(target)
-      }
-      val reference = resolvedHeap.deref(ExactHeapReference(owner)).mapLeaves(NoHeapReference)(instance => resolvedHeap.references(HeapTupleField(instance, index)))
-
-      (reference, resolvedHeap)
-    }
-
-    def withCollection(head: HeapInstance): HeapPointApproximation = {
-      val elements = HeapElements(head)
-
-      withObject(elements).copy(references = references.updated(head, ExactHeapReference(elements)))
-    }
-
-    def withCollectionCopy(head: HeapInstance, source: HeapObject, written: Option[Expr]): HeapPointApproximation = {
-      val copiedHeap = withCollection(head)
-      val sources = heads(source)
-      val shared = sources.foldLeft(copiedHeap.references(head))((shared, sourceHead) => shared.union(references(sourceHead)))
-      val sharedHeap = copiedHeap.copy(references = (sources + head).foldLeft(copiedHeap.references)(_.updated(_, shared)))
-      val slots = sources.flatMap(sourceHead => objects(HeapElements(sourceHead)).children).collect { case slot: HeapElement if !written.contains(slot.index) => slot }
-
-      slots.foldLeft(sharedHeap) { (heap, slot) =>
-        val copy = HeapElement(HeapElements(head), slot.index)
-        val copyHeap = heap.withObject(copy)
-
-        copyHeap.copy(references = copyHeap.references.updated(copy, copyHeap.references(copy).union(heap.references(slot))))
-      }
-    }
-
-    def withUnsharedElements: HeapPointApproximation = {
-      val alone = objects.keySet.collect { case head: HeapInstance => head }.filter { head =>
-        val shared = references(head).toSet()
-        shared.size > 1 && shared.forall(elements => holdersOf(elements) == Set(head))
-      }
-
-      copy(references = alone.foldLeft(references)((references, head) => references.updated(head, ExactHeapReference(HeapElements(head)))))
-    }
-
-    def isShared(source: HeapObject): Boolean =
-      resolveReachableTargets(source).targets.exists(target => references(target.instance).toSet().size > 1)
-
-    def withElement(collection: HeapObject, index: Expr, element: HeapReference): HeapPointApproximation = {
-      val collectionHeads = deref(ExactHeapReference(collection))
-
-      heads(collection).foldLeft(this) { (heap, head) =>
-        val slot = HeapElement(HeapElements(head), index)
-        val slotHeap = heap.withObject(slot)
-        val previous = slotHeap.references(slot)
-
-        slotHeap.copy(references = slotHeap.references.updated(slot, collectionHeads.mapLeaves(previous)(candidate => if (candidate == head) element else previous)))
-      }
-    }
-
-    def iterationElements(entry: HeapPointApproximation): Set[HeapElement] =
-      objects.keySet.collect { case slot: HeapElement if !entry.isAlive(slot) => slot }
-
-    def withoutElements(slots: Set[HeapElement]): HeapPointApproximation = {
-      val removed = slots.map(slot => slot: HeapObject)
-
-      copy(
-        objects = (objects -- removed).map { case (heapObject, scoped) => heapObject -> scoped.copy(children = scoped.children -- removed) },
-        references = references.prune(removed)
-      )
-    }
-
-    def withObservedElement(collection: HeapObject, index: Expr, original: HeapReference): HeapPointApproximation = {
-      def observed(reference: HeapReference): HeapReference = reference match {
-        case NoHeapReference => original
-        case ConditionalHeapReference(condition, thenn, elze) => HeapReference.conditional(condition, observed(thenn), observed(elze))
-        case other => other
-      }
-
-      val collectionHeads = deref(ExactHeapReference(collection))
-
-      heads(collection).foldLeft(this) { (heap, head) =>
-        val slot = HeapElement(HeapElements(head), index)
-        val slotHeap = heap.withObject(slot)
-        val previous = slotHeap.references(slot)
-
-        slotHeap.copy(references = slotHeap.references.updated(slot, collectionHeads.mapLeaves(previous)(candidate => if (candidate == head) observed(previous) else previous)))
-      }
-    }
-
-    def resolveElements(collection: HeapObject, index: Expr): (HeapReference, HeapPointApproximation) = {
-      val slots = heads(collection).flatMap(head => objects(HeapElements(head)).children)
-      val resolvedHeap = slots.foldLeft(this)(_.withResolution(_))
-      val reference = resolvedHeap.deref(ExactHeapReference(collection)).mapLeaves(NoHeapReference) {
-        case head: HeapInstance => resolvedHeap.references(HeapElement(HeapElements(head), index))
-        case other => throw new IllegalStateException(s"$other is not a collection")
-      }
-
-      (reference, resolvedHeap)
-    }
-
-    def boundIndices(collection: HeapObject): Set[Expr] =
-      heads(collection).flatMap(head => objects(HeapElements(head)).children).collect { case slot: HeapElement if isBound(slot) => slot.index }
-
-    /** The instance allocated by `e`. */
-    def withAllocation(e: Expr): (HeapInstance, HeapPointApproximation) =
-      withAllocation(ExpressionID(e))
-
-    def withAllocation(site: ExpressionID): (HeapInstance, HeapPointApproximation) = {
+    /** Registers the instance created at `site`. */
+    def withInstance(site: ExpressionID): (HeapInstance, HeapPointApproximation) = {
       val instance = HeapInstance(site)
+
       (instance, withObject(instance))
     }
 
-    /** The location keyed by `e`, pointing to `reference` (strong update). */
-    def withLocation(e: Expr, reference: HeapReference): (HeapLocation, HeapPointApproximation) =
-      withLocation(ExpressionID(e), reference)
+    /** Registers the tuple created at `site`. */
+    def withTuple(site: ExpressionID): (HeapTuple, HeapPointApproximation) = {
+      val tuple = HeapTuple(site)
 
-    def withLocation(site: ExpressionID, reference: HeapReference): (HeapLocation, HeapPointApproximation) = {
-      val location = HeapLocation(site)
-      (location, withObject(location).copy(references = references.updated(location, reference)))
+      (tuple, withObject(tuple))
     }
 
-    def withRecursiveLocation(recursive: HeapRecursiveAddress): (HeapRecursiveAddress, HeapPointApproximation) =
-      (recursive, withObject(recursive))
+    /** Registers the collection created by `e`. */
+    def withCollection(e: Expr): (HeapCollection, HeapPointApproximation) =
+      withCollection(ExpressionID(e))
 
-    /** The location `reference` designates when it is exactly one location, otherwise the location keyed by `e`, pointing to `reference`. */
-    def locate(e: Expr, reference: HeapReference): (HeapLocation, HeapPointApproximation) = reference match {
-      case ExactHeapReference(location: HeapLocation) => (location, this)
-      case _ => withLocation(e, reference)
+    /** Registers the collection created at `site`, with its own element set. */
+    def withCollection(site: ExpressionID): (HeapCollection, HeapPointApproximation) = {
+      val collection = HeapCollection(site)
+      val registeredHeap = withObject(collection).withObject(collection.elements)
+
+      (collection, registeredHeap.withReference(collection, ExactHeapReference(collection.elements)))
     }
 
-    def withExpressionResult(target: Expr, location: HeapLocation): HeapPointApproximation =
-      copy(results = results + (ExpressionID(target) -> location))
+    /** Registers the value created at `site`, of the kind given by `tpe`. */
+    def withValue(site: ExpressionID, tpe: Type)(using Symbols): (HeapValue, HeapPointApproximation) = {
+      val value = HeapValue(site, tpe)
 
-    def withoutResults(e: Expr): HeapPointApproximation =
-      copy(results = results -- exprOps.collect[ExpressionID](inner => Set(ExpressionID(inner)))(e))
-
-    def collect(identifiers: Set[Identifier]): HeapPointApproximation = {
-      val variables = identifiers.map(identifier => HeapVariable(identifier): HeapObject)
-
-      copy(references = variables.foldLeft(references)((references, variable) => references.updated(variable, NoHeapReference)))
+      (value, withValue(value))
     }
 
-    def prune(scope: Int): HeapPointApproximation = {
+    /** Registers `value`, unless it is a collection already alive. */
+    def withValue(value: HeapValue): HeapPointApproximation = value match {
+      case instance: HeapInstance => withInstance(instance.site)._2
+      case tuple: HeapTuple => withTuple(tuple.site)._2
+      case collection: HeapCollection if isAlive(collection) => this
+      case collection: HeapCollection => withCollection(collection.site)._2
+    }
+
+    /** Declares a variable pointing to `reference`. */
+    def withDeclareVariable(identifier: Identifier, reference: HeapReference): HeapPointApproximation = {
+      val variable = HeapVariable(identifier)
+
+      withObject(variable)
+        .withReference(variable, reference)
+    }
+
+    /** Makes a declared variable point to `reference`. */
+    def withAssignVariable(identifier: Identifier, reference: HeapReference): HeapPointApproximation =
+      withReference(HeapVariable(identifier), reference)
+
+    /** Declares a variable again, at the current scope, pointing to `reference`. */
+    def withReassignVariable(identifier: Identifier, reference: HeapReference): HeapPointApproximation =
+      withoutObject(Seq(HeapVariable(identifier)))
+        .withDeclareVariable(identifier, reference)
+
+    /** What a variable points to. */
+    def resolveVariable(identifier: Identifier): HeapReference =
+      references(HeapVariable(identifier))
+
+    /** Keeps only the variables in `identifiers`, and what they keep alive. */
+    def withRestriction(identifiers: Set[Identifier]): HeapPointApproximation = {
+      val outside = variables.filterNot(variable => identifiers(variable.identifier))
+
+      withoutObject(outside)
+        .prune(scope)
+    }
+
+    /** Makes the variables `identifiers` point to nothing, keeping them declared. */
+    def withoutReferencesOf(identifiers: Set[Identifier]): HeapPointApproximation =
+      identifiers.foldLeft(this)((heap, identifier) => heap.withReference(HeapVariable(identifier), NoHeapReference))
+
+    /** Makes `source` point to `reference`, registering it first when it is a slot. */
+    def withReference(source: HeapObject, reference: HeapReference): HeapPointApproximation = {
+      def withSlot(slot: HeapSlot): HeapPointApproximation = {
+        if (isAlive(slot)) {
+          return this
+        }
+
+        if (!isAlive(slot.parent)) {
+          throw new IllegalStateException(s"the owner of $slot is not registered")
+        }
+
+        withObject(slot)
+      }
+
+      val registered = source match {
+        case slot: HeapSlot => withSlot(slot)
+        case _ if isAlive(source) => this
+        case _ => throw new IllegalStateException(s"$source is updated but not registered")
+      }
+
+      registered.copy(references = registered.references.updated(source, reference))
+    }
+
+    /** Makes a field of `owner` point to `reference`. */
+    def withAssignField(owner: HeapInstance, identifier: Identifier, reference: HeapReference): HeapPointApproximation =
+      withReference(owner.resolveSlot(FieldAccessor(identifier)), reference)
+
+    /** Makes a component of `owner` point to `reference`. */
+    def withAssignTuple(owner: HeapTuple, index: Int, reference: HeapReference): HeapPointApproximation =
+      withReference(owner.resolveSlot(TupleAccessor(index)), reference)
+
+    /** Makes an element of `head` point to `reference`. */
+    def withAssignElement(head: HeapCollection, index: Expr, reference: HeapReference): HeapPointApproximation =
+      withReference(head.resolveSlot(ElementAccessor(index)), reference)
+
+    /** Unregisters `heapObjects` and drops their references. */
+    def withoutObject(heapObjects: Iterable[HeapObject]): HeapPointApproximation = {
+      val removed = heapObjects.toSet
+
+      copy(objects = objects -- removed, references = references.prune(removed))
+    }
+
+    /** Records `reference` as the result of `target`, through a location unless it already is one. */
+    def withExpressionResult(target: Expr, reference: HeapReference): HeapPointApproximation = {
+      val site = ExpressionID(target)
+
+      reference match {
+        case ExactHeapReference(location: HeapLocation) =>
+          copy(results = results + (site -> location))
+
+        case _ =>
+          val location = HeapLocation(site)
+
+          withObject(location)
+            .withReference(location, reference)
+            .copy(results = results + (site -> location))
+      }
+    }
+
+    /** What the result recorded at `site` points to. */
+    def resolveResult(site: ExpressionID): HeapReference =
+      results
+        .get(site)
+        .fold(NoHeapReference: HeapReference)(location => dereference(ExactHeapReference(location)))
+
+    /** Forgets every recorded result. */
+    def withoutResults: HeapPointApproximation =
+      copy(results = Map.empty)
+
+    /** Forgets the results recorded for `e` and its subexpressions. */
+    def withoutResults(e: Expr): HeapPointApproximation = {
+      val removed = exprOps.collect[ExpressionID](inner => Set(ExpressionID(inner)))(e)
+
+      copy(results = results -- removed)
+    }
+
+    /** The same heap, at `scope`. */
+    def withScope(scope: Int): HeapPointApproximation =
+      copy(scope = scope)
+
+    /** Every object kept alive by the variables in scope and the pending expression results. */
+    private lazy val liveObjects: Set[HeapObject] = {
       def reachFrom(visited: Set[HeapObject], heapObject: HeapObject): Set[HeapObject] = {
         if (visited(heapObject)) {
           return visited
         }
 
-        val children = objects.get(heapObject).fold(Set.empty[HeapObject])(_.children)
-
-        (references(heapObject).toSet() ++ children).foldLeft(visited + heapObject)(reachFrom)
+        (references(heapObject).toSet() ++ children(heapObject)).foldLeft(visited + heapObject)(reachFrom)
       }
 
-      val variables = objects.collect { case (variable: HeapVariable, scoped) if scoped.scope <= scope => variable }.toSet
-      val reachable = (variables ++ results.values).foldLeft(Set.empty[HeapObject])(reachFrom)
+      val roots = variables.filter(variable => objects(variable).scope <= scope) ++ results.values
 
-      val pruned = objects.keySet -- reachable
-
-      copy(scope = scope, objects = objects -- pruned, references = references.prune(pruned))
+      roots.foldLeft(Set.empty[HeapObject])(reachFrom)
     }
 
-    def isAlive(heapObject: HeapObject): Boolean = objects.contains(heapObject)
+    /** The objects nothing keeps alive anymore, variables out of scope included. */
+    private lazy val deadObjects: Set[HeapObject] = objects.keySet -- liveObjects
 
-    def isEmpty: Boolean = objects.isEmpty
+    /** The heap in canonical form: collections that no longer share their elements get back a single element set. */
+    private def normalize: HeapPointApproximation = {
+      def normalizeCollection(heap: HeapPointApproximation, head: HeapCollection): HeapPointApproximation = {
+        val own = heap.resolveSlots(head).map(_.accessor).toSet
+        val others = (heap.references(head).toSet() - head.elements).collect { case elements: HeapElements => elements }
+        val (overridden, moved) = others
+          .flatMap(elements => heap.resolveSlots(elements.owner))
+          .collect { case slot: HeapElement => slot }
+          .partition(slot => own(slot.accessor))
 
+        val renaming: Map[HeapObject, HeapObject] =
+          moved.map(slot => (slot: HeapObject) -> (head.resolveSlot(slot.accessor): HeapObject)).toMap ++
+          others.map(elements => (elements: HeapObject) -> (head.elements: HeapObject))
+
+        heap
+          .withoutObject(overridden)
+          .renamed(renaming)
+      }
+
+      val unshared = objects.keySet
+        .collect { case head: HeapCollection => head }
+        .filter { head =>
+          val elements = references(head).toSet()
+          elements.size > 1 && elements.forall(references.parentsOf(_) == Set(head))
+        }
+
+      unshared.foldLeft(this)(normalizeCollection)
+    }
+
+    /** The heap at `scope`, without what nothing keeps alive; elements whose index goes out of scope are dropped when nothing else sees them. */
+    def prune(scope: Int): HeapPointApproximation = {
+      @tailrec
+      def pruneFixpoint(heap: HeapPointApproximation): HeapPointApproximation = {
+        val normalized = heap.normalize
+        val pruned = normalized.withoutObject(normalized.deadObjects)
+        if (pruned == heap) {
+          return pruned
+        }
+
+        pruneFixpoint(pruned)
+      }
+
+      def pruneDanglingObject(heap: HeapPointApproximation, outOfScope: Set[Identifier]): HeapPointApproximation = {
+        def isPrunable(slot: HeapElement): Boolean = {
+          val roots = heap.variables ++ heap.results.values
+          val withoutSlot = heap.withoutObject(Seq(slot))
+          val visible = roots.flatMap(withoutSlot.resolveAllTargets(_).values)
+
+          heap.resolveAllTargets(slot).values.forall { target =>
+            !visible(target) && (!target.isOriginal || HeapAccessor.fromExpression(target.site.expr)._2.contains(slot.accessor))
+          }
+        }
+
+        if (outOfScope.isEmpty) {
+          return heap
+        }
+
+        val dangling = heap.objects.keySet.collect {
+          case slot: HeapElement if slot.indexDependsOn(outOfScope) => slot
+        }
+
+        if (dangling.isEmpty) {
+          return heap
+        }
+
+        dangling
+          .find(slot => !isPrunable(slot))
+          .foreach(slot => throw AliasingRewriteException.danglingIndex(slot.index))
+
+        val withoutDangling = heap.withoutObject(dangling)
+
+        pruneFixpoint(withoutDangling.withoutObject(withoutDangling.deadObjects))
+      }
+
+      val scoped = withScope(scope)
+      val outOfScope = scoped.deadObjects.collect { case HeapVariable(identifier) => identifier }
+      val pruned = pruneFixpoint(scoped.withoutObject(scoped.deadObjects))
+
+      pruneDanglingObject(pruned, outOfScope)
+    }
+
+    /** Replaces objects as given by `substitution`, merging those that become equal. */
+    def renamed(substitution: Map[HeapObject, HeapObject]): HeapPointApproximation = {
+      val newObjects = objects.foldLeft(Map.empty[HeapObject, HeapScopedObject]) { case (objects, (heapObject, scoped)) =>
+        val key = heapObject.substitute(substitution)
+
+        objects.updatedWith(key) {
+          case Some(existing) => Some(existing.copy(scope = existing.scope.min(scoped.scope)))
+          case None => Some(HeapScopedObject(scoped.scope, key))
+        }
+      }
+
+      val newReferences = references.references.foldLeft(HeapReferences.empty) { case (references, (source, reference)) =>
+        val key = source.substitute(substitution)
+        val substituted = reference.substitute(substitution)
+        val merged = references.get(key).fold(substituted)(_.union(substituted))
+
+        references.updated(key, merged)
+      }
+
+      val newResults = results.map { case (site, location) =>
+        location.substitute(substitution) match {
+          case renamedLocation: HeapLocation => site -> renamedLocation
+          case other => throw new IllegalArgumentException(s"Substitution maps result location $location to non-location $other")
+        }
+      }
+
+      copy(objects = newObjects, references = newReferences, results = newResults)
+    }
+
+    /** Moves `heapObject` under `registry`. */
+    def withRelocate(registry: ExpressionRegistry, heapObject: HeapObject): HeapPointApproximation =
+      renamed(Map(heapObject -> heapObject.relocate(registry)))
+
+    /** Translates indices and conditions through `substitution`, from a callee's parameters to the arguments of its call. */
+    def withSubstitution(substitution: Map[ValDef, Expr]): HeapPointApproximation = {
+      val parameters = substitution.keySet.map(_.id)
+      val indexed = objects.keySet.collect {
+        case slot: HeapElement if slot.indexDependsOn(parameters) => slot
+      }
+
+      val reindexed = indexed.foldLeft(this) { (heap, slot) =>
+        val reindexedSlot = slot.owner.resolveSlot(ElementAccessor(exprOps.replaceFromSymbols(substitution, slot.index)))
+
+        heap.renamed(Map((slot: HeapObject) -> (reindexedSlot: HeapObject)))
+      }
+
+      reindexed.copy(references = reindexed.references.map(_.withSubstitution(substitution)))
+    }
+
+    /** Forgets the conditions that mention one of `identifiers`. */
+    def withoutConditionOn(identifiers: Set[Identifier]): HeapPointApproximation =
+      copy(references = references.map(reference => dereference(reference).withoutConditionOn(identifiers)))
+
+    /** The values and locations that did not exist in `before`. */
+    def created(before: HeapPointApproximation): Set[HeapObject] =
+      objects.keySet.collect {
+        case value: HeapValue if !before.isAlive(value) => value
+        case location: HeapLocation if !before.isAlive(location) => location
+      }
+
+    /** Imports the slots `other` assigned, translating its originals into what this heap holds. */
+    def withOverride(other: HeapPointApproximation): HeapPointApproximation = {
+      val imported = copy(objects = (other.objects -- other.variables) ++ objects)
+
+      val assignedSlots = other.references.references.keySet.collect { case slot: HeapSlot => slot }
+
+      assignedSlots.foldLeft(imported) { (heap, slot) =>
+        val reference = other.references(slot).flatMap {
+          case HeapOriginal(original) => heap.references(original)
+          case target => ExactHeapReference(target)
+        }
+
+        heap.withReference(slot, reference)
+      }
+    }
+
+    /** The union of both heaps: objects, references and results. */
     def merge(other: HeapPointApproximation): HeapPointApproximation = {
       if (isEmpty) {
         return other
@@ -267,10 +400,20 @@ trait HeapApproximationPoints extends HeapApproximations {
       }
 
       copy(
-        objects = mergeObjects(other.objects),
-        references = references.combine(other.references)(_.union(_)),
+        objects = other.objects ++ objects,
+        references = withForeignSlots(other).references.union(other.withForeignSlots(this).references),
         results = results ++ other.results
       )
+    }
+
+    /** Adopts the slots `other` assigned for objects this heap does not have. */
+    private def withForeignSlots(other: HeapPointApproximation): HeapPointApproximation = {
+      val adopted = other.references.references.foldLeft(references) {
+        case (result, (slot: HeapSlot, reference)) if !isAlive(slot.owner) && result.get(slot).isEmpty => result.updated(slot, reference)
+        case (result, _) => result
+      }
+
+      copy(references = adopted)
     }
 
     /** Joins the heaps of the two branches of an `if` on `condition`: registries and results are merged, references that differ become conditional on `condition`. */
@@ -283,224 +426,128 @@ trait HeapApproximationPoints extends HeapApproximations {
         return this
       }
 
-      val mergedHeap = copy(objects = mergeObjects(elze.objects))
-      val registeredHeap = exprOps.variablesOf(condition).foldLeft(mergedHeap)((heap, variable) => heap.withObject(HeapVariable(variable.id)))
+      val registeredHeap = exprOps
+        .variablesOf(condition)
+        .foldLeft(copy(objects = elze.objects ++ objects))((heap, variable) => heap.withObject(HeapVariable(variable.id)))
 
       registeredHeap.copy(
-        references = references.combine(elze.references)(HeapReference.conditional(condition, _, _)),
+        references = withForeignSlots(elze).references.conditional(condition, elze.withForeignSlots(this).references),
         results = results ++ elze.results
       )
     }
 
-    def resolveTargets(source: HeapObject): HeapTargetSet = {
-      def resolveObject(target: HeapObject, choices: Seq[(Expr, Boolean)], visited: Set[HeapObject]): Seq[HeapTarget] = target match {
-        case instance: HeapInstance => Seq(HeapTarget(Set(HeapTargetCondition(choices)), instance))
-        case _ if visited(target) => Seq.empty
-        case _ => resolveReference(references(target), choices, visited + target)
-      }
-
-      def resolveReference(reference: HeapReference, choices: Seq[(Expr, Boolean)], visited: Set[HeapObject]): Seq[HeapTarget] = reference match {
-        case NoHeapReference => Seq.empty
-        case ExactHeapReference(target) => resolveObject(target, choices, visited)
-        case AmbiguousHeapReference(targets) => targets.toSeq.flatMap(resolveObject(_, choices, visited))
-        case ConditionalHeapReference(condition, thenn, elze) => resolveReference(thenn, choices :+ (condition -> true), visited) ++ resolveReference(elze, choices :+ (condition -> false), visited)
-      }
-
-      HeapTargetSet.from(resolveObject(source, Seq.empty, Set.empty))
-    }
-
-    def resolveDependencies(targets: HeapTargetSet): HeapTargetDependencySet = {
-      def dependenciesOf(target: HeapTarget, accessors: Seq[HeapAccessor], targets: Seq[HeapTargetSet], visiting: Set[HeapInstance]): Set[HeapTargetDependency] =
-        holdersOf(target.instance).flatMap(holder => dependenciesOfHolder(target, holder, accessors, targets, visiting))
-
-      def dependenciesOfHolder(target: HeapTarget, holder: HeapObject, accessors: Seq[HeapAccessor], targets: Seq[HeapTargetSet], visiting: Set[HeapInstance]): Set[HeapTargetDependency] = {
-        val holderTargets = resolveTargets(holder)
-        val condition = HeapTargetCondition.and(target.conditions, holderTargets.conditionsOf(target.instance))
-
-        if (condition.isEmpty) {
-          return Set.empty
-        }
-
-        def dependenciesOfOwner(owner: HeapObject, accessor: HeapAccessor): Set[HeapTargetDependency] = owner match {
-          case owner: HeapInstance if !visiting(owner) => dependenciesOf(HeapTarget(condition, owner), accessor +: accessors, holderTargets +: targets, visiting + target.instance)
-          case _ => Set.empty
-        }
-
-        holder match {
-          case HeapVariable(identifier) => Set(HeapTargetDependency(condition, identifier, accessors, holderTargets +: targets))
-          case HeapInstanceField(owner, identifier) => dependenciesOfOwner(owner, FieldAccessor(identifier))
-          case HeapTupleField(owner, index) => dependenciesOfOwner(owner, TupleAccessor(index))
-          case HeapElement(elements, index) => dependenciesOfOwner(elements.owner, ElementAccessor(index))
-          case _ => Set.empty
-        }
-      }
-
-      targets.targets.flatMap(target => dependenciesOf(target, Seq.empty, Seq.empty, Set.empty))
-    }
-
-    def resolveReachableTargets(source: HeapObject): HeapTargetSet = {
-      def reachFrom(target: HeapTarget, visiting: Set[HeapInstance]): Set[HeapTarget] = {
-        if (visiting(target.instance)) {
-          return Set.empty
-        }
-
-        val children = holdersWithin(target.instance).flatMap(holder => resolveTargets(holder).targets)
-          .map(child => child.withConditions(HeapTargetCondition.and(target.conditions, child.conditions)))
-
-        children.filter(_.conditions.nonEmpty).flatMap(child => reachFrom(child, visiting + target.instance)).toSet + target
-      }
-
-      val reachable = resolveTargets(source).targets.flatMap(reachFrom(_, Set.empty))
-
-      HeapTargetSet.from(reachable)
-    }
-
-    def resolveSharedTargets(targets: HeapTargetSet): HeapTargetSet = {
-      val shared = targets.targets.toSeq.flatMap { target =>
-        val holderTargets = holdersWithin(target.instance).map(resolveReachableTargets)
-        val cycles = holderTargets.flatMap(_.targets.filter(_.instance == target.instance))
-        val overlaps = for {
-          i <- holderTargets.indices
-          j <- holderTargets.indices
-          if i < j
-          overlap <- holderTargets(i).intersect(holderTargets(j)).targets
-        } yield overlap
-
-        (cycles ++ overlaps).map(overlap => overlap.withConditions(HeapTargetCondition.and(target.conditions, overlap.conditions))).filter(_.conditions.nonEmpty)
-      }
-
-      HeapTargetSet.from(shared)
-    }
-
-    def represent(target: HeapObject): HeapObjectRepresentation = {
-      def representFrom(target: HeapObject, visited: Set[HeapObject]): HeapObjectRepresentation = target match {
-        case instance: HeapInstance if !visited(instance) =>
-          val children = holdersWithin(instance).map { holder =>
-            accessorOf(holder) -> deref(references(holder)).toSet().map(representFrom(_, visited + instance))
-          }
-
-          HeapObjectRepresentation(instance, children.toMap)
-
-        case _ => HeapObjectRepresentation(target, Map.empty)
-      }
-
-      representFrom(target, Set.empty)
-    }
-
-    def isDisjoint(source: HeapObject): Boolean =
-      resolveSharedTargets(resolveReachableTargets(source)).targets.isEmpty
-
-    def isFresh(source: HeapObject): Boolean =
-      deref(references(source)).toSet().forall { target =>
-        val owned = objectsOf(represent(target))
-
-        owned.forall(holdersOutside(_, owned).forall(_ == source))
-      }
-
     /** `reference` with every location replaced by what it points to. */
-    private def deref(reference: HeapReference): HeapReference = reference match {
-      case ExactHeapReference(location: HeapAddress) =>
-        deref(references(location))
+    def dereference(reference: HeapReference): HeapReference = reference match {
+      case ExactHeapReference(location: HeapLocation) =>
+        dereference(references(location))
 
       case AmbiguousHeapReference(targets) =>
-        targets.foldLeft(NoHeapReference: HeapReference)((result, target) => result.union(deref(ExactHeapReference(target))))
+        targets.foldLeft(NoHeapReference: HeapReference)((result, target) => result.union(dereference(ExactHeapReference(target))))
 
       case ConditionalHeapReference(condition, thenn, elze) =>
-        HeapReference.conditional(condition, deref(thenn), deref(elze))
+        HeapReference.conditional(condition, dereference(thenn), dereference(elze))
 
       case _ =>
         reference
     }
 
-    private def objectsOf(representation: HeapObjectRepresentation): Set[HeapObject] =
-      representation.children.values.flatten.foldLeft(Set(representation.instance))(_ ++ objectsOf(_))
-
-    private def holdersOutside(target: HeapObject, owned: Set[HeapObject]): Set[HeapObject] =
-      holdersOf(target).filter {
-        case HeapInstanceField(owner, _) => !owned(owner)
-        case HeapTupleField(owner, _) => !owned(owner)
-        case HeapElement(elements, _) => !owned(elements.owner)
-        case _ => true
+    /** What `source` points to, then what is reached from there through `accessors`, step by step. */
+    def resolveTargets(source: HeapObject, accessors: Seq[HeapAccessor] = Seq.empty): HeapTargetSet = {
+      val targets = source match {
+        case value: HeapValue => HeapTargetSet.of(value)
+        case _ => dereference(references(source)).toTargets
       }
 
-    private def isBound(slot: HeapElement): Boolean = {
-      val owned = objectsOf(represent(slot.elements.owner))
-
-      deref(references(slot)).toSet().flatMap(target => objectsOf(represent(target))).exists(holdersOutside(_, owned).nonEmpty)
+      accessors.foldLeft(targets) { (owners, accessor) =>
+        owners.flatMap(owner => resolveTargets(HeapSlot(owner, accessor)))
+      }
     }
 
-    private def holdersOf(target: HeapObject): Set[HeapObject] = {
-      def holdersFrom(node: HeapObject, visited: Set[HeapObject]): Set[HeapObject] =
-        references.parentsOf(node).flatMap {
-          case location: HeapAddress if visited(location) => Set.empty
-          case location: HeapAddress => holdersFrom(location, visited + location)
-          case holder => Set(holder)
+    /** What `source` points to, and everything reachable from there through slots. */
+    def resolveAllTargets(source: HeapObject): HeapTargetSet = {
+      def reachFrom(value: HeapValue, visiting: Set[HeapValue]): HeapTargetSet = {
+        if (visiting(value)) {
+          return HeapTargetSet(Set.empty)
         }
 
-      holdersFrom(target, Set.empty)
+        val children = HeapTargetSet.from(resolveSlots(value).flatMap(resolveTargets(_).targets))
+        val reached = children.flatMap(child => reachFrom(child, visiting + value))
+
+        HeapTargetSet.from(HeapTargetSet.of(value).targets ++ reached.targets)
+      }
+
+      resolveTargets(source).flatMap(reachFrom(_, Set.empty))
     }
 
-    private def accessorOf(holder: HeapObject): HeapAccessor = holder match {
-      case HeapInstanceField(_, identifier) => FieldAccessor(identifier)
-      case HeapTupleField(_, index) => TupleAccessor(index)
-      case HeapElement(_, index) => ElementAccessor(index)
-      case other => throw new IllegalStateException(s"$other is not a component")
-    }
+    /** The variable paths that reach `targets`, with the targets met at each step. */
+    def resolveDependencies(targets: HeapTargetSet): HeapTargetDependencySet = {
+      def dependenciesOf(target: HeapTarget, visiting: Set[HeapValue]): Set[HeapTargetDependency] =
+        references.holdersOf(target.value).flatMap { holder =>
+          val holderTargets = resolveTargets(holder)
+          val condition = holderTargets.conditionsOf(target)
 
-    private def holdersWithin(instance: HeapInstance): Seq[HeapObject] =
-      objects(instance).children.toSeq.flatMap {
-        case elements: HeapElements => objects(elements).children.toSeq
-        case child => Seq(child)
-      }
-
-    private def heads(collection: HeapObject): Set[HeapInstance] =
-      deref(ExactHeapReference(collection)).toSet().map {
-        case head: HeapInstance => head
-        case other => throw new IllegalStateException(s"$other is not a collection")
-      }
-
-    private def withResolution(holder: HeapObject): HeapPointApproximation =
-      references(holder).toSet().foldLeft(this) {
-        case (heap, recursive: HeapRecursiveAddress) if heap.references(recursive) != recursive.representation._1 =>
-          val (reference, representation) = recursive.representation
-          val mergedHeap = heap.merge(representation)
-
-          mergedHeap.copy(references = mergedHeap.references.updated(recursive, reference))
-
-        case (heap, _) => heap
-      }
-
-    private def withObject(heapObject: HeapObject): HeapPointApproximation = {
-      if (objects.contains(heapObject)) {
-        return this
-      }
-
-      val registered = objects + (heapObject -> HeapScopedObject(scope, heapObject))
-
-      parentOf(heapObject).fold(copy(objects = registered)) { parent =>
-        val scopedParent = registered.getOrElse(parent, throw new IllegalStateException(s"the owner of $heapObject is not registered"))
-        copy(objects = registered + (parent -> scopedParent.copy(children = scopedParent.children + heapObject)))
-      }
-    }
-
-    private def parentOf(heapObject: HeapObject): Option[HeapObject] = heapObject match {
-      case HeapInstanceField(owner, _) => Some(owner)
-      case HeapTupleField(owner, _) => Some(owner)
-      case HeapElements(owner) => Some(owner)
-      case HeapElement(elements, _) => Some(elements)
-      case _ => None
-    }
-
-    private def mergeObjects(other: Map[HeapObject, HeapScopedObject]): Map[HeapObject, HeapScopedObject] =
-      other.foldLeft(objects) { case (merged, (key, scoped)) =>
-        merged.updatedWith(key) {
-          case Some(existing) => Some(existing.copy(children = existing.children ++ scoped.children))
-          case None => Some(scoped)
+          holder match {
+            case _ if condition.isEmpty => Set.empty
+            case HeapVariable(identifier) => Set(HeapTargetDependency(condition, identifier, Seq.empty, Seq(holderTargets)))
+            case slot: HeapSlot if !visiting(slot.owner) =>
+              dependenciesOf(HeapTarget(condition, slot.owner), visiting + target.value).map(_.appended(slot.accessor, holderTargets))
+            case _ => Set.empty
+          }
         }
+
+      targets.targets.flatMap(dependenciesOf(_, Set.empty))
+    }
+
+    /** Whether `reference` points to something other than exactly one value or nothing. */
+    def isAmbiguous(reference: HeapReference): Boolean = dereference(reference) match {
+      case NoHeapReference => false
+      case ExactHeapReference(_: HeapValue) => false
+      case _ => true
+    }
+
+    /** Whether a collection reached from `source` shares its elements with another one. */
+    def isShared(source: HeapObject): Boolean =
+      resolveAllTargets(source).targets
+        .exists(target => references(target.value).toSet().size > 1)
+
+    /** Whether what `source` reaches is a tree: no value reaches itself, and no two slots of a value reach a common object. */
+    def isTree(source: HeapObject): Boolean =
+      resolveAllTargets(source).targets.forall { target =>
+        val reachable = resolveSlots(target.value).map(slot => resolveAllTargets(slot).restrict(target.conditions))
+
+        val cyclic = reachable.exists(_.values.contains(target.value))
+        val overlapping = reachable.combinations(2).exists { case Seq(first, second) => !first.intersect(second).isEmpty }
+
+        !cyclic && !overlapping
       }
+
+    /** Whether every variable path reaching what `source` points to goes through `source`. */
+    def isFresh(source: HeapObject): Boolean =
+      resolveDependencies(resolveAllTargets(source))
+        .forall(_.isReachable(source))
   }
 
   object HeapPointApproximation {
+    /** The union of `heaps`, or the empty heap at `scope` when there are none. */
+    def merge(scope: Int, heaps: Seq[HeapPointApproximation]): HeapPointApproximation =
+      heaps.reduceOption(_.merge(_)).getOrElse(empty(scope))
+
+    /** The heap with nothing registered, at `scope`. */
     def empty(scope: Int): HeapPointApproximation = HeapPointApproximation(scope, Map.empty, HeapReferences.empty, Map.empty)
+
+    /** The heap at the entry of a function: each mutable parameter points to its own original value. */
+    def initial(scope: Int, params: Seq[ValDef])(using symbols: Symbols): HeapPointApproximation = {
+      def declareParameter(heap: HeapPointApproximation, vd: ValDef): HeapPointApproximation = {
+        if (!symbols.isMutableType(vd.tpe)) {
+          return heap.withDeclareVariable(vd.id, NoHeapReference)
+        }
+
+        val (value, newHeap1) = heap.withValue(ExpressionID(vd.toVariable), vd.tpe)
+
+        newHeap1.withDeclareVariable(vd.id, ExactHeapReference(value))
+      }
+
+      params.foldLeft(empty(scope))(declareParameter)
+    }
   }
 }

@@ -12,11 +12,21 @@ class ConditionalHoisting(override val s: Trees)(override val t: s.type)(using o
      with oo.SimplyCachedTypeDefs { self =>
   import s._
 
+  override protected def getContext(syms: s.Symbols) = new TransformerContext(self.s, self.t)(using syms)
+
   protected class TransformerContext(override val s: self.s.type, override val t: s.type)
                                     (using symbols: s.Symbols)
     extends oo.ConcreteTreeTransformer(s, t) {
 
-    object hoister extends ConcreteOOSelfTreeTransformer {
+    override def transform(fd: s.FunDef): t.FunDef = {
+      val (specs, bodyOpt) = exprOps.deconstructSpecs(fd.fullBody)
+      val hoistedBody = bodyOpt.map(new Hoister().transform)
+      val hoistedFullBody = exprOps.reconstructSpecs(specs, hoistedBody, fd.returnType)
+
+      super.transform(fd.copy(fullBody = hoistedFullBody).copiedFrom(fd))
+    }
+
+    class Hoister extends ConcreteOOSelfTreeTransformer {
       private case class Hoisted(bindings: Seq[(ValDef, Expr)], expr: Expr) {
         def map(f: Expr => Expr): Hoisted = copy(expr = f(expr))
 
@@ -33,30 +43,60 @@ class ConditionalHoisting(override val s: Trees)(override val t: s.type)(using o
         case _ => super.transform(e)
       }
 
-      private def transformBlock(statements: Seq[Expr], last: Expr): Expr = statements match {
-        case Seq() => transform(last)
-        case statement +: rest => hoist(statement).map(prepend(_, transformBlock(rest, last))).wrapped
-      }
+      private def transformBlock(statements: Seq[Expr], last: Expr): Expr = {
+        def prepend(statement: Expr, rest: Expr): Expr = rest match {
+          case Block(restStatements, restLast) => Block(statement +: restStatements, restLast).copiedFrom(statement)
+          case _ => Block(Seq(statement), rest).copiedFrom(statement)
+        }
 
-      private def prepend(statement: Expr, rest: Expr): Expr = rest match {
-        case Block(statements, last) => Block(statement +: statements, last).copiedFrom(statement)
-        case _ => Block(Seq(statement), rest).copiedFrom(statement)
+        statements match {
+          case Seq() => transform(last)
+          case statement +: rest => hoist(statement).map(prepend(_, transformBlock(rest, last))).wrapped
+        }
       }
 
       private def hoist(e: Expr): Hoisted = e match {
         case e: IfExpr => hoistCondition(e)
-        case e: MatchExpr => lowerMatch(e)
+        case e: MatchExpr => hoistMatch(e)
         case Assignment(v, value) => hoist(value).map(Assignment(v, _).copiedFrom(e))
         case _ => Hoisted(Seq.empty, transform(e))
       }
 
       private def hoistCondition(e: IfExpr): Hoisted = {
+        if (symbols.isImmutableExpression(e.cond)) {
+          return Hoisted(Seq.empty, IfExpr(transform(e.cond), transform(e.thenn), transform(e.elze)).copiedFrom(e))
+        }
+
         val cond = ValDef.fresh("cond", BooleanType()).copiedFrom(e.cond)
         val ifExpr = IfExpr(cond.toVariable, transform(e.thenn), transform(e.elze)).copiedFrom(e)
         Hoisted(Seq(cond -> transform(e.cond)), ifExpr)
       }
 
-      private def lowerMatch(e: MatchExpr): Hoisted = {
+      private def hoistMatch(e: MatchExpr): Hoisted = {
+        def bindScrutinee(scrutinee: Expr): (Seq[(ValDef, Expr)], Variable) = scrutinee match {
+          case v: Variable => (Seq.empty, v)
+          case _ =>
+            val scrut = ValDef.fresh("scrut", scrutinee.getType).copiedFrom(scrutinee)
+            (Seq(scrut -> scrutinee), scrut.toVariable)
+        }
+
+        def bindBinders(scrutinee: Variable, pattern: Pattern, body: Expr): Expr = {
+          val bindings = symbols.mapForPattern(scrutinee, pattern)
+          bindings.foldRight(body) { case ((binder, value), rest) =>
+            Let(binder, value, rest).copiedFrom(body)
+          }
+        }
+
+        def caseCondition(scrutinee: Variable, matchCase: MatchCase): Expr = {
+          val patternTest = symbols.conditionForPattern[Path](scrutinee, matchCase.pattern).toClause
+          matchCase.optGuard match {
+            case Some(guard) =>
+              val boundGuard = bindBinders(scrutinee, matchCase.pattern, transform(guard))
+              and(patternTest, exprOps.freshenLocals(boundGuard))
+            case None => patternTest
+          }
+        }
+
         val (scrutineeBindings, scrutinee) = bindScrutinee(transform(e.scrutinee))
         val matches = e.cases.map(matchCase => ValDef.fresh("matches", BooleanType()).copiedFrom(matchCase))
 
@@ -67,48 +107,14 @@ class ConditionalHoisting(override val s: Trees)(override val t: s.type)(using o
 
         val exhaustivenessError: Expr = Error(e.getType, "match exhaustiveness").copiedFrom(e)
         val ifChain = matches.zip(e.cases).foldRight(exhaustivenessError) { case ((matched, matchCase), elze) =>
-          IfExpr(matched.toVariable, caseBody(scrutinee, matchCase), elze).copiedFrom(matchCase)
+          val body = bindBinders(scrutinee, matchCase.pattern, transform(matchCase.rhs))
+          IfExpr(matched.toVariable, body, elze).copiedFrom(matchCase)
         }
 
         Hoisted(scrutineeBindings ++ matches.zip(conditions), ifChain)
       }
-
-      private def bindScrutinee(scrutinee: Expr): (Seq[(ValDef, Expr)], Variable) = scrutinee match {
-        case v: Variable => (Seq.empty, v)
-        case _ =>
-          val scrut = ValDef.fresh("scrut", scrutinee.getType).copiedFrom(scrutinee)
-          (Seq(scrut -> scrutinee), scrut.toVariable)
-      }
-
-      private def caseCondition(scrutinee: Variable, matchCase: MatchCase): Expr = {
-        val patternTest = symbols.conditionForPattern[Path](scrutinee, matchCase.pattern).toClause
-        matchCase.optGuard match {
-          case Some(guard) => and(patternTest, exprOps.freshenLocals(bindBinders(scrutinee, matchCase.pattern, transform(guard))))
-          case None => patternTest
-        }
-      }
-
-      private def caseBody(scrutinee: Variable, matchCase: MatchCase): Expr =
-        bindBinders(scrutinee, matchCase.pattern, transform(matchCase.rhs))
-
-      private def bindBinders(scrutinee: Variable, pattern: Pattern, body: Expr): Expr = {
-        val bindings = symbols.mapForPattern(scrutinee, pattern)
-        bindings.foldRight(body) { case ((binder, value), rest) =>
-          Let(binder, value, rest).copiedFrom(body)
-        }
-      }
-    }
-
-    override def transform(fd: s.FunDef): t.FunDef = {
-      val (specs, bodyOpt) = exprOps.deconstructSpecs(fd.fullBody)
-      val hoistedBody = bodyOpt.map(hoister.transform)
-      val hoistedFullBody = exprOps.reconstructSpecs(specs, hoistedBody, fd.returnType)
-
-      super.transform(fd.copy(fullBody = hoistedFullBody).copiedFrom(fd))
     }
   }
-
-  override protected def getContext(syms: s.Symbols) = new TransformerContext(self.s, self.t)(using syms)
 }
 
 object ConditionalHoisting extends ExtractionPipelineCreator {

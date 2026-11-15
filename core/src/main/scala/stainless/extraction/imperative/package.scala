@@ -38,11 +38,11 @@ package object imperative {
     def apply(tree: inox.ast.Trees#Tree, msg: String) = new ImperativeEliminationException(tree, msg)
   }
 
-  class AliasingAssignRewriteException(tree: inox.ast.Trees#Tree, msg: String)
+  class AliasingRewriteException(tree: inox.ast.Trees#Tree, msg: String)
     extends MalformedStainlessCode(tree, msg)
 
-  object AliasingAssignRewriteException {
-    def apply(tree: inox.ast.Trees#Tree, msg: String) = new AliasingAssignRewriteException(tree, msg)
+  object AliasingRewriteException {
+    def apply(tree: inox.ast.Trees#Tree, msg: String) = new AliasingRewriteException(tree, msg)
 
     private val capturedMutationMessage =
       "a lambda or local function mutates an object it captured from its enclosing function -- its enclosing aliases cannot be refreshed"
@@ -55,9 +55,14 @@ package object imperative {
     def innerAlias(tree: inox.ast.Trees#Tree) = apply(tree, innerAliasMessage)
 
     private val nonFreshResultMessage =
-      "this function's result shares a mutable object with one of its mutable parameters, or within itself -- results must be fresh"
+      "this recursive function or lambda returns a result that shares a mutable object within itself -- AssignmentRewrite treats its calls as opaque and assumes their results are fresh"
 
     def nonFreshResult(tree: inox.ast.Trees#Tree) = apply(tree, nonFreshResultMessage)
+
+    private val reassignedCopyMessage =
+      "this recursive function or lambda reassigns the local copy of a mutable parameter -- its effect on the parameter cannot be written back"
+
+    def reassignedCopy(tree: inox.ast.Trees#Tree) = apply(tree, reassignedCopyMessage)
 
     private val nonFreshDefaultMessage =
       "the default value of `Array.fill` must be fresh -- every position would hold the same object"
@@ -69,29 +74,37 @@ package object imperative {
 
     def sharedCollection(tree: inox.ast.Trees#Tree) = apply(tree, sharedCollectionMessage)
 
-    private val leakingElementMessage =
-      "an element written or read in this loop is still held by something else at the end of the iteration"
+    private val danglingIndexMessage =
+      "this collection element is indexed by a variable that goes out of scope while the element is still reachable"
 
-    def leakingElement(tree: inox.ast.Trees#Tree) = apply(tree, leakingElementMessage)
+    def danglingIndex(tree: inox.ast.Trees#Tree) = apply(tree, danglingIndexMessage)
 
     private val unimportableCallMessage =
       "the effect of this call cannot be expressed at the call site"
 
     def unimportableCall(tree: inox.ast.Trees#Tree) = apply(tree, unimportableCallMessage)
 
-    private val nonConvergentRecursionMessage =
-      "the summary of this recursive function does not stabilize"
+    private val effectfulIndexedCallMessage =
+      "an argument of this call has side effects, while a collection element passed to it is indexed by a value that may change -- " +
+      "bind the arguments to variables before the call"
 
-    def nonConvergentRecursion(tree: inox.ast.Trees#Tree) = apply(tree, nonConvergentRecursionMessage)
+    def effectfulIndexedCall(tree: inox.ast.Trees#Tree) = apply(tree, effectfulIndexedCallMessage)
 
-    private val leakingVariableMessage =
-      "a variable carried to the next iteration of this loop reaches an object that something else also holds, or reaches the same object twice"
+    private val opaqueWriteMessage =
+      "this recursive function or lambda writes a reference into an object it did not create -- " +
+      "AssignmentRewrite treats its calls as opaque and cannot import such an effect"
 
-    def leakingVariable(tree: inox.ast.Trees#Tree) = apply(tree, leakingVariableMessage)
+    def opaqueWrite(tree: inox.ast.Trees#Tree) = apply(tree, opaqueWriteMessage)
+
+    private val opaqueEffectMessage =
+      "this recursive function or lambda returns an object reachable from its parameters, or writes a reference into them -- " +
+      "AssignmentRewrite treats its calls as opaque and cannot import such an effect"
+
+    def opaqueEffect(tree: inox.ast.Trees#Tree) = apply(tree, opaqueEffectMessage)
 
     private val unknownVariableMessage =
       "a refresh targets a variable that is not declared in the function body -- " +
-      "this indicates a gap in AliasingAssignRewrite's analysis"
+      "this indicates a gap in AssignmentRewrite's analysis"
 
     def unknownVariable(tree: inox.ast.Trees#Tree) = apply(tree, unknownVariableMessage)
 
@@ -106,13 +119,13 @@ package object imperative {
     def unknownFieldOwner(tree: inox.ast.Trees#Tree) = apply(tree, unknownFieldOwnerMessage)
 
     private val unsupportedConstructMessage =
-      "this construct is not yet supported by AliasingAssignRewrite's heap analysis"
+      "this construct is not yet supported by AssignmentRewrite's heap analysis"
 
     def unsupportedConstruct(tree: inox.ast.Trees#Tree) = apply(tree, s"$unsupportedConstructMessage: ${tree.getClass.getSimpleName}")
 
     private val ambiguousAliasMessage =
       "this mutation may or may not affect another live alias (it depends on a branch, a loop " +
-      "iteration, or which object the receiver denotes), so AliasingAssignRewrite cannot refresh it definitely"
+      "iteration, or which object the receiver denotes), so AssignmentRewrite cannot refresh it definitely"
 
     def ambiguousAlias(tree: inox.ast.Trees#Tree) = apply(tree, ambiguousAliasMessage)
 
@@ -122,19 +135,19 @@ package object imperative {
     def staleCapture(tree: inox.ast.Trees#Tree) = apply(tree, staleCaptureMessage)
 
     private val nonConvergentLoopMessage =
-      "the heap analysis did not stabilize on this loop -- loops that walk a recursive structure (e.g. `l = l.tail`) are not yet supported by AliasingAssignRewrite's heap analysis"
+      "the heap analysis did not stabilize on this loop -- loops that walk a recursive structure (e.g. `l = l.tail`) are not yet supported by AssignmentRewrite's heap analysis"
 
     def nonConvergentLoop(tree: inox.ast.Trees#Tree) = apply(tree, nonConvergentLoopMessage)
 
     private val conditionOutOfScopeMessage =
       "this mutation affects an alias only under a branch condition that is no longer in scope here " +
-      "(e.g. the condition of an `if` nested in another branch), so AliasingAssignRewrite cannot refresh it"
+      "(e.g. the condition of an `if` nested in another branch), so AssignmentRewrite cannot refresh it"
 
     def conditionOutOfScope(tree: inox.ast.Trees#Tree) = apply(tree, conditionOutOfScopeMessage)
 
     private val keyOutOfScopeMessage =
       "this mutation affects an alias stored in a collection under an index or key that is no longer in scope here, " +
-      "so AliasingAssignRewrite cannot refresh it"
+      "so AssignmentRewrite cannot refresh it"
 
     def keyOutOfScope(tree: inox.ast.Trees#Tree) = apply(tree, keyOutOfScopeMessage)
 
@@ -178,9 +191,9 @@ package object imperative {
   def imperativeV2(using inox.Context) = {
     utils.NamedPipeline("SameAsLowering", SameAsLowering(trees)).andThen(
     utils.NamedPipeline("EffectElaboration", EffectElaboration(trees)).andThen(
-    utils.NamedPipeline("AliasingFunctionRewrite", AliasingFunctionRewrite(trees)).andThen(
+    utils.NamedPipeline("FunctionRewrite", FunctionRewrite(trees)).andThen(
     utils.NamedPipeline("ConditionalHoisting", ConditionalHoisting(trees)).andThen(
-    utils.NamedPipeline("AliasingAssignRewrite", AliasingAssignRewrite(trees)).andThen(
+    utils.NamedPipeline("AssignmentRewrite", AssignmentRewrite(trees)).andThen(
     utils.NamedPipeline("ReturnElimination", ReturnElimination(trees)).andThen(
     utils.NamedPipeline("ImperativeCodeElimination", ImperativeCodeElimination(trees)).andThen(
     utils.NamedPipeline("ImperativeCleanup", ImperativeCleanup(trees, oo.trees)))))))))
