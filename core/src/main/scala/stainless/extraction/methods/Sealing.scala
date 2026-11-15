@@ -181,6 +181,16 @@ class Sealing(override val s: Trees)(override val t: s.type)
         }
       }
 
+      // The dummy subclass stands for the implementations of `cd` that the program doesn't show,
+      // and its overrides assume the contracts of the methods they override (including laws, see
+      // [[Laws]]). If no implementation can meet these contracts, the dummy subclass must have no
+      // values. When one of its methods has a postcondition, its invariant is an uninterpreted call
+      // `inhabited[T]()`, one for each instantiation of the type parameters of `cd`, which the solver
+      // may turn off. The invariant has a fresh symbol, so it doesn't override those of the ancestors.
+      val hasContracts = methods.exists { id =>
+        deconstructSpecs(symbols.getFunction(id).fullBody)._1.exists(_.isInstanceOf[Postcondition])
+      }
+
       // Create a dummy subclass for the current class
       val dummyClass: ClassDef = {
         val varFlag = if (context.isMutable(cd)) Seq(IsVar) else Seq()
@@ -254,7 +264,31 @@ class Sealing(override val s: Trees)(override val t: s.type)
         )
       }
 
-      ((newCd, Some(dummyClass), dummyFunOverrides ++ newAccessors, dummyTypeDefOverrides), ())
+      val inhabitation = if (!hasContracts) Seq() else {
+        val inhabitedTps = freshenTypeParams(cd.typeArgs)
+        val inhabited = new FunDef(
+          FreshIdentifier(cd.id.name + "Inhabited"),
+          inhabitedTps.map(tp => TypeParameterDef(tp).copiedFrom(tp)),
+          Seq(),
+          BooleanType().setPos(cd),
+          NoTree(BooleanType()).setPos(cd),
+          Seq(Extern, Synthetic)
+        ).setPos(cd)
+
+        val inv = new FunDef(
+          ast.SymbolIdentifier("inv"),
+          Seq(),
+          Seq(),
+          BooleanType().setPos(cd),
+          FunctionInvocation(inhabited.id, typeArgs, Seq()).setPos(cd),
+          // the dummy subclass is never built, so its invariant is never checked
+          Seq(IsInvariant, Synthetic, DropVCs, IsMethodOf(dummyClass.id))
+        ).setPos(cd)
+
+        Seq(inhabited, context.addPurityAnnotations(inv))
+      }
+
+      ((newCd, Some(dummyClass), dummyFunOverrides ++ newAccessors ++ inhabitation, dummyTypeDefOverrides), ())
     }
     else ((cd, None, Seq.empty, Seq.empty), ())
   }
