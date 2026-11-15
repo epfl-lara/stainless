@@ -225,9 +225,10 @@ package object extraction {
     new PropositionsImpl(extraction.trees, extraction.trees)
   }
 
-  /** Infers the propositions of the extracted trees: those of Inox, and the results of
+  /** Infers the propositions of the extracted trees: those of Inox, the results of
     * postconditions, which are propositions when the body they are bound to is one (as in a
-    * lemma that states a quantified property and `holds`). */
+    * lemma that states a quantified property and `holds`), and the proofs by cases, which
+    * decide between two terms of type `Unit` with a proposition. */
   private object PropositionInference extends inox.transformers.PropositionInference {
     override val s: extraction.trees.type = extraction.trees
     override val t: extraction.trees.type = extraction.trees
@@ -251,6 +252,18 @@ package object extraction {
             val newBody = transform(body)
             val (newRes, newPost) = retype(res, newBody, post).getOrElse(res -> post)
             Ensuring(newBody, Lambda(Seq(newRes), transform(newPost)).copiedFrom(l)).copiedFrom(e)
+
+          // A term of type `Unit` is a proof, so a case split on a proposition between two of
+          // them is a proof by cases: the proposition that holds once either proof is done.
+          case IfExpr(cond, thenn, elze) =>
+            val (newCond, newThen, newElse) = (transform(cond), transform(thenn), transform(elze))
+            def proof(e: Expr): Expr =
+              Let(ValDef.fresh("proof", UnitType()).copiedFrom(e), e, BooleanLiteral(true).copiedFrom(e)).copiedFrom(e)
+            if (newCond.getType == PropType() && newThen.getType == UnitType() && newElse.getType == UnitType())
+              Let(ValDef.fresh("cases", PropType()).copiedFrom(e),
+                IfExpr(newCond, proof(newThen), proof(newElse)).copiedFrom(e),
+                UnitLiteral().copiedFrom(e)).copiedFrom(e)
+            else IfExpr(newCond, newThen, newElse).copiedFrom(e)
 
           case _ => super.transform(e)
         }

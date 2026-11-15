@@ -2,7 +2,7 @@
 [ Error  ] if (targetBound) {
 [ Error  ]   Left[A, (A) => Unit]({
 [ Error  ]     assert(!forall((x: A) => !true), "Choose satisfiability")
-[ Error  ]     choose$3[A](targetBound)
+[ Error  ]     choose$2[A](targetBound)
 [ Error  ]   })
 [ Error  ] } else {
 [ Error  ]   assert(no[A])
@@ -11,15 +11,15 @@
 [ Error  ]   targetBound is of type Prop
 [ Error  ]   Left[A, (A) => Unit]({
 [ Error  ]     assert(!forall((x: A) => !true), "Choose satisfiability")
-[ Error  ]     choose$3[A](targetBound)
+[ Error  ]     choose$2[A](targetBound)
 [ Error  ]   }) is of type Either[A, (A) => Unit]
 [ Error  ]     assert(!forall((x: A) => !true), "Choose satisfiability")
-[ Error  ]     choose$3[A](targetBound) is of type A
+[ Error  ]     choose$2[A](targetBound) is of type A
 [ Error  ]       !forall((x: A) => !true) is of type Prop
 [ Error  ]         forall((x: A) => !true) is of type Prop
 [ Error  ]           !true is of type Boolean
 [ Error  ]             true is of type Boolean
-[ Error  ]       choose$3[A](targetBound) is of type A
+[ Error  ]       choose$2[A](targetBound) is of type A
 [ Error  ]         targetBound is of type Prop because choose was instantiated with A:=A with type (Prop) => A because Left was instantiated with A:=A,B:=(A) => Unit with fields (A)
 [ Error  ]   assert(no[A])
 [ Error  ]   Right[A, (A) => Unit]((x: A) => ()) is of type Either[A, (A) => Unit]
