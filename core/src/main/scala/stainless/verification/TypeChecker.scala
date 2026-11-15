@@ -995,8 +995,9 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
                 .find(_.id == id)
                 .filter(_.fields.size == args.size)
             }
+        // `@dropVCs` invariants aren't checked when values are built
         val trInv =
-          if (sort.hasInvariant) {
+          if (sort.hasInvariant && !sort.invariant.get.flags.contains(DropVCs)) {
             val inv = sort.typed(tps).invariant.get
             val invKind = VCKind.AdtInvariant(id)
             val tc2 = tc.withVCKind(invKind).setPos(e)
@@ -1034,8 +1035,9 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
         val sortId = cons.sort
         val sort = getSort(sortId)
 
+        // `@dropVCs` invariants aren't checked when values are built
         val trInv =
-          if (sort.hasInvariant) {
+          if (sort.hasInvariant && !sort.invariant.get.flags.contains(DropVCs)) {
             val inv = sort.typed(tps).invariant.get
             val invKind = VCKind.AdtInvariant(inv.id)
             val tc2 = tc.withVCKind(invKind).setPos(e)
