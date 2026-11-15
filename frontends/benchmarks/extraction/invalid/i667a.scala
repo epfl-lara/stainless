@@ -23,10 +23,6 @@ object i667a:
     ((t: String) => BigInt(t) == 0)(s)
   }
 
-  def ifInEnsuringReceiver: BigInt = {
-    BigInt(if true then 0 else 1)
-  } ensuring (_ == 0)
-
   def objectMethodInPostcondition(a: AnyRef, b: AnyRef): Unit = {
     ()
   } ensuring { _ =>

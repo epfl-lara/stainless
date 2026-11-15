@@ -1743,15 +1743,16 @@ class CodeExtraction(inoxCtx: inox.Context,
       xt.IntegerLiteral(BigInt(cnst.stringValue))
 
     // `BigInt(x)` on a non-literal `Int`/`Long` denotes the integer represented by that bitvector
-    case ExBigIntLiteral(arg)
-        if arg.tpe.widenDealias.typeSymbol == defn.IntClass || arg.tpe.widenDealias.typeSymbol == defn.LongClass =>
+    case ExBigIntLiteral(arg) if hasIntOrLongType(arg) =>
       xt.BVToInt(extractTree(arg)).setPos(tr.sourcePos)
 
     case ExBigIntLiteral(_) => outOfSubsetError(tr, "Only literal, Int or Long arguments are allowed for BigInt.")
 
+    // The implicit conversion of an `Int` or a `Long` to `BigInt` is the same as `BigInt(t)`
     case ExIntToBigInt(t) => extractTree(t) match {
       case xt.Int32Literal(n) => xt.IntegerLiteral(BigInt(n))
-      case _ => outOfSubsetError(tr, "Conversion from Int to BigInt")
+      case xt.Int64Literal(n) => xt.IntegerLiteral(BigInt(n))
+      case e => xt.BVToInt(e).setPos(tr.sourcePos)
     }
 
     case ExUnsignedMinMax(size, isMax) =>

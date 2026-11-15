@@ -1,3 +1,0 @@
-[ Error  ] IntToBigInt.scala:3:21: Conversion from Int to BigInt
-             def g(i: Int) = f(i)
-                               ^
