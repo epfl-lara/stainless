@@ -163,13 +163,19 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
 
   private val convertID = new CachedID[Identifier](id => FreshIdentifier("as" + id.name))
 
+  /** Whether values of types `tpe` and `expected` have the same encoding, so that [[convert]] leaves them unchanged. */
+  private def sameEncoding(tpe: s.Type, expected: s.Type)(using scope: Scope): Boolean = {
+    val t1 = tpe.getType(using scope.symbols)
+    val t2 = expected.getType(using scope.symbols)
+    erasedBy(t1) == erasedBy(t2) || isObject(t1) && isObject(t2)
+  }
+
   private def convert(e: t.Expr, tpe: s.Type, expected: s.Type)(using scope: Scope): t.Expr = {
     val t1 = tpe.getType(using scope.symbols)
     val t2 = expected.getType(using scope.symbols)
 
     ((e, t1, t2) match {
-      case (_, t1, t2) if erasedBy(t1) == erasedBy(t2) => e
-      case (_, t1, t2) if isObject(t1) && isObject(t2) => e
+      case _ if sameEncoding(t1, t2) => e
 
       case (e, s.NothingType(), t2) if !isObject(t2) =>
         t.Error(scope.transform(t2), e match {
@@ -889,6 +895,23 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
 
       // push conversions down into branches/leaves
       case (_: s.IfExpr | _: s.MatchExpr | _: s.Let) => super.transform(e, inType)
+
+      // and below specifications, which must stay at the top of function bodies
+      case (_: s.Require | _: s.Decreases) => super.transform(e, inType)
+
+      // the postcondition then receives the converted result, so convert it back to the type of its parameter
+      case s.Ensuring(body, pred @ s.Lambda(Seq(vd), post)) if !sameEncoding(inType, vd.getType) =>
+        val res = t.ValDef(vd.id.freshen, transform(inType)).copiedFrom(vd)
+        t.Ensuring(
+          transform(body, inType),
+          t.Lambda(Seq(res), t.Let(
+            transform(vd),
+            convert(res.toVariable, inType, vd.getType),
+            transform(post, s.BooleanType())
+          ).copiedFrom(post)).copiedFrom(pred)
+        ).copiedFrom(e)
+
+      case _: s.Ensuring => super.transform(e, inType)
 
       case e if isObject(e.getType) != isObject(inType) =>
         convert(transform(e), e.getType, inType)
