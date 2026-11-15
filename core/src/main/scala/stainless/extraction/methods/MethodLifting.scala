@@ -207,14 +207,16 @@ class MethodLifting(override val s: Trees, override val t: oo.Trees)
       .toSeq
 
     val invariants = invariantOverrides.map {
-      case (o, ((id, Override(_, optFid, _))) :: rest) if o.fid.isEmpty =>
+      case (o, fs @ (((id, Override(_, optFid, _))) :: _)) if o.fid.isEmpty =>
         new FunDef(
           id.freshen,
           Seq.empty,
           Seq.empty,
           BooleanType(),
           BooleanLiteral(true),
-          Seq(IsInvariant, IsMethodOf(cid))
+          // the invariant isn't checked when values are built if none of its overrides are
+          Seq(IsInvariant, IsMethodOf(cid)) ++
+            (if (fs.forall(p => symbols.getFunction(p._1).flags contains DropVCs)) Seq(DropVCs) else Seq())
         ).setPos(optFid match {
           case Some(fid) => symbols.getFunction(fid).getPos
           case None => symbols.getClass(cid).getPos

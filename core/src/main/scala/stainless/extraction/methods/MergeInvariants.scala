@@ -48,15 +48,26 @@ class MergeInvariants(override val s: Trees, override val t: Trees)
       val cd = symbols.getClass(cid)
       val vd = ValDef.fresh("thiss", cd.typed.toType)
 
+      // The `@dropVCs` invariants aren't checked when values are built (see `TypeChecker`): when all
+      // invariants are, neither is the merged one. Otherwise, their conjuncts are dropped from the
+      // checks of the merged invariant, which is inlined into them.
+      val unchecked = invs.map(id => symbols.getFunction(id).flags contains DropVCs)
+      val flags =
+        if (unchecked.forall(identity)) Seq(DropVCs)
+        else if (unchecked.exists(identity)) Seq(InlineInvariant)
+        else Seq.empty
+
       val inv = new FunDef(
         FreshIdentifier("inv"),
         Seq.empty,
         Seq(vd.copiedFrom(cd)),
         BooleanType().copiedFrom(cd),
-        s.andJoin(invs.map(symbols.getFunction).map { inv =>
-          inv.typed.applied(Seq(vd.toVariable.copiedFrom(cd))).copiedFrom(cd)
+        s.andJoin((invs zip unchecked).map { case (id, dropped) =>
+          val call = symbols.getFunction(id).typed.applied(Seq(vd.toVariable.copiedFrom(cd))).copiedFrom(cd)
+          if (dropped && flags.contains(InlineInvariant)) Annotated(call, Seq(DropConjunct)).copiedFrom(cd)
+          else call
         }),
-        Seq.empty,
+        flags,
       ).copiedFrom(cd)
 
       cd.id -> transform(inv)
