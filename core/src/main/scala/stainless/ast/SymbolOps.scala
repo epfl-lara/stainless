@@ -175,7 +175,7 @@ trait SymbolOps extends inox.ast.SymbolOps with TypeOps { self =>
 
     def rewritePM(e: Expr): Option[Expr] = e match {
       case m @ MatchExpr(scrut, cases) =>
-        val scrutVd = ValDef.fresh("scrut", scrut.getType).setPos(m)
+        val scrutVd = ValDef.fresh("scrut", scrut.getTpe(stripRefinements = false)).setPos(m)
         val scrutV = scrutVd.toVariable
         val condsAndRhs = for (cse <- cases) yield {
           val map = mapForPattern(scrutV, cse.pattern)
