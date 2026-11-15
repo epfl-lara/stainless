@@ -1,0 +1,3 @@
+[ Error  ] IsInstanceOfInt3.scala:5:8: The type test for T cannot be checked at runtime because it refers to an abstract type member or type parameter.
+               if x.isInstanceOf[T]
+                  ^^^^^^^^^^^^^^^^^
