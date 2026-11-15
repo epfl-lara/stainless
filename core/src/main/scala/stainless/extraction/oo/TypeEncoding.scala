@@ -872,6 +872,21 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
         val newBody = transform(body, inType)
         t.LetRec(newFuns.map(_.toLocal), newBody).copiedFrom(e)
 
+      // `TransformerWithType` types the patterns of a match against the upper bound of a type parameter, but the
+      // scrutinee of an encoded type parameter is an `Object`: typing them against the type parameter itself makes
+      // them unwrap it, as `isInstanceOf` does.
+      case s.MatchExpr(scrut, cses) if isObject(scrut.getType) && !isObject(widen(scrut.getType)) =>
+        t.MatchExpr(
+          transform(scrut),
+          cses.map { case cse @ s.MatchCase(pat, guard, rhs) =>
+            t.MatchCase(
+              transform(pat, scrut.getType),
+              guard.map(transform(_, s.BooleanType())),
+              transform(rhs, inType)
+            ).copiedFrom(cse)
+          }
+        ).copiedFrom(e)
+
       // push conversions down into branches/leaves
       case (_: s.IfExpr | _: s.MatchExpr | _: s.Let) => super.transform(e, inType)
 
