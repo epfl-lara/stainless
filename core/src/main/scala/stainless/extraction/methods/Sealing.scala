@@ -181,12 +181,8 @@ class Sealing(override val s: Trees)(override val t: s.type)
         }
       }
 
-      // The dummy subclass stands for the implementations of `cd` that the program doesn't show,
-      // and its overrides assume the contracts of the methods they override (including laws, see
-      // [[Laws]]). If no implementation can meet these contracts, the dummy subclass must have no
-      // values. When one of its methods has a postcondition, its invariant is an uninterpreted call
-      // `inhabited[T]()`, one for each instantiation of the type parameters of `cd`, which the solver
-      // may turn off. The invariant has a fresh symbol, so it doesn't override those of the ancestors.
+      // The dummy subclass assumes the postconditions of `cd`, which may be unsatisfiable, so its
+      // invariant `inhabited[T]()` lets the solver make it empty
       val hasContracts = methods.exists { id =>
         deconstructSpecs(symbols.getFunction(id).fullBody)._1.exists(_.isInstanceOf[Postcondition])
       }
