@@ -1,0 +1,4 @@
+8:5;getMinusOne;body assertion: match exhaustiveness;valid
+8:5;getMinusOne;postcondition;valid
+9:23;getMinusOne;postcondition;invalid
+10:22;getMinusOne;postcondition;valid

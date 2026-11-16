@@ -974,7 +974,12 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
 
       case s.ADTPattern(ob, id, tps, subs) =>
         val sort = s.ADTType(getConstructor(id).sort, tps).copiedFrom(tpe)
-        instanceOfPattern(super.transform(pat, sort), tpe, sort)
+        // Sub-patterns are typed against field types without their refinements (see `TransformerWithType`), but the
+        // type arguments of a constructor pattern, inferred from the type of the scrutinee, keep them. When the two
+        // types only differ by refinements, the scrutinee already has the type of the pattern: testing for it again
+        // would only convert between these types, and the type checker cannot prove that conversion correct.
+        if (tpe.getType == sort.getType) super.transform(pat, sort)
+        else instanceOfPattern(super.transform(pat, sort), tpe, sort)
 
       case s.TuplePattern(None, subs) => tpe match {
         case s.TupleType(tps) if subs.size == tps.size => super.transform(pat, tpe)
