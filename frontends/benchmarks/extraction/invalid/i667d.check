@@ -1,3 +1,0 @@
-[ Error  ] i667d.scala:9:7: Conversion from Int to BigInt
-               f(i) == 0
-                 ^
