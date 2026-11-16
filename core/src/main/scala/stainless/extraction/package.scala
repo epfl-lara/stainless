@@ -201,7 +201,10 @@ package object extraction {
           else untyped(fd.fullBody)(using typed).distinct.sortBy(_.getPos)
         }
 
-        val errors = typed.functions.values.toSeq.sortBy(_.id.uniqueName).count { fd =>
+        // the functions that Stainless generates, such as the casts of full imperative, encode
+        // its own constructs, which may observe the quantifiers of its type encoding
+        val checked = typed.functions.values.toSeq.filterNot(_.flags contains s.Synthetic)
+        val errors = checked.sortBy(_.id.uniqueName).count { fd =>
           val es = misuses(fd)
           for (e <- es) context.reporter.error(e.getPos,
             s"${fd.id.asString} uses a quantifier as a value. Quantifiers are propositions, " +
