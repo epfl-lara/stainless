@@ -56,7 +56,7 @@ class ChainProcessor(override val checker: ProcessingPipeline)
         }
       }.toList
 
-      findDecrease(bases, chainsMap, checker.program.symbols) match {
+      findDecrease(bases, chainsMap, problem.funSet) match {
         case (cs, Some(base), Some(reconstr)) =>
           annotateChains(cs, base, reconstr)
           Some(problem.funDefs.map { fd =>
@@ -75,9 +75,9 @@ class ChainProcessor(override val checker: ProcessingPipeline)
     }
   }
 
-  def findDecrease(bases: Seq[FunDef], chainsMap: Map[FunDef, (Set[FunDef], Set[Chain])], syms: Symbols): (Seq[Chain], Option[FunDef], Option[Expr => Expr]) = {
+  def findDecrease(bases: Seq[FunDef], chainsMap: Map[FunDef, (Set[FunDef], Set[Chain])], funSet: Set[FunDef]): (Seq[Chain], Option[FunDef], Option[Expr => Expr]) = {
     val depth: Int = 1 // Number of unfoldings
-    val api = getAPI
+    val api = getAPIWithoutPosts(funSet)
 
     def solveIter(i: Int, allChains: Set[Chain], cs: Set[Chain], base: FunDef): (Set[Chain], Option[Expr => Expr]) = {
       reporter.debug("-+> Iteration #" + i)

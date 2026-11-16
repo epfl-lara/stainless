@@ -74,6 +74,21 @@ trait SolverProvider { self =>
     val program: inox.Program { val trees: checker.program.trees.type }
   } = solverAPI(transformers `andThen` t)
 
+  /** A solver for the queries that prove the termination of `fds`, where their postconditions don't
+    * hold yet: they only hold of calls that return, and these queries are about calls that may not.
+    * A call on arguments that don't decrease could otherwise rely on its own postcondition, which
+    * holds vacuously when it diverges or when the postcondition is false. */
+  def getAPIWithoutPosts(fds: Set[FunDef]): inox.solvers.SimpleSolverAPI {
+    val program: inox.Program { val trees: checker.program.trees.type }
+  } = getAPI(new ConcreteIdentitySymbolTransformer {
+    override def transform(syms: Symbols): Symbols = {
+      val transformed = super.transform(syms)
+      transformed.withFunctions(fds.toSeq.flatMap(fd => transformed.lookupFunction(fd.id)).map { fd =>
+        fd.copy(fullBody = exprOps.withPostcondition(fd.fullBody, None)).copiedFrom(fd)
+      })
+    }
+  })
+
   def apiTransform(s: Symbols) = transformers.transform(s)
 
   private class TransformersImpl private(override val s: trees.type, override val t: trees.type) extends SymbolTransformer {
