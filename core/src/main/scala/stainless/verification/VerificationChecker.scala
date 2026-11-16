@@ -231,9 +231,7 @@ trait VerificationChecker { self =>
       case (inv @ FunctionInvocation(`invId`, _, Seq(adt: ADT)), path) => (inv, adt, path)
     }
 
-    // An inlined invariant (see `TypeChecker`) isn't invoked in the VC, so the invariant can't be
-    // evaluated on its own, and evaluating the VC would fail when it builds the ADT. Its model is
-    // reported as it is.
+    // An inlined invariant isn't invoked in the VC, so its model is reported as is
     if (invocations.isEmpty) return success
     val Seq((inv, adt, path)) = invocations
 
