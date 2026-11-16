@@ -186,7 +186,8 @@ class SizeFunctions(val trees: Trees) {
    * accessible in the type definition.
    */
   def fullSize(expr: Expr)(using symbols: Symbols): Expr = synchronized {
-    expr.getType match {
+    // The type arguments keep their refinements, as the size function must accept `expr`
+    symbols.unrefined(expr.getTpe(stripRefinements = false)) match {
       case adt: ADTType =>
         val id = fullSizeId(adt.getSort.definition)
         FunctionInvocation(id, adt.tps, Seq(expr))

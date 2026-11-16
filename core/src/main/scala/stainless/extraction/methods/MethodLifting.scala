@@ -284,15 +284,19 @@ class MethodLifting(override val s: Trees, override val t: oo.Trees)
 
         val (tpe, expr) = {
           val ntpMap = descendant.tpSubst ++ (nfd.typeArgs zip fd.typeArgs)
+          // The types of the overriding method may depend on its parameters, which are bound to those of `fd`
+          val paramSubst: Map[s.ValDef, s.Expr] = (nfd.params zip fd.params).map { case (vd2, vd1) => vd2 -> vd1.toVariable }.toMap
+          def overrideType(tpe: s.Type): s.Type =
+            s.typeOps.instantiateType(s.typeOps.replaceFromSymbols(paramSubst, tpe), ntpMap)
           val args = (fd.params zip nfd.params).map { case (vd1, vd2) =>
             wrap(
               transformer.transform(vd1.toVariable),
               s.typeOps.instantiateType(vd1.tpe, tpMap),
-              s.typeOps.instantiateType(vd2.tpe, ntpMap)
+              overrideType(vd2.tpe)
             )
           }
           (
-            s.typeOps.instantiateType(nfd.returnType, ntpMap),
+            overrideType(nfd.returnType),
             t.FunctionInvocation(
               nfd.id,
               descType.tps ++ fd.tparams.map(tdef => transformer.transform(tdef.tp)),

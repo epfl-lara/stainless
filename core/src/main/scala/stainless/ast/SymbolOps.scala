@@ -170,12 +170,15 @@ trait SymbolOps extends inox.ast.SymbolOps with TypeOps { self =>
 
   /** Rewrites all pattern-matching expressions into if-then-else expressions
     * Introduces additional error conditions. Does not introduce additional variables.
+    *
+    * The variable bound to the scrutinee keeps the refinements of its type, so that the values
+    * extracted from it have their refined types.
     */
   def matchToIfThenElse(expr: Expr, assumeExhaustive: Boolean = true): Expr = {
 
     def rewritePM(e: Expr): Option[Expr] = e match {
       case m @ MatchExpr(scrut, cases) =>
-        val scrutVd = ValDef.fresh("scrut", scrut.getType).setPos(m)
+        val scrutVd = ValDef.fresh("scrut", scrut.getTpe(stripRefinements = false)).setPos(m)
         val scrutV = scrutVd.toVariable
         val condsAndRhs = for (cse <- cases) yield {
           val map = mapForPattern(scrutV, cse.pattern)
