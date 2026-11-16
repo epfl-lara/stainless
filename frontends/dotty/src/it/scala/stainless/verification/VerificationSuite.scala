@@ -106,6 +106,7 @@ class VerificationSuite extends VerificationComponentTestSuite {
       "verification/valid/FunctionMapsObj",
       "verification/valid/GenericOuters", // Princess times out
       "verification/valid/GenericOutersInherited", // Princess times out
+      "verification/valid/GenericSortInvariants",
       "verification/valid/GodelNumbering",
       "verification/valid/Heaps",
       "verification/valid/HOInvocations2",
@@ -181,6 +182,7 @@ class VerificationSuite extends VerificationComponentTestSuite {
       "verification/invalid/Float8",
       "verification/invalid/ForallAssoc",
       "verification/invalid/GenericOuters", // Princess overflows its stack
+      "verification/invalid/GenericSortInvariants",
       "verification/invalid/Generics2",
       "verification/invalid/HiddenOverride",
       "verification/invalid/HOInvocations",
