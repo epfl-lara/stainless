@@ -15,6 +15,7 @@ import Denotations._
 import StdNames._
 import Names._
 import util.SourcePosition
+import transform.TypeTestsCasts
 
 import scala.collection.mutable
 
@@ -646,6 +647,14 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
             case t =>
               reportError(t.sourcePos, s"Stainless `old` is only defined on `this` and variables.")
           }
+          traverseChildren(tree)
+
+        // A type test that the JVM cannot do, on a type parameter or on the type arguments of a class, is erased:
+        // its result at runtime is not the one Stainless reasons about. These are the tests scalac warns about.
+        case TypeApply(Select(expr, _), List(tpt)) if sym == defn.Any_isInstanceOf =>
+          val why = TypeTestsCasts.whyUncheckable(expr.tpe, tpt.tpe, tree.span, trustTypeApplication = false)
+          if (why.nonEmpty)
+            reportError(tree.sourcePos, s"The type test for ${tpt.tpe.show} cannot be checked at runtime because $why.")
           traverseChildren(tree)
 
         case Apply(fun, args) if BigInt_ApplyMethods(sym) =>
