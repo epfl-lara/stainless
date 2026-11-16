@@ -65,6 +65,10 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
   private val adt: Identifier => Identifier = new CachedID[Identifier](_.freshen)
   private val adtValue: Identifier => Identifier = new CachedID[Identifier](_ => FreshIdentifier("value"))
 
+  // Boxing of the values of type parameters that are not encoded, see `wrap` and `unwrap`
+  private val boxID = FreshIdentifier("box")
+  private val unboxID = FreshIdentifier("unbox")
+
 
   /* ====================================
    *          OBJECT TESTING
@@ -110,9 +114,12 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
     case _ => None
   } (tpe)
 
-  private def wrap(e: t.Expr, tpe: s.Type)(using Scope): t.Expr = (tpe match {
+  private def wrap(e: t.Expr, tpe: s.Type)(using scope: Scope): t.Expr = (tpe match {
     case s.AnyType() => e
     case s.ClassType(id, tps) => e
+    // Values of the type parameters of sort invariants are boxed into uninterpreted objects, see `Scope.empty`
+    case tp: s.TypeParameter if scope.context.boxedTypeParams(tp) && !scope.tparams.contains(tp) =>
+      t.FunctionInvocation(boxID, Seq(scope.transform(tp)), Seq(e))
     case tp: s.TypeParameter => e
     case s.ADTType(id, tps) => C(adt(id))(convert(e, tpe, erased(tpe)))
     case s.RefinementType(vd, pred) => wrap(e, vd.tpe)
@@ -133,9 +140,23 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
     case s.UnitType() => let(("u" :: t.UnitType()).copiedFrom(e), e) { _ => t.ADT(unit, Seq(), Seq()).copiedFrom(e) }
   }).copiedFrom(e)
 
-  private def unwrap(e: t.Expr, tpe: s.Type)(using Scope): t.Expr = (tpe match {
+  /** The predicate passed for the type argument `tp` of a function whose type parameter is encoded.
+   *
+   *  The type parameters of sort invariants are not encoded (see `Scope.empty`): their values are boxed
+   *  (see `wrap`), and any object may be such a box.
+   */
+  private def typeArgPredicate(tp: s.Type)(using scope: Scope): t.Expr = tp match {
+    case tp: s.TypeParameter if scope.context.boxedTypeParams(tp) && !scope.tparams.contains(tp) && !scope.testers.contains(tp) =>
+      \(("x" :: ref).copiedFrom(tp))(_ => t.BooleanLiteral(true).copiedFrom(tp)).copiedFrom(tp)
+    case _ =>
+      simplify(\(("x" :: ref).copiedFrom(tp))(x => instanceOf(x, s.AnyType().copiedFrom(tp), tp)).copiedFrom(tp))
+  }
+
+  private def unwrap(e: t.Expr, tpe: s.Type)(using scope: Scope): t.Expr = (tpe match {
     case s.AnyType() => e
     case s.ClassType(id, tps) => e
+    case tp: s.TypeParameter if scope.context.boxedTypeParams(tp) && !scope.tparams.contains(tp) =>
+      t.FunctionInvocation(unboxID, Seq(scope.transform(tp)), Seq(e))
     case tp: s.TypeParameter => e
     case s.ADTType(id, tps) => convert(getRefField(e, adtValue(id)), erased(tpe), tpe)
     case s.RefinementType(vd, pred) => unwrap(e, vd.tpe)
@@ -845,7 +866,7 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
         convert(t.FunctionInvocation(id,
           tps.zipWithIndex.collect { case (tp, i) if !tparams(i) => transform(tp) },
           tps.zipWithIndex.collect { case (tp, i) if tparams(i) =>
-            simplify(\(("x" :: ref).copiedFrom(tp))(x => instanceOf(x, s.AnyType().copiedFrom(tp), tp)).copiedFrom(tp))
+            typeArgPredicate(tp)
           } ++ (fun.params zip args).map { case (vd, arg) =>
             convert(transform(arg), arg.getType, s.typeOps.instantiateType(vd.tpe, tpSubst))(using funScope)
           }).copiedFrom(e), s.typeOps.instantiateType(fun.returnType.getType, tpSubst), inType)(using funScope)
@@ -867,7 +888,7 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
           t.FunctionType(nparams ++ tpe.from.map(funScope.transform), funScope.transform(tpe.to)).copiedFrom(tpe),
           tps.zipWithIndex.collect { case (tp, i) if !ctparams(i) => transform(tp) },
           tps.zipWithIndex.collect {  case (tp, i) if ctparams(i) =>
-            simplify(\(("x" :: ref).copiedFrom(tp))(x => instanceOf(x, s.AnyType().copiedFrom(tp), tp)).copiedFrom(tp))
+            typeArgPredicate(tp)
           } ++ (fun.params zip args).map { case (vd, arg) =>
             convert(transform(arg), arg.getType, s.typeOps.instantiateType(vd.tpe, tpSubst))(using funScope)
           }).copiedFrom(app), s.typeOps.instantiateType(fun.returnType.getType, tpSubst), inType)(using funScope)
@@ -1013,9 +1034,7 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
           ob map transform,
           tps.zipWithIndex.flatMap { case (tp, i) =>
             if (tparams(i)) Seq(
-              simplify(\(("x" :: ref).copiedFrom(tp)) { x =>
-                instanceOf(x, s.AnyType().copiedFrom(tp), tp)
-              }.copiedFrom(tp)),
+              typeArgPredicate(tp),
               \(("x" :: ref).copiedFrom(tp))(x => unwrap(x, tp)).copiedFrom(tp)
             ) else Seq.empty[t.Expr]
           } ++ (recs zip fun.params.init).map {
@@ -1194,6 +1213,10 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
         traverser.transform(fun.fullBody, fun.returnType.getType)
         fun.flags map (traverser.transform(_))
 
+        // Sort invariants must keep the type parameters of their sort. When they call functions whose type
+        // parameters are encoded, the values of their type parameters are boxed (see `wrap`).
+        if (fun.flags contains s.IsInvariant) simple = tparams.toSet
+
         val nonSimpleParamsIndices = tparams.zipWithIndex.collect {
           case (tp, i) if !simple(tp) => i
         }.toSet
@@ -1223,6 +1246,10 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
   protected class TransformerContext(val symbols: s.Symbols) {
     import symbols.{given, _}
     given emptyScope: Scope = Scope.empty(using this)
+
+    /** The type parameters of sort invariants, whose values are boxed when they reach encoded functions. */
+    lazy val boxedTypeParams: Set[s.TypeParameter] =
+      symbols.functions.values.filter(_.flags contains s.IsInvariant).flatMap(_.tparams.map(_.tp)).toSet
 
     private val (tplSizes, funSizes, bvSizes, fpSizes) = {
       var tplSizes: Set[Int] = Set.empty
@@ -1300,7 +1327,20 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
     def functions: Seq[t.FunDef] =
       symbols.classes.keys.toSeq.flatMap(id => Seq(classInstance(id)(using this), classUnapply(id)(using this))) ++
       symbols.sorts.keys.flatMap(id => Seq(sortInstance(id)(using this), sortConvert(id)(using this))) ++
-      OptionSort.functions :+ unapplyAny(using this)
+      OptionSort.functions ++ Seq(unapplyAny(using this), box, unbox)
+
+    private def box: t.FunDef = {
+      val tp = t.TypeParameter.fresh("T")
+      // An uninterpreted function of `x` (see `InoxEncoder`)
+      new t.FunDef(boxID, Seq(t.TypeParameterDef(tp)), Seq("x" :: tp), ref,
+        t.Choose("res" :: ref, t.BooleanLiteral(true)), Seq(t.Synthetic, t.DropVCs))
+    }
+
+    private def unbox: t.FunDef = {
+      val tp = t.TypeParameter.fresh("T")
+      new t.FunDef(unboxID, Seq(t.TypeParameterDef(tp)), Seq("x" :: ref), tp,
+        t.Choose("res" :: tp, t.BooleanLiteral(true)), Seq(t.Synthetic, t.DropVCs))
+    }
 
     def sorts: Seq[t.ADTSort] =
       OptionSort.sorts :+ refSort
