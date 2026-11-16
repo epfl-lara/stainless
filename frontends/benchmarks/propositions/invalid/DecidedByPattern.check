@@ -1,0 +1,14 @@
+[ Error  ] DecidedByPattern.scala:9:45: decide uses a quantifier as a value. Quantifiers are propositions, which can only be stated:
+[ Error  ] targetBound match {
+[ Error  ]   case Claim(true, _) =>
+[ Error  ]     1
+[ Error  ]   case _ =>
+[ Error  ]     0
+[ Error  ] } is of type <untyped>
+[ Error  ]   targetBound is of type Claim
+[ Error  ]   1 is of type BigInt
+[ Error  ]   true is of type Boolean
+[ Error  ]   0 is of type BigInt
+             def decide(f: BigInt => BigInt): BigInt = positive(f) match {
+                                                       ^^^^^^^^^^^^^^^^^^^...
+[ Fatal  ] 1 function(s) use a quantifier as a value
