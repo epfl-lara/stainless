@@ -45,7 +45,7 @@ class RelationProcessor(override val checker: ProcessingPipeline)
     case class Dep(deps: Set[FunDef]) extends Result
     case object Failure extends Result
 
-    val api = getAPI
+    val api = getAPIWithoutPosts(problem.funSet)
 
     reporter.debug("- Searching for size decrease")
     val decreasing = formulas.map {
