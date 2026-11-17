@@ -116,6 +116,12 @@ trait AssignmentRewrites extends HeapApproximationAnalyses {
 
             withBindings(bindings.flatten, rebuild(normalizedArgs).copiedFrom(call))
 
+          case FieldAssignment(obj, selector, value) if hasWrites(value) =>
+            val (receiverBindings, receiver) = bind(obj, "receiver")
+            val (valueBindings, assigned) = bind(value, "value")
+
+            withBindings(receiverBindings ++ valueBindings, FieldAssignment(receiver, selector, assigned).copiedFrom(e))
+
           case FieldAssignment(obj, selector, value) =>
             val (bindings, receiver) = normalizePath(obj)
 
