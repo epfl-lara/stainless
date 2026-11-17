@@ -9,8 +9,8 @@ object InnerClass {
     case class ClassInner()
   }
 
-  case class CaseOuter() {
-    case class CaseInner()
+  class PlainOuter {
+    case class PlainInner()
   }
 
 }

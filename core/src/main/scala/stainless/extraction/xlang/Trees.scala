@@ -11,9 +11,49 @@ trait Trees extends innerclasses.Trees { self =>
   /** Strictness flag for bitvector types that cannot be cast implicitly */
   case object StrictBV extends Flag("strict-bv", Seq.empty)
 
+  /** The class is a member class of the class `id`: it is defined in the body of `id` (see [[MemberClasses]]). */
+  case class IsMemberOf(id: Identifier) extends Flag("memberOf", Seq(id))
+
+  /** The class is the class of an object. */
+  case object IsObject extends Flag("object", Seq.empty)
+
   override def extractFlag(name: String, args: Seq[Expr]): Flag = (name, args) match {
     case ("ignore", Seq()) => Ignore
     case _ => super.extractFlag(name, args)
+  }
+
+  /** $encodingof `path.C`, where `C` is a member class: the instances of `C` whose outer instance is `path`
+    *
+    * Lowered to a refinement of `tpe` by [[MemberClasses]].
+    */
+  case class PathType(path: Expr, tpe: ClassType) extends Type {
+    override protected def computeErasedType(using Symbols): Type = tpe.getType
+    override def stripToplevelRefinement: Type = tpe
+  }
+
+  // Path-dependent types are refinements of their class type
+  override protected def widenTypeParameter(tpe: Typed)(using Symbols): Type = super.widenTypeParameter(tpe) match {
+    case PathType(_, ct) => widenTypeParameter(ct)
+    case tpe => tpe
+  }
+
+  /** $encodingof `new path.C(args)`, where `C` is a member class */
+  case class PathClassConstructor(path: Expr, ct: ClassType, args: Seq[Expr]) extends Expr with CachingTyped {
+    protected def computeTpe(stripRefinements: Boolean)(using Symbols): Type =
+      ClassConstructor(ct, args).getTpe(stripRefinements)
+  }
+
+  /** $encodingof `case path.C(subPatterns)`, where `C` is a member case class */
+  case class PathClassPattern(binder: Option[ValDef], path: Expr, tpe: ClassType, subPatterns: Seq[Pattern]) extends Pattern
+
+  /** $encodingof `lhs eq rhs`
+    *
+    * Only supported on instances of classes with identities, currently the outer instances of member
+    * classes: [[OuterIdentities]] lowers it to a comparison of both the instances and their identities.
+    */
+  case class RefEquals(lhs: Expr, rhs: Expr) extends Expr with CachingTyped {
+    protected def computeTpe(stripRefinements: Boolean)(using Symbols): Type =
+      if (lhs.isTyped && rhs.isTyped) BooleanType() else Untyped
   }
 
   /** $encodingof `import some.package.Path` or `import some.package.path._` */
@@ -78,6 +118,19 @@ trait Printer extends innerclasses.Printer {
   }
 
   override def ppBody(tree: Tree)(using PrinterContext): Unit = tree match {
+    case PathType(path, tpe) =>
+      p"$path.$tpe"
+
+    case RefEquals(lhs, rhs) =>
+      p"$lhs eq $rhs"
+
+    case PathClassConstructor(path, ct, args) =>
+      p"new $path.$ct${nary(args, ", ", "(", ")")}"
+
+    case PathClassPattern(binder, path, ct, subs) =>
+      binder.foreach(b => p"$b @ ")
+      p"$path.$ct${nary(subs, ", ", "(", ")")}"
+
     case Import(path, isWildcard) =>
       p"import ${path.mkString(".")}"
       if (isWildcard) p"._"
@@ -119,6 +172,58 @@ trait Printer extends innerclasses.Printer {
   }
 }
 
+trait SymbolOps extends innerclasses.TypeOps with imperative.SymbolOps { self =>
+  protected val trees: Trees
+  import trees._
+
+  // Path-dependent types are refinements of their class type, see [[MemberClasses]]
+  override protected def typeBound(tp1: Type, tp2: Type, upper: Boolean): Type = (tp1, tp2) match {
+    case (pt1: PathType, pt2: PathType) if pt1 == pt2 => pt1
+    case (pt: PathType, _) =>
+      typeBound(pt.tpe, tp2, upper) match {
+        case Untyped => Untyped
+        case bound if !upper && bound == pt.tpe => pt
+        case bound => bound
+      }
+    case (_, pt: PathType) =>
+      typeBound(tp1, pt.tpe, upper) match {
+        case Untyped => Untyped
+        case bound if upper && bound == pt.tpe => pt
+        case bound => bound
+      }
+    case _ => super.typeBound(tp1, tp2, upper)
+  }
+
+  override def patternInType(pat: Pattern): Type = pat match {
+    case PathClassPattern(_, _, ct, _) => ct
+    case _ => super.patternInType(pat)
+  }
+
+  override def patternIsTyped(in: Type, pat: Pattern): Boolean = pat match {
+    case PathClassPattern(ob, _, ct, subs) => super.patternIsTyped(in, ClassPattern(ob, ct, subs))
+    case _ => super.patternIsTyped(in, pat)
+  }
+
+  // The outer instance is not tested before [[MemberClasses]]
+  override def mapForPattern(in: Expr, pattern: Pattern): Map[ValDef, Expr] = pattern match {
+    case PathClassPattern(b, _, ct, subs) => super.mapForPattern(in, ClassPattern(b, ct, subs))
+    case InstanceOfPattern(b, PathType(_, ct)) => super.mapForPattern(in, InstanceOfPattern(b, ct))
+    case _ => super.mapForPattern(in, pattern)
+  }
+
+  protected class XlangPatternConditions[P <: PathLike[P]](includeBinders: Boolean)(using pp: PathProvider[P])
+    extends OOPatternConditions[P](includeBinders) {
+    override def apply(in: Expr, pattern: Pattern): P = pattern match {
+      case PathClassPattern(b, _, ct, subs) => super.apply(in, ClassPattern(b, ct, subs))
+      case InstanceOfPattern(b, PathType(_, ct)) => super.apply(in, InstanceOfPattern(b, ct))
+      case _ => super.apply(in, pattern)
+    }
+  }
+
+  override protected def patternConditions[P <: PathLike[P]](includeBinders: Boolean)(using PathProvider[P]) =
+    new XlangPatternConditions[P](includeBinders)
+}
+
 trait GhostTraverser extends innerclasses.GhostTraverser {
   val trees: Trees
 }
@@ -128,9 +233,32 @@ trait TreeDeconstructor extends innerclasses.TreeDeconstructor {
   protected val s: Trees
   protected val t: Trees
 
+  override def deconstruct(e: s.Expr): Deconstructed[t.Expr] = e match {
+    case s.RefEquals(lhs, rhs) =>
+      (Seq(), Seq(), Seq(lhs, rhs), Seq(), Seq(), (_, _, es, _, _) => t.RefEquals(es(0), es(1)))
+    case s.PathClassConstructor(path, ct, args) =>
+      (Seq(), Seq(), path +: args, Seq(ct), Seq(), (_, _, es, tps, _) => t.PathClassConstructor(es.head, tps.head.asInstanceOf[t.ClassType], es.tail))
+    case _ => super.deconstruct(e)
+  }
+
+  override def deconstruct(pattern: s.Pattern): DeconstructedPattern = pattern match {
+    case s.PathClassPattern(binder, path, ct, subs) =>
+      (Seq(), binder.map(_.toVariable).toSeq, Seq(path), Seq(ct), subs, (_, vs, es, tps, subs) =>
+        t.PathClassPattern(vs.headOption.map(_.toVal), es.head, tps.head.asInstanceOf[t.ClassType], subs))
+    case _ => super.deconstruct(pattern)
+  }
+
+  override def deconstruct(tpe: s.Type): Deconstructed[t.Type] = tpe match {
+    case s.PathType(path, ct) =>
+      (Seq(), Seq(), Seq(path), Seq(ct), Seq(), (_, _, es, tps, _) => t.PathType(es.head, tps.head.asInstanceOf[t.ClassType]))
+    case _ => super.deconstruct(tpe)
+  }
+
   override def deconstruct(f: s.Flag): DeconstructedFlag = f match {
     case s.Ignore => (Seq(), Seq(), Seq(), (_, _, _) => t.Ignore)
     case s.StrictBV => (Seq(), Seq(), Seq(), (_, _, _) => t.StrictBV)
+    case s.IsMemberOf(id) => (Seq(id), Seq(), Seq(), (ids, _, _) => t.IsMemberOf(ids.head))
+    case s.IsObject => (Seq(), Seq(), Seq(), (_, _, _) => t.IsObject)
     case _ => super.deconstruct(f)
   }
 }

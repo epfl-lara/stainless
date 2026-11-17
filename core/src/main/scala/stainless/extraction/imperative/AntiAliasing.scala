@@ -926,7 +926,10 @@ class AntiAliasing(override val s: Trees)(override val t: s.type)(using override
               val nfi = FunctionInvocation(
                 fi.id, fi.tps, fi.args.map(transform(_, env))
               ).copiedFrom(fi)
-              val nfiType = fi.tfd.instantiate(analysis.getReturnType(fd))
+              // The return type may depend on the parameters, which are bound to the arguments
+              val nfiType = typeOps.replaceFromSymbols(
+                (fd.params zip nfi.args).toMap,
+                fi.tfd.instantiate(analysis.getReturnType(fd)))
               val isOpaqueOrExtern = symbols.getFunction(fi.id).flags.exists(f => f == Extern || f == Opaque)
               val res = mapApplication(fd.params, fi.args, nfi, nfiType, effects(fd), isOpaqueOrExtern, selectResult, env)
               (nfiType, res)
