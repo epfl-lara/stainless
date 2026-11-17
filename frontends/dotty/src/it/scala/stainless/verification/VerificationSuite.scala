@@ -109,6 +109,7 @@ class VerificationSuite extends VerificationComponentTestSuite {
       "verification/valid/i1379e",
       "verification/valid/i1379f",
       "verification/valid/i1379g",
+      "verification/valid/i1549",
       "verification/valid/InnerClasses4",
       "verification/valid/InnerClassesInvariants",
       "verification/valid/InsertionSort",
@@ -178,6 +179,8 @@ class VerificationSuite extends VerificationComponentTestSuite {
       "verification/invalid/HiddenOverride",
       "verification/invalid/HOInvocations",
       "verification/invalid/i497",
+      // Princess's counterexample does not pass --check-models
+      "verification/invalid/i665",
       "verification/invalid/i1295",
       "verification/invalid/i1379c",
       "verification/invalid/InductTacticTest",

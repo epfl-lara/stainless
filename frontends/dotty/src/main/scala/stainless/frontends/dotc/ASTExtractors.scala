@@ -286,6 +286,12 @@ trait ASTExtractors {
 
   def hasBigIntType(t: tpd.Tree) = isBigIntSym(t.tpe.typeSymbol)
 
+  /** Whether `t` is an `Int` or a `Long`, including a union of their literal types, such as the type of
+    * `if c then 1 else 0`.
+    */
+  def hasIntOrLongType(t: tpd.Tree): Boolean =
+    (t.tpe frozen_<:< defn.IntType) || (t.tpe frozen_<:< defn.LongType)
+
   def hasStringType(t: tpd.Tree) = isStringSym(t.tpe.typeSymbol)
 
   private lazy val bvtypes = Set(defn.ByteType, defn.ShortType, defn.IntType, defn.LongType)
@@ -1531,10 +1537,10 @@ trait ASTExtractors {
       }
     }
 
-    /** Matches the construct int2bigInt(a) and returns a */
+    /** Matches the implicit conversions `int2bigInt(a)` and `long2bigInt(a)`, and returns `a`. */
     object ExIntToBigInt {
       def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
-        case Apply(ExSymbol("scala", "math", "BigInt$", "int2bigInt"), List(t)) => Some(t)
+        case Apply(ExSymbol("scala", "math", "BigInt$", "int2bigInt" | "long2bigInt"), List(t)) => Some(t)
         case _ => None
       }
     }

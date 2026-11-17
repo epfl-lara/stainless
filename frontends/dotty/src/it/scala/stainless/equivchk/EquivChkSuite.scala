@@ -44,6 +44,8 @@ class EquivChkSuite extends ComponentTestSuite {
             optCompareFuns(conf.candidates.toSeq.sorted),
             optSilent(true)) ++
             conf.timeout.map(inox.optTimeout.apply) ++
+            conf.z3Rlimit.map(inox.solvers.smtlib.optZ3Rlimit.apply) ++
+            conf.unrollBound.map(inox.solvers.unrolling.optUnrollBound.apply) ++
             conf.norm.map(optNorm.apply).toSeq ++
             conf.n.map(optN.apply).toSeq ++
             conf.initScore.map(optInitScore.apply).toSeq ++
@@ -112,6 +114,8 @@ object EquivChkSuite extends ConfigurableTests {
                       initScore: Option[Int],
                       maxPerm: Option[Int],
                       timeout: Option[Duration],
+                      z3Rlimit: Option[Int],
+                      unrollBound: Option[Int],
                       results: Results)
 
   override def parseTestConf(f: File): TestConf = {
@@ -125,10 +129,12 @@ object EquivChkSuite extends ConfigurableTests {
     val initScore = jsonObj("init-score").map(_.asNumber.getOrCry("Expected 'init-score' to be an int").toInt.getOrCry("'init-score' is too large"))
     val maxPerm = jsonObj("max-perm").map(_.asNumber.getOrCry("Expected 'max-perm' to be an int").toInt.getOrCry("'max-perm' is too large"))
     val timeout = jsonObj("timeout").map(_.asNumber.getOrCry("Expected 'timeout' to be an double").toDouble)
+    val unrollBound = jsonObj("unroll-bound").map(_.asNumber.getOrCry("Expected 'unroll-bound' to be an int").toInt.getOrCry("'unroll-bound' is too large"))
+    val z3Rlimit = jsonObj("z3-rlimit").map(_.asNumber.getOrCry("Expected 'z3-rlimit' to be an int").toInt.getOrCry("'z3-rlimit' is too large"))
     assert(models.nonEmpty, "At least one model must be specified")
     assert(candidates.nonEmpty, "At least one candidate must be specified")
     val res = parseExpectedOutcome(jsonObj.getObjectOrCry("outcome"))
-    TestConf(models.toSet, candidates.toSet, tests.toSet, norm, n, initScore, maxPerm, timeout.map(_.seconds), res)
+    TestConf(models.toSet, candidates.toSet, tests.toSet, norm, n, initScore, maxPerm, timeout.map(_.seconds), z3Rlimit, unrollBound, res)
   }
 
   private def parseExpectedOutcome(jsonObj: JsonObject): Results = {

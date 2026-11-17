@@ -653,6 +653,10 @@ BigInt
 .. note::
   BigInt are mathematical integers (arbitrary size, no overflows).
 
+An ``Int`` or a ``Long`` converts to the ``BigInt`` of the same value, explicitly with ``BigInt(x)`` or
+through Scala's implicit conversion (``val b: BigInt = x``). Other arguments of ``BigInt(...)`` must be
+literals.
+
 Real
 ****
 

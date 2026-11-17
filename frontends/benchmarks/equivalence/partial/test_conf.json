@@ -5,6 +5,9 @@
   "comparefuns": [
     "Partial.f"
   ],
+  "timeout": 60,
+  "z3-rlimit": 20,
+  "unroll-bound": 10,
   "outcome": {
     "equivalent": [
       {

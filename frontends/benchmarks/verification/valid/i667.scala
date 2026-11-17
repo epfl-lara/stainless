@@ -17,3 +17,20 @@ object i667:
   def inRequireAndAssert(x: Int): Unit =
     require(BigInt(x) == BigInt(x))
     assert(BigInt(x) == BigInt(x))
+
+  def ifInEnsuringReceiver: BigInt = {
+    BigInt(if true then 0 else 1)
+  } ensuring (_ == 0)
+
+  def f(i: BigInt): BigInt =
+    i
+
+  def implicitConversionInBody(i: Int): BigInt = {
+    f(i)
+  } ensuring (_ == BigInt(i))
+
+  def implicitConversionInPostcondition(i: Int): Unit = {
+    ()
+  } ensuring { _ =>
+    f(i) == BigInt(i)
+  }

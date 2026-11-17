@@ -1,0 +1,6 @@
+[ Error  ] i665.scala:10:5: The type test for T cannot be checked at runtime because it refers to an abstract type member or type parameter.
+               a.isInstanceOf[T]
+               ^^^^^^^^^^^^^^^^^
+[ Error  ] i665.scala:13:5: The type test for i665.Box[BigInt] cannot be checked at runtime because its type arguments can't be determined from i665.A.
+               a.isInstanceOf[Box[BigInt]]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
