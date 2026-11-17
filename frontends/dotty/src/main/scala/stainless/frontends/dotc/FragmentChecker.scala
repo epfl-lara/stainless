@@ -610,10 +610,6 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
           }
 
           val template = cd.rhs.asInstanceOf[tpd.Template]
-          val parents = template.parents.map(_.tpe).filterNot(isIgnored)
-          if (parents.length > 1) {
-            reportError(tree.sourcePos, s"Stainless supports only simple type hierarchies: Classes can only inherit from a single class/trait")
-          }
           traverse(template.constr)
           template.body.foreach {
             case nested @ ExClassDef() if sym `is` ModuleClass =>

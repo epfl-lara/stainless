@@ -152,8 +152,14 @@ trait TypeOps extends innerfuns.TypeOps { self =>
   def leastUpperClassBound(ct1: ClassType, ct2: ClassType): Option[ClassType] = {
     val cd1Ans = ct1.tcd.ancestors.map(_.id).toSet + ct1.id
     val cd2Ans = ct2.tcd.ancestors.map(_.id).toSet + ct2.id
-    val ans1 = (ct1.tcd +: ct1.tcd.ancestors).find(tcd => cd2Ans contains tcd.id)
-    val ans2 = (ct2.tcd +: ct2.tcd.ancestors).find(tcd => cd1Ans contains tcd.id)
+    // With multiple inheritance, the first common ancestor need not be the least one:
+    // we look for the common ancestor that derives from all others
+    def least(tcds: Seq[TypedClassDef]): Option[TypedClassDef] = tcds.find { tcd =>
+      val ans = tcd.ancestors.map(_.id).toSet + tcd.id
+      tcds.forall(other => ans contains other.id)
+    }
+    val ans1 = least((ct1.tcd +: ct1.tcd.ancestors).filter(tcd => cd2Ans contains tcd.id))
+    val ans2 = least((ct2.tcd +: ct2.tcd.ancestors).filter(tcd => cd1Ans contains tcd.id))
     (ans1, ans2) match {
       case (Some(tcd1), Some(tcd2)) =>
         val tps = (tcd1.cd.typeArgs zip tcd1.tps zip tcd2.tps).map {

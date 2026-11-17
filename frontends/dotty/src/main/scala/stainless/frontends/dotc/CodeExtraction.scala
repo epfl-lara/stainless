@@ -547,6 +547,30 @@ class CodeExtraction(inoxCtx: inox.Context,
     case _ => NoPrefix
   }
 
+  /** The class given as self type of the class `cls`, if it is a strict subclass of `cls`.
+    *
+    * Within `cls`, `this` is an instance of its self type: the Scala compiler ensures that every
+    * concrete subclass of `cls` conforms to it (see `stainless.extraction.xlang.SelfTypes`).
+    */
+  private def selfTypeClass(cls: Symbol)(using pos: SourcePosition): Option[Symbol] =
+    if (!cls.isClass || (cls `is` ModuleClass)) None
+    else cls.asClass.givenSelfType match {
+      case NoType => None
+      case st =>
+        st.widenDealias.classSymbols.filterNot(c => cls.derivesFrom(c)) match {
+          case Seq() => None
+          case Seq(self) if self.derivesFrom(cls) && self.typeParams.isEmpty && cls.typeParams.isEmpty => Some(self)
+          case _ => outOfSubsetError(pos, s"Stainless only supports self types that are a subclass of the class (${st.show} in ${cls.name.show})")
+        }
+    }
+
+  /** `this` within the class `cls` of type `ct`, which has the type of the self type of `cls` if any. */
+  private def extractThis(cls: Symbol, ct: xt.ClassType)(using pos: SourcePosition): xt.Expr =
+    selfTypeClass(cls) match {
+      case Some(self) => xt.This(xt.ClassType(getIdentifier(self), Seq.empty).setPos(pos)).setPos(pos)
+      case None => xt.This(ct).setPos(pos)
+    }
+
   /** The type `p.C`, where `C` is a member class (see `stainless.extraction.xlang.MemberClasses`). */
   private def memberClassType(ct: xt.ClassType, cls: Symbol, prefix: Type)(using dctx: DefContext, pos: SourcePosition): xt.Type =
     if (!isMemberClass(cls)) ct
@@ -569,7 +593,9 @@ class CodeExtraction(inoxCtx: inox.Context,
       (if (sym `is` Sealed) Some(xt.IsSealed) else None) ++
       (if ((sym `is` ModuleClass) && (sym `is` Case)) Some(xt.IsCaseObject) else None) ++
       (if (sym `is` ModuleClass) Some(xt.IsObject) else None) ++
-      (if (isMemberClass(sym)) Some(xt.IsMemberOf(getIdentifier(sym.owner))) else None)
+      (if (isMemberClass(sym)) Some(xt.IsMemberOf(getIdentifier(sym.owner))) else None) ++
+      (if (sym `is` Trait) Some(xt.IsTrait) else None) ++
+      selfTypeClass(sym)(using td.sourcePos).map(self => xt.SelfType(xt.ClassType(getIdentifier(self), Seq.empty).setPos(td.sourcePos)))
 
     val tparams = extractTypeParams(sym.asClass.typeParams)(using DefContext())
 
@@ -689,6 +715,10 @@ class CodeExtraction(inoxCtx: inox.Context,
           () // ignore
 
       case ExFunctionDef(fsym, _, _, _, _) if fsym `is` Exported =>
+        // ignore
+
+      // The compiler's super accessors of traits, whose calls are extracted as super calls
+      case ExFunctionDef(fsym, _, _, _, _) if fsym.name.is(NameKinds.SuperAccessorName) =>
         // ignore
 
       // Normal methods
@@ -2029,7 +2059,7 @@ class CodeExtraction(inoxCtx: inox.Context,
 
     case t @ This(_) =>
       extractType(t) match {
-        case ct: xt.ClassType => xt.This(ct)
+        case ct: xt.ClassType => extractThis(t.tpe.asInstanceOf[ThisType].cls, ct)(using t.sourcePos)
         case lct: xt.LocalClassType => xt.LocalThis(lct)
         case _ => outOfSubsetError(t, "Invalid usage of `this`")
       }
@@ -2232,6 +2262,49 @@ class CodeExtraction(inoxCtx: inox.Context,
     if (isSyntheticArrayAccessor(sym))
       outOfSubsetError(tr, s"Stainless does not support references to the synthetic accessor `${sym.name.toString}`")
     rec match {
+    // A super call within a trait, which the compiler calls through a super accessor of the trait
+    case None | Some(This(_)) if sym.name.is(NameKinds.SuperAccessorName) =>
+      val trt = sym.owner
+      val target =
+        try transform.ResolveSuper.rebindSuper(trt, sym)
+        catch { case _: AssertionError => NoSymbol }
+      if (!target.exists)
+        outOfSubsetError(tr, s"Stainless cannot resolve the super call through ${sym.name.show} in ${trt.name.show}")
+      val ct = extractType(trt.thisType.baseType(target.owner))(using dctx, tr.sourcePos) match {
+        case ct: xt.ClassType => ct
+        case _ => outOfSubsetError(tr, s"Invalid usage of `super`")
+      }
+      xt.MethodInvocation(
+        xt.Super(ct).setPos(tr.sourcePos),
+        getIdentifier(target),
+        tps map extractType,
+        extractArgs(target, args)
+      ).setPos(tr.sourcePos)
+
+    // A super call within a class with several parents, where `super` has the intersection type of the
+    // parents: we give `super` the type of the class declaring the method called
+    case Some(sup @ Super(_, _)) if (sup.tpe match {
+      case SuperType(_, supTpe: AndType) =>
+        def components(tp: Type): Seq[Type] = tp match {
+          case AndType(l, r) => components(l) ++ components(r)
+          case _ => Seq(tp)
+        }
+        components(supTpe).count(isValidParentType(_)) > 1 &&
+          !sym.isField && !(sym `isOneOf` (ParamAccessor | CaseAccessor))
+      case _ => false
+    }) =>
+      val SuperType(thisTpe, _) = sup.tpe: @unchecked
+      val ct = extractType(thisTpe.baseType(sym.owner))(using dctx, tr.sourcePos) match {
+        case ct: xt.ClassType => ct
+        case _ => outOfSubsetError(tr, s"Stainless does not support super calls in local classes with several parents")
+      }
+      xt.MethodInvocation(
+        xt.Super(ct).setPos(sup.sourcePos),
+        getIdentifier(sym),
+        tps map extractType,
+        extractArgs(sym, args)
+      ).setPos(tr.sourcePos)
+
     case None if (sym.owner `is` ModuleClass) && (sym.owner `is` Case) =>
       val ct = extractType(sym.owner.thisType)(using dctx, tr.sourcePos).asInstanceOf[xt.ClassType]
       xt.MethodInvocation(
@@ -3057,7 +3130,7 @@ class CodeExtraction(inoxCtx: inox.Context,
         val id = getIdentifier(sym)
         dctx.localClasses.get(id) match {
           case Some(lcd) => Some(xt.LocalThis(extractType(thiss).asInstanceOf[xt.LocalClassType]))
-          case None => Some(xt.This(extractType(thiss).asInstanceOf[xt.ClassType]))
+          case None => Some(extractThis(thiss.cls, extractType(thiss).asInstanceOf[xt.ClassType]))
         }
       case _: SingletonType =>
         dctx.vars.get(sym).map(e => e())

@@ -106,9 +106,9 @@ class XLangSerializer(override val trees: extraction.xlang.Trees, serializeProdu
   /** An extension to the set of registered classes in the `StainlessSerializer`.
     * occur within Stainless programs.
     *
-    * The new identifiers in the mapping range from 180 to 271.
+    * The new identifiers in the mapping range from 180 to 273.
     *
-    * NEXT ID: 272
+    * NEXT ID: 274
     */
   override protected def classSerializers: Map[Class[?], Serializer[?]] =
     super.classSerializers ++ Map(
@@ -224,6 +224,8 @@ class XLangSerializer(override val trees: extraction.xlang.Trees, serializeProdu
       stainlessClassSerializer[PathClassPattern](269),
       stainlessClassSerializer[IsMemberOf]      (270),
       stainlessClassSerializer[IsObject.type]   (271),
+      stainlessClassSerializer[IsTrait.type]    (272),
+      stainlessClassSerializer[SelfType]        (273),
     )
 }
 

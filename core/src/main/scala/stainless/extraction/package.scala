@@ -26,6 +26,8 @@ package object extraction {
   val phases: Seq[(String, String)] = Seq(
     "UserFiltering"             -> "Remove all the library functions not used by the user",
     "Preprocessing"             -> "A preprocessing phase before the pipeline",
+    "Mixins"                    -> "Resolve mixin composition and super calls within traits",
+    "SelfTypes"                 -> "Cast this to the self type of its class",
     "MemberClasses"             -> "Encode the path-dependent types of member classes as refinements",
     "OuterIdentities"           -> "Assign identities to instances of classes with member classes",
     "ConstructsUsage"           -> "Collect uses of `choose`, `@extern` and `???` for the summary report",
