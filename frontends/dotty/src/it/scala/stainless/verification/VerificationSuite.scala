@@ -90,6 +90,8 @@ class VerificationSuite extends VerificationComponentTestSuite {
       "verification/valid/BitsTricksSlow",
       "verification/valid/BooleanOps",
       "verification/valid/BVMaxInterpret",
+      "verification/valid/CakeMixins",
+      "verification/valid/CakeSelfTypes",
       "verification/valid/Composition",
       "verification/valid/ConcRope",
       "verification/valid/ConcTree",

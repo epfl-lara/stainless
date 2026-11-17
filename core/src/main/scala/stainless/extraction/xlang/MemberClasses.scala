@@ -121,7 +121,11 @@ class MemberClasses(override val s: Trees)(override val t: s.type)
     def outerFieldId(id: Identifier): Identifier =
       outerFields.getOrElseUpdate(id, SymbolIdentifier(fullName(id) + ".$outer"))
 
-    def outerType(id: Identifier): ClassType = ClassType(ownerOf(id).get, Seq.empty)
+    /** The type of `this` within the class `id`: its self type, if any (see [[SelfTypes]]). */
+    def thisType(id: Identifier): ClassType =
+      symbols.lookupClass(id).flatMap(_.flags.collectFirst { case SelfType(tpe) => tpe }).getOrElse(ClassType(id, Seq.empty))
+
+    def outerType(id: Identifier): ClassType = thisType(ownerOf(id).get)
 
     /** The outer instance of `e`, an instance of the member class `id`, and its type. */
     def selectOuter(e: Expr, id: Identifier): (Expr, ClassType) = {
@@ -168,13 +172,13 @@ class MemberClasses(override val s: Trees)(override val t: s.type)
       override def transform(e: Expr): Expr = e match {
         // `O.this` within a member class nested in `O`
         case This(ct) if classes.size >= 2 && !derivesFrom(classes.head, ct.id) =>
-          val idx = classes.indexWhere(c => derivesFrom(c, ct.id))
+          val idx = classes.indexWhere(c => derivesFrom(c, ct.id) || derivesFrom(thisType(c).id, ct.id))
           if (idx < 0) context.reporter.fatalError(e.getPos, s"Cannot access ${ct.id.asString} from ${classes.head.asString}")
           var res: Expr = This(ClassType(classes.head, symbols.getClass(classes.head).typeArgs)).copiedFrom(e)
           for (i <- 0 until idx) {
             val (outer, tpe) = selectOuter(res, classes(i))
             // The inherited accessor may have a wider type than the class enclosing `classes(i)`
-            res = if (tpe.id == classes(i + 1)) outer else AsInstanceOf(outer, ClassType(classes(i + 1), Seq.empty)).copiedFrom(e)
+            res = if (tpe == thisType(classes(i + 1))) outer else AsInstanceOf(outer, thisType(classes(i + 1))).copiedFrom(e)
           }
           res
 
@@ -253,7 +257,7 @@ class MemberClasses(override val s: Trees)(override val t: s.type)
       val added = fieldInvariants.filterNot(p => existing.contains(p._1)).map { case (cid, invs) =>
         val cd = symbols.getClass(cid)
         val flags = cd.flags.filter {
-          case IsAbstract | IsSealed | ValueClass | IsCaseObject | IsMutable | IsObject | IsMemberOf(_) => false
+          case IsAbstract | IsSealed | ValueClass | IsCaseObject | IsMutable | IsObject | IsMemberOf(_) | IsTrait | SelfType(_) => false
           case f => f.name != "cCode.export" && !f.name.startsWith("cCode.global")
         }
         new FunDef(SymbolIdentifier(sym), Seq.empty, Seq.empty, BooleanType().copiedFrom(cd), andJoin(invs).copiedFrom(cd),

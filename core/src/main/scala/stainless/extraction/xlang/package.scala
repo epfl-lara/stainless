@@ -41,7 +41,7 @@ package object xlang {
       override protected def getContext(symbols: s.Symbols) = identity
 
       private def keepFlag(flag: s.Flag): Boolean = flag match {
-        case s.Ignore | s.StrictBV | s.IsObject | s.IsMemberOf(_) => false
+        case s.Ignore | s.StrictBV | s.IsObject | s.IsMemberOf(_) | s.IsTrait | s.SelfType(_) => false
         case _ => true
       }
 
@@ -71,6 +71,8 @@ package object xlang {
     }
 
     val lowering = new Lowering(trees, innerclasses.trees)
+    utils.NamedPipeline("Mixins", Mixins(trees)) `andThen`
+    utils.NamedPipeline("SelfTypes", SelfTypes(trees)) `andThen`
     utils.NamedPipeline("MemberClasses", MemberClasses(trees)) `andThen`
     utils.NamedPipeline("OuterIdentities", OuterIdentities(trees)) `andThen`
     utils.NamedPipeline("ConstructsUsage", ConstructsUsage(trees)) `andThen`

@@ -17,6 +17,12 @@ trait Trees extends innerclasses.Trees { self =>
   /** The class is the class of an object. */
   case object IsObject extends Flag("object", Seq.empty)
 
+  /** The class is a trait, which can be mixed in (see [[Mixins]]). */
+  case object IsTrait extends Flag("trait", Seq.empty)
+
+  /** The class declares the self type `tpe`, a subclass of the class: `this` is an instance of `tpe` within the class. */
+  case class SelfType(tpe: ClassType) extends Flag("selfType", Seq(tpe))
+
   override def extractFlag(name: String, args: Seq[Expr]): Flag = (name, args) match {
     case ("ignore", Seq()) => Ignore
     case _ => super.extractFlag(name, args)
@@ -259,6 +265,8 @@ trait TreeDeconstructor extends innerclasses.TreeDeconstructor {
     case s.StrictBV => (Seq(), Seq(), Seq(), (_, _, _) => t.StrictBV)
     case s.IsMemberOf(id) => (Seq(id), Seq(), Seq(), (ids, _, _) => t.IsMemberOf(ids.head))
     case s.IsObject => (Seq(), Seq(), Seq(), (_, _, _) => t.IsObject)
+    case s.IsTrait => (Seq(), Seq(), Seq(), (_, _, _) => t.IsTrait)
+    case s.SelfType(tpe) => (Seq(), Seq(), Seq(tpe), (_, _, tps) => t.SelfType(tps.head.asInstanceOf[t.ClassType]))
     case _ => super.deconstruct(f)
   }
 }
