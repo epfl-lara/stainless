@@ -15,9 +15,9 @@ trait TypeOps extends oo.TypeOps { self =>
       .filter(_.params.isEmpty)
       .flatMap { fd =>
         lookupClass(fd.flags.collectFirst { case IsMethodOf(id) => id }.get).flatMap { cd =>
-          instantiation(ClassType(cd.id, cd.tparams.map(_.tp)), inType)
+          instantiation(ClassType(cd.id, cd.tparams.map(_.tp)), inType.stripToplevelRefinement)
             .filter(tpMap => cd.tparams forall (tpd => tpMap contains tpd.tp))
-            .map(tpMap => typeOps.instantiateType(fd.returnType, tpMap))
+            .map(tpMap => typeOps.instantiateType(fd.returnType, tpMap).stripToplevelRefinement)
         }
       }.orElse(super.unapplyAccessorResultType(id, inType))
 
