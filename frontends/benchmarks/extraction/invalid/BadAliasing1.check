@@ -1,3 +1,0 @@
-[ Error  ] BadAliasing1.scala:9:5: Cannot update a field whose type (A) is mutable with a non-fresh expression
-               a.x = 0
-               ^

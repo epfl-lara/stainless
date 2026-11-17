@@ -56,6 +56,9 @@ trait SymbolOps extends TypeOps with oo.SymbolOps { self =>
     immutableVariables && callFree
   }
 
+  def containsMutableType(e: Expr): Boolean =
+    exprOps.exists(sub => isMutableType(sub.getType))(e)
+
   def isMutableClassType(ct: ClassType): Boolean = {
     isMutableClassType(ct, mutableClasses, Set())
   }

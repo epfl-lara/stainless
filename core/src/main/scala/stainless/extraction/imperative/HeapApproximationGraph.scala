@@ -10,10 +10,13 @@ trait HeapApproximationGraphs extends HeapApproximationPoints {
   import s._
   import s.exprOps.Deconstructor
 
+  /** A node of the graph: the expression `e`, the scope it runs in, and the variables live after it. */
   case class ProgramPoint(scope: Int, e: Expr, live: Set[Identifier] = Set.empty) {
+    /** The id of the expression of this point. */
     def id: ExpressionID = ExpressionID(e)
   }
 
+  /** The control flow of a function body, from `entrypoint` to `exitpoint`, with one point per expression. */
   case class HeapApproximationGraph private (
     params: Seq[ValDef],
 
@@ -24,8 +27,10 @@ trait HeapApproximationGraphs extends HeapApproximationPoints {
     parents: Map[ExpressionID, Set[ExpressionID]],
     transitions: Map[ExpressionID, Set[ExpressionID]],
   ) {
+    /** The scope of `point`. */
     def scopeAt(point: ExpressionID): Int = points(point).scope
 
+    /** The variables the body declares. */
     lazy val locals: Set[Identifier] = points.values
       .collect {
         case ProgramPoint(_, Let(vd, _, _), _) => vd.id
@@ -33,26 +38,36 @@ trait HeapApproximationGraphs extends HeapApproximationPoints {
       }
       .toSet
 
+    /** The parameters and the variables the body declares. */
+    lazy val declared: Set[Identifier] = params.map(_.id).toSet ++ locals
+
+    /** Adds the point of `e`, at `scope`. */
     private def withProgramPoint(scope: Int, e: Expr): HeapApproximationGraph = {
       assert(!points.contains(ExpressionID(e)), s"Expression instance appears twice in the graph: $e")
+
       copy(points = points + (ExpressionID(e) -> ProgramPoint(scope, e)))
     }
 
+    /** Adds an edge from `from` to `to`. */
     private def withTransition(from: ExpressionID, to: ExpressionID): HeapApproximationGraph =
       withTransitions(from, Set(to))
 
+    /** Adds an edge from `from` to each point of `to`. */
     private def withTransitions(from: ExpressionID, to: Set[ExpressionID]): HeapApproximationGraph =
       copy(
         parents = to.foldLeft(parents)((parents, to) => parents + (to -> (parents.getOrElse(to, Set.empty) + from))),
         transitions = transitions + (from -> (transitions.getOrElse(from, Set.empty) ++ to))
       )
 
+    /** The points with an edge to `point`. */
     def parentsOf(point: ProgramPoint): Seq[ProgramPoint] =
-      parents.getOrElse(point.id, Set.empty).toSeq.map(x => points(x))
+      parents.getOrElse(point.id, Set.empty).toSeq.map(points)
 
+    /** The points `point` has an edge to. */
     def nextOf(point: ProgramPoint): Seq[ProgramPoint] =
-      transitions.getOrElse(point.id, Set.empty).toSeq.map(x => points(x))
+      transitions.getOrElse(point.id, Set.empty).toSeq.map(points)
 
+    /** The point whose result is the result of `e`: the body of a binding, the condition of a loop, `e` itself otherwise. */
     def exitOf(e: Expr): ExpressionID = e match {
       case Let(_, _, body) => exitOf(body)
       case LetVar(_, _, body) => exitOf(body)
@@ -62,9 +77,8 @@ trait HeapApproximationGraphs extends HeapApproximationPoints {
       case _ => ExpressionID(e)
     }
 
+    /** Records at each point the variables live after it, the variables captured by a lambda or a local function being always live. */
     private def computeLiveness(using Symbols): HeapApproximationGraph = {
-      val returned = points.values.collect { case ProgramPoint(_, LetVar(_, Variable(id, _, _), _), _) => id }.toSet
-
       def readsCollection(value: Expr): Boolean =
         exprOps.exists { case _: ArraySelect | _: MutableMapApply => true; case _ => false }(value)
 
@@ -118,6 +132,8 @@ trait HeapApproximationGraphs extends HeapApproximationPoints {
         case _ => Set.empty
       }
 
+      val returned = points.values.collect { case ProgramPoint(_, LetVar(_, Variable(id, _, _), _), _) => id }.toSet
+
       def liveIn(id: ExpressionID, liveOut: Map[ExpressionID, Set[Identifier]]): Set[Identifier] =
         usesOf(points(id).e) ++ (liveOut.getOrElse(id, Set.empty) -- definedBy(points(id).e))
 
@@ -129,12 +145,13 @@ trait HeapApproximationGraphs extends HeapApproximationPoints {
             if (id == exitpoint) params.map(_.id).toSet -- returned
             else transitions.getOrElse(id, Set.empty).flatMap(liveIn(_, liveOut))
 
-          if (liveOut.get(id).contains(out)) propagate(rest, liveOut)
-          else {
-            val next = parents.getOrElse(id, Set.empty).toList ++ rest
-
-            propagate(next, liveOut + (id -> out))
+          if (liveOut.get(id).contains(out)) {
+            return propagate(rest, liveOut)
           }
+
+          val next = parents.getOrElse(id, Set.empty).toList ++ rest
+
+          propagate(next, liveOut + (id -> out))
       }
 
       val captured = points.values
@@ -147,7 +164,10 @@ trait HeapApproximationGraphs extends HeapApproximationPoints {
   }
 
   object HeapApproximationGraph {
+    /** The graph of `e`, a body with parameters `params`, whose points start at scope `baseScope`. */
     def build(params: Seq[ValDef], e: Expr, baseScope: Int = 0)(using symbols: Symbols): HeapApproximationGraph = {
+      def isSingleton(e: Expr): Boolean = e.getClass.getName.endsWith("$")
+
       def buildRec(graph: HeapApproximationGraph, scope: Int, next: Set[ExpressionID], e: Expr): (ExpressionID, HeapApproximationGraph) = e match {
         case e @ Let(_, value, body) =>
           val newPoint = ExpressionID(e)
@@ -228,15 +248,23 @@ trait HeapApproximationGraphs extends HeapApproximationPoints {
 
         case e @ IfExpr(cond, thn, els) =>
           val newPoint = ExpressionID(e)
-
           val (thnPoint, graph1) = buildRec(graph, scope + 1, Set(newPoint), thn)
           val (elsPoint, graph2) = buildRec(graph1, scope + 1, Set(newPoint), els)
           val (condPoint, graph3) = buildRec(graph2, scope, Set(thnPoint, elsPoint), cond)
+
           val graph4 = graph3
             .withProgramPoint(scope, e)
             .withTransitions(newPoint, next)
 
           (condPoint, graph4)
+
+        case e: MatchExpr if !symbols.containsMutableType(e) =>
+          val newPoint = ExpressionID(e)
+          val graph1 = graph
+            .withProgramPoint(scope, e)
+            .withTransitions(newPoint, next)
+
+          (newPoint, graph1)
 
         case e: MatchExpr =>
           throw AliasingRewriteException.unsupportedConstruct(e)
@@ -251,9 +279,9 @@ trait HeapApproximationGraphs extends HeapApproximationPoints {
 
         case e @ While(cond, body, _, _, _) =>
           val newPoint = ExpressionID(e)
-
           val (bodyPoint, graph1) = buildRec(graph, scope + 1, Set(newPoint), body)
           val (condPoint, graph2) = buildRec(graph1, scope, Set(bodyPoint) ++ next, cond)
+
           val graph3 = graph2
             .withProgramPoint(scope, e)
             .withTransition(newPoint, condPoint)
@@ -262,8 +290,8 @@ trait HeapApproximationGraphs extends HeapApproximationPoints {
 
         case e @ Return(body) =>
           val newPoint = ExpressionID(e)
-
           val (bodyPoint, graph1) = buildRec(graph, scope, Set(newPoint), body)
+
           val graph2 = graph1
             .withProgramPoint(scope, e)
             .withTransition(newPoint, graph1.exitpoint)
@@ -287,7 +315,8 @@ trait HeapApproximationGraphs extends HeapApproximationPoints {
           }
 
         case other =>
-          val Deconstructor(expressions, _) = other: @unchecked
+          val Deconstructor(operands, _) = other: @unchecked
+          val expressions = operands.filterNot(isSingleton)
           val newPoint = ExpressionID(other)
           val graph1 = graph
             .withProgramPoint(scope, other)

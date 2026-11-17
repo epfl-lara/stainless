@@ -35,10 +35,12 @@ trait HeapApproximationPoints extends HeapApproximations {
 
     /** The slots of `value` that the heap knows about: its fields, tuple components or elements. */
     def resolveSlots(value: HeapValue): Seq[HeapSlot] =
-      children(value).toSeq.flatMap {
-        case elements: HeapElements => children(elements).toSeq
-        case child => Seq(child)
-      }.collect { case slot: HeapSlot => slot }
+      children(value).toSeq
+        .flatMap {
+          case elements: HeapElements => children(elements).toSeq
+          case child => Seq(child)
+        }
+        .collect { case slot: HeapSlot => slot }
 
     /** The objects registered under each object: slots under their owner or element set, element sets under their collection. */
     private lazy val children: Map[HeapObject, Set[HeapObject]] =
@@ -86,6 +88,13 @@ trait HeapApproximationPoints extends HeapApproximations {
       (collection, registeredHeap.withReference(collection, ExactHeapReference(collection.elements)))
     }
 
+    /** Registers the immutable value written at `site`. */
+    def withImmutable(site: ExpressionID): (HeapImmutable, HeapPointApproximation) = {
+      val immutable = HeapImmutable(site)
+
+      (immutable, withObject(immutable))
+    }
+
     /** Registers the value created at `site`, of the kind given by `tpe`. */
     def withValue(site: ExpressionID, tpe: Type)(using Symbols): (HeapValue, HeapPointApproximation) = {
       val value = HeapValue(site, tpe)
@@ -122,11 +131,15 @@ trait HeapApproximationPoints extends HeapApproximations {
     def resolveVariable(identifier: Identifier): HeapReference =
       references(HeapVariable(identifier))
 
-    /** Keeps only the variables in `identifiers`, and what they keep alive. */
+    /** Keeps the variables in `identifiers`, and the other variables that reach one of their objects, all at the current scope. */
     def withRestriction(identifiers: Set[Identifier]): HeapPointApproximation = {
-      val outside = variables.filterNot(variable => identifiers(variable.identifier))
+      val (kept, others) = variables.partition(variable => identifiers(variable.identifier))
+      val shared = kept.flatMap(resolveAllTargets(_).values)
+      val (aliases, outside) = others.partition(variable => resolveAllTargets(variable).values.exists(shared))
+      val rescoped = (kept ++ aliases).foldLeft(objects)((objects, variable) => objects.updated(variable, HeapScopedObject(scope, variable)))
 
-      withoutObject(outside)
+      copy(objects = rescoped)
+        .withoutObject(outside)
         .prune(scope)
     }
 
@@ -134,7 +147,7 @@ trait HeapApproximationPoints extends HeapApproximations {
     def withoutReferencesOf(identifiers: Set[Identifier]): HeapPointApproximation =
       identifiers.foldLeft(this)((heap, identifier) => heap.withReference(HeapVariable(identifier), NoHeapReference))
 
-    /** Makes `source` point to `reference`, registering it first when it is a slot. */
+    /** Makes `source` point to `reference`, registering it first when it is a slot or an original. */
     def withReference(source: HeapObject, reference: HeapReference): HeapPointApproximation = {
       def withSlot(slot: HeapSlot): HeapPointApproximation = {
         if (isAlive(slot)) {
@@ -150,6 +163,7 @@ trait HeapApproximationPoints extends HeapApproximations {
 
       val registered = source match {
         case slot: HeapSlot => withSlot(slot)
+        case original: HeapOriginal => withObject(original)
         case _ if isAlive(source) => this
         case _ => throw new IllegalStateException(s"$source is updated but not registered")
       }
@@ -221,7 +235,7 @@ trait HeapApproximationPoints extends HeapApproximations {
           return visited
         }
 
-        (references(heapObject).toSet() ++ children(heapObject)).foldLeft(visited + heapObject)(reachFrom)
+        (references(heapObject).toSet ++ children(heapObject)).foldLeft(visited + heapObject)(reachFrom)
       }
 
       val roots = variables.filter(variable => objects(variable).scope <= scope) ++ results.values
@@ -236,7 +250,7 @@ trait HeapApproximationPoints extends HeapApproximations {
     private def normalize: HeapPointApproximation = {
       def normalizeCollection(heap: HeapPointApproximation, head: HeapCollection): HeapPointApproximation = {
         val own = heap.resolveSlots(head).map(_.accessor).toSet
-        val others = (heap.references(head).toSet() - head.elements).collect { case elements: HeapElements => elements }
+        val others = (heap.references(head).toSet - head.elements).collect { case elements: HeapElements => elements }
         val (overridden, moved) = others
           .flatMap(elements => heap.resolveSlots(elements.owner))
           .collect { case slot: HeapElement => slot }
@@ -254,7 +268,8 @@ trait HeapApproximationPoints extends HeapApproximations {
       val unshared = objects.keySet
         .collect { case head: HeapCollection => head }
         .filter { head =>
-          val elements = references(head).toSet()
+          val elements = references(head).toSet
+
           elements.size > 1 && elements.forall(references.parentsOf(_) == Set(head))
         }
 
@@ -267,6 +282,7 @@ trait HeapApproximationPoints extends HeapApproximations {
       def pruneFixpoint(heap: HeapPointApproximation): HeapPointApproximation = {
         val normalized = heap.normalize
         val pruned = normalized.withoutObject(normalized.deadObjects)
+
         if (pruned == heap) {
           return pruned
         }
@@ -366,26 +382,29 @@ trait HeapApproximationPoints extends HeapApproximations {
     def withoutConditionOn(identifiers: Set[Identifier]): HeapPointApproximation =
       copy(references = references.map(reference => dereference(reference).withoutConditionOn(identifiers)))
 
-    /** The values and locations that did not exist in `before`. */
+    /** The values, locations and immutable values that did not exist in `before`. */
     def created(before: HeapPointApproximation): Set[HeapObject] =
       objects.keySet.collect {
         case value: HeapValue if !before.isAlive(value) => value
         case location: HeapLocation if !before.isAlive(location) => location
+        case immutable: HeapImmutable if !before.isAlive(immutable) => immutable
       }
 
-    /** Imports the slots `other` assigned, translating its originals into what this heap holds. */
+    /** Imports the slots `other` assigned and the originals it named, translating its unread originals into what this heap holds. */
     def withOverride(other: HeapPointApproximation): HeapPointApproximation = {
+      val assigned = other.references.references.keySet.collect {
+        case slot: HeapSlot => slot
+        case original: HeapOriginal => original
+      }
       val imported = copy(objects = (other.objects -- other.variables) ++ objects)
 
-      val assignedSlots = other.references.references.keySet.collect { case slot: HeapSlot => slot }
-
-      assignedSlots.foldLeft(imported) { (heap, slot) =>
-        val reference = other.references(slot).flatMap {
+      assigned.foldLeft(imported) { (heap, source) =>
+        val reference = other.references(source).flatMap {
           case HeapOriginal(original) => heap.references(original)
           case target => ExactHeapReference(target)
         }
 
-        heap.withReference(slot, reference)
+        heap.withReference(source, reference)
       }
     }
 
@@ -401,15 +420,17 @@ trait HeapApproximationPoints extends HeapApproximations {
 
       copy(
         objects = other.objects ++ objects,
-        references = withForeignSlots(other).references.union(other.withForeignSlots(this).references),
+        references = withForeignReferences(other).references.union(other.withForeignReferences(this).references),
         results = results ++ other.results
       )
     }
 
-    /** Adopts the slots `other` assigned for objects this heap does not have. */
-    private def withForeignSlots(other: HeapPointApproximation): HeapPointApproximation = {
+    /** Adopts the references `other` has for objects this heap does not know. */
+    private def withForeignReferences(other: HeapPointApproximation): HeapPointApproximation = {
       val adopted = other.references.references.foldLeft(references) {
         case (result, (slot: HeapSlot, reference)) if !isAlive(slot.owner) && result.get(slot).isEmpty => result.updated(slot, reference)
+        case (result, (value: HeapValue, reference)) if !isAlive(value) => result.updated(value, reference)
+        case (result, (original: HeapOriginal, reference)) if !isAlive(original) => result.updated(original, reference)
         case (result, _) => result
       }
 
@@ -417,7 +438,7 @@ trait HeapApproximationPoints extends HeapApproximations {
     }
 
     /** Joins the heaps of the two branches of an `if` on `condition`: registries and results are merged, references that differ become conditional on `condition`. */
-    def mergeConditional(condition: Expr, elze: HeapPointApproximation): HeapPointApproximation = {
+    def mergeWithCondition(condition: Expr, elze: HeapPointApproximation): HeapPointApproximation = {
       if (isEmpty) {
         return elze
       }
@@ -431,15 +452,18 @@ trait HeapApproximationPoints extends HeapApproximations {
         .foldLeft(copy(objects = elze.objects ++ objects))((heap, variable) => heap.withObject(HeapVariable(variable.id)))
 
       registeredHeap.copy(
-        references = withForeignSlots(elze).references.conditional(condition, elze.withForeignSlots(this).references),
+        references = withForeignReferences(elze).references.conditional(condition, elze.withForeignReferences(this).references),
         results = results ++ elze.results
       )
     }
 
-    /** `reference` with every location replaced by what it points to. */
+    /** `reference` with every location, and every original already read, replaced by what it points to. */
     def dereference(reference: HeapReference): HeapReference = reference match {
       case ExactHeapReference(location: HeapLocation) =>
         dereference(references(location))
+
+      case ExactHeapReference(original: HeapOriginal) if isAlive(original) =>
+        dereference(references(original))
 
       case AmbiguousHeapReference(targets) =>
         targets.foldLeft(NoHeapReference: HeapReference)((result, target) => result.union(dereference(ExactHeapReference(target))))
@@ -498,17 +522,17 @@ trait HeapApproximationPoints extends HeapApproximations {
       targets.targets.flatMap(dependenciesOf(_, Set.empty))
     }
 
-    /** Whether `reference` points to something other than exactly one value or nothing. */
+    /** Whether `reference` cannot be resolved, under each of its conditions, to at most one value. */
     def isAmbiguous(reference: HeapReference): Boolean = dereference(reference) match {
       case NoHeapReference => false
       case ExactHeapReference(_: HeapValue) => false
+      case ConditionalHeapReference(_, thenn, elze) => isAmbiguous(thenn) || isAmbiguous(elze)
       case _ => true
     }
 
     /** Whether a collection reached from `source` shares its elements with another one. */
     def isShared(source: HeapObject): Boolean =
-      resolveAllTargets(source).targets
-        .exists(target => references(target.value).toSet().size > 1)
+      resolveAllTargets(source).targets.exists(target => references(target.value).toSet.size > 1)
 
     /** Whether what `source` reaches is a tree: no value reaches itself, and no two slots of a value reach a common object. */
     def isTree(source: HeapObject): Boolean =
@@ -523,8 +547,7 @@ trait HeapApproximationPoints extends HeapApproximations {
 
     /** Whether every variable path reaching what `source` points to goes through `source`. */
     def isFresh(source: HeapObject): Boolean =
-      resolveDependencies(resolveAllTargets(source))
-        .forall(_.isReachable(source))
+      resolveDependencies(resolveAllTargets(source)).forall(_.isReachable(source))
   }
 
   object HeapPointApproximation {
@@ -542,9 +565,9 @@ trait HeapApproximationPoints extends HeapApproximations {
           return heap.withDeclareVariable(vd.id, NoHeapReference)
         }
 
-        val (value, newHeap1) = heap.withValue(ExpressionID(vd.toVariable), vd.tpe)
+        val (value, registered) = heap.withValue(ExpressionID(vd.toVariable), vd.tpe)
 
-        newHeap1.withDeclareVariable(vd.id, ExactHeapReference(value))
+        registered.withDeclareVariable(vd.id, ExactHeapReference(value))
       }
 
       params.foldLeft(empty(scope))(declareParameter)

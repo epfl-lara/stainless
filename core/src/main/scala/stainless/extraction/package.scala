@@ -48,6 +48,7 @@ package object extraction {
     "FieldAccessors"            -> "Inline field accessors of concrete classes",
     "SameAsLowering"            -> "Lower `sameAs` postconditions of observationally pure functions to equalities",
     "EffectElaboration"         -> "Transform all side-effectful operations into mutable map updates",
+    "EffectsCheck"              -> "Check that effects only occur where allowed: purity, specifications, refinements and type parameters",
     "FunctionRewrite"           -> "Rewrite function/lambda signatures and call-sites to make aliasing effects explicit",
     "ConditionalHoisting"       -> "Hoist if conditions into variables and lower matches into if-chains with hoisted case conditions",
     "AssignmentRewrite"         -> "Inject refresh assignments for known-aliased variables after mutations",

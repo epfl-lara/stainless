@@ -4,7 +4,6 @@ package stainless
 package extraction
 package imperative
 
-
 trait HeapApproximations extends CallResults { self: HeapApproximationPoints =>
   val s: Trees
   import s._
@@ -56,13 +55,13 @@ trait HeapApproximations extends CallResults { self: HeapApproximationPoints =>
   sealed abstract class HeapObject {
     /** Replaces the objects matched by `substitution`; a slot or an element set follows its owner when the owner is replaced. */
     def substitute(substitution: PartialFunction[HeapObject, HeapObject]): HeapObject = {
-      if (substitution.isDefinedAt(this)) {
-        return substitution(this)
-      }
-
       def owner(value: HeapValue): HeapValue = value.substitute(substitution) match {
         case substituted: HeapValue => substituted
         case other => throw new IllegalArgumentException(s"Substitution maps owner $value of $this to non-value $other")
+      }
+
+      if (substitution.isDefinedAt(this)) {
+        return substitution(this)
       }
 
       this match {
@@ -79,9 +78,10 @@ trait HeapApproximations extends CallResults { self: HeapApproximationPoints =>
       }
     }
 
-    /** Moves this object under `registry`; only locations and values have a site to move. */
+    /** Moves this object under `registry`; only locations, immutable values and values have a site to move. */
     def relocate(registry: ExpressionRegistry): HeapObject = this match {
       case HeapLocation(site) => HeapLocation(registry.relocate(site))
+      case HeapImmutable(site) => HeapImmutable(registry.relocate(site))
       case other => throw new IllegalArgumentException(s"$other is not a site")
     }
   }
@@ -138,8 +138,10 @@ trait HeapApproximations extends CallResults { self: HeapApproximationPoints =>
   sealed abstract class HeapSlot extends HeapObject {
     /** The value this slot belongs to. */
     def owner: HeapValue
+
     /** How this slot is reached from its owner. */
     def accessor: HeapAccessor
+
     /** The object this slot is registered under: its owner, or the element set for a collection element. */
     def parent: HeapObject
   }
@@ -200,11 +202,14 @@ trait HeapApproximations extends CallResults { self: HeapApproximationPoints =>
     /** Whether the index of this element mentions one of `identifiers`. */
     def indexDependsOn(identifiers: Set[Identifier]): Boolean = exprOps.variablesOf(index).exists(variable => identifiers(variable.id))
   }
-  
+
   /** Where the result of an expression is stored. */
   case class HeapLocation(site: ExpressionID) extends HeapObject
 
-  /** What a slot held before the code under analysis, as long as it has not been read. */
+  /** An immutable value written into a slot at `site`: not an object, but distinct for each write. */
+  case class HeapImmutable(site: ExpressionID) extends HeapObject
+
+  /** What a slot held before the code under analysis; once read, it points to the value that names it. */
   case class HeapOriginal(slot: HeapSlot) extends HeapObject
 
   /** An object registered in the heap, with the scope it was declared in. */
@@ -222,7 +227,7 @@ trait HeapApproximations extends CallResults { self: HeapApproximationPoints =>
     /** Replaces each target by the reference `f` gives for it, keeping the conditions. */
     def flatMap(f: HeapObject => HeapReference): HeapReference = this match {
       case ConditionalHeapReference(condition, thenn, elze) => HeapReference.conditional(condition, thenn.flatMap(f), elze.flatMap(f))
-      case other => HeapReference.union(other.toSet().map(f))
+      case other => HeapReference.union(other.toSet.map(f))
     }
 
     /** Replaces the not-yet-read original by `original`. */
@@ -238,7 +243,7 @@ trait HeapApproximations extends CallResults { self: HeapApproximationPoints =>
 
       case ConditionalHeapReference(condition, thenn, elze) =>
         HeapReference.conditional(condition, thenn.withoutConditionOn(identifiers), elze.withoutConditionOn(identifiers))
-        
+
       case other => other
     }
 
@@ -251,7 +256,7 @@ trait HeapApproximations extends CallResults { self: HeapApproximationPoints =>
     }
 
     /** All the targets, whatever the conditions. */
-    def toSet(): Set[HeapObject]
+    def toSet: Set[HeapObject]
 
     /** The values this reference points to, each with the conditions under which it does. */
     def toTargets: HeapTargetSet = this match {
@@ -262,7 +267,7 @@ trait HeapApproximations extends CallResults { self: HeapApproximationPoints =>
         HeapTargetSet.from(thenTargets.targets ++ elzeTargets.targets)
 
       case other =>
-        HeapTargetSet.from(other.toSet().collect { case value: HeapValue => HeapTarget(Set(HeapTargetCondition.always), value) })
+        HeapTargetSet.from(other.toSet.collect { case value: HeapValue => HeapTarget(Set(HeapTargetCondition.always), value) })
     }
   }
 
@@ -273,19 +278,23 @@ trait HeapApproximations extends CallResults { self: HeapApproximationPoints =>
 
     /** `thenn` when `condition` holds and `elze` otherwise, simplified: nested choices on the same condition are resolved and identical branches merged. */
     def conditional(condition: Expr, thenn: HeapReference, elze: HeapReference): HeapReference = {
-      condition match {
-        case Not(inner) => return conditional(inner, elze, thenn)
-        case _ =>
-      }
-
       def assume(reference: HeapReference, holds: Boolean): HeapReference = reference match {
-        case ConditionalHeapReference(`condition`, thenThenn, elseElze) => assume(if (holds) thenThenn else elseElze, holds)
+        case ConditionalHeapReference(`condition`, thenThenn, elseElze) =>
+          assume(if (holds) thenThenn else elseElze, holds)
+
         case ConditionalHeapReference(other, otherThenn, otherElze) =>
           val assumedThenn = assume(otherThenn, holds)
           val assumedElze = assume(otherElze, holds)
+
           if (assumedThenn == assumedElze) assumedThenn else ConditionalHeapReference(other, assumedThenn, assumedElze)
-          
-        case other => other
+
+        case other =>
+          other
+      }
+
+      condition match {
+        case Not(inner) => return conditional(inner, elze, thenn)
+        case _ =>
       }
 
       val simplifiedThenn = assume(thenn, true)
@@ -299,7 +308,7 @@ trait HeapApproximations extends CallResults { self: HeapApproximationPoints =>
   case object NoHeapReference extends HeapReference {
     def union(other: HeapReference): HeapReference = other
 
-    def toSet(): Set[HeapObject] = Set.empty
+    def toSet: Set[HeapObject] = Set.empty
   }
 
   /** Points to exactly one object. */
@@ -312,7 +321,7 @@ trait HeapApproximations extends CallResults { self: HeapApproximationPoints =>
       case conditional: ConditionalHeapReference => conditional.union(this)
     }
 
-    def toSet(): Set[HeapObject] = Set(reference)
+    def toSet: Set[HeapObject] = Set(reference)
   }
 
   /** Points to one of several objects, without knowing which. */
@@ -324,7 +333,7 @@ trait HeapApproximations extends CallResults { self: HeapApproximationPoints =>
       case conditional: ConditionalHeapReference => conditional.union(this)
     }
 
-    def toSet(): Set[HeapObject] = references
+    def toSet: Set[HeapObject] = references
   }
 
   /** Points to the targets of `thenn` when `condition` holds, and to those of `elze` otherwise. */
@@ -337,7 +346,7 @@ trait HeapApproximations extends CallResults { self: HeapApproximationPoints =>
         HeapReference.conditional(condition, thenn.union(other), elze.union(other))
     }
 
-    def toSet(): Set[HeapObject] = thenn.toSet() ++ elze.toSet()
+    def toSet: Set[HeapObject] = thenn.toSet ++ elze.toSet
   }
 
   /** The references of all objects, with the reverse index from each target to the objects pointing to it. */
@@ -354,12 +363,14 @@ trait HeapApproximations extends CallResults { self: HeapApproximationPoints =>
     /** The objects pointing directly to `target`. */
     def parentsOf(target: HeapObject): Set[HeapObject] = parents.getOrElse(target, Set.empty)
 
-    /** The variables and slots that point to `target`, through any locations in between. */
+    /** The variables and slots that point to `target`, through any locations or read originals in between; a read original is also held by its own slot. */
     def holdersOf(target: HeapObject): Set[HeapObject] = {
       def holdersFrom(node: HeapObject, visited: Set[HeapObject]): Set[HeapObject] =
         parentsOf(node).flatMap {
           case location: HeapLocation if visited(location) => Set.empty
           case location: HeapLocation => holdersFrom(location, visited + location)
+          case original: HeapOriginal if visited(original) => Set.empty
+          case original: HeapOriginal => holdersFrom(original, visited + original) + original.slot
           case holder => Set(holder)
         }
 
@@ -369,17 +380,17 @@ trait HeapApproximations extends CallResults { self: HeapApproximationPoints =>
     /** Makes `source` point to `reference`, keeping the reverse index in sync. */
     def updated(source: HeapObject, reference: HeapReference): HeapReferences = {
       val withoutPrevious = apply(source)
-        .toSet()
+        .toSet
         .foldLeft(parents) { (parents, target) =>
           parents.updatedWith(target)(_.map(_ - source).filter(_.nonEmpty))
         }
 
       val withCurrent = reference
-        .toSet()
+        .toSet
         .foldLeft(withoutPrevious) { (parents, target) =>
           parents.updatedWith(target)(sources => Some(sources.getOrElse(Set.empty) + source))
         }
-      
+
       val newReferences =
         if (reference == default(source)) references - source
         else references + (source -> reference)
@@ -387,6 +398,7 @@ trait HeapApproximations extends CallResults { self: HeapApproximationPoints =>
       HeapReferences(newReferences, withCurrent)
     }
 
+    /** What `source` points to when it was never assigned: its original for a slot, nothing otherwise. */
     private def default(source: HeapObject): HeapReference = source match {
       case slot: HeapSlot => ExactHeapReference(HeapOriginal(slot))
       case _ => NoHeapReference
@@ -399,7 +411,8 @@ trait HeapApproximations extends CallResults { self: HeapApproximationPoints =>
           return Set.empty
         }
 
-        val targets = apply(source).toSet()
+        val targets = apply(source).toSet
+
         if (source.isInstanceOf[HeapValue] || targets.isEmpty) {
           return Set(source)
         }
@@ -462,9 +475,11 @@ trait HeapApproximations extends CallResults { self: HeapApproximationPoints =>
         return BooleanLiteral(true).copiedFrom(tree)
       }
 
-      orJoin(conditions.toSeq.map(condition => andJoin(condition.choices.map { case (choice, holds) =>
-        if (holds) choice else Not(choice).copiedFrom(tree)
-      })))
+      val disjuncts = conditions.toSeq.map { condition =>
+        andJoin(condition.choices.map { case (choice, holds) => if (holds) choice else Not(choice).copiedFrom(tree) })
+      }
+
+      orJoin(disjuncts)
     }
 
     /** The conjunctions of one condition from `first` and one from `second` that can hold together. */
@@ -517,11 +532,11 @@ trait HeapApproximations extends CallResults { self: HeapApproximationPoints =>
     def filter(predicate: HeapTarget => Boolean): HeapTargetSet =
       HeapTargetSet(targets.filter(predicate))
 
-    /** The targets that can still be pointed to once `conditions` are also required. */
     /** For each value, the targets `f` gives for it, under the conditions of both. */
     def flatMap(f: HeapValue => HeapTargetSet): HeapTargetSet =
       HeapTargetSet.from(targets.flatMap(target => f(target.value).restrict(target.conditions).targets))
 
+    /** The targets that can still be pointed to once `conditions` are also required. */
     def restrict(conditions: Set[HeapTargetCondition]): HeapTargetSet = {
       val restricted = targets
         .map(target => target.withConditions(HeapTargetCondition.and(conditions, target.conditions)))
@@ -536,18 +551,25 @@ trait HeapApproximations extends CallResults { self: HeapApproximationPoints =>
     def of(value: HeapValue): HeapTargetSet = HeapTargetSet(Set(HeapTarget(Set(HeapTargetCondition.always), value)))
 
     /** Groups `targets` by value, merging their conditions. */
-    def from(targets: Iterable[HeapTarget]): HeapTargetSet =
-      HeapTargetSet(targets.groupBy(_.value).map { case (value, group) =>
-        HeapTarget(group.flatMap(_.conditions).toSet, value)
-      }.toSet)
+    def from(targets: Iterable[HeapTarget]): HeapTargetSet = {
+      val grouped = targets
+        .groupBy(_.value)
+        .map { case (value, group) => HeapTarget(group.flatMap(_.conditions).toSet, value) }
+        .toSet
+
+      HeapTargetSet(grouped)
+    }
   }
 
   /** One step from a value to one of its slots. */
   sealed abstract class HeapAccessor
+
   /** A class field. */
   case class FieldAccessor(identifier: Identifier) extends HeapAccessor
+
   /** A tuple component, counted from 1. */
   case class TupleAccessor(index: Int) extends HeapAccessor
+
   /** A collection element, at an index or key. */
   case class ElementAccessor(index: Expr) extends HeapAccessor
 
@@ -633,6 +655,7 @@ trait HeapApproximations extends CallResults { self: HeapApproximationPoints =>
     /** The base and steps of `owner`, followed by `accessor`. */
     private def appended(owner: Expr, accessor: HeapAccessor): (Expr, Seq[HeapAccessor]) = {
       val (base, accessors) = fromExpression(owner)
+
       (base, accessors :+ accessor)
     }
   }
@@ -648,7 +671,10 @@ trait HeapApproximations extends CallResults { self: HeapApproximationPoints =>
 
     /** The slots this path goes through. */
     def slots: Set[HeapSlot] =
-      targets.zip(accessors).flatMap { case (owners, accessor) => owners.values.map(HeapSlot(_, accessor)) }.toSet
+      targets
+        .zip(accessors)
+        .flatMap { case (owners, accessor) => owners.values.map(HeapSlot(_, accessor)) }
+        .toSet
 
     /** The values this path reaches. */
     def values: Set[HeapValue] = targets.flatMap(_.values).toSet

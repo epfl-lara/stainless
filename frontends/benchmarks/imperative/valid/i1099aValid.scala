@@ -1,0 +1,12 @@
+object i1099aValid {
+  case class A(var x: Int)
+  case class C(a: A)
+
+  def f(a1: A) = {
+    require(a1.x == 0)
+    val a2 = a1
+    val c = C(a2)
+    c.a.x += 1
+    assert(a1.x == 1)
+  }
+}

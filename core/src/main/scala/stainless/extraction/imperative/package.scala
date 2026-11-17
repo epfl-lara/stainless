@@ -7,7 +7,7 @@ package object imperative {
 
   object optFullImperative extends inox.FlagOptionDef("full-imperative", false)
 
-  object optImperativeV2 extends inox.FlagOptionDef("imperative-v2", false)
+  object optOldAliasing extends inox.FlagOptionDef("old-aliasing", false)
 
   object trees extends imperative.Trees with oo.ClassSymbols {
     case class Symbols(
@@ -55,7 +55,8 @@ package object imperative {
     def innerAlias(tree: inox.ast.Trees#Tree) = apply(tree, innerAliasMessage)
 
     private val nonFreshResultMessage =
-      "this recursive function or lambda returns a result that shares a mutable object within itself -- AssignmentRewrite treats its calls as opaque and assumes their results are fresh"
+      "this recursive function or lambda returns a result, or leaves a mutated parameter, in which a mutable object is shared -- " +
+      "AssignmentRewrite treats its calls as opaque and assumes they leave disjoint trees"
 
     def nonFreshResult(tree: inox.ast.Trees#Tree) = apply(tree, nonFreshResultMessage)
 
@@ -90,14 +91,8 @@ package object imperative {
 
     def effectfulIndexedCall(tree: inox.ast.Trees#Tree) = apply(tree, effectfulIndexedCallMessage)
 
-    private val opaqueWriteMessage =
-      "this recursive function or lambda writes a reference into an object it did not create -- " +
-      "AssignmentRewrite treats its calls as opaque and cannot import such an effect"
-
-    def opaqueWrite(tree: inox.ast.Trees#Tree) = apply(tree, opaqueWriteMessage)
-
     private val opaqueEffectMessage =
-      "this recursive function or lambda returns an object reachable from its parameters, or writes a reference into them -- " +
+      "this recursive function or lambda returns an object reachable from its parameters -- " +
       "AssignmentRewrite treats its calls as opaque and cannot import such an effect"
 
     def opaqueEffect(tree: inox.ast.Trees#Tree) = apply(tree, opaqueEffectMessage)
@@ -151,22 +146,16 @@ package object imperative {
 
     def keyOutOfScope(tree: inox.ast.Trees#Tree) = apply(tree, keyOutOfScopeMessage)
 
-    private val mutableInstantiationMessage =
-      "a type parameter that is not @mutable is instantiated with a mutable type -- its mutable contents cannot be tracked"
-
-    def mutableInstantiation(tree: inox.ast.Trees#Tree) = apply(tree, mutableInstantiationMessage)
-
     private val sharedArgumentMessage =
       "an object is reachable through two different paths of this call's arguments -- the callee assumes they are distinct"
 
     def sharedArgument(tree: inox.ast.Trees#Tree) = apply(tree, sharedArgumentMessage)
-
   }
 
   /**
     * This pipeline enforces non-aliasing of mutable state
     */
-  def defaultImperative(using inox.Context) = {
+  def oldImperative(using inox.Context) = {
     utils.NamedPipeline("SameAsLowering", SameAsLowering(trees)).andThen(
     utils.NamedPipeline("EffectElaboration", EffectElaboration(trees)).andThen(  // only drops definitions
     utils.NamedPipeline("AntiAliasing", AntiAliasing(trees)).andThen(
@@ -188,20 +177,24 @@ package object imperative {
     utils.NamedPipeline("ImperativeCleanup", ImperativeCleanup(trees, oo.trees)))))
   }
 
-  def imperativeV2(using inox.Context) = {
+  /**
+    * This pipeline tracks aliasing with a heap approximation, and refreshes every alias of a mutated object
+    */
+  def defaultImperative(using inox.Context) = {
     utils.NamedPipeline("SameAsLowering", SameAsLowering(trees)).andThen(
     utils.NamedPipeline("EffectElaboration", EffectElaboration(trees)).andThen(
+    utils.NamedPipeline("EffectsCheck", EffectsCheck(trees)).andThen(
     utils.NamedPipeline("FunctionRewrite", FunctionRewrite(trees)).andThen(
     utils.NamedPipeline("ConditionalHoisting", ConditionalHoisting(trees)).andThen(
     utils.NamedPipeline("AssignmentRewrite", AssignmentRewrite(trees)).andThen(
     utils.NamedPipeline("ReturnElimination", ReturnElimination(trees)).andThen(
     utils.NamedPipeline("ImperativeCodeElimination", ImperativeCodeElimination(trees)).andThen(
-    utils.NamedPipeline("ImperativeCleanup", ImperativeCleanup(trees, oo.trees)))))))))
+    utils.NamedPipeline("ImperativeCleanup", ImperativeCleanup(trees, oo.trees))))))))))
   }
 
   def extractor(using ctx: inox.Context) =
     if (ctx.options.findOptionOrDefault(optFullImperative)) fullImperative
-    else if (ctx.options.findOptionOrDefault(optImperativeV2)) imperativeV2
+    else if (ctx.options.findOptionOrDefault(optOldAliasing)) oldImperative
     else defaultImperative
 
   def fullExtractor(using inox.Context) = extractor `andThen` nextExtractor

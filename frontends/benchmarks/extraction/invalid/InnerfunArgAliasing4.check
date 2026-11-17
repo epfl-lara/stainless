@@ -1,3 +1,3 @@
-[ Error  ] InnerfunArgAliasing4.scala:25:11: Couldn't apply effect ReplacementEffect(targetBound(???).value) on expression boxes.updated(j, Box(123))
+[ Error  ] InnerfunArgAliasing4.scala:25:11: Couldn't apply effect ReplacementEffect(innoncentLooking.value) on expression boxes.updated(j, Box(123))(z)
                inner(boxes.updated(j, Box(123)).apply(z))
-                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

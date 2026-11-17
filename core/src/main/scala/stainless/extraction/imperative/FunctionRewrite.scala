@@ -6,32 +6,41 @@ package imperative
 
 import scala.util.{Failure, Success, Try}
 
+/** The annotations `FunctionRewrite` leaves for `AssignmentRewrite`: the results of calls, and the write backs of their effects. */
 trait CallResults {
   val s: Trees
   import s._
 
+  /** The part of a call result that a write back stores into an argument. */
   object CallResult {
+    /** The annotation marking a call result. */
     val flag: Flag = Annotation("CallResult", Seq.empty)
 
+    /** Whether `e` is a call result. */
     def unapply(e: Expr): Boolean = e match {
       case Annotated(_, flags) => flags.contains(flag)
       case _ => false
     }
 
+    /** Whether `e` contains a call result. */
     def isWithin(e: Expr): Boolean =
       exprOps.exists { case CallResult() => true; case _ => false }(e)
   }
 
+  /** An assignment that stores the effect of a call back into an argument, annotated with the location it writes. */
   object WriteBack {
     private val name = "WriteBack"
 
+    /** The annotation marking a write back of `location`. */
     def flag(location: Expr): Flag = Annotation(name, Seq(location))
 
+    /** The location of `flag`, when it marks a write back. */
     def location(flag: Flag): Option[Expr] = flag match {
       case Annotation(`name`, Seq(location: Expr @unchecked)) => Some(location)
       case _ => None
     }
 
+    /** The location written by the assignment `e`, when it is a write back. */
     def unapply(e: Assignment): Option[Expr] = e.value match {
       case Annotated(_, flags) => flags.flatMap(location).headOption
       case _ => None
@@ -39,6 +48,7 @@ trait CallResults {
   }
 }
 
+/** Makes the effects of calls explicit: each function returns its mutated parameters, and each call writes them back into its arguments. */
 class FunctionRewrite(override val s: Trees)(override val t: s.type)(using override val context: inox.Context)
   extends oo.CachingPhase
      with SimpleSorts
@@ -66,6 +76,7 @@ class FunctionRewrite(override val s: Trees)(override val t: s.type)(using overr
 
   override protected def getContext(symbols: Symbols) = TransformerContext()(using symbols)
 
+  /** Whether a function was rewritten. */
   enum FunctionSummary {
     case Untransformed(fid: Identifier)
     case Transformed(fid: Identifier)
@@ -75,11 +86,11 @@ class FunctionRewrite(override val s: Trees)(override val t: s.type)(using overr
     import analysis.{given, _}
 
     checkGhost(fd)(analysis)
+
     if (isMutableSynthetic(fd)) {
       return (None, FunctionSummary.Untransformed(fd.id))
     }
 
-    ensureInstantiations(fd)
     ensureNoCapturedAssignments(fd.fullBody)
 
     val rewritten = rewriteFunction(Outer(fd), Map.empty, Set.empty)
@@ -92,65 +103,19 @@ class FunctionRewrite(override val s: Trees)(override val t: s.type)(using overr
     (analysis.transformer.transform(sort), ())
 
   override protected type ClassSummary = Unit
-  override protected def extractClass(analysis: TransformerContext, cd: ClassDef): (ClassDef, Unit) = {
-    import analysis.given
-
-    val instantiations = InstantiationTraverser()
-    cd.fields.foreach(field => instantiations.traverse(field.tpe))
-
+  override protected def extractClass(analysis: TransformerContext, cd: ClassDef): (ClassDef, Unit) =
     (analysis.transformer.transform(cd), ())
-  }
 
   override protected def combineSummaries(allSummaries: AllSummaries): ExtractionSummary = {
     val summary = allSummaries.fnsSummary.foldLeft(FunctionRewrite.SummaryData()) {
       case (summary, FunctionSummary.Untransformed(_)) => summary
       case (summary, FunctionSummary.Transformed(fid)) => summary.copy(affectedFns = summary.affectedFns + fid)
     }
+
     ExtractionSummary.Leaf(FunctionRewrite)(summary)
   }
 
-  private def ensureInstantiations(fd: FunDef)(using Symbols): Unit = {
-    val instantiations = InstantiationTraverser()
-    instantiations.traverse(fd.fullBody)
-    fd.params.foreach(param => instantiations.traverse(param.tpe))
-  }
-
-  private class InstantiationTraverser(using symbols: Symbols) extends ConcreteSelfTreeTraverser {
-    import symbols.isMutableType
-
-    private def ensureTypeArguments(tree: Tree, tparams: Seq[TypeParameterDef], tps: Seq[Type]): Unit = {
-      tparams.zip(tps).foreach { case (tdef, instance) =>
-        if (isMutableType(instance) && !tdef.flags.contains(IsMutable)) {
-          throw AliasingRewriteException.mutableInstantiation(tree)
-        }
-      }
-    }
-
-    override def traverse(tpe: Type): Unit = {
-      tpe match {
-        case ct: ClassType => ensureTypeArguments(tpe, ct.tcd.cd.tparams, ct.tps)
-        case adt: ADTType => ensureTypeArguments(tpe, adt.getSort.definition.tparams, adt.tps)
-        case SetType(element) if isMutableType(element) => throw AliasingRewriteException.mutableInstantiation(tpe)
-        case BagType(element) if isMutableType(element) => throw AliasingRewriteException.mutableInstantiation(tpe)
-        case MapType(from, _) if isMutableType(from) => throw AliasingRewriteException.mutableInstantiation(tpe)
-        case MutableMapType(from, _) if isMutableType(from) => throw AliasingRewriteException.mutableInstantiation(tpe)
-        case _ =>
-      }
-
-      super.traverse(tpe)
-    }
-
-    override def traverse(e: Expr): Unit = {
-      e match {
-        case fi: FunctionInvocation => ensureTypeArguments(fi, fi.tfd.fd.tparams, fi.tps)
-        case adt: ADT => ensureTypeArguments(adt, adt.getConstructor.sort.definition.tparams, adt.tps)
-        case _ =>
-      }
-
-      super.traverse(e)
-    }
-  }
-
+  /** Rejects a local function or lambda that assigns a captured variable of mutable type. */
   private def ensureNoCapturedAssignments(body: Expr)(using symbols: Symbols): Unit = {
     def ensureLocalFunction(params: Seq[ValDef], localBody: Expr): Unit = {
       val captured = (exprOps.variablesOf(localBody) -- params.map(_.toVariable)).map(_.id)
@@ -158,6 +123,7 @@ class FunctionRewrite(override val s: Trees)(override val t: s.type)(using overr
       exprOps.preTraversal {
         case assignment @ Assignment(variable, _) if captured(variable.id) && symbols.isMutableType(variable.tpe) =>
           throw AliasingRewriteException.capturedMutation(assignment)
+
         case _ =>
       }(localBody)
     }
@@ -169,18 +135,22 @@ class FunctionRewrite(override val s: Trees)(override val t: s.type)(using overr
     }(body)
   }
 
+  /** The effects of the functions of `symbols`, and the rewriting that makes them explicit. */
   protected case class TransformerContext()(using override val symbols: Symbols) extends EffectsAnalysis {
     import symbols._
 
+    /** `tpe` with a result that also returns the mutable parameters, when it has some. */
     def makeFunctionTypeExplicit(tpe: Type): Type = {
       def makeSigmaType(mutableParams: Seq[Type], returnType: Type): Type = {
         val freshParams = mutableParams.map(tpe => ValDef(FreshIdentifier("x"), tpe))
+
         sigmaTypeWrap(freshParams, returnType).copiedFrom(returnType)
       }
 
       tpe match {
         case ft @ FunctionType(from, to) =>
           val mutableParams = from.filter(isMutableType(_))
+
           if (mutableParams.isEmpty) {
             return ft
           }
@@ -189,6 +159,7 @@ class FunctionRewrite(override val s: Trees)(override val t: s.type)(using overr
 
         case pt @ PiType(params, to) =>
           val mutableParamTypes = params.map(_.tpe).filter(isMutableType(_))
+
           if (mutableParamTypes.isEmpty) {
             return pt
           }
@@ -197,15 +168,16 @@ class FunctionRewrite(override val s: Trees)(override val t: s.type)(using overr
       }
     }
 
+    /** Makes every function type explicit. */
     object transformer extends ConcreteOOSelfTreeTransformer {
       override def transform(e: Expr): Expr = e match {
         case ApplyLetRec(id, tparams, tpe, tps, args) =>
           ApplyLetRec(
             id,
-            tparams map (tp => transform(tp).asInstanceOf[TypeParameter]),
-            FunctionType(tpe.from map transform, transform(tpe.to)).copiedFrom(tpe),
-            tps map transform,
-            args map transform
+            tparams.map(tp => transform(tp).asInstanceOf[TypeParameter]),
+            FunctionType(tpe.from.map(transform), transform(tpe.to)).copiedFrom(tpe),
+            tps.map(transform),
+            args.map(transform)
           ).copiedFrom(e)
 
         case _ => super.transform(e)
@@ -217,14 +189,17 @@ class FunctionRewrite(override val s: Trees)(override val t: s.type)(using overr
       }
     }
 
+    /** Whether `fd` is a synthetic function, other than an accessor, that takes mutable parameters and may return one of them. */
     def isMutableSynthetic(fd: FunDef): Boolean =
       fd.flags.contains(Synthetic) &&
         !fd.flags.exists(_.name == "accessor") &&
         fd.params.exists(vd => isMutableType(vd.tpe)) &&
         !exprOps.BodyWithSpecs(fd.fullBody).bodyOpt.forall(isExpressionFresh)
 
+    /** The local functions in scope, by name. */
     type Locals = Map[Identifier, LocalFunDef]
 
+    /** `fd` returning its aliased parameters with its result, with its body and postcondition rewritten accordingly. */
     def rewriteFunction(fd: FunAbstraction, locals: Locals, outerWidenedVarIds: Set[Identifier]): FunAbstraction = {
       def desugarSwaps(body: Expr): Expr = {
         def isPath(e: Expr): Boolean = e match {
@@ -241,10 +216,11 @@ class FunctionRewrite(override val s: Trees)(override val t: s.type)(using overr
 
         def bind(e: Expr, name: String): (Seq[(ValDef, Expr)], Expr) = {
           val vd = ValDef.fresh(name, e.getType).copiedFrom(e)
+
           (Seq(vd -> e), vd.toVariable)
         }
 
-        def bindReceiver(e: Expr, name: String): (Seq[(ValDef, Expr)], Expr) = {
+        def bindUnlessPath(e: Expr, name: String): (Seq[(ValDef, Expr)], Expr) = {
           if (isPath(e)) {
             return (Seq.empty, e)
           }
@@ -252,7 +228,7 @@ class FunctionRewrite(override val s: Trees)(override val t: s.type)(using overr
           bind(e, name)
         }
 
-        def bindIndex(e: Expr, name: String): (Seq[(ValDef, Expr)], Expr) = {
+        def bindUnlessImmutable(e: Expr, name: String): (Seq[(ValDef, Expr)], Expr) = {
           if (symbols.isImmutableExpression(e)) {
             return (Seq.empty, e)
           }
@@ -260,16 +236,16 @@ class FunctionRewrite(override val s: Trees)(override val t: s.type)(using overr
           bind(e, name)
         }
 
-        def withBindings(bindings: Seq[(ValDef, Expr)], e: Expr): Expr =
-          bindings.foldRight(e) { case ((vd, value), rest) => Let(vd, value, rest).copiedFrom(e) }
+        def withBindings(bindings: Seq[(ValDef, Expr)], body: Expr): Expr =
+          bindings.foldRight(body) { case ((vd, value), rest) => Let(vd, value, rest).copiedFrom(body) }
 
         exprOps.postMap {
           case swap @ Swap(array1, index1, array2, index2) =>
+            val (receiverBindings1, receiver1) = bindUnlessPath(array1, "array")
+            val (receiverBindings2, receiver2) = bindUnlessPath(array2, "array")
+            val (indexBindings1, i1) = bindUnlessImmutable(index1, "i1")
+            val (indexBindings2, i2) = bindUnlessImmutable(index2, "i2")
             val ArrayType(base) = array1.getType: @unchecked
-            val (receiverBindings1, receiver1) = bindReceiver(array1, "array")
-            val (receiverBindings2, receiver2) = bindReceiver(array2, "array")
-            val (indexBindings1, i1) = bindIndex(index1, "i1")
-            val (indexBindings2, i2) = bindIndex(index2, "i2")
             val temp = ValDef.fresh("temp", base).copiedFrom(swap)
             val first = ArrayUpdate(receiver1, i1, ArraySelect(receiver2, i2).copiedFrom(swap)).copiedFrom(swap)
             val second = ArrayUpdate(receiver2, i2, temp.toVariable).copiedFrom(swap)
@@ -279,10 +255,10 @@ class FunctionRewrite(override val s: Trees)(override val t: s.type)(using overr
             Some(withBindings(bindings, exchange))
 
           case cellSwap @ CellSwap(cell1, cell2) =>
-            val cellType @ ClassType(_, _) = cell1.getType: @unchecked
             val field = symbols.lookup.get[ClassDef]("stainless.lang.Cell").get.fields.head.id
-            val (bindings1, receiver1) = bindReceiver(cell1, "cell")
-            val (bindings2, receiver2) = bindReceiver(cell2, "cell")
+            val (bindings1, receiver1) = bindUnlessPath(cell1, "cell")
+            val (bindings2, receiver2) = bindUnlessPath(cell2, "cell")
+            val cellType @ ClassType(_, _) = cell1.getType: @unchecked
             val temp = ValDef.fresh("temp", getClassField(cellType, field).get.tpe).copiedFrom(cellSwap)
             val first = FieldAssignment(receiver1, field, ClassSelector(receiver2, field).copiedFrom(cellSwap)).copiedFrom(cellSwap)
             val second = FieldAssignment(receiver2, field, temp.toVariable).copiedFrom(cellSwap)
@@ -304,6 +280,7 @@ class FunctionRewrite(override val s: Trees)(override val t: s.type)(using overr
       val widenedFullBody = desugarSwaps(exprOps.replaceFromSymbols(paramSubstitution, fd.fullBody))
 
       val aliasedParams = getAliasedParams(fd)
+
       if (aliasedParams.isEmpty) {
         return newFd.copy(fullBody = rewriteBody(widenedFullBody, Seq.empty, locals, widenedVarIds))
       }
@@ -323,22 +300,24 @@ class FunctionRewrite(override val s: Trees)(override val t: s.type)(using overr
         case exprOps.Postcondition(post @ Lambda(Seq(res), postBody)) =>
           val newRes = ValDef(res.id.freshen, newFd.returnType).copiedFrom(res)
           val oldSubstitution: Map[Expr, Expr] = aliasedParams.map(vd => Old(vd.toVariable) -> vd.toVariable).toMap
-          val copySelections: Map[Expr, Expr] = aliasedParams.zipWithIndex.map { case (vd, i) =>
-            vd.toVariable -> TupleSelect(newRes.toVariable, i + 1).copiedFrom(vd)
-          }.toMap
+          val copySelections: Map[Expr, Expr] = aliasedParams.zipWithIndex
+            .map { case (vd, i) => vd.toVariable -> TupleSelect(newRes.toVariable, i + 1).copiedFrom(vd) }
+            .toMap
           val resultSelection: (Expr, Expr) = res.toVariable -> TupleSelect(newRes.toVariable, aliasedParams.length + 1).copiedFrom(res)
           val rewrittenPost = rewriteBody(postBody, Seq.empty, locals, widenedVarIds)
           val newPostBody = exprOps.replaceSingle(oldSubstitution ++ copySelections + resultSelection, rewrittenPost)
 
           exprOps.Postcondition(Lambda(Seq(newRes), newPostBody).copiedFrom(post))
 
-        case spec => spec
+        case spec =>
+          spec
       }
 
       newFd.copy(fullBody = exprOps.reconstructSpecs(newSpecs, newBody, newFd.returnType))
     }
 
-    private def rewriteBody(body: Expr, freshLocals: Seq[Variable], locals: Locals, widenedVarIds: Set[Identifier]): Expr = {
+    /** `body` with its calls writing back their effects, and its returns returning `returnedCopies` too. */
+    private def rewriteBody(body: Expr, returnedCopies: Seq[Variable], locals: Locals, widenedVarIds: Set[Identifier]): Expr = {
       def widenPatternBinders(pattern: Pattern): (Pattern, Map[Variable, Expr]) = {
         val (ids, binders, exprs, tps, subPatterns, builder) = deconstructor.deconstruct(pattern)
 
@@ -352,10 +331,10 @@ class FunctionRewrite(override val s: Trees)(override val t: s.type)(using overr
         (builder(ids, newBinders, exprs, tps, widenedSubPatterns.map(_._1)).copiedFrom(pattern), substitution)
       }
 
-      def rewrittenResultType(e: Expr): Type = e match {
-        case Let(_, _, body) => rewrittenResultType(body)
-        case LetVar(_, _, body) => rewrittenResultType(body)
-        case Block(_, last) => rewrittenResultType(last)
+      def resolveResultType(e: Expr): Type = e match {
+        case Let(_, _, body) => resolveResultType(body)
+        case LetVar(_, _, body) => resolveResultType(body)
+        case Block(_, last) => resolveResultType(last)
         case _ => e.getType
       }
 
@@ -366,11 +345,13 @@ class FunctionRewrite(override val s: Trees)(override val t: s.type)(using overr
 
           case Some((newVd, substitution)) =>
             val substitutedBody = exprOps.replaceFromSymbols(Map(substitution), body)
-            rebuild(newVd, transform(value), rewriteBody(substitutedBody, freshLocals, locals, widenedVarIds + vd.id))
+
+            rebuild(newVd, transform(value), rewriteBody(substitutedBody, returnedCopies, locals, widenedVarIds + vd.id))
         }
 
         def rewriteCase(matchCase: MatchCase): MatchCase = {
           val (newPattern, substitution) = widenPatternBinders(matchCase.pattern)
+
           if (substitution.isEmpty) {
             return MatchCase(matchCase.pattern, matchCase.optGuard.map(transform), transform(matchCase.rhs)).copiedFrom(matchCase)
           }
@@ -378,23 +359,26 @@ class FunctionRewrite(override val s: Trees)(override val t: s.type)(using overr
           val newWidenedIds = widenedVarIds ++ substitution.keys.map(_.id)
           val substitutedGuard = matchCase.optGuard.map(guard => exprOps.replaceFromSymbols(substitution, guard))
           val substitutedRhs = exprOps.replaceFromSymbols(substitution, matchCase.rhs)
+
           MatchCase(
             newPattern,
-            substitutedGuard.map(guard => rewriteBody(guard, freshLocals, locals, newWidenedIds)),
-            rewriteBody(substitutedRhs, freshLocals, locals, newWidenedIds)
+            substitutedGuard.map(guard => rewriteBody(guard, returnedCopies, locals, newWidenedIds)),
+            rewriteBody(substitutedRhs, returnedCopies, locals, newWidenedIds)
           ).copiedFrom(matchCase)
         }
 
         override def transform(e: Expr): Expr = e match {
-          case Return(_) if freshLocals.isEmpty => super.transform(e)
+          case Return(_) if returnedCopies.isEmpty =>
+            super.transform(e)
 
           case ret @ Return(retExpr) =>
-            Return(Tuple(freshLocals.map(_.setPos(ret)) :+ transform(retExpr)).setPos(ret)).setPos(ret)
+            Return(Tuple(returnedCopies.map(_.copy().copiedFrom(ret)) :+ transform(retExpr)).setPos(ret)).setPos(ret)
 
           case l @ LetRec(fds, letBody) =>
             val newLocals = locals ++ fds.map(f => f.id -> f)
             val nfds = fds.map(fd => rewriteFunction(Inner(fd), newLocals, widenedVarIds).toLocal)
-            LetRec(nfds, rewriteBody(letBody, freshLocals, newLocals, widenedVarIds)).copiedFrom(l)
+
+            LetRec(nfds, rewriteBody(letBody, returnedCopies, newLocals, widenedVarIds)).copiedFrom(l)
 
           case ens @ Ensuring(ensBody, pred @ Lambda(Seq(resVd), predBody)) =>
             Ensuring(transform(ensBody), Lambda(Seq(resVd), transform(predBody)).copiedFrom(pred)).copiedFrom(ens)
@@ -410,14 +394,15 @@ class FunctionRewrite(override val s: Trees)(override val t: s.type)(using overr
 
           case l @ Lambda(params, lambdaBody) =>
             val aliasedParams = params.filter(vd => isMutableType(vd.tpe))
+
             if (aliasedParams.isEmpty) {
               return Lambda(params, transform(lambdaBody)).copiedFrom(l)
             }
 
             val (copies, substitution) = copiesOf(aliasedParams)
             val substitutedBody = exprOps.replaceFromSymbols(substitution, lambdaBody)
-            val rewritten = rewriteBody(substitutedBody, freshLocals, locals, widenedVarIds)
-            val resultType = rewrittenResultType(rewritten)
+            val rewritten = rewriteBody(substitutedBody, returnedCopies, locals, widenedVarIds)
+            val resultType = resolveResultType(rewritten)
 
             Lambda(params, withReturnedCopies(aliasedParams, copies, rewritten, resultType, lambdaBody)).copiedFrom(l)
 
@@ -433,19 +418,22 @@ class FunctionRewrite(override val s: Trees)(override val t: s.type)(using overr
             val callee = Outer(fi.tfd.fd)
             val call = FunctionInvocation(fi.id, fi.tps, fi.args.map(transform)).copiedFrom(fi)
             val resultType = fi.tfd.instantiate(getReturnType(callee))
+
             rewriteCallEffects(callee.params, fi.args, call, resultType, effects(callee), selectResult = true)
 
           case application @ ApplyLetRec(id, tparams, tpe, tps, args) =>
             val callee = Inner(locals(id))
             val calleeType = FunctionType(callee.params.map(_.getType), getReturnType(callee)).copiedFrom(tpe)
             val call = ApplyLetRec(id, tparams, calleeType, tps, args.map(transform)).copiedFrom(application)
-            val resultType = typeOps.instantiateType(getReturnType(callee), (tparams zip tps).toMap)
+            val resultType = typeOps.instantiateType(getReturnType(callee), tparams.zip(tps).toMap)
+
             rewriteCallEffects(callee.params, args, call, resultType, effects(callee), selectResult = true)
 
           case application @ Application(callee, args) =>
             val ft @ FunctionType(from, to) = callee.getType: @unchecked
             val call = Application(transform(callee), args.map(transform)).copiedFrom(application)
             val calleeEffects = functionTypeEffects(ft)
+
             if (calleeEffects.isEmpty) {
               return call
             }
@@ -458,15 +446,18 @@ class FunctionRewrite(override val s: Trees)(override val t: s.type)(using overr
               case v: Variable if widenedVarIds(v.id) => to
               case _ => makeFunctionTypeExplicit(ft).asInstanceOf[FunctionType].to
             }
+
             rewriteCallEffects(params, args, call, resultType, paramEffects.toSet, selectResult = true)
 
-          case _ => super.transform(e)
+          case _ =>
+            super.transform(e)
         }
       }
 
       transformer.transform(body)
     }
 
+    /** `call` followed by the write backs of the effects it has on `args`, resulting in its own result when `selectResult`. */
     private def rewriteCallEffects(
       formalParams: Seq[ValDef],
       args: Seq[Expr],
@@ -475,23 +466,23 @@ class FunctionRewrite(override val s: Trees)(override val t: s.type)(using overr
       calleeEffects: Set[Effect],
       selectResult: Boolean
     ): Expr = {
-      val localEffects = formalParams.zip(args)
+      val mutatedArgs = formalParams.zip(args)
         .map { case (vd, arg) => (vd.toVariable, calleeEffects.filter(_.receiver == vd.toVariable), arg) }
         .filter { case (_, effects, _) => effects.nonEmpty }
 
-      if (localEffects.isEmpty) {
+      if (mutatedArgs.isEmpty) {
         return call
       }
 
       val result = ValDef(FreshIdentifier("res"), resultType).copiedFrom(call)
 
-      val assignments = localEffects.zipWithIndex.flatMap { case ((param, effects, arg), effectIndex) =>
-        val resultSelect = TupleSelect(result.toVariable, effectIndex + 1)
+      val assignments = mutatedArgs.zipWithIndex.flatMap { case ((param, effects, arg), effectIndex) =>
+        val argumentResult = TupleSelect(result.toVariable, effectIndex + 1)
 
         Try(ModifyingEffect(param, Path.empty).on(arg)) match {
           case Success(wholeTargets) =>
             wholeTargets.toSeq.map { case (effect, effectCondition) =>
-              makeAssignment(arg.getPos, resultSelect, Seq.empty, effect.toTarget(effectCondition))
+              writeBackAssignment(arg.getPos, argumentResult, Seq.empty, effect.toTarget(effectCondition))
             }
 
           case Failure(_) =>
@@ -499,33 +490,31 @@ class FunctionRewrite(override val s: Trees)(override val t: s.type)(using overr
               (calleeEffect `on` arg).toSeq.map { case (argumentEffect, effectCondition) =>
                 val knownCalleeEffect = calleeEffect.removeUnknownAccessor
                 val knownArgumentEffect = argumentEffect.removeUnknownAccessor
-                makeAssignment(arg.getPos, resultSelect, knownCalleeEffect.path.path, knownArgumentEffect.toTarget(effectCondition))
+
+                writeBackAssignment(arg.getPos, argumentResult, knownCalleeEffect.path.path, knownArgumentEffect.toTarget(effectCondition))
               }
             }
         }
       }
 
       val resultExpr =
-        if (selectResult) TupleSelect(result.toVariable, localEffects.length + 1)
+        if (selectResult) TupleSelect(result.toVariable, mutatedArgs.length + 1)
         else result.toVariable
 
       Let(result, call, Block(assignments, resultExpr))
     }
 
-    private def makeAssignment(pos: inox.utils.Position, resultSelect: Expr, outerPath: Seq[Accessor], target: Target): Expr = {
+    /** The assignment that writes back into `target` the part of `argumentResult` reached through `outerPath`. */
+    private def writeBackAssignment(pos: inox.utils.Position, argumentResult: Expr, outerPath: Seq[Accessor], target: Target): Expr = {
       def select(tpe: Type, expr: Expr, path: Seq[Accessor]): (Expr, Expr) = (tpe, path) match {
         case (adt: ADTType, ADTFieldAccessor(id) +: rest) =>
           val constructors = adt.getSort.constructors
           val constructor = constructors.find(_.fields.exists(_.id == id)).get
           val field = constructor.fields.find(_.id == id).get
 
-          val condition = if (constructors.size > 1) {
-            IsConstructor(expr, constructor.id).setPos(pos)
-          } else {
-            BooleanLiteral(true).setPos(pos)
-          }
-
+          val condition = if (constructors.size > 1) IsConstructor(expr, constructor.id).setPos(pos) else BooleanLiteral(true).setPos(pos)
           val (restCondition, restSelect) = select(field.tpe, ADTSelector(expr, id).setPos(pos), rest)
+
           (and(condition, restCondition), restSelect)
 
         case (ct: ClassType, ClassFieldAccessor(selector) +: rest) =>
@@ -536,6 +525,7 @@ class FunctionRewrite(override val s: Trees)(override val t: s.type)(using overr
           val casted = if (isFinal) expr else AsInstanceOf(expr, fieldClassType).setPos(expr)
 
           val (restCondition, restSelect) = select(field.tpe, ClassSelector(casted, selector.id).setPos(pos), rest)
+
           (and(condition, restCondition), restSelect)
 
         case (tt: TupleType, TupleFieldAccessor(index) +: rest) =>
@@ -573,7 +563,8 @@ class FunctionRewrite(override val s: Trees)(override val t: s.type)(using overr
             val isFinal = cd.parents.isEmpty && cd.children.isEmpty
 
             val casted = if (isFinal) receiver else AsInstanceOf(receiver, ct).copiedFrom(receiver)
-            val updatedField = if (isFinal) updatedPath(ClassSelector(casted, selector.id), rest)
+            val updatedField =
+              if (isFinal) updatedPath(ClassSelector(casted, selector.id), rest)
               else updatedPath(Annotated(ClassSelector(casted, selector.id).copiedFrom(newValue), Seq(DropVCs)).copiedFrom(newValue), rest)
 
             ClassConstructor(ct, ct.tcd.fields.map { vd =>
@@ -593,13 +584,16 @@ class FunctionRewrite(override val s: Trees)(override val t: s.type)(using overr
 
           case ArrayAccessor(index) :: rest =>
             val updatedElement = freshenLocals(updatedPath(Annotated(ArraySelect(receiver, index).copiedFrom(newValue), Seq(DropVCs)).copiedFrom(newValue), rest))
+
             freshenLocals(ArrayUpdated(receiver, index, updatedElement).copiedFrom(newValue))
 
           case MutableMapAccessor(index) :: rest =>
             val updatedElement = freshenLocals(updatedPath(Annotated(MutableMapApply(receiver, index).copiedFrom(newValue), Seq(DropVCs)).copiedFrom(newValue), rest))
+
             freshenLocals(MutableMapUpdated(receiver, freshenLocals(index), updatedElement).copiedFrom(newValue))
 
-          case Nil => newValue
+          case Nil =>
+            newValue
         }
 
         target match {
@@ -611,6 +605,7 @@ class FunctionRewrite(override val s: Trees)(override val t: s.type)(using overr
 
           case Target(receiver, Some(condition), path) =>
             val updatedReceiver = updatedPath(receiver, path.toSeq)
+
             Annotated(
               AsInstanceOf(
                 IfExpr(
@@ -630,7 +625,7 @@ class FunctionRewrite(override val s: Trees)(override val t: s.type)(using overr
         case _ => writtenLocation(path.init)
       }
 
-      val (condition, result) = select(resultSelect.getType, resultSelect, outerPath)
+      val (condition, result) = select(argumentResult.getType, argumentResult, outerPath)
       val combinedCondition = andJoin(condition +: target.condition.toSeq)
 
       if (combinedCondition == BooleanLiteral(false) || !isMutableType(target.receiver.getType)) {
@@ -643,30 +638,40 @@ class FunctionRewrite(override val s: Trees)(override val t: s.type)(using overr
         case adt: ADTType if adt.getSort.constructors.size == 1 => newValue
         case receiverType =>
           val casted = AsInstanceOf(newValue, receiverType).copiedFrom(newValue)
+
           Annotated(casted, Seq(DropVCs)).copiedFrom(casted)
       }
+
       val location = writtenLocation(target.path.toSeq)
 
       Assignment(target.receiver, Annotated(castedValue, Seq(WriteBack.flag(location))).copiedFrom(castedValue)).setPos(pos)
     }
 
+    /** `vd` with its function types made explicit, and the substitution of the old variable, when its type changes. */
     private def widenBinder(vd: ValDef): Option[(ValDef, (Variable, Expr))] = {
       val widenedTpe = transformer.transform(vd.tpe)
+
       if (widenedTpe == vd.tpe) {
         return None
       }
 
       val newVd = vd.copy(tpe = widenedTpe).copiedFrom(vd)
+
       Some((newVd, (vd.toVariable, newVd.toVariable)))
     }
 
+    /** A fresh copy of each of `aliasedParams`, and the substitution of each parameter by its copy. */
     private def copiesOf(aliasedParams: Seq[ValDef]): (Seq[ValDef], Map[Variable, Expr]) = {
       val copies = aliasedParams.map(_.freshen)
-      val substitution: Map[Variable, Expr] = aliasedParams.zip(copies).map { case (param, copy) => param.toVariable -> copy.toVariable }.toMap
+      val substitution: Map[Variable, Expr] = aliasedParams
+        .zip(copies)
+        .map { case (param, copy) => param.toVariable -> copy.toVariable }
+        .toMap
 
       (copies, substitution)
     }
 
+    /** `body`, run on copies of `params` initialized from them, returning the copies with its result. */
     private def withReturnedCopies(params: Seq[ValDef], copies: Seq[ValDef], body: Expr, resultType: Type, pos: Expr): Expr = {
       val res = ValDef(FreshIdentifier("res"), resultType)
       val returned: Expr = Let(res, body, Tuple(copies.map(_.toVariable) :+ res.toVariable).copiedFrom(pos)).copiedFrom(pos)
@@ -679,18 +684,24 @@ class FunctionRewrite(override val s: Trees)(override val t: s.type)(using overr
 }
 
 object FunctionRewrite extends ExtractionPipelineCreator {
+  /** The functions the phase rewrote. */
   case class SummaryData(affectedFns: Set[Identifier] = Set.empty) {
+    /** The functions either summary rewrote. */
     def ++(other: SummaryData): SummaryData = SummaryData(affectedFns ++ other.affectedFns)
+
+    /** Whether the phase rewrote a function. */
     def hasRun: Boolean = affectedFns.nonEmpty
   }
 
   override val name: String = "FunctionRewrite"
 
+  /** The phase over the trees `trees`. */
   def apply(trees: Trees)(using inox.Context): ExtractionPipeline {
     val s: trees.type
     val t: trees.type
   } = {
     class Impl(override val s: trees.type, override val t: trees.type) extends FunctionRewrite(s)(t)
+
     new Impl(trees, trees)
   }
 }
