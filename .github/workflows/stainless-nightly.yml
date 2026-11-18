@@ -19,7 +19,7 @@ jobs:
       uses: actions/setup-java@v6
       with:
         distribution: temurin
-        java-version: 17
+        java-version: 21
     - name: Setup java options
       # The runners share one machine, with each other and with its users. Without
       # -XX:ActiveProcessorCount, each JVM sizes its GC threads, its JIT threads and its default
