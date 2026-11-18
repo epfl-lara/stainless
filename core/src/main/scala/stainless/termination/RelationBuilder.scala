@@ -22,14 +22,11 @@ trait RelationBuilder { self: Strengthener & OrderingRelation =>
       val instPath = that.path.instantiate(tfd.tpSubst)
       assert(that.fd == tfd.fd, "Cannot compose relations with incompatible functions")
 
-      val freshParams = tfd.params.map(_.freshen)
+      val (freshParams, subst) = freshenBindings(tfd.params, Map.empty)
       val paramPath = Path.empty `withBindings` (freshParams zip call.args)
-      val subst: Map[ValDef, Expr] = (tfd.params zip freshParams.map(_.toVariable)).toMap
 
-      val freshSubst = (instPath.bound map { vd =>
-        vd -> vd.freshen
-      }).toMap
-      val newSubst = subst ++ freshSubst.view.mapValues(_.toVariable)
+      val (freshBound, newSubst) = freshenBindings(instPath.bound, subst)
+      val freshSubst = (instPath.bound zip freshBound).toMap
       val newPath = instPath.map(freshSubst, exprOps.replaceFromSymbols(newSubst, _))
 
       val newCall =
@@ -38,6 +35,14 @@ trait RelationBuilder { self: Strengthener & OrderingRelation =>
       Relation(fd, path `merge` paramPath `merge` newPath, newCall, inLambda || that.inLambda)
     }
   }
+
+  /** Freshens the bindings `vds`, whose types may refer to the previous bindings (as dependent parameter
+    * types do), or to the bindings substituted by `subst`. Returns the fresh bindings and the extended substitution. */
+  def freshenBindings(vds: Seq[ValDef], subst: Map[ValDef, Expr]): (Seq[ValDef], Map[ValDef, Expr]) =
+    vds.foldLeft((Seq.empty[ValDef], subst)) { case ((fresh, subst), vd) =>
+      val fvd = ValDef(vd.id.freshen, typeOps.replaceFromSymbols(subst, vd.tpe), vd.flags).copiedFrom(vd)
+      (fresh :+ fvd, subst + (vd -> fvd.toVariable))
+    }
 
   protected type RelationSignature = (FunDef, Expr, Boolean, Set[(FunDef, Boolean)])
 
