@@ -669,6 +669,10 @@ trait HeapApproximations extends CallResults { self: HeapApproximationPoints =>
     def appended(accessor: HeapAccessor, step: HeapTargetSet): HeapTargetDependency =
       copy(accessors = accessors :+ accessor, targets = targets :+ step)
 
+    /** Whether `other` starts with this path: the same variable, then the accessors of this path. */
+    def isPrefixOf(other: HeapTargetDependency): Boolean =
+      variable == other.variable && other.accessors.startsWith(accessors)
+
     /** The slots this path goes through. */
     def slots: Set[HeapSlot] =
       targets

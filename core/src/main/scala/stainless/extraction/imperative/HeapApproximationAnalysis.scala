@@ -10,6 +10,9 @@ import scala.collection.immutable.Queue
 trait HeapApproximationAnalyses extends HeapApproximationGraphs {
   import s._
 
+  /** A parameter the function mutates, and the local variable `FunctionRewrite` copied it into. */
+  case class MutatedParameter(param: Identifier, copy: Identifier)
+
   /** A function whose body the analysis can enter: a top-level function, a local function or a lambda. */
   sealed abstract class FunctionDefinition(using symbols: Symbols) {
     /** The parameters of the function. */
@@ -24,12 +27,13 @@ trait HeapApproximationAnalyses extends HeapApproximationGraphs {
     /** The control-flow graph of the body, over the parameters and the captured variables. */
     lazy val graph: HeapApproximationGraph = HeapApproximationGraph.build(params ++ capturedVariables, body)
 
-    /** The variables that start as a copy of a mutable parameter, as in `var x = param`. */
-    lazy val copies: Set[Identifier] = graph.points.values
-      .collect {
-        case ProgramPoint(_, LetVar(vd, Variable(id, _, _), _), _) if graph.params.exists(param => param.id == id && symbols.isMutableType(param.tpe)) => vd.id
-      }
-      .toSet
+    /** The parameters the function mutates, found from the copies `var copy = param` that `FunctionRewrite` adds. */
+    lazy val mutatedParameters: Set[MutatedParameter] = exprOps.collect[MutatedParameter] {
+      case LetVar(vd, Variable(id, _, _), _) if (params ++ capturedVariables).exists(param => param.id == id && symbols.isMutableType(param.tpe)) =>
+        Set(MutatedParameter(id, vd.id))
+      case _ =>
+        Set.empty
+    }(body)
 
     /** Whether a call to this function can reach it again. */
     def isRecursive: Boolean
@@ -46,6 +50,9 @@ trait HeapApproximationAnalyses extends HeapApproximationGraphs {
   case class GlobalFunctionDefinition(tfd: TypedFunDef)(using symbols: Symbols) extends FunctionDefinition {
     def params: Seq[ValDef] = tfd.params
     def body: Expr = exprOps.deconstructSpecs(tfd.fullBody)._2.get
+
+    /** Whether the function has a body, rather than being abstract or external. */
+    lazy val hasBody: Boolean = exprOps.deconstructSpecs(tfd.fullBody)._2.isDefined
 
     lazy val isRecursive: Boolean = symbols.isRecursive(tfd.id)
   }
@@ -159,9 +166,11 @@ trait HeapApproximationAnalyses extends HeapApproximationGraphs {
     definitions: Map[Identifier, FunctionDefinition] = Map.empty,
     functions: Map[ExpressionID, FunctionAnalysis] = Map.empty
   ) {
-    /** The heap at `point`, empty when the point has not been reached yet. */
+    /** The heap leaving `point`, without the results it read, empty when the point has not been reached yet. */
     def resolveHeapAt(point: ExpressionID): HeapPointApproximation =
-      heapAt.getOrElse(point, HeapPointApproximation.empty(graph.scopeAt(point)))
+      heapAt
+        .get(point)
+        .fold(HeapPointApproximation.empty(graph.scopeAt(point)))(heap => heap.copy(results = heap.results -- graph.dependsOn(point)))
 
     /** The heap flowing into `point` from its single parent, pruned to the scope of the point. */
     def resolveParentHeap(point: ProgramPoint): HeapPointApproximation = {
@@ -229,7 +238,7 @@ trait HeapApproximationAnalyses extends HeapApproximationGraphs {
     /** Rejects an opaque function whose result or mutated parameters a caller could not rebuild from its summary: they must end as disjoint trees, apart from what the function received. */
     def ensureOpaque(definition: FunctionDefinition)(using Symbols): Unit = {
       def isCopy(e: Expr): Boolean = e match {
-        case Variable(id, _, _) => definition.copies(id)
+        case Variable(id, _, _) => definition.mutatedParameters.exists(_.copy == id)
         case _ => false
       }
 
@@ -312,7 +321,7 @@ trait HeapApproximationAnalyses extends HeapApproximationGraphs {
   object HeapApproximationAnalysis {
     /** The points left to refine, with how often each one changed, to stop loops that do not converge. */
     private case class HeapWorklist(pending: Queue[ExpressionID], changes: Map[ExpressionID, Int] = Map.empty) {
-      private val maxChanges = 10
+      private val maxChanges = 20
 
       /** Whether no point is left to refine. */
       def isEmpty: Boolean = pending.isEmpty
@@ -465,7 +474,7 @@ trait HeapApproximationAnalyses extends HeapApproximationGraphs {
     /** What storing `value` into a slot puts there: the object it designates, or the immutable value written at this site. */
     private def resolveContent(analysis: HeapApproximationAnalysis, heap: HeapPointApproximation, value: Expr)(using symbols: Symbols): (HeapReference, HeapPointApproximation) = {
       if (symbols.isMutableType(value.getType)) {
-        return (analysis.resolveExpression(heap, value), heap)
+        return (heap.dereference(analysis.resolveExpression(heap, value)), heap)
       }
 
       val (immutable, registered) = heap.withImmutable(ExpressionID(value))
@@ -508,7 +517,7 @@ trait HeapApproximationAnalyses extends HeapApproximationGraphs {
       }
 
       val resultHeap = mergedHeap
-        .withoutResults
+        .copy(results = mergedHeap.results -- graph.points.keySet)
         .withExpressionResult(point.e, HeapReference.union(returned))
 
       val finalHeap = resultHeap
@@ -585,21 +594,21 @@ trait HeapApproximationAnalyses extends HeapApproximationGraphs {
       val entryHeaps = graph
         .parentsOf(point)
         .filter(_.id != backEdge)
-        .flatMap(parent => analysis.heapAt.get(parent.id))
+        .map(parent => analysis.resolveHeapAt(parent.id))
 
       val headHeaps = entryHeaps ++ analysis.heapAt.get(point.id)
       val entryHeap = HeapPointApproximation
         .merge(point.scope, headHeaps)
         .prune(point.scope)
 
-      val backHeap = analysis.heapAt.get(backEdge)
+      val backHeap = analysis.resolveHeapAt(backEdge)
 
       if (backHeap.isEmpty) {
         return analysis.withHeap(point, entryHeap)
       }
 
       val previousIteration = ExpressionRegistry(ExpressionID(e))
-      val iterationHeap = backHeap.get.withoutResults(e)
+      val iterationHeap = backHeap.withoutResults(e)
       val relocatedHeap = iterationHeap
         .created(entryHeap)
         .foldLeft(iterationHeap)((heap, created) => heap.withRelocate(previousIteration, created))
@@ -746,22 +755,25 @@ trait HeapApproximationAnalyses extends HeapApproximationGraphs {
 
     /** A call to a top-level function: entered when its body is known and not recursive, summarized otherwise. */
     private def refineInvocation(analysis: HeapApproximationAnalysis, point: ProgramPoint, e: FunctionInvocation)(using symbols: Symbols): HeapApproximationAnalysis = {
-      ensureDistinctArguments(analysis, point, e.args)
-
-      if (!symbols.isMutableType(e.getType)) {
-        return refineUntracked(analysis, point)
-      }
-
-      if (!analysis.isEntered(e)) {
-        return refineExternal(analysis, point)
-      }
-
       val definition = analysis.definitions
         .get(e.id)
         .collect { case definition: GlobalFunctionDefinition if definition.tfd == e.tfd => definition }
         .getOrElse(GlobalFunctionDefinition(e.tfd))
+      val defined = analysis.withDefinition(e.id, definition)
 
-      refineCall(analysis.withDefinition(e.id, definition), point, definition)
+      if (!definition.hasBody || definition.mutatedParameters.nonEmpty) {
+        ensureDistinctArguments(defined, point, e.args)
+      }
+
+      if (!symbols.isMutableType(e.getType)) {
+        return refineUntracked(defined, point)
+      }
+
+      if (!analysis.isEntered(e)) {
+        return refineExternal(defined, point)
+      }
+
+      refineCall(defined, point, definition)
     }
 
     /** A call to a local function: entered when known and not recursive, summarized otherwise. */
@@ -818,9 +830,7 @@ trait HeapApproximationAnalyses extends HeapApproximationGraphs {
 
       val graph = definition.graph
       val scope = graph.scopeAt(graph.entrypoint)
-      val scopedHeap = heap
-        .withoutResults
-        .withScope(scope)
+      val scopedHeap = heap.withScope(scope)
 
       val initialHeap = graph.params
         .zip(arguments)
@@ -835,7 +845,10 @@ trait HeapApproximationAnalyses extends HeapApproximationGraphs {
       }
 
       val bindings = definition.params.zip(args).toMap
-      val translatedResultHeap = resultHeap.withSubstitution(bindings)
+      val unstable = bindings.collect { case (vd, arg) if !isStable(arg) => vd.id }.toSet
+      val translatedResultHeap = resultHeap
+        .withoutConditionOn(unstable)
+        .withSubstitution(bindings)
 
       val context = ExpressionRegistry(ExpressionID(e))
       val relocatedResultHeap = translatedResultHeap
@@ -1154,6 +1167,12 @@ trait HeapApproximationAnalyses extends HeapApproximationGraphs {
     /** A `choose`: see `refineExternal`. */
     private def refineChoose(analysis: HeapApproximationAnalysis, point: ProgramPoint, e: Choose)(using symbols: Symbols): HeapApproximationAnalysis =
       refineExternal(analysis, point)
+
+    /** Whether `arg` denotes the same value wherever a condition mentioning it is evaluated. */
+    private def isStable(arg: Expr)(using symbols: Symbols): Boolean = arg match {
+      case v: Variable => !v.flags.contains(IsVar)
+      case _ => symbols.isImmutableExpression(arg)
+    }
 
     /** Rejects a collection that other objects may also point to. */
     private def ensureUnshared(analysis: HeapApproximationAnalysis, point: ProgramPoint, collection: Expr)(using symbols: Symbols): Unit = {

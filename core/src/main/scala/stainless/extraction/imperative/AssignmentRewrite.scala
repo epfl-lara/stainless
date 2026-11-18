@@ -29,12 +29,6 @@ trait AssignmentRewrites extends HeapApproximationAnalyses {
     }
   }
 
-  /** Whether `e` assigns a variable or writes a field, an array element or a map entry. */
-  def hasWrites(e: Expr): Boolean = exprOps.exists {
-    case _: Assignment | _: FieldAssignment | _: ArrayUpdate | _: MutableMapUpdate => true
-    case _ => false
-  }(e)
-
   /** Binds to fresh variables the arguments, receivers and indices that the refreshes need to name. */
   def normalizeBody(body: Expr)(using symbols: Symbols): Expr = {
     object normalizer extends ConcreteOOSelfTreeTransformer {
@@ -44,7 +38,7 @@ trait AssignmentRewrites extends HeapApproximationAnalyses {
         def needsArgumentBindings(call: Expr): Boolean = {
           val Operator(args, _) = call: @unchecked
 
-          args.exists(arg => symbols.isMutableType(arg.getType) || hasWrites(arg))
+          args.exists(arg => symbols.isMutableType(arg.getType) || hasEffect(arg))
         }
 
         def bindArgument(argument: Expr): (Seq[(ValDef, Expr)], Expr) = {
@@ -59,7 +53,7 @@ trait AssignmentRewrites extends HeapApproximationAnalyses {
           case Let(vd, value @ (_: FunctionInvocation | _: ApplyLetRec | _: Application), rest) if CallResult.isWithin(rest) && changingIndices(value).nonEmpty =>
             val Operator(args, _) = value: @unchecked
 
-            if (args.exists(hasWrites)) {
+            if (args.exists(hasEffect)) {
               throw AliasingRewriteException.effectfulIndexedCall(value)
             }
 
@@ -116,7 +110,7 @@ trait AssignmentRewrites extends HeapApproximationAnalyses {
 
             withBindings(bindings.flatten, rebuild(normalizedArgs).copiedFrom(call))
 
-          case FieldAssignment(obj, selector, value) if hasWrites(value) =>
+          case FieldAssignment(obj, selector, value) if hasEffect(value) =>
             val (receiverBindings, receiver) = bind(obj, "receiver")
             val (valueBindings, assigned) = bind(value, "value")
 
@@ -156,6 +150,12 @@ trait AssignmentRewrites extends HeapApproximationAnalyses {
             val (bindings, normalizedMap, normalizedKey) = normalizeAccess(map, key, "map", "key")
 
             withBindings(bindings, MutableMapApply(normalizedMap, normalizedKey).copiedFrom(e))
+
+          case _: ClassSelector | _: TupleSelect =>
+            val exprOps.Deconstructor(owner +: rest, rebuild) = e: @unchecked
+            val (bindings, inner) = splitBindings(transform(owner))
+
+            withBindings(bindings, rebuild(inner +: rest).copiedFrom(e))
 
           case _ =>
             super.transform(e)
@@ -376,7 +376,7 @@ trait AssignmentRewrites extends HeapApproximationAnalyses {
           heap.resolveDependencies(inner).toSeq
             .filterNot(path.isPrefixOf)
             .filterNot(dependency => excluded(dependency.variable))
-            .filterNot(dependency => rootDependencies.exists(covered => covered.variable == dependency.variable && dependency.accessors.startsWith(covered.accessors)))
+            .filterNot(dependency => rootDependencies.exists(_.isPrefixOf(dependency)))
         }
 
         def isUnchanged(previous: HeapPointApproximation, value: HeapValue): Boolean = {
@@ -399,7 +399,7 @@ trait AssignmentRewrites extends HeapApproximationAnalyses {
         val previous = before.getOrElse(throw AliasingRewriteException.innerAlias(tree))
 
         holders.flatMap { holder =>
-          val held = holder.targets.last.values
+          val held = holder.targets.last.restrict(holder.condition).values
 
           if (held.size != 1) {
             throw AliasingRewriteException.innerAlias(tree)
@@ -715,12 +715,12 @@ class AssignmentRewrite(override val s: Trees)(override val t: s.type)(using ove
       }
 
       def rewriteSpecification(spec: exprOps.Specification): exprOps.Specification = spec match {
-        case exprOps.Postcondition(lambda @ Lambda(params, post)) if hasWrites(post) =>
+        case exprOps.Postcondition(lambda @ Lambda(params, post)) if containsEffect(post) =>
           val analysis = HeapApproximationAnalysis.refineSpecification(lambda)
 
           exprOps.Postcondition(Lambda(params, rewrite(post, analysis)).copiedFrom(lambda))
 
-        case exprOps.Precondition(pre) if hasWrites(pre) =>
+        case exprOps.Precondition(pre) if containsEffect(pre) =>
           val analysis = HeapApproximationAnalysis.refineSpecification(Lambda(Seq.empty, pre).copiedFrom(pre))
 
           exprOps.Precondition(rewrite(pre, analysis))
@@ -762,10 +762,10 @@ class AssignmentRewrite(override val s: Trees)(override val t: s.type)(using ove
       val (specs, bodyOpt) = exprOps.deconstructSpecs(fd.fullBody)
       val normalizedBody = bodyOpt.map(normalize)
       val normalizedSpecs = specs.map {
-        case exprOps.Postcondition(lambda @ Lambda(params, post)) if hasWrites(post) =>
+        case exprOps.Postcondition(lambda @ Lambda(params, post)) if containsEffect(post) =>
           exprOps.Postcondition(Lambda(params, normalize(post)).copiedFrom(lambda))
 
-        case exprOps.Precondition(pre) if hasWrites(pre) =>
+        case exprOps.Precondition(pre) if containsEffect(pre) =>
           exprOps.Precondition(normalize(pre))
 
         case spec =>

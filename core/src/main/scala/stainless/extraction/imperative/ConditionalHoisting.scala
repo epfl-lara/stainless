@@ -22,8 +22,9 @@ class ConditionalHoisting(override val s: Trees)(override val t: s.type)(using o
 
     override def transform(fd: s.FunDef): t.FunDef = {
       val (specs, bodyOpt) = exprOps.deconstructSpecs(fd.fullBody)
+      val hoistedSpecs = specs.map(_.transform(e => new Hoister().transform(e)))
       val hoistedBody = bodyOpt.map(new Hoister().transform)
-      val hoistedFullBody = exprOps.reconstructSpecs(specs, hoistedBody, fd.returnType)
+      val hoistedFullBody = exprOps.reconstructSpecs(hoistedSpecs, hoistedBody, fd.returnType)
 
       super.transform(fd.copy(fullBody = hoistedFullBody).copiedFrom(fd))
     }
@@ -71,9 +72,19 @@ class ConditionalHoisting(override val s: Trees)(override val t: s.type)(using o
         case _ => Hoisted(Seq.empty, transform(e))
       }
 
-      /** The `if` `e`, its condition bound to a fresh variable unless it is immutable. */
+      /** Whether `e` only tests the class of variables that keep their object. */
+      private def isClassTest(e: Expr): Boolean = e match {
+        case IsInstanceOf(v: Variable, _) => !v.flags.contains(IsVar)
+        case IsConstructor(v: Variable, _) => !v.flags.contains(IsVar)
+        case Not(inner) => isClassTest(inner)
+        case And(exprs) => exprs.forall(isClassTest)
+        case Or(exprs) => exprs.forall(isClassTest)
+        case _ => false
+      }
+
+      /** The `if` `e`, its condition bound to a fresh variable unless it is immutable or a class test. */
       private def hoistIf(e: IfExpr): Hoisted = {
-        if (symbols.isImmutableExpression(e.cond)) {
+        if (symbols.isImmutableExpression(e.cond) || isClassTest(e.cond)) {
           return Hoisted(Seq.empty, IfExpr(transform(e.cond), transform(e.thenn), transform(e.elze)).copiedFrom(e))
         }
 

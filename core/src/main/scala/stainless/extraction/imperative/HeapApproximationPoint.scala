@@ -131,15 +131,30 @@ trait HeapApproximationPoints extends HeapApproximations {
     def resolveVariable(identifier: Identifier): HeapReference =
       references(HeapVariable(identifier))
 
-    /** Keeps the variables in `identifiers`, and the other variables that reach one of their objects, all at the current scope. */
+    /** Keeps the variables in `identifiers`, and the other variables and pending results connected to their objects, all at the current scope. */
     def withRestriction(identifiers: Set[Identifier]): HeapPointApproximation = {
-      val (kept, others) = variables.partition(variable => identifiers(variable.identifier))
-      val shared = kept.flatMap(resolveAllTargets(_).values)
-      val (aliases, outside) = others.partition(variable => resolveAllTargets(variable).values.exists(shared))
-      val rescoped = (kept ++ aliases).foldLeft(objects)((objects, variable) => objects.updated(variable, HeapScopedObject(scope, variable)))
+      @tailrec
+      def connect(kept: Set[HeapObject], shared: Set[HeapValue], others: Set[HeapObject]): (Set[HeapObject], Set[HeapObject]) = {
+        val (aliases, outside) = others.partition(other => resolveAllTargets(other).values.exists(shared))
 
-      copy(objects = rescoped)
-        .withoutObject(outside)
+        if (aliases.isEmpty) {
+          return (kept, outside)
+        }
+
+        connect(kept ++ aliases, shared ++ aliases.flatMap(resolveAllTargets(_).values), outside)
+      }
+
+      val (parameters, others) = variables.partition(variable => identifiers(variable.identifier))
+      val roots: Set[HeapObject] = parameters ++ others ++ results.values
+      val (kept, outside) = connect(parameters.toSet, parameters.flatMap(resolveAllTargets(_).values), roots -- parameters)
+
+      val rescoped = kept
+        .collect { case variable: HeapVariable => variable }
+        .foldLeft(objects)((objects, variable) => objects.updated(variable, HeapScopedObject(scope, variable)))
+      val keptResults = results.filter { case (_, location) => kept(location) }
+
+      copy(objects = rescoped, results = keptResults)
+        .withoutObject(outside.collect { case variable: HeapVariable => variable })
         .prune(scope)
     }
 
@@ -246,7 +261,7 @@ trait HeapApproximationPoints extends HeapApproximations {
     /** The objects nothing keeps alive anymore, variables out of scope included. */
     private lazy val deadObjects: Set[HeapObject] = objects.keySet -- liveObjects
 
-    /** The heap in canonical form: collections that no longer share their elements get back a single element set. */
+    /** The heap in canonical form: collections that no longer share their elements get back a single element set, and values only reachable through one holder that does not tell them apart become one value. */
     private def normalize: HeapPointApproximation = {
       def normalizeCollection(heap: HeapPointApproximation, head: HeapCollection): HeapPointApproximation = {
         val own = heap.resolveSlots(head).map(_.accessor).toSet
@@ -273,7 +288,53 @@ trait HeapApproximationPoints extends HeapApproximations {
           elements.size > 1 && elements.forall(references.parentsOf(_) == Set(head))
         }
 
-      unshared.foldLeft(this)(normalizeCollection)
+      def mergeTargets(heap: HeapPointApproximation, holder: HeapObject): HeapPointApproximation = {
+        if (holder.isInstanceOf[HeapOriginal]) {
+          return heap
+        }
+
+        val targets = heap.references(holder) match {
+          case AmbiguousHeapReference(references) => references
+          case _ => Set.empty[HeapObject]
+        }
+        val values = targets.collect { case value: HeapValue => value }
+
+        if (values.size < 2 || values.size != targets.size) {
+          return heap
+        }
+
+        val own: Set[HeapObject] = holder match {
+          case slot: HeapSlot => Set(slot, HeapOriginal(slot))
+          case _ => Set(holder)
+        }
+
+        if (!values.forall(value => heap.references.parentsOf(value).subsetOf(own))) {
+          return heap
+        }
+
+        val region: Set[HeapValue] = values.flatMap(heap.resolveAllTargets(_).values)
+
+        def isInside(parent: HeapObject): Boolean = parent match {
+          case slot: HeapSlot => region(slot.owner)
+          case HeapOriginal(slot) => region(slot.owner)
+          case collection: HeapCollection => region(collection)
+          case _ => false
+        }
+
+        val inner: Set[HeapObject] = (region -- values) ++ region.collect { case collection: HeapCollection => collection.elements }
+
+        if (!inner.forall(node => heap.references.parentsOf(node).forall(isInside))) {
+          return heap
+        }
+
+        val kept = values.minBy(value => (!value.isOriginal, value.site.expr.getPos.line, value.site.expr.getPos.col, value.site.toString))
+
+        heap.renamed((values - kept).map(value => (value: HeapObject) -> (kept: HeapObject)).toMap)
+      }
+
+      val normalized = unshared.foldLeft(this)(normalizeCollection)
+
+      normalized.references.references.keySet.foldLeft(normalized)(mergeTargets)
     }
 
     /** The heap at `scope`, without what nothing keeps alive; elements whose index goes out of scope are dropped when nothing else sees them. */
@@ -293,12 +354,24 @@ trait HeapApproximationPoints extends HeapApproximations {
       def pruneDanglingObject(heap: HeapPointApproximation, outOfScope: Set[Identifier]): HeapPointApproximation = {
         def isPrunable(slot: HeapElement): Boolean = {
           val roots = heap.variables ++ heap.results.values
+          val targets = heap.resolveAllTargets(slot).values
+
           val withoutSlot = heap.withoutObject(Seq(slot))
           val visible = roots.flatMap(withoutSlot.resolveAllTargets(_).values)
 
-          heap.resolveAllTargets(slot).values.forall { target =>
-            !visible(target) && (!target.isOriginal || HeapAccessor.fromExpression(target.site.expr)._2.contains(slot.accessor))
+          if (targets.exists(visible)) {
+            return false
           }
+
+          val elements = heap.resolveSlots(slot.owner)
+          val withoutElements = heap.withoutObject(elements)
+          val outside = roots.flatMap(withoutElements.resolveAllTargets(_).values)
+
+          if (elements.forall(element => !heap.resolveAllTargets(element).values.exists(outside))) {
+            return true
+          }
+
+          targets.forall(target => !target.isOriginal || HeapAccessor.fromExpression(target.site.expr)._2.contains(slot.accessor))
         }
 
         if (outOfScope.isEmpty) {

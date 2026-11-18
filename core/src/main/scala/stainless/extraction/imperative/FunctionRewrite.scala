@@ -27,6 +27,20 @@ trait CallResults {
       exprOps.exists { case CallResult() => true; case _ => false }(e)
   }
 
+  /** Whether evaluating `e` assigns a variable or writes a field, an array element or a map entry: the bodies of lambdas and local functions only run when they are called. */
+  def hasEffect(e: Expr): Boolean = e match {
+    case _: Assignment | _: FieldAssignment | _: ArrayUpdate | _: MutableMapUpdate => true
+    case _: Lambda => false
+    case LetRec(_, body) => hasEffect(body)
+    case Operator(es, _) => es.exists(hasEffect)
+  }
+
+  /** Whether `e` contains a write anywhere, the bodies of its lambdas and local functions included. */
+  def containsEffect(e: Expr): Boolean = exprOps.exists {
+    case _: Assignment | _: FieldAssignment | _: ArrayUpdate | _: MutableMapUpdate => true
+    case _ => false
+  }(e)
+
   /** An assignment that stores the effect of a call back into an argument, annotated with the location it writes. */
   object WriteBack {
     private val name = "WriteBack"
@@ -416,38 +430,54 @@ class FunctionRewrite(override val s: Trees)(override val t: s.type)(using overr
 
           case fi: FunctionInvocation =>
             val callee = Outer(fi.tfd.fd)
-            val call = FunctionInvocation(fi.id, fi.tps, fi.args.map(transform)).copiedFrom(fi)
             val resultType = fi.tfd.instantiate(getReturnType(callee))
 
-            rewriteCallEffects(callee.params, fi.args, call, resultType, effects(callee), selectResult = true)
+            withBoundArguments(fi.args, fi.args.map(transform)) { (targets, args) =>
+              val call = FunctionInvocation(fi.id, fi.tps, args).copiedFrom(fi)
+
+              rewriteCallEffects(callee.params, targets, call, resultType, effects(callee), selectResult = true)
+            }
 
           case application @ ApplyLetRec(id, tparams, tpe, tps, args) =>
             val callee = Inner(locals(id))
             val calleeType = FunctionType(callee.params.map(_.getType), getReturnType(callee)).copiedFrom(tpe)
-            val call = ApplyLetRec(id, tparams, calleeType, tps, args.map(transform)).copiedFrom(application)
             val resultType = typeOps.instantiateType(getReturnType(callee), tparams.zip(tps).toMap)
 
-            rewriteCallEffects(callee.params, args, call, resultType, effects(callee), selectResult = true)
+            withBoundArguments(args, args.map(transform)) { (targets, boundArgs) =>
+              val call = ApplyLetRec(id, tparams, calleeType, tps, boundArgs).copiedFrom(application)
+
+              rewriteCallEffects(callee.params, targets, call, resultType, effects(callee), selectResult = true)
+            }
 
           case application @ Application(callee, args) =>
             val ft @ FunctionType(from, to) = callee.getType: @unchecked
-            val call = Application(transform(callee), args.map(transform)).copiedFrom(application)
+            val transformedCallee = transform(callee)
             val calleeEffects = functionTypeEffects(ft)
 
-            if (calleeEffects.isEmpty) {
-              return call
+            def rewriteApplication(targets: Seq[Expr], boundArgs: Seq[Expr]): Expr = {
+              val call = Application(transformedCallee, boundArgs).copiedFrom(application)
+
+              if (calleeEffects.isEmpty) {
+                return call
+              }
+
+              val params = from.map(tpe => ValDef.fresh("x", tpe))
+              val paramEffects = params.zipWithIndex.collect {
+                case (vd, index) if calleeEffects(index) => ModifyingEffect(vd.toVariable, Path.empty)
+              }
+              val resultType = callee match {
+                case v: Variable if widenedVarIds(v.id) => to
+                case _ => makeFunctionTypeExplicit(ft).asInstanceOf[FunctionType].to
+              }
+
+              rewriteCallEffects(params, targets, call, resultType, paramEffects.toSet, selectResult = true)
             }
 
-            val params = from.map(tpe => ValDef.fresh("x", tpe))
-            val paramEffects = params.zipWithIndex.collect {
-              case (vd, index) if calleeEffects(index) => ModifyingEffect(vd.toVariable, Path.empty)
-            }
-            val resultType = callee match {
-              case v: Variable if widenedVarIds(v.id) => to
-              case _ => makeFunctionTypeExplicit(ft).asInstanceOf[FunctionType].to
+            if (hasEffect(transformedCallee)) {
+              return rewriteApplication(args, args.map(transform))
             }
 
-            rewriteCallEffects(params, args, call, resultType, paramEffects.toSet, selectResult = true)
+            withBoundArguments(args, args.map(transform))(rewriteApplication)
 
           case _ =>
             super.transform(e)
@@ -455,6 +485,44 @@ class FunctionRewrite(override val s: Trees)(override val t: s.type)(using overr
       }
 
       transformer.transform(body)
+    }
+
+    /** The statements and bindings `e` starts with, as a context for what follows them, and the expression they lead to. */
+    private def splitPrefix(e: Expr): (Expr => Expr, Expr) = e match {
+      case Block(statements, last) =>
+        val (prefix, result) = splitPrefix(last)
+        (rest => Block(statements, prefix(rest)).copiedFrom(e), result)
+
+      case Let(vd, value, body) =>
+        val (prefix, result) = splitPrefix(body)
+        (rest => Let(vd, value, prefix(rest)).copiedFrom(e), result)
+
+      case LetVar(vd, value, body) =>
+        val (prefix, result) = splitPrefix(body)
+        (rest => LetVar(vd, value, prefix(rest)).copiedFrom(e), result)
+
+      case _ =>
+        (identity, e)
+    }
+
+    /** What `rebuild` makes of the effect targets and the arguments of a call: when one of the arguments has side effects, every argument is first bound to a variable, in order, after the statements it starts with. */
+    private def withBoundArguments(args: Seq[Expr], transformedArgs: Seq[Expr])(rebuild: (Seq[Expr], Seq[Expr]) => Expr): Expr = {
+      if (!transformedArgs.exists(hasEffect)) {
+        return rebuild(args, transformedArgs)
+      }
+
+      val bindings = transformedArgs.map { arg =>
+        val (prefix, value) = splitPrefix(arg)
+
+        (prefix, ValDef.fresh("arg", value.getType).copiedFrom(arg), value)
+      }
+      val variables = bindings.map(_._2.toVariable)
+
+      bindings.foldRight(rebuild(variables, variables)) { case ((prefix, vd, value), rest) =>
+        val binding = if (isMutableType(value.getType)) LetVar(vd, value, rest) else Let(vd, value, rest)
+
+        prefix(binding.copiedFrom(value))
+      }
     }
 
     /** `call` followed by the write backs of the effects it has on `args`, resulting in its own result when `selectResult`. */

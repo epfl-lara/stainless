@@ -41,6 +41,13 @@ trait HeapApproximationGraphs extends HeapApproximationPoints {
     /** The parameters and the variables the body declares. */
     lazy val declared: Set[Identifier] = params.map(_.id).toSet ++ locals
 
+    /** The results each point reads: those of its operands, except the one it passes on as its own. */
+    lazy val dependsOn: Map[ExpressionID, Set[ExpressionID]] = points.map { case (id, point) =>
+      val Deconstructor(operands, _) = point.e: @unchecked
+
+      id -> operands.map(exitOf).filter(_ != exitOf(point.e)).toSet
+    }
+
     /** Adds the point of `e`, at `scope`. */
     private def withProgramPoint(scope: Int, e: Expr): HeapApproximationGraph = {
       assert(!points.contains(ExpressionID(e)), s"Expression instance appears twice in the graph: $e")
@@ -79,8 +86,13 @@ trait HeapApproximationGraphs extends HeapApproximationPoints {
 
     /** Records at each point the variables live after it, the variables captured by a lambda or a local function being always live. */
     private def computeLiveness(using Symbols): HeapApproximationGraph = {
-      def readsCollection(value: Expr): Boolean =
-        exprOps.exists { case _: ArraySelect | _: MutableMapApply => true; case _ => false }(value)
+      def readsCollection(value: Expr): Boolean = value match {
+        case _: Snapshot | _: FreshCopy => false
+        case _: ArraySelect | _: MutableMapApply => true
+        case _ =>
+          val Deconstructor(operands, _) = value: @unchecked
+          operands.exists(readsCollection)
+      }
 
       def sourcesOf(value: Expr): Set[Identifier] =
         if (readsCollection(value)) exprOps.variablesOf(value).map(_.id) else Set.empty
