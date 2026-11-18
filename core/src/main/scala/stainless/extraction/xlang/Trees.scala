@@ -234,6 +234,23 @@ trait Printer extends innerclasses.Printer {
   }
 }
 
+/** Classes depend on their enclosing class and on their self type, which the phases that encode them read. */
+trait DependencyGraph extends innerclasses.DependencyGraph {
+  import inox.utils.Graphs._
+  protected val trees: Trees
+  import trees._
+
+  override protected def computeDependencyGraph: DiGraph[Identifier, SimpleEdge[Identifier]] = {
+    var g = super.computeDependencyGraph
+    for (cd <- symbols.classes.values; flag <- cd.flags) flag match {
+      case IsMemberOf(owner) => g += SimpleEdge(cd.id, owner)
+      case SelfType(ct) => g += SimpleEdge(cd.id, ct.id)
+      case _ =>
+    }
+    g
+  }
+}
+
 trait SymbolOps extends innerclasses.TypeOps with imperative.SymbolOps { self =>
   protected val trees: Trees
   import trees._
