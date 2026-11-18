@@ -1144,6 +1144,12 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
               simple --= s.typeOps.typeParamsOf(tp.getType)
               super.transform(e, tpe)
 
+            // A value of a generic ADT type used as `Any` is converted to `Object`, along with the values of
+            // its type parameters, which therefore can't be simple
+            case _ if tpe == s.AnyType() && (e.getType match { case s.ADTType(_, tps) => tps.nonEmpty case _ => false }) =>
+              simple --= s.typeOps.typeParamsOf(e.getType)
+              transform(e, e.getType)
+
             case s.FunInvocation(id, tps, args, _) =>
               val tparams = infos(id).tparams
               simple --= tps.zipWithIndex.flatMap { case (tp, i) =>
