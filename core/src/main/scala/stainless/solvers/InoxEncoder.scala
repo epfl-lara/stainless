@@ -64,7 +64,7 @@ private object ArrayTheory {
 private def keepFlag(sourceProgram: Program)(flag: sourceProgram.trees.Flag): Boolean = {
   import sourceProgram.trees._
   flag match {
-    case DropVCs | DropConjunct | SplitVC | Library | Synthetic | PartialEval | Extern => false
+    case DropVCs | DropConjunct | SplitVC | Library | Synthetic | OuterAccessor | PartialEval | Extern => false
     case Opaque | Private | Final | Law | Ghost | Erasable | Wrapping | Lazy => false
     case Derived(_) | IsField(_) | IsUnapply(_, _) | IndexedAt(_) | ClassParamInit(_) => false
     case TerminationStatus(_) => false

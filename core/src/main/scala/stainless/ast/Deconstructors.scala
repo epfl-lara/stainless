@@ -238,6 +238,7 @@ trait TreeDeconstructor extends inox.ast.TreeDeconstructor {
     case s.SplitVC => (Seq(), Seq(), Seq(), (_, _, _) => t.SplitVC)
     case s.Library => (Seq(), Seq(), Seq(), (_, _, _) => t.Library)
     case s.Synthetic => (Seq(), Seq(), Seq(), (_, _, _) => t.Synthetic)
+    case s.OuterAccessor => (Seq(), Seq(), Seq(), (_, _, _) => t.OuterAccessor)
     case s.Derived(None) => (Seq(), Seq(), Seq(), (_, _, _) => t.Derived(None))
     case s.Derived(Some(id)) => (Seq(id), Seq(), Seq(), (ids, _, _) => t.Derived(Some(ids.head)))
     case s.IsField(isLazy) => (Seq(), Seq(), Seq(), (_, _, _) => t.IsField(isLazy))

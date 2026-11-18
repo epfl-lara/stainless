@@ -25,6 +25,18 @@ trait Trees extends throwing.Trees { self =>
     def getTpe(stripRefinements: Boolean)(using Symbols): Type = ct.getTpe(stripRefinements)
   }
 
+  // Field types may refer to `this`, as in `{ x: C | x.outer eq this.outer }` (see `xlang.MemberClasses`)
+  override protected def fieldType(expr: Expr, ct: ClassType, vd: ValDef)(using Symbols): Type = {
+    val tpe = super.fieldType(expr, ct, vd)
+    if (!typeOps.exists { case RefinementType(_, pred) => exprOps.exists { case _: This => true case _ => false } (pred) case _ => false } (tpe)) tpe
+    else new ConcreteSelfTreeTransformer {
+      override def transform(e: Expr): Expr = e match {
+        case _: This => expr
+        case _ => super.transform(e)
+      }
+    }.transform(tpe)
+  }
+
   /** $encodingof `super` */
   case class Super(ct: ClassType) extends Expr with Terminal {
     def getTpe(stripRefinements: Boolean)(using Symbols): Type = ct.getTpe(stripRefinements)

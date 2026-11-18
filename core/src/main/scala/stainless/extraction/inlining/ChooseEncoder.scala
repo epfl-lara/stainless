@@ -70,7 +70,7 @@ class ChooseEncoder(override val s: ast.Trees, override val t: ast.Trees)
             FreshIdentifier("choose", true), fd.tparams.map(transform(_, env)), freshParams,
             returnType,
             newChoose,
-            Seq(t.Derived(Some(fd.id)), t.DropVCs),
+            Seq(t.Derived(Some(fd.id)), t.DropVCs) ++ (if (fd.flags contains s.OuterAccessor) Seq(t.OuterAccessor) else Seq()),
           ).setPos(fd)
 
           fdChooses = fdChooses :+ newFd

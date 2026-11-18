@@ -96,6 +96,7 @@ class StainlessSerializer(override val trees: ast.Trees, serializeProducts: Bool
       stainlessClassSerializer[InlineInvariant.type](166),
       stainlessClassSerializer[Lazy.type]           (167),
       stainlessClassSerializer[Template.type]       (169),
+      stainlessClassSerializer[OuterAccessor.type]  (274),
     )
 }
 
