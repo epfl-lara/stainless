@@ -43,10 +43,66 @@ trait Trees extends innerclasses.Trees { self =>
     case tpe => tpe
   }
 
+  private def ownerOf(id: Identifier)(using s: Symbols): Option[Identifier] =
+    s.lookupClass(id).flatMap(_.flags.collectFirst { case IsMemberOf(owner) => owner })
+
+  /** The instantiation of the type parameters of the ancestors of the class type `ct`, and of their enclosing classes. */
+  def ancestorsTypeSubst(ct: ClassType, outerSubst: Map[TypeParameter, Type])(using s: Symbols): Map[TypeParameter, Type] = {
+    val subst = ct.lookupClass.toSeq.flatMap(tcd => tcd +: tcd.ancestors).flatMap(_.tpSubst).toMap
+    subst.view.mapValues(typeOps.instantiateType(_, outerSubst)).toMap ++ outerSubst
+  }
+
+  /** The instantiation of the type parameters of the classes enclosing the member class `id`, given by its outer instance `path`.
+    *
+    * The members of a member class may mention the type parameters of its enclosing classes, as methods mention the type
+    * parameters of their class. Just as the receiver of a method gives the type arguments of its class, the outer instance
+    * of an instance of a member class gives those of its enclosing classes. The member class may also extend member classes
+    * of ancestors of its enclosing class, whose type parameters the type of the outer instance instantiates as well.
+    */
+  def outerTypeSubst(path: Expr, id: Identifier)(using s: Symbols): Map[TypeParameter, Type] =
+    if (ownerOf(id).isEmpty) Map.empty
+    else widenTypeParameter(path) match {
+      // The enclosing class may itself be a member class
+      case pct: ClassType => ancestorsTypeSubst(pct, memberTypeSubst(path))
+      case _ => Map.empty
+    }
+
+  /** The instantiation of the type parameters of the classes enclosing the class `id` within `id`, and of the
+    * enclosing classes of its ancestors: those of the enclosing classes of `id` stay free, as in the body of `id`. */
+  def enclosingTypeSubst(id: Identifier)(using s: Symbols): Map[TypeParameter, Type] = ownerOf(id) match {
+    case Some(owner) => s.lookupClass(owner) match {
+      case Some(ocd) => ancestorsTypeSubst(ClassType(owner, ocd.typeArgs), enclosingTypeSubst(owner))
+      case None => Map.empty
+    }
+    case None => Map.empty
+  }
+
+  override protected def memberTypeSubst(e: Expr)(using s: Symbols): Map[TypeParameter, Type] = {
+    def rec(tpe: Type): Map[TypeParameter, Type] = tpe match {
+      case PathType(path, ct) => outerTypeSubst(path, ct.id)
+      // A member class type without a path, as the type of `this` within the member class
+      case ct: ClassType => enclosingTypeSubst(ct.id)
+      case AnnotatedType(tpe, _) => rec(tpe)
+      case RefinementType(vd, _) => rec(vd.tpe)
+      case _ => Map.empty
+    }
+    if (!isMemberClassType(widenTypeParameter(e))) Map.empty
+    else rec(e.getTpe(stripRefinements = false)).filter { case (tp, tpe) => tp != tpe }
+  }
+
+  private def isMemberClassType(tpe: Type)(using s: Symbols): Boolean = tpe match {
+    case ct: ClassType => ownerOf(ct.id).isDefined
+    case _ => false
+  }
+
   /** $encodingof `new path.C(args)`, where `C` is a member class */
   case class PathClassConstructor(path: Expr, ct: ClassType, args: Seq[Expr]) extends Expr with CachingTyped {
-    protected def computeTpe(stripRefinements: Boolean)(using Symbols): Type =
-      ClassConstructor(ct, args).getTpe(stripRefinements)
+    protected def computeTpe(stripRefinements: Boolean)(using s: Symbols): Type = ct.lookupClass match {
+      case Some(tcd) =>
+        val subst = outerTypeSubst(path, ct.id)
+        checkParamTypes(args.map(_.getType), tcd.fields.map(vd => typeOps.instantiateType(vd.tpe, subst)), PathType(path, ct))
+      case None => Untyped
+    }
   }
 
   /** $encodingof `case path.C(subPatterns)`, where `C` is a member case class */
@@ -181,6 +237,7 @@ trait Printer extends innerclasses.Printer {
 trait SymbolOps extends innerclasses.TypeOps with imperative.SymbolOps { self =>
   protected val trees: Trees
   import trees._
+  import symbols.{given, _}
 
   // Path-dependent types are refinements of their class type, see [[MemberClasses]]
   override protected def typeBound(tp1: Type, tp2: Type, upper: Boolean): Type = (tp1, tp2) match {
@@ -206,7 +263,15 @@ trait SymbolOps extends innerclasses.TypeOps with imperative.SymbolOps { self =>
   }
 
   override def patternIsTyped(in: Type, pat: Pattern): Boolean = pat match {
-    case PathClassPattern(ob, _, ct, subs) => super.patternIsTyped(in, ClassPattern(ob, ct, subs))
+    case PathClassPattern(ob, path, ct, subs) =>
+      // The fields may mention the type parameters of the enclosing classes, given by the outer instance
+      val subst = outerTypeSubst(path, ct.id)
+      ob.forall(vd => isSubtypeOf(ct, vd.getType)) &&
+      lookupClass(ct.id).exists { cls =>
+        cls.fields.size == subs.size &&
+        cls.tparams.size == ct.tps.size &&
+        (cls.typed(ct.tps).fields zip subs).forall { case (vd, sub) => patternIsTyped(typeOps.instantiateType(vd.getType, subst), sub) }
+      }
     case _ => super.patternIsTyped(in, pat)
   }
 

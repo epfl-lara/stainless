@@ -42,6 +42,7 @@ package object xlang {
 
       private def keepFlag(flag: s.Flag): Boolean = flag match {
         case s.Ignore | s.StrictBV | s.IsObject | s.IsMemberOf(_) | s.IsTrait | s.SelfType(_) => false
+        case s.Annotation("outerAccessor", Seq()) => false
         case _ => true
       }
 

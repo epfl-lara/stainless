@@ -576,6 +576,9 @@ class CodeExtraction(inoxCtx: inox.Context,
     if (!isMemberClass(cls)) ct
     else extractPath(prefix) match {
       case Some(path) => xt.PathType(path, ct).setPos(pos)
+      // The outer instance gives the type arguments of the enclosing classes (see `stainless.extraction.xlang.MemberClasses`)
+      case None if cls.ownersIterator.drop(1).takeWhile(_.isClass).exists(_.typeParams.nonEmpty) =>
+        outOfSubsetError(pos, s"Stainless does not support the type ${prefix.show}#${cls.name.show} of a member class of a generic class without a stable path")
       case None => ct
     }
 

@@ -623,8 +623,6 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
               reportError(nested.sourcePos, "Objects cannot be defined within classes or traits")
             case nested @ ExObjectDef() if !(nested.symbol `is` Synthetic) =>
               reportError(nested.sourcePos, "Objects cannot be defined within classes or traits")
-            case nested @ ExClassDef() if sym.typeParams.nonEmpty =>
-              reportError(nested.sourcePos, "Classes cannot be defined within classes or traits with type parameters")
             case tr => traverse(tr)
           }
 

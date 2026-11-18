@@ -1,9 +1,5 @@
 object MemberClassesUnsupported {
 
-  trait Generic[T] {
-    case class Inner(t: T)
-  }
-
   trait WithObject {
     object Inner
   }

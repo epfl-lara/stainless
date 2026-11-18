@@ -4,3 +4,6 @@
 [ Error  ] NonUniformRecursion.scala:8:28: Non-uniform recursive types are not supported: Nest[(A, A)] refers back to Nest, so its type arguments must be type parameters or types without type parameters
              case class Nest[A](a: A, next: Option[Nest[(A, A)]])
                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[ Error  ] NonUniformRecursion.scala:18:27: Non-uniform recursive types are not supported: Expr[List[W]] refers back to Cons, so its type arguments must be type parameters or types without type parameters
+               case class Cons(h: W, t: Expr) extends Expr
+                                     ^^^^^^^

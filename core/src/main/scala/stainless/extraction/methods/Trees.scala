@@ -46,7 +46,7 @@ trait Trees extends throwing.Trees { self =>
           tfd.fd.flags.collectFirst { case IsMethodOf(cid) => cid }
             .flatMap(cid => (ctcd +: ctcd.ancestors).find(_.id == cid))
             .map { tcd =>
-              val tpSubst = tcd.tpSubst ++ tfd.tpSubst
+              val tpSubst = memberTypeSubst(receiver) ++ tcd.tpSubst ++ tfd.tpSubst
               val it = new InstantiateThis(ctcd.toType)
 
               val instParams = tfd.fd.params.map { vd =>
@@ -217,6 +217,8 @@ trait Trees extends throwing.Trees { self =>
             throw NotWellFormedException(fd, Some(s"type parameters length are not equal"))
 
           val it = new InstantiateThis(cd.typed.toType)
+          // Also instantiates the type parameters of the classes enclosing `acd`, if it is a member class
+          val asubst = memberTypeSubst(This(cd.typed.toType)) ++ acd.tpSubst
 
           val tpSubst = (fd.typeArgs zip sfd.typeArgs).toMap
 
@@ -226,12 +228,12 @@ trait Trees extends throwing.Trees { self =>
 
             if (!isSubtypeOf(
               it.transform(typeOps.instantiateType(lo, tpSubst)),
-              it.transform(typeOps.instantiateType(slo, acd.tpSubst)))) {
+              it.transform(typeOps.instantiateType(slo, asubst)))) {
                 throw NotWellFormedException(fd, Some(s"TODO"))
               }
 
             if (!isSubtypeOf(
-              it.transform(typeOps.instantiateType(shi, acd.tpSubst)),
+              it.transform(typeOps.instantiateType(shi, asubst)),
               it.transform(typeOps.instantiateType(hi, tpSubst)))) {
                 throw NotWellFormedException(fd, Some("TODO"))
               }
@@ -241,14 +243,14 @@ trait Trees extends throwing.Trees { self =>
             throw NotWellFormedException(fd, Some("Method override does not have the same number of parameters as parent"))
 
           (fd.params zip sfd.params).foreach { case (vd, svd) =>
-            val aTpe = it.transform(typeOps.instantiateType(svd.getType, acd.tpSubst))
+            val aTpe = it.transform(typeOps.instantiateType(svd.getType, asubst))
             val tpe = it.transform(typeOps.instantiateType(vd.getType, tpSubst))
             if (!isSubtypeOf(aTpe, tpe))
               throw NotWellFormedException(fd, Some(s"Parameter ${vd.id} of type $tpe is not a subtype of ancestor $aTpe"))
           }
 
           val t1 = it.transform(typeOps.instantiateType(fd.getType, tpSubst))
-          val t2 = it.transform(typeOps.instantiateType(sfd.getType, acd.tpSubst))
+          val t2 = it.transform(typeOps.instantiateType(sfd.getType, asubst))
 
           if (!isSubtypeOf(t1.getType, t2.getType))
             throw NotWellFormedException(fd, Some(s"return type ${t1} is not a subtype of ${t2}"))
