@@ -51,7 +51,9 @@ class LoopProcessor(override val checker: ProcessingPipeline)
       reporter.debug("-+> Iteration #" + index)
       for (chain <- cs if !nonTerminating.isDefinedAt(chain.fd)) {
         val (path, args) = chain.loop
-        if ((chain.fd.params zip args).forall { case (vd, arg) => isSubtypeOf(arg.getType, vd.tpe) }) {
+        // Functions can't be compared, as for the parameters that encode type parameters (see `oo.TypeEncoding`)
+        if ((chain.fd.params zip args).forall { case (vd, arg) => isSubtypeOf(arg.getType, vd.tpe) } &&
+            !chain.fd.params.exists(vd => typeOps.exists { case _: FunctionType => true case _ => false } (vd.tpe))) {
           val srcTuple = tupleWrap(chain.fd.params.map(_.toVariable))
           val resTuple = tupleWrap(args)
 

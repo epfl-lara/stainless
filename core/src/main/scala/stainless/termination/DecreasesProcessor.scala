@@ -127,9 +127,8 @@ class DecreasesProcessor(override val checker: ProcessingPipeline)
               case (oRel, oExpr, oIndex) =>
                 val nCall = Relation(fd, path, fi, false) // for now we don't need inLambda
                 val rel = oRel match { case Some(r) => nCall `compose` r; case None => nCall }
-                val freshParams = rel.call.tfd.params.map(_.freshen)
+                val (freshParams, subst) = freshenBindings(rel.call.tfd.params, Map.empty)
                 val fullPath = rel.path `withBindings` (freshParams zip rel.call.args)
-                val subst: Map[ValDef, Expr] = (rel.call.tfd.params zip freshParams.map(_.toVariable)).toMap
                 val oExprP = exprOps.replaceFromSymbols(subst, oExpr)
                 val (nRel, nExpr, nIndex) = (Some(rel), bindingsToLets(fullPath.bindings, oExprP), oIndex + 1)
                 MeasureRegister.add(fd, nRel, nExpr, nIndex)
