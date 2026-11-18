@@ -40,15 +40,18 @@ trait MutabilityAnalyzer extends oo.ExtractionPipeline { self =>
         // We don't need to check for mutable fields here, as at this point every
         // field still has a getter
         case ClassType(cid, tps) =>
-          symbols.getClass(cid).fields.exists { vd =>
+          val cd = symbols.getClass(cid)
+          cd.fields.exists { vd =>
             vd.flags.contains(IsVar) ||
             rec(vd.getType, seen + cid)
           } ||
-          symbols.getClass(cid).methods.exists { fid =>
+          cd.methods.exists { fid =>
             val fd = symbols.getFunction(fid)
             // note that setters and mutable flags are taken into account in the
-            // initial state of the `mutableClasses` fixpoint
-            fd.isGetter && rec(fd.returnType, seen + cid)
+            // initial state of the `mutableClasses` fixpoint, and that the getters of
+            // the fields of the class are as mutable as these fields (even if they
+            // widen their type, as the outer accessors of member classes, see `xlang.MemberClasses`)
+            fd.isGetter && !fd.isAccessorOfParam(cd) && rec(fd.returnType, seen + cid)
           }
         case _: FunctionType => false
         case _: PiType => false
