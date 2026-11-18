@@ -145,9 +145,8 @@ trait HeapApproximationPoints extends HeapApproximations {
       }
 
       val (parameters, others) = variables.partition(variable => identifiers(variable.identifier))
-      val roots: Set[HeapObject] = parameters ++ others ++ results.values
-      val (kept, outside) = connect(parameters.toSet, parameters.flatMap(resolveAllTargets(_).values), roots -- parameters)
-
+      val candidates: Set[HeapObject] = others ++ results.values
+      val (kept, outside) = connect(parameters.toSet, parameters.flatMap(resolveAllTargets(_).values), candidates)
       val rescoped = kept
         .collect { case variable: HeapVariable => variable }
         .foldLeft(objects)((objects, variable) => objects.updated(variable, HeapScopedObject(scope, variable)))
@@ -228,9 +227,9 @@ trait HeapApproximationPoints extends HeapApproximations {
         .get(site)
         .fold(NoHeapReference: HeapReference)(location => dereference(ExactHeapReference(location)))
 
-    /** Forgets every recorded result. */
-    def withoutResults: HeapPointApproximation =
-      copy(results = Map.empty)
+    /** Forgets the results recorded at `sites`. */
+    def withoutResults(sites: Set[ExpressionID]): HeapPointApproximation =
+      copy(results = results -- sites)
 
     /** Forgets the results recorded for `e` and its subexpressions. */
     def withoutResults(e: Expr): HeapPointApproximation = {
@@ -312,7 +311,7 @@ trait HeapApproximationPoints extends HeapApproximations {
           return heap
         }
 
-        val region: Set[HeapValue] = values.flatMap(heap.resolveAllTargets(_).values)
+        val region: Set[HeapValue] = heap.resolveAllTargets(holder).values
 
         def isInside(parent: HeapObject): Boolean = parent match {
           case slot: HeapSlot => region(slot.owner)
@@ -355,7 +354,6 @@ trait HeapApproximationPoints extends HeapApproximations {
         def isPrunable(slot: HeapElement): Boolean = {
           val roots = heap.variables ++ heap.results.values
           val targets = heap.resolveAllTargets(slot).values
-
           val withoutSlot = heap.withoutObject(Seq(slot))
           val visible = roots.flatMap(withoutSlot.resolveAllTargets(_).values)
 

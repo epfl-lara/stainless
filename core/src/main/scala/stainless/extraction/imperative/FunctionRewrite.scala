@@ -27,20 +27,6 @@ trait CallResults {
       exprOps.exists { case CallResult() => true; case _ => false }(e)
   }
 
-  /** Whether evaluating `e` assigns a variable or writes a field, an array element or a map entry: the bodies of lambdas and local functions only run when they are called. */
-  def hasEffect(e: Expr): Boolean = e match {
-    case _: Assignment | _: FieldAssignment | _: ArrayUpdate | _: MutableMapUpdate => true
-    case _: Lambda => false
-    case LetRec(_, body) => hasEffect(body)
-    case Operator(es, _) => es.exists(hasEffect)
-  }
-
-  /** Whether `e` contains a write anywhere, the bodies of its lambdas and local functions included. */
-  def containsEffect(e: Expr): Boolean = exprOps.exists {
-    case _: Assignment | _: FieldAssignment | _: ArrayUpdate | _: MutableMapUpdate => true
-    case _ => false
-  }(e)
-
   /** An assignment that stores the effect of a call back into an argument, annotated with the location it writes. */
   object WriteBack {
     private val name = "WriteBack"
@@ -422,18 +408,23 @@ class FunctionRewrite(override val s: Trees)(override val t: s.type)(using overr
 
           case FunctionInvocation(unfoldId @ ast.SymbolIdentifier("stainless.lang.unfold"), Seq(_), Seq(fi: FunctionInvocation)) =>
             val callee = Outer(fi.tfd.fd)
-            val call = FunctionInvocation(fi.id, fi.tps, fi.args.map(transform)).copiedFrom(fi)
-            val resultType = typeOps.replaceFromSymbols(callee.params.zip(call.args).toMap, fi.tfd.instantiate(getReturnType(callee)))
-            val rewrittenCall = rewriteCallEffects(callee.params, fi.args, call, resultType, effects(callee), selectResult = false)
+            val instantiatedType = fi.tfd.instantiate(getReturnType(callee))
 
-            FunctionInvocation(unfoldId, Seq(resultType), Seq(rewrittenCall)).copiedFrom(fi)
+            withBoundArguments(fi.args, fi.args.map(transform)) { (targets, boundArgs) =>
+              val call = FunctionInvocation(fi.id, fi.tps, boundArgs).copiedFrom(fi)
+              val resultType = typeOps.replaceFromSymbols(callee.params.zip(boundArgs).toMap, instantiatedType)
+              val rewrittenCall = rewriteCallEffects(callee.params, targets, call, resultType, effects(callee), selectResult = false)
+
+              FunctionInvocation(unfoldId, Seq(resultType), Seq(rewrittenCall)).copiedFrom(fi)
+            }
 
           case fi: FunctionInvocation =>
             val callee = Outer(fi.tfd.fd)
+            val instantiatedType = fi.tfd.instantiate(getReturnType(callee))
 
-            withBoundArguments(fi.args, fi.args.map(transform)) { (targets, args) =>
-              val call = FunctionInvocation(fi.id, fi.tps, args).copiedFrom(fi)
-              val resultType = typeOps.replaceFromSymbols(callee.params.zip(args).toMap, fi.tfd.instantiate(getReturnType(callee)))
+            withBoundArguments(fi.args, fi.args.map(transform)) { (targets, boundArgs) =>
+              val call = FunctionInvocation(fi.id, fi.tps, boundArgs).copiedFrom(fi)
+              val resultType = typeOps.replaceFromSymbols(callee.params.zip(boundArgs).toMap, instantiatedType)
 
               rewriteCallEffects(callee.params, targets, call, resultType, effects(callee), selectResult = true)
             }
@@ -441,10 +432,11 @@ class FunctionRewrite(override val s: Trees)(override val t: s.type)(using overr
           case application @ ApplyLetRec(id, tparams, tpe, tps, args) =>
             val callee = Inner(locals(id))
             val calleeType = FunctionType(callee.params.map(_.getType), getReturnType(callee)).copiedFrom(tpe)
+            val instantiatedType = typeOps.instantiateType(getReturnType(callee), tparams.zip(tps).toMap)
 
             withBoundArguments(args, args.map(transform)) { (targets, boundArgs) =>
               val call = ApplyLetRec(id, tparams, calleeType, tps, boundArgs).copiedFrom(application)
-              val resultType = typeOps.replaceFromSymbols(callee.params.zip(boundArgs).toMap, typeOps.instantiateType(getReturnType(callee), tparams.zip(tps).toMap))
+              val resultType = typeOps.replaceFromSymbols(callee.params.zip(boundArgs).toMap, instantiatedType)
 
               rewriteCallEffects(callee.params, targets, call, resultType, effects(callee), selectResult = true)
             }
@@ -473,7 +465,7 @@ class FunctionRewrite(override val s: Trees)(override val t: s.type)(using overr
               rewriteCallEffects(params, targets, call, resultType, paramEffects.toSet, selectResult = true)
             }
 
-            if (hasEffect(transformedCallee)) {
+            if (exprOps.hasEffect(transformedCallee)) {
               return rewriteApplication(args, args.map(transform))
             }
 
@@ -505,9 +497,9 @@ class FunctionRewrite(override val s: Trees)(override val t: s.type)(using overr
         (identity, e)
     }
 
-    /** What `rebuild` makes of the effect targets and the arguments of a call: when one of the arguments has side effects, every argument is first bound to a variable, in order, after the statements it starts with. */
+    /** `rebuild` applied to the effect targets and the arguments of a call, each argument bound to a fresh variable in order when one of them has an effect. */
     private def withBoundArguments(args: Seq[Expr], transformedArgs: Seq[Expr])(rebuild: (Seq[Expr], Seq[Expr]) => Expr): Expr = {
-      if (!transformedArgs.exists(hasEffect)) {
+      if (!transformedArgs.exists(exprOps.hasEffect)) {
         return rebuild(args, transformedArgs)
       }
 
@@ -516,7 +508,7 @@ class FunctionRewrite(override val s: Trees)(override val t: s.type)(using overr
 
         (prefix, ValDef.fresh("arg", value.getType).copiedFrom(arg), value)
       }
-      val variables = bindings.map(_._2.toVariable)
+      val variables = bindings.map { case (_, vd, _) => vd.toVariable }
 
       bindings.foldRight(rebuild(variables, variables)) { case ((prefix, vd, value), rest) =>
         val binding = if (isMutableType(value.getType)) LetVar(vd, value, rest) else Let(vd, value, rest)

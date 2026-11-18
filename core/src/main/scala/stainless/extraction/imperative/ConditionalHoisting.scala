@@ -4,7 +4,7 @@ package stainless
 package extraction
 package imperative
 
-/** Turns the matches of mutable type into `if` chains, and binds to fresh variables the conditions of `if`s that are not immutable, so that branches start from a known heap. */
+/** Turns the matches of mutable type into `if` chains, and binds to fresh variables the conditions of `if`s that are neither immutable nor class tests of variables that keep their object, so that branches start from a known heap. */
 class ConditionalHoisting(override val s: Trees)(override val t: s.type)(using override val context: inox.Context)
   extends oo.SimplePhase
      with SimplyCachedFunctions
@@ -15,7 +15,7 @@ class ConditionalHoisting(override val s: Trees)(override val t: s.type)(using o
 
   override protected def getContext(syms: s.Symbols) = new TransformerContext(self.s, self.t)(using syms)
 
-  /** Hoists the bodies of the functions of `symbols`. */
+  /** Hoists the bodies and the specifications of the functions of `symbols`. */
   protected class TransformerContext(override val s: self.s.type, override val t: s.type)
                                     (using symbols: s.Symbols)
     extends oo.ConcreteTreeTransformer(s, t) {

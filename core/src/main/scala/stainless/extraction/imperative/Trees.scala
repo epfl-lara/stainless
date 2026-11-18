@@ -530,6 +530,20 @@ class ConcreteTreeDeconstructor(override val s: Trees, override val t: Trees) ex
 class ExprOps(override val trees: Trees) extends oo.ExprOps(trees) { self =>
   import trees._
 
+  /** Whether evaluating `e` writes a variable, a field or an element, outside the bodies of lambdas and local functions. */
+  def hasEffect(e: Expr): Boolean = e match {
+    case _: Assignment | _: FieldAssignment | _: ArrayUpdate | _: MutableMapUpdate => true
+    case _: Lambda => false
+    case LetRec(_, body) => hasEffect(body)
+    case Operator(operands, _) => operands.exists(hasEffect)
+  }
+
+  /** Whether `e` contains a write anywhere, the bodies of its lambdas and local functions included. */
+  def containsEffect(e: Expr): Boolean = exists {
+    case _: Assignment | _: FieldAssignment | _: ArrayUpdate | _: MutableMapUpdate => true
+    case _ => false
+  }(e)
+
   /** The two new kinds of contracts that the imperative phase introduces */
   object ReadsKind extends SpecKind("reads") { type Spec = ReadsContract }
   object ModifiesKind extends SpecKind("modifies") { type Spec = ModifiesContract }

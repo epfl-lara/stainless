@@ -38,7 +38,7 @@ trait AssignmentRewrites extends HeapApproximationAnalyses {
         def needsArgumentBindings(call: Expr): Boolean = {
           val Operator(args, _) = call: @unchecked
 
-          args.exists(arg => symbols.isMutableType(arg.getType) || hasEffect(arg))
+          args.exists(arg => symbols.isMutableType(arg.getType) || exprOps.hasEffect(arg))
         }
 
         def bindArgument(argument: Expr): (Seq[(ValDef, Expr)], Expr) = {
@@ -53,7 +53,7 @@ trait AssignmentRewrites extends HeapApproximationAnalyses {
           case Let(vd, value @ (_: FunctionInvocation | _: ApplyLetRec | _: Application), rest) if CallResult.isWithin(rest) && changingIndices(value).nonEmpty =>
             val Operator(args, _) = value: @unchecked
 
-            if (args.exists(hasEffect)) {
+            if (args.exists(exprOps.hasEffect)) {
               throw AliasingRewriteException.effectfulIndexedCall(value)
             }
 
@@ -110,7 +110,7 @@ trait AssignmentRewrites extends HeapApproximationAnalyses {
 
             withBindings(bindings.flatten, rebuild(normalizedArgs).copiedFrom(call))
 
-          case FieldAssignment(obj, selector, value) if hasEffect(value) =>
+          case FieldAssignment(obj, selector, value) if exprOps.hasEffect(value) =>
             val (receiverBindings, receiver) = bind(obj, "receiver")
             val (valueBindings, assigned) = bind(value, "value")
 
@@ -715,12 +715,12 @@ class AssignmentRewrite(override val s: Trees)(override val t: s.type)(using ove
       }
 
       def rewriteSpecification(spec: exprOps.Specification): exprOps.Specification = spec match {
-        case exprOps.Postcondition(lambda @ Lambda(params, post)) if containsEffect(post) =>
+        case exprOps.Postcondition(lambda @ Lambda(params, post)) if exprOps.containsEffect(post) =>
           val analysis = HeapApproximationAnalysis.refineSpecification(lambda)
 
           exprOps.Postcondition(Lambda(params, rewrite(post, analysis)).copiedFrom(lambda))
 
-        case exprOps.Precondition(pre) if containsEffect(pre) =>
+        case exprOps.Precondition(pre) if exprOps.containsEffect(pre) =>
           val analysis = HeapApproximationAnalysis.refineSpecification(Lambda(Seq.empty, pre).copiedFrom(pre))
 
           exprOps.Precondition(rewrite(pre, analysis))
@@ -762,10 +762,10 @@ class AssignmentRewrite(override val s: Trees)(override val t: s.type)(using ove
       val (specs, bodyOpt) = exprOps.deconstructSpecs(fd.fullBody)
       val normalizedBody = bodyOpt.map(normalize)
       val normalizedSpecs = specs.map {
-        case exprOps.Postcondition(lambda @ Lambda(params, post)) if containsEffect(post) =>
+        case exprOps.Postcondition(lambda @ Lambda(params, post)) if exprOps.containsEffect(post) =>
           exprOps.Postcondition(Lambda(params, normalize(post)).copiedFrom(lambda))
 
-        case exprOps.Precondition(pre) if containsEffect(pre) =>
+        case exprOps.Precondition(pre) if exprOps.containsEffect(pre) =>
           exprOps.Precondition(normalize(pre))
 
         case spec =>

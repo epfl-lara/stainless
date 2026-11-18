@@ -170,7 +170,7 @@ trait HeapApproximationAnalyses extends HeapApproximationGraphs {
     def resolveHeapAt(point: ExpressionID): HeapPointApproximation =
       heapAt
         .get(point)
-        .fold(HeapPointApproximation.empty(graph.scopeAt(point)))(heap => heap.copy(results = heap.results -- graph.dependsOn(point)))
+        .fold(HeapPointApproximation.empty(graph.scopeAt(point)))(_.withoutResults(graph.dependsOn(point)))
 
     /** The heap flowing into `point` from its single parent, pruned to the scope of the point. */
     def resolveParentHeap(point: ProgramPoint): HeapPointApproximation = {
@@ -517,7 +517,7 @@ trait HeapApproximationAnalyses extends HeapApproximationGraphs {
       }
 
       val resultHeap = mergedHeap
-        .copy(results = mergedHeap.results -- graph.points.keySet)
+        .withoutResults(graph.points.keySet)
         .withExpressionResult(point.e, HeapReference.union(returned))
 
       val finalHeap = resultHeap
@@ -769,7 +769,7 @@ trait HeapApproximationAnalyses extends HeapApproximationGraphs {
         return refineUntracked(defined, point)
       }
 
-      if (!analysis.isEntered(e)) {
+      if (!defined.isEntered(e)) {
         return refineExternal(defined, point)
       }
 
@@ -1168,7 +1168,7 @@ trait HeapApproximationAnalyses extends HeapApproximationGraphs {
     private def refineChoose(analysis: HeapApproximationAnalysis, point: ProgramPoint, e: Choose)(using symbols: Symbols): HeapApproximationAnalysis =
       refineExternal(analysis, point)
 
-    /** Whether `arg` denotes the same value wherever a condition mentioning it is evaluated. */
+    /** Whether `arg` keeps its object, or its value when immutable, wherever a condition mentioning it is evaluated. */
     private def isStable(arg: Expr)(using symbols: Symbols): Boolean = arg match {
       case v: Variable => !v.flags.contains(IsVar)
       case _ => symbols.isImmutableExpression(arg)
