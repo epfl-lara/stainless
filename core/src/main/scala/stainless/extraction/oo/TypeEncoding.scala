@@ -1312,7 +1312,8 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
     def createTypeArgsElimWitness(encoded: t.FunDef, original: s.FunDef): Seq[t.FunDef] = {
       def dropRefinements(tpe: t.Type): t.Type = {
         t.typeOps.preMap {
-          case t.RefinementType(base, _) => Some(base.tpe)
+          // The base type may itself be a refinement, which `preMap` doesn't traverse
+          case t.RefinementType(base, _) => Some(dropRefinements(base.tpe))
           case _ => None
         } (tpe)
       }
