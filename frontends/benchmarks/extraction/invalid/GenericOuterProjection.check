@@ -1,0 +1,3 @@
+[ Error  ] GenericOuterProjection.scala:9:55: Stainless does not support the type GenericOuterProjection.Generic[BigInt]#Member of a member class of a generic class without a stable path
+             def projection(m: Generic[BigInt]#Member): BigInt = m.value
+                                                                 ^

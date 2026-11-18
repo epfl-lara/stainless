@@ -19,7 +19,11 @@ import scala.collection.mutable.{Map => MutableMap}
  *  and their identities, `a == b && a.identity == b.identity`. Each construction of an instance
  *  with an identity draws the next value of a ghost counter, held by an allocator that is passed
  *  as a ghost parameter to all functions that construct such instances, directly or through calls.
- *  As the counter only increases, identities drawn from the same allocator are distinct. For example,
+ *  As the counter only increases, identities drawn from the same allocator are distinct.
+ *
+ *  Instances of member classes of generic classes are tested through an outer accessor with type `Any`
+ *  (see [[MemberClasses]]). They hold a ghost copy of the identity of their outer instance, set at
+ *  construction, so that `x.outerRef eq p` is `x.outerRef == p && x.outerIdentity == p.identity`. For example,
  *
  * {{{
  * def mk(n: BigInt): Trees = new MyTrees(n)
@@ -59,6 +63,9 @@ class OuterIdentities(override val s: Trees)(override val t: s.type)
 
   private val identityFields = MutableMap[Identifier, Identifier]()
   private val identityAccessors = MutableMap[Identifier, Identifier]()
+  private val outerIdentityFields = MutableMap[Identifier, Identifier]()
+  private val outerIdentityAccessors = MutableMap[Identifier, Identifier]()
+  private lazy val outerIdentitySymbol = Symbol("stainless.lang.outerIdentity")
   // Identity accessors all override each other (a class may inherit them from unrelated traits)
   private lazy val identitySymbol = Symbol("stainless.lang.identity")
 
@@ -104,20 +111,72 @@ class OuterIdentities(override val s: Trees)(override val t: s.type)
       case None => context.reporter.fatalError(e.getPos, s"Instances of ${ct.id.asString} have no identity")
     }
 
+    /** Whether the class `id` is (or extends) a member class of a generic class, which holds a copy of the identity of its outer instance. */
+    def hasGenericOuter(id: Identifier): Boolean = ancestors(id).exists { aid =>
+      flags(aid).collectFirst { case IsMemberOf(owner) => owner }.flatMap(symbols.lookupClass).exists(_.tparams.nonEmpty)
+    }
+
+    def hasOuterIdentityField(id: Identifier): Boolean = hasGenericOuter(id) && !isAbstract(id)
+
+    def outerIdentityFieldId(id: Identifier): Identifier =
+      outerIdentityFields.getOrElseUpdate(id, SymbolIdentifier(fullName(id) + ".$outerIdentity"))
+
+    def outerIdentityAccessorId(id: Identifier): Identifier =
+      outerIdentityAccessors.getOrElseUpdate(id, SymbolIdentifier(outerIdentitySymbol))
+
+    /** The identity of the outer instance of `e`, an instance of a member class with a generic outer. */
+    def selectOuterIdentity(e: Expr): Expr = e.getType match {
+      case ct: ClassType => ancestors(ct.id).find(hasGenericOuter) match {
+        case Some(id) => MethodInvocation(e, outerIdentityAccessorId(id), Seq.empty, Seq.empty).copiedFrom(e)
+        case None => context.reporter.fatalError(e.getPos, s"Instances of ${ct.id.asString} have no outer identity")
+      }
+      case tpe => context.reporter.fatalError(e.getPos, s"Unexpected type ${tpe.asString} for an instance of a member class")
+    }
+
+    /** The outer instance with type `Any` of an instance of a member class with a generic outer (see [[MemberClasses]]). */
+    object OuterRef {
+      def unapply(e: Expr): Option[Expr] = e match {
+        case MethodInvocation(rec, id: SymbolIdentifier, Seq(), Seq()) if id.symbol == MemberClasses.outerRefSymbol => Some(rec)
+        case _ => None
+      }
+    }
+
     object transformer extends ConcreteOOSelfTreeTransformer(self.s, self.s) {
       override def transform(e: Expr): Expr = e match {
         case RefEquals(lhs, rhs) =>
           val (tl, tr) = (transform(lhs), transform(rhs))
           val ct = Seq(lhs.getType, rhs.getType).collectFirst { case ct: ClassType if hasIdentity(ct.id) => ct }
           val eq = Equals(tl, tr).copiedFrom(e)
-          val cmp = ct match {
-            case Some(ct) => And(eq, Equals(selectIdentity(tl, ct), selectIdentity(tr, ct)).copiedFrom(e)).copiedFrom(e)
-            case None => eq
+          def identity(e: Expr, te: Expr): Option[Expr] = e match {
+            case OuterRef(rec) => Some(selectOuterIdentity(transform(rec)))
+            case _ => ct.map(selectIdentity(te, _))
+          }
+          val cmp = (identity(lhs, tl), identity(rhs, tr)) match {
+            case (Some(il), Some(ir)) => And(eq, Equals(il, ir).copiedFrom(e)).copiedFrom(e)
+            case _ => eq
           }
           Annotated(cmp, Seq(Ghost)).copiedFrom(e)
 
-        case ClassConstructor(ct, args) if hasIdentityField(ct.id) =>
-          ClassConstructor(transform(ct).asInstanceOf[ClassType], freshIdentity(e) +: args.map(transform)).copiedFrom(e)
+        case ClassConstructor(ct, args) if hasIdentityField(ct.id) || hasOuterIdentityField(ct.id) =>
+          val targs = args.map(transform)
+          // The outer instance comes first (see [[MemberClasses]])
+          val withOuterIdentity =
+            if (!hasOuterIdentityField(ct.id)) targs
+            else args.head.getType.stripToplevelRefinement match {
+              case oct: ClassType =>
+                val outerIdentity = args.head match {
+                  // The outer instance of `this`, whose identity `this` holds a copy of
+                  case MethodInvocation(rec, id, Seq(), Seq())
+                      if symbols.getFunction(id).flags.contains(Annotation("outerAccessor", Seq.empty)) &&
+                         (rec.getType match { case rct: ClassType => hasGenericOuter(rct.id) case _ => false }) =>
+                    selectOuterIdentity(transform(rec))
+                  case _ => selectIdentity(targs.head, oct)
+                }
+                targs.head +: outerIdentity +: targs.tail
+              case _ => context.reporter.fatalError(e.getPos, s"Unexpected outer instance of ${ct.id.asString}")
+            }
+          val withIdentity = if (hasIdentityField(ct.id)) freshIdentity(e) +: withOuterIdentity else withOuterIdentity
+          ClassConstructor(transform(ct).asInstanceOf[ClassType], withIdentity).copiedFrom(e)
 
         case LetClass(lcds, _) if lcds.exists(_.parents.exists { case ct: ClassType => hasIdentity(ct.id) case _ => false }) =>
           context.reporter.fatalError(e.getPos, "Stainless does not support local or anonymous classes extending classes with member classes")
@@ -126,9 +185,11 @@ class OuterIdentities(override val s: Trees)(override val t: s.type)
       }
 
       override def transform(pat: Pattern): Pattern = pat match {
-        case ClassPattern(binder, ct, subs) if hasIdentityField(ct.id) =>
-          ClassPattern(binder.map(transform), transform(ct).asInstanceOf[ClassType],
-            WildcardPattern(None).copiedFrom(pat) +: subs.map(transform)).copiedFrom(pat)
+        case ClassPattern(binder, ct, subs) if hasIdentityField(ct.id) || hasOuterIdentityField(ct.id) =>
+          val tsubs = subs.map(transform)
+          val withOuterIdentity = if (hasOuterIdentityField(ct.id)) tsubs.head +: WildcardPattern(None).copiedFrom(pat) +: tsubs.tail else tsubs
+          val withIdentity = if (hasIdentityField(ct.id)) WildcardPattern(None).copiedFrom(pat) +: withOuterIdentity else withOuterIdentity
+          ClassPattern(binder.map(transform), transform(ct).asInstanceOf[ClassType], withIdentity).copiedFrom(pat)
         case _ => super.transform(pat)
       }
     }
@@ -143,13 +204,27 @@ class OuterIdentities(override val s: Trees)(override val t: s.type)
       new FunDef(identityAccessorId(cd.id), Seq.empty, Seq.empty, tpe, body, flags ++ Seq(Ghost, IsMethodOf(cd.id))).copiedFrom(cd)
     }
 
+    // The copies of the identities of outer instances, see `hasGenericOuter`
+    val outerIdentityAccessorDefs = symbols.classes.values.toSeq.filter(cd => hasGenericOuter(cd.id)).map { cd =>
+      val ct = ClassType(cd.id, cd.typeArgs).copiedFrom(cd)
+      val tpe = IntegerType().copiedFrom(cd)
+      val (body, flags) =
+        if (isAbstract(cd.id)) (NoTree(tpe).copiedFrom(cd), Seq(IsAbstract))
+        else (ClassSelector(This(ct).copiedFrom(cd), outerIdentityFieldId(cd.id)).copiedFrom(cd), Seq(IsAccessor(Some(outerIdentityFieldId(cd.id)))))
+      new FunDef(outerIdentityAccessorId(cd.id), Seq.empty, Seq.empty, tpe, body, flags ++ Seq(Ghost, IsMethodOf(cd.id))).copiedFrom(cd)
+    }
+
     val classes = symbols.classes.values.map { cd =>
       val field = if (hasIdentityField(cd.id)) Some(ValDef(identityFieldId(cd.id), IntegerType().copiedFrom(cd), Seq(Ghost)).copiedFrom(cd)) else None
-      transformer.transform(cd.copy(fields = field.toSeq ++ cd.fields).copiedFrom(cd))
+      // The outer instance comes first (see [[MemberClasses]])
+      val fields =
+        if (!hasOuterIdentityField(cd.id)) cd.fields
+        else cd.fields.head +: ValDef(outerIdentityFieldId(cd.id), IntegerType().copiedFrom(cd), Seq(Ghost)).copiedFrom(cd) +: cd.fields.tail
+      transformer.transform(cd.copy(fields = field.toSeq ++ fields).copiedFrom(cd))
     }
 
     NoSymbols
-      .withFunctions((symbols.functions.values.toSeq ++ accessors).map(transformer.transform))
+      .withFunctions((symbols.functions.values.toSeq ++ accessors ++ outerIdentityAccessorDefs).map(transformer.transform))
       .withSorts(symbols.sorts.values.toSeq)
       .withClasses(classes.toSeq)
       .withTypeDefs(symbols.typeDefs.values.map(transformer.transform).toSeq)

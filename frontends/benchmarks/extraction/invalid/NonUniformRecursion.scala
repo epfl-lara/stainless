@@ -9,4 +9,12 @@ object NonUniformRecursion {
 
   // Recursive occurrences with type parameters or ground types are fine
   case class Swap[A, B](a: A, rest: Option[Swap[B, A]], ints: Option[Swap[BigInt, BigInt]])
+
+  // Member classes implicitly take the type arguments of their enclosing classes
+  trait Lang[V] {
+    abstract class Expr
+  }
+  trait ListLang[W] extends Lang[List[W]] {
+    case class Cons(h: W, t: Expr) extends Expr
+  }
 }

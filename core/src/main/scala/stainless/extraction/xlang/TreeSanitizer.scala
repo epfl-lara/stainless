@@ -125,6 +125,20 @@ trait TreeSanitizer { self =>
       case _ => Set.empty
     } (tpe)
 
+    private def enclosingTypeParams(id: Identifier): Seq[TypeParameter] =
+      symbols.lookupClass(id).toSeq.flatMap(_.flags.collect { case IsMemberOf(owner) => owner })
+        .flatMap(owner => enclosingTypeParams(owner) ++ symbols.lookupClass(owner).toSeq.flatMap(_.typeArgs))
+
+    /** The class types in `tpe`, with their type arguments, preceded by those of their enclosing classes
+      * for member classes, which they implicitly take (see [[MemberClasses]]). */
+    private def classTypesWithArgs(tpe: Type): Set[(ClassType, Seq[Type])] = typeOps.collect[(ClassType, Seq[Type])] {
+      case PathType(path, ct) =>
+        val subst = outerTypeSubst(path, ct.id)
+        Set(ct -> (enclosingTypeParams(ct.id).map(tp => subst.getOrElse(tp, tp)) ++ ct.tps))
+      case ct: ClassType => Set(ct -> ct.tps)
+      case _ => Set.empty
+    } (tpe)
+
     // The classes of a hierarchy end up in the same datatype, so they all depend on each other
     private val successors: Map[Identifier, Set[Identifier]] = symbols.classes.values.map { cd =>
       cd.id -> (cd.fields.flatMap(vd => classTypes(vd.tpe)).map(_.id) ++
@@ -144,11 +158,11 @@ trait TreeSanitizer { self =>
       for {
         cd <- symbols.classes.values.toSeq
         vd <- cd.fields
-        ct <- classTypes(vd.tpe).toSeq.sortBy(_.toString)
-        if ct.tps.exists(tp => !tp.isInstanceOf[TypeParameter] && typeOps.typeParamsOf(tp).nonEmpty)
+        (ct, tps) <- classTypesWithArgs(vd.tpe).toSeq.sortBy(_.toString)
+        if tps.exists(tp => !tp.isInstanceOf[TypeParameter] && typeOps.typeParamsOf(tp).nonEmpty)
         if reaches(ct.id, cd.id)
       } yield MalformedStainlessCode(vd,
-        s"Non-uniform recursive types are not supported: ${ct.asString} refers back to ${cd.id.asString}, " +
+        s"Non-uniform recursive types are not supported: ${ClassType(ct.id, tps).asString} refers back to ${cd.id.asString}, " +
         "so its type arguments must be type parameters or types without type parameters")
     }
   }
