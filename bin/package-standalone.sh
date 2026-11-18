@@ -2,10 +2,11 @@
 # ====
 #  This script assembles the `stainless-scalac-standalone` and
 #  `stainless-dotty-standalone` subprojects into two separate fat jars
-#  and packages them into an archive that contains additional Z3
-#  dependencies and a launcher script that makes said dependencies available
-#  to the java process.
-#  Currently, only the Linux & macOS version are shipped with ScalaZ3 (Windows must rely on smt-z3)
+#  and packages them into an archive that contains the z3 and cvc5 binaries
+#  and a launcher script that makes said binaries available to the java process.
+#  The fat jar includes the native Z3 interface (ScalaZ3), with the native
+#  libraries of Z3 for Linux (x64, arm64), macOS (arm64) and Windows (x64).
+#  Elsewhere (macOS x64), Stainless falls back to the z3 binary (smt-z3).
 # ====
 set -e
 # Without pipefail, the exit status of `sbt ... | tee` is tee's (0), so a
@@ -21,7 +22,7 @@ fi
 SCALA_VERSION="3.10.1-RC1-bin-20260903-e1f9361-NIGHTLY"
 LIB_SCALA_VERSION="3.10.1-RC1-bin-20260903-e1f9361-NIGHTLY"
 LIB_SCALA_VERSION_JAR_NAME_PART=$(echo $LIB_SCALA_VERSION | cut -d '.' -f 1)
-Z3_VERSION="5.4.0"
+Z3_VERSION="5.4.1"
 CVC5_VERSION="1.4.2"
 
 SBT_PACKAGE_DOTTY="sbt stainless-dotty-standalone/assembly"
@@ -29,8 +30,6 @@ SBT_PACKAGE_LIB="sbt stainless-library/package stainless-library/packageSrc"
 STAINLESS_DOTTY_JAR_PATH="./frontends/stainless-dotty-standalone/target/scala-$SCALA_VERSION/stainless-dotty-standalone-$STAINLESS_VERSION.jar"
 STAINLESS_LIB_BIN_JAR_PATH="./frontends/library/target/scala-$LIB_SCALA_VERSION/stainless-library_$LIB_SCALA_VERSION_JAR_NAME_PART-$STAINLESS_VERSION.jar"
 STAINLESS_LIB_SRC_JAR_PATH="./frontends/library/target/scala-$LIB_SCALA_VERSION/stainless-library_$LIB_SCALA_VERSION_JAR_NAME_PART-$STAINLESS_VERSION-sources.jar"
-SCALAZ3_JAR_LINUX_PATH="./unmanaged/scalaz3-unix-64-3.jar"
-SCALAZ3_JAR_MAC_X64_PATH="./unmanaged/scalaz3-mac-64-3.jar"
 
 Z3_GITHUB_URL="https://github.com/Z3Prover/z3/releases/download/z3-$Z3_VERSION"
 Z3_LINUX_NAME="z3-$Z3_VERSION-x64-glibc-2.39.zip"
@@ -164,32 +163,22 @@ function generate_launcher {
   local PLAT="$1"
   local TMPD="$2"
   local STAINLESS_JAR_BASENAME="$3"
-  local SCALAZ3_JAR_BASENAME="$4"
 
   if [[ "$PLAT" = "win" ]]; then
     # For Windows, we generate two scripts, one .bat (native) and one .sh (executable with Cygwin).
     # The .bat version needs to have all '/' converted to '\'. We do this with this //\//\\ thing
     # (copied from https://unix.stackexchange.com/a/589316).
-    # Since we do not ship ScalaZ3, we do not need to do replacing of SCALAZ3_JAR_BASENAME
-    cat "bin/launcher-noscalaz3.tmpl.bat" | \
+    cat "bin/launcher.tmpl.bat" | \
       sed "s#{STAINLESS_JAR_BASENAME}#${STAINLESS_JAR_BASENAME//\//\\}#g" \
       > "$TMPD/stainless.bat"
     chmod +x "$TMPD/stainless.bat"
-    cat "bin/launcher-cygwin-noscalaz3.tmpl.sh" | \
+    cat "bin/launcher-cygwin.tmpl.sh" | \
       sed "s#{STAINLESS_JAR_BASENAME}#$STAINLESS_JAR_BASENAME#g" \
       > "$TMPD/stainless"
     chmod +x "$TMPD/stainless"
   else
-    local SCRIPT_TMPLT_NAME
-    if [[ "$SCALAZ3_JAR_BASENAME" = "" ]]; then
-      SCRIPT_TMPLT_NAME="bin/launcher-noscalaz3.tmpl.sh"
-    elif [[ "$PLAT" != "win" ]]; then
-      SCRIPT_TMPLT_NAME="bin/launcher.tmpl.sh"
-    fi
-
-    cat "$SCRIPT_TMPLT_NAME" | \
-      sed "s#{STAINLESS_JAR_BASENAME}#$STAINLESS_JAR_BASENAME#g" | \
-      sed "s#{SCALAZ3_JAR_BASENAME}#$SCALAZ3_JAR_BASENAME#g" \
+    cat "bin/launcher.tmpl.sh" | \
+      sed "s#{STAINLESS_JAR_BASENAME}#$STAINLESS_JAR_BASENAME#g" \
       > "$TMPD/stainless"
     chmod +x "$TMPD/stainless"
   fi
@@ -198,13 +187,8 @@ function generate_launcher {
 function package {
   local PLAT="$1"
   local STAINLESS_JAR_PATH="$2"
-  local SCALAZ3_JAR_PATH="$3"
-  local FRONTEND="$4"
+  local FRONTEND="$3"
   local STAINLESS_JAR_BASENAME=$(basename "$STAINLESS_JAR_PATH")
-  local SCALAZ3_JAR_BASENAME=""
-  if [[ "$SCALAZ3_JAR_PATH" != "" ]]; then
-    SCALAZ3_JAR_BASENAME=$(basename "$SCALAZ3_JAR_PATH")
-  fi
 
   local TMPD="$TMP_DIR/$PLAT"
   info " - $PLAT (for $FRONTEND)"
@@ -217,14 +201,11 @@ function package {
     info "    (Removed old $FRONTEND archive.)"
   fi
 
-  generate_launcher "$PLAT" "$TMPD" "$STAINLESS_JAR_BASENAME" "$SCALAZ3_JAR_BASENAME" || fail
+  generate_launcher "$PLAT" "$TMPD" "$STAINLESS_JAR_BASENAME" || fail
 
   local TGTLIBD="$TMPD/lib"
   mkdir -p "$TGTLIBD" >> $LOG || fail
   cp "$STAINLESS_JAR_PATH" "$TGTLIBD/$STAINLESS_JAR_BASENAME" >> $LOG || fail
-  if [[ "$SCALAZ3_JAR_BASENAME" != "" ]]; then
-    cp "$SCALAZ3_JAR_PATH" "$TGTLIBD/$SCALAZ3_JAR_BASENAME" >> $LOG || fail
-  fi
   cp "stainless.conf.default" "$TMPD/stainless.conf" >> $LOG || fail
 
   local STAINLESS_SCRIPTS
@@ -279,10 +260,10 @@ fetch_cvc5 "mac-x64" $CVC5_MAC_X64_NAME
 fetch_cvc5 "win" $CVC5_WIN_NAME
 
 info "$(tput bold)[] Packaging..."
-package "linux" $STAINLESS_DOTTY_JAR_PATH $SCALAZ3_JAR_LINUX_PATH "dotty"
-package "mac-arm64" $STAINLESS_DOTTY_JAR_PATH "" "dotty"
-package "mac-x64" $STAINLESS_DOTTY_JAR_PATH $SCALAZ3_JAR_MAC_X64_PATH "dotty"
-package "win" $STAINLESS_DOTTY_JAR_PATH "" "dotty"
+package "linux" $STAINLESS_DOTTY_JAR_PATH "dotty"
+package "mac-arm64" $STAINLESS_DOTTY_JAR_PATH "dotty"
+package "mac-x64" $STAINLESS_DOTTY_JAR_PATH "dotty"
+package "win" $STAINLESS_DOTTY_JAR_PATH "dotty"
 
 info "$(tput bold)[] Cleaning up..."
 # We only clean up the directories used for packaging; we leave the downloaded Z3/cvc5 binaries.

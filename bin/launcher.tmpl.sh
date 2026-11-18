@@ -80,15 +80,12 @@ BASE_DIR="$( dirname "$( realpath "${BASH_SOURCE[0]}" )" )"
 Z3_DIR="$BASE_DIR/z3"
 CVC5_DIR="$BASE_DIR/cvc5"
 STAINLESS_JAR="$BASE_DIR/lib/{STAINLESS_JAR_BASENAME}"
-SCALAZ3_JAR="$BASE_DIR/lib/{SCALAZ3_JAR_BASENAME}"
-JARS="$STAINLESS_JAR:$SCALAZ3_JAR"
 
-for JAR in "$STAINLESS_JAR" "$SCALAZ3_JAR"; do
-  if ! [[ -r "$JAR" ]]; then
-    echo "Read access for the jar file $JAR is required."
+if ! [[ -r "$STAINLESS_JAR" ]]; then
+    echo "Read access for the jar file $STAINLESS_JAR is required."
     exit 1
-  fi
-done
+fi
 
+# --enable-native-access: the native Z3 interface loads Z3 through JNI, which Java 22+ warns about otherwise.
 # NOTE: $JAVA_OPTS not quoted, as it may be empty!
-exec env PATH="$CVC5_DIR:$Z3_DIR:$PATH" java -cp "$JARS" $JAVA_OPTS stainless.Main "$@"
+exec env PATH="$CVC5_DIR:$Z3_DIR:$PATH" java --enable-native-access=ALL-UNNAMED -cp "$STAINLESS_JAR" $JAVA_OPTS stainless.Main "$@"

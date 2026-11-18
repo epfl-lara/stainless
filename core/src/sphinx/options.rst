@@ -166,7 +166,8 @@ These options are available to all Stainless components:
 
 * ``--z3-rlimit=n`` and ``--cvc5-rlimit=n``
 
-  Set a resource limit for the ``smt-z3`` (resp. ``smt-cvc5``) solver, as a
+  Set a resource limit for the solvers that run on z3 (``nativez3``, the default,
+  ``smt-z3``, ``unrollz3`` and their variants), resp. for ``smt-cvc5``, as a
   deterministic alternative to ``--timeout``: unlike a wall-clock timeout, the
   outcome does not depend on the machine or its load. The limit ``n`` is given in
   millions of solver resource units (``--z3-rlimit=2`` passes ``rlimit=2000000``

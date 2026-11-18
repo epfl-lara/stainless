@@ -115,7 +115,7 @@ if [ -n "$SOLVERS_DIR" ]; then
 
   # z3
   mkdir -p "$TEMP_DIR"
-  wget https://github.com/Z3Prover/z3/releases/download/z3-5.4.0/z3-5.4.0-x64-glibc-2.39.zip -O "$TEMP_DIR/downloaded.zip" -q
+  wget https://github.com/Z3Prover/z3/releases/download/z3-5.4.1/z3-5.4.1-x64-glibc-2.39.zip -O "$TEMP_DIR/downloaded.zip" -q
   unzip "$TEMP_DIR/downloaded.zip" -d "$TEMP_DIR"
   Z3_DIR=$(ls "$TEMP_DIR" | grep z3)
   mv "$TEMP_DIR/$Z3_DIR/bin/z3" "$SOLVERS_DIR/z3"
