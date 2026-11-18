@@ -123,7 +123,10 @@ Use Standalone Release
 1. Download the latest Stainless release from the `Releases page on GitHub
    <https://github.com/epfl-lara/stainless/releases>`__, under the **Assets**
    section. Make sure to pick the appropriate ZIP for your operating system. The
-   releases are bundled with z3 5.4.0+ and cvc5 1.4.2+.
+   releases are bundled with z3 5.4.1+ and cvc5 1.4.2+. They also include the
+   native Z3 interface (the default solver, ``nativez3``) for Linux (x64 and
+   ARM64, glibc 2.39 or later), macOS (ARM64) and Windows (x64). Elsewhere,
+   Stainless falls back to the bundled z3 binary.
 
 2. Unzip the file you just downloaded to a directory.
 

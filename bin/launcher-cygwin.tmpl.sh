@@ -86,5 +86,7 @@ if ! [[ -r "$STAINLESS_JAR" ]]; then
     exit 1
 fi
 
+# --enable-native-access: the native Z3 interface loads Z3 through JNI, which Java 22+ warns about otherwise.
 # NOTE: $JAVA_OPTS not quoted, as it may be empty!
-exec env PATH="$CVC5_DIR:$Z3_DIR:$PATH" java -cp "$STAINLESS_JAR" $JAVA_OPTS stainless.Main "$@"
+# Cygpath necessary, see https://stackoverflow.com/a/16640483
+exec env PATH="$CVC5_DIR:$Z3_DIR:$PATH" java --enable-native-access=ALL-UNNAMED -cp $(cygpath -w $STAINLESS_JAR) $JAVA_OPTS stainless.Main "$@"
