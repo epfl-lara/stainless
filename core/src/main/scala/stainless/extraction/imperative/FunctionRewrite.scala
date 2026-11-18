@@ -423,17 +423,17 @@ class FunctionRewrite(override val s: Trees)(override val t: s.type)(using overr
           case FunctionInvocation(unfoldId @ ast.SymbolIdentifier("stainless.lang.unfold"), Seq(_), Seq(fi: FunctionInvocation)) =>
             val callee = Outer(fi.tfd.fd)
             val call = FunctionInvocation(fi.id, fi.tps, fi.args.map(transform)).copiedFrom(fi)
-            val resultType = fi.tfd.instantiate(getReturnType(callee))
+            val resultType = typeOps.replaceFromSymbols(callee.params.zip(call.args).toMap, fi.tfd.instantiate(getReturnType(callee)))
             val rewrittenCall = rewriteCallEffects(callee.params, fi.args, call, resultType, effects(callee), selectResult = false)
 
             FunctionInvocation(unfoldId, Seq(resultType), Seq(rewrittenCall)).copiedFrom(fi)
 
           case fi: FunctionInvocation =>
             val callee = Outer(fi.tfd.fd)
-            val resultType = fi.tfd.instantiate(getReturnType(callee))
 
             withBoundArguments(fi.args, fi.args.map(transform)) { (targets, args) =>
               val call = FunctionInvocation(fi.id, fi.tps, args).copiedFrom(fi)
+              val resultType = typeOps.replaceFromSymbols(callee.params.zip(args).toMap, fi.tfd.instantiate(getReturnType(callee)))
 
               rewriteCallEffects(callee.params, targets, call, resultType, effects(callee), selectResult = true)
             }
@@ -441,10 +441,10 @@ class FunctionRewrite(override val s: Trees)(override val t: s.type)(using overr
           case application @ ApplyLetRec(id, tparams, tpe, tps, args) =>
             val callee = Inner(locals(id))
             val calleeType = FunctionType(callee.params.map(_.getType), getReturnType(callee)).copiedFrom(tpe)
-            val resultType = typeOps.instantiateType(getReturnType(callee), tparams.zip(tps).toMap)
 
             withBoundArguments(args, args.map(transform)) { (targets, boundArgs) =>
               val call = ApplyLetRec(id, tparams, calleeType, tps, boundArgs).copiedFrom(application)
+              val resultType = typeOps.replaceFromSymbols(callee.params.zip(boundArgs).toMap, typeOps.instantiateType(getReturnType(callee), tparams.zip(tps).toMap))
 
               rewriteCallEffects(callee.params, targets, call, resultType, effects(callee), selectResult = true)
             }
