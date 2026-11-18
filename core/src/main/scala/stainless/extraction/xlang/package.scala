@@ -10,7 +10,7 @@ package object xlang {
       functions: Map[Identifier, FunDef], sorts: Map[Identifier, ADTSort],
       classes: Map[Identifier, ClassDef],
       typeDefs: Map[Identifier, TypeDef],
-    ) extends ClassSymbols with InnerClassesAbstractSymbols with xlang.SymbolOps {
+    ) extends ClassSymbols with InnerClassesAbstractSymbols with xlang.SymbolOps with xlang.DependencyGraph {
       override val symbols: this.type = this
     }
 
