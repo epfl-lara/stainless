@@ -131,6 +131,8 @@ class Sealing(override val s: Trees)(override val t: s.type)
         val fd = symbols.getFunction(id)
         fd.isAccessor && !typeOps.exists {
           case TypeSelect(Some(This(ct)), _) => ct.id == cd.id
+          // e.g. the type `{ x: C | x.outer eq this.outer }` of a member class `C` (see `xlang.MemberClasses`)
+          case RefinementType(_, pred) => exprOps.exists { case _: This => true case _ => false } (pred)
           case _ => false
         } (fd.returnType) // We don't want to add fields for vals which are path-dependent on `this`,
                           // because this is invalid in Scala (ie. fields cannot refer to `this`).
