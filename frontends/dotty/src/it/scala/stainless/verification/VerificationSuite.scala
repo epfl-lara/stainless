@@ -224,7 +224,8 @@ class VerificationSuite extends VerificationComponentTestSuite {
     "verification/valid/FloatingPointFunctionProperties",
     "verification/valid/FloatsToBits",
     "verification/invalid/FloatingPointFunctionsContradiction",
-    // an empty counterexample to the case where the sort has no value passes the model check
+    // the evaluator takes these sorts to be empty, which is a correct counterexample to `someT`
+    // and `someB`: these only verify because the solvers assume that every type has a value
     "verification/false-valid/ParadoxInvariant",
     "verification/false-valid/ParadoxMutualInvariant",
   )
