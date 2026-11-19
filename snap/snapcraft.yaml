@@ -51,12 +51,14 @@ parts:
 
   stainless:
     plugin: nil
-    source: https://github.com/epfl-lara/stainless.git
-    source-branch: main
-    source-type: git
+    source: .
+    source-type: local
 
-    build-packages: [git, wget, unzip, openjdk-17-jdk]
-    stage-packages: [openjdk-17-jre-headless, z3, cvc5]
+    build-packages: [git, wget, unzip, openjdk-25-jdk]
+    stage-packages: [openjdk-25-jre-headless, z3, cvc5]
+    build-environment:
+      - JAVA_HOME: /usr/lib/jvm/java-25-openjdk-amd64
+      - PATH: $JAVA_HOME/bin:$PATH
 
     override-pull: |
       craftctl default
