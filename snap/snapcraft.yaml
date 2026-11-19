@@ -63,9 +63,10 @@ parts:
     override-pull: |
       craftctl default
 
-      # just need a recent enough version of sbt to kickstart the build
-      wget -c https://github.com/sbt/sbt/releases/download/v1.10.7/sbt-1.10.7.zip
-      unzip sbt-1.10.7.zip
+      SBT_VERSION="$(awk -F= '/^[[:space:]]*sbt[.]version[[:space:]]*=/ {gsub(/[[:space:]]/, "", $2); print $2; exit}' project/build.properties)"
+      : "${SBT_VERSION:?Missing sbt.version in project/build.properties}"
+      wget -c "https://github.com/sbt/sbt/releases/download/v${SBT_VERSION}/sbt-${SBT_VERSION}.zip"
+      unzip -o "sbt-${SBT_VERSION}.zip"
 
     override-build: |
       ./sbt/bin/sbt universal:stage # make sure stainless-library jars are compiled
