@@ -104,6 +104,7 @@ class VerificationSuite extends VerificationComponentTestSuite {
       "verification/valid/FoolProofAdder",
       "verification/valid/FunctionMaps",
       "verification/valid/FunctionMapsObj",
+      "verification/valid/GenericInstanceTests", // Princess times out
       "verification/valid/GenericOuters", // Princess times out
       "verification/valid/GenericOutersInherited", // Princess times out
       "verification/valid/GenericSortInvariants",
