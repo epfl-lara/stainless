@@ -113,6 +113,7 @@ case class LArray[T](private val data: Array[T], @ghost private var toList: List
   }.ensuring(_ => valid && old(this).toList.updated(BigInt(i), v) == toList)
 }
 
+@library
 object LArray {
   def apply[T: ClassTag](size: BigInt, default: T): LArray[T] = {
     require(size >= 0 && size <= BigInt(Int.MaxValue))
@@ -181,6 +182,7 @@ object LArray {
   })
 }
 
+@library
 object LArrayUtils {
   @ghost def sameArrayListContent[T](arr: Array[T], from: Int, list: List[T]): Boolean = {
     if (from < 0 || from > arr.length) {
