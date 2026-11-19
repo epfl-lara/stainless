@@ -55,7 +55,7 @@ case class LArray[T](private val data: Array[T], @ghost private var toList: List
     data(i.toInt)
   }.ensuring(res => valid && res == toList(i))
 
-  def iapply(i: Int): T = {
+  def apply(i: Int): T = {
     require(valid)
     require(i >= 0 && i < isize)
     ghostExpr({
@@ -90,9 +90,9 @@ case class LArray[T](private val data: Array[T], @ghost private var toList: List
       assert(Int.MinValue <= i && i <= Int.MaxValue && Int.MinValue <= vsize && vsize <= Int.MaxValue)
       unfold(size)
       LArrayUtils.compareBigIntPreservedByToInt(i, vsize)
+      toList = toList.updated(i, v)
     })
 
-    toList = toList.updated(i, v)
     data(i.toInt) = v
   }.ensuring(_ => valid && old(this).toList.updated(i, v) == toList)
 
@@ -106,9 +106,9 @@ case class LArray[T](private val data: Array[T], @ghost private var toList: List
       LArrayUtils.lemmaSameArrayListContentImpliesSameLength(data, 0, toList)
       LArrayUtils.lemmaToIntBigIntConversionBothDirections(toList.size, data.length)
       unfold(size)
+      toList = toList.updated(BigInt(i), v)
     })
 
-    toList = toList.updated(BigInt(i), v)
     data(i) = v
   }.ensuring(_ => valid && old(this).toList.updated(BigInt(i), v) == toList)
 }
