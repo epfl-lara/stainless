@@ -118,7 +118,7 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
     case s.AnyType() => e
     case s.ClassType(id, tps) => e
     // Values of the type parameters of sort invariants are boxed into uninterpreted objects, see `Scope.empty`
-    case tp: s.TypeParameter if scope.context.boxedTypeParams(tp) && !scope.tparams.contains(tp) =>
+    case tp: s.TypeParameter if scope.boxed(tp) && !scope.tparams.contains(tp) =>
       t.FunctionInvocation(boxID, Seq(scope.transform(tp)), Seq(e))
     case tp: s.TypeParameter => e
     case s.ADTType(id, tps) => C(adt(id))(convert(e, tpe, erased(tpe)))
@@ -146,7 +146,7 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
    *  (see `wrap`), and any object may be such a box.
    */
   private def typeArgPredicate(tp: s.Type)(using scope: Scope): t.Expr = tp match {
-    case tp: s.TypeParameter if scope.context.boxedTypeParams(tp) && !scope.tparams.contains(tp) && !scope.testers.contains(tp) =>
+    case tp: s.TypeParameter if scope.boxed(tp) && !scope.tparams.contains(tp) && !scope.testers.contains(tp) =>
       \(("x" :: ref).copiedFrom(tp))(_ => t.BooleanLiteral(true).copiedFrom(tp)).copiedFrom(tp)
     case _ =>
       simplify(\(("x" :: ref).copiedFrom(tp))(x => instanceOf(x, s.AnyType().copiedFrom(tp), tp)).copiedFrom(tp))
@@ -155,7 +155,7 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
   private def unwrap(e: t.Expr, tpe: s.Type)(using scope: Scope): t.Expr = (tpe match {
     case s.AnyType() => e
     case s.ClassType(id, tps) => e
-    case tp: s.TypeParameter if scope.context.boxedTypeParams(tp) && !scope.tparams.contains(tp) =>
+    case tp: s.TypeParameter if scope.boxed(tp) && !scope.tparams.contains(tp) =>
       t.FunctionInvocation(unboxID, Seq(scope.transform(tp)), Seq(e))
     case tp: s.TypeParameter => e
     case s.ADTType(id, tps) => convert(getRefField(e, adtValue(id)), erased(tpe), tpe)
@@ -762,26 +762,32 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
     val tparams: Set[s.TypeParameter],
     val testers: ExprMapping,
     val converters: ExprMapping,
+    val boxed: Set[s.TypeParameter],
   )(using val context: TransformerContext, override val symbols: context.symbols.type) extends TransformerWithType {
 
     def this(functions: Map[Identifier, FunInfo],
              tparams: Set[self.s.TypeParameter],
              testers: ExprMapping,
-             converters: ExprMapping)(using context: TransformerContext) =
-      this(self.s, self.t, functions, tparams, testers, converters)(using context, context.symbols)
+             converters: ExprMapping,
+             boxed: Set[self.s.TypeParameter])(using context: TransformerContext) =
+      this(self.s, self.t, functions, tparams, testers, converters, boxed)(using context, context.symbols)
 
     protected given givenScope: this.type = this
     import symbols.{let => _, forall => _, _}
 
     def converting(ps: Iterable[((s.Type, s.Type), t.Expr)]): Scope =
-      new Scope(functions, tparams, testers, converters ++ ps)
+      new Scope(functions, tparams, testers, converters ++ ps, boxed)
 
     def testing(ps: Iterable[((s.Type, s.Type), t.Expr)]): Scope =
-      new Scope(functions, tparams, testers ++ ps, converters)
+      new Scope(functions, tparams, testers ++ ps, converters, boxed)
     def testing(ps: Iterable[(s.Type, t.Expr)])(using DummyImplicit): Scope =
-      new Scope(functions, tparams, testers ++ ps, converters)
+      new Scope(functions, tparams, testers ++ ps, converters, boxed)
     def testing(p: (s.Type, t.Expr)): Scope =
-      new Scope(functions, tparams, testers ++ Seq(p), converters)
+      new Scope(functions, tparams, testers ++ Seq(p), converters, boxed)
+
+    /** Box the values of type parameters `tps` when they reach encoded functions, see `wrap`. */
+    def boxing(tps: Iterable[s.TypeParameter]): Scope =
+      new Scope(functions, tparams, testers, converters, boxed ++ tps)
 
     override def transform(tp: s.Type): t.Type = tp match {
       case s.AnyType() => ref.copiedFrom(tp)
@@ -828,7 +834,7 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
       val extraTParams = functions.get(id).map { case FunInfo(fun, tparams) =>
         fun.tparams.map(_.tp).zipWithIndex.collect { case (tp, i) if tparams(i) => tp }
       }.getOrElse(classes(id).typeArgs)
-      new Scope(functions, tparams ++ extraTParams, testers, converters)
+      new Scope(functions, tparams ++ extraTParams, testers, converters, boxed)
     }
 
     override def transform(e: s.Expr, inType: s.Type): t.Expr = e match {
@@ -913,6 +919,13 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
             ).copiedFrom(cse)
           }
         ).copiedFrom(e)
+
+      // `TransformerWithType` compares values at the widened upper bound of their types, which is `Any` for type
+      // parameters, but values of a boxed type parameter can be compared without boxing them
+      case s.Equals(lhs, rhs) if (lhs.getType, rhs.getType) match {
+        case (tp: s.TypeParameter, tp2) => tp == tp2 && boxed(tp) && !tparams(tp)
+        case _ => false
+      } => t.Equals(transform(lhs, lhs.getType), transform(rhs, rhs.getType)).copiedFrom(e)
 
       // push conversions down into branches/leaves
       case (_: s.IfExpr | _: s.MatchExpr | _: s.Let) => super.transform(e, inType)
@@ -1056,7 +1069,10 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
 
       val (scope, tparamParams) = fd.tparams.map(_.tp).zipWithIndex
         .collect { case (tp, i) if tparams(i) => tp }
-        .foldLeft((this `in` fd.id, Seq[t.ValDef]())) {
+        .foldLeft((
+          // Sort invariants keep the type parameters of their sort (see `Scope.empty`), and box their values
+          if (fd.flags contains s.IsInvariant) (this `in` fd.id).boxing(fd.tparams.map(_.tp)) else (this `in` fd.id),
+          Seq[t.ValDef]())) {
           case ((scope, vds), tp) =>
             val s.TypeBounds(lowerBound, upperBound, _) = tp.bounds
 
@@ -1237,7 +1253,7 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
         infos.map { case (id, info) => id -> computeInfo(info.fun)(infos) }
       } (functions.map(fun => fun.id -> FunInfo(fun, Set.empty)).toMap)
 
-      new Scope(infos, Set.empty, ExprMapping.empty, ExprMapping.empty)
+      new Scope(infos, Set.empty, ExprMapping.empty, ExprMapping.empty, Set.empty)
     }
   }
 
@@ -1246,10 +1262,6 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
   protected class TransformerContext(val symbols: s.Symbols) {
     import symbols.{given, _}
     given emptyScope: Scope = Scope.empty(using this)
-
-    /** The type parameters of sort invariants, whose values are boxed when they reach encoded functions. */
-    lazy val boxedTypeParams: Set[s.TypeParameter] =
-      symbols.functions.values.filter(_.flags contains s.IsInvariant).flatMap(_.tparams.map(_.tp)).toSet
 
     private val (tplSizes, funSizes, bvSizes, fpSizes) = {
       var tplSizes: Set[Int] = Set.empty
