@@ -26,13 +26,13 @@ apps:
     command: stainless
     plugs: [home]
     environment:
-      JAVA_HOME: $SNAP/usr/lib/jvm/java-17-openjdk-amd64
+      JAVA_HOME: $SNAP/usr/lib/jvm/java-21-openjdk-amd64
       PATH: $JAVA_HOME/bin:$PATH
   # cli:
   #   command: stainless-cli
   #   plugs: [home, network, network-bind]
   #   environment:
-  #     JAVA_HOME: $SNAP/usr/lib/jvm/java-17-openjdk-amd64
+  #     JAVA_HOME: $SNAP/usr/lib/jvm/java-21-openjdk-amd64
   #     PATH: $JAVA_HOME/bin:$PATH
 
 # actual build
@@ -55,8 +55,8 @@ parts:
     source-branch: main
     source-type: git
 
-    build-packages: [git, wget, unzip, openjdk-17-jdk]
-    stage-packages: [openjdk-17-jre-headless, z3, cvc5]
+    build-packages: [git, wget, unzip, openjdk-21-jdk]
+    stage-packages: [openjdk-21-jre-headless, z3, cvc5]
 
     override-pull: |
       craftctl default

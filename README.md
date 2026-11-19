@@ -13,7 +13,7 @@ Please note that Stainless does not support Scala 2 frontend anymore, only Scala
 
 ## Quick start
 
-We test mostly on [Ubuntu](https://ubuntu.com/download); on [Windows](https://www.microsoft.com/eb-gb/software-download/windows10), you can get sufficient text-based Ubuntu environment by installing [Windows Subsystem for Linux](https://learn.microsoft.com/en-us/windows/wsl/install) (e.g. `wsl --install`, then `wsl --install -d ubuntu`). Ensure you have a [Java](https://openjdk.org/projects/jdk/17/) version ready (it can be headless); on Ubuntu `sudo apt install openjdk-17-jdk-headless` suffices.
+We test mostly on [Ubuntu](https://ubuntu.com/download); on [Windows](https://www.microsoft.com/eb-gb/software-download/windows10), you can get sufficient text-based Ubuntu environment by installing [Windows Subsystem for Linux](https://learn.microsoft.com/en-us/windows/wsl/install) (e.g. `wsl --install`, then `wsl --install -d ubuntu`). Ensure you have [Java](https://openjdk.org/projects/jdk/21/) 21 or later ready (it can be headless); on Ubuntu `sudo apt install openjdk-21-jdk-headless` suffices.
 
 Once ready, [download the latest `stainless-dotty-standalone` release](https://github.com/epfl-lara/stainless/releases) for your platform. Unzip the archive, and run Stainless through the `stainless` script. Stainless expects a list of space-separated Scala files to verify but also has other [Command-line Options](https://epfl-lara.github.io/stainless/options.html).
 
@@ -44,7 +44,7 @@ If all goes well, Stainless should report something along the lines:
 ```
 If you see funny symbols instead of beautiful ASCII art, run Stainless with the `--no-colors` option for clean ASCII output with a standardized error message format.
 
-The release archive of Stainless only requires JDK 17. In particular, it needs
+The release archive of Stainless only requires JDK 21 or later. In particular, it needs
 neither a Scala compiler nor SBT. It is shipped with Z3 5.4.1+, cvc5 1.4.2+ and
 Princess (branch compiled for Scala 3). It includes the Z3 native API for Linux
 (x64 and ARM64, glibc 2.39 or later), macOS (ARM64) and Windows (x64). Elsewhere,
