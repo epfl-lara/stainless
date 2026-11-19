@@ -224,6 +224,9 @@ class VerificationSuite extends VerificationComponentTestSuite {
     "verification/valid/FloatingPointFunctionProperties",
     "verification/valid/FloatsToBits",
     "verification/invalid/FloatingPointFunctionsContradiction",
+    // an empty counterexample to the case where the sort has no value passes the model check
+    "verification/false-valid/ParadoxInvariant",
+    "verification/false-valid/ParadoxMutualInvariant",
   )
 
   private val ignoreCheckFiles = Map(
