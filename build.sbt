@@ -71,6 +71,9 @@ lazy val commonSettings: Seq[Setting[_]] = artifactSettings ++ Seq(
     "-unchecked",
     "-feature"
   ),
+  // Stainless runs on Java 21 and later, whatever the JDK it is built with.
+  scalacOptions ++= Seq("-release", "21"),
+  javacOptions ++= Seq("--release", "21"),
 
   resolvers += ("uuverifiersStainless" at "https://eldarica.org/maven"),
 
