@@ -27,6 +27,10 @@ trait StainlessReports {
 
     override lazy val annotatedRows = adjustRows(reports)
 
+    // The rows of the reports share a table: its columns are named after the report with the
+    // most columns (the other reports only have a status)
+    override def extraHeaders = reports.map(_.report.extraHeaders).maxByOption(_.size).getOrElse(Seq.empty)
+
     override def emitJson = reports.map(rr => rr.run.component.name -> rr.report.emitJson).asJson
 
     override def filter(ids: Set[Identifier]): Report =

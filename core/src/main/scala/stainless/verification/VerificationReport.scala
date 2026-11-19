@@ -92,6 +92,8 @@ class VerificationReport(val results: Seq[VerificationReport.Record], val source
 
   override val name = VerificationComponent.name
 
+  override def extraHeaders = Seq("kind", "status", "solver")
+
   override lazy val annotatedRows =
     if (skipped) Seq(RecordRow(FreshIdentifier("(ALL VCs Skipped)"), inox.utils.NoPosition, Level.Normal, Seq(), 0, None))
     else results map {
