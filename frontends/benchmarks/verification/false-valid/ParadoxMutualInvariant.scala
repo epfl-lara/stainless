@@ -2,8 +2,7 @@ import stainless.lang._
 
 object ParadoxMutualInvariant {
   // The paradox of ParadoxInvariant through two sorts: an A exists iff no B exists, and a B
-  // exists iff some A exists. Like there, `someB` only verifies today because Inox assumes
-  // that every type has a value.
+  // exists iff some A exists.
   case class A(x: BigInt) {
     require(forall((b: B) => false))
   }

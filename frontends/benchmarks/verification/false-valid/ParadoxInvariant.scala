@@ -4,9 +4,8 @@ object ParadoxInvariant {
   // A sort whose invariant quantifies over the sort itself: if no T exists, then T(0) satisfies
   // the invariant and is a T, and if some T exists, its invariant says that no T exists.
   //
-  // Today, `someT` only verifies because Inox assumes that every type has a value, as in
-  // ForestNothing2: its `T(0)` is dropped, and its postcondition is that some T exists. Once T
-  // can be empty, the case split still builds a T when none exists, and the paradox remains.
+  // Inox lets sorts with invariants be empty, but not T: to show that no T exists, it takes a
+  // value of T's underlying sort, whose invariant then holds, so the value is a T.
   case class T(x: BigInt) {
     require(forall((t: T) => false))
   }
