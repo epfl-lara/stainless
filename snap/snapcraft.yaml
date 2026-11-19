@@ -26,13 +26,13 @@ apps:
     command: stainless
     plugs: [home]
     environment:
-      JAVA_HOME: $SNAP/usr/lib/jvm/java-21-openjdk-amd64
+      JAVA_HOME: $SNAP/usr/lib/jvm/java-25-openjdk-amd64
       PATH: $JAVA_HOME/bin:$PATH
   # cli:
   #   command: stainless-cli
   #   plugs: [home, network, network-bind]
   #   environment:
-  #     JAVA_HOME: $SNAP/usr/lib/jvm/java-21-openjdk-amd64
+  #     JAVA_HOME: $SNAP/usr/lib/jvm/java-25-openjdk-amd64
   #     PATH: $JAVA_HOME/bin:$PATH
 
 # actual build
