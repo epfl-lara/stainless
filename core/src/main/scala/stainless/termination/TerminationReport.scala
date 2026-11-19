@@ -62,6 +62,8 @@ class TerminationReport(val results: Seq[TerminationReport.Record], val sources:
   lazy val totalInvalid        = results count { _.status.isNonTerminating }
   lazy val totalUnknown        = results count { _.status.isUnknown }
 
+  override def extraHeaders = Seq("terminates")
+
   override lazy val annotatedRows = results map {
     case Record(id, pos, status, _) =>
       val level  = levelOf(status)

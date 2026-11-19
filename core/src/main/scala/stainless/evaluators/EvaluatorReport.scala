@@ -55,6 +55,8 @@ class EvaluatorReport(val results: Seq[EvaluatorReport.Record], val sources: Set
 
   override val name = EvaluatorComponent.name
 
+  override def extraHeaders = Seq("status")
+
   override lazy val annotatedRows = results map {
     case Record(id, pos, status, time) =>
       RecordRow(id, pos, levelOf(status), Seq(descriptionOf(status)), time, None)
