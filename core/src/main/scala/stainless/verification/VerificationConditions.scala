@@ -118,7 +118,9 @@ case class VCResult[+Model](
   status: VCStatus[Model],
   solverName: Option[String],
   time: Option[Long],
-  smtLibFileId: Option[Int]
+  smtLibFileId: Option[Int],
+  // What the checks of the solver spent, in the units of its resource limit (z3 and cvc5 only)
+  resources: inox.solvers.ResourceUsage = inox.solvers.ResourceUsage.empty
 ) {
   def isValid           = status == VCStatus.Valid || isValidFromCache || isTrivial
   def isValidFromCache  = status == VCStatus.ValidFromCache
