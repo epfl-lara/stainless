@@ -325,7 +325,7 @@ trait VerificationChecker { self =>
         }
       }
 
-      val vcres = tryRes match {
+      val vcres = (tryRes match {
         case _ if interruptManager.isInterrupted =>
           VCResult(VCStatus.Cancelled, Some(s.name), Some(time), s.getSmtLibFileId)
 
@@ -379,7 +379,7 @@ trait VerificationChecker { self =>
           VCResult(VCStatus.Crashed, Some(s.name), Some(time), s.getSmtLibFileId)
 
         case Failure(e) => reporter.internalError(e)
-      }
+      }).copy(resources = s.resourceUsage)
 
       val vcResultMsg = VCResultMessage(vc, vcres)
       reporter.debug(vcResultMsg)

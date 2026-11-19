@@ -51,10 +51,18 @@ object VerificationReport {
   case class Record(
     id: Identifier, pos: inox.utils.Position, time: Long,
     status: Status, solverName: Option[String], kind: String,
-    derivedFrom: Identifier, smtId: Option[Int]
+    derivedFrom: Identifier, smtId: Option[Int],
+    // What each check of the solver spent, in the units of its resource limit (z3 and cvc5 only)
+    resources: Seq[Long] = Seq.empty,
+    // What the solver spent, as its resource limit counts it (`--z3-rlimit`, `--cvc5-rlimit`, in
+    // units rather than millions): the largest check
+    resourceUsage: Option[Long] = None
   ) extends AbstractReportHelper.Record
 
-  given recordDecoder: Decoder[Record] = deriveDecoder
+  // The reports written before the resources were recorded have no `resources`
+  given recordDecoder: Decoder[Record] = deriveDecoder[Record].prepare { cursor =>
+    cursor.withFocus(_.mapObject(obj => if (obj.contains("resources")) obj else obj.add("resources", Json.arr())))
+  }
   given recordEncoder: Encoder[Record] = deriveEncoder
 
   def parse(json: Json) = json.as[(Seq[Record], Set[Identifier])] match {
@@ -87,12 +95,12 @@ class VerificationReport(val results: Seq[VerificationReport.Record], val source
   override lazy val annotatedRows =
     if (skipped) Seq(RecordRow(FreshIdentifier("(ALL VCs Skipped)"), inox.utils.NoPosition, Level.Normal, Seq(), 0, None))
     else results map {
-      case Record(id, pos, time, status, solverName, kind, _, smtId) =>
+      case Record(id, pos, time, status, solverName, kind, _, smtId, _, resourceUsage) =>
         val level = levelOf(status)
         val solver = solverName getOrElse ""
         val extra = Seq(kind, status.name, solver)
 
-        RecordRow(id, pos, level, extra, time, smtId)
+        RecordRow(id, pos, level, extra, time, smtId, resourceUsage)
     }
 
 

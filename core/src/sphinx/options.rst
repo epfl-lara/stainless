@@ -189,6 +189,18 @@ These options are available to all Stainless components:
   verification condition that reaches the bound is reported as ``unroll bound
   reached``. Alternatively, add ``--timeout`` as a wall-clock safety net.
 
+  To calibrate the limit, the verification summary shows the resource usage of
+  each verification condition in a column after its time. It is what the solver
+  itself counts against the limit, in the same millions of units (rounded up), so
+  that a value shown can be given as the limit: as the limits apply to each
+  query, it is the usage of the largest query of the condition.
+
+  A condition that reached the limit shows that limit (cvc5 may show slightly
+  more, as it does not stop at once). The column is empty for the conditions that
+  no solver ran on (trivial, from the cache), for the other solvers, and when no
+  solver of a portfolio answered. The JSON report (``--json``) has the same value
+  in units (``resourceUsage``) and the usage of each query (``resources``).
+
 * ``--cache``
 
   Use persistent cache on disk to save the state of the verification and/or

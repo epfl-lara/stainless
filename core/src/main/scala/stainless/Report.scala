@@ -34,7 +34,9 @@ case class RecordRow(
   level: Level.Type,
   extra: Seq[String],
   time: Long,
-  smtLibId: Option[Int]
+  smtLibId: Option[Int],
+  // What the solver spent, in its resource units (see `ResourceUsage.usage`)
+  resourceUsage: Option[Long] = None
 )
 
 /**
@@ -78,25 +80,25 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
   /** Filter, sort & process rows. */
   private def processRows(full: Boolean)(using ctx: inox.Context): Seq[Row] = {
     val printUniqueName = ctx.options.findOptionOrDefault(inox.ast.optPrintUniqueIds)
-    val rows = for {
-      RecordRow(id, pos, level, extra, time, smtLibId) <- annotatedRows.sortBy(r => r.id -> r.pos)
-      if full || level != Level.Normal
-      name = if (printUniqueName) id.uniqueName else id.name
-      t = smtLibId match {
-        case Some(v) =>  f"smt-lib-$v"
-        case None => ""
-      }
-      contents = Position.smartPos(pos) +: (name +: ((extra :+ f"${time / 1000d}%3.1f" ) :+  t))
-    } yield Row(contents map { str => Cell(withColor(str, level)) })
+    val records = annotatedRows.sortBy(r => r.id -> r.pos).filter(r => full || r.level != Level.Normal)
+    // These columns only show when a row has something in them: the resources, when a solver counts
+    // them (z3 and cvc5), and the SMT-LIB files, when they are written (the debug smt flag)
+    val withResources = records.exists(_.resourceUsage.nonEmpty)
+    val withSmtLibIds = records.exists(_.smtLibId.nonEmpty)
 
-    // Delete the last cell if all are empty (i.e., the debug smt flag is false, and so smt-lib-id is empty)
-    val colorRegex = "\u001B\\[[;\\d]*m".r
-    if rows.forall(r => colorRegex.replaceAllIn(r.cells.last.vString, "").isBlank()) then {
-      rows.map(r => Row(r.cells.dropRight(1)))
-    } else {
-      rows
+    for (RecordRow(id, pos, level, extra, time, smtLibId, resourceUsage) <- records) yield {
+      val name = if (printUniqueName) id.uniqueName else id.name
+      val resources = if (withResources) Seq(resourceUsage.map(formatResources).getOrElse("")) else Seq()
+      val smtLib = if (withSmtLibIds) Seq(smtLibId.map(v => f"smt-lib-$v").getOrElse("")) else Seq()
+      val contents = Seq(Position.smartPos(pos), name) ++ extra ++ Seq(f"${time / 1000d}%3.1f") ++ resources ++ smtLib
+      Row(contents map { str => Cell(withColor(str, level)) })
     }
   }
+
+  /** Resource units in millions, as `--z3-rlimit` and `--cvc5-rlimit` take them, rounded up so
+    * that the value shown is enough as a limit. */
+  private def formatResources(units: Long): String =
+    (BigDecimal(units) / 1000000).setScale(2, BigDecimal.RoundingMode.CEILING).toString
 
   private def withColor(str: String, level: Level)(using inox.Context): String =
     withColor(str, colorOf(level))
@@ -118,7 +120,7 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
   def hasError(identifier: Option[Identifier])(using inox.Context): Boolean = identifier match {
     case None => false
     case Some(i) => annotatedRows.exists(elem => elem match {
-      case RecordRow(id, pos, level, extra, time, smtLibId) => {
+      case RecordRow(id, pos, level, extra, time, smtLibId, _) => {
         (level == Level.Error && id == i)
       }
     })
@@ -127,7 +129,7 @@ trait AbstractReport[SelfType <: AbstractReport[SelfType]] { self: SelfType =>
   def hasUnknown(identifier: Option[Identifier])(using inox.Context): Boolean = identifier match {
     case None => false
     case Some(i) => annotatedRows.exists(elem => elem match {
-      case RecordRow(id, pos, level, extra, time, smtLibId) => level == Level.Warning && id == i
+      case RecordRow(id, pos, level, extra, time, smtLibId, _) => level == Level.Warning && id == i
     })
   }
 
