@@ -228,9 +228,6 @@ class VerificationSuite extends VerificationComponentTestSuite {
     "verification/valid/FloatingPointFunctionProperties",
     "verification/valid/FloatsToBits",
     "verification/invalid/FloatingPointFunctionsContradiction",
-    // the evaluator takes the paradoxical sorts to be empty, so it finds an empty counterexample
-    "verification/false-valid/ParadoxInvariant",
-    "verification/false-valid/ParadoxMutualInvariant",
   )
 
   private val ignoreCheckFiles = Map(

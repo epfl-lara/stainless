@@ -1,0 +1,4 @@
+[ Error  ] Not well formed definition @invariant(inv)
+[ Error  ] abstract class A
+[ Error  ] case class A(x: BigInt) extends A
+[ Error  ] 	because its invariant quantifies over the values of B, which depend on those of A
