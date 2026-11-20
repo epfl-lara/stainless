@@ -142,6 +142,8 @@ case class GenCReport(results: Seq[Record], sources: Set[Identifier], override v
 
   override val name = GenCComponent.name
 
+  override def extraHeaders = Seq("status")
+
   override def annotatedRows: Seq[RecordRow] = results.map {
     case Record(id, pos, status, time) => RecordRow(id, pos, levelOf(status), Seq(descriptionOf(status)), time, None)
   }

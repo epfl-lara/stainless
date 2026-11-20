@@ -136,8 +136,8 @@ class VerificationRun private(override val component: VerificationComponent.type
             Future(vcs.map(vc => vc -> VCResult(VCStatus.Admitted, None, None, None)).toMap)
           } else {
             VerificationChecker.verify(opaqueEncoder.targetProgram, context)(vcs).map(_.view.mapValues {
-              case VCResult(VCStatus.Invalid(VCStatus.CounterExample(model)), s, t, smtid) =>
-                VCResult(VCStatus.Invalid(VCStatus.CounterExample(model.encode(opaqueEncoder.reverse.andThen(vcGenEncoder.reverse)))), s, t, smtid)
+              case VCResult(VCStatus.Invalid(VCStatus.CounterExample(model)), s, t, smtid, resources) =>
+                VCResult(VCStatus.Invalid(VCStatus.CounterExample(model.encode(opaqueEncoder.reverse.andThen(vcGenEncoder.reverse)))), s, t, smtid, resources)
               case res => res.asInstanceOf[VCResult[p.Model]]
             }.toMap)
           }
