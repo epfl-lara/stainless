@@ -1,10 +1,11 @@
 [ Error  ] DecidedUnitValue.scala:8:13: test uses a quantifier as a value. Quantifiers are propositions, which can only be stated:
-[ Error  ] if (targetBound) {
+[ Error  ] if (isPositive(f)) {
 [ Error  ]   1
 [ Error  ] } else {
 [ Error  ]   0
 [ Error  ] } is of type <untyped>
-[ Error  ]   targetBound is of type Prop
+[ Error  ]   isPositive(f) is of type Prop
+[ Error  ]     f is of type (BigInt) => BigInt because isPositive was instantiated with  with type ((BigInt) => BigInt) => Prop
 [ Error  ]   1 is of type BigInt
 [ Error  ]   0 is of type BigInt
                val r = if (isPositive(f)) { (); BigInt(1) } else BigInt(0)

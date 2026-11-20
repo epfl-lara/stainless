@@ -1,36 +1,36 @@
 [ Error  ] Countable2.scala:33:5: theorem uses a quantifier as a value. Quantifiers are propositions, which can only be stated:
-[ Error  ] if (targetBound) {
+[ Error  ] if (forall((x: Countable[(BigInt) => BigInt]) => false)) {
 [ Error  ]   assert(false)
 [ Error  ]   <empty tree>[{ x: Object | @dropConjunct false }]
 [ Error  ] } else {
 [ Error  ]   val e: Countable[(BigInt) => BigInt] = {
 [ Error  ]     assert(!forall((x: Countable[(BigInt) => BigInt]) => !true), "Choose satisfiability")
-[ Error  ]     choose$12(targetBound)
+[ Error  ]     choose$N
 [ Error  ]   }
 [ Error  ]   assert(lemma(e))
 [ Error  ]   assert(false)
 [ Error  ]   <empty tree>[{ x: Object | @dropConjunct false }]
 [ Error  ] } is of type <untyped>
-[ Error  ]   targetBound is of type Prop
+[ Error  ]   forall((x: Countable[(BigInt) => BigInt]) => false) is of type Prop
+[ Error  ]     false is of type Boolean
 [ Error  ]   assert(false)
 [ Error  ]   <empty tree>[{ x: Object | @dropConjunct false }] is of type Object
 [ Error  ]     false is of type Boolean
 [ Error  ]     <empty tree>[{ x: Object | @dropConjunct false }] is of type Object
 [ Error  ]   val e: Countable[(BigInt) => BigInt] = {
 [ Error  ]     assert(!forall((x: Countable[(BigInt) => BigInt]) => !true), "Choose satisfiability")
-[ Error  ]     choose$12(targetBound)
+[ Error  ]     choose$N
 [ Error  ]   }
 [ Error  ]   assert(lemma(e))
 [ Error  ]   assert(false)
 [ Error  ]   <empty tree>[{ x: Object | @dropConjunct false }] is of type Object
 [ Error  ]     assert(!forall((x: Countable[(BigInt) => BigInt]) => !true), "Choose satisfiability")
-[ Error  ]     choose$12(targetBound) is of type Countable[(BigInt) => BigInt]
+[ Error  ]     choose$N is of type Countable[(BigInt) => BigInt]
 [ Error  ]       !forall((x: Countable[(BigInt) => BigInt]) => !true) is of type Prop
 [ Error  ]         forall((x: Countable[(BigInt) => BigInt]) => !true) is of type Prop
 [ Error  ]           !true is of type Boolean
 [ Error  ]             true is of type Boolean
-[ Error  ]       choose$12(targetBound) is of type Countable[(BigInt) => BigInt]
-[ Error  ]         targetBound is of type Prop because choose was instantiated with  with type (Prop) => Countable[(BigInt) => BigInt]
+[ Error  ]       choose$N is of type Countable[(BigInt) => BigInt] because choose was instantiated with  with type () => Countable[(BigInt) => BigInt]
 [ Error  ]     assert(lemma(e))
 [ Error  ]     assert(false)
 [ Error  ]     <empty tree>[{ x: Object | @dropConjunct false }] is of type Object

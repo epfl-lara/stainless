@@ -136,7 +136,7 @@ abstract class ExtractionSuite extends AnyFunSpec with inox.ResourceUtils with I
           case Failure(e) =>
             throw new Exception(s"Unexpected exception for $f: \n$e")
         }
-        errs.map(_.stripTrailing()).toSeq
+        errs.map(err => freshIdSuffix.replaceAllIn(err.stripTrailing(), "\\$N")).toSeq
       }
     }
 
@@ -165,6 +165,11 @@ abstract class ExtractionSuite extends AnyFunSpec with inox.ResourceUtils with I
   }
 
   /** The lines of the check file `f`, without trailing whitespace. */
+  // The suffix of the identifiers that the extraction makes fresh, such as the `choose$12` functions
+  // of `ChooseEncoder`: it counts the identifiers made in the whole run, so it depends on the tests
+  // that ran before.
+  private val freshIdSuffix = """(?<=\w)\$\d+\b""".r
+
   private def checkFileLines(f: java.io.File): Seq[String] = {
     val src = scala.io.Source.fromFile(f)
     try src.getLines().map(_.stripTrailing()).toSeq
