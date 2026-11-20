@@ -126,6 +126,7 @@ encoded.txt
 
 # Mac OS
 .DS_Store
+**/.DS_Store
 
 # CI
 temp/
