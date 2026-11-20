@@ -5,7 +5,9 @@
   "comparefuns": [
     "FizzBuzz.fizzBuzz1"
   ],
-  "timeout": 30,
+  "timeout": 60,
+  "z3-rlimit": 20,
+  "unroll-bound": 10,
   "outcome": {
     "equivalent": [
       {
