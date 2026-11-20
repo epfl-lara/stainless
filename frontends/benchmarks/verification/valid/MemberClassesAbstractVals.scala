@@ -11,6 +11,12 @@ object MemberClassesAbstractVals {
     }
     case class Def(value: Expr) extends Named
 
+    // An open subclass that inherits the abstract val
+    abstract class Tagged extends Named {
+      val tag: BigInt
+    }
+    case class TaggedDef(value: Expr, tag: BigInt) extends Tagged
+
     def valueOf(n: Named): Expr = n.value
   }
 
@@ -19,5 +25,8 @@ object MemberClassesAbstractVals {
     val v: l.Expr = d.value
     val w: l.Expr = l.valueOf(d)
     assert(v.isInstanceOf[l.Lit])
+    val t = l.TaggedDef(l.Lit(2), 3)
+    val u: l.Expr = (t: l.Tagged).value
+    assert(u.isInstanceOf[l.Lit])
   }
 }

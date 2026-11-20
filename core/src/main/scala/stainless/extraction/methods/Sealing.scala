@@ -127,12 +127,14 @@ class Sealing(override val s: Trees)(override val t: s.type)
       // We lookup the latest non-final methods, and split them in three groups:
       // normal methods, setters, and getters
       val lnfm = context.lnfm(cd).toSeq
+      // The accessors may be inherited, so `this` is that of `cd` or of one of its ancestors
+      val selfIds = cd.ancestors.map(_.id).toSet + cd.id
       val (accessors, methods) = lnfm.partition { id =>
         val fd = symbols.getFunction(id)
         fd.isAccessor && !typeOps.exists {
-          case TypeSelect(Some(This(ct)), _) => ct.id == cd.id
+          case TypeSelect(Some(This(ct)), _) => selfIds(ct.id)
           // e.g. the type `{ x: C | x.outer eq this.outer }` of a member class `C` (see `xlang.MemberClasses`)
-          case RefinementType(_, pred) => exprOps.exists { case _: This => true case _ => false } (pred)
+          case RefinementType(_, pred) => exprOps.exists { case This(ct) => selfIds(ct.id) case _ => false } (pred)
           case _ => false
         } (fd.returnType) // We don't want to add fields for vals which are path-dependent on `this`,
                           // because this is invalid in Scala (ie. fields cannot refer to `this`).
