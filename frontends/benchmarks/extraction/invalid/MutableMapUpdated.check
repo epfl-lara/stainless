@@ -1,3 +1,0 @@
-[ Error  ] MutableMapUpdated.scala:8:13: Cannot use `updated` on a MutableMap whose range is a mutable type (MutableMap[BigInt,A]).
-               val u = m.updated(0, a)
-                       ^^^^^^^^^^^^^^^

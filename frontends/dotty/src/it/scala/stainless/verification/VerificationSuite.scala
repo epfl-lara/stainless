@@ -192,6 +192,7 @@ class VerificationSuite extends VerificationComponentTestSuite {
       "verification/invalid/i665",
       "verification/invalid/i1295",
       "verification/invalid/i1379c",
+      "verification/invalid/i1506",
       "verification/invalid/InductTacticTest",
       "verification/invalid/InsertionSort",
       "verification/invalid/IntSet",

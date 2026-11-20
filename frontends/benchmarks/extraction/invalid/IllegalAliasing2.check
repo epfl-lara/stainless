@@ -1,3 +1,3 @@
-[ Error  ] IllegalAliasing2.scala:12:5: Illegal passing of aliased parameters a(0) (with target: Target(a, None, (0))) and a(zero) (with target: Target(a, None, (zero)))
+[ Error  ] IllegalAliasing2.scala:12:15: this collection element is indexed by a variable that goes out of scope while the element is still reachable
                f(a(0), a(zero)) // Illegal passing of aliased parameters
-               ^^^^^^^^^^^^^^^^
+                         ^^^^

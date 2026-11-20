@@ -1,3 +1,0 @@
-[ Error  ] ArrayShenanigans5.scala:11:31: Cannot update an array whose element type (Ref) is mutable with a non-fresh expression
-               val arr2 = arr.updated(i, r)
-                                         ^

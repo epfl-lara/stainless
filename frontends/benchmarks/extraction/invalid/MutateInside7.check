@@ -1,3 +1,0 @@
-[ Fatal  ] MutateInside7.scala:11:15: Ambiguous effect CombinedEffect(m.t) on Mut[Thing](thing)
-                 val m = Mut(thing)
-                         ^^^^^^^^^^

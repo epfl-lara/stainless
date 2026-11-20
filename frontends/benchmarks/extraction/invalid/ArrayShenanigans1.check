@@ -1,3 +1,0 @@
-[ Error  ] ArrayShenanigans1.scala:13:14: Cannot update an array whose element type (Ref) is mutable with a non-fresh expression
-               arr(i) = arrij
-                        ^^^^^

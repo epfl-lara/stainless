@@ -1,3 +1,3 @@
-[ Error  ] ArrayNested1.scala:10:13: Cannot bind expression of a mutable type to a `var`: Array(1, 2, 0)
-               var a = Array(1, 2, 0)
-                       ^^^^^^^^^^^^^^
+[ Error  ] ArrayNested1.scala:14:7: a lambda or local function mutates an object it captured from its enclosing function -- its enclosing aliases cannot be refreshed
+                 a = a.updated(1, 5)
+                 ^^^^^^^^^^^^^^^^^^^
