@@ -126,13 +126,18 @@ package object extraction {
   object trees extends Trees with inox.ast.SimpleSymbols {
     case class Symbols(
       functions: Map[Identifier, FunDef],
-      sorts: Map[Identifier, ADTSort]
+      sorts: Map[Identifier, ADTSort],
+      override val modes: inox.ast.TypingModes = inox.ast.TypingModes()
     ) extends SimpleSymbols with StainlessAbstractSymbols {
       override val symbols: this.type = this
     }
 
     override def mkSymbols(functions: Map[Identifier, FunDef], sorts: Map[Identifier, ADTSort]): Symbols = {
       Symbols(functions, sorts)
+    }
+
+    override def mkSymbols(functions: Map[Identifier, FunDef], sorts: Map[Identifier, ADTSort], modes: inox.ast.TypingModes): Symbols = {
+      Symbols(functions, sorts, modes)
     }
 
     object printer extends Printer { val trees: extraction.trees.type = extraction.trees }
@@ -152,7 +157,122 @@ package object extraction {
     innerfuns.extractor    `andThen`
     inlining.extractor     `andThen`
     trace.extractor        `andThen`
-    termination.extractor
+    termination.extractor  `andThen`
+    propositions
+  }
+
+  /** Checks the extracted program under propositional quantifiers (see
+    * [[inox.ast.Types.PropType]]).
+    *
+    * Quantifiers are propositions, which have a truth value but no evaluation rule, so a term
+    * can't depend on one. Scala only has booleans, so the functions and the variables that are
+    * propositions are inferred, and every function that doesn't type is reported.
+    *
+    * The program is left as it is: verification handles propositions as booleans, as solvers
+    * do, so a program that passes the check is verified as before. */
+  def propositions(using inox.Context): ExtractionPipeline {
+    val s: trees.type
+    val t: trees.type
+  } = {
+    class PropositionsImpl(override val s: extraction.trees.type,
+                           override val t: extraction.trees.type)
+                          (using override val context: inox.Context)
+      extends ExtractionPipeline { self =>
+      import inox.ast.QuantifierMode
+
+      override def invalidate(id: Identifier): Unit = ()
+      override def extract(symbols: s.Symbols): (t.Symbols, ExtractionSummary) = {
+        val typed = PropositionInference.transform(symbols.withQuantifiers(QuantifierMode.Propositional))
+
+        // The expressions of `fd` that use a proposition as a value: those that don't type
+        // although their operands do. A function is only held to this if all its expressions
+        // type under boolean quantifiers, and to the type of its body otherwise.
+        def misuses(fd: s.FunDef): Seq[s.Expr] = {
+          import s._
+          def untyped(e: Expr)(using Symbols): Seq[Expr] = {
+            val inner = e match {
+              // the lambda of a postcondition states a specification: it isn't a value
+              case Ensuring(body, Lambda(_, post)) => untyped(body) ++ untyped(post)
+              case Operator(es, _) => es.flatMap(untyped)
+            }
+            if (inner.nonEmpty) inner else if (e.getType == Untyped) Seq(e) else Seq.empty
+          }
+          if (untyped(symbols.getFunction(fd.id).fullBody)(using symbols).nonEmpty) Seq.empty
+          else untyped(fd.fullBody)(using typed).distinct.sortBy(_.getPos)
+        }
+
+        // the functions that Stainless generates, such as the casts of full imperative, encode
+        // its own constructs, which may observe the quantifiers of its type encoding
+        val checked = typed.functions.values.toSeq.filterNot(_.flags contains s.Synthetic)
+        val errors = checked.sortBy(_.id.uniqueName).count { fd =>
+          val es = misuses(fd)
+          for (e <- es) context.reporter.error(e.getPos,
+            s"${fd.id.asString} uses a quantifier as a value. Quantifiers are propositions, " +
+            s"which can only be stated:\n${typed.explainTyping(e)(using new s.PrinterOptions())}")
+          es.nonEmpty || {
+            try { typed.typeCheck(fd.fullBody, fd.getType(using typed)); false }
+            catch {
+              case e: typed.TypeErrorException =>
+                context.reporter.error(e.pos,
+                  s"${fd.id.asString} uses a quantifier as a value. Quantifiers are propositions, " +
+                  s"which can only be stated:\n${e.getMessage}")
+                true
+            }
+          }
+        }
+        if (errors > 0) context.reporter.fatalError(
+          s"$errors function(s) use a quantifier as a value")
+        (symbols, ExtractionSummary.NoSummary)
+      }
+    }
+    new PropositionsImpl(extraction.trees, extraction.trees)
+  }
+
+  /** Infers the propositions of the extracted trees: those of Inox, the results of
+    * postconditions, which are propositions when the body they are bound to is one (as in a
+    * lemma that states a quantified property and `holds`), and the proofs by cases, which
+    * decide between two terms of type `Unit` with a proposition. */
+  private object PropositionInference extends inox.transformers.PropositionInference {
+    override val s: extraction.trees.type = extraction.trees
+    override val t: extraction.trees.type = extraction.trees
+    import s._
+
+    override def transform(e: Expr)(using Symbols): Expr = {
+      object inferrer extends ConcreteSelfTreeTransformer {
+        private def retype(vd: ValDef, bound: Expr, in: Expr): Option[(ValDef, Expr)] =
+          asProposition(vd.tpe, bound.getType).map { tpe =>
+            val newVd = vd.copy(tpe = tpe).copiedFrom(vd)
+            newVd -> exprOps.replaceFromSymbols(Map(vd -> newVd.toVariable), in)
+          }
+
+        override def transform(e: Expr): Expr = e match {
+          case Let(vd, value, body) =>
+            val newValue = transform(value)
+            val (newVd, newBody) = retype(vd, newValue, body).getOrElse(vd -> body)
+            Let(newVd, newValue, transform(newBody)).copiedFrom(e)
+
+          case Ensuring(body, l @ Lambda(Seq(res), post)) =>
+            val newBody = transform(body)
+            val (newRes, newPost) = retype(res, newBody, post).getOrElse(res -> post)
+            Ensuring(newBody, Lambda(Seq(newRes), transform(newPost)).copiedFrom(l)).copiedFrom(e)
+
+          // A term of type `Unit` is a proof, so a case split on a proposition between two of
+          // them is a proof by cases: the proposition that holds once either proof is done.
+          case IfExpr(cond, thenn, elze) =>
+            val (newCond, newThen, newElse) = (transform(cond), transform(thenn), transform(elze))
+            def proof(e: Expr): Expr =
+              Let(ValDef.fresh("proof", UnitType()).copiedFrom(e), e, BooleanLiteral(true).copiedFrom(e)).copiedFrom(e)
+            if (newCond.getType == PropType() && newThen.getType == UnitType() && newElse.getType == UnitType())
+              Let(ValDef.fresh("cases", PropType()).copiedFrom(e),
+                IfExpr(newCond, proof(newThen), proof(newElse)).copiedFrom(e),
+                UnitLiteral().copiedFrom(e)).copiedFrom(e)
+            else IfExpr(newCond, newThen, newElse).copiedFrom(e)
+
+          case _ => super.transform(e)
+        }
+      }
+      inferrer.transform(e)
+    }
   }
 
   private def completeSymbols(symbols: trees.Symbols)(to: ast.Trees): to.Symbols = {

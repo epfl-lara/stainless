@@ -1,0 +1,35 @@
+[ Error  ] Berardi1.scala:31:5: cem uses a quantifier as a value. Quantifiers are propositions, which can only be stated:
+[ Error  ] if (exists[A]((a: A) => true)) {
+[ Error  ]   Left[A, (A) => False]({
+[ Error  ]     assert(!forall((a: A) => !true), "Choose satisfiability")
+[ Error  ]     choose$N[A]
+[ Error  ]   })
+[ Error  ] } else {
+[ Error  ]   assert(forall((x: A) => false))
+[ Error  ]   Right[A, (A) => False]((x: A) => False(123))
+[ Error  ] } is of type <untyped>
+[ Error  ]   exists[A]((a: A) => true) is of type Prop
+[ Error  ]     (a: A) => true is of type (A) => Boolean
+[ Error  ]       true is of type Boolean because exists was instantiated with T:=A with type ((T) => Boolean) => Prop
+[ Error  ]   Left[A, (A) => False]({
+[ Error  ]     assert(!forall((a: A) => !true), "Choose satisfiability")
+[ Error  ]     choose$N[A]
+[ Error  ]   }) is of type Either[A, (A) => False]
+[ Error  ]     assert(!forall((a: A) => !true), "Choose satisfiability")
+[ Error  ]     choose$N[A] is of type A
+[ Error  ]       !forall((a: A) => !true) is of type Prop
+[ Error  ]         forall((a: A) => !true) is of type Prop
+[ Error  ]           !true is of type Boolean
+[ Error  ]             true is of type Boolean
+[ Error  ]       choose$N[A] is of type A because choose was instantiated with A:=A with type () => A because Left was instantiated with A:=A,B:=(A) => False with fields (A)
+[ Error  ]   assert(forall((x: A) => false))
+[ Error  ]   Right[A, (A) => False]((x: A) => False(123)) is of type Either[A, (A) => False]
+[ Error  ]     forall((x: A) => false) is of type Prop
+[ Error  ]       false is of type Boolean
+[ Error  ]     Right[A, (A) => False]((x: A) => False(123)) is of type Either[A, (A) => False]
+[ Error  ]       (x: A) => False(123) is of type (A) => False
+[ Error  ]         False(123) is of type False
+[ Error  ]           123 is of type Int because False was instantiated with  with fields (Int) because Right was instantiated with A:=A,B:=(A) => False with fields ((A) => False)
+               if (exists((a: A) => true))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^...
+[ Fatal  ] 1 function(s) use a quantifier as a value

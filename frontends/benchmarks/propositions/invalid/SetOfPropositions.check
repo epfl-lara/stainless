@@ -1,0 +1,11 @@
+[ Error  ] SetOfPropositions.scala:5:50: props uses a quantifier as a value. Quantifiers are propositions, which can only be stated:
+[ Error  ] Set(forall((x: BigInt) => (f(x) > 0))) is of type <untyped>
+[ Error  ]   forall((x: BigInt) => (f(x) > 0)) is of type Prop
+[ Error  ]     f(x) > 0 is of type Boolean
+[ Error  ]       f(x) is of type BigInt
+[ Error  ]         f is of type (BigInt) => BigInt
+[ Error  ]         x is of type BigInt
+[ Error  ]       0 is of type BigInt
+             def props(f: BigInt => BigInt): Set[Boolean] = Set(forall((x: BigInt) => f(x) > 0))
+                                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[ Fatal  ] 1 function(s) use a quantifier as a value

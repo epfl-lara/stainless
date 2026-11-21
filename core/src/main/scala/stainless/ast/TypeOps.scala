@@ -40,7 +40,9 @@ trait TypeOps extends inox.ast.TypeOps {
     pat match {
       case WildcardPattern(ob) => ob.forall(vd => isSubtypeOf(in, vd.getType))
 
+      // a literal pattern compares with equality, which would decide a proposition
       case LiteralPattern(ob, lit) =>
+        !containsProposition(in) &&
         ob.forall(vd => isSubtypeOf(vd.getType, in)) &&
         isSubtypeOf(lit.getType, in)
 

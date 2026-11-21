@@ -1,0 +1,14 @@
+[ Error  ] DecidedByField.scala:9:45: decide uses a quantifier as a value. Quantifiers are propositions, which can only be stated:
+[ Error  ] if (positive(f).holds) {
+[ Error  ]   1
+[ Error  ] } else {
+[ Error  ]   0
+[ Error  ] } is of type <untyped>
+[ Error  ]   positive(f).holds is of type Prop
+[ Error  ]     positive(f) is of type Claim
+[ Error  ]       f is of type (BigInt) => BigInt because positive was instantiated with  with type ((BigInt) => BigInt) => Claim
+[ Error  ]   1 is of type BigInt
+[ Error  ]   0 is of type BigInt
+             def decide(f: BigInt => BigInt): BigInt = if (positive(f).holds) 1 else 0
+                                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[ Fatal  ] 1 function(s) use a quantifier as a value

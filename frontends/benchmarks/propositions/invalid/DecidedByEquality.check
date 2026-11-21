@@ -1,0 +1,16 @@
+[ Error  ] DecidedByEquality.scala:10:5: decide uses a quantifier as a value. Quantifiers are propositions, which can only be stated:
+[ Error  ] if (positive(f) == positive(g)) {
+[ Error  ]   1
+[ Error  ] } else {
+[ Error  ]   0
+[ Error  ] } is of type <untyped>
+[ Error  ]   positive(f) == positive(g) is of type Prop
+[ Error  ]     positive(f) is of type Claim
+[ Error  ]       f is of type (BigInt) => BigInt because positive was instantiated with  with type ((BigInt) => BigInt) => Claim
+[ Error  ]     positive(g) is of type Claim
+[ Error  ]       g is of type (BigInt) => BigInt because positive was instantiated with  with type ((BigInt) => BigInt) => Claim
+[ Error  ]   1 is of type BigInt
+[ Error  ]   0 is of type BigInt
+               if (positive(f) == positive(g)) 1 else 0
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[ Fatal  ] 1 function(s) use a quantifier as a value
