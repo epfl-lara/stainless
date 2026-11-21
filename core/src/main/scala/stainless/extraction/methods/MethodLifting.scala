@@ -312,17 +312,20 @@ class MethodLifting(override val s: Trees, override val t: oo.Trees)
 
     val returnType = transformer.transform(fd.returnType)
 
-    val notFullyOverriden: Boolean = !(cd.flags contains IsSealed) || {
-      def rec(fo: Override): Boolean = fo match {
-        case Override(_, Some(_), _) => true
-        case Override(_, _, children) => children.forall(rec)
-      }
-
+    // The body of `fd` is unreachable only if every instance of `cd` is an instance of a class that
+    // overrides it. Each class without an override must then be abstract and sealed, with all its
+    // children fully overriding it (a child without an override inherits the body of `fd`).
+    def fullyOverridden(cd: ClassDef, cos: Seq[Override]): Boolean = {
       val coMap = cos.map(co => co.cid -> co).toMap
-      cd.children(using symbols).exists {
-        ccd => !(coMap contains ccd.id) || !rec(coMap(ccd.id))
+      cd.isAbstract && cd.isSealed && cd.children(using symbols).forall { ccd =>
+        coMap.get(ccd.id).exists {
+          case Override(_, Some(_), _) => true
+          case Override(_, None, children) => fullyOverridden(ccd, children)
+        }
       }
     }
+
+    val notFullyOverriden: Boolean = !fullyOverridden(cd, cos)
 
     val (specs, body) = exprOps.deconstructSpecs(fd.fullBody)
 
