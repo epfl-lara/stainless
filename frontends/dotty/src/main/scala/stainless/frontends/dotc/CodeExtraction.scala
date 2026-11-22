@@ -2080,6 +2080,11 @@ class CodeExtraction(inoxCtx: inox.Context,
         case e => (xt.TupleSelect(e, 1).setPos(e), xt.TupleSelect(e, 2).setPos(e))
       }, extractType(tpt))
 
+    // `new X(...)` for a Java exception `X` builds its Stainless version, without the arguments
+    case ExClassConstruction(tpe, _) if javaExceptions.contains(tpe.classSymbol) =>
+      val cls = javaExceptions(tpe.classSymbol)
+      xt.ClassConstructor(xt.ClassType(getIdentifier(cls), Seq.empty).setPos(tr.sourcePos), Seq.empty)
+
     case ExClassConstruction(tpe, args) if isMemberClass(tpe.classSymbol) =>
       given SourcePosition = tr.sourcePos
       val cls = tpe.classSymbol
@@ -2999,6 +3004,10 @@ class CodeExtraction(inoxCtx: inox.Context,
       case TypeBounds(lo, hi) =>
         xt.TypeBounds(extractType(lo), extractType(hi), Seq.empty)
       case cet: ExprType => extractType(cet.resultType)
+
+      // The Java exceptions, possibly through their aliases in the `scala` package, become Stainless classes
+      case tpe if javaExceptions.contains(tpe.dealias.typeSymbol) =>
+        xt.ClassType(getIdentifier(javaExceptions(tpe.dealias.typeSymbol)), Seq.empty).setPos(pos)
 
       case tpe if isBigIntSym(tpe.typeSymbol)        => restoreRefinements(xt.IntegerType())
       case tpe if isRealSym(tpe.typeSymbol)          => restoreRefinements(xt.RealType())
