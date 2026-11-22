@@ -41,6 +41,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
     }),
     extraction.imperative.optFullImperative -> Description(Verification, "Use the full imperative phase. That might be unstable because it is still under development."),
     extraction.imperative.optOldAliasing -> Description(Verification, "Use AntiAliasing, which rejects aliasing of mutable objects, instead of AssignmentRewrite."),
+    extraction.imperative.optHeapMaxChanges -> Description(Verification, "How many times the heap approximation of a program point may change before AssignmentRewrite reports that its analysis does not stabilize (default: 20)"),
     extraction.imperative.optCheckHeapContracts -> Description(Verification, "Check that heap reads and modifies clauses are valid"),
     evaluators.optCodeGen -> Description(Evaluators, "Use code generating evaluator"),
     codegen.optInstrumentFields -> Description(Evaluators, "Instrument ADT field access during code generation"),
