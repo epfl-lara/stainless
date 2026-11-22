@@ -11,7 +11,8 @@ class FieldAccessors(override val s: Trees, override val t: oo.Trees)
      with SimpleSorts
      with oo.SimpleClasses
      with SimplyCachedSorts
-     with oo.IdentityTypeDefs { self =>
+     with oo.IdentityTypeDefs
+     with oo.SimplyCachedClasses { self =>
 
   import s._
 
@@ -19,48 +20,14 @@ class FieldAccessors(override val s: Trees, override val t: oo.Trees)
 
   protected class TransformerContext(override val s: self.s.type,
                                      override val t: self.t.type,
-                                     val symbols: s.Symbols,
-                                     inFieldTypes: Boolean = false)
+                                     val symbols: s.Symbols)
     extends oo.ConcreteTreeTransformer(s, t) {
     import symbols.{given, _}
 
     def isConcreteAccessor(fd: FunDef): Boolean = fd.isAccessor && !fd.isAbstract && !fd.body.isEmpty
 
-    /** Whether `fd` is an accessor that dispatches to the accessors that override it, as lifted by
-      * `MethodLifting` (after `Sealing`, every concrete class of the hierarchy reads a field).
-      */
-    def isAccessorDispatcher(fd: FunDef): Boolean =
-      fd.isAccessor && fd.isAbstract && fd.body.exists(!_.isInstanceOf[NoTree])
-
-    /** Field types can't call functions over their own sort, so the accessors in field types are inlined
-      * together with their dispatchers, as in the refinements of the fields of member classes, such as
-      * `List[{ x: C | x.outer eq $outer }]` (see `xlang.MemberClasses`).
-      */
-    def isInlined(fd: FunDef): Boolean = isConcreteAccessor(fd) || (inFieldTypes && isAccessorDispatcher(fd))
-
-    lazy val inFieldTypesContext: TransformerContext =
-      if (inFieldTypes) this else new TransformerContext(s, t, symbols, inFieldTypes = true)
-
-    /** The accessors and dispatchers that are inlined in the field types of `cd`. */
-    def fieldTypeInlinings(cd: ClassDef): Set[Identifier] = {
-      val ctx = inFieldTypesContext
-      def rec(seen: Set[Identifier], todo: Seq[Identifier]): Set[Identifier] = todo match {
-        case Seq() => seen
-        case id +: rest =>
-          val fd = symbols.getFunction(id)
-          val next = s.exprOps.functionCallsOf(fd.fullBody).map(_.id).filterNot(seen)
-            .filter(fid => ctx.isInlined(symbols.getFunction(fid)))
-          rec(seen ++ next, rest ++ next)
-      }
-      val roots = cd.fields.flatMap(vd => s.typeOps.collect[Identifier] {
-        case s.RefinementType(_, pred) => s.exprOps.functionCallsOf(pred).map(_.id)
-        case _ => Set.empty[Identifier]
-      } (vd.tpe)).toSet.filter(fid => ctx.isInlined(symbols.getFunction(fid)))
-      rec(roots, roots.toSeq)
-    }
-
     override def transform(e: s.Expr): t.Expr = e match {
-      case FunctionInvocation(id, tps, args) if isInlined(symbols.getFunction(id)) =>
+      case FunctionInvocation(id, tps, args) if isConcreteAccessor(symbols.getFunction(id)) =>
         val tfd = symbols.getFunction(id, tps)
         transform(s.exprOps.freshenLocals(
           s.exprOps.replaceFromSymbols((tfd.params zip args).toMap, tfd.fullBody))).setPos(e)
@@ -78,16 +45,11 @@ class FieldAccessors(override val s: Trees, override val t: oo.Trees)
 
   override protected type FunctionResult = Option[t.FunDef]
 
-  // The field types depend on the accessors and dispatchers that are inlined in them
-  override protected final val classCache = new ExtractionCache[s.ClassDef, (ClassResult, ClassSummary)]({
-    (cd, ctx) => ClassKey(cd) + SetKey(ctx.fieldTypeInlinings(cd).map(id => FunctionKey(ctx.symbols.getFunction(id)): CacheKey))
-  })
-
   // The transformation depends on all (transitive) accessors that will be inlined
   override protected final val funCache = new ExtractionCache[s.FunDef, (FunctionResult, FunctionSummary)]({
     (fd, ctx) => FunctionKey(fd) + SetKey(ctx.symbols.dependencies(fd.id)
       .flatMap(id => ctx.symbols.lookupFunction(id))
-      .filter(fd => ctx.isConcreteAccessor(fd) || ctx.isAccessorDispatcher(fd))
+      .filter(ctx.isConcreteAccessor)
       .map(_.id)
     )(using ctx.symbols)
   })
@@ -99,7 +61,7 @@ class FieldAccessors(override val s: Trees, override val t: oo.Trees)
     (if (context.isConcreteAccessor(fd)) None else Some(context.transform(fd)), ())
 
   override protected def extractSort(context: TransformerContext, sort: s.ADTSort) = (context.transform(sort), ())
-  override protected def extractClass(context: TransformerContext, cd: s.ClassDef) = (context.inFieldTypesContext.transform(cd), ())
+  override protected def extractClass(context: TransformerContext, cd: s.ClassDef) = (context.transform(cd), ())
 }
 
 object FieldAccessors {

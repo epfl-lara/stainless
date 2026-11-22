@@ -1,0 +1,71 @@
+/* Copyright 2009-2021 EPFL, Lausanne */
+
+package stainless
+package verification
+
+import org.scalatest.funsuite.AnyFunSuite
+
+/** The refinements of the fields of a sort may only call the functions over the sort that inspect their arguments
+  * (see `TypeChecker.onlyInspects`).
+  */
+class FieldRefinementRecursionSuite extends AnyFunSuite with InputUtils {
+
+  def source(defs: String) =
+    s"""|import stainless.lang._
+        |
+        |object Test {
+        |  sealed abstract class S
+        |  case class A(x: BigInt) extends S
+        |  case class B(o: Option[{ v: S with p(v) }]) extends S
+        |
+        |$defs
+        |}""".stripMargin
+
+  def isAccepted(defs: String): Boolean = {
+    val ctx: inox.Context = stainless.TestContext.empty
+    import ctx.given
+    val (_, xlangProgram) = load(Seq(source(defs)))
+    val run = VerificationComponent.run(extraction.pipeline)
+    val program = inox.Program(run.trees)(run.extract(xlangProgram.symbols)._1)
+    val sort = program.symbols.sorts.values.find(_.id.name == "S").get
+    val fun = program.symbols.functions.values.find(_.id.name == "p").get
+    val checker = TypeChecker(program, ctx)
+    try {
+      checker.checkADTRefinementRecursion(sort)
+      checker.checkType(fun.id)
+      true
+    } catch {
+      case _: inox.FatalError => false
+    }
+  }
+
+  test("A function that only selects fields and tests constructors is accepted") {
+    assert(isAccepted(
+      """|  def get(s: S): BigInt = s match {
+         |    case A(x) => x
+         |    case B(Some(_)) => 1
+         |    case B(None()) => 0
+         |  }
+         |  def p(s: S): Boolean = get(s) >= 0""".stripMargin))
+  }
+
+  test("A recursive function is rejected") {
+    assert(!isAccepted(
+      """|  def depth(s: S): BigInt = s match {
+         |    case A(_) => 0
+         |    case B(Some(s2)) => 1 + depth(s2)
+         |    case B(None()) => 0
+         |  }
+         |  def p(s: S): Boolean = depth(s) >= 0""".stripMargin))
+  }
+
+  test("A function that quantifies over the sort is rejected") {
+    assert(!isAccepted(
+      """|  def p(s: S): Boolean = forall((t: S) => t != s)""".stripMargin))
+  }
+
+  test("A function that constructs values of the sort is rejected") {
+    assert(!isAccepted(
+      """|  def p(s: S): Boolean = s != A(0)""".stripMargin))
+  }
+}
