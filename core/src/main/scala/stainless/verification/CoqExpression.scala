@@ -428,6 +428,18 @@ case class CoqTacticPattern(context: Map[CoqIdentifier,CoqExpression], goal: Coq
 }
 
 object CoqExpression {
+  // Coq identifiers print as their name, so the identifiers that the encoder makes up only
+  // need to be equal when they have the same name and are made from the same identifier.
+  private val madeUpIds = scala.collection.concurrent.TrieMap[(String, Option[Identifier]), Identifier]()
+
+  /** The identifier named `name` that stands for `base` in Coq. */
+  def derivedIdentifier(name: String, base: Identifier): Identifier =
+    madeUpIds.getOrElseUpdate((name, Some(base)), FreshIdentifier(name))
+
+  /** The identifier named `name`, which stands for no Stainless identifier. */
+  def namedIdentifier(name: String): Identifier =
+    madeUpIds.getOrElseUpdate((name, None), FreshIdentifier(name))
+
   def fold[T](baseCase: T, exprs: Seq[T])(operation: (T,T) => T) = {
     if (exprs.size == 0) baseCase
     else exprs.tail.foldLeft(exprs.head)(operation)
@@ -462,7 +474,7 @@ object CoqExpression {
   val proj1 = CoqLibraryConstant("proj1")
   val proj1_sig = CoqLibraryConstant("proj1_sig")
 
-  val coqUnused = CoqIdentifier(new Identifier("_", 0,0))
+  val coqUnused = CoqIdentifier(namedIdentifier("_"))
 
   val charsPerLine = 80
 

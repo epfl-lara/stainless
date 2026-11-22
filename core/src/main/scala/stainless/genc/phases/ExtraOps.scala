@@ -22,7 +22,7 @@ private[genc] object ExtraOps {
     def isVal: Boolean = fa.isInstanceOf[Outer] && fa.asInstanceOf[Outer].fd.isVal
     def noMangling: Boolean = hasAnnotation("cCode.noMangling")
 
-    def extAnnotations: Map[String, Seq[Any]] = fa.flags.collect {
+    def extAnnotations: Map[String, Seq[Expr]] = fa.flags.collect {
       case Annotation(s, args) => s -> args
     }.toMap
     def annotations: Set[String] = extAnnotations.keySet
@@ -43,7 +43,7 @@ private[genc] object ExtraOps {
       (fd.flags.exists(_.name == "accessor") || fd.flags.exists { case IsField(_) => true case _ => false }) &&
       fd.tparams.isEmpty && fd.params.isEmpty
 
-    def extAnnotations: Map[String, Seq[Any]] = fd.flags.collect {
+    def extAnnotations: Map[String, Seq[Expr]] = fd.flags.collect {
       case Annotation(s, args) => s -> args
     }.toMap
     def annotations: Set[String] = extAnnotations.keySet
@@ -71,7 +71,7 @@ private[genc] object ExtraOps {
     def isGlobalUninitialized: Boolean = cd.flags.exists(_.name == "cCode.globalUninitialized")
     def isGlobalExternal: Boolean      = cd.flags.exists(_.name == "cCode.globalExternal")
 
-    def extAnnotations: Map[String, Seq[Any]] = cd.flags.collect {
+    def extAnnotations: Map[String, Seq[Expr]] = cd.flags.collect {
       case Annotation(s, args) => s -> args
     }.toMap
     def annotations: Set[String] = extAnnotations.keySet

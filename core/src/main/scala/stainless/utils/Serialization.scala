@@ -81,7 +81,7 @@ class StainlessSerializer(override val trees: ast.Trees, serializeProducts: Bool
 
       mappingSerializer[SymbolIdentifier](145)
         (id => (id.globalId, id.id, id.symbol.path, id.symbol.id))
-        (p => new SymbolIdentifier(new Identifier(p._3.last, p._1, p._2), new Symbol(p._3, p._4))),
+        (p => new SymbolIdentifier(FreshIdentifier.restore(p._3.last, p._1, p._2), new Symbol(p._3, p._4))),
 
       stainlessClassSerializer[PartialEval.type]    (146),
       stainlessClassSerializer[Law.type]            (150),

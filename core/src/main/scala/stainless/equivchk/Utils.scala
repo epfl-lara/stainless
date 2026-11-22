@@ -143,7 +143,7 @@ trait Utils {
     SeqMap.from(fds.flatMap(fd => elimTraceInduct(symbols, fd).map(res => fd.id -> res)))
 
   def elimTraceInduct(symbols: Symbols, fd: FunDef): Option[ElimTraceInduct] = {
-    def findModel(funNames: Seq[Any]): Option[FunctionInvocation] = {
+    def findModel(funNames: Seq[Expr]): Option[FunctionInvocation] = {
       var funInv: Option[FunctionInvocation] = None
 
       BodyWithSpecs(fd.fullBody).getSpec(PostconditionKind) match {

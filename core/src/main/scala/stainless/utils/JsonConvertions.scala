@@ -75,7 +75,7 @@ object JsonConvertions {
 
   given identifierDecoder: Decoder[Identifier] =
     Decoder.forProduct3[Identifier, String, Int, Int]("name", "gid", "id") {
-      case (name, gid, id) => new Identifier(name, gid, id)
+      case (name, gid, id) => FreshIdentifier.restore(name, gid, id)
     }
 
   given identifierEncoder: Encoder[Identifier] =
