@@ -359,6 +359,10 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
     ((e, t1, t2) match {
       case _ if sameEncoding(t1, t2) => e
 
+      // An unreachability assertion keeps its own description, such as that of a `throw`
+      case (t.Assert(cond, err, t.NoTree(_)), s.NothingType(), t2) if !isObject(t2) =>
+        t.Assert(cond, err, t.NoTree(scope.transform(t2)).copiedFrom(e)).copiedFrom(e)
+
       case (e, s.NothingType(), t2) if !isObject(t2) =>
         t.Error(scope.transform(t2), e match {
           case t.Error(_, descr) => descr
