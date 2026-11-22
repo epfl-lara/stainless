@@ -356,16 +356,42 @@ class MemberClasses(override val s: Trees)(override val t: s.type)
       case IsTypeMemberOf(id) => id
     }
 
+    val classes = symbols.classes.values.map { cd =>
+      val fields = cd.fields.map { vd =>
+        // A field type `p.C` is constrained by the class invariant instead, which is cheaper to unroll
+        val tpe = if (vd.tpe.isInstanceOf[PathType]) None else dependentFieldType(cd, vd)
+        vd.copy(tpe = tpe.getOrElse(stripThisPaths(vd.tpe))).copiedFrom(vd)
+      }
+      val outerField = outerFieldOf(cd)
+      val tcd = new Transformer(Some(cd.id)).transform(cd.copy(tparams = liftedTypeParams(cd.id), fields = outerField.toSeq ++ fields).copiedFrom(cd))
+      // The refinements of field types get their own binders: substitutions in the unrolling of the field types
+      // don't avoid capture within the types of variables, which share the binders of `p.C` types
+      tcd.copy(fields = tcd.fields.map(vd => vd.copy(tpe = freshenRefinements(vd.tpe)).copiedFrom(vd))).copiedFrom(tcd)
+    }
+
+    // The outer accessors that field types read, as in `List[{ x: C | x.outer eq $outer }]`
+    val fieldTypeOuters: Set[Symbol] = classes.flatMap(_.fields).flatMap(vd => typeOps.collect[Symbol] {
+      case RefinementType(_, pred) => exprOps.collect[Symbol] {
+        case MethodInvocation(_, id: SymbolIdentifier, _, _) if outerAccessorSymbols.values.exists(_ == id.symbol) => Set(id.symbol)
+        case _ => Set.empty
+      } (pred)
+      case _ => Set.empty
+    } (vd.tpe)).toSet
+
     // The outer accessors, marked for [[OuterIdentities]]
     val outerAccessorFlag = Annotation("outerAccessor", Seq.empty)
     val accessors: Seq[FunDef] = symbols.classes.values.toSeq.filter(cd => isMember(cd.id) && declaresOuterAccessor(cd.id)).map { cd =>
       val ct = ClassType(cd.id, cd.typeArgs).copiedFrom(cd)
       val tpe = outerType(cd.id).copiedFrom(cd)
       if (isAbstract(cd.id)) {
-        // An abstract value, which abstract member classes may narrow. Sealing turns it into a field of the
-        // dummy subclasses, so that the outer accessors only read fields (see `methods.FieldAccessors`)
-        new FunDef(outerAccessorId(cd.id), Seq.empty, Seq.empty, tpe, NoTree(tpe).copiedFrom(cd),
-          Seq(IsAbstract, IsAccessor(None), outerAccessorFlag, IsMethodOf(cd.id))).copiedFrom(cd)
+        // An abstract method, which abstract member classes may narrow. If field types read it, it is an abstract
+        // value instead, which Sealing turns into a field of the dummy subclasses, so that the outer accessors only
+        // read fields (see `methods.FieldAccessors`). Other dummy subclasses don't get this field, which the solver
+        // would constrain for every instance of the class.
+        val id = outerAccessorId(cd.id)
+        val isVal = id match { case sid: SymbolIdentifier => fieldTypeOuters(sid.symbol) case _ => false }
+        new FunDef(id, Seq.empty, Seq.empty, tpe, NoTree(tpe).copiedFrom(cd),
+          Seq(IsAbstract) ++ (if (isVal) Seq(IsAccessor(None)) else Seq()) ++ Seq(outerAccessorFlag, IsMethodOf(cd.id))).copiedFrom(cd)
       } else {
         new FunDef(outerAccessorId(cd.id), Seq.empty, Seq.empty, tpe,
           ClassSelector(This(ct).copiedFrom(cd), outerFieldId(cd.id)).copiedFrom(cd),
@@ -414,19 +440,6 @@ class MemberClasses(override val s: Trees)(override val t: s.type)
 
     val functions = (symbols.functions.values.filterNot(fd => invariantIds(fd.id)) ++ invariants ++ newInvariants ++ accessors ++ outerRefs).map { fd =>
       new Transformer(ownerClass(fd.flags)).transform(fd)
-    }
-
-    val classes = symbols.classes.values.map { cd =>
-      val fields = cd.fields.map { vd =>
-        // A field type `p.C` is constrained by the class invariant instead, which is cheaper to unroll
-        val tpe = if (vd.tpe.isInstanceOf[PathType]) None else dependentFieldType(cd, vd)
-        vd.copy(tpe = tpe.getOrElse(stripThisPaths(vd.tpe))).copiedFrom(vd)
-      }
-      val outerField = outerFieldOf(cd)
-      val tcd = new Transformer(Some(cd.id)).transform(cd.copy(tparams = liftedTypeParams(cd.id), fields = outerField.toSeq ++ fields).copiedFrom(cd))
-      // The refinements of field types get their own binders: substitutions in the unrolling of the field types
-      // don't avoid capture within the types of variables, which share the binders of `p.C` types
-      tcd.copy(fields = tcd.fields.map(vd => vd.copy(tpe = freshenRefinements(vd.tpe)).copiedFrom(vd))).copiedFrom(tcd)
     }
 
     val typeDefs = symbols.typeDefs.values.map(td => new Transformer(ownerClass(td.flags)).transform(td))
