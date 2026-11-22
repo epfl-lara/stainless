@@ -259,13 +259,16 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
       for ((_, td) <- typeDefs) ensureWellFormedTypeDef(td)
     }
 
+    /** Whether concrete classes may be extended, before [[xlang.ConcreteParents]] encodes it. */
+    protected def extendsConcreteClasses: Boolean = false
+
     protected def ensureWellFormedClass(cd: ClassDef): Unit = {
       import symbols.given
       cd.parents.find(ct => !ct.isTyped(using this)).foreach { pcd =>
         throw NotWellFormedException(cd, Some(s"the parent ${pcd.id} of class ${cd.id} is not well typed."))
       }
 
-      cd.parents.find(!_.tcd.cd.flags.contains(IsAbstract)).foreach { pcd =>
+      if (!extendsConcreteClasses) cd.parents.find(!_.tcd.cd.flags.contains(IsAbstract)).foreach { pcd =>
         throw NotWellFormedException(cd,
           Some(s"a concrete class (${pcd.id}) cannot be extended (by ${cd.id}).")
         )

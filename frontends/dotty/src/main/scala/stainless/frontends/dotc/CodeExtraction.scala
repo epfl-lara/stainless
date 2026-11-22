@@ -749,6 +749,8 @@ class CodeExtraction(inoxCtx: inox.Context,
         reporter.warning(other.sourcePos, s"In class $id, Stainless does not support:\n$other")
     }
 
+    methods ++= extractParentArguments(sym, template, classType, inLibrary)(using tpCtx)
+
     val optInv = if (invariants.isEmpty) None else Some({
       val id = symbolMapping.fetchInvIdForClass(sym)
       val pos = inox.utils.Position.between(invariants.map(_.getPos).min, invariants.map(_.getPos).max)
@@ -776,6 +778,68 @@ class CodeExtraction(inoxCtx: inox.Context,
     ).setPos(sym.sourcePos)
 
     (xcd, allMethods ++ memberFunctions, allTypeMembers ++ memberTypeDefs, memberClasses)
+  }
+
+  // The overrides of the accessors of concrete parents' fields, see `extractParentArguments`
+  private val parentArgumentIds = MutableMap[(Symbol, Symbol), SymbolIdentifier]()
+
+  /** The arguments that the class `sym` passes to the constructor of a concrete parent class `C`, as
+    * overrides of the accessors of the fields of `C`: `class D(y: BigInt) extends C(y * 2)` gets the
+    * method `def x: BigInt = this.y * 2` for the field `x` of `C`.
+    *
+    * As the arguments may only refer to the constructor parameters of `sym`, which are its fields, they
+    * are evaluated in each access instead of once at construction. [[xlang.ConcreteParents]] then makes
+    * the accessors of the fields of `C` abstract.
+    */
+  private def extractParentArguments(sym: ClassSymbol, template: tpd.Template, classType: xt.ClassType | xt.LocalClassType, inLibrary: Boolean)
+                                    (using dctx: DefContext): Seq[xt.FunDef] = {
+    def constructorArgs(t: tpd.Tree): Option[List[tpd.Tree]] = t match {
+      case Apply(fn, args) => constructorArgs(fn).map(_ ++ args)
+      case TypeApply(fn, _) => constructorArgs(fn)
+      case Select(New(_), nme.CONSTRUCTOR) => Some(Nil)
+      case _ => None
+    }
+
+    val thiss = classType match {
+      case ct: xt.ClassType => xt.This(ct)
+      case lct: xt.LocalClassType => xt.LocalThis(lct)
+    }
+
+    // The constructor parameters of `sym` stand for its fields
+    val ownFields = sym.paramAccessors.filter(acc => acc.isTerm && !acc.is(Method))
+    val paramVars: Map[Symbol, () => xt.Expr] = template.constr.termParamss.flatten.flatMap { vd =>
+      ownFields.find(_.name == vd.name).filterNot(acc => isIgnoredParameterType(acc.info)).toSeq.flatMap { acc =>
+        val sel = () => classSelector(classType, thiss, getIdentifier(acc))
+        Seq(vd.symbol -> sel, acc -> sel)
+      }
+    }.toMap
+    val argCtx = dctx.copy(vars = dctx.vars ++ paramVars)
+
+    template.parents.filter(isValidParent(_, inLibrary)).flatMap { parent =>
+      val psym = parent.tpe.typeSymbol
+      val fields = if (psym.isClass && !(psym `isOneOf` AbstractOrTrait)) psym.asClass.paramAccessors.filter(acc => acc.isTerm && !acc.is(Method)) else Nil
+      if (fields.isEmpty) Seq.empty
+      else {
+        val args = constructorArgs(parent).getOrElse(
+          outOfSubsetError(parent.sourcePos, s"Stainless does not support this call to the constructor of ${psym.name}"))
+        if (args.size != fields.size)
+          outOfSubsetError(parent.sourcePos, s"Stainless does not support this call to the constructor of ${psym.name}")
+
+        (fields zip args).filterNot((acc, _) => isIgnoredParameterType(acc.info)).map { (acc, arg) =>
+          val accessorId = getFieldAccessorIdentifier(acc)
+          val id = parentArgumentIds.getOrElseUpdate((sym, acc), SymbolIdentifier(accessorId.symbol))
+          val retType = stainlessType(parent.tpe.memberInfo(acc).widenExpr)(using dctx, arg.sourcePos)
+          new xt.FunDef(
+            id,
+            Seq.empty,
+            Seq.empty,
+            retType,
+            extractTree(arg)(using argCtx),
+            Seq(xt.Synthetic, xt.Annotation("parentArgument", Seq.empty))
+          ).setPos(arg.sourcePos)
+        }
+      }
+    }
   }
 
   private def extractAccessor(classType: xt.ClassType | xt.LocalClassType, isAbstractClass: Boolean, vd: tpd.ValDef, fieldPos: Int)(using dctx: DefContext): Seq[xt.FunDef] = {
@@ -1267,7 +1331,7 @@ class CodeExtraction(inoxCtx: inox.Context,
       // We only keep the fields of the constructor (and disregard the inherited ones)
       val fields = tpe.fields.filter { denot =>
         val sym = denot.symbol
-        !sym.is(Accessor) && (sym.is(ParamAccessor) || sym.is(CaseAccessor))
+        !sym.is(Accessor) && (sym.is(ParamAccessor) || sym.is(CaseAccessor)) && sym.owner == tpe.classSymbol
       }
       // We need to filter out ignored parameter types (e.g., ClassTag)
       fields.map(_.info).filter(tpe => !isIgnoredParameterType(tpe))

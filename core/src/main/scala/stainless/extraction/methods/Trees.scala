@@ -210,7 +210,10 @@ trait Trees extends throwing.Trees { self =>
           if (fd.isAbstract && !sfd.isAbstract)
             throw NotWellFormedException(fd, Some(s"cannot override concrete function with abstract function."))
 
-          if (sfd.isFinal)
+          // The arguments to the constructors of concrete parents override the accessors of their
+          // fields, which may be final (see `xlang.ConcreteParents`)
+          val isParentArgument = fd.flags.contains(Annotation("parentArgument", Seq.empty))
+          if (sfd.isFinal && !isParentArgument)
             throw NotWellFormedException(fd, Some(s"cannot override final function:\n$sfd"))
 
           if (fd.tparams.size != sfd.tparams.size)

@@ -1,0 +1,3 @@
+[ Fatal  ] ConcreteParentVar.scala:2:11: Stainless does not support mutable fields in extended concrete classes (x of C)
+             class C(var x: BigInt)
+                     ^^^^^^^^^^^^^
