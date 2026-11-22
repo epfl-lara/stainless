@@ -2305,17 +2305,24 @@ class CodeExtraction(inoxCtx: inox.Context,
     case _: xt.ClassType =>
       xt.ClassSelector(lhs, fieldId)
     case lct: xt.LocalClassType =>
-      val lcd = dctx.localClasses(lct.id)
-      val field = lcd.fields.collectFirst { case vd @ xt.ValDef(`fieldId`, _, _) => vd }
-      xt.LocalClassSelector(lhs, fieldId, field.map(_.tpe).getOrElse(xt.Untyped))
+      // The field may be inherited from a concrete local parent (see `extractParentArguments`)
+      def findField(id: Identifier): Option[xt.ValDef] = dctx.localClasses.get(id).flatMap { lcd =>
+        lcd.fields.collectFirst { case vd @ xt.ValDef(`fieldId`, _, _) => vd }.orElse(
+          lcd.parents.collect { case p: xt.ClassType => p.id case p: xt.LocalClassType => p.id }.flatMap(findField).headOption)
+      }
+      xt.LocalClassSelector(lhs, fieldId, findField(lct.id).map(_.tpe).getOrElse(xt.Untyped))
   }
 
   private def methodInvocation(ct: xt.ClassType | xt.LocalClassType, lhs: xt.Expr, fnId: SymbolIdentifier, tps: Seq[xt.Type], args: Seq[xt.Expr])(using dctx: DefContext): xt.Expr = ct match {
     case _: xt.ClassType =>
       xt.MethodInvocation(lhs, fnId, tps, args)
     case lct: xt.LocalClassType =>
-      val lcd = dctx.localClasses(lct.id)
-      val fd = lcd.methods.find(_.id == fnId).get
+      // The method may be inherited from a local parent
+      def findMethod(id: Identifier): Option[xt.LocalMethodDef] = dctx.localClasses.get(id).flatMap { lcd =>
+        lcd.methods.find(_.id == fnId).orElse(
+          lcd.parents.collect { case p: xt.ClassType => p.id case p: xt.LocalClassType => p.id }.flatMap(findMethod).headOption)
+      }
+      val fd = findMethod(lct.id).getOrElse(outOfSubsetError(lhs.getPos, s"Stainless does not support this call to ${fnId.name}"))
       xt.LocalMethodInvocation(
         lhs,
         xt.ValDef(fnId, xt.FunctionType(fd.params.map(_.tpe), fd.returnType)).toVariable,

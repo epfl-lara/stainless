@@ -44,8 +44,9 @@ import scala.collection.mutable.{Map => MutableMap}
  *
  *  As the arguments to the constructor of `C` only refer to the fields of the subclass, they are evaluated
  *  at each access of the fields of `C` rather than once. The phase rejects extended concrete classes with
- *  mutable fields, whose values may diverge from these arguments, as well as extended member classes,
- *  local classes extending concrete classes and patterns on extended case classes.
+ *  mutable fields, whose values may diverge from these arguments, and patterns on extended case classes.
+ *  The new subclass of a member class is a member of the same class, and that of a local class is defined
+ *  next to it.
  */
 class ConcreteParents(override val s: Trees)(override val t: s.type)
                      (using override val context: inox.Context) extends ExtractionPipeline { self =>
@@ -65,26 +66,48 @@ class ConcreteParents(override val s: Trees)(override val t: s.type)
   override def extract(symbols: s.Symbols): (t.Symbols, ExtractionSummary) = {
     given s.Symbols = symbols
 
-    val extended: Set[Identifier] = symbols.classes.values.toSeq
-      .flatMap(_.parents.map(_.id))
+    // The parents of local classes, which may be global classes
+    val localParents: Seq[Identifier] = symbols.functions.values.toSeq.flatMap { fd =>
+      exprOps.collect[Identifier] {
+        case LetClass(lcds, _) => lcds.flatMap(_.parents.collect { case ct: ClassType => ct.id }).toSet
+        case _ => Set.empty
+      } (fd.fullBody)
+    }.filter(symbols.lookupClass(_).isDefined)
+
+    val extended: Set[Identifier] = (symbols.classes.values.toSeq.flatMap(_.parents.map(_.id)) ++ localParents)
       .filter(id => !symbols.getClass(id).flags.contains(IsAbstract))
       .toSet
 
-    if (extended.isEmpty) {
+    // The extended concrete local classes, which are encoded in the same way within their `LetClass`
+    val localClasses: Map[Identifier, LocalClassDef] = symbols.functions.values.toSeq.flatMap { fd =>
+      exprOps.collect[LocalClassDef] {
+        case LetClass(lcds, _) => lcds.toSet
+        case _ => Set.empty
+      } (fd.fullBody)
+    }.map(lcd => lcd.id -> lcd).toMap
+
+    val localExtended: Set[Identifier] = localClasses.values.toSeq
+      .flatMap(_.parents.collect { case ct: ClassType => ct.id case lct: LocalClassType => lct.id })
+      .filter(id => localClasses.get(id).exists(!_.flags.contains(IsAbstract)))
+      .toSet
+
+    if (extended.isEmpty && localExtended.isEmpty) {
       val functions = symbols.functions.values.map(fd => fd.copy(flags = fd.flags.filterNot(isParentArgument)))
       return (symbols.withFunctions(functions.toSeq), ExtractionSummary.NoSummary)
     }
 
+    def checkFields(id: Identifier, fields: Seq[ValDef]): Unit =
+      fields.find(_.flags.contains(IsVar)).foreach { vd =>
+        context.reporter.fatalError(vd.getPos, s"Stainless does not support mutable fields in extended concrete classes (${vd.id.asString} of ${id.asString})")
+      }
+
     for (id <- extended) {
       val cd = symbols.getClass(id)
-      if (cd.flags.exists(_.isInstanceOf[IsMemberOf]))
-        context.reporter.fatalError(cd.getPos, s"Stainless does not support extending the concrete member class ${cd.id.asString}")
       if (cd.flags.contains(IsObject))
         context.reporter.fatalError(cd.getPos, s"Objects cannot be extended (${cd.id.asString})")
-      cd.fields.find(_.flags.contains(IsVar)).foreach { vd =>
-        context.reporter.fatalError(vd.getPos, s"Stainless does not support mutable fields in extended concrete classes (${vd.id.asString} of ${cd.id.asString})")
-      }
+      checkFields(id, cd.fields)
     }
+    for (id <- localExtended) checkFields(id, localClasses(id).fields)
 
     def plainId(id: Identifier): Identifier = plainIds.getOrElseUpdate(id, FreshIdentifier(id.name))
 
@@ -104,6 +127,82 @@ class ConcreteParents(override val s: Trees)(override val t: s.type)
     for ((fid, cid) <- fieldOwner if !accessors.contains(fid))
       context.reporter.internalError(s"No accessor for field ${fid.asString} of ${cid.asString}")
 
+    // The same for local classes
+    val localFieldOwner: Map[Identifier, Identifier] = localExtended.toSeq.flatMap { id =>
+      localClasses(id).fields.map(_.id -> id)
+    }.toMap
+
+    val localAccessors: Map[Identifier, LocalMethodDef] = localExtended.toSeq.flatMap { id =>
+      localClasses(id).methods.flatMap { fd =>
+        fd.flags.collectFirst { case IsAccessor(Some(fid)) if localFieldOwner.get(fid) == Some(id) && fd.params.isEmpty => fid -> fd }
+      }
+    }.toMap
+
+    for ((fid, cid) <- localFieldOwner if !localAccessors.contains(fid))
+      context.reporter.internalError(s"No accessor for field ${fid.asString} of ${cid.asString}")
+
+    def plainAccessorId(id: Identifier): SymbolIdentifier = plainAccessorIds.getOrElseUpdate(id, id match {
+      case sid: SymbolIdentifier => SymbolIdentifier(sid.symbol)
+      case _ => context.reporter.internalError(s"Unexpected accessor identifier ${id.asString}")
+    })
+
+    def abstractFlags(flags: Seq[Flag]): Seq[Flag] = (flags.filter {
+      case Final | Private | Inline | IsAccessor(_) => false
+      case _ => true
+    } ++ Seq(IsAbstract, IsAccessor(None))).distinct
+
+    def plainFlags(flags: Seq[Flag]): Seq[Flag] = (flags.filter {
+      case IsSealed | IsAbstract => false
+      case _ => true
+    } :+ Synthetic).distinct
+
+    // The type parameters of the new local subclasses
+    val localPlainTparams: Map[Identifier, Seq[TypeParameterDef]] = localExtended.toSeq.map { id =>
+      id -> exprOps.freshenTypeParams(localClasses(id).typeArgs).map(tp => TypeParameterDef(tp).copiedFrom(tp))
+    }.toMap
+
+    def localPlainType(lct: LocalClassType): LocalClassType =
+      LocalClassType(plainId(lct.id), localPlainTparams(lct.id), lct.tps, Seq(lct)).copiedFrom(lct)
+
+    /** The local class `lcd`, made abstract, and its new subclass. */
+    def localEncoding(lcd: LocalClassDef): Seq[LocalClassDef] = {
+      val abstractLcd = lcd.copy(
+        fields = Seq.empty,
+        methods = lcd.methods.map { fd =>
+          if (!fd.flags.exists { case IsAccessor(Some(fid)) => localAccessors.get(fid).exists(_.id == fd.id) case _ => false }) fd
+          else fd.copy(fullBody = NoTree(fd.returnType).copiedFrom(fd), flags = abstractFlags(fd.flags)).copiedFrom(fd)
+        },
+        flags = (lcd.flags :+ IsAbstract).distinct
+      ).copiedFrom(lcd)
+
+      val tparams = localPlainTparams(lcd.id)
+      val instantiator = new typeOps.TypeInstantiator((lcd.typeArgs zip tparams.map(_.tp)).toMap)
+      val lct = LocalClassType(lcd.id, lcd.tparams, tparams.map(_.tp), lcd.parents).copiedFrom(lcd)
+      val plainLct = localPlainType(lct)
+      val pid = plainLct.id
+
+      val accessorDefs = lcd.fields.map { vd =>
+        val tpe = instantiator.transform(vd.tpe)
+        LocalMethodDef(
+          plainAccessorId(localAccessors(vd.id).id),
+          Seq.empty,
+          Seq.empty,
+          tpe,
+          LocalClassSelector(LocalThis(plainLct).copiedFrom(vd), vd.id, tpe).copiedFrom(vd),
+          Seq(Synthetic, IsAccessor(Some(vd.id)), IsMethodOf(pid))
+        ).copiedFrom(vd)
+      }
+
+      val plainLcd = LocalClassDef(
+        pid, tparams, Seq(lct.toClassType), lcd.fields.map(instantiator.transform), accessorDefs, Seq.empty, plainFlags(lcd.flags)
+      ).copiedFrom(lcd)
+
+      Seq(abstractLcd, plainLcd)
+    }
+
+    def stripLocal(lcd: LocalClassDef): LocalClassDef =
+      lcd.copy(methods = lcd.methods.map(fd => fd.copy(flags = fd.flags.filterNot(isParentArgument)).copiedFrom(fd))).copiedFrom(lcd)
+
     object transformer extends ConcreteOOSelfTreeTransformer(self.s, self.s) {
       override def transform(e: Expr): Expr = e match {
         case ClassConstructor(ct, args) if extended(ct.id) =>
@@ -112,17 +211,44 @@ class ConcreteParents(override val s: Trees)(override val t: s.type)
             args.map(transform)
           ).copiedFrom(e)
 
+        // The new subclass of a member class is a member of the same class (see [[MemberClasses]])
+        case PathClassConstructor(path, ct, args) if extended(ct.id) =>
+          PathClassConstructor(
+            transform(path),
+            ClassType(plainId(ct.id), ct.tps.map(transform)).copiedFrom(ct),
+            args.map(transform)
+          ).copiedFrom(e)
+
         case ClassSelector(recv, field) if fieldOwner.contains(field) =>
           MethodInvocation(transform(recv), accessors(field).id, Seq.empty, Seq.empty).copiedFrom(e)
 
-        case LetClass(lcds, _) if lcds.exists(_.parents.exists { case ct: ClassType => extended(ct.id) case _ => false }) =>
-          context.reporter.fatalError(e.getPos, "Stainless does not support local or anonymous classes extending concrete classes")
+        // The deconstructor of `LetClass` doesn't transform the methods of local classes with this transformer
+        case LetClass(lcds, body) =>
+          // The accessors of the new subclasses select their fields
+          val newLcds = lcds.map(stripLocal).flatMap { lcd =>
+            val tlcd = lcd.copy(methods = lcd.methods.map(md => LocalMethodDef(transform(md.toFunDef)))).copiedFrom(lcd)
+            if (localExtended(lcd.id)) localEncoding(tlcd) else Seq(tlcd)
+          }
+          super.transform(LetClass(newLcds, body).copiedFrom(e))
+
+        case LocalClassConstructor(lct, args) if localExtended(lct.id) =>
+          LocalClassConstructor(transform(localPlainType(lct)).asInstanceOf[LocalClassType], args.map(transform)).copiedFrom(e)
+
+        case LocalClassSelector(recv, field, _) if localFieldOwner.contains(field) =>
+          val accessor = localAccessors(field)
+          LocalMethodInvocation(
+            transform(recv),
+            ValDef(accessor.id, transform(FunctionType(Seq.empty, accessor.returnType))).toVariable,
+            Seq.empty, Seq.empty, Seq.empty
+          ).copiedFrom(e)
 
         case _ => super.transform(e)
       }
 
       override def transform(pat: Pattern): Pattern = pat match {
-        case ClassPattern(_, ct, _) if extended(ct.id) =>
+        case ClassPattern(_, ct, _) if extended(ct.id) || localExtended(ct.id) =>
+          context.reporter.fatalError(pat.getPos, s"Stainless does not support patterns on the extended case class ${ct.id.asString}")
+        case PathClassPattern(_, _, ct, _) if extended(ct.id) =>
           context.reporter.fatalError(pat.getPos, s"Stainless does not support patterns on the extended case class ${ct.id.asString}")
         case _ => super.transform(pat)
       }
@@ -134,13 +260,8 @@ class ConcreteParents(override val s: Trees)(override val t: s.type)
     }
 
     // The accessors of the fields of extended classes become abstract
-    def abstractAccessor(fd: FunDef): FunDef = fd.copy(
-      fullBody = NoTree(fd.returnType).copiedFrom(fd),
-      flags = (fd.flags.filter {
-        case Final | Private | Inline | IsAccessor(_) => false
-        case _ => true
-      } ++ Seq(IsAbstract, IsAccessor(None))).distinct
-    ).copiedFrom(fd)
+    def abstractAccessor(fd: FunDef): FunDef =
+      fd.copy(fullBody = NoTree(fd.returnType).copiedFrom(fd), flags = abstractFlags(fd.flags)).copiedFrom(fd)
 
     val functions = symbols.functions.values.toSeq.map { fd =>
       val fd1 = fd.copy(flags = fd.flags.filterNot(isParentArgument))
@@ -166,18 +287,12 @@ class ConcreteParents(override val s: Trees)(override val t: s.type)
         tps.map(tp => TypeParameterDef(tp).copiedFrom(tp)),
         Seq(ClassType(id, tps).copiedFrom(cd)),
         cd.fields.map(vd => instantiator.transform(transformer.transform(vd))),
-        (cd.flags.filter {
-          case IsSealed | IsAbstract => false
-          case _ => true
-        } :+ Synthetic).map(transformer.transform).distinct
+        plainFlags(cd.flags).map(transformer.transform)
       ).copiedFrom(cd)
 
       val accessorDefs = cd.fields.map { vd =>
         val accessor = accessors(vd.id)
-        val accessorId = plainAccessorIds.getOrElseUpdate(accessor.id, accessor.id match {
-          case sid: SymbolIdentifier => SymbolIdentifier(sid.symbol)
-          case _ => context.reporter.internalError(s"Unexpected accessor identifier ${accessor.id.asString}")
-        })
+        val accessorId = plainAccessorId(accessor.id)
         new FunDef(
           accessorId,
           Seq.empty,
