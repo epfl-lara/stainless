@@ -10,6 +10,9 @@ import scala.collection.immutable.Queue
 trait HeapApproximationAnalyses extends HeapApproximationGraphs {
   import s._
 
+  /** The context of the phase running the analysis, for its options. */
+  val context: inox.Context
+
   /** A parameter the function mutates, and the local variable `FunctionRewrite` copied it into. */
   case class MutatedParameter(param: Identifier, copy: Identifier)
 
@@ -319,10 +322,11 @@ trait HeapApproximationAnalyses extends HeapApproximationGraphs {
    * }}}
    */
   object HeapApproximationAnalysis {
+    /** How many times the heap of a point may change before the analysis gives up, set by `--heap-max-changes`. */
+    private lazy val maxChanges: Int = context.options.findOptionOrDefault(optHeapMaxChanges)
+
     /** The points left to refine, with how often each one changed, to stop loops that do not converge. */
     private case class HeapWorklist(pending: Queue[ExpressionID], changes: Map[ExpressionID, Int] = Map.empty) {
-      private val maxChanges = 20
-
       /** Whether no point is left to refine. */
       def isEmpty: Boolean = pending.isEmpty
 
