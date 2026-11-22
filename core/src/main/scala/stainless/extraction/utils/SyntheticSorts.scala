@@ -152,7 +152,16 @@ trait SyntheticSorts extends ExtractionCaches { self: CachingPhase =>
     ): Expr = {
       val retVal = ValDef.fresh("retValue", retT).setPos(pos)
       val proceedVal = ValDef.fresh("proceedValue", curT).setPos(pos)
-      MatchExpr(scrut, Seq(
+      // The scrutinee is bound to a variable so that the type of the match doesn't depend on it:
+      // FunctionClosure computes the types of closed local functions, whose bodies may call local
+      // functions that are no longer in its symbols.
+      def bound(body: Variable => Expr): Expr = scrut match {
+        case v: Variable => body(v)
+        case _ =>
+          val cf = ValDef.fresh("cf", controlFlow(retT, curT)).setPos(pos)
+          Let(cf, scrut, body(cf.toVariable)).setPos(pos)
+      }
+      bound(scrut => MatchExpr(scrut, Seq(
         MatchCase(
           ADTPattern(None, retId, Seq(retT, curT), Seq(WildcardPattern(Some(retVal)))).setPos(pos),
           None,
@@ -163,7 +172,7 @@ trait SyntheticSorts extends ExtractionCaches { self: CachingPhase =>
           None,
           proceedCase(proceedVal.toVariable)
         ).setPos(pos),
-      )).setPos(pos)
+      )).setPos(pos))
     }
 
     def andThen(retT: Type, curT: Type, nextT: Type, previous: Expr, next: Variable => Expr, pos: inox.utils.Position): Expr = {

@@ -398,6 +398,20 @@ class ReturnElimination(override val s: Trees, override val t: Trees)
 
         case s.LetVar(vd, e, body) => super.transform(expr, currentType)
 
+        // The assigned variable must not be bound to a value like the operands below
+        case s.Assignment(v, e) if exprHasReturn(e) =>
+          val firstTypeChecked = simpleWhileTransformer.transform(v.tpe)
+          val vChecked = simpleWhileTransformer.transform(v).asInstanceOf[t.Variable]
+          val currentTypeChecked = simpleWhileTransformer.transform(currentType)
+          ControlFlowSort.andThen(
+            retTypeChecked, firstTypeChecked, currentTypeChecked,
+            transform(e, v.tpe),
+            (x: t.Variable) => ControlFlowSort.proceed(
+              retTypeChecked, currentTypeChecked, t.Assignment(vChecked, x).copiedFrom(expr)
+            ),
+            expr.getPos
+          )
+
         case s.LetRec(lfds, rest) =>
           t.LetRec(
             lfds.map(lfd => new ReturnTransformer(simpleWhileTransformer, s.Inner(lfd)).getResult.asInstanceOf[t.Inner].fd),
