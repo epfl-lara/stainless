@@ -51,6 +51,8 @@ class VerificationSuite extends VerificationComponentTestSuite {
 
   private val ignorePrincess = ignoreCommon ++
     Set(
+      // Arrays
+      "verification/valid/Exceptions4",
       // valid/MicroTests
       "verification/valid/ADTWithArray1",
       "verification/valid/ADTWithArray2",

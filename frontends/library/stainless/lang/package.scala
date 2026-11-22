@@ -61,8 +61,9 @@ package object lang {
   @library case class Success[T](t: T) extends Try[T]
   @library case class Failure[T](exc: Exception) extends Try[T]
 
-  /* // This would be a widely applicable implicit
-  @ignore 
+  /** `body.throwing(pred)` states that `body` may throw the exceptions that satisfy `pred`.
+    * The exceptions of a function without a `throwing` clause may not escape it. */
+  @ignore
   implicit class Throwing[T](underlying: => T) {
     def throwing(pred: Exception => Boolean): T = try {
       underlying
@@ -72,7 +73,6 @@ package object lang {
         throw e
     }
   }
-   */
 
   @inline @library def because(b: Boolean) = b
 

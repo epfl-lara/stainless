@@ -1,3 +1,6 @@
-[ Error  ] i800b.scala:10:5: try-catch expressions are not supported in Stainless
-               try mystery() catch {
-               ^^^^^^^^^^^^^^^^^^^^^...
+[ Error  ] i800b.scala:5:13: Only subclasses of stainless.lang.Exception can be thrown in Stainless
+               { throw Foo() }
+                       ^^^^^
+[ Error  ] i800b.scala:11:12: Only subclasses of stainless.lang.Exception can be caught in Stainless
+                 case Foo() => 42
+                      ^^^^^

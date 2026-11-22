@@ -251,7 +251,7 @@ trait DependencyGraph extends innerclasses.DependencyGraph {
   }
 }
 
-trait SymbolOps extends innerclasses.TypeOps with imperative.SymbolOps { self =>
+trait SymbolOps extends innerclasses.TypeOps with throwing.SymbolOps { self =>
   protected val trees: Trees
   import trees._
   import symbols.{given, _}

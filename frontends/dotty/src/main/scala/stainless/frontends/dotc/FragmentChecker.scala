@@ -674,22 +674,25 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
             reportError(tree.sourcePos, "Cannot issue a super call to an abstract method.")
           traverseChildren(tree)
 
-//        case Apply(ex, Seq(arg)) if ex.symbol == defn.throwMethod =>
-//          reportError(tree.sourcePos, "throw expressions are unsupported in Stainless")
-//          traverseChildren(tree)
+        case Apply(ex, Seq(arg)) if ex.symbol == defn.throwMethod =>
+          if (!(arg.tpe <:< exceptionSym.typeRef))
+            reportError(arg.sourcePos, "Only subclasses of stainless.lang.Exception can be thrown in Stainless")
+          traverseChildren(tree)
+
+        case Try(_, cases, _) =>
+          for (cd <- cases) cd.pat match {
+            case Ident(nme.WILDCARD) => ()
+            case pat if !(pat.tpe <:< exceptionSym.typeRef) =>
+              reportError(pat.sourcePos, "Only subclasses of stainless.lang.Exception can be caught in Stainless")
+            case _ => ()
+          }
+          traverseChildren(tree)
 
         case Apply(fun, args) =>
           if (stainlessReplacement.contains(sym))
             reportError(tree.sourcePos, s"Scala API ($sym) no longer extracted, please use ${stainlessReplacement(sym)}")
           if (defn.ObjectMethods.contains(sym))
             reportError(tree.sourcePos, s"Method ${sym.name} on Object is not supported")
-          traverseChildren(tree)
-
-        case Try(_, cases, finalizer) =>
-          if (cases.isEmpty && finalizer.isEmpty) reportError(tree.sourcePos, "try expressions are not supported in Stainless")
-          else if (cases.isEmpty && !finalizer.isEmpty) reportError(tree.sourcePos, "try-finally expressions are not supported in Stainless")
-          else if (finalizer.isEmpty) reportError(tree.sourcePos, "try-catch expressions are not supported in Stainless")
-          else reportError(tree.sourcePos, "try-catch-finally expressions are not supported in Stainless")
           traverseChildren(tree)
 
         case tpl @ Template(_, _, _, _) =>

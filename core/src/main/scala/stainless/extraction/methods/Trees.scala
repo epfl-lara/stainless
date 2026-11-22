@@ -80,7 +80,7 @@ trait Trees extends throwing.Trees { self =>
   type Symbols >: Null <: MethodsAbstractSymbols
 
   trait MethodsAbstractSymbols
-    extends ImperativeAbstractSymbols
+    extends ThrowingAbstractSymbols
        with methods.DependencyGraph
        with methods.TypeOps { self0: Symbols =>
 
