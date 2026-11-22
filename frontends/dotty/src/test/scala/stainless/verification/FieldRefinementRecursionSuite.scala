@@ -5,26 +5,26 @@ package verification
 
 import org.scalatest.funsuite.AnyFunSuite
 
-/** The refinements of the fields of a sort may only call the functions over the sort that inspect their arguments
-  * (see `TypeChecker.onlyInspects`).
+/** The refinements of the fields of a sort, and the bodies of the functions over the sort that they call, may only
+  * inspect the values of the sort (see `TypeChecker.onlyInspects`).
   */
 class FieldRefinementRecursionSuite extends AnyFunSuite with InputUtils {
 
-  def source(defs: String) =
+  def source(defs: String, refinement: String = "p(v)") =
     s"""|import stainless.lang._
         |
         |object Test {
         |  sealed abstract class S
         |  case class A(x: BigInt) extends S
-        |  case class B(o: Option[{ v: S with p(v) }]) extends S
+        |  case class B(o: Option[{ v: S with $refinement }]) extends S
         |
         |$defs
         |}""".stripMargin
 
-  def isAccepted(defs: String): Boolean = {
+  def isAccepted(defs: String, refinement: String = "p(v)"): Boolean = {
     val ctx: inox.Context = stainless.TestContext.empty
     import ctx.given
-    val (_, xlangProgram) = load(Seq(source(defs)))
+    val (_, xlangProgram) = load(Seq(source(defs, refinement)))
     val run = VerificationComponent.run(extraction.pipeline)
     val program = inox.Program(run.trees)(run.extract(xlangProgram.symbols)._1)
     val sort = program.symbols.sorts.values.find(_.id.name == "S").get
@@ -67,5 +67,21 @@ class FieldRefinementRecursionSuite extends AnyFunSuite with InputUtils {
   test("A function that constructs values of the sort is rejected") {
     assert(!isAccepted(
       """|  def p(s: S): Boolean = s != A(0)""".stripMargin))
+  }
+
+  // The inline refinements are checked as the bodies of the functions they call
+
+  val inlineDefs = "  def p(s: S): Boolean = true"
+
+  test("An inline refinement that tests constructors is accepted") {
+    assert(isAccepted(inlineDefs, "(v.isInstanceOf[A] || v.isInstanceOf[B])"))
+  }
+
+  test("An inline refinement that quantifies over the sort is rejected") {
+    assert(!isAccepted(inlineDefs, "forall((t: S) => t != v)"))
+  }
+
+  test("An inline refinement that constructs values of the sort is rejected") {
+    assert(!isAccepted(inlineDefs, "v != A(0)"))
   }
 }
