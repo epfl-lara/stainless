@@ -6,7 +6,8 @@ package verification
 import org.scalatest.funsuite.AnyFunSuite
 
 /** The refinements of the fields of a sort, and the bodies of the functions over the sort that they call, may only
-  * inspect the values of the sort (see `TypeChecker.onlyInspects`).
+  * inspect the values of the sort (see `TypeChecker.onlyInspects`), and may not quantify over them (see
+  * `inox.ast.Definitions.ensureStratifiedInvariant`).
   */
 class FieldRefinementRecursionSuite extends AnyFunSuite with InputUtils {
 
@@ -33,9 +34,11 @@ class FieldRefinementRecursionSuite extends AnyFunSuite with InputUtils {
     try {
       checker.checkADTRefinementRecursion(sort)
       checker.checkType(fun.id)
+      program.symbols.ensureWellFormed
       true
     } catch {
       case _: inox.FatalError => false
+      case _: program.trees.NotWellFormedException => false
     }
   }
 
@@ -69,7 +72,7 @@ class FieldRefinementRecursionSuite extends AnyFunSuite with InputUtils {
       """|  def p(s: S): Boolean = s != A(0)""".stripMargin))
   }
 
-  // The inline refinements are checked as the bodies of the functions they call
+  // The inline refinements are checked as the bodies of the functions they call, and as invariants
 
   val inlineDefs = "  def p(s: S): Boolean = true"
 

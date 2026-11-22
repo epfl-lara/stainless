@@ -1603,28 +1603,21 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
 
   /** Whether `e`, the refinement of a field of the sort `sortId` or the body of a function called there, only
     * inspects the values of the sort. The refinements of the fields of a sort are part of its definition, so they
-    * must not construct values of the sort, nor bind values of the sort (as `forall((t: T) => ...)`), which would
-    * make the sort depend on its own values. They may call functions over the sort whose bodies only inspect its
-    * values as well: such functions mean the same as their bodies, inlined. These functions must not be recursive
-    * (their termination would rely on the sort). Calls in types, as in the refinements of the binders of patterns,
-    * don't count, since types don't evaluate.
+    * must not construct values of the sort, which would make the sort depend on its own values. They may call
+    * functions over the sort whose bodies only inspect its values as well: such functions mean the same as their
+    * bodies, inlined. These functions must not be recursive (their termination would rely on the sort). Calls in
+    * types, as in the refinements of the binders of patterns, don't count, since types don't evaluate.
+    *
+    * The quantifiers and choices over the values of the sort are rejected by Inox, as for sort invariants (see
+    * `inox.ast.Definitions.ensureStratifiedInvariant`).
     *
     * `calling` holds the functions whose bodies are being checked, so that recursion is rejected.
     */
   def onlyInspects(e: Expr, sortId: Identifier, calling: Set[Identifier] = Set.empty): Boolean = {
-    def mentionsSort(tpe: Type): Boolean = typeOps.exists {
-      case ADTType(id, _) => id == sortId
-      case RecursiveType(id, _, _) => id == sortId
-      case _ => false
-    } (tpe)
-
     def overSort(id: Identifier): Boolean = lookupFunction(id).isDefined && dependencies(id).contains(sortId)
 
     !exprOps.exists {
       case ADT(id, _, _) => getConstructor(id).sort == sortId
-      case Forall(args, _) => args.exists(vd => mentionsSort(vd.tpe))
-      case Lambda(args, _) => args.exists(vd => mentionsSort(vd.tpe))
-      case Choose(res, _) => mentionsSort(res.tpe)
       case FunctionInvocation(id, _, _) if overSort(id) =>
         calling(id) || !onlyInspects(getFunction(id).fullBody, sortId, calling + id)
       case _ => false
@@ -1645,7 +1638,7 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
           case _ => Set.empty
         } (vd.tpe)
         if (!preds.forall(onlyInspects(_, sort.id))) {
-          reporter.fatalError(vd.getPos, s"The type of field ${vd.id.asString} of ${sort.id.asString} may only inspect the values of ${sort.id.asString}: it must not construct them, quantify over them, or call recursive functions over them")
+          reporter.fatalError(vd.getPos, s"The type of field ${vd.id.asString} of ${sort.id.asString} may only inspect the values of ${sort.id.asString}: it must not construct them or call recursive functions over them")
         }
       }
 
