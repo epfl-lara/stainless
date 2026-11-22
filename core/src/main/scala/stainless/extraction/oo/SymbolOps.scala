@@ -45,6 +45,12 @@ trait SymbolOps extends TypeOps with innerfuns.SymbolOps { self =>
       case InstanceOfPattern(ob, ct: ClassType) =>
         pp.empty `withCond` isInstOf(in, ct) `merge` bind(ob, in)
 
+      // The underlying pattern may narrow the type of `in`, e.g. `case _: p.C` (see `xlang.MemberClasses`),
+      // so the predicate applies to `in` cast to that type, once the underlying pattern matched
+      case RefinementPattern(underlying, Lambda(Seq(vd), pred)) =>
+        val cin = asInstOf(in, vd.getType)
+        apply(in, underlying) `merge` bind(Some(vd), cin) `withCond` exprOps.replaceFromSymbols(Map(vd -> cin), pred)
+
       case _ => super.apply(in, pattern)
     }
   }
