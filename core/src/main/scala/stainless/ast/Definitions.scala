@@ -27,8 +27,6 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
   case object SplitVC extends Flag("splitVC", Seq.empty)
   case object Library extends Flag("library", Seq.empty)
   case object Synthetic extends Flag("synthetic", Seq())
-  /** The accessor of the outer instance of a member class (see `xlang.MemberClasses`), which only reads a field */
-  case object OuterAccessor extends Flag("outerAccessor", Seq())
   case object PartialEval extends Flag("partialEval", Seq())
   case object Wrapping extends Flag("wrapping", Seq.empty)
   case object Template extends Flag("template", Seq.empty)

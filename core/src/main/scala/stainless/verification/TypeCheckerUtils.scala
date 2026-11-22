@@ -236,6 +236,12 @@ object TypeCheckerUtils {
 
   case class Substituter(subst: Map[Identifier, Identifier]) extends ConcreteStainlessSelfTreeTransformer {
     override def transform(id: Identifier) = subst.getOrElse(id, id)
+    // Field types may refer to the previous fields (see `xlang.MemberClasses`), whose identifiers are also
+    // those of the selectors, which stay the same
+    override def transform(e: Expr): Expr = e match {
+      case ADTSelector(expr, selector) => ADTSelector(transform(expr), selector).copiedFrom(e)
+      case _ => super.transform(e)
+    }
     def transformTp(tp: TypeParameter): TypeParameter = transform(tp).asInstanceOf[TypeParameter]
     def enrich(id1: Identifier, id2: Identifier): Substituter = {
       require(!subst.contains(id1))

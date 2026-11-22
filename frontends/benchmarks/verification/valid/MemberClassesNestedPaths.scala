@@ -28,6 +28,16 @@ object MemberClassesNestedPaths {
       case Opt(Some(s2)) => if (isSkip(s2)) BigInt(1) else BigInt(0)
       case _ => BigInt(0)
     }
+
+    // An open hierarchy, whose dummy subclasses read their outer instance from a field
+    abstract class Node
+    case class Leaf(v: BigInt) extends Node
+    case class Branch(children: List[Node]) extends Node
+
+    final def leaf(n: Node): BigInt = n match {
+      case Leaf(v) => v
+      case _ => BigInt(0)
+    }
   }
 
   def stmts(l: Lang): List[l.Stmt] = List(l.Skip(), l.Opt(Some(l.Skip())))
@@ -41,5 +51,9 @@ object MemberClassesNestedPaths {
     val o = l.Opt(Some(b))
     val inner: l.Stmt = o.s.get
     assert(l.blockSkips(inner) == 1)
+
+    val br = l.Branch(List(l.Leaf(1), l.Branch(Nil())))
+    val n: l.Node = br.children.head
+    assert(l.leaf(n) == 1)
   }
 }

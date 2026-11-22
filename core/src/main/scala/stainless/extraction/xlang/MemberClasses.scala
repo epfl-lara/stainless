@@ -40,7 +40,7 @@ import scala.collection.mutable.{Map => MutableMap}
  *    the class invariant instead,
  *  - refers to the outer field in the nested field types `p.C` where `p` refers to `O.this`, as in
  *    `List[O.this.C]`, which becomes `List[{ x: C | x.outer eq $outer }]` (field types may refer to
- *    the previous fields, and the type checker allows outer accessors in them, see [[OuterAccessor]]).
+ *    the previous fields, and `methods.FieldAccessors` inlines the outer accessors in them).
  *
  *  The example becomes
  *
@@ -362,13 +362,14 @@ class MemberClasses(override val s: Trees)(override val t: s.type)
       val ct = ClassType(cd.id, cd.typeArgs).copiedFrom(cd)
       val tpe = outerType(cd.id).copiedFrom(cd)
       if (isAbstract(cd.id)) {
-        // An abstract method rather than an abstract value, so that abstract member classes can narrow it
+        // An abstract value, which abstract member classes may narrow. Sealing turns it into a field of the
+        // dummy subclasses, so that the outer accessors only read fields (see `methods.FieldAccessors`)
         new FunDef(outerAccessorId(cd.id), Seq.empty, Seq.empty, tpe, NoTree(tpe).copiedFrom(cd),
-          Seq(IsAbstract, outerAccessorFlag, IsMethodOf(cd.id), OuterAccessor)).copiedFrom(cd)
+          Seq(IsAbstract, IsAccessor(None), outerAccessorFlag, IsMethodOf(cd.id))).copiedFrom(cd)
       } else {
         new FunDef(outerAccessorId(cd.id), Seq.empty, Seq.empty, tpe,
           ClassSelector(This(ct).copiedFrom(cd), outerFieldId(cd.id)).copiedFrom(cd),
-          Seq(IsAccessor(Some(outerFieldId(cd.id))), outerAccessorFlag, IsMethodOf(cd.id), OuterAccessor)).copiedFrom(cd)
+          Seq(IsAccessor(Some(outerFieldId(cd.id))), outerAccessorFlag, IsMethodOf(cd.id))).copiedFrom(cd)
       }
     }
 
