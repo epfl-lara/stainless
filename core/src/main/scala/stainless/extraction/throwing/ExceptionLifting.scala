@@ -9,8 +9,9 @@ import scala.collection.mutable
 /** Lifts exceptions into explicit result values.
   *
   * A function whose body carries a `throwing(pred)` clause may throw: its return type `T` becomes
-  * the synthetic `ExcResult[T]`, with the constructors `ExcNormal(value: T)` and
-  * `ExcThrown(exception: Exception)`. Its postcondition then applies to the normal results, and
+  * the synthetic `Completion[T]`, with the constructors `Normal(value: T)` and
+  * `Thrown(exception: Exception)`, after the normal and abrupt completions of the Java language
+  * specification. Its postcondition then applies to the normal results, and
   * `pred` to the exceptions it throws.
   *
   * Every other function, lambda and specification may not let an exception escape: a `throw`, or a
@@ -21,7 +22,7 @@ import scala.collection.mutable
   * block or function. The body of a `try` that may throw becomes a local function, so that a
   * `return` leaves the block only, and the existing [[imperative.ReturnElimination]] then handles
   * exits from loops and nested expressions. A `return` from the enclosing function inside such a
-  * block is carried out by the synthetic `TryOutcome[T, R]` with a third constructor
+  * block is carried out by the synthetic `TryCompletion[T, R]` with a third constructor
   * `TryReturned(value: R)`.
   *
   * Within a `try`/`catch`, an exception that no case matches is thrown again, and a `finally` block
@@ -46,28 +47,28 @@ class ExceptionLifting(override val s: Trees, override val t: imperative.Trees)
 
     val excType: t.Type = t.ClassType(exceptionClass, Seq())
 
-    private val Seq(excResultId, excNormalId, excThrownId) =
-      Seq("ExcResult", "ExcNormal", "ExcThrown").map(name => ast.SymbolIdentifier("stainless.internal." + name))
+    private val Seq(completionId, normalId, thrownId) =
+      Seq("Completion", "Normal", "Thrown").map(name => ast.SymbolIdentifier("stainless.internal." + name))
 
-    val excResultSort: t.ADTSort = mkSort(excResultId, t.Synthetic)("T") { case Seq(tT) =>
+    val completionSort: t.ADTSort = mkSort(completionId, t.Synthetic)("T") { case Seq(tT) =>
       Seq(
-        (excNormalId, Seq(t.ValDef(FreshIdentifier("value"), tT))),
-        (excThrownId, Seq(t.ValDef(FreshIdentifier("exception"), excType)))
+        (normalId, Seq(t.ValDef(FreshIdentifier("value"), tT))),
+        (thrownId, Seq(t.ValDef(FreshIdentifier("exception"), excType)))
       )
     }
 
-    private val Seq(outcomeId, outNormalId, outThrownId, outReturnedId) =
-      Seq("TryOutcome", "TryNormal", "TryThrown", "TryReturned").map(name => ast.SymbolIdentifier("stainless.internal." + name))
+    private val Seq(tryCompletionId, tryNormalId, tryThrownId, tryReturnedId) =
+      Seq("TryCompletion", "TryNormal", "TryThrown", "TryReturned").map(name => ast.SymbolIdentifier("stainless.internal." + name))
 
-    val outcomeSort: t.ADTSort = mkSort(outcomeId, t.Synthetic)("T", "R") { case Seq(tT, rT) =>
+    val tryCompletionSort: t.ADTSort = mkSort(tryCompletionId, t.Synthetic)("T", "R") { case Seq(tT, rT) =>
       Seq(
-        (outNormalId, Seq(t.ValDef(FreshIdentifier("value"), tT))),
-        (outThrownId, Seq(t.ValDef(FreshIdentifier("exception"), excType))),
-        (outReturnedId, Seq(t.ValDef(FreshIdentifier("value"), rT)))
+        (tryNormalId, Seq(t.ValDef(FreshIdentifier("value"), tT))),
+        (tryThrownId, Seq(t.ValDef(FreshIdentifier("exception"), excType))),
+        (tryReturnedId, Seq(t.ValDef(FreshIdentifier("value"), rT)))
       )
     }
 
-    def sorts: Seq[t.ADTSort] = Seq(excResultSort, outcomeSort)
+    def sorts: Seq[t.ADTSort] = Seq(completionSort, tryCompletionSort)
 
     /** How a value of one of the two sorts is built and taken apart. */
     sealed abstract class Shape {
@@ -85,20 +86,20 @@ class ExceptionLifting(override val s: Trees, override val t: imperative.Trees)
         t.ADTPattern(None, cons, tps, Seq(t.WildcardPattern(binder)))
     }
 
-    case class ResultShape(valueType: t.Type) extends Shape {
+    case class CompletionShape(valueType: t.Type) extends Shape {
       val tps = Seq(valueType)
-      def tpe = t.ADTType(excResultId, tps)
-      def normal = excNormalId
-      def thrown = excThrownId
+      def tpe = t.ADTType(completionId, tps)
+      def normal = normalId
+      def thrown = thrownId
       def returned = None
     }
 
-    case class OutcomeShape(valueType: t.Type, returnType: t.Type) extends Shape {
+    case class TryCompletionShape(valueType: t.Type, returnType: t.Type) extends Shape {
       val tps = Seq(valueType, returnType)
-      def tpe = t.ADTType(outcomeId, tps)
-      def normal = outNormalId
-      def thrown = outThrownId
-      def returned = Some(outReturnedId)
+      def tpe = t.ADTType(tryCompletionId, tps)
+      def normal = tryNormalId
+      def thrown = tryThrownId
+      def returned = Some(tryReturnedId)
     }
   }
 
@@ -230,7 +231,7 @@ class ExceptionLifting(override val s: Trees, override val t: imperative.Trees)
 
     /** Unwraps the result of a call to a throwing function, letting its exception escape. */
     private def unwrapCall(call: t.Expr, valueType: t.Type, callee: Identifier, pos: inox.utils.Position): t.Expr =
-      matchShape(ResultShape(valueType), call, pos)(
+      matchShape(CompletionShape(valueType), call, pos)(
         v => v,
         exc => escape.raise(exc, s"exception thrown by ${callee.asString} unreachable", pos)
       )
@@ -244,7 +245,7 @@ class ExceptionLifting(override val s: Trees, override val t: imperative.Trees)
         unwrapCall(call, transform(fi.getType), id, e.getPos)
 
       case alr @ s.ApplyLetRec(id, tparams, tpe, tps, args) if throwingLocals(id) =>
-        val newTpe = t.FunctionType(tpe.from.map(transform), ResultShape(transform(tpe.to)).tpe).copiedFrom(tpe)
+        val newTpe = t.FunctionType(tpe.from.map(transform), CompletionShape(transform(tpe.to)).tpe).copiedFrom(tpe)
         val call = t.ApplyLetRec(
           id, tparams.map(tp => transform(tp).asInstanceOf[t.TypeParameter]), newTpe, tps.map(transform), args.map(transform)
         ).copiedFrom(e)
@@ -304,14 +305,14 @@ class ExceptionLifting(override val s: Trees, override val t: imperative.Trees)
         } else {
           val outer = escape
           val shape: Shape = outer.returnType match {
-            case Some(rt) if hasReturn(body) => OutcomeShape(valueType, rt)
-            case _ => ResultShape(valueType)
+            case Some(rt) if hasReturn(body) => TryCompletionShape(valueType, rt)
+            case _ => CompletionShape(valueType)
           }
 
           val bodyEscape = Escape(
             (exc, _, p) => t.Return(shape.mkThrown(exc)).setPos(p),
             shape match {
-              case _: OutcomeShape => (v, p) => t.Return(shape.mkReturned(v)).setPos(p)
+              case _: TryCompletionShape => (v, p) => t.Return(shape.mkReturned(v)).setPos(p)
               case _ => outer.ret
             },
             outer.returnType
@@ -331,14 +332,14 @@ class ExceptionLifting(override val s: Trees, override val t: imperative.Trees)
               t.WildcardPattern(None), None, outer.raise(exc, "uncaught exception unreachable", pos)
             ).setPos(pos)).setPos(pos)
 
-          def dispatch(outcome: t.Expr): t.Expr =
-            matchShape(shape, outcome, pos)(v => v, onThrown, r => outer.ret(r, pos))
+          def dispatch(completion: t.Expr): t.Expr =
+            matchShape(shape, completion, pos)(v => v, onThrown, r => outer.ret(r, pos))
 
           val res = fin match {
             case None => dispatch(call)
             case Some(f) =>
-              val outcome = t.ValDef.fresh("outcome", shape.tpe).setPos(pos)
-              t.Let(outcome, call, t.Block(Seq(transform(f)), dispatch(outcome.toVariable)).setPos(pos)).setPos(pos)
+              val completion = t.ValDef.fresh("completion", shape.tpe).setPos(pos)
+              t.Let(completion, call, t.Block(Seq(transform(f)), dispatch(completion.toVariable)).setPos(pos)).setPos(pos)
           }
           t.LetRec(Seq(lfd), res).setPos(pos)
         }
@@ -361,7 +362,7 @@ class ExceptionLifting(override val s: Trees, override val t: imperative.Trees)
           (valueType, t.exprOps.reconstructSpecs(newSpecs, newBody, valueType))
 
         case Some(pred @ s.Lambda(Seq(excVd), predBody)) =>
-          val shape = ResultShape(valueType)
+          val shape = CompletionShape(valueType)
           val newBody = specced.bodyOpt.map { body =>
             val esc = Escape(
               (exc, _, pos) => t.Return(shape.mkThrown(exc)).setPos(pos),
