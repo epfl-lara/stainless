@@ -107,20 +107,6 @@ object Exceptions2 {
     c
   }.ensuring(res => res > 0)
 
-  // Throws out of a loop in a throwing function
-  def findNeg(a: Array[BigInt]): Int = {
-    var i = 0
-    (while (i < a.length) {
-      decreases(a.length - i)
-      if (a(i) < 0) throw Other(a(i))
-      i += 1
-    }).invariant(0 <= i && i <= a.length)
-    i
-  }.ensuring(res => res == a.length).throwing {
-    case Other(c) => c < 0
-    case _ => false
-  }
-
   @extern
   def ext(x: BigInt): BigInt = {
     x

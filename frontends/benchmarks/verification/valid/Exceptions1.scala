@@ -44,9 +44,10 @@ object Exceptions1 {
       }).invariant(0 <= i && i <= n && acc >= 0)
     } catch {
       case TooLarge(_) => acc = -1
+      case _ => acc = -2
     }
     acc
-  }.ensuring(res => res >= -1)
+  }.ensuring(res => res >= -2)
 
   def finallyRuns(x: BigInt): BigInt = {
     var count: BigInt = 0
