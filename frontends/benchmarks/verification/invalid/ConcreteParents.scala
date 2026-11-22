@@ -17,3 +17,11 @@ object ConcreteParents {
     assert(b.n == b.k)
   }
 }
+
+object ConcreteLocalParents {
+  def localParent(k: BigInt): BigInt = {
+    class A(val x: BigInt)
+    case class B(y: BigInt) extends A(y + k)
+    B(1).x
+  }.ensuring(_ == 1)
+}
