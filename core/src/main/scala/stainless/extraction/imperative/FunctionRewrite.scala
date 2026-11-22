@@ -36,7 +36,7 @@ trait CallResults {
 
     /** The location of `flag`, when it marks a write back. */
     def location(flag: Flag): Option[Expr] = flag match {
-      case Annotation(`name`, Seq(location: Expr @unchecked)) => Some(location)
+      case Annotation(`name`, Seq(location)) => Some(location)
       case _ => None
     }
 

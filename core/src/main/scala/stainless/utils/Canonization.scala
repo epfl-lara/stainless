@@ -29,7 +29,7 @@ class Canonization(val trees: stainless.ast.Trees) { self =>
 
     protected final def freshId(): Identifier = {
       localCounter = localCounter + 1
-      new Identifier("x",localCounter,localCounter)
+      FreshIdentifier.canonical(localCounter)
     }
 
     override def transform(id: Identifier): Identifier = {
@@ -110,7 +110,7 @@ class Canonization(val trees: stainless.ast.Trees) { self =>
 
     final def registerId(id: Identifier): Identifier = ids.getOrElse(id, {
       localCounter = localCounter + 1
-      val res = new Identifier("x",localCounter,localCounter)
+      val res = FreshIdentifier.canonical(localCounter)
       ids(id) = res
       res
     })

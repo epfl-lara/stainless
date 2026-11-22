@@ -309,7 +309,7 @@ trait CoqEncoder {
   }
 
   def existsCreatorName(id: Identifier): CoqIdentifier = {
-    CoqIdentifier(new Identifier(id.name + "_exists", id.id, id.globalId))
+    CoqIdentifier(derivedIdentifier(id.name + "_exists", id))
   }
 
   def buildSubTypes(a: ADTSort): CoqCommand =
@@ -699,7 +699,7 @@ object CoqEncoder {
       val i = count.getOrElse(id.name,0)
       val freshName = if (i == 0) id.name else id.name + i
         count = count.updated(id.name, i +1)
-      val res = CoqIdentifier(new Identifier(freshName, id.id, id.globalId))
+      val res = CoqIdentifier(derivedIdentifier(freshName, id))
       m = m.updated(id, res)
       res
     }
@@ -727,19 +727,19 @@ object CoqEncoder {
   //def unsupportedExpression = RawExpression("""magic""")
 
   def constructorIdentifier(i: Identifier): CoqIdentifier = {
-    CoqIdentifier(new Identifier(i.name + "_construct", i.id, i.globalId))
+    CoqIdentifier(derivedIdentifier(i.name + "_construct", i))
   }
 
   def refinedIdentifier(i: Identifier): CoqIdentifier = {
-    CoqIdentifier(new Identifier(i.name + "_type", i.id, i.globalId))
+    CoqIdentifier(derivedIdentifier(i.name + "_type", i))
   }
 
   def recognizer(i: Identifier): CoqIdentifier = {
-    CoqIdentifier(new Identifier("is" + i.name, i.id, i.globalId))
+    CoqIdentifier(derivedIdentifier("is" + i.name, i))
   }
 
   def rawIdentifier(s: String): CoqIdentifier = {
-    CoqIdentifier(new Identifier(s,0,0))
+    CoqIdentifier(namedIdentifier(s))
   }
 
   def manyCommands(l: Seq[CoqCommand]): CoqCommand = {
