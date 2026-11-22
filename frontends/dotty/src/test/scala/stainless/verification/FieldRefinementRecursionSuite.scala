@@ -27,18 +27,18 @@ class FieldRefinementRecursionSuite extends AnyFunSuite with InputUtils {
     import ctx.given
     val (_, xlangProgram) = load(Seq(source(defs, refinement)))
     val run = VerificationComponent.run(extraction.pipeline)
-    val program = inox.Program(run.trees)(run.extract(xlangProgram.symbols)._1)
-    val sort = program.symbols.sorts.values.find(_.id.name == "S").get
-    val fun = program.symbols.functions.values.find(_.id.name == "p").get
-    val checker = TypeChecker(program, ctx)
     try {
+      val program = inox.Program(run.trees)(run.extract(xlangProgram.symbols)._1)
+      val sort = program.symbols.sorts.values.find(_.id.name == "S").get
+      val fun = program.symbols.functions.values.find(_.id.name == "p").get
+      val checker = TypeChecker(program, ctx)
       checker.checkADTRefinementRecursion(sort)
       checker.checkType(fun.id)
       program.symbols.ensureWellFormed
       true
     } catch {
       case _: inox.FatalError => false
-      case _: program.trees.NotWellFormedException => false
+      case _: run.trees.NotWellFormedException => false
     }
   }
 
@@ -86,5 +86,14 @@ class FieldRefinementRecursionSuite extends AnyFunSuite with InputUtils {
 
   test("An inline refinement that constructs values of the sort is rejected") {
     assert(!isAccepted(inlineDefs, "v != A(0)"))
+  }
+
+  test("A choose in a field type is rejected") {
+    assert(!isAccepted(inlineDefs, "v != choose((a: A) => true)"))
+  }
+
+  // Inox rejects the chooses of values of the sort, once they are uninterpreted calls
+  test("A choose in a function that a field type calls is accepted") {
+    assert(isAccepted("  def p(s: S): Boolean = choose[BigInt]((n: BigInt) => n > 0) > 0"))
   }
 }
