@@ -10,6 +10,20 @@ import stainless.transformers.TreeTraverser
 
 trait Trees extends imperative.Trees { self =>
 
+  type Symbols >: Null <: ThrowingAbstractSymbols
+
+  trait ThrowingAbstractSymbols
+    extends ImperativeAbstractSymbols
+       with throwing.SymbolOps { self0: Symbols =>
+
+    // The only value that can be assigned to `trees`, but that has to be
+    // done in a concrete class explicitly overriding `trees`
+    // Otherwise, we can run into initialization issue.
+    protected val trees: self.type
+    // More or less the same here
+    protected val symbols: this.type
+  }
+
   protected def getExceptionType(using s: Symbols): Option[Type] =
     s.lookup.get[ClassDef]("stainless.lang.Exception").map(cd => ClassType(cd.id, Seq()))
 

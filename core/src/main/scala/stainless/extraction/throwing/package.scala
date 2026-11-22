@@ -11,7 +11,7 @@ package object throwing {
       sorts: Map[Identifier, ADTSort],
       classes: Map[Identifier, ClassDef],
       typeDefs: Map[Identifier, TypeDef],
-    ) extends ClassSymbols with ImperativeAbstractSymbols {
+    ) extends ClassSymbols with ThrowingAbstractSymbols {
       override val symbols: this.type = this
     }
 

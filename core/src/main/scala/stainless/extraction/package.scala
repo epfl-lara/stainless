@@ -44,7 +44,7 @@ package object extraction {
     "MergeInvariants"           -> "Merge all class invariants into a single method",
     "ValueClasses"              -> "Erase value classes",
     "MethodsLowering"           -> "Lowering phase at the end of methods phases",
-    "ExceptionLifting"          -> "Removes all throw statements, and replaces them with an assertion with false condition",
+    "ExceptionLifting"          -> "Lift exceptions into result values of the functions with a `throwing` clause",
     "FieldAccessors"            -> "Inline field accessors of concrete classes",
     "SameAsLowering"            -> "Lower `sameAs` postconditions of observationally pure functions to equalities",
     "EffectElaboration"         -> "Transform all side-effectful operations into mutable map updates",
