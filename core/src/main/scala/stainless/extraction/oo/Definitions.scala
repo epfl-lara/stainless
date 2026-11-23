@@ -47,11 +47,9 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
         l.filterNot(c => acc.exists(_.id == c.id)) ++ acc
       }
 
-    def children(using s: Symbols): Seq[ClassDef] =
-      s.classes.values.filter(_.parents.exists(_.id == id)).toSeq
+    def children(using s: Symbols): Seq[ClassDef] = s.childrenOf(id)
 
-    def descendants(using s: Symbols): Seq[ClassDef] =
-      children.flatMap(cd => cd +: cd.descendants).distinct
+    def descendants(using s: Symbols): Seq[ClassDef] = s.descendantsOf(id)
 
     def typeMembers(using s: Symbols): Seq[SymbolIdentifier] =
       s.typeDefs.values
@@ -203,6 +201,26 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
 
     val classes: Map[Identifier, ClassDef]
     val typeDefs: Map[Identifier, TypeDef]
+
+    // The children of each class, in the order of `classes`, see `ClassDef.children`
+    private lazy val childrenMap: Map[Identifier, Seq[ClassDef]] =
+      classes.values.toSeq
+        .flatMap(cd => cd.parents.map(_.id).distinct.map(_ -> cd))
+        .groupMap(_._1)(_._2)
+
+    private[oo] def childrenOf(id: Identifier): Seq[ClassDef] = childrenMap.getOrElse(id, Seq.empty)
+
+    private val descendantsCache = new scala.collection.concurrent.TrieMap[Identifier, Seq[ClassDef]]
+
+    private[oo] def descendantsOf(id: Identifier): Seq[ClassDef] =
+      descendantsCache.getOrElseUpdate(id, childrenOf(id).flatMap(cd => cd +: descendantsOf(cd.id)).distinct)
+
+    // The frontend and the extraction caches ask for the dependencies of every function, which would
+    // otherwise recompute a transitive closure each time
+    private val dependenciesCache = new scala.collection.concurrent.TrieMap[Identifier, Set[Identifier]]
+
+    override def dependencies(from: Identifier): Set[Identifier] =
+      dependenciesCache.getOrElseUpdate(from, super.dependencies(from))
 
     private val typedClassCache: MutableMap[(Identifier, Seq[Type]), Option[TypedClassDef]] = MutableMap.empty
     def lookupClass(id: Identifier): Option[ClassDef] = classes.get(id)

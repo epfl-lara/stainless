@@ -138,24 +138,22 @@ class SplitCallBack(components: Seq[Component])(using override val context: inox
 
   private def processSymbols(syms: xt.Symbols): Unit = {
     val ignoreFlags = Set("library", "synthetic")
-    def shouldProcess(id: Identifier): Set[Identifier] = {
-      if (syms.getFunction(id).flags.exists(f => ignoreFlags contains f.name))
-        Set()
-      else {
-        val mutuallyRecursiveDeps =
-          syms.dependencies(id)
-            .filter(syms.lookupFunction(_).nonEmpty)
-            .filter(id2 => syms.dependencies(id2).contains(id))
-        this.synchronized {
-          val res = (mutuallyRecursiveDeps + id).filter(toProcess)
-          toProcess -= id
-          toProcess --= mutuallyRecursiveDeps
-          res
-        }
-      }
-    }
     reportProgress("Preprocessing the symbols...")
-    processFunctions(syms.functions.keys.flatMap(shouldProcess).toSet, syms)
+    // Each function is processed with the functions it is mutually recursive with. The strongly connected
+    // components are computed once, since computing the dependencies of every dependency of every function
+    // is quadratic in the size of the program.
+    val components: Map[Identifier, Set[Identifier]] =
+      syms.dependencyGraph.stronglyConnectedComponents.N.flatMap(scc => scc.map(_ -> scc)).toMap
+    val ids = syms.functions.keys
+      .filterNot(id => syms.getFunction(id).flags.exists(f => ignoreFlags contains f.name))
+      .flatMap(id => components.getOrElse(id, Set(id)).filter(syms.lookupFunction(_).nonEmpty) + id)
+      .toSet
+    val toRun = this.synchronized {
+      val res = ids.filter(toProcess)
+      toProcess --= ids
+      res
+    }
+    processFunctions(toRun, syms)
   }
 
   private def processFunctions(ids: Set[Identifier], syms: xt.Symbols): Unit = {
