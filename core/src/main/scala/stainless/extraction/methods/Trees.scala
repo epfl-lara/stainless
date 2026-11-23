@@ -262,9 +262,6 @@ trait Trees extends throwing.Trees { self =>
 
   case class IsAccessor(id: Option[Identifier]) extends Flag("accessor", id.toSeq)
   case class IsMethodOf(id: Identifier) extends Flag("method", Seq(id))
-  /** An argument to the constructor of a concrete parent, extracted as an override of the accessor
-   *  of the parent's field (see [[xlang.ConcreteParents]]). */
-  case object IsParentArgument extends Flag("parentArgument", Seq.empty)
 
   case object ValueClass extends Flag("valueClass", Seq.empty)
   case class FieldDefPosition(i: Int) extends Flag("fieldDefPosition", Seq(i))
@@ -470,7 +467,6 @@ trait TreeDeconstructor extends throwing.TreeDeconstructor {
   override def deconstruct(f: s.Flag): DeconstructedFlag = f match {
     case s.IsMethodOf(id) => (Seq(id), Seq(), Seq(), (ids, _, _) => t.IsMethodOf(ids.head))
     case s.IsAccessor(id) => (id.toSeq, Seq(), Seq(), (ids, _, _) => t.IsAccessor(ids.headOption))
-    case s.IsParentArgument => (Seq(), Seq(), Seq(), (_, _, _) => t.IsParentArgument)
     case s.ValueClass => (Seq(), Seq(), Seq(), (_, _, _) => t.ValueClass)
     case s.FieldDefPosition(i) => (Seq(), Seq(), Seq(), (_, _, _) => t.FieldDefPosition(i))
     case _ => super.deconstruct(f)

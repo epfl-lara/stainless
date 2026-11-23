@@ -836,7 +836,7 @@ class CodeExtraction(inoxCtx: inox.Context,
             Seq.empty,
             retType,
             extractTree(arg)(using argCtx),
-            Seq(xt.Synthetic, xt.IsParentArgument)
+            Seq(xt.Synthetic)
           ).setPos(arg.sourcePos)
         }
       }

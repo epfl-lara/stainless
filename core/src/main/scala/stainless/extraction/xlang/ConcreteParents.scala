@@ -11,10 +11,10 @@ import scala.collection.mutable.{Map => MutableMap}
  *
  *  The frontend flags the concrete classes that may be extended, which aren't final, with [[IsExtensible]].
  *  This phase drops the flag from the classes that stay concrete, and [[oo.AdtSpecialization]] drops it from
- *  the extended classes, which this phase makes abstract. The frontend also extracts the arguments that a class passes to the constructor of a concrete parent as
- *  overrides of the accessors of the parent's fields, flagged with [[IsParentArgument]] (see
- *  `extractParentArguments` in the frontend), so it doesn't mark these accessors as final. This phase marks
- *  them as final in the classes that stay concrete. For example,
+ *  the extended classes, which this phase makes abstract. The frontend also extracts the arguments that a
+ *  class passes to the constructor of a concrete parent as overrides of the accessors of the parent's fields
+ *  (see `extractParentArguments` in the frontend), so it doesn't mark these accessors as final. This phase
+ *  marks them as final in the classes that stay concrete. For example,
  *
  * {{{
  * class C(val x: BigInt) { def m: BigInt = x + 1 }
@@ -26,7 +26,7 @@ import scala.collection.mutable.{Map => MutableMap}
  *
  * {{{
  * @extensible class C(x: BigInt) { def x: BigInt = this.x; def m: BigInt = this.x + 1 } // `x` is a field and its accessor
- * case class D(y: BigInt) extends C { @parentArgument override def x: BigInt = this.y * 2; override def m: BigInt = y }
+ * case class D(y: BigInt) extends C { override def x: BigInt = this.y * 2; override def m: BigInt = y }
  * def test = new C(5).x + D(3).x
  * }}}
  *
@@ -203,9 +203,8 @@ class ConcreteParents(override val s: Trees)(override val t: s.type)
     // The frontend doesn't mark the accessors of the fields of extensible classes as final, as the arguments
     // to the constructors of their subclasses override them. They are final if their class stays concrete.
     def methodFlags(fd: FunDef, cid: Identifier, cflags: Seq[Flag], fields: Seq[ValDef]): Seq[Flag] = {
-      val flags = fd.flags.filterNot(_ == IsParentArgument)
       val isFieldAccessor = fd.flags.exists { case IsAccessor(Some(fid)) => fields.exists(_.id == fid) case _ => false }
-      if (isFieldAccessor && staysConcrete(cid, cflags)) (flags :+ Final).distinct else flags
+      if (isFieldAccessor && staysConcrete(cid, cflags)) (fd.flags :+ Final).distinct else fd.flags
     }
 
     def stripLocal(lcd: LocalClassDef): LocalClassDef = lcd.copy(
