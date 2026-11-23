@@ -8,7 +8,7 @@ object ValModification {
     val x: BigInt
 
     def havoc(): Unit = {
-      (??? : Unit)
+      AbstractMethodBody[Unit]()
    }.ensuring { res =>
       this.x == old(this).x
     }

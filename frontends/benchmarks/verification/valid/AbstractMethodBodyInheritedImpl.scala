@@ -2,11 +2,11 @@ import stainless.lang._
 
 // A concrete class does not have to override the method itself when one of its
 // ancestors already implements it. A `super` call reaching that implementation is fine.
-object UnimplementedInheritedImpl {
+object AbstractMethodBodyInheritedImpl {
   abstract class Shape {
     def area(k: BigInt): BigInt = {
       require(k >= 0)
-      (??? : BigInt)
+      AbstractMethodBody[BigInt]()
     }.ensuring(_ >= 0)
   }
 

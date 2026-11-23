@@ -1,22 +1,22 @@
 import stainless.lang._
 
-// Same as UnimplementedAbstractSpec, with a trait, a generic method, and methods
+// Same as AbstractMethodBodySpec, with a trait, a generic method, and methods
 // that have only a precondition, only a postcondition, or no contract at all.
-object UnimplementedTraitSpec {
+object AbstractMethodBodyTrait {
   trait Counter {
-    def value: BigInt = (??? : BigInt)
+    def value: BigInt = AbstractMethodBody[BigInt]()
 
     def isValid: Boolean = {
-      (??? : Boolean)
+      AbstractMethodBody[Boolean]()
     }.ensuring(res => res == (value >= 0))
 
     def add(n: BigInt): Counter = {
       require(n >= 0 && isValid)
-      (??? : Counter)
+      AbstractMethodBody[Counter]()
     }.ensuring(res => res.isValid && res.value == value + n)
 
     def pick[T](a: T, b: T): T = {
-      (??? : T)
+      AbstractMethodBody[T]()
     }.ensuring(res => res == a || res == b)
   }
 

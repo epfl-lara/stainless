@@ -1,6 +1,7 @@
 import stainless.lang._
+import stainless.annotation._
 
-// `???` may appear in executable code as long as it is provably unreachable.
+// `???` may appear anywhere as long as it is provably unreachable.
 object UnimplementedUnreachable {
   def branch(x: BigInt): BigInt = {
     require(x > 0)
@@ -40,11 +41,16 @@ object UnimplementedUnreachable {
     positive(x)
   }
 
-  // No class runs the body of `area`, since the only concrete subclass overrides it
+  @ghost
+  def ghostBranch(x: BigInt): BigInt = {
+    require(x > 0)
+    if (x > 0) x else (??? : BigInt)
+  }
+
   abstract class Shape {
     def area(k: BigInt): BigInt = {
       require(k >= 0)
-      if (k == 0) BigInt(0) else (??? : BigInt)
+      if (k >= 0) BigInt(0) else (??? : BigInt)
     }.ensuring(_ >= 0)
   }
 

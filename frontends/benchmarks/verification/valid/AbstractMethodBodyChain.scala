@@ -1,19 +1,19 @@
 import stainless.lang._
 
-// An abstract subclass may refine the contract of an inherited abstract method
-// with another `???` body. Only the concrete class at the bottom has to implement it.
-object UnimplementedAbstractChain {
+// An abstract subclass may refine the contract of an inherited abstract method with
+// another `AbstractMethodBody()`. Only the concrete class at the bottom implements it.
+object AbstractMethodBodyChain {
   abstract class Shape {
     def area(k: BigInt): BigInt = {
       require(k >= 0)
-      (??? : BigInt)
+      AbstractMethodBody[BigInt]()
     }.ensuring(_ >= 0)
   }
 
   abstract class NonEmptyShape extends Shape {
     override def area(k: BigInt): BigInt = {
       require(k >= 0)
-      (??? : BigInt)
+      AbstractMethodBody[BigInt]()
     }.ensuring(_ >= k)
   }
 

@@ -1,6 +1,6 @@
 import stainless.lang._
 
-// Local functions cannot be overridden: the `???` body is the code that runs.
+// The `???` body of a local function.
 object UnimplementedLocalFunction {
   def test(x: BigInt): BigInt = {
     require(x >= 0)

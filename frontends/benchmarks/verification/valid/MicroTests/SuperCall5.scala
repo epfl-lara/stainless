@@ -35,25 +35,20 @@ object SuperCall5 {
     x + (y + z) == (x + y) + z
   }.holds
 
-  // The laws are ghost: their overrides call the missing implementations through `super`,
-  // which executable code may not do.
   abstract class Monoid {
     def empty: Nat
     def append(x: Nat, y: Nat): Nat
 
-    @ghost
-    def law_leftIdentity(x: Nat) = (??? : Boolean).ensuring { res =>
-      res && append(empty, x) == x
+    def law_leftIdentity(x: Nat): Boolean = {
+      append(empty, x) == x
     }
 
-    @ghost
-    def law_rightIdentity(x: Nat) = (??? : Boolean).ensuring { res =>
-      res && append(x, empty) == x
+    def law_rightIdentity(x: Nat): Boolean = {
+      append(x, empty) == x
     }
 
-    @ghost
-    def law_associativity(x: Nat, y: Nat, z: Nat) = (??? : Boolean).ensuring { res =>
-      res && append(x, append(y, z)) == append(append(x, y), z)
+    def law_associativity(x: Nat, y: Nat, z: Nat): Boolean = {
+      append(x, append(y, z)) == append(append(x, y), z)
     }
   }
 
@@ -62,15 +57,12 @@ object SuperCall5 {
 
     def append(x: Nat, y: Nat) = x + y
 
-    @ghost
     override def law_leftIdentity(x: Nat) = super.law_leftIdentity(x).holds
 
-    @ghost
     override def law_rightIdentity(x: Nat) = {
       super.law_rightIdentity(x).because(lemma_rightIdentity_plus(x))
     }.holds
 
-    @ghost
     override def law_associativity(x: Nat, y: Nat, z: Nat) = {
       super.law_associativity(x, y, z).because(lemma_associativity_plus(x, y, z))
     }.holds

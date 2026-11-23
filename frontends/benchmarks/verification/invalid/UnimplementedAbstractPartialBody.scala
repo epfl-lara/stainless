@@ -1,7 +1,6 @@
 import stainless.lang._
 
-// In an abstract class, `???` is only meant to stand for the whole body.
-// Here it is a part of a body that the concrete class inherits and runs.
+// `???` in a part of a body that the concrete class inherits and runs.
 object UnimplementedAbstractPartialBody {
   abstract class Shape {
     def area(k: BigInt): BigInt = {

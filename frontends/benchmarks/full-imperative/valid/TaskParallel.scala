@@ -8,12 +8,12 @@ import stainless.proof.check
 object TaskParallelExample {
   @mutable abstract class Task {
     @ghost def readSet: Set[AnyHeapRef]
-    @ghost def writeSet: Set[AnyHeapRef] = { ??? : Set[AnyHeapRef]}.ensuring(_.subsetOf(readSet))
+    @ghost def writeSet: Set[AnyHeapRef] = { AbstractMethodBody[Set[AnyHeapRef]]()}.ensuring(_.subsetOf(readSet))
 
     def run(): Unit = {
       reads(readSet)
       modifies(writeSet)
-      ??? : Unit
+      AbstractMethodBody[Unit]()
     }
   }
 

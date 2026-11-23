@@ -1,13 +1,12 @@
 import stainless.lang._
 
-// `???` as the whole body (specifications aside) of a method of an abstract class
-// is the way to give a contract to an abstract method. Every concrete subclass
-// overrides it with an actual implementation, so `???` is never run.
-object UnimplementedAbstractSpec {
+// `AbstractMethodBody()` as the body of a method of an abstract class gives a contract
+// to an abstract method. Every concrete subclass must override it, so it never runs.
+object AbstractMethodBodySpec {
   abstract class Shape {
     def area(k: BigInt): BigInt = {
       require(k >= 0)
-      (??? : BigInt)
+      AbstractMethodBody[BigInt]()
     }.ensuring(_ >= 0)
   }
 

@@ -1,0 +1,3 @@
+[ Error  ] AbstractMethodBodyField.scala:7:25: AbstractMethodBody() can only be the body of a method of an abstract class or of a trait
+               val sides: BigInt = AbstractMethodBody[BigInt]()
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

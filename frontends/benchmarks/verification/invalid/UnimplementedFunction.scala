@@ -1,7 +1,6 @@
 import stainless.lang._
 
-// A function outside of any class cannot be overridden, so its `???` body is
-// the code that runs. The same goes for a method of a concrete class.
+// The `???` body of a function, and of a method of a concrete class.
 object UnimplementedFunction {
   def root(x: BigInt): BigInt = {
     require(x >= 0)

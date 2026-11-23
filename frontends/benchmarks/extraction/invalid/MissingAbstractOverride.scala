@@ -7,7 +7,7 @@ object MissingAbstractOverride {
 
     def test2(x: Int): Int = {
       require(x > 0)
-      (??? : Int)
+      AbstractMethodBody[Int]()
    }.ensuring(_ > 0)
   }
 

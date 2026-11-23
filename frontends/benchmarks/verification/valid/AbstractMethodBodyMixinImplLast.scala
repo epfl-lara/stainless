@@ -1,19 +1,19 @@
 import stainless.lang._
 
 // With mixins, the method that runs is the last one in the linearization.
-// Here `Doubling` comes after `Unknown`, so the implementation wins over `???`.
-object UnimplementedMixinImplLast {
+// Here `Doubling` comes after `Unknown`, so the implementation wins over the abstract method.
+object AbstractMethodBodyMixinImplLast {
   trait Scaling {
     def scale(k: BigInt): BigInt = {
       require(k >= 0)
-      (??? : BigInt)
+      AbstractMethodBody[BigInt]()
     }.ensuring(_ >= 0)
   }
 
   trait Unknown extends Scaling {
     override def scale(k: BigInt): BigInt = {
       require(k >= 0)
-      (??? : BigInt)
+      AbstractMethodBody[BigInt]()
     }.ensuring(_ >= 0)
   }
 

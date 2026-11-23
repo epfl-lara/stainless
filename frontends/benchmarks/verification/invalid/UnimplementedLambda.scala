@@ -1,7 +1,7 @@
 import stainless.lang._
 
-// `???` inside first-class functions: whether it runs depends on where the
-// function value flows, which is hard to track in general.
+// `???` inside first-class functions must be unreachable wherever the function
+// value flows.
 object UnimplementedLambda {
   def twice(f: BigInt => BigInt, x: BigInt): BigInt = f(f(x))
 

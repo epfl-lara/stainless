@@ -1,4 +1,0 @@
-[ Error  ] UnimplementedMixinImplFirst.scala:27:14: Not well formed definition case class Both extends Doubling with Unknown
-[ Error  ] 	because abstract methods UnimplementedMixinImplFirst.Scaling.scale were not overridden by a method, a lazy val, or a constructor parameter
-             case class Both() extends Doubling with Unknown
-                        ^

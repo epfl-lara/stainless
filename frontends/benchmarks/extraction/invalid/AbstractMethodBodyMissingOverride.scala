@@ -1,12 +1,12 @@
 import stainless.lang._
 
-// The concrete classes and the object inherit the `???` body: Scala accepts them
-// because `area` has a body, but calling it crashes at run time.
-object UnimplementedMissingOverride {
+// The concrete classes and the object do not implement the abstract method. Scala accepts
+// them because `area` has a body, but calling it would crash at run time.
+object AbstractMethodBodyMissingOverride {
   abstract class Shape {
     def area(k: BigInt): BigInt = {
       require(k >= 0)
-      (??? : BigInt)
+      AbstractMethodBody[BigInt]()
     }.ensuring(_ >= 0)
   }
 

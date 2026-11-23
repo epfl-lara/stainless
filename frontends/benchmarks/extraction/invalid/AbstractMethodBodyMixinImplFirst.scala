@@ -1,19 +1,19 @@
 import stainless.lang._
 
-// Counterpart of verification/valid/UnimplementedMixinImplLast: `Unknown` now comes
-// last in the linearization, so `Both().scale` runs its `???` body.
-object UnimplementedMixinImplFirst {
+// Counterpart of verification/valid/AbstractMethodBodyMixinImplLast: `Unknown` now comes
+// last in the linearization, so `Both().scale` would run the abstract method.
+object AbstractMethodBodyMixinImplFirst {
   trait Scaling {
     def scale(k: BigInt): BigInt = {
       require(k >= 0)
-      (??? : BigInt)
+      AbstractMethodBody[BigInt]()
     }.ensuring(_ >= 0)
   }
 
   trait Unknown extends Scaling {
     override def scale(k: BigInt): BigInt = {
       require(k >= 0)
-      (??? : BigInt)
+      AbstractMethodBody[BigInt]()
     }.ensuring(_ >= 0)
   }
 

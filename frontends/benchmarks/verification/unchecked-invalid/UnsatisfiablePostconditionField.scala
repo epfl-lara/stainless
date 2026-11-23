@@ -6,7 +6,7 @@ object UnsatisfiablePostconditionField {
   abstract class Absurdity {
     val n: BigInt = 0
     def m: BigInt = {
-      (??? : BigInt)
+      AbstractMethodBody[BigInt]()
     }.ensuring(_ => false)
   }
 

@@ -1,11 +1,11 @@
 import stainless.lang._
 
 // Anonymous and local classes implementing the abstract method are fine too.
-object UnimplementedAnonymousImpl {
+object AbstractMethodBodyAnonymousImpl {
   abstract class Shape {
     def area(k: BigInt): BigInt = {
       require(k >= 0)
-      (??? : BigInt)
+      AbstractMethodBody[BigInt]()
     }.ensuring(_ >= 0)
   }
 

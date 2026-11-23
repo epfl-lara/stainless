@@ -1426,6 +1426,18 @@ class CodeExtraction(inoxCtx: inox.Context,
     }
   }
 
+  /** Scala throws an exception when it evaluates `???`, so it is an `assert(false)`: it must be unreachable.
+    * The bodies of `@extern` definitions are not analysed, there it stays an unknown value. */
+  private def missingImplementation(tpe: xt.Type, tr: tpd.Tree)(using dctx: DefContext): xt.Expr = {
+    val nt = xt.NoTree(tpe).setPos(tr.sourcePos)
+    if (dctx.isExtern) nt
+    else xt.Assert(
+      xt.BooleanLiteral(false).setPos(tr.sourcePos),
+      Some(extraction.methods.AbstractMethods.missingImplementation),
+      nt
+    ).setPos(tr.sourcePos)
+  }
+
   private def extractTreeOrNoTree(tr: tpd.Tree)(using dctx: DefContext): xt.Expr = {
     try {
       extractTree(tr)
@@ -1619,10 +1631,12 @@ class CodeExtraction(inoxCtx: inox.Context,
         }
 
       case (v @ ValDef(name, tpt, _)) :: xs =>
+        // The value of an `@extern` variable is not analysed
+        val vctx = cctx.withExtern(vds(v.symbol).flags contains xt.Extern)
         if (v.symbol `is` Mutable) {
-          xt.LetVar(vds(v.symbol), extractTree(v.rhs)(using cctx), recOrNoTree(xs)).setPos(v.sourcePos)
+          xt.LetVar(vds(v.symbol), extractTree(v.rhs)(using vctx), recOrNoTree(xs)).setPos(v.sourcePos)
         } else {
-          xt.Let(vds(v.symbol), extractTree(v.rhs)(using cctx), recOrNoTree(xs)).setPos(v.sourcePos)
+          xt.Let(vds(v.symbol), extractTree(v.rhs)(using vctx), recOrNoTree(xs)).setPos(v.sourcePos)
         }
 
       case x :: Nil =>
@@ -2022,9 +2036,15 @@ class CodeExtraction(inoxCtx: inox.Context,
       extractTree(body)
 
     case ExTyped(ExSymbol("scala", "Predef$", "$qmark$qmark$qmark" | "???"), tpe) =>
-      xt.NoTree(extractType(tpe))
+      missingImplementation(extractType(tpe), tr)
 
-    case ExSymbol("scala", "Predef$", "$qmark$qmark$qmark" | "???") => xt.NoTree(extractType(tr))
+    case ExSymbol("scala", "Predef$", "$qmark$qmark$qmark" | "???") =>
+      missingImplementation(extractType(tr), tr)
+
+    // The body of an abstract method that has a specification. The `AbstractMethods` phase checks that
+    // it is the body of a method of an abstract class, which the concrete subclasses must then override.
+    case Apply(TypeApply(ExSymbol("stainless", "lang", "package$", "AbstractMethodBody"), Seq(tpt)), Seq()) =>
+      xt.NoTree(extractType(tpt)).setPos(tr.sourcePos)
 
     case ExSkolemTerm(name) => skolemError(tr.sourcePos)
 
