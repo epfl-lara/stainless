@@ -1,0 +1,8 @@
+8:7;pick;postcondition;valid
+11:21;pick;extern postcondition satisfiability;invalid
+14:7;mutate;postcondition;valid
+17:19;mutate;extern postcondition satisfiability;invalid
+17:21;mutate;array index within bounds;valid
+17:34;mutate;array index within bounds;valid
+21:7;unreachable;postcondition;valid
+24:21;unreachable;extern postcondition satisfiability;invalid

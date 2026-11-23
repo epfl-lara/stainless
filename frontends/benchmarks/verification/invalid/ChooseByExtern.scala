@@ -5,7 +5,7 @@ object ChooseByExtern {
 
   @extern
   def universalEquality(a: BigInt): BigInt = {
-    ??? : BigInt // Replaced by a choose over the postcondition
+    ??? : BigInt // Replaced by a choose over the postcondition, which is unsatisfiable
  }.ensuring(r => r == 42 && r == 24)
 
   def theorem(): Unit = {

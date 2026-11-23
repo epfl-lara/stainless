@@ -1533,8 +1533,33 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
         }
     }
 
-    (measureType, (trArgs ++ trPre ++ trPreSat.getOrElse(TyperResult.valid) ++ trMeasure ++ trBody).root(OKFunction(id)))
+    // Callers of an extern function see `choose(res => post)` in place of its body. If no result
+    // satisfies `post`, they verify vacuously, so we check that the precondition and the
+    // postcondition are satisfiable together, in the same way as `trPreSat`. This doesn't prove
+    // that `post` can be met for all arguments that satisfy the precondition: that follows from the
+    // (trusted) contract being true of the actual implementation, which returns a witness.
+    val trExternPostSat = postOpt match {
+      case Some(Lambda(Seq(retArg), postBody)) if fd.flags.contains(Extern) && !fd.flags.contains(Synthetic) =>
+        val tcPost = tcWithPre.bind(retArg).withTruth(postBody)
+        val TyperResult(vcs, trees) =
+          buildVC(tcPost.withCheckSAT(false).withVCKind(VCKind.ExternPostconditionSat).setPos(postBody), BooleanLiteral(false))
+        TyperResult(vcs.map(vc => StainlessVC(abstractQuantifiers(vc.condition), vc.fid, vc.kind, vc.satisfiability).setPos(vc)), trees)
+      case _ => TyperResult.valid
+    }
+
+    (measureType, (trArgs ++ trPre ++ trPreSat.getOrElse(TyperResult.valid) ++ trMeasure ++ trBody ++ trExternPostSat).root(OKFunction(id)))
   }
+
+  /** Replaces the quantified subformulas of a satisfiability check by fresh Boolean variables.
+    *
+    * Solvers can rarely confirm that a formula with universal quantifiers is satisfiable (e.g. an
+    * extern whose postcondition is `forall(k => !res.contains(k))`), so the check would be unknown.
+    * The abstraction is weaker, so it is satisfiable whenever the original formula is, and an
+    * unsatisfiable abstraction still shows that the original formula is unsatisfiable. */
+  private def abstractQuantifiers(e: Expr): Expr = exprOps.preMap {
+    case f: Forall => Some(Variable.fresh("q", BooleanType()).copiedFrom(f))
+    case _ => None
+  }(e)
 
   def checkType(fids: Seq[Identifier]): Seq[StainlessVC] = {
     val checkedFunctions = fids.map(fid => fid -> checkType(fid))
