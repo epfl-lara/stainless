@@ -372,7 +372,11 @@ class CodeExtraction(inoxCtx: inox.Context,
             val cdOpt = allClasses.find(_.id.name == correspondingClassName)
             // We may not find the corresponding class. This can happen for @ignored classes having default argument
             // (their <init>$default functions however have not an explicit @ignore annotation, so we remove them manually by returning None here)
-            cdOpt.map(cd => fd.copy(flags = (xt.ClassParamInit(cd.id) +: fd.flags)).setPos(fd))
+            // The default arguments of library classes are part of the library as well
+            cdOpt.map { cd =>
+              val libraryFlags = cd.flags.filter(f => f.name == "library" && !fd.flags.contains(f))
+              fd.copy(flags = (xt.ClassParamInit(cd.id) +: fd.flags) ++ libraryFlags).setPos(fd)
+            }
           } else {
             Some(fd)
           }
@@ -817,29 +821,57 @@ class CodeExtraction(inoxCtx: inox.Context,
     val argCtx = dctx.copy(vars = dctx.vars ++ paramVars)
 
     template.parents.filter(isValidParent(_, inLibrary)).flatMap { parent =>
-      val psym = parent.tpe.typeSymbol
+      // The Stainless version of a Java exception gets the message of the arguments to its Java constructor
+      val javaException = javaExceptions.get(parent.tpe.typeSymbol)
+      val psym = javaException.getOrElse(parent.tpe.typeSymbol)
+      val parentTpe = javaException.map(_.typeRef).getOrElse(parent.tpe)
       val fields = if (psym.isClass && !(psym `isOneOf` AbstractOrTrait)) psym.asClass.paramAccessors.filter(acc => acc.isTerm && !acc.is(Method)) else Nil
       if (fields.isEmpty) Seq.empty
       else {
         val args = constructorArgs(parent).getOrElse(
           outOfSubsetError(parent.sourcePos, s"Stainless does not support this call to the constructor of ${psym.name}"))
-        if (args.size != fields.size)
+        if (javaException.isEmpty && args.size != fields.size)
           outOfSubsetError(parent.sourcePos, s"Stainless does not support this call to the constructor of ${psym.name}")
 
-        (fields zip args).filterNot((acc, _) => isIgnoredParameterType(acc.info)).map { (acc, arg) =>
+        val values: Seq[(Symbol, SourcePosition, () => xt.Expr)] =
+          if (javaException.isDefined)
+            Seq((fields.head, parent.sourcePos, () => extractExceptionMessage(args, parent.sourcePos)(using argCtx)))
+          else
+            (fields zip args).map((acc, arg) => (acc, arg.sourcePos, () => extractTree(arg)(using argCtx)))
+
+        values.filterNot((acc, _, _) => isIgnoredParameterType(acc.info)).map { (acc, pos, value) =>
           val accessorId = getFieldAccessorIdentifier(acc)
           val id = parentArgumentIds.getOrElseUpdate((sym, acc), SymbolIdentifier(accessorId.symbol))
-          val retType = stainlessType(parent.tpe.memberInfo(acc).widenExpr)(using dctx, arg.sourcePos)
+          val retType = stainlessType(parentTpe.memberInfo(acc).widenExpr)(using dctx, pos)
           new xt.FunDef(
             id,
             Seq.empty,
             Seq.empty,
             retType,
-            extractTree(arg)(using argCtx),
+            value(),
             Seq(xt.Synthetic)
-          ).setPos(arg.sourcePos)
+          ).setPos(pos)
         }
       }
+    }
+  }
+
+  /** The message of an exception built with the arguments `args` of the constructor of a Java exception.
+    *
+    * It is the first argument if it is a string, and the empty string otherwise, or if Stainless cannot
+    * extract it, as for string interpolations of values that aren't strings.
+    */
+  private def extractExceptionMessage(args: Seq[tpd.Tree], pos: SourcePosition)(using dctx: DefContext): xt.Expr = {
+    def empty = xt.StringLiteral("").setPos(pos)
+    args.headOption.filter(_.tpe <:< defn.StringType) match {
+      case Some(msg) =>
+        try extractTree(msg)
+        catch {
+          case e: frontend.UnsupportedCodeException =>
+            reporter.warning(msg.sourcePos, s"Stainless cannot extract this exception message, and uses the empty string instead")
+            empty
+        }
+      case None => empty
     }
   }
 
@@ -2080,10 +2112,14 @@ class CodeExtraction(inoxCtx: inox.Context,
         case e => (xt.TupleSelect(e, 1).setPos(e), xt.TupleSelect(e, 2).setPos(e))
       }, extractType(tpt))
 
-    // `new X(...)` for a Java exception `X` builds its Stainless version, without the arguments
-    case ExClassConstruction(tpe, _) if javaExceptions.contains(tpe.classSymbol) =>
+    // `new X(...)` for a Java exception `X` builds its Stainless version, with the message of the arguments
+    case ExClassConstruction(tpe, args) if javaExceptions.contains(tpe.classSymbol) =>
       val cls = javaExceptions(tpe.classSymbol)
-      xt.ClassConstructor(xt.ClassType(getIdentifier(cls), Seq.empty).setPos(tr.sourcePos), Seq.empty)
+      xt.ClassConstructor(xt.ClassType(getIdentifier(cls), Seq.empty).setPos(tr.sourcePos), Seq(extractExceptionMessage(args, tr.sourcePos)))
+
+    // `getMessage` of `java.lang.Throwable` is the one of `stainless.lang.Exception`
+    case ExCall(Some(rec), sym, Seq(), Seq()) if sym.name == termName("getMessage") && sym.owner == defn.ThrowableClass =>
+      xt.MethodInvocation(extractTree(rec), getIdentifier(exceptionSym.info.decl(termName("getMessage")).symbol), Seq.empty, Seq.empty)
 
     case ExClassConstruction(tpe, args) if isMemberClass(tpe.classSymbol) =>
       given SourcePosition = tr.sourcePos

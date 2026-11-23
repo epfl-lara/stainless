@@ -39,12 +39,15 @@ package object lang {
     }
   }
 
+  /** The root of Stainless exceptions, which `java.lang.Throwable` and `java.lang.Exception` are extracted as.
+    * Its subclasses for the standard Java exceptions are in `JavaExceptions.scala`. */
   @library
-  class Exception extends Throwable
+  class Exception(msg: String = "") extends Throwable {
+    override def getMessage: String = msg
+  }
 
   @library
-  @extern
-  def Exception(msg: String): Exception = new Exception{}
+  def Exception(msg: String): Exception = new Exception(msg)
 
   @library
   sealed abstract class Try[T]{

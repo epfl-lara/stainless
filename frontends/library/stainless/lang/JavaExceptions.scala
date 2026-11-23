@@ -8,25 +8,25 @@ import stainless.annotation._
 //
 // The frontend extracts `java.lang.Throwable` and `java.lang.Exception` as `stainless.lang.Exception`, and the
 // other Java exceptions below as the classes of the same name, which follow the hierarchy of Java. The arguments
-// of their constructors, such as the message, are not extracted. As `Exception`, these classes take no message.
+// of their constructors are extracted as their message, as far as the message can be extracted.
 
 @library
-class RuntimeException extends Exception
+class RuntimeException(msg: String = "") extends Exception(msg)
 
 @library
-class IllegalArgumentException extends RuntimeException
+class IllegalArgumentException(msg: String = "") extends RuntimeException(msg)
 
 @library
-class IllegalStateException extends RuntimeException
+class IllegalStateException(msg: String = "") extends RuntimeException(msg)
 
 @library
-class UnsupportedOperationException extends RuntimeException
+class UnsupportedOperationException(msg: String = "") extends RuntimeException(msg)
 
 @library
-class ArithmeticException extends RuntimeException
+class ArithmeticException(msg: String = "") extends RuntimeException(msg)
 
 @library
-class IndexOutOfBoundsException extends RuntimeException
+class IndexOutOfBoundsException(msg: String = "") extends RuntimeException(msg)
 
 @library
-class NoSuchElementException extends RuntimeException
+class NoSuchElementException(msg: String = "") extends RuntimeException(msg)
