@@ -12,7 +12,8 @@ package object lang {
   @library
   def ghost[A](@ghost value: => A): Unit = ()
 
-  @library
+  // A placeholder that SizedADTExtraction replaces, hence its body is not analysed
+  @library @extern @pure
   def indexedAt[T](n: BigInt, t: T): T = (??? : T)
 
   @ignore
