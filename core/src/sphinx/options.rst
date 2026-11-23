@@ -189,17 +189,24 @@ These options are available to all Stainless components:
   verification condition that reaches the bound is reported as ``unroll bound
   reached``. Alternatively, add ``--timeout`` as a wall-clock safety net.
 
-  To calibrate the limit, the verification summary shows the resource usage of
-  each verification condition in a column after its time. It is what the solver
-  itself counts against the limit, in the same millions of units (rounded up), so
-  that a value shown can be given as the limit: as the limits apply to each
-  query, it is the usage of the largest query of the condition.
+  To help choose a limit, the verification summary has a ``resources (M)``
+  column, after the time. To check one verification condition, Stainless sends
+  several queries to the solver while unfolding; the column shows the resources
+  used by the most expensive of these queries, in millions of units (rounded
+  up). This is the same unit as the limit, so the value shown can be given as
+  the limit.
+
+  Resources are only shown for the solvers that run on z3 (``nativez3``,
+  ``smt-z3``, ``unrollz3`` and their variants) and for ``smt-cvc5``. Nothing
+  else is counted: the cell is empty for the other solvers (``eval``,
+  ``princess``, ``smt-cvc4``, ...), for the conditions that need no solver
+  (trivial, or found in the cache), and when no solver of a portfolio answered.
+  With a portfolio, the value is that of the solver that answered.
 
   A condition that reached the limit shows that limit (cvc5 may show slightly
-  more, as it does not stop at once). The column is empty for the conditions that
-  no solver ran on (trivial, from the cache), for the other solvers, and when no
-  solver of a portfolio answered. The JSON report (``--json``) has the same value
-  in units (``resourceUsage``) and the usage of each query (``resources``).
+  more, as it does not stop at once). The JSON report (``--json``) has the same
+  value in units (``resourceUsage``), and the usage of each query
+  (``resources``).
 
 * ``--cache``
 
