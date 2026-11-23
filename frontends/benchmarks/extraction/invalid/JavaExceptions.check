@@ -1,0 +1,12 @@
+[ Error  ] JavaExceptions.scala:6:23: Only subclasses of stainless.lang.Exception, or of the Java exceptions that Stainless supports, can be thrown in Stainless
+               if (x == 0) throw new java.io.IOException("io")
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[ Error  ] JavaExceptions.scala:11:23: Only subclasses of stainless.lang.Exception, or of the Java exceptions that Stainless supports, can be thrown in Stainless
+               if (x == 0) throw new Error("error")
+                                 ^^^^^^^^^^^^^^^^^^
+[ Error  ] JavaExceptions.scala:16:23: Only subclasses of stainless.lang.Exception, or of the Java exceptions that Stainless supports, can be thrown in Stainless
+               if (x == 0) throw new Mine
+                                 ^^^^^^^^
+[ Error  ] JavaExceptions.scala:20:55: Only subclasses of stainless.lang.Exception, or of the Java exceptions that Stainless supports, can be caught in Stainless
+             def catchIO(x: BigInt): BigInt = try x catch { case _: java.io.IOException => BigInt(0) }
+                                                                 ^^^^^^^^^^^^^^^^^^^^^^

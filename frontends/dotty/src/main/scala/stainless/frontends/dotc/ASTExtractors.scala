@@ -134,6 +134,30 @@ trait ASTExtractors {
 
   protected lazy val exceptionSym = classFromName("stainless.lang.Exception")
 
+  /** The Java exceptions that are extracted as Stainless library classes (see `stainless/lang/JavaExceptions.scala`).
+    *
+    * They are looked up only if defined, as the library may not be part of the compiled program.
+    */
+  protected lazy val javaExceptions: Map[Symbol, ClassSymbol] = {
+    val named = Seq(
+      "java.lang.RuntimeException",
+      "java.lang.IllegalArgumentException",
+      "java.lang.IllegalStateException",
+      "java.lang.UnsupportedOperationException",
+      "java.lang.ArithmeticException",
+      "java.lang.IndexOutOfBoundsException",
+      "java.util.NoSuchElementException",
+    ).map(java => java -> ("stainless.lang." + java.split('.').last))
+    val all = Seq(
+      "java.lang.Throwable" -> "stainless.lang.Exception",
+      "java.lang.Exception" -> "stainless.lang.Exception",
+    ) ++ named
+    all.flatMap { (java, stainless) =>
+      val (javaSym, stainlessSym) = (getClassIfDefined(java), getClassIfDefined(stainless))
+      if (javaSym.exists && stainlessSym.exists) Some(javaSym -> stainlessSym.asClass) else None
+    }.toMap
+  }
+
   protected lazy val setSym         = classFromName("stainless.lang.Set")
   protected lazy val mapSym         = classFromName("stainless.lang.Map")
   protected lazy val mutableMapSym  = classFromName("stainless.lang.MutableMap")

@@ -74,6 +74,16 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
     clsInfo.decls.iterator.filter(s => !(s `is` Method) && ((s `is` ParamAccessor) || (s `is` CaseAccessor))).toList
   }
 
+  /** Whether the values of `tpe` are Stainless exceptions: instances of `stainless.lang.Exception`, possibly
+    * through one of the Java exceptions extracted as Stainless classes, but through no other Java class.
+    */
+  private def isStainlessException(tpe: Type): Boolean = (tpe <:< exceptionSym.typeRef) || {
+    val cls = tpe.widen.classSymbol
+    cls.isClass && cls.asClass.baseClasses
+      .find(base => base == exceptionSym || base.is(JavaDefined))
+      .exists(base => base == exceptionSym || javaExceptions.contains(base))
+  }
+
   // Note: we wrap Symbols into an Option to emphasize the fact that the symbol may not exist
   // and that care must be taken in case it does not.
   private def getClassIfDefinedOrNone(cls: String)(using DottyContext): Option[ClassSymbol] = {
@@ -675,15 +685,15 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
           traverseChildren(tree)
 
         case Apply(ex, Seq(arg)) if ex.symbol == defn.throwMethod =>
-          if (!(arg.tpe <:< exceptionSym.typeRef))
-            reportError(arg.sourcePos, "Only subclasses of stainless.lang.Exception can be thrown in Stainless")
+          if (!isStainlessException(arg.tpe))
+            reportError(arg.sourcePos, "Only subclasses of stainless.lang.Exception, or of the Java exceptions that Stainless supports, can be thrown in Stainless")
           traverseChildren(tree)
 
         case Try(_, cases, _) =>
           for (cd <- cases) cd.pat match {
             case Ident(nme.WILDCARD) => ()
-            case pat if !(pat.tpe <:< exceptionSym.typeRef) =>
-              reportError(pat.sourcePos, "Only subclasses of stainless.lang.Exception can be caught in Stainless")
+            case pat if !isStainlessException(pat.tpe) =>
+              reportError(pat.sourcePos, "Only subclasses of stainless.lang.Exception, or of the Java exceptions that Stainless supports, can be caught in Stainless")
             case _ => ()
           }
           traverseChildren(tree)
