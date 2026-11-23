@@ -46,7 +46,13 @@ class EncoderSemanticsSuite extends AnyFunSuite with InputUtils {
     /** Stainless's expressions that aren't Inox's, and Inox's to which it gives another meaning. */
     def extra(e: Expr)(using Symbols): scala.Option[scala.Option[S.Expr]] = scala.None
 
-    def tpe(tp: Type): scala.Option[S.Type] = tp match {
+    /** Stainless's types that aren't Inox's. */
+    def extraType(tp: Type): scala.Option[scala.Option[S.Type]] = scala.None
+
+    /** The function whose body is being translated. */
+    protected var current: scala.Option[FunDef] = scala.None
+
+    def tpe(tp: Type): scala.Option[S.Type] = extraType(tp).getOrElse(tp match {
       case IntegerType() => scala.Some(S.IntegerType())
       case BooleanType() => scala.Some(S.BooleanType())
       case UnitType() => scala.Some(S.UnitType())
@@ -56,8 +62,10 @@ class EncoderSemanticsSuite extends AnyFunSuite with InputUtils {
       case TupleType(ts) => all(ts.map(tpe)).map(S.TupleType(_))
       case FunctionType(f, to) => for (a <- all(f.map(tpe)); b <- tpe(to)) yield S.FunctionType(a, b)
       case ADTType(id, tps) => all(tps.map(tpe)).map(S.ADTType(id, _))
+      case SetType(b) => tpe(b).map(S.SetType(_))
+      case MapType(f, t) => for (a <- tpe(f); b <- tpe(t)) yield S.MapType(a, b)
       case _ => scala.None
-    }
+    })
 
     def params(vds: Seq[ValDef]): scala.Option[S.List[S.Param]] =
       all(vds.map(vd => tpe(vd.tpe).map(S.Param(vd.id, _))))
@@ -76,6 +84,9 @@ class EncoderSemanticsSuite extends AnyFunSuite with InputUtils {
         case Let(vd, v, b) => two(v, b)(S.Let(vd.id, _, _))
         case IfExpr(c, a, b) => for (x <- expr(c); y <- expr(a); z <- expr(b)) yield S.IfExpr(x, y, z)
         case Assume(p, b) => two(p, b)(S.Assume(_, _))
+        case Error(_, _) => scala.Some(S.Error())
+        case UninterpretedCall(id, tps, args, _) =>
+          for (ts <- all(tps.map(tpe)); as <- es(args)) yield S.UninterpretedCall(id, ts, as)
         case FunctionInvocation(id, tps, args) =>
           for (ts <- all(tps.map(tpe)); as <- es(args)) yield S.FunctionInvocation(id, ts, as)
         case ADT(id, tps, args) => for (ts <- all(tps.map(tpe)); as <- es(args)) yield S.ADT(id, ts, as)
@@ -97,9 +108,24 @@ class EncoderSemanticsSuite extends AnyFunSuite with InputUtils {
         case GreaterThan(a, b) => two(a, b)(S.GreaterThan(_, _))
         case LessEquals(a, b) => two(a, b)(S.LessEquals(_, _))
         case GreaterEquals(a, b) => two(a, b)(S.GreaterEquals(_, _))
+        case BVNot(a) => expr(a).map(S.BVNot(_))
+        case BVAnd(a, b) => two(a, b)(S.BVAnd(_, _))
+        case BVOr(a, b) => two(a, b)(S.BVOr(_, _))
+        case BVXor(a, b) => two(a, b)(S.BVXor(_, _))
+        case BVShiftLeft(a, b) => two(a, b)(S.BVShiftLeft(_, _))
+        case BVAShiftRight(a, b) => two(a, b)(S.BVAShiftRight(_, _))
+        case BVLShiftRight(a, b) => two(a, b)(S.BVLShiftRight(_, _))
+        case BVNarrowingCast(a, BVType(_, w)) => expr(a).map(S.BVNarrowingCast(_, BigInt(w)))
+        case BVWideningCast(a, BVType(_, w)) => expr(a).map(S.BVWideningCast(_, BigInt(w)))
+        case FiniteMap(pairs, d, _, _) =>
+          for (ps <- all(pairs.map { case (k, v) => (for (a <- expr(k); b <- expr(v)) yield S.ExprPair(a, b)) }); x <- expr(d))
+          yield S.FiniteMap(ps, x)
+        case MapApply(m, k) => two(m, k)(S.MapApply(_, _))
+        case MapUpdated(m, k, v) => for (x <- expr(m); y <- expr(k); z <- expr(v)) yield S.MapUpdated(x, y, z)
         case Tuple(xs) => es(xs).map(S.Tuple(_))
         case TupleSelect(a, i) => expr(a).map(S.TupleSelect(_, BigInt(i)))
         case Lambda(ps, b) => for (p <- params(ps); x <- expr(b)) yield S.Lambda(p, x)
+        case Forall(ps, b) => for (p <- params(ps); x <- expr(b)) yield S.Forall(p, x)
         case Application(f, args) => for (g <- expr(f); as <- es(args)) yield S.Application(g, as)
         case _ => scala.None
       }
@@ -108,6 +134,7 @@ class EncoderSemanticsSuite extends AnyFunSuite with InputUtils {
     /** The functions in the fragment, each with the functions it calls. */
     def functions(using syms: Symbols): Map[Identifier, S.FunDef] =
       syms.functions.values.flatMap { fd =>
+        current = scala.Some(fd)
         expr(fd.fullBody).map(b => fd.id -> S.FunDef(fd.id, list(fd.tparams.map(_.id)), list(fd.params.map(_.id)), b))
       }.toMap
 
@@ -139,7 +166,43 @@ class EncoderSemanticsSuite extends AnyFunSuite with InputUtils {
       case ADTPattern(b, id, _, subs) => all(subs.map(pattern)).map(S.ADTPattern(binder(b), id, _))
       case TuplePattern(b, subs) => all(subs.map(pattern)).map(S.TuplePattern(binder(b), _))
       case LiteralPattern(b, lit) => expr(lit).map(S.LiteralPattern(binder(b), _))
+      case AlternativePattern(b, subs) => all(subs.map(pattern)).map(S.AlternativePattern(binder(b), _))
+      case RefinementPattern(under, Lambda(Seq(vd), pred)) =>
+        for (u <- pattern(under); q <- expr(pred)) yield S.RefinementPattern(u, vd.id, q)
+      case up @ UnapplyPattern(b, recs, id, tps, subs) =>
+        val unapp = up.getFunction
+        val scala.Some(IsUnapply(isEmpty, get)) = unapp.flags.collectFirst { case f: IsUnapply => f }: @unchecked
+        // The type arguments of an accessor, as `UnapplyPattern.isEmpty` and `get` instantiate it
+        def accessorTps(acc: Identifier) = {
+          val fd = summon[Symbols].getFunction(acc)
+          val tpMap = summon[Symbols].instantiation(fd.params.head.tpe, unapp.returnType.stripToplevelRefinement).get
+          all(fd.typeArgs.map(tp => tpe(tpMap(tp))))
+        }
+        for (rs <- all(recs.map(expr)); ts <- all(tps.map(tpe)); ets <- accessorTps(isEmpty); gts <- accessorTps(get);
+             ps <- all(subs.map(pattern)))
+        yield S.UnapplyPattern(binder(b), rs, id, ts, isEmpty, ets, get, gts, ps)
       case _ => scala.None
+    }
+
+    private def cases(cs: Seq[MatchCase])(using Symbols): scala.Option[S.List[S.MatchCase]] =
+      all(cs.map { case MatchCase(p, g, rhs) =>
+        for (pp <- pattern(p); gg <- g.map(expr) match {
+               case scala.Some(scala.None) => scala.None
+               case other => scala.Some(opt(other.flatten))
+             }; r <- expr(rhs)) yield S.MatchCase(pp, gg, r)
+      })
+
+    override def extraType(tp: Type): scala.Option[scala.Option[S.Type]] = tp match {
+      case ArrayType(base) => scala.Some(tpe(base).map(S.ArrayType(_)))
+      case RecursiveType(id, tps, _) => scala.Some(tpe(ADTType(id, tps)))
+      case ValueType(t) => scala.Some(tpe(t))
+      case AnnotatedType(t, _) => scala.Some(tpe(t))
+      case _ => scala.None
+    }
+
+    private def isIntegral(e: Expr)(using Symbols): Boolean = e.getType match {
+      case IntegerType() | BVType(_, _) => true
+      case _ => false
     }
 
     override def extra(e: Expr)(using Symbols): scala.Option[scala.Option[S.Expr]] = e match {
@@ -147,22 +210,37 @@ class EncoderSemanticsSuite extends AnyFunSuite with InputUtils {
       case Assert(p, _, b) => scala.Some(for (x <- expr(p); y <- expr(b)) yield S.Assert(x, y))
       case Ensuring(b, Lambda(Seq(res), post)) =>
         scala.Some(for (x <- expr(b); y <- expr(post)) yield S.Ensuring(x, res.id, y))
-      case MatchExpr(scrut, cases) =>
-        val cs = cases.map { case MatchCase(p, g, rhs) =>
-          for (pp <- pattern(p); gg <- g.map(expr) match {
-                 case scala.Some(scala.None) => scala.None
-                 case other => scala.Some(opt(other.flatten))
-               }; r <- expr(rhs)) yield S.MatchCase(pp, gg, r)
-        }
-        scala.Some(for (s <- expr(scrut); c <- all(cs)) yield S.MatchExpr(s, c))
-      case Division(a, b) if jvmDivision && a.getType == IntegerType() =>
+      case MatchExpr(scrut, cs) => scala.Some(for (s <- expr(scrut); c <- cases(cs)) yield S.MatchExpr(s, c))
+      case Passes(in, out, cs) =>
+        scala.Some(for (i <- expr(in); o <- expr(out); c <- cases(cs)) yield S.Passes(i, o, c))
+      case Division(a, b) if jvmDivision && isIntegral(a) =>
         scala.Some(for (x <- expr(a); y <- expr(b)) yield S.JVMDivision(x, y))
-      case Remainder(a, b) if jvmDivision && a.getType == IntegerType() =>
+      case Remainder(a, b) if jvmDivision && isIntegral(a) =>
         scala.Some(for (x <- expr(a); y <- expr(b)) yield S.JVMRemainder(x, y))
-      // Stainless's `error` and `???` are checked unreachable, which this fragment doesn't cover yet.
-      case _: Error | _: Choose | _: NoTree => scala.Some(scala.None)
-      case Annotated(b, _) => scala.Some(expr(b))
-      case Decreases(_, b) => scala.Some(expr(b))
+      case JVMShiftLeft(a, b) => scala.Some(for (x <- expr(a); y <- expr(b)) yield S.JVMShiftLeft(x, y))
+      case JVMAShiftRight(a, b) => scala.Some(for (x <- expr(a); y <- expr(b)) yield S.JVMAShiftRight(x, y))
+      case JVMLShiftRight(a, b) => scala.Some(for (x <- expr(a); y <- expr(b)) yield S.JVMLShiftRight(x, y))
+      case NoTree(_) => scala.Some(scala.Some(S.NoTree()))
+      case c @ Choose(res, pred) =>
+        // The type arguments of the uninterpreted function that `InoxEncoder` makes of it
+        val tps = current match {
+          case scala.Some(fd) if fd.fullBody eq c => fd.tparams.map(_.tp)
+          case _ => exprOps.chooseCall(c).tps
+        }
+        scala.Some(for (ts <- all(tps.map(tpe)); t <- tpe(res.tpe); p <- expr(pred)) yield S.Choose(res.id, ts, t, p))
+      case Annotated(b, _) => scala.Some(expr(b).map(S.Annotated(_)))
+      case Decreases(_, b) => scala.Some(expr(b).map(S.Decreases(_)))
+      case FiniteArray(elems, _) => scala.Some(all(elems.map(expr)).map(S.FiniteArray(_)))
+      case LargeArray(elems, d, size, _) =>
+        val entries = all(elems.toSeq.sortBy(_._1).map { case (i, v) => expr(v).map(S.ArrayEntry(BigInt(i), _)) })
+        scala.Some(for (es <- entries; x <- expr(d); n <- expr(size)) yield S.LargeArray(es, x, n))
+      case ArraySelect(a, i) => scala.Some(for (x <- expr(a); y <- expr(i)) yield S.ArraySelect(x, y))
+      case ArrayUpdated(a, i, v) =>
+        scala.Some(for (x <- expr(a); y <- expr(i); z <- expr(v)) yield S.ArrayUpdated(x, y, z))
+      case ArrayLength(a) => scala.Some(expr(a).map(S.ArrayLength(_)))
+      case Max(es) => scala.Some(all(es.map(expr)).map(S.Max(_)))
+      case SizedADT(id, tps, args, size) =>
+        scala.Some(for (ts <- all(tps.map(tpe)); as <- all(args.map(expr)); n <- expr(size)) yield S.SizedADT(id, ts, as, n))
       case _ => scala.None
     }
   }
@@ -183,7 +261,8 @@ class EncoderSemanticsSuite extends AnyFunSuite with InputUtils {
     def closures_equal(P: S.Program, f: S.Value, g: S.Value): Boolean = throw Unsupported()
   }
 
-  /** Values equal up to closures, whose bodies the encoder changes. */
+  /** Values equal up to closures, whose bodies the encoder changes, and arrays, which the encoder
+    * makes values of a sort with a map from indices to elements and a size. */
   private def same(a: S.Result[S.Value], b: S.Result[S.Value]): Boolean = (a, b) match {
     case (S.Ok(x), S.Ok(y)) => sameValue(x, y)
     case _ => a == b
@@ -193,6 +272,12 @@ class EncoderSemanticsSuite extends AnyFunSuite with InputUtils {
     case (_: S.ClosureV, _: S.ClosureV) => true
     case (S.TupleV(xs), S.TupleV(ys)) => sameValues(xs, ys)
     case (S.ADTV(c, xs), S.ADTV(d, ys)) => c == d && sameValues(xs, ys)
+    case (S.ArrayV(xs), S.ADTV(_, S.Cons(S.MapV(entries, d), S.Cons(S.BVV(true, 32, n), S.Nil())))) =>
+      val elems = seq(xs)
+      def at(i: Int): S.Value = seq(entries).collectFirst {
+        case S.MapEntry(S.BVV(true, 32, k), v) if k == BigInt(i) => v
+      }.getOrElse(d)
+      elems.size == n && elems.indices.forall(i => sameValue(elems(i), at(i)))
     case _ => a == b
   }
 
@@ -210,6 +295,9 @@ class EncoderSemanticsSuite extends AnyFunSuite with InputUtils {
       case BVType(s, w) =>
         val v = Seq(BigInt(0), BigInt(1), BigInt(-1), BigInt(7), BigInt(-100))(rnd.nextInt(5))
         scala.Some(BVLiteral(s, if (s) v else v.abs, w))
+      case ArrayType(base) =>
+        val vs = Seq.fill(rnd.nextInt(4))(value(base, depth - 1, rnd))
+        if (vs.forall(_.isDefined)) scala.Some(FiniteArray(vs.flatten, base)) else scala.None
       case TupleType(ts) =>
         val vs = ts.map(value(_, depth - 1, rnd))
         if (vs.forall(_.isDefined)) scala.Some(Tuple(vs.flatten)) else scala.None
@@ -317,6 +405,100 @@ class EncoderSemanticsSuite extends AnyFunSuite with InputUtils {
 
   test("InoxEncoder preserves the meaning of integer division, matches and contracts") {
     val (summary, failures) = compare(Seq(sampleFile), 1)
+    info(summary)
+    assert(failures.isEmpty, failures.distinct.take(10).mkString("\n"))
+    assert(summary.contains(" agree, ") && !summary.contains(" 0 where Stainless is stuck"), summary)
+  }
+
+  /** Arrays, the JVM's shifts and division on bit-vectors, extractors, alternative patterns,
+    * `passes`, and chooses. */
+  private val features = """|import stainless.lang._
+                            |
+                            |object Features {
+                            |  sealed abstract class Tree
+                            |  case class Leaf(v: BigInt) extends Tree
+                            |  case class Node(l: Tree, r: Tree) extends Tree
+                            |
+                            |  object Pos {
+                            |    def unapply(x: BigInt): Option[BigInt] = if (x > 0) Some(x) else None()
+                            |  }
+                            |
+                            |  object Halves {
+                            |    def unapply(x: BigInt): Option[(BigInt, BigInt)] =
+                            |      if (x % 2 == 0) Some((x / 2, x / 2)) else None()
+                            |  }
+                            |
+                            |  def sign(x: BigInt): BigInt = x match {
+                            |    case Pos(p) => 1
+                            |    case _ => -1
+                            |  }
+                            |
+                            |  def half(x: BigInt): BigInt = x match {
+                            |    case Halves(a, b) => a + b
+                            |    case _ => x
+                            |  }
+                            |
+                            |  def small(x: BigInt): Boolean = x match {
+                            |    case 0 | 1 | 2 => true
+                            |    case _ => false
+                            |  }
+                            |
+                            |  def shallow(t: Tree): Boolean = t match {
+                            |    case Leaf(_) | Node(Leaf(_), Leaf(_)) => true
+                            |    case _ => false
+                            |  }
+                            |
+                            |  def first(a: Array[Int]): Int = {
+                            |    require(a.length > 0)
+                            |    a(0)
+                            |  }
+                            |
+                            |  def last(a: Array[Int]): Int = {
+                            |    require(a.length > 0)
+                            |    a(a.length - 1)
+                            |  }
+                            |
+                            |  def outOfBounds(a: Array[Int]): Int = a(2)
+                            |
+                            |  def updated(a: Array[Int], v: Int): Array[Int] = {
+                            |    require(a.length > 1)
+                            |    a.updated(1, v)
+                            |  }
+                            |
+                            |  def filled(n: Int): Array[Int] = {
+                            |    require(0 <= n && n <= 5)
+                            |    Array.fill(n)(7)
+                            |  }
+                            |
+                            |  def literal(x: Int): Array[Int] = Array(x, x + 1, 3)
+                            |
+                            |  def size(a: Array[BigInt]): Int = a.length
+                            |
+                            |  def shifts(x: Int, y: Int): Int = (x << y) ^ (x >> y) ^ (x >>> y)
+                            |
+                            |  def longShift(x: Long, y: Long): Long = (x << y) + (x >>> y)
+                            |
+                            |  def intDiv(x: Int, y: Int): Int = {
+                            |    require(y != 0)
+                            |    x / y + x % y
+                            |  }
+                            |
+                            |  def unguardedDiv(x: Int, y: Int): Int = x / y
+                            |
+                            |  def chosen(x: BigInt): BigInt = choose((y: BigInt) => y > x)
+                            |
+                            |  def passing(x: BigInt, y: BigInt): Boolean = (x, y) passes {
+                            |    case z if z < 0 => BigInt(0)
+                            |    case z if z < 3 => z + 1
+                            |  }
+                            |}
+                            |""".stripMargin
+
+  test("InoxEncoder preserves the meaning of arrays, shifts, extractors and alternatives") {
+    val f = File.createTempFile("Features", ".scala")
+    f.deleteOnExit()
+    Files.writeString(f.toPath, features)
+    val (summary, failures) = compare(Seq(f.getAbsolutePath), 2)
     info(summary)
     assert(failures.isEmpty, failures.distinct.take(10).mkString("\n"))
     assert(summary.contains(" agree, ") && !summary.contains(" 0 where Stainless is stuck"), summary)
