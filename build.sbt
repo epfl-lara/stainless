@@ -326,6 +326,26 @@ lazy val `stainless-dotty` = (project in file("frontends/dotty"))
   .dependsOn(inox % "test->test;it->test,it")
   .configs(IntegrationTest)
 
+/** The semantics of Stainless's trees, in `proofs`: `semantics.md` extends Inox's
+ *  (`inox/proofs/semantics.md`), and `sbt stainless-proofs/run` generates its Scala evaluator. Its
+ *  tests check the extraction against it. It is a build-time tool, so it is not published.
+ */
+lazy val `stainless-proofs` = (project in file("proofs"))
+  .disablePlugins(AssemblyPlugin)
+  .settings(commonSettings, noPublishSettings)
+  .settings(
+    // As in stainless-dotty, whose test utilities it uses.
+    scalacOptions += "-language:experimental.qualifiedTypes",
+    // Paths are relative to `proofs`. The evaluators recurse deeply.
+    fork := true,
+    Test / javaOptions ++= Seq("-Xss256M", "-Xms1024M"),
+    // `-Dsemantics-files=a.scala,b.scala` and `-Dsemantics-inputs=N` set what the tests run on
+    Test / javaOptions ++= sys.props.toSeq.collect { case (k, v) if k.startsWith("semantics-") => s"-D$k=$v" },
+    Compile / run / mainClass := Some("stainless.semantics.Codegen"),
+  )
+  .dependsOn(`stainless-dotty` % "compile->compile;test->test")
+  .dependsOn(ProjectRef(file("./inox"), "proofs"))
+
 lazy val `stainless-dotty-plugin` = (project in file("frontends") / "stainless-dotty-plugin")
   .settings(artifactSettings, publishMavenSettings, assemblySettings)
   .settings(
