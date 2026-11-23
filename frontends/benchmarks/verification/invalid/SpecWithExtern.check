@@ -1,3 +1,4 @@
 11:7;randomBetween;postcondition;valid
+14:22;randomBetween;extern postcondition satisfiability;valid
 17:7;wrongProp;postcondition;invalid
 18:5;wrongProp;precondition;valid

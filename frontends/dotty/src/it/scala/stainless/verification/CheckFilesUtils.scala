@@ -242,6 +242,7 @@ object CheckFilesUtils {
         case "recursive types indices checks for subtyping" => Right(VCKind.RecursiveSubtype)
         case "coq function" => Right(VCKind.CoqMethod)
         case "precondition satisfiability" => Right(VCKind.SATPrecondCheck)
+        case "extern postcondition satisfiability" => Right(VCKind.ExternPostconditionSat)
         case _ =>
           if (vc.startsWith(bodyAssertion)) Right(VCKind.AssertErr(vc.drop(bodyAssertion.length).trim))
           else if (vc.startsWith(err)) Right(VCKind.Error(vc.drop(err.length).trim))

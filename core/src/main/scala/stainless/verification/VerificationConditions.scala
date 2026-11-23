@@ -35,6 +35,12 @@ sealed abstract class VCKind(val name: String, val abbrv: String) {
   override def toString = name
   def underlying = this
 
+  /** Satisfiability checks are encoded as `cond ==> false` and are valid when `cond` is satisfiable. */
+  def isSatisfiabilityCheck: Boolean = underlying match {
+    case VCKind.SATPrecondCheck | VCKind.ExternPostconditionSat => true
+    case _ => false
+  }
+
   def isMeasureRelated: Boolean = this match {
     case VCKind.MeasureDecreases | VCKind.MeasurePositive | VCKind.MeasureMissing => true
     case _ => false
@@ -74,6 +80,7 @@ object VCKind {
   case class  Error(err: String)            extends VCKind(s"error: $err", "error")
   case class  AdtInvariant(inv: Identifier) extends VCKind(s"class invariant: ${inv.name}", "class inv.")
   case object SATPrecondCheck               extends VCKind("precondition satisfiability", "sat precond.")
+  case object ExternPostconditionSat        extends VCKind("extern postcondition satisfiability", "sat extern post.")
 
   def fromErr(optErr: Option[String]) = {
     optErr.map { err =>
