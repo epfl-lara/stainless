@@ -593,8 +593,7 @@ class CodeExtraction(inoxCtx: inox.Context,
     val flags = annots ++
       (if (isValueClass) Some(xt.ValueClass) else None) ++
       (if (isAbstractClass) Some(xt.IsAbstract) else None) ++
-      // Concrete classes that Scala lets be extended (see `xlang.ConcreteParents`)
-      (if (!isAbstractClass && !(sym `is` Final) && !(sym `is` ModuleClass)) Some(xt.IsExtensible) else None) ++
+      (if (isExtensible(sym)) Some(xt.IsExtensible) else None) ++
       (if (sym `is` Sealed) Some(xt.IsSealed) else None) ++
       (if ((sym `is` ModuleClass) && (sym `is` Case)) Some(xt.IsCaseObject) else None) ++
       (if (sym `is` ModuleClass) Some(xt.IsObject) else None) ++
@@ -961,12 +960,19 @@ class CodeExtraction(inoxCtx: inox.Context,
     }
   }
 
+  // Concrete classes that Scala lets be extended (see `xlang.ConcreteParents`)
+  private def isExtensible(cls: Symbol): Boolean =
+    cls.isClass && !(cls `isOneOf` AbstractOrTrait) && !(cls `is` Final) && !(cls `is` ModuleClass)
+
   private def commonFunctionFlags(sym: Symbol, isAbstract: Boolean): Seq[xt.Flag] = {
+    // Subclasses override the accessors of the fields of extensible classes with the arguments they pass to
+    // their constructors, so these accessors aren't final (`xlang.ConcreteParents` adds the flag back)
+    val isFinal = sym.isEffectivelyFinal && !((sym `is` ParamAccessor) && isExtensible(sym.owner))
     var flags = annotationsOf(sym).filterNot(annot => annot == xt.IsMutable || annot.name == "inlineInvariant") ++
       (if ((sym `is` Implicit) && (sym `is` Synthetic)) Seq(xt.Inline, xt.Synthetic) else Seq()) ++
       (if (sym `is` Inline) Seq(xt.Inline) else Seq()) ++
       (if (sym `is` Private) Seq(xt.Private) else Seq()) ++
-      (if (sym.isEffectivelyFinal) Seq(xt.Final) else Seq()) ++
+      (if (isFinal) Seq(xt.Final) else Seq()) ++
       (if (isDefaultGetter(sym) || isCopyMethod(sym)) Seq(xt.Synthetic, xt.Inline) else Seq())
 
     if (sym.name == nme.unapply) {

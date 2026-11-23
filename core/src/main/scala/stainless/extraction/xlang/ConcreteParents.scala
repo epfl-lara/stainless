@@ -13,7 +13,8 @@ import scala.collection.mutable.{Map => MutableMap}
  *  This phase drops the flag from the classes that stay concrete, and [[oo.AdtSpecialization]] drops it from
  *  the extended classes, which this phase makes abstract. The frontend also extracts the arguments that a class passes to the constructor of a concrete parent as
  *  overrides of the accessors of the parent's fields, flagged with [[IsParentArgument]] (see
- *  `extractParentArguments` in the frontend). For example,
+ *  `extractParentArguments` in the frontend), so it doesn't mark these accessors as final. This phase marks
+ *  them as final in the classes that stay concrete. For example,
  *
  * {{{
  * class C(val x: BigInt) { def m: BigInt = x + 1 }
@@ -193,11 +194,22 @@ class ConcreteParents(override val s: Trees)(override val t: s.type)
     }
 
     // The classes that stay concrete are no longer extensible
+    def staysConcrete(id: Identifier, flags: Seq[Flag]): Boolean =
+      flags.contains(IsExtensible) && !extended(id) && !localExtended(id)
+
     def concreteFlags(id: Identifier, flags: Seq[Flag]): Seq[Flag] =
-      if (extended(id) || localExtended(id)) flags else flags.filterNot(_ == IsExtensible)
+      if (staysConcrete(id, flags)) flags.filterNot(_ == IsExtensible) else flags
+
+    // The frontend doesn't mark the accessors of the fields of extensible classes as final, as the arguments
+    // to the constructors of their subclasses override them. They are final if their class stays concrete.
+    def methodFlags(fd: FunDef, cid: Identifier, cflags: Seq[Flag], fields: Seq[ValDef]): Seq[Flag] = {
+      val flags = fd.flags.filterNot(_ == IsParentArgument)
+      val isFieldAccessor = fd.flags.exists { case IsAccessor(Some(fid)) => fields.exists(_.id == fid) case _ => false }
+      if (isFieldAccessor && staysConcrete(cid, cflags)) (flags :+ Final).distinct else flags
+    }
 
     def stripLocal(lcd: LocalClassDef): LocalClassDef = lcd.copy(
-      methods = lcd.methods.map(fd => fd.copy(flags = fd.flags.filterNot(_ == IsParentArgument)).copiedFrom(fd)),
+      methods = lcd.methods.map(md => md.copy(flags = methodFlags(md.toFunDef, lcd.id, lcd.flags, lcd.fields)).copiedFrom(md)),
       flags = concreteFlags(lcd.id, lcd.flags)
     ).copiedFrom(lcd)
 
@@ -262,7 +274,10 @@ class ConcreteParents(override val s: Trees)(override val t: s.type)
       fd.copy(fullBody = NoTree(fd.returnType).copiedFrom(fd), flags = abstractFlags(fd.flags)).copiedFrom(fd)
 
     val functions = symbols.functions.values.toSeq.map { fd =>
-      val fd1 = fd.copy(flags = fd.flags.filterNot(_ == IsParentArgument))
+      val fd1 = fd.getClassId.map(symbols.getClass) match {
+        case Some(cd) => fd.copy(flags = methodFlags(fd, cd.id, cd.flags, cd.fields))
+        case None => fd
+      }
       val accessorOf = fd.flags.collectFirst { case IsAccessor(Some(fid)) if accessors.get(fid).exists(_.id == fd.id) => fid }
       transformer.transform(if (accessorOf.isDefined) abstractAccessor(fd1) else fd1)
     }
