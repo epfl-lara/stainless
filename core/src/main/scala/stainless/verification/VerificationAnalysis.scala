@@ -23,7 +23,8 @@ trait VerificationAnalysis extends AbstractAnalysis {
     val status = VerificationReport.Status(program)(vr.status)
     val source = symbols.getFunction(vc.fid).source
     val smtFileId = vr.smtLibFileId
-    VerificationReport.Record(vc.fid, vc.getPos, time, status, vr.solverName, vc.kind.name, derivedFrom = source, smtId = smtFileId)
+    VerificationReport.Record(vc.fid, vc.getPos, time, status, vr.solverName, vc.kind.name, derivedFrom = source, smtId = smtFileId,
+      resources = vr.resources.perCheck, resourceUsage = vr.resources.usage)
   }
 
   override val name = VerificationComponent.name

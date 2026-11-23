@@ -102,7 +102,7 @@ trait VerificationCache extends VerificationChecker { self =>
     // Update the result with the correct processing time
     tryResult match {
       case Failure(e) => reporter.internalError(e)
-      case Success(VCResult(status, solver, _, smtLibFileId)) => VCResult(status, solver, Some(time), smtLibFileId)
+      case Success(result) => result.copy(time = Some(time))
     }
   }
 }
