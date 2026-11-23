@@ -12,8 +12,6 @@ package object xlang {
       typeDefs: Map[Identifier, TypeDef],
     ) extends ClassSymbols with InnerClassesAbstractSymbols with xlang.SymbolOps with xlang.DependencyGraph {
       override val symbols: this.type = this
-
-      override protected def extendsConcreteClasses: Boolean = true
     }
 
     override def mkSymbols(

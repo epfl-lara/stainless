@@ -9,7 +9,8 @@ import scala.collection.mutable.{Map => MutableMap}
 
 /** Encodes the extension of concrete classes, as later phases only let abstract classes be extended.
  *
- *  The frontend extracts the arguments that a class passes to the constructor of a concrete parent as
+ *  The frontend flags the concrete classes that may be extended, which aren't final, with [[IsExtensible]],
+ *  and this phase removes the flag. The frontend also extracts the arguments that a class passes to the constructor of a concrete parent as
  *  overrides of the accessors of the parent's fields, with the `@parentArgument` annotation (see
  *  `extractParentArguments` in the frontend). For example,
  *
@@ -22,7 +23,7 @@ import scala.collection.mutable.{Map => MutableMap}
  *  is extracted as
  *
  * {{{
- * class C(x: BigInt) { def x: BigInt = this.x; def m: BigInt = this.x + 1 } // `x` is a field and its accessor
+ * @extensible class C(x: BigInt) { def x: BigInt = this.x; def m: BigInt = this.x + 1 } // `x` is a field and its accessor
  * case class D(y: BigInt) extends C { @parentArgument override def x: BigInt = this.y * 2; override def m: BigInt = y }
  * def test = new C(5).x + D(3).x
  * }}}
@@ -63,6 +64,8 @@ class ConcreteParents(override val s: Trees)(override val t: s.type)
     case _ => false
   }
 
+  private def stripFlags(cd: ClassDef): ClassDef = cd.copy(flags = cd.flags.filterNot(_ == IsExtensible)).copiedFrom(cd)
+
   override def extract(symbols: s.Symbols): (t.Symbols, ExtractionSummary) = {
     given s.Symbols = symbols
 
@@ -90,11 +93,6 @@ class ConcreteParents(override val s: Trees)(override val t: s.type)
       .flatMap(_.parents.collect { case ct: ClassType => ct.id case lct: LocalClassType => lct.id })
       .filter(id => localClasses.get(id).exists(!_.flags.contains(IsAbstract)))
       .toSet
-
-    if (extended.isEmpty && localExtended.isEmpty) {
-      val functions = symbols.functions.values.map(fd => fd.copy(flags = fd.flags.filterNot(isParentArgument)))
-      return (symbols.withFunctions(functions.toSeq), ExtractionSummary.NoSummary)
-    }
 
     def checkFields(id: Identifier, fields: Seq[ValDef]): Unit =
       fields.find(_.flags.contains(IsVar)).foreach { vd =>
@@ -152,7 +150,7 @@ class ConcreteParents(override val s: Trees)(override val t: s.type)
     } ++ Seq(IsAbstract, IsAccessor(None))).distinct
 
     def plainFlags(flags: Seq[Flag]): Seq[Flag] = (flags.filter {
-      case IsSealed | IsAbstract => false
+      case IsSealed | IsAbstract | IsExtensible => false
       case _ => true
     } :+ Synthetic).distinct
 
@@ -200,8 +198,10 @@ class ConcreteParents(override val s: Trees)(override val t: s.type)
       Seq(abstractLcd, plainLcd)
     }
 
-    def stripLocal(lcd: LocalClassDef): LocalClassDef =
-      lcd.copy(methods = lcd.methods.map(fd => fd.copy(flags = fd.flags.filterNot(isParentArgument)).copiedFrom(fd))).copiedFrom(lcd)
+    def stripLocal(lcd: LocalClassDef): LocalClassDef = lcd.copy(
+      methods = lcd.methods.map(fd => fd.copy(flags = fd.flags.filterNot(isParentArgument)).copiedFrom(fd)),
+      flags = lcd.flags.filterNot(_ == IsExtensible)
+    ).copiedFrom(lcd)
 
     object transformer extends ConcreteOOSelfTreeTransformer(self.s, self.s) {
       override def transform(e: Expr): Expr = e match {
@@ -269,7 +269,7 @@ class ConcreteParents(override val s: Trees)(override val t: s.type)
       transformer.transform(if (accessorOf.isDefined) abstractAccessor(fd1) else fd1)
     }
 
-    val classes = symbols.classes.values.toSeq.map { cd =>
+    val classes = symbols.classes.values.toSeq.map(stripFlags).map { cd =>
       if (!extended(cd.id)) transformer.transform(cd)
       else transformer.transform(cd.copy(fields = Seq.empty, flags = (cd.flags :+ IsAbstract).distinct).copiedFrom(cd))
     }
