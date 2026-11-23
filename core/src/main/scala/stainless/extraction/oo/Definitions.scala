@@ -320,7 +320,7 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
 
   case object IsInvariant extends Flag("invariant", Seq.empty)
   case object IsAbstract extends Flag("abstract", Seq.empty)
-  /** A concrete class that may be extended, until [[xlang.ConcreteParents]] makes the extended ones abstract. */
+  /** A concrete class that may be extended (see [[xlang.ConcreteParents]]). */
   case object IsExtensible extends Flag("extensible", Seq.empty)
   case object IsSealed extends Flag("sealed", Seq.empty)
   case object IsCaseObject extends Flag("caseObject", Seq.empty)

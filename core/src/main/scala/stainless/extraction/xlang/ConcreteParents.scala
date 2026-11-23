@@ -9,8 +9,9 @@ import scala.collection.mutable.{Map => MutableMap}
 
 /** Encodes the extension of concrete classes, as later phases only let abstract classes be extended.
  *
- *  The frontend flags the concrete classes that may be extended, which aren't final, with [[IsExtensible]],
- *  and this phase removes the flag. The frontend also extracts the arguments that a class passes to the constructor of a concrete parent as
+ *  The frontend flags the concrete classes that may be extended, which aren't final, with [[IsExtensible]].
+ *  This phase drops the flag from the classes that stay concrete, and [[oo.AdtSpecialization]] drops it from
+ *  the extended classes, which this phase makes abstract. The frontend also extracts the arguments that a class passes to the constructor of a concrete parent as
  *  overrides of the accessors of the parent's fields, with the `@parentArgument` annotation (see
  *  `extractParentArguments` in the frontend). For example,
  *
@@ -29,7 +30,7 @@ import scala.collection.mutable.{Map => MutableMap}
  * }}}
  *
  *  This phase makes each extended concrete class `C` abstract, with abstract accessors for its fields. It
- *  moves the fields to a new subclass of `C`, also named `C`, which stands for the instances of `C` that
+ *  moves the fields to a new final subclass of `C`, also named `C`, which stands for the instances of `C` that
  *  are not instances of its subclasses, and constructs it in place of `C`:
  *
  * {{{
@@ -63,8 +64,6 @@ class ConcreteParents(override val s: Trees)(override val t: s.type)
     case Annotation("parentArgument", Seq()) => true
     case _ => false
   }
-
-  private def stripFlags(cd: ClassDef): ClassDef = cd.copy(flags = cd.flags.filterNot(_ == IsExtensible)).copiedFrom(cd)
 
   override def extract(symbols: s.Symbols): (t.Symbols, ExtractionSummary) = {
     given s.Symbols = symbols
@@ -198,9 +197,13 @@ class ConcreteParents(override val s: Trees)(override val t: s.type)
       Seq(abstractLcd, plainLcd)
     }
 
+    // The classes that stay concrete are no longer extensible
+    def concreteFlags(id: Identifier, flags: Seq[Flag]): Seq[Flag] =
+      if (extended(id) || localExtended(id)) flags else flags.filterNot(_ == IsExtensible)
+
     def stripLocal(lcd: LocalClassDef): LocalClassDef = lcd.copy(
       methods = lcd.methods.map(fd => fd.copy(flags = fd.flags.filterNot(isParentArgument)).copiedFrom(fd)),
-      flags = lcd.flags.filterNot(_ == IsExtensible)
+      flags = concreteFlags(lcd.id, lcd.flags)
     ).copiedFrom(lcd)
 
     object transformer extends ConcreteOOSelfTreeTransformer(self.s, self.s) {
@@ -269,7 +272,7 @@ class ConcreteParents(override val s: Trees)(override val t: s.type)
       transformer.transform(if (accessorOf.isDefined) abstractAccessor(fd1) else fd1)
     }
 
-    val classes = symbols.classes.values.toSeq.map(stripFlags).map { cd =>
+    val classes = symbols.classes.values.toSeq.map(cd => cd.copy(flags = concreteFlags(cd.id, cd.flags)).copiedFrom(cd)).map { cd =>
       if (!extended(cd.id)) transformer.transform(cd)
       else transformer.transform(cd.copy(fields = Seq.empty, flags = (cd.flags :+ IsAbstract).distinct).copiedFrom(cd))
     }
