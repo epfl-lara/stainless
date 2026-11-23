@@ -3,7 +3,7 @@ package stainless
 package extraction
 package methods
 
-import inox.utils.Position
+import inox.utils.{NoPosition, Position}
 
 class MethodLifting(override val s: Trees, override val t: oo.Trees)
                    (using override val context: inox.Context)
@@ -306,7 +306,15 @@ class MethodLifting(override val s: Trees, override val t: oo.Trees)
         }
 
         val expectedType = s.typeOps.instantiateType(fd.returnType, tpMap)
-        (t.IsInstanceOf(arg.toVariable, descType).copiedFrom(arg), wrap(expr, tpe, expectedType))
+        val res = wrap(expr, tpe, expectedType)
+        // The library is assumed verified, and has no positions, so the VCs of dispatching from it are
+        // reported only for user overrides, at the override
+        if (fd.isLibrary && (nfd.isLibrary || descendant.cd.isLibrary)) {
+          (t.IsInstanceOf(arg.toVariable, descType).copiedFrom(arg), unchecked(res))
+        } else {
+          if (fd.getPos == NoPosition) t.exprOps.preTraversal(e => if (e.getPos == NoPosition) e.setPos(nfd.getPos))(res)
+          (t.IsInstanceOf(arg.toVariable, descType).copiedFrom(arg), res)
+        }
       }
     }).flatten
 
