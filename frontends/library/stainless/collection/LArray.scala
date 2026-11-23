@@ -7,299 +7,145 @@ import scala.reflect.ClassTag
 import stainless.lang.{ghost => ghostExpr, *}
 import stainless.annotation.*
 import stainless.collection.{List, Cons, Nil}
-import stainless.proof.check
 import stainless.lang.StaticChecks.*
 
+/** A mutable array, backed by a native `Array` at runtime, whose specification is a `List`.
+  */
 @library
 @mutable
-case class LArray[T](private val data: Array[T], @ghost private var toList: List[T]) {
-  
-  @ghost def valid: Boolean = LArrayUtils.sameArrayListContent(data, 0, toList)
+case class LArray[T](private val data: Array[T]) {
 
-  @ghost def getList: List[T] = toList
+  /** The abstraction of this array: its elements, in order. */
+  @ghost @pure
+  def toList(): List[T] = LArrayUtils.arrayToList(data, 0)
 
   def size: BigInt = {
-    require(valid)
-    ghostExpr(LArrayUtils.lemmaSameArrayListContentImpliesSameLength(data, 0, toList))
-    ghostExpr(LArrayUtils.lemmaToIntBigIntConversionBothDirections(toList.size, data.length))
-    assert(BigInt(data.length) == toList.size)
     BigInt(data.length)
-  }.ensuring(res => valid && res == toList.size && res >= 0 && res <= BigInt(Int.MaxValue) && res.toInt == data.length)
+  }.ensuring(res => res == toList().size && 0 <= res && res <= BigInt(Int.MaxValue) && res.toInt == data.length)
 
   def isize: Int = {
-    require(valid)
-    ghostExpr({
-      assert(size <= BigInt(Int.MaxValue))
-      assert(toList.size.toInt == size.toInt)
-      assert(toList.size == size)
-    })
     data.length
-  }.ensuring(res => valid && res == size.toInt && res >= 0 && res <= Int.MaxValue)
+  }.ensuring(res => res == size.toInt && BigInt(res) == size && 0 <= res)
 
   def apply(i: BigInt): T = {
-    require(valid)
-    require(i >= 0 && i < size)
+    require(0 <= i && i < size)
     ghostExpr({
-      LArrayUtils.lemmaSameArrayListContentImpliesSameLength(data, 0, toList)
-      LArrayUtils.lemmaToIntBigIntConversionBothDirections(toList.size, data.length)
-      LArrayUtils.compareBigIntPreservedByToInt(i, size)
-      assert(size <= BigInt(Int.MaxValue))
-      assert(BigInt(i.toInt) == i)
-      assert(i.toInt >= 0 && i.toInt < data.length)
-      LArrayUtils.lemmaSameArrayListContentImpliesSameApply(data, 0, toList, i.toInt)
-      LArrayUtils.compareBigIntPreservedByToInt(i, size)
       LArrayUtils.lemmaConversionBackForth(i)
-      assert(size == toList.size)
-      assert(0 <= i && i < toList.size)
+      LArrayUtils.lemmaToIntBigIntConversionBothDirections(i, data.length)
+      LArrayUtils.lemmaArrayToListApply(data, 0, i.toInt)
     })
     data(i.toInt)
-  }.ensuring(res => valid && res == toList(i))
+  }.ensuring(res => res == toList()(i))
 
   def apply(i: Int): T = {
-    require(valid)
-    require(i >= 0 && i < isize)
-    ghostExpr({
-      assert(size <= BigInt(Int.MaxValue))
-      assert(i >= 0 && i < data.length)
-      assert(BigInt(i).toInt == i)
-      LArrayUtils.compareIntPreservedByToBigInt(i, size.toInt)
-      LArrayUtils.compareBigIntPreservedByToInt(BigInt(i), size)
-      assert(apply(BigInt(i)) == data(i))
-    })
+    require(0 <= i && i < isize)
+    ghostExpr(LArrayUtils.lemmaArrayToListApply(data, 0, i))
     data(i)
-  }.ensuring(res => valid && {
-      LArrayUtils.compareBigIntPreservedByToInt(BigInt(i), size)
-      res == apply(BigInt(i))
-    })
+  }.ensuring(res => res == toList()(BigInt(i)))
 
   def update(i: BigInt, v: T): Unit = {
-    require(valid)
-    require(i >= 0 && i < size)
-    ghostExpr({LArrayUtils.lemmaSameArrayListContentImpliesSameLength(data, 0, toList)
-      LArrayUtils.compareBigIntPreservedByToInt(i, size)
-      val vsize: BigInt = size
-      assert(vsize >= 0 && vsize <= BigInt(Int.MaxValue))
-      assert(vsize.toInt == isize)
-      assert(vsize.toInt == data.length)
-      assert(data.length == vsize.toInt)
-      assert(BigInt(i.toInt) == i)
-      assert(LArrayUtils.sameArrayListContent(data, 0, toList))
-      LArrayUtils.lemmaSameArrayListContentPreservedByUpdated(data, 0, toList, i.toInt, v)
-      LArrayUtils.lemmaSameArrayListContentImpliesSameLength(data, 0, toList)
-      LArrayUtils.lemmaToIntBigIntConversionBothDirections(toList.size, data.length)
-      assert(Int.MinValue <= i && i <= Int.MaxValue && Int.MinValue <= vsize && vsize <= Int.MaxValue)
-      unfold(size)
-      LArrayUtils.compareBigIntPreservedByToInt(i, vsize)
-      toList = toList.updated(i, v)
+    require(0 <= i && i < size)
+    ghostExpr({
+      LArrayUtils.lemmaConversionBackForth(i)
+      LArrayUtils.lemmaToIntBigIntConversionBothDirections(i, data.length)
+      LArrayUtils.lemmaArrayToListUpdated(data, 0, i.toInt, v)
     })
-
     data(i.toInt) = v
-  }.ensuring(_ => valid && old(this).toList.updated(i, v) == toList)
+  }.ensuring(_ => toList() == old(this).toList().updated(i, v))
 
   def update(i: Int, v: T): Unit = {
-    require(valid)
-    require(i >= 0 && i < isize)
-    ghostExpr({LArrayUtils.lemmaSameArrayListContentImpliesSameLength(data, 0, toList)
-      assert(BigInt(i).toInt == i)
-      LArrayUtils.sameArrayListContent(data, 0, toList)
-      LArrayUtils.lemmaSameArrayListContentPreservedByUpdated(data, 0, toList, i, v)
-      LArrayUtils.lemmaSameArrayListContentImpliesSameLength(data, 0, toList)
-      LArrayUtils.lemmaToIntBigIntConversionBothDirections(toList.size, data.length)
-      unfold(size)
-      toList = toList.updated(BigInt(i), v)
-    })
-
+    require(0 <= i && i < isize)
+    ghostExpr(LArrayUtils.lemmaArrayToListUpdated(data, 0, i, v))
     data(i) = v
-  }.ensuring(_ => valid && old(this).toList.updated(BigInt(i), v) == toList)
+  }.ensuring(_ => toList() == old(this).toList().updated(BigInt(i), v))
 }
 
 @library
 object LArray {
   def apply[T: ClassTag](size: BigInt, default: T): LArray[T] = {
-    require(size >= 0 && size <= BigInt(Int.MaxValue))
-    val arr = Array.fill[T](size.toInt)(default)
-    val list = List.fill(size)(default)
-    ghostExpr({
-      listFillSameContentAsArrayFill(size, default, 0, list, arr)
-      assert(LArrayUtils.sameArrayListContent(arr, 0, list))
-    })
-    LArray(arr, list)
-  }.ensuring(res => res.valid && res.size == size && res.getList == List.fill(size)(default))
+    require(0 <= size && size <= BigInt(Int.MaxValue))
+    ghostExpr(LArrayUtils.lemmaConversionBackForth(size))
+    apply(size.toInt, default)
+  }.ensuring(res => res.size == size && res.toList() == List.fill(size)(default))
 
   def apply[T: ClassTag](size: Int, default: T): LArray[T] = {
-    require(size >= 0)
-    val arr = Array.fill[T](size)(default)
-    val list = List.fill(BigInt(size))(default)
+    require(0 <= size)
+    val res = LArray(Array.fill[T](size)(default))
     ghostExpr({
-      assert(BigInt(size).toInt == size)
-      listFillSameContentAsArrayFill(BigInt(size), default, 0, list, arr)
-      assert(LArrayUtils.sameArrayListContent(arr, 0, list))
+      // before the fill lemma: its facts on `List.fill` make this simple conversion time out
+      assert(res.size == BigInt(size))
+      LArrayUtils.lemmaArrayToListFill(size, default, 0)
     })
-    LArray(arr, list)
-  }.ensuring(res => res.valid && res.size.toInt == size && res.getList == List.fill(BigInt(size))(default))
-
-  @opaque
-  @ghost
-  @inlineOnce
-  def listFillSameContentAsArrayFill[T: ClassTag](size: BigInt, elmt: T, from: BigInt, l: List[T], arr: Array[T]): Unit = {
-    require(size >= 0 && size <= BigInt(Int.MaxValue))
-    require(from >= 0 && from <= size)
-    require(l == List.fill(size - from)(elmt))
-    require(arr == Array.fill[T](size.toInt)(elmt))
-    decreases(l)
-
-    assert(BigInt(from.toInt) == from)
-    assert(BigInt(size.toInt) == size)
-    l match {
-      case Nil() => 
-        check(LArrayUtils.sameArrayListContent(arr, from.toInt, l))
-      case Cons(h, tail) if from == size =>
-        assert(l.isEmpty)
-        check(false)
-        check(LArrayUtils.sameArrayListContent(arr, from.toInt, l))
-      case Cons(h, tail) if from < size =>
-        assert(h == elmt)
-        assert(from + 1 <= size)
-        assert(l.size == 1 + tail.size)
-        assert(tail == List.fill(size - from - 1)(elmt))
-        assert(BigInt(from.toInt) == from)
-        assert(0 <= from && from < size)
-        assert(arr.size == size.toInt)
-        LArrayUtils.compareIntPreservedByToBigInt(from.toInt, size.toInt)
-        assert(0 <= from.toInt && from.toInt < size.toInt)
-        assert(arr(from.toInt) == elmt)
-        listFillSameContentAsArrayFill(size, elmt, from + 1, tail, arr)
-        LArrayUtils.additionIntPreservedByToBigInt(from.toInt, 1)
-        assert((from + 1).toInt == from.toInt + 1)
-        assert(LArrayUtils.sameArrayListContent(arr, from.toInt + 1, tail))
-        check(LArrayUtils.sameArrayListContent(arr, from.toInt, l))
-    }
-    
-
-  }.ensuring(_ => {
-    assert(BigInt(from.toInt) == from)
-    LArrayUtils.sameArrayListContent(arr, from.toInt, l)
-  })
+    res
+  }.ensuring(res => res.isize == size && res.size == BigInt(size) && res.toList() == List.fill(BigInt(size))(default))
 }
 
 @library
 object LArrayUtils {
-  @ghost def sameArrayListContent[T](arr: Array[T], from: Int, list: List[T]): Boolean = {
-    if (from < 0 || from > arr.length) {
-      false
-    } else if (from == arr.length){
-      list == Nil[T]()
-    } else {
-      list match {
-        case Nil() => false
-        case Cons(h, t) =>
-          arr(from) == h && sameArrayListContent(arr, from + 1, t)
-      }
+
+  /** The elements of `arr` from index `from` (included) to its end, in order.
+    *
+    * It is opaque, so that the VCs of the clients of `LArray` do not unroll it; the lemmas below unfold it.
+    */
+  @ghost @pure @opaque
+  def arrayToList[T](arr: Array[T], from: Int): List[T] = {
+    require(0 <= from && from <= arr.length)
+    decreases(arr.length - from)
+    if (from == arr.length) Nil[T]()
+    else {
+      additionIntPreservedByToBigInt(from, 1)
+      Cons(arr(from), arrayToList(arr, from + 1))
     }
-  }.ensuring(res => if res then 0 <= from && from <= arr.length else true)
+  }.ensuring(res => res.size == BigInt(arr.length) - BigInt(from))
 
   @ghost @opaque @inlineOnce
-  def lemmaSameArrayListContentImpliesSameLength[T](arr: Array[T], from: Int, list: List[T]): Unit = {
-    decreases(list)
-    require(sameArrayListContent(arr, from, list))
+  def lemmaArrayToListApply[T](arr: Array[T], from: Int, i: Int): Unit = {
+    require(0 <= from && from <= i && i < arr.length)
+    decreases(i - from)
+    unfold(arrayToList(arr, from))
+    compareIntPreservedByToBigInt(from, i)
+    compareIntPreservedByToBigInt(i, arr.length)
+    additionIntPreservedByToBigInt(from, 1)
+    if (from < i) lemmaArrayToListApply(arr, from + 1, i)
+  }.ensuring(_ => arrayToList(arr, from)(BigInt(i) - BigInt(from)) == arr(i))
 
-    if (from < 0 || from > arr.length) {
-      // false
-      ()
-    } else if (from == arr.length){
-      LArrayUtils.compareIntPreservedByToBigInt(arr.length, from)
-      ()
-    } else {
-      list match {
-        case Nil() => 
-          ()
-        case Cons(h, tail) =>
-          assert((0 <= from && from <= arr.length))
-          lemmaSameArrayListContentImpliesSameLength(arr, from + 1, tail)
-          assert((0 <= from + 1 && from + 1 <= arr.length))
-          assert((arr.length == from + 1 + tail.size.toInt))
-          assert(list.size == tail.size + 1)
-          LArrayUtils.additionIntPreservedByToBigInt(tail.size.toInt, 1)
-          LArrayUtils.lemmaConversionBackForth(tail.size)
-          LArrayUtils.lemmaConversionBackForth(list.size)
-          LArrayUtils.lemmaConversionBackForth(arr.length)
-          assert(1 + tail.size == list.size)
-          LArrayUtils.additionIntPreservedByToInt(1, tail.size, list.size)
-          assert(1 + tail.size.toInt == list.size.toInt)
-          LArrayUtils.compareIntPreservedByToBigInt(arr.length, Int.MaxValue)
-          LArrayUtils.additionIntPreservedByToBigInt(from + 1, tail.size.toInt)
-          LArrayUtils.compareIntPreservedByToBigInt(from + list.size.toInt, from + 1 + tail.size.toInt)
-
-          LArrayUtils.additionIntPreservedByToBigInt(from, 1)
-          assert((0 <= from && from <= arr.length))
-          ()
-      }
+  /** Updating the array before `from` does not change its elements from `from` on. */
+  @ghost @opaque @inlineOnce
+  def lemmaArrayToListUpdatedBefore[T](arr: Array[T], from: Int, i: Int, v: T): Unit = {
+    require(0 <= i && i < from && from <= arr.length)
+    decreases(arr.length - from)
+    unfold(arrayToList(arr, from))
+    unfold(arrayToList(arr.updated(i, v), from))
+    if (from < arr.length) {
+      additionIntPreservedByToBigInt(from, 1)
+      lemmaArrayToListUpdatedBefore(arr, from + 1, i, v)
     }
-  }.ensuring(_ => (0 <= from && from <= arr.length) &&& 
-                  (arr.length == from + list.size.toInt) &&& 
-                  (BigInt(arr.length) == BigInt(from) + list.size))
+  }.ensuring(_ => arrayToList(arr.updated(i, v), from) == arrayToList(arr, from))
 
   @ghost @opaque @inlineOnce
-  def lemmaSameArrayListContentImpliesSameApply[T](arr: Array[T], from: Int, list: List[T], i: Int): Unit = {
-    decreases(list)
-    require(sameArrayListContent(arr, from, list))
-    require(i >= from && i < arr.length)
+  def lemmaArrayToListUpdated[T](arr: Array[T], from: Int, i: Int, v: T): Unit = {
+    require(0 <= from && from <= i && i < arr.length)
+    decreases(i - from)
+    unfold(arrayToList(arr, from))
+    unfold(arrayToList(arr.updated(i, v), from))
+    compareIntPreservedByToBigInt(from, i)
+    compareIntPreservedByToBigInt(i, arr.length)
+    additionIntPreservedByToBigInt(from, 1)
+    if (from < i) lemmaArrayToListUpdated(arr, from + 1, i, v)
+    else lemmaArrayToListUpdatedBefore(arr, from + 1, i, v)
+  }.ensuring(_ => arrayToList(arr.updated(i, v), from) == arrayToList(arr, from).updated(BigInt(i) - BigInt(from), v))
 
-    val j = i - from
-    list match {
-      case Nil() => ()
-      case Cons(h, tail) if (i == from) =>
-        assert(arr(from) == h)
-      case Cons(h, tail) =>
-        assert(i > from)
-        lemmaSameArrayListContentImpliesSameApply(arr, from + 1, tail, i)
-        subtractionIntPreservedByToBigInt(j, 1)
+  @ghost @opaque @inlineOnce
+  def lemmaArrayToListFill[T: ClassTag](n: Int, d: T, from: Int): Unit = {
+    require(0 <= from && from <= n)
+    decreases(n - from)
+    unfold(arrayToList(Array.fill[T](n)(d), from))
+    compareIntPreservedByToBigInt(from, n)
+    if (from < n) {
+      additionIntPreservedByToBigInt(from, 1)
+      lemmaArrayToListFill(n, d, from + 1)
     }
-  }.ensuring(_ => arr(i) == list(BigInt(i - from)))
-
-
-  @opaque @inlineOnce @ghost
-  def lemmaSameArrayListContentPreservedByUpdatedIBeforeFrom[T](arr: Array[T], from: Int, list: List[T], i: Int, v: T): Unit = {
-    require(sameArrayListContent(arr, from, list))
-    require(i >= 0 && i < arr.length)
-    require(i < from)
-    decreases(list)
-    lemmaSameArrayListContentImpliesSameLength(arr, from, list)
-    list match {
-      case Nil() => ()
-      case Cons(h, tail) =>
-        assert(arr(from) == arr.updated(i, v)(from))
-        lemmaSameArrayListContentPreservedByUpdatedIBeforeFrom(arr, from + 1, tail, i, v)
-    }
-  }.ensuring(_ => sameArrayListContent(arr.updated(i, v), from, list))
-
-  @opaque @inlineOnce @ghost
-  def lemmaSameArrayListContentPreservedByUpdated[T](arr: Array[T], from: Int, list: List[T], i: Int, v: T): Unit = {
-    require(sameArrayListContent(arr, from, list))
-    require(i >= 0 && i < arr.length)
-    require(i >= from)
-    decreases(list)
-    val j = i - from
-    lemmaSameArrayListContentImpliesSameLength(arr, from, list)
-    assert((arr.length == from + list.size.toInt))
-    compareIntPreservedByToBigInt(j, 0)
-    lemmaToIntBigIntConversionBothDirections(list.size, arr.length - from)
-    lemmaToIntBigIntConversionBothDirections(list.size, j)
-    assert(j >= 0)
-    assert(j < list.size.toInt)
-    assert(BigInt(j) >= 0 && BigInt(j) < list.size)
-    list match {
-      case Nil() => ()
-      case Cons(h, tail) if (i == from) =>lemmaSameArrayListContentPreservedByUpdatedIBeforeFrom(arr, from + 1, tail, i, v)
-      case Cons(h, tail) =>
-        assert(i > from)
-        lemmaSameArrayListContentPreservedByUpdated(arr, from + 1, tail, i, v)
-        assert(sameArrayListContent(arr.updated(i, v), from + 1, tail.updated(BigInt(j- 1), v)))
-        subtractionIntPreservedByToBigInt(j, 1)
-        assert(BigInt(j - 1) == BigInt(j) - 1)
-        assert(Cons(h, tail.updated(BigInt(j - 1), v)) == list.updated(BigInt(j), v))
-    }
-  }.ensuring(_ => sameArrayListContent(arr.updated(i, v), from, list.updated(BigInt(i - from), v)))
+  }.ensuring(_ => arrayToList(Array.fill[T](n)(d), from) == List.fill(BigInt(n) - BigInt(from))(d))
 
   @opaque @inlineOnce @ghost
   def compareIntPreservedByToBigInt(a: Int, b: Int): Unit = {
@@ -311,24 +157,6 @@ object LArrayUtils {
   }.ensuring(_ => BigInt(a + b) == BigInt(a) + BigInt(b))
 
   @opaque @inlineOnce @ghost
-  def additionIntPreservedByToInt(a: BigInt, b: BigInt, c: BigInt): Unit = {
-    require(a + b == c)
-    require(Int.MinValue <= c && c <= Int.MaxValue)
-    require(Int.MinValue <= a && a <= Int.MaxValue)
-    require(Int.MinValue <= b && b <= Int.MaxValue)
-  }.ensuring(_ => a.toInt + b.toInt == c.toInt)
-
-  @opaque @inlineOnce @ghost
-  def subtractionIntPreservedByToBigInt(a: Int, b: Int): Unit = {
-    require(BigInt(a) - BigInt(b) <= BigInt(Int.MaxValue) && BigInt(a) - BigInt(b) >= BigInt(Int.MinValue))
-  }.ensuring(_ => BigInt(a - b) == BigInt(a) - BigInt(b))
-
-  @opaque @inlineOnce @ghost
-  def compareBigIntPreservedByToInt(a: BigInt, b: BigInt): Unit = {
-    require(Int.MinValue <= a && a <= Int.MaxValue && Int.MinValue <= b && b <= Int.MaxValue)
-  }.ensuring(_ => (a < b) == (a.toInt < b.toInt) && (a > b) == (a.toInt > b.toInt) && (a == b) == (a.toInt == b.toInt))
-
-  @opaque @inlineOnce @ghost
   def lemmaToIntBigIntConversionBothDirections(a: BigInt, b: Int): Unit = {
     require(Int.MinValue <= a && a <= Int.MaxValue)
   }.ensuring(_ => (a.toInt == b) == (a == BigInt(b)) && (a < BigInt(b)) == (a.toInt < b) && (a > BigInt(b)) == (a.toInt > b) && (a <= BigInt(b)) == (a.toInt <= b) && (a >= BigInt(b)) == (a.toInt >= b))
@@ -337,9 +165,4 @@ object LArrayUtils {
   def lemmaConversionBackForth(a: BigInt): Unit = {
     require(Int.MinValue <= a && a <= Int.MaxValue)
   }.ensuring(_ => a == BigInt(a.toInt))
-
-  @opaque @inlineOnce @ghost
-  def lemmaConversionBackForth(a: Int): Unit = {
-  }.ensuring(_ => BigInt(a).toInt == a)
-
 }

@@ -3,11 +3,12 @@ import stainless.annotation.*
 import stainless.collection.*
 import stainless.lang.StaticChecks.*
 
-/** `LArray` is a mutable array, backed by a native `Array` at runtime, whose specification is a ghost `List`.
+/** `LArray` is a mutable array, backed by a native `Array` at runtime, whose specification is the ghost `List` given
+  * by its projection `toList()`.
   *
   * This example follows the pattern used by Ziplex (in Bolts) with its `Sequence`: the specification is written and
   * reasoned about with purely functional functions on `List`, while the executable code is imperative and index-based
-  * on the efficient data structure, and is proven equivalent to the specification through `getList`.
+  * on the efficient data structure, and is proven equivalent to the specification through `toList()`.
   */
 object LArrayExample01 {
 
@@ -56,33 +57,30 @@ object LArrayExample01 {
 
   /** Sums the elements with a loop and constant-time accesses; the result is the one of the `List` specification. */
   def sum(a: LArray[BigInt]): BigInt = {
-    require(a.valid)
     var i = BigInt(0)
     var acc = BigInt(0)
     (while (i < a.size) {
       decreases(a.size - i)
-      ghostExpr(lemmaDropApply(a.getList, i))
+      ghostExpr(lemmaDropApply(a.toList(), i))
       acc = acc + a(i)
       i = i + 1
-    }).invariant(a.valid && 0 <= i && i <= a.size && acc + sumList(a.getList.drop(i)) == sumList(a.getList))
-    ghostExpr(lemmaDropSizeIsNil(a.getList))
+    }).invariant(0 <= i && i <= a.size && acc + sumList(a.toList().drop(i)) == sumList(a.toList()))
+    ghostExpr(lemmaDropSizeIsNil(a.toList()))
     acc
-  }.ensuring(res => res == sumList(a.getList))
+  }.ensuring(res => res == sumList(a.toList()))
 
   /** In-place update of one cell; its effect is specified on the `List` view of the array. */
   def addAt(a: LArray[BigInt], i: BigInt, d: BigInt): Unit = {
-    require(a.valid)
     require(0 <= i && i < a.size)
     a(i) = a(i) + d
-  }.ensuring(_ => a.valid && a.getList == old(a).getList.updated(i, old(a).getList(i) + d))
+  }.ensuring(_ => a.toList() == old(a).toList().updated(i, old(a).toList()(i) + d))
 
   /** A client mutating the array: the reasoning about the mutation is done entirely with a lemma on `List`. */
   def addAtThenSum(a: LArray[BigInt], i: BigInt, d: BigInt): BigInt = {
-    require(a.valid)
     require(0 <= i && i < a.size)
-    @ghost val before = a.getList
+    @ghost val before = a.toList()
     addAt(a, i, d)
     ghostExpr(lemmaSumListUpdated(before, i, before(i) + d))
     sum(a)
-  }.ensuring(res => a.valid && res == sumList(old(a).getList) + d)
+  }.ensuring(res => res == sumList(old(a).toList()) + d)
 }
