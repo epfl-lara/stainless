@@ -259,16 +259,13 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
       for ((_, td) <- typeDefs) ensureWellFormedTypeDef(td)
     }
 
-    /** Whether concrete classes may be extended, before [[xlang.ConcreteParents]] encodes it. */
-    protected def extendsConcreteClasses: Boolean = false
-
     protected def ensureWellFormedClass(cd: ClassDef): Unit = {
       import symbols.given
       cd.parents.find(ct => !ct.isTyped(using this)).foreach { pcd =>
         throw NotWellFormedException(cd, Some(s"the parent ${pcd.id} of class ${cd.id} is not well typed."))
       }
 
-      if (!extendsConcreteClasses) cd.parents.find(!_.tcd.cd.flags.contains(IsAbstract)).foreach { pcd =>
+      cd.parents.find(p => !p.tcd.cd.flags.exists(f => f == IsAbstract || f == IsExtensible)).foreach { pcd =>
         throw NotWellFormedException(cd,
           Some(s"a concrete class (${pcd.id}) cannot be extended (by ${cd.id}).")
         )
@@ -323,6 +320,8 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
 
   case object IsInvariant extends Flag("invariant", Seq.empty)
   case object IsAbstract extends Flag("abstract", Seq.empty)
+  /** A concrete class that may be extended, until [[xlang.ConcreteParents]] makes the extended ones abstract. */
+  case object IsExtensible extends Flag("extensible", Seq.empty)
   case object IsSealed extends Flag("sealed", Seq.empty)
   case object IsCaseObject extends Flag("caseObject", Seq.empty)
   case class Bounds(lo: Type, hi: Type) extends Flag("bounds", Seq(lo, hi))

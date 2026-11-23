@@ -273,7 +273,8 @@ trait Printer extends innerfuns.Printer {
   override protected def ppBody(tree: Tree)(using ctx: PrinterContext): Unit = tree match {
 
     case cd: ClassDef =>
-      for (an <- cd.flags) {
+      // Most concrete classes are extensible before `xlang.ConcreteParents`, so the flag is noise
+      for (an <- cd.flags if an != IsExtensible) {
         p"""|@${an.asString(using ctx.opts)}
             |"""
       }
@@ -489,6 +490,7 @@ trait TreeDeconstructor extends innerfuns.TreeDeconstructor {
 
   override def deconstruct(f: s.Flag): DeconstructedFlag = f match {
     case s.IsCaseObject => (Seq(), Seq(), Seq(), (_, _, _) => t.IsCaseObject)
+    case s.IsExtensible => (Seq(), Seq(), Seq(), (_, _, _) => t.IsExtensible)
     case s.IsInvariant => (Seq(), Seq(), Seq(), (_, _, _) => t.IsInvariant)
     case s.IsAbstract => (Seq(), Seq(), Seq() ,(_, _, _) => t.IsAbstract)
     case s.IsSealed => (Seq(), Seq(), Seq(), (_, _, _) => t.IsSealed)
