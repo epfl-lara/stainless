@@ -145,7 +145,14 @@ trait Trees extends throwing.Trees { self =>
 
       // Check that abstract methods are overridden by a method, a lazy val, or a constructor parameter (but not by a val)
       if (!cd.isAbstract) {
-        val remainingAbstract = (cd +: cd.ancestors.map(_.cd)).reverse.foldLeft(Set.empty[Symbol]) {
+        // The linearization of the class, in which Scala looks for the implementation of its methods
+        def linearization(cd: ClassDef): Seq[ClassDef] =
+          cd +: cd.parents.flatMap(ct => lookupClass(ct.id)).foldLeft(Seq.empty[ClassDef]) { (acc, p) =>
+            val l = linearization(p)
+            l.filterNot(c => acc.exists(_.id == c.id)) ++ acc
+          }
+
+        val remainingAbstract = linearization(cd).reverse.foldLeft(Set.empty[Symbol]) {
           case (abstractSymbols, acd) =>
             val concreteSymbols = acd.methods
               .map(id => id.symbol -> getFunction(id))

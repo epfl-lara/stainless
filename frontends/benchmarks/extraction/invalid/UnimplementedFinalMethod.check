@@ -1,0 +1,4 @@
+[ Error  ] UnimplementedFinalMethod.scala:19:14: Not well formed definition case class Square(side: BigInt) extends Shape
+[ Error  ] 	because abstract methods UnimplementedFinalMethod.Shape.area, UnimplementedFinalMethod.Shape.secret were not overridden by a method, a lazy val, or a constructor parameter
+             case class Square(side: BigInt) extends Shape
+                        ^
