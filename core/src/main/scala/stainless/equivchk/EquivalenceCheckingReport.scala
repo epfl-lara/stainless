@@ -83,6 +83,8 @@ class EquivalenceCheckingReport(override val results: Seq[EquivalenceCheckingRep
 
   override val name: String = EquivalenceCheckingComponent.name
 
+  override def extraHeaders = Seq("kind", "status", "solver")
+
   override lazy val annotatedRows: Seq[RecordRow] = results map {
     case Record(id, pos, time, status, solverName, kind, _) =>
       val statusName = status match {
