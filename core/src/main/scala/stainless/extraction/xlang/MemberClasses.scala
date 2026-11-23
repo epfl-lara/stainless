@@ -342,7 +342,7 @@ class MemberClasses(override val s: Trees)(override val t: s.type)
       val added = fieldInvariants.filterNot(p => existing.contains(p._1)).map { case (cid, invs) =>
         val cd = symbols.getClass(cid)
         val flags = cd.flags.filter {
-          case IsAbstract | IsSealed | ValueClass | IsCaseObject | IsMutable | IsObject | IsMemberOf(_) | IsTrait | SelfType(_) => false
+          case IsAbstract | IsExtensible | IsSealed | ValueClass | IsCaseObject | IsMutable | IsObject | IsMemberOf(_) | IsTrait | SelfType(_) => false
           case f => f.name != "cCode.export" && !f.name.startsWith("cCode.global")
         }
         new FunDef(SymbolIdentifier(sym), Seq.empty, Seq.empty, BooleanType().copiedFrom(cd), andJoin(invs).copiedFrom(cd),
