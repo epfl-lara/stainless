@@ -237,3 +237,28 @@ And we can now reason about our wrapper for ``TrieMap``:
   ╟-------------------------------------------------------------------------------------------------------╢
   ║ total: 4    valid: 4    (0 from cache) invalid: 0    unknown: 0    time:   0.398                      ║
   ╚═══════════════════════════════════════════════════════════════════════════════════════════════════════╝
+
+Opaque extern classes
+---------------------
+
+When every member of a wrapper is external, the whole class can be annotated with ``@extern``
+instead. Its fields are then ``@extern``, so their types need not be extractable, and so are its
+methods. Such a class is opaque to Stainless, but it can be used as the type of fields and
+parameters of verified code, and the contracts of its methods are assumed at call sites:
+
+.. code-block:: scala
+
+  @extern
+  class Proc(val p: java.lang.Process) {
+    def send(x: BigInt): BigInt = {
+      p.getOutputStream.write(x.toInt)
+      x
+    }.ensuring(res => res == x)
+  }
+
+  case class Solver(proc: Proc, n: BigInt)
+
+  def run(s: Solver): BigInt = s.proc.send(s.n).ensuring(res => res == s.n)
+
+As with ``@extern`` fields, the fields of an extern class are mutable, and its methods may modify
+them, unless the class (or the field, or the method) is annotated with ``@pure``.

@@ -193,6 +193,7 @@ class VerificationSuite extends VerificationComponentTestSuite {
       "verification/invalid/HiddenOverride",
       "verification/invalid/HOInvocations",
       "verification/invalid/i497",
+      "verification/invalid/OpaqueExternClasses", // Princess returns unknown with opaque fields
       // Princess's counterexample does not pass --check-models
       "verification/invalid/i665",
       "verification/invalid/i1295",
