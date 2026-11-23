@@ -14,4 +14,6 @@ object AbstractMethodBodyFinalMethod {
 
     def reveal: BigInt = secret
   }
+
+  case class Square(side: BigInt) extends Shape
 }

@@ -18,6 +18,7 @@ object AbstractMethodBodyGhostSuperCall {
 
     @ghost
     override def areaIsPositive: Unit = {
+      assert(area == -1)
       super.areaIsPositive
     }.ensuring(_ => area >= 0)
   }

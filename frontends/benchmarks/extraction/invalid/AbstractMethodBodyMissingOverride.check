@@ -1,4 +1,3 @@
-[ Error  ] AbstractMethodBodyMissingOverride.scala:13:14: Not well formed definition case class Square(side: BigInt) extends Shape
-[ Error  ] 	because abstract methods AbstractMethodBodyMissingOverride.Shape.area were not overridden by a method, a lazy val, or a constructor parameter
+[ Error  ] AbstractMethodBodyMissingOverride.scala:13:14: Class Square does not implement the abstract methods AbstractMethodBodyMissingOverride.Shape.area with a method, a lazy val, or a constructor parameter
              case class Square(side: BigInt) extends Shape
                         ^

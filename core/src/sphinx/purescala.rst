@@ -359,8 +359,8 @@ Here are a few examples that are rejected by Stainless:
       def f: BigInt
     }
 
-    // Error: "because abstract methods BadOverride3.AAA.f were not overridden by
-    //         a method, a lazy val, or a constructor parameter"
+    // Error: "Class BBB does not implement the abstract methods BadOverride3.AAA.f
+    //         with a method, a lazy val, or a constructor parameter"
     case class BBB() extends AAA {
       val f: BigInt = 0
     }

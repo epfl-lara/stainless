@@ -12,7 +12,7 @@ object MissingAbstractOverride {
   }
 
   case class Bar() extends Foo
-  // Not well formed definition class Bar extends Foo because abstract methods
-  // MissingAbstractOverride.Foo.test, MissingAbstractOverride.Foo.test2 were not overridden
+  // Class Bar does not implement the abstract methods
+  // MissingAbstractOverride.Foo.test, MissingAbstractOverride.Foo.test2
 
 }
