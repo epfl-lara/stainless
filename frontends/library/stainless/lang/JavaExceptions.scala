@@ -1,15 +1,14 @@
 /* Copyright 2009-2021 EPFL, Lausanne */
 
-/** The Stainless versions of standard Java exceptions.
-  *
-  * The frontend extracts `java.lang.Throwable` and `java.lang.Exception` as `stainless.lang.Exception`,
-  * and the other Java exceptions below as the classes of the same name, which follow the hierarchy of
-  * Java. The arguments of their constructors, such as the message, are not extracted.
-  */
-package stainless.lang.exceptions
+package stainless.lang
 
 import stainless.annotation._
-import stainless.lang.Exception
+
+// The Stainless versions of standard Java exceptions.
+//
+// The frontend extracts `java.lang.Throwable` and `java.lang.Exception` as `stainless.lang.Exception`, and the
+// other Java exceptions below as the classes of the same name, which follow the hierarchy of Java. The arguments
+// of their constructors, such as the message, are not extracted. As `Exception`, these classes take no message.
 
 @library
 class RuntimeException extends Exception

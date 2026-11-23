@@ -1,7 +1,11 @@
-import stainless.lang.{Exception => _, _}
+// The package keeps the top-level `IllegalArgumentException` of the `Throw` benchmark out of scope, and only
+// the decorations are imported, so that the names of exceptions refer to the Java ones
+package javaexceptions
 
-// Java exceptions can be thrown, caught and extended. Stainless extracts them as the classes of
-// `stainless.lang.exceptions`, which follow the hierarchy of Java.
+import stainless.lang.{BooleanDecorations, Throwing}
+
+// Java exceptions can be thrown, caught and extended. Stainless extracts them as the classes of the
+// same name in `stainless.lang`, which follow the hierarchy of Java.
 object JavaExceptions {
   case class FatalError(msg: String) extends Exception(msg)
   class Unsupported extends UnsupportedOperationException("unsupported")
@@ -52,6 +56,16 @@ object JavaExceptions {
     val e = build()
     e.isInstanceOf[IllegalStateException] && !e.isInstanceOf[IllegalArgumentException]
   }.holds
+
+  // The Java exceptions are the ones of `stainless.lang`
+  def mixed(x: BigInt): BigInt = {
+    try {
+      if (x == 0) throw new IllegalArgumentException("mixed")
+      x
+    } catch {
+      case _: stainless.lang.RuntimeException => BigInt(1)
+    }
+  }.ensuring(res => x == 0 ==> (res == 1))
 
   // A concrete exception class with subclasses, as in Inox
   class SolverError(msg: String) extends Exception(msg)

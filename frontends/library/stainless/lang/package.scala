@@ -65,7 +65,7 @@ package object lang {
     * The exceptions of a function without a `throwing` clause may not escape it.
     *
     * `pred` takes a `Throwable`, so that it can match on Java exceptions as well, but Stainless extracts
-    * `Throwable` as `Exception` (see `stainless.lang.exceptions`). */
+    * `Throwable` as `Exception` (see `JavaExceptions.scala`). */
   @ignore
   implicit class Throwing[T](underlying: => T) {
     def throwing(pred: Throwable => Boolean): T = try {

@@ -686,14 +686,14 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
 
         case Apply(ex, Seq(arg)) if ex.symbol == defn.throwMethod =>
           if (!isStainlessException(arg.tpe))
-            reportError(arg.sourcePos, "Only subclasses of stainless.lang.Exception, or of the Java exceptions in stainless.lang.exceptions, can be thrown in Stainless")
+            reportError(arg.sourcePos, "Only subclasses of stainless.lang.Exception, or of the Java exceptions that Stainless supports, can be thrown in Stainless")
           traverseChildren(tree)
 
         case Try(_, cases, _) =>
           for (cd <- cases) cd.pat match {
             case Ident(nme.WILDCARD) => ()
             case pat if !isStainlessException(pat.tpe) =>
-              reportError(pat.sourcePos, "Only subclasses of stainless.lang.Exception, or of the Java exceptions in stainless.lang.exceptions, can be caught in Stainless")
+              reportError(pat.sourcePos, "Only subclasses of stainless.lang.Exception, or of the Java exceptions that Stainless supports, can be caught in Stainless")
             case _ => ()
           }
           traverseChildren(tree)

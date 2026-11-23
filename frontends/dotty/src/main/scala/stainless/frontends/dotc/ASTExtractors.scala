@@ -134,7 +134,7 @@ trait ASTExtractors {
 
   protected lazy val exceptionSym = classFromName("stainless.lang.Exception")
 
-  /** The Java exceptions that are extracted as Stainless library classes (see `stainless.lang.exceptions`).
+  /** The Java exceptions that are extracted as Stainless library classes (see `stainless/lang/JavaExceptions.scala`).
     *
     * They are looked up only if defined, as the library may not be part of the compiled program.
     */
@@ -147,7 +147,7 @@ trait ASTExtractors {
       "java.lang.ArithmeticException",
       "java.lang.IndexOutOfBoundsException",
       "java.util.NoSuchElementException",
-    ).map(java => java -> ("stainless.lang.exceptions." + java.split('.').last))
+    ).map(java => java -> ("stainless.lang." + java.split('.').last))
     val all = Seq(
       "java.lang.Throwable" -> "stainless.lang.Exception",
       "java.lang.Exception" -> "stainless.lang.Exception",

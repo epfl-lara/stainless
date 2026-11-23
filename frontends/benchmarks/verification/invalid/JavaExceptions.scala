@@ -1,4 +1,8 @@
-import stainless.lang.{Exception => _, _}
+// The package keeps the top-level `IllegalArgumentException` of the `Throw` benchmark out of scope, and only
+// the decorations are imported, so that the names of exceptions refer to the Java ones
+package javaexceptions
+
+import stainless.lang.BooleanDecorations
 
 // The Java exceptions keep the hierarchy of Java: a handler catches no exception of a superclass or of
 // a sibling class.
