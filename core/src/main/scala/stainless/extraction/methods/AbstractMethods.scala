@@ -69,6 +69,13 @@ trait AbstractMethods extends ExtractionPipeline {
     val functions = symbols.functions.values.toSeq.sortBy(_.getPos)
     val classes = symbols.classes.values.toSeq.sortBy(_.getPos)
 
+    // `ConcreteParents` makes the concrete classes that are extended abstract, and builds their own instances
+    // with a new synthetic final subclass of the same name: these classes are still concrete
+    val extendedConcrete: Set[Identifier] = classes
+      .filter(cd => cd.flags.contains(Synthetic) && !cd.isAbstract)
+      .flatMap(cd => cd.parents.filter(_.id.name == cd.id.name).map(_.id))
+      .toSet
+
     for (fd <- functions) {
       val cdOpt = fd.flags.collectFirst { case IsMethodOf(id) => symbols.getClass(id) }
 
@@ -76,7 +83,7 @@ trait AbstractMethods extends ExtractionPipeline {
         val bodies = abstractBodies(fd.fullBody)
         val isWholeBody = bodies.size == 1 && !fd.hasBody
         val isField = fd.flags.exists { case IsField(_) => true case _ => false }
-        if (bodies.nonEmpty && !(isWholeBody && !isField && cdOpt.exists(_.isAbstract))) {
+        if (bodies.nonEmpty && !(isWholeBody && !isField && cdOpt.exists(cd => cd.isAbstract && !extendedConcrete(cd.id)))) {
           throw MethodsException(bodies.head,
             "AbstractMethodBody() can only be the body of a method of an abstract class or of a trait")
         }
