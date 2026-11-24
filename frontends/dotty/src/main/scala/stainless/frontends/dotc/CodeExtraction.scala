@@ -3152,8 +3152,18 @@ class CodeExtraction(inoxCtx: inox.Context,
           case None => xt.ClassType(id, params)
         }
 
+      // The type of `super` in a class with a single parent that Stainless extracts may still be an
+      // intersection: `Object & T` for a class extending a trait `T` (with `Product & Serializable` for a
+      // case class). It is then the type of that parent.
       case st @ SuperType(thisTpe, superTpe) =>
-        extractType(superTpe)
+        def components(tp: Type): Seq[Type] = tp match {
+          case AndType(l, r) => components(l) ++ components(r)
+          case _ => Seq(tp)
+        }
+        components(superTpe).filter(isValidParentType(_)) match {
+          case Seq(parent) => extractType(parent)
+          case _ => extractType(superTpe)
+        }
 
       /////////////
 
