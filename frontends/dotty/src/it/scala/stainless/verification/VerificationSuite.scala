@@ -53,6 +53,9 @@ class VerificationSuite extends VerificationComponentTestSuite {
     Set(
       // Arrays
       "verification/valid/Exceptions4",
+      // Strings
+      "verification/valid/ExceptionMessages",
+      "verification/valid/JavaExceptionMessages",
       // valid/MicroTests
       "verification/valid/ADTWithArray1",
       "verification/valid/ADTWithArray2",
