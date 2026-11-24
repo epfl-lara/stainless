@@ -28,7 +28,6 @@ import stainless.ast.{Symbol, SymbolIdentifier}
   *  - The concrete classes implement all the abstract methods that they inherit, following the
   *    linearization of their ancestors.
   *  - An abstract method is not called through `super`.
-  *  - The initialiser of a field is not a missing implementation, as it runs for all the instances.
   *
   * This runs after `Mixins` and `InnerClasses`, when local classes are lifted, and before
   * `SuperCalls`, while super calls are still visible.
@@ -42,11 +41,6 @@ trait AbstractMethods extends ExtractionPipeline {
 
   override def extract(symbols: s.Symbols): (t.Symbols, ExtractionSummary) = {
     given s.Symbols = symbols
-
-    def isMissingImplementation(e: Expr): Boolean = e match {
-      case Assert(_, Some(AbstractMethods.missingImplementation), _) => true
-      case _ => false
-    }
 
     /** The `AbstractMethodBody()` of an expression: the `NoTree` that do not come after an `assert(false)`. */
     def abstractBodies(e: Expr): Seq[NoTree] = {
@@ -89,15 +83,6 @@ trait AbstractMethods extends ExtractionPipeline {
         if (bodies.nonEmpty && fd.flags.exists(f => f == Final || f == Private)) {
           throw MethodsException(bodies.head,
             s"AbstractMethodBody() cannot be the body of ${fd.id.name}: a final or private method cannot be overridden")
-        }
-      }
-
-      // The initialiser of a field has no precondition, and it runs for all the instances of the class
-      if (fd.isField(isLazy = false)) {
-        exprOps.collect[Expr] { case e if isMissingImplementation(e) => Set(e) case _ => Set() } (fd.fullBody).headOption foreach { e =>
-          throw MethodsException(e,
-            s"Field ${fd.id.name} is initialised with a missing implementation (???), " +
-            s"which runs when an instance of class ${cdOpt.map(_.id.name).getOrElse("its class")} is created")
         }
       }
     }

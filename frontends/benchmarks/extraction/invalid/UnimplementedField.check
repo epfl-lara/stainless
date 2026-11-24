@@ -1,3 +1,0 @@
-[ Error  ] UnimplementedField.scala:7:26: Field sides is initialised with a missing implementation (???), which runs when an instance of class Shape is created
-               val sides: BigInt = (??? : BigInt)
-                                    ^^^^^^^^^^^^
