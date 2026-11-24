@@ -3,10 +3,10 @@ import stainless.lang._
 case class Inner(var int: Int)
 case class Outer(var inner: Inner)
 
+// The mutable object is a parameter: a field of the trait may not refer to a mutable object
+// (see extraction/invalid/FreshCopyTraitField).
 trait FreshCopy {
-  val o: Outer = Outer(Inner(123))
-
-  def f() = {
+  def f(o: Outer) = {
     require(o.inner.int == 123)
 
     val fresh = freshCopy(o)

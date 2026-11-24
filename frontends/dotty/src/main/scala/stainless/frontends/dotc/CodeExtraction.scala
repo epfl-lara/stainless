@@ -907,11 +907,13 @@ class CodeExtraction(inoxCtx: inox.Context,
       case ExNonCtorMutableFieldDef(_, _, rhs) if rhs != tpd.EmptyTree =>
         outOfSubsetError(vd, "Mutable fields in traits or abstract classes cannot have default values")
 
-      case ExNonCtorFieldDef(_, _, _) if vd.rhs != tpd.EmptyTree && !isAbstractClass =>
+      case ExNonCtorFieldDef(_, _, _) if vd.rhs != tpd.EmptyTree =>
         if annotationsOf(vdSym).contains(xt.Ignore) then Seq.empty // ignore such field. This helps build wrappers
         else
-          // Non-constructor fields (for concrete classes) are not mapped to an xt.Field
-          // Instead, they are mapped to a @field-annotated function.
+          // Non-constructor fields are not mapped to an xt.Field
+          // Instead, they are mapped to a @field-annotated function, which holds their initialiser.
+          // This is the case for abstract classes and traits too: a subclass may override the accessor,
+          // but the initialiser still runs when an instance is created, so it is verified on its own.
           val fieldId = getIdentifier(vdSym)
           val flags = commonFunctionFlags(vdSym, isAbstract = false)
           val fieldFnDef = new xt.FunDef(
@@ -920,7 +922,8 @@ class CodeExtraction(inoxCtx: inox.Context,
             Seq.empty,
             retType,
             extractTree(vd.rhs),
-            flags ++ Seq(xt.IsField(vd.symbol `is` Lazy), xt.FieldDefPosition(fieldPos))
+            // The initialiser is final: a subclass may only override the accessor
+            (flags ++ Seq(xt.IsField(vd.symbol `is` Lazy), xt.FieldDefPosition(fieldPos), xt.Final)).distinct
           ).setPos(vdSym.sourcePos)
           // Like for constructor fields, however, we still need to create an @accessor-annotated function.
           val accessorFnId = getFieldAccessorIdentifier(vdSym)
@@ -933,22 +936,6 @@ class CodeExtraction(inoxCtx: inox.Context,
             flags ++ Seq(xt.IsAccessor(Some(fieldId)))
           ).setPos(vdSym.sourcePos)
           Seq(fieldFnDef, accessorFnDef)
-
-      case ExNonCtorFieldDef(_, _, _) if vd.rhs != tpd.EmptyTree && isAbstractClass =>
-        // Non-constructor fields with a default value for traits and abstract classes are only mapped to a function
-        // that is annoted as field, fieldDefPosition and accessor.
-        val accessorFnId = getFieldAccessorIdentifier(vdSym)
-        val accessorFnDef = new xt.FunDef(
-          accessorFnId,
-          Seq.empty,
-          Seq.empty,
-          retType,
-          extractTree(vd.rhs),
-          // Normally, the accessed symbol should be fieldId (from getIdentifier(vdSym)), but the Scalac frontend
-          // annotate such accessor function as an accessor of itself, so we blindly do the same here.
-          commonFunctionFlags(vdSym, isAbstract = false) ++ Seq(xt.IsField(false), xt.IsAccessor(Some(accessorFnId)), xt.FieldDefPosition(fieldPos))
-        ).setPos(vdSym.sourcePos)
-        Seq(accessorFnDef)
 
       case ExLazyFieldDef(_, _, _) if vd.rhs != tpd.EmptyTree =>
         // Lazy fields follow a special treatment. We blindly follow what is done by the Scalac frontend.
