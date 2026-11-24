@@ -1,0 +1,3 @@
+[ Error  ] AbstractMethodBodyExtendedConcreteClass.scala:9:7: AbstractMethodBody() can only be the body of a method of an abstract class or of a trait
+                 AbstractMethodBody[BigInt]()
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

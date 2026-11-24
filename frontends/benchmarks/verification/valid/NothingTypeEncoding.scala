@@ -20,7 +20,11 @@ object NothingTypeEncoding {
     }
   }
 
-  def bar: Nothing = ???
+  // A missing implementation must be unreachable
+  def bar: Nothing = {
+    require(false)
+    ???
+  }
 
   def foo[T](t: T, arg: Int): T = {
     require(arg > 0)

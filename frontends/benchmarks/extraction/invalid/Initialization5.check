@@ -1,5 +1,6 @@
 [ Error  ] Initialization5.scala:3:9: Not well formed definition @field
 [ Error  ] @fieldDefPosition(8)
+[ Error  ] @final
 [ Error  ] @method(NoThis)
 [ Error  ] def nothis1: Int = this.f
 [ Error  ] 	because field `nothis1` can only refer to previous fields, not to `nothis2`

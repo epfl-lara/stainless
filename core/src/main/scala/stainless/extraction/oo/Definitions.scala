@@ -38,6 +38,15 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
       allAncestors.map(_.cd).distinct.map(typedMap)
     }
 
+    /** The linearization of this class, in which Scala looks for the implementation of its members:
+      * for `C extends P1 with ... with Pn`, `C` followed by the linearizations of `Pn`, ..., `P1`,
+      * where only the last occurrence of each class is kept. */
+    def linearization(using s: Symbols): Seq[ClassDef] =
+      this +: parents.flatMap(ct => s.lookupClass(ct.id)).foldLeft(Seq.empty[ClassDef]) { (acc, p) =>
+        val l = p.linearization
+        l.filterNot(c => acc.exists(_.id == c.id)) ++ acc
+      }
+
     def children(using s: Symbols): Seq[ClassDef] =
       s.classes.values.filter(_.parents.exists(_.id == id)).toSeq
 

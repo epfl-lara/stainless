@@ -184,10 +184,10 @@ To express that ``sort``'s result is sorted without refinement types, we would w
 
   trait Sorting:
     def sort[T : Ordering](xs: List[T]): List[T] =
-      (??? : List[T])
+      AbstractMethodBody[List[T]]()
     .ensuring(res => res.isSorted)
 
-where ``???`` represents the unimplemented body. With refinement types, the postcondition becomes part of the return type:
+where ``AbstractMethodBody()`` stands for the body of the abstract method. With refinement types, the postcondition becomes part of the return type:
 
 .. code-block:: scala
 

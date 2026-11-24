@@ -12,7 +12,8 @@ package object lang {
   @library
   def ghost[A](@ghost value: => A): Unit = ()
 
-  @library
+  // A placeholder that SizedADTExtraction replaces, hence its body is not analysed
+  @library @extern @pure
   def indexedAt[T](n: BigInt, t: T): T = (??? : T)
 
   @ignore
@@ -124,6 +125,22 @@ package object lang {
 
   @ignore @ghost
   def snapshot[T](value: T): T = value
+
+  /** The body of an abstract method that has a specification:
+    *
+    * {{{
+    * abstract class Shape {
+    *   def area: BigInt = { AbstractMethodBody[BigInt]() }.ensuring(_ >= 0)
+    * }
+    * }}}
+    *
+    * It can only be the body of a method of an abstract class or of a trait. Stainless checks that
+    * the concrete subclasses override such a method, and that it is not called through `super`, so
+    * that it never runs. Use `???` for the code that is not written yet: Stainless then requires it
+    * to be unreachable.
+    */
+  @ignore
+  def AbstractMethodBody[T](): T = throw new NotImplementedError("the body of an abstract method")
 
   /** @note for internal and testing use only */
   @ignore

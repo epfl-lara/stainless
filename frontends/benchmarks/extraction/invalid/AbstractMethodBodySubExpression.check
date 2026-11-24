@@ -1,0 +1,3 @@
+[ Error  ] AbstractMethodBodySubExpression.scala:8:34: AbstractMethodBody() can only be the body of a method of an abstract class or of a trait
+                 if (k == 0) BigInt(0) else AbstractMethodBody[BigInt]()
+                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

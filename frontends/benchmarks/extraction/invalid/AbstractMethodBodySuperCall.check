@@ -1,0 +1,3 @@
+[ Error  ] AbstractMethodBodySuperCall.scala:16:7: Abstract method area cannot be called through super
+                 super.area(k) + 1
+                 ^^^^^^^^^^^^^

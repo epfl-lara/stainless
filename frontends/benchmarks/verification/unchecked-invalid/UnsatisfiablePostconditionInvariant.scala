@@ -7,7 +7,7 @@ object UnsatisfiablePostconditionInvariant {
     require(true)
 
     def m: BigInt = {
-      (??? : BigInt)
+      AbstractMethodBody[BigInt]()
     }.ensuring(_ => false)
   }
 
