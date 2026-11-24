@@ -630,10 +630,16 @@ class CodeExtraction(inoxCtx: inox.Context,
 
     val filteredVds = vds.filter(vd => !isIgnoredParameterType(vd.tpe))
 
+    // The fields of an @extern class are @extern: their types may be unknown to Stainless, and
+    // they are mutable unless the class or the field is @pure. The class is then opaque.
+    val isExternClass = flags contains xt.Extern
+    val inheritedFieldFlags = if (isExternClass) Seq(xt.Extern) ++ flags.filter(_ == xt.IsPure) else Seq()
+
     val fields = filteredVds map { case vd =>
       val vdSym = vd.symbol
       val id = getIdentifier(vdSym)
-      val flags = annotationsOf(vdSym, ignoreOwner = true)
+      val ownFlags = annotationsOf(vdSym, ignoreOwner = true)
+      val flags = ownFlags ++ inheritedFieldFlags.filterNot(ownFlags.contains)
       if (flags.contains(xt.IsInternallyMutable) && !(vdSym `is` Private))
         outOfSubsetError(vd, "Fields annotated with @internallyMutable must be private")
       val tpe = stainlessType(vd.tpt.tpe)(using tpCtx, vd.tpt.sourcePos)
