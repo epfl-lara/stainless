@@ -1368,14 +1368,16 @@ trait ASTExtractors {
           }
 
         // This case can happen if we have an assert(expr) where expr can be reduced to false at compile-time.
+        // The condition takes the position of the assertion, which its verification condition reports.
         case Inlined(
           Ident(ExNamed("Predef$")) | Apply(Ident(ExNamed("assert")), _),
           Nil,
           Apply(ExSymbol("scala", "runtime", "Scala3RunTime$", "assertFailed"), args)
         ) =>
+          val cond = tpd.Literal(Constant(false)).withSpan(tree.span)
           args.map(stripInlineMarkers) match {
-            case List(Literal(cnst: Constant)) => Some((tpd.Literal(Constant(false)), Some(cnst.stringValue), false))
-            case _ => Some((tpd.Literal(Constant(false)), None, false))
+            case List(Literal(cnst: Constant)) => Some((cond, Some(cnst.stringValue), false))
+            case _ => Some((cond, None, false))
           }
 
         // Scala 3 does not inline the calls to Scala's assert in the body of an inline method.
