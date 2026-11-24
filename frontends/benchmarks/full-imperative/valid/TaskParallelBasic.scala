@@ -11,12 +11,12 @@ object TaskParallelBasicExample {
     def run: Unit = {
       reads(region)
       modifies(region)
-      ??? : Unit
+      AbstractMethodBody[Unit]()
     }
 
     def join: BigInt = {
       reads(region)
-      ??? : BigInt
+      AbstractMethodBody[BigInt]()
     }
   }
 

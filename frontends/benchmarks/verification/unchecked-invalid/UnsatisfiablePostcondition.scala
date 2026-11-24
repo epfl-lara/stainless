@@ -6,7 +6,7 @@ object UnsatisfiablePostcondition {
 
   trait Absurdity {
     def m: BigInt = {
-      (??? : BigInt)
+      AbstractMethodBody[BigInt]()
     }.ensuring(_ => false)
   }
 

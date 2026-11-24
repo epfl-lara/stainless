@@ -1,7 +1,7 @@
 trait AbstractPost {
-  def inv(): Boolean = (??? : Boolean)
+  def inv(): Boolean = stainless.lang.AbstractMethodBody[Boolean]()
 
   def f(): Unit = {
-    (??? : Unit)
+    stainless.lang.AbstractMethodBody[Unit]()
  }.ensuring(_ => inv())
 }

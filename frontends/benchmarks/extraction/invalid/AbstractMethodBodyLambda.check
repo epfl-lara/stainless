@@ -1,0 +1,3 @@
+[ Error  ] AbstractMethodBodyLambda.scala:5:47: AbstractMethodBody() can only be the body of a method of an abstract class or of a trait
+             def pick: BigInt => BigInt = (x: BigInt) => AbstractMethodBody[BigInt]()
+                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

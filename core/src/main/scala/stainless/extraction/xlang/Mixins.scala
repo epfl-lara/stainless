@@ -103,16 +103,8 @@ class Mixins(override val s: Trees)(override val t: s.type)
     val linCache = MutableMap[Identifier, Seq[Identifier]]()
 
     /** The linearization of the class `id`. */
-    def lin(id: Identifier): Seq[Identifier] = linCache.get(id) match {
-      case Some(res) => res
-      case None =>
-        val res = id +: parents(id).foldLeft(Seq.empty[Identifier]) { (acc, p) =>
-          val l = lin(p)
-          l.filterNot(acc.contains) ++ acc
-        }
-        linCache(id) = res
-        res
-    }
+    def lin(id: Identifier): Seq[Identifier] = linCache.getOrElseUpdate(id,
+      symbols.lookupClass(id).map(_.linearization.map(_.id)).getOrElse(Seq(id)))
 
     def derivesFrom(id: Identifier, ancestor: Identifier): Boolean = lin(id) contains ancestor
 

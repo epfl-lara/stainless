@@ -1,0 +1,3 @@
+[ Error  ] AbstractMethodBodyFinalMethod.scala:8:7: AbstractMethodBody() cannot be the body of area: a final or private method cannot be overridden
+                 AbstractMethodBody[BigInt]()
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

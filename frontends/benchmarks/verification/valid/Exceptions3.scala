@@ -4,7 +4,7 @@ case class Bad(x: BigInt) extends Exception
 abstract class Shape {
   def area(k: BigInt): BigInt = {
     require(k >= 0)
-    (??? : BigInt)
+    AbstractMethodBody[BigInt]()
   }.ensuring(_ >= 0).throwing { case Bad(x) => x < 0; case _ => false }
 }
 case class Square(s: BigInt) extends Shape {

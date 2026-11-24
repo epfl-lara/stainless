@@ -8,7 +8,7 @@ object Countable {
     def g(x: BigInt): T
 
     def gof(t: T) = {
-      (??? : Unit)
+      AbstractMethodBody[Unit]()
    }.ensuring(_ => g(f(t)) == t)
   }
 

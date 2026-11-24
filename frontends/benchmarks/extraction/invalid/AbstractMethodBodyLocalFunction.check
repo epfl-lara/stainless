@@ -1,0 +1,3 @@
+[ Error  ] AbstractMethodBodyLocalFunction.scala:8:38: AbstractMethodBody() can only be the body of a method of an abstract class or of a trait
+                 def inner(y: BigInt): BigInt = AbstractMethodBody[BigInt]()
+                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

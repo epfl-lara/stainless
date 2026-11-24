@@ -35,6 +35,7 @@ package object extraction {
     "PartialFunctions"          -> "Lift partial function preconditions",
     "XlangLowering"             -> "Lowering phase at the end of xlang phases",
     "InnerClasses"              -> "Lift inner classes",
+    "AbstractMethods"           -> "Check the use of AbstractMethodBody(), the body of abstract methods with a specification",
     "InternallyMutableFields"   -> "Check that @internallyMutable fields are only accessed by allowed methods, and not compared by equality",
     "ObservationallyPureCalls"  -> "Replace calls to observationally pure methods by their pure reference function",
     "Laws"                      -> "Rewrite laws as abstract functions with contracts",

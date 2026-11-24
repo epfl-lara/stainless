@@ -143,28 +143,6 @@ trait Trees extends throwing.Trees { self =>
         }(fd.fullBody)
       }
 
-      // Check that abstract methods are overridden by a method, a lazy val, or a constructor parameter (but not by a val)
-      if (!cd.isAbstract) {
-        val remainingAbstract = (cd +: cd.ancestors.map(_.cd)).reverse.foldLeft(Set.empty[Symbol]) {
-          case (abstractSymbols, acd) =>
-            val concreteSymbols = acd.methods
-              .map(id => id.symbol -> getFunction(id))
-              .filter { case (_, fd) => !fd.isAbstract }
-              // fd.getFieldDefPosition is empty for lazy val's, non-empty for val's
-              .filter { case (_, fd) =>
-                (!fd.isAccessor || fd.isAccessorOfParam(acd)) && fd.getFieldDefPosition.isEmpty
-              }
-              .map(_._1).toSet
-            val newAbstractSymbols = acd.methods.filter(id => getFunction(id).isAbstract).map(_.symbol).toSet
-            abstractSymbols -- concreteSymbols ++ newAbstractSymbols
-        }
-
-        if (remainingAbstract.nonEmpty) {
-          throw NotWellFormedException(cd,
-            Some("abstract methods " + remainingAbstract.map(_.name).toList.sorted.mkString(", ") + " were not overridden by a method, a lazy val, or a constructor parameter"))
-        }
-      }
-
       val ancestors = cd.ancestors(using this).map(cd => cd.id -> cd).toMap
 
       // Check that type members overrides are well-typed

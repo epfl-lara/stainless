@@ -14,7 +14,7 @@ object TraitsReadsWrites {
       require(writeSet.subsetOf(readSet))
       reads(readSet)
       modifies(writeSet)
-      ??? : Unit
+      AbstractMethodBody[Unit]()
     }
   }
 
