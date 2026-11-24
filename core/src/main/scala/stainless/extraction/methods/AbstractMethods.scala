@@ -101,17 +101,10 @@ trait AbstractMethods extends ExtractionPipeline {
       methods.map(_.name).toList.sorted.mkString(", ") +
       " with a method, a lazy val, or a constructor parameter")
 
-    // The linearization of a class, in which Scala looks for the implementation of its methods
-    def linearization(cd: ClassDef): Seq[ClassDef] =
-      cd +: cd.parents.flatMap(ct => symbols.lookupClass(ct.id)).foldLeft(Seq.empty[ClassDef]) { (acc, p) =>
-        val l = linearization(p)
-        l.filterNot(c => acc.exists(_.id == c.id)) ++ acc
-      }
-
     // The concrete classes implement the abstract methods with a method, a lazy val, or a constructor
     // parameter (but not with a val)
     for (cd <- classes if !cd.isAbstract) {
-      val remainingAbstract = linearization(cd).reverse.foldLeft(Set.empty[Symbol]) {
+      val remainingAbstract = cd.linearization.reverse.foldLeft(Set.empty[Symbol]) {
         case (abstractSymbols, acd) =>
           val concreteSymbols = acd.methods
             .map(id => id.symbol -> symbols.getFunction(id))
