@@ -1616,11 +1616,8 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
     val refSort = new t.ADTSort(refID, Seq(),
       symbols.classes.values.toSeq.filterNot(_.flags contains s.IsAbstract).map { cd =>
         val anys = cd.typeArgs.map(tp => s.AnyType().copiedFrom(tp))
-        // The fields of class types, as `next: List[T]` in `::`, are not refined by their type tests (with
-        // erased type arguments, as `isList(next, AnyType())`): the solver unrolls the refinements of the fields
-        // of `Object` for every value of type `Object`, which made each hierarchy slow down the others. The type
-        // test of the class already tests its fields (with its type arguments), and every value of a class type
-        // is refined by it.
+        // Fields of class types aren't refined by their type tests: the type test of the class already covers
+        // them, and refinements of `Object` fields are unrolled for every `Object` value.
         val fields = cd.typed(anys).fields.map(emptyScope.transform).map { vd =>
           vd.tpe match {
             case t.RefinementType(v, t.Annotated(_, Seq(t.DropConjunct))) if v.tpe == ref => vd.copy(tpe = ref).copiedFrom(vd)
