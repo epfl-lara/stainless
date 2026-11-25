@@ -138,16 +138,17 @@ as well as the associativity of the latter.
 .. code-block:: scala
 
   @induct
-  def lemma_rightIdentity_plus(x: Nat): Boolean = {
-    x + Zero == x
-  }.holds
+  def lemma_rightIdentity_plus(x: Nat): Unit = {
+    ()
+  }.ensuring(_ => x + Zero == x)
 
   @induct
-  def lemma_associativity_plus(x: Nat, y: Nat, z: Nat): Boolean = {
-    x + (y + z) == (x + y) + z
-  }.holds
+  def lemma_associativity_plus(x: Nat, y: Nat, z: Nat): Unit = {
+    ()
+  }.ensuring(_ => x + (y + z) == (x + y) + z)
 
-One can then override the law of interest, and instantiate the lemma over the relevant parameters:
+One can then override the law of interest, and instantiate the lemma over the relevant parameters.
+As a law is a ``Boolean``, the call to a ``Unit`` lemma is wrapped as ``{ lemma(...); true }``:
 
 .. code-block:: scala
 
@@ -156,11 +157,11 @@ One can then override the law of interest, and instantiate the lemma over the re
     def append(x: Nat, y: Nat): Nat = x + y
 
     override def law_rightIdentity(x: Nat) = {
-      super.law_rightIdentity(x) because lemma_rightIdentity_plus(x)
+      super.law_rightIdentity(x).because { lemma_rightIdentity_plus(x); true }
     }
 
     override def law_associativity(x: Nat, y: Nat, z: Nat) = {
-      super.law_associativity(x, y, z) because lemma_associativity_plus(x, y, z)
+      super.law_associativity(x, y, z).because { lemma_associativity_plus(x, y, z); true }
     }
   }
 
