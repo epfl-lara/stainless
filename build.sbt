@@ -313,13 +313,10 @@ lazy val `stainless-dotty` = (project in file("frontends/dotty"))
     buildInfoKeys ++= Seq[BuildInfoKey]("useJavaClassPath" -> false),
     // We include Scala library to be certain we also include scala-parser-combinators (which is not shipped with the Scala std library)
     assemblyPackageScala / assembleArtifact := true,
-    assembly / assemblyExcludedJars := {
-      val cp = (assembly / fullClasspath).value
-      // The native Z3 interface (ScalaZ3, with the native libraries of Z3 for all platforms) would
-      // add 55MB to the compiler plugin, which then falls back to the SMT-LIB solvers (as before,
-      // when ScalaZ3 was platform-dependent). stainless-dotty-standalone includes it.
-      cp filter {_.data.getName.startsWith("scalaz3")}
-    },
+    // The native Z3 interface (ScalaZ3) is platform-independent: it bundles the native libraries of
+    // Z3 for all platforms. It is part of the assembly, so that the compiler plugin needs no solver
+    // on the PATH (at the cost of 55MB).
+    assembly / assemblyExcludedJars := Seq(),
   )
   .dependsOn(`stainless-core`)
   .dependsOn(`stainless-library`)
@@ -345,8 +342,6 @@ lazy val `stainless-dotty-standalone` = (project in file("frontends") / "stainle
     assembly / assemblyJarName := (name.value + "-" + version.value + ".jar"),
     Runtime / unmanagedJars := (`stainless-dotty` / Runtime / unmanagedJars).value,
     assemblyPackageScala / assembleArtifact := true,
-    // The native Z3 interface (ScalaZ3) is platform-independent: it bundles the native libraries of
-    // Z3 for all platforms, so it is part of the standalone jar.
     assembly / assemblyExcludedJars := Seq(),
   )
   .dependsOn(`stainless-dotty`)
