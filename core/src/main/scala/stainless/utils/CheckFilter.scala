@@ -88,7 +88,8 @@ trait CheckFilter {
 
     val toProcess = toCheck.toSeq.sortBy(symbols.getFunction(_).getPos)
 
-    for (id <- toProcess) {
+    // Library functions derived from user functions (e.g. overridden methods) are checked without a warning
+    for (id <- toProcess if init(id)) {
       val fd = symbols.getFunction(id)
       if (fd.flags exists (_.name == "library")) {
         val fullName = fd.id.fullName
