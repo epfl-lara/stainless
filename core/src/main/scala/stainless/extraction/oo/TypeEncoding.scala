@@ -1616,11 +1616,14 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
     val refSort = new t.ADTSort(refID, Seq(),
       symbols.classes.values.toSeq.filterNot(_.flags contains s.IsAbstract).map { cd =>
         val anys = cd.typeArgs.map(tp => s.AnyType().copiedFrom(tp))
-        // Fields of class types aren't refined by their type tests: the type test of the class already covers
-        // them, and refinements of `Object` fields are unrolled for every `Object` value.
-        val fields = cd.typed(anys).fields.map(emptyScope.transform).map { vd =>
+        // Fields whose types mention type parameters of the class aren't refined by their type tests: the type
+        // test of the class already covers them, and refinements of `Object` fields are unrolled for every
+        // `Object` value. The type test of the class skips the other fields, which keep their refinements.
+        val fields = (cd.fields zip cd.typed(anys).fields.map(emptyScope.transform)).map { case (field, vd) =>
           vd.tpe match {
-            case t.RefinementType(v, t.Annotated(_, Seq(t.DropConjunct))) if v.tpe == ref => vd.copy(tpe = ref).copiedFrom(vd)
+            case t.RefinementType(v, t.Annotated(_, Seq(t.DropConjunct)))
+                if v.tpe == ref && s.typeOps.typeParamsOf(field.tpe).exists(cd.typeArgs.contains) =>
+              vd.copy(tpe = ref).copiedFrom(vd)
             case _ => vd
           }
         }
