@@ -154,10 +154,9 @@ trait VerificationChecker { self =>
         val sf = getFactoryForVC(vc)
         val res = checkVC(simplifiedVC, vc, sf)
 
-        if (!options.findOptionOrDefault(optSilent) && res.isValid) {
+        if (!options.findOptionOrDefault(optSilent) && (res.isValidFromCache || res.isTrivial)) {
           // VCResultMessage are ReportMessage with sbtPluginOnly at true
-          reporter.info(vc.getPos,
-          VCResultMessage(simplifiedVC, res))
+          reporter.info(vc.getPos,VCResultMessage(simplifiedVC, res))
         }
 
         val shouldStop = stopWhen(res)
@@ -384,6 +383,7 @@ trait VerificationChecker { self =>
               // avoid reprinting VC if --debug=verification is enabled
               if (!reporter.isDebugEnabled(using DebugSectionVerification))
                 reporter.warning(prettify(vc.condition).asString)
+              reporter.warning(vc.getPos, " => INVALID")
               reporter.warning(vc.getPos, vcResultMsg)
               reason match {
                 case VCStatus.CounterExample(cex) =>
