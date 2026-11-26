@@ -157,7 +157,7 @@ trait VerificationChecker { self =>
         if (!options.findOptionOrDefault(optSilent) && res.isValid) {
           // VCResultMessage are ReportMessage with sbtPluginOnly at true
           reporter.info(vc.getPos,
-          VCResultMessage(simplifiedVC, res, prettify(simplifiedVC.condition).asString))
+          VCResultMessage(simplifiedVC, res))
         }
 
         val shouldStop = stopWhen(res)
@@ -365,7 +365,7 @@ trait VerificationChecker { self =>
         case Failure(e) => reporter.internalError(e)
       }
 
-      val vcResultMsg = VCResultMessage(vc, vcres, prettify(vc.condition).asString)
+      val vcResultMsg = VCResultMessage(vc, vcres)
       reporter.debug(vcResultMsg)
 
       val silent = options.findOptionOrDefault(optSilent)

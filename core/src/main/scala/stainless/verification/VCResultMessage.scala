@@ -5,8 +5,8 @@ package verification
 
 case class VCResultMessage[T <: ast.Trees, +M](
   vc: VC[T],
-  result: VCResult[M],
-  condition: String
+  result: VCResult[M]
+  //condition: String // Might be too much burden
 ) extends ReportMessage {
 
   override val sbtPluginOnly: Boolean = true
@@ -27,10 +27,10 @@ case class VCResultMessage[T <: ast.Trees, +M](
         case VCStatus.Invalid(reason) =>
           val reasonStr = reason match {
             case VCStatus.CounterExample(cex) =>
-              s"$condition\nFound counter-example:\n  ${cex.toString.replaceAll("\n", "\n  ")}"
+              s"Found counter-example:\n  ${cex.toString.replaceAll("\n", "\n  ")}"
 
             case VCStatus.Unsatisfiable =>
-              s"$condition\nProperty wasn't satisfiable"
+              "Property wasn't satisfiable"
           }
 
           val msg = s"$title\n$reasonStr"
