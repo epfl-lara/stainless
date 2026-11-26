@@ -21,8 +21,9 @@ postconditions in Stainless, one is basically writing Boolean
 predicates. They can be as simple as testing whether a list is empty
 or not, to more complex combinations of properties.  Lemmas or
 theorems are simply logical tautologies, that is, propositions that
-always hold.  They can be expressed using Boolean-valued methods that
-return ``true`` for all their inputs.
+always hold.  They can be expressed as methods returning ``Unit`` whose
+postcondition is the proposition: the body of the method is the proof,
+and the postcondition is the statement.
 
 To make this more concrete, let's take a simple lemma as an
 example [#example-dir]_. Here we want to prove that the append operation (``++``) on
@@ -33,17 +34,37 @@ that it always holds.
 .. code-block:: scala
 
     import stainless.collection._ // for List
-    import stainless.lang._       // for holds
+    import stainless.lang._       // for ensuring
 
     object Example {
-      def appendContent[A](l1: List[A], l2: List[A]): Boolean = {
-        l1.content ++ l2.content == (l1 ++ l2).content
-      }.holds
+      def appendContent[A](l1: List[A], l2: List[A]): Unit = {
+        ()
+      }.ensuring(_ => l1.content ++ l2.content == (l1 ++ l2).content)
     }
 
-Here we wrote ``.holds`` which is a method implicitly available on ``Boolean``
-that ensure the returned value is ``true``. It is equivalent to writing
-``ensuring { res => res }``.
+The body is empty because Stainless needs no help here; the statement lives
+in the postcondition. To use the lemma, call it like any other method,
+``appendContent(l1, l2)``, and its postcondition becomes available after the
+call.
+
+.. note::
+
+   Older Stainless code writes lemmas as Boolean methods whose body is the
+   proposition, followed by ``.holds`` (a method implicitly available on
+   ``Boolean``, equivalent to ``ensuring { res => res }``)::
+
+     def appendContent[A](l1: List[A], l2: List[A]): Boolean = {
+       l1.content ++ l2.content == (l1 ++ l2).content
+     }.holds
+
+   ``holds`` is **deprecated**. Because the statement of such a lemma is its
+   body, every caller has to unfold the body, proof included, to learn the
+   statement, and the lemma cannot be ``@opaque``. With the ``Unit`` and
+   ``ensuring`` form, the statement is in the contract and the proof can be
+   hidden. A ``Unit`` lemma is called as a statement, ``lemma(x)``, or as
+   ``{ lemma(x); true }`` where a ``Boolean`` is expected (for example inside
+   ``because`` or the equational reasoning chains described below). Some
+   examples further down this page still use the ``.holds`` form.
 
 Now let's look at another example that looks trivial but for which Stainless
 needs some help with the proof: we want to prove that adding ``Nil``
@@ -52,12 +73,12 @@ at the end of a list has no effect.
 .. code-block:: scala
 
     import stainless.collection._ // for List
-    import stainless.lang._       // for holds
+    import stainless.lang._       // for ensuring
 
     object Example {
-      def rightUnitAppend[T](l1: List[T]): Boolean = {
-        l1 ++ Nil() == l1
-      }.holds
+      def rightUnitAppend[T](l1: List[T]): Unit = {
+        ()
+      }.ensuring(_ => l1 ++ Nil() == l1)
     }
 
 If you try to verify this last example you'll face a delicate
@@ -68,9 +89,9 @@ surprisingly, Stainless *is* able to verify the following:
 
 .. code-block:: scala
 
-    def leftUnitAppend[T](l1: List[T]): Boolean = {
-      Nil() ++ l1 == l1
-    }.holds
+    def leftUnitAppend[T](l1: List[T]): Unit = {
+      ()
+    }.ensuring(_ => Nil() ++ l1 == l1)
 
 How is this possible?  The two propositions are completely symmetric!
 The problem is that Stainless doesn't know anything about lists, a priori.
@@ -102,29 +123,25 @@ of the definition of ``++``:
 .. code-block:: scala
 
     import stainless.collection._ // for List
-    import stainless.lang._       // for holds
-    import stainless.proof._      // for because
+    import stainless.lang._       // for ensuring
 
     object Example {
-      def rightUnitAppend[T](l1: List[T]): Boolean = {
-        (l1 ++ Nil() == l1) because {
-          l1 match {
-            case Nil()       => true
-            case Cons(x, xs) => rightUnitAppend(xs)
-          }
+      def rightUnitAppend[T](l1: List[T]): Unit = {
+        l1 match {
+          case Nil()       => ()
+          case Cons(x, xs) => rightUnitAppend(xs)
         }
-      }.holds
+      }.ensuring(_ => l1 ++ Nil() == l1)
     }
 
 With this new implementation of the ``rightUnitAppend`` lemma, Stainless is capable
-of verifying that it holds. If you look closely at it, you can distinguish three
+of verifying that it holds. If you look closely at it, you can distinguish two
 parts:
 
-1. the claim we want to prove ``l1 ++ Nil() == l1``;
-2. ``because``, which is just some syntactic sugar for conjunction -- remember,
-   every proposition is a Boolean formula;
-3. and a recursion on ``l1`` that serves as a hint for Stainless to perform
-   induction.
+1. the claim we want to prove ``l1 ++ Nil() == l1``, in the postcondition;
+2. and, in the body, a recursion on ``l1`` that serves as a hint for Stainless
+   to perform induction: the recursive call makes the claim for ``xs``
+   available when proving it for ``Cons(x, xs)``.
 
 The recursion is based here on pattern matching, which Stainless will also check for
 exhaustiveness.  It has essentially the same structure as
@@ -198,8 +215,8 @@ achieved in various ways.
    their own, i.e. they state and prove simple but self-contained
    propositions that can be reused elsewhere.  As such, they play a
    role akin to helper methods in normal programming, and indeed, are
-   implemented in the same way, except that they carry a ``.holds``
-   suffix.
+   implemented in the same way, except that they return ``Unit`` and
+   state their proposition in their postcondition.
 
  * Use *case analysis* to split complex propositions into simpler
    sub-cases.  This is especially helpful in the presence of
@@ -797,12 +814,12 @@ Techniques for proving non-trivial postconditions
 
 When proving a mathematical lemma, the return type of the
 corresponding function is most of
-the time, if not always, ``Boolean``. For those proofs it is rather easy to
-write a postcondition: using ``holds`` is generally enough.
+the time, if not always, ``Unit``, and the postcondition is the statement
+of the lemma.
 
 But when it comes to writing postconditions for more general functions, such as
-the addition of rational numbers, we are no longer dealing with ``Boolean`` so
-we need a strategy to properly write ``ensuring`` statements.
+the addition of rational numbers, the postcondition has to relate the result
+to the inputs, so we need a strategy to properly write ``ensuring`` statements.
 
 
 Rationals: a simple example

@@ -44,7 +44,8 @@ Here is a quick summary of what to import.
 +================================+=================================================================+
 | `stainless.annotation._`       | Stainless annotations, e.g. @induct                             |
 +--------------------------------+-----------------------------------------------------------------+
-| `stainless.lang._`             | `Map`, `Set`, `PartialFunction`, `holds`, `passes`, `invariant` |
+| `stainless.lang._`             | `Map`, `Set`, `PartialFunction`, `passes`, `invariant`,         |
+|                                | `holds` (deprecated)                                            |
 +--------------------------------+-----------------------------------------------------------------+
 | `stainless.collection._`       | List[T] and subclasses, Option[T] and subclasses                |
 +--------------------------------+-----------------------------------------------------------------+

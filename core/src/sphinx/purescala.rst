@@ -695,9 +695,9 @@ extension to Scala which is meant to write programs closer to their true semanti
 
   .. code-block:: scala
 
-    def associativity(x: Real, y: Real, z: Real): Boolean = {
-      (x + y) + z == x + (y + z)
-    } holds
+    def associativity(x: Real, y: Real, z: Real): Unit = {
+      ()
+    }.ensuring(_ => (x + y) + z == x + (y + z))
 
   While it does not hold with floating point arithmetic.
 

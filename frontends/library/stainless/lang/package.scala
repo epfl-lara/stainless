@@ -18,12 +18,33 @@ package object lang {
 
   @ignore
   implicit class BooleanDecorations(val underlying: Boolean) {
+    /** Ensures that this Boolean is `true`; equivalent to `.ensuring(res => res)`.
+      *
+      * @deprecated Write lemmas as functions returning `Unit` with the statement in
+      *   the postcondition instead, for example
+      *   {{{
+      *   def lemma(l: List[BigInt]): Unit = {
+      *     // proof
+      *   }.ensuring(_ => l ++ Nil() == l)
+      *   }}}
+      *   With `.holds`, the statement is the body of the function, so every caller
+      *   has to unfold the body (proof included) to learn the statement, and the
+      *   lemma cannot be `@opaque`. Call such a lemma as a statement (`lemma(l)`),
+      *   or as `{ lemma(l); true }` where a Boolean is expected.
+      */
+    @deprecated("write the lemma as a Unit function with the statement in `.ensuring(_ => ...)`", "0.10.6")
     def holds : Boolean = {
       underlying
    }.ensuring {
       (res: Boolean) => res
     }
 
+    /** Ensures that `becauseOfThat` and this Boolean are `true`.
+      *
+      * @deprecated See [[holds]]: write the lemma as a Unit function with the
+      *   statement in the postcondition, and call the proof in its body.
+      */
+    @deprecated("write the lemma as a Unit function with the statement in `.ensuring(_ => ...)`", "0.10.6")
     def holds(becauseOfThat: Boolean) = {
       underlying
    }.ensuring {

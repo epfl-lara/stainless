@@ -11,252 +11,231 @@ import proof._
 @library
 object ListSpecs {
 
-  def snocIndex[T](l: List[T], t: T, i: BigInt): Boolean = {
+  @opaque
+  def snocIndex[T](l: List[T], t: T, i: BigInt): Unit = {
     require(0 <= i && i < l.size + 1)
     decreases(l)
     l match {
-      case Nil() => true
-      case Cons(x, xs) => if (i > 0) snocIndex[T](xs, t, i-1) else true
+      case Nil() => ()
+      case Cons(x, xs) => if (i > 0) snocIndex[T](xs, t, i-1) else ()
     }
-    ((l :+ t).apply(i) == (if (i < l.size) l(i) else t))
-  }.holds
+  }.ensuring(_ => (l :+ t).apply(i) == (if (i < l.size) l(i) else t))
 
-  def isnocIndex[T](l: List[T], t: T, i: Int): Boolean = {
+  @opaque
+  def isnocIndex[T](l: List[T], t: T, i: Int): Unit = {
     require(l.isize < Int.MaxValue)
     require(0 <= i && i < l.isize + 1)
     decreases(l)
     l match {
-      case Nil() => true
-      case Cons(x, xs) => if (i > 0) isnocIndex[T](xs, t, i - 1) else true
+      case Nil() => ()
+      case Cons(x, xs) => if (i > 0) isnocIndex[T](xs, t, i - 1) else ()
     }
-    ((l :+ t).iapply(i) == (if (i < l.isize) l.iapply(i) else t))
-  }.holds
+  }.ensuring(_ => (l :+ t).iapply(i) == (if (i < l.isize) l.iapply(i) else t))
 
+  @opaque
   @isabelle.lemma(about = "stainless.collection.List.apply")
-  def consIndex[T](h: T, t: List[T], i: BigInt): Boolean = {
+  def consIndex[T](h: T, t: List[T], i: BigInt): Unit = {
     require(0 <= i && i < t.size + 1)
     decreases(t)
-    check(t.isEmpty || i == 0 || consIndex(h, t.tail, i-1))
-    (h :: t).apply(i) == (if (i == 0) h else t.apply(i - 1))
-  }.holds
+    if (!t.isEmpty && i != 0) consIndex(h, t.tail, i-1)
+  }.ensuring(_ => (h :: t).apply(i) == (if (i == 0) h else t.apply(i - 1)))
 
-  def reverseIndex[T](l: List[T], i: BigInt): Boolean = {
+  @opaque
+  def reverseIndex[T](l: List[T], i: BigInt): Unit = {
     require(0 <= i && i < l.size)
     decreases(l)
     l match {
-      case Nil() => true
+      case Nil() => ()
       case Cons(x,xs) =>
-        snocIndex(xs.reverse, x, i) &&
-        (if (i < xs.size) consIndex(x, xs, l.size - 1 - i) && reverseIndex[T](xs, i) else true)
+        snocIndex(xs.reverse, x, i)
+        if (i < xs.size) {
+          consIndex(x, xs, l.size - 1 - i)
+          reverseIndex[T](xs, i)
+        }
     }
-    l.reverse.apply(i) == l.apply(l.size - 1 - i)
-  }.holds
+  }.ensuring(_ => l.reverse.apply(i) == l.apply(l.size - 1 - i))
 
-  def snocLast[T](l: List[T], x: T): Boolean = {
+  @opaque
+  def snocLast[T](l: List[T], x: T): Unit = {
     decreases(l)
-
     l match {
-      case Nil() => true
-      case Cons(y, ys) => {
-        ((y :: ys) :+ x).last   ==| trivial         |
-        (y :: (ys :+ x)).last   ==| trivial         |
-        (ys :+ x).last          ==| snocLast(ys, x) |
-        x
-      }.qed
+      case Nil() => ()
+      case Cons(y, ys) => snocLast(ys, x)
     }
+  }.ensuring(_ => (l :+ x).last == x)
 
-    ((l :+ x).last == x)
-  }.holds
-
-  def headReverseLast[T](l: List[T]): Boolean = {
+  @opaque
+  def headReverseLast[T](l: List[T]): Unit = {
     require (!l.isEmpty)
-    (l.head == l.reverse.last)
-  }.holds because {
-    val Cons(x, xs) = l: @unchecked;
-    {
-      (x :: xs).head           ==| trivial                 |
-      x                        ==| snocLast(xs.reverse, x) |
-      (xs.reverse :+ x).last   ==| trivial                 |
-      (x :: xs).reverse.last
-    }.qed
-  }
+    snocLast(l.tail.reverse, l.head)
+  }.ensuring(_ => l.head == l.reverse.last)
 
-  def appendIndex[T](l1: List[T], l2: List[T], i: BigInt): Boolean = {
+  @opaque
+  def appendIndex[T](l1: List[T], l2: List[T], i: BigInt): Unit = {
     require(0 <= i && i < l1.size + l2.size)
     decreases(l1)
     l1 match {
-      case Nil() => true
+      case Nil() => ()
       case Cons(x,xs) =>
-        (i != BigInt(0)) ==> appendIndex[T](xs, l2, i - 1)
+        if (i != BigInt(0)) appendIndex[T](xs, l2, i - 1)
     }
-    (l1 ++ l2).apply(i) == (if (i < l1.size) l1(i) else l2(i - l1.size))
-  }.holds
+  }.ensuring(_ => (l1 ++ l2).apply(i) == (if (i < l1.size) l1(i) else l2(i - l1.size)))
 
-  def appendAssoc[T](@induct l1: List[T], l2: List[T], l3: List[T]): Boolean = {
-    (l1 ++ l2) ++ l3 == l1 ++ (l2 ++ l3)
-  }.holds
+  @opaque
+  def appendAssoc[T](@induct l1: List[T], l2: List[T], l3: List[T]): Unit = {
+    ()
+  }.ensuring(_ => (l1 ++ l2) ++ l3 == l1 ++ (l2 ++ l3))
 
-  def rightUnitAppend[T](@induct l1: List[T]): Boolean = {
-    l1 ++ Nil() == l1
-  }.holds
+  @opaque
+  def rightUnitAppend[T](@induct l1: List[T]): Unit = {
+    ()
+  }.ensuring(_ => l1 ++ Nil() == l1)
 
   // This follows immediately from the definition of `++` but we
   // include it here anyway for completeness.
-  def leftUnitAppend[T](l1: List[T]): Boolean = {
-    Nil() ++ l1 == l1
-  }.holds
+  @opaque
+  def leftUnitAppend[T](l1: List[T]): Unit = {
+    ()
+  }.ensuring(_ => Nil() ++ l1 == l1)
 
-  def snocIsAppend[T](l: List[T], t: T): Boolean = {
+  @opaque
+  def snocIsAppend[T](l: List[T], t: T): Unit = {
     decreases(l)
     l match {
-      case Nil() => true
+      case Nil() => ()
       case Cons(x,xs) => snocIsAppend(xs,t)
     }
-    (l :+ t) == l ++ Cons[T](t, Nil())
-  }.holds
+  }.ensuring(_ => (l :+ t) == l ++ Cons[T](t, Nil()))
 
-  def snocAfterAppend[T](l1: List[T], l2: List[T], t: T): Boolean = {
+  @opaque
+  def snocAfterAppend[T](l1: List[T], l2: List[T], t: T): Unit = {
     decreases(l1)
     l1 match {
-      case Nil() => true
+      case Nil() => ()
       case Cons(x,xs) => snocAfterAppend(xs,l2,t)
     }
-    (l1 ++ l2) :+ t == l1 ++ (l2 :+ t)
-  }.holds
+  }.ensuring(_ => (l1 ++ l2) :+ t == l1 ++ (l2 :+ t))
 
-  def snocReverse[T](l: List[T], t: T): Boolean = {
+  @opaque
+  def snocReverse[T](l: List[T], t: T): Unit = {
     decreases(l)
     l match {
-      case Nil() => true
+      case Nil() => ()
       case Cons(x,xs) => snocReverse(xs,t)
     }
-    (l :+ t).reverse == Cons(t, l.reverse)
-  }.holds
+  }.ensuring(_ => (l :+ t).reverse == Cons(t, l.reverse))
 
-  def reverseReverse[T](l: List[T]): Boolean = {
+  @opaque
+  def reverseReverse[T](l: List[T]): Unit = {
     decreases(l)
     l match {
-      case Nil()       => trivial
-      case Cons(x, xs) => {
-        (xs.reverse :+ x).reverse ==| snocReverse[T](xs.reverse, x) |
-        x :: xs.reverse.reverse   ==| reverseReverse[T](xs)         |
-        (x :: xs)
-      }.qed
+      case Nil()       => ()
+      case Cons(x, xs) =>
+        // (xs.reverse :+ x).reverse == x :: xs.reverse.reverse == x :: xs
+        snocReverse[T](xs.reverse, x)
+        reverseReverse[T](xs)
     }
-    l.reverse.reverse == l
-  }.holds
+  }.ensuring(_ => l.reverse.reverse == l)
 
-  def reverseAppend[T](l1: List[T], l2: List[T]): Boolean = {
+  @opaque
+  def reverseAppend[T](l1: List[T], l2: List[T]): Unit = {
     decreases(l1)
     l1 match {
-      case Nil() => {
-        (Nil() ++ l2).reverse         ==| trivial                     |
-        l2.reverse                    ==| rightUnitAppend(l2.reverse) |
-        l2.reverse ++ Nil()           ==| trivial                     |
-        l2.reverse ++ Nil().reverse
-      }.qed
-      case Cons(x, xs) => {
-        ((x :: xs) ++ l2).reverse         ==| trivial               |
-        (x :: (xs ++ l2)).reverse         ==| trivial               |
-        (xs ++ l2).reverse :+ x           ==| reverseAppend(xs, l2) |
-        (l2.reverse ++ xs.reverse) :+ x   ==|
-          snocAfterAppend(l2.reverse, xs.reverse, x)                |
-        l2.reverse ++ (xs.reverse :+ x)   ==| trivial               |
-        l2.reverse ++ (x :: xs).reverse
-      }.qed
+      case Nil() =>
+        // (Nil() ++ l2).reverse == l2.reverse == l2.reverse ++ Nil()
+        rightUnitAppend(l2.reverse)
+      case Cons(x, xs) =>
+        // ((x :: xs) ++ l2).reverse == (xs ++ l2).reverse :+ x
+        //                           == (l2.reverse ++ xs.reverse) :+ x
+        //                           == l2.reverse ++ (xs.reverse :+ x)
+        reverseAppend(xs, l2)
+        snocAfterAppend(l2.reverse, xs.reverse, x)
     }
-    (l1 ++ l2).reverse == l2.reverse ++ l1.reverse
-  }.holds
+  }.ensuring(_ => (l1 ++ l2).reverse == l2.reverse ++ l1.reverse)
 
-  def snocFoldRight[A, B](xs: List[A], y: A, z: B, f: (A, B) => B): Boolean = {
+  @opaque
+  def snocFoldRight[A, B](xs: List[A], y: A, z: B, f: (A, B) => B): Unit = {
     decreases(xs)
     xs match {
-      case Nil() => true
+      case Nil() => ()
       case Cons(x, xs) => snocFoldRight(xs, y, z, f)
     }
-    (xs :+ y).foldRight(z)(f) == xs.foldRight(f(y, z))(f)
-  }.holds
+  }.ensuring(_ => (xs :+ y).foldRight(z)(f) == xs.foldRight(f(y, z))(f))
 
-  def folds[A, B](xs: List[A], z: B, f: (B, A) => B): Boolean = {
+  @opaque
+  def folds[A, B](xs: List[A], z: B, f: (B, A) => B): Unit = {
     decreases(xs)
     val f2 = (x: A, z: B) => f(z, x)
-    ( xs.foldLeft(z)(f) == xs.reverse.foldRight(z)(f2) ) because {
-      xs match {
-        case Nil() => true
-        case Cons(x, xs) => {
-          (x :: xs).foldLeft(z)(f)              ==| trivial               |
-          xs.foldLeft(f(z, x))(f)               ==| folds(xs, f(z, x), f) |
-          xs.reverse.foldRight(f(z, x))(f2)     ==| trivial               |
-          xs.reverse.foldRight(f2(x, z))(f2)    ==|
-            snocFoldRight(xs.reverse, x, z, f2)                           |
-          (xs.reverse :+ x).foldRight(z)(f2)    ==| trivial               |
-          (x :: xs).reverse.foldRight(z)(f2)
-        }.qed
-      }
+    xs match {
+      case Nil() => ()
+      case Cons(x, xs) =>
+        // (x :: xs).foldLeft(z)(f) == xs.foldLeft(f(z, x))(f)
+        //                          == xs.reverse.foldRight(f2(x, z))(f2)
+        //                          == (xs.reverse :+ x).foldRight(z)(f2)
+        folds(xs, f(z, x), f)
+        snocFoldRight(xs.reverse, x, z, f2)
     }
-  }.holds
+  }.ensuring(_ => xs.foldLeft(z)(f) == xs.reverse.foldRight(z)((x: A, z: B) => f(z, x)))
 
-  def scanVsFoldLeft[A, B](l: List[A], z: B, f: (B, A) => B): Boolean = {
+  @opaque
+  def scanVsFoldLeft[A, B](l: List[A], z: B, f: (B, A) => B): Unit = {
     decreases(l)
     l match {
-      case Nil() => true
+      case Nil() => ()
       case Cons(x, xs) => scanVsFoldLeft(xs, f(z, x), f)
     }
-    ( l.scanLeft(z)(f).last == l.foldLeft(z)(f) )
-  }.holds
+  }.ensuring(_ => l.scanLeft(z)(f).last == l.foldLeft(z)(f))
 
-  def scanVsFoldRight[A,B](@induct l: List[A], z: B, f: (A,B) => B): Boolean = {
-    l.scanRight(z)(f).head == l.foldRight(z)(f)
-  }.holds
+  @opaque
+  def scanVsFoldRight[A,B](@induct l: List[A], z: B, f: (A,B) => B): Unit = {
+    ()
+  }.ensuring(_ => l.scanRight(z)(f).head == l.foldRight(z)(f))
 
-  def appendContent[A](l1: List[A], l2: List[A]) = {
-    l1.content ++ l2.content == (l1 ++ l2).content
-  }.holds
+  @opaque
+  def appendContent[A](l1: List[A], l2: List[A]): Unit = {
+    ()
+  }.ensuring(_ => l1.content ++ l2.content == (l1 ++ l2).content)
 
-  def flattenPreservesContent[T](ls: List[List[T]]): Boolean = {
+  @opaque
+  def flattenPreservesContent[T](ls: List[List[T]]): Unit = {
     decreases(ls)
-    val f: (List[T], Set[T]) => Set[T] = _.content ++ _
-    ( flatten(ls).content == ls.foldRight(Set[T]())(f) ) because {
-      ls match {
-        case Nil() => true
-        case Cons(h, t) => {
-          flatten(h :: t).content                     ==| trivial                       |
-          (h ++ flatten(t)).content                   ==| appendContent(h, flatten(t))  |
-          h.content ++ flatten(t).content             ==| flattenPreservesContent(t)    |
-          h.content ++ t.foldRight(Set[T]())(f)       ==| trivial                       |
-          f(h, Set[T]()) ++ t.foldRight(Set[T]())(f)  ==| trivial                       |
-          (h :: t).foldRight(Set[T]())(f)
-        }.qed
-      }
+    ls match {
+      case Nil() => ()
+      case Cons(h, t) =>
+        // flatten(h :: t).content == (h ++ flatten(t)).content
+        //                         == h.content ++ flatten(t).content
+        //                         == h.content ++ t.foldRight(Set[T]())(f)
+        appendContent(h, flatten(t))
+        flattenPreservesContent(t)
     }
-  }.holds
+  }.ensuring(_ => flatten(ls).content == ls.foldRight(Set[T]())((l: List[T], acc: Set[T]) => l.content ++ acc))
 
   // A lemma about `append` and `updated`
-  def appendUpdate[T](l1: List[T], l2: List[T], i: BigInt, y: T): Boolean = {
+  @opaque
+  def appendUpdate[T](l1: List[T], l2: List[T], i: BigInt, y: T): Unit = {
     require(0 <= i && i < l1.size + l2.size)
     decreases(l1)
-
     l1 match {
-      case Nil() => true
-      case Cons(x, xs) => if (i == 0) true else appendUpdate[T](xs, l2, i - 1, y)
+      case Nil() => ()
+      case Cons(x, xs) => if (i == 0) () else appendUpdate[T](xs, l2, i - 1, y)
     }
-
-    // lemma
-    ((l1 ++ l2).updated(i, y) == (
+  }.ensuring(_ =>
+    (l1 ++ l2).updated(i, y) == (
       if (i < l1.size)
         l1.updated(i, y) ++ l2
       else
-        l1 ++ l2.updated(i - l1.size, y)))
-  }.holds
+        l1 ++ l2.updated(i - l1.size, y))
+  )
 
   // a lemma about `append`, `take` and `drop`
-  def appendTakeDrop[T](l1: List[T], l2: List[T], n: BigInt): Boolean = {
+  @opaque
+  def appendTakeDrop[T](l1: List[T], l2: List[T], n: BigInt): Unit = {
     decreases(l1)
     l1 match {
-      case Nil() => true
-      case Cons(x, xs) => if (n <= 0) true else appendTakeDrop[T](xs, l2, n - 1)
+      case Nil() => ()
+      case Cons(x, xs) => if (n <= 0) () else appendTakeDrop[T](xs, l2, n - 1)
     }
-    // lemma
+  }.ensuring(_ =>
     ((l1 ++ l2).take(n) == (
       if (n < l1.size) l1.take(n)
       else if (n > l1.size) l1 ++ l2.take(n - l1.size)
@@ -265,36 +244,33 @@ object ListSpecs {
         if (n < l1.size) l1.drop(n) ++ l2
         else if (n > l1.size) l2.drop(n - l1.size)
         else l2))
-  }.holds
+  )
 
   // A lemma about `append` and `insertAt`
-  def appendInsert[T](l1: List[T], l2: List[T], i: BigInt, y: T): Boolean = {
+  @opaque
+  def appendInsert[T](l1: List[T], l2: List[T], i: BigInt, y: T): Unit = {
     require(0 <= i && i <= l1.size + l2.size)
     decreases(l1)
-
     l1 match {
-      case Nil() => true
-      case Cons(x, xs) => if (i == 0) true else appendInsert[T](xs, l2, i - 1, y)
+      case Nil() => ()
+      case Cons(x, xs) => if (i == 0) () else appendInsert[T](xs, l2, i - 1, y)
     }
-
-    // lemma
+  }.ensuring(_ =>
     (l1 ++ l2).insertAt(i, y) == (
       if (i < l1.size) l1.insertAt(i, y) ++ l2
       else l1 ++ l2.insertAt(i - l1.size, y))
-  }.holds
+  )
 
   /** A way to apply the forall axiom */
-  def applyForAll[T](l: List[T], i: BigInt, p: T => Boolean): Boolean = {
+  @opaque
+  def applyForAll[T](l: List[T], i: BigInt, p: T => Boolean): Unit = {
     require(i >= 0 && i < l.length && l.forall(p))
     decreases(l)
-
     l match {
-      case Nil() => trivial
-      case Cons(head, tail) => if(i == 0) p(head) else applyForAll(l.tail, i - 1, p)
+      case Nil() => ()
+      case Cons(head, tail) => if (i != 0) applyForAll(tail, i - 1, p)
     }
-
-    p(l(i))
-  }.holds
+  }.ensuring(_ => p(l(i)))
 
   def listFilterValidProp[A](@induct l: List[A], p: A => Boolean, f: A => Boolean): Unit = {
     require(l.forall(p))
