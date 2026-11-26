@@ -65,6 +65,13 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
   private val adt: Identifier => Identifier = new CachedID[Identifier](_.freshen)
   private val adtValue: Identifier => Identifier = new CachedID[Identifier](_ => FreshIdentifier("value"))
 
+  // The sorts of class hierarchies (see `TransformerContext.hierarchyOf`), by the root of the hierarchy, and the
+  // constructors of `Object` that box their values
+  private val hierarchyID = new CachedID[Identifier](_.freshen)
+  private val hierarchyBox = new CachedID[Identifier](_.freshen)
+  private val hierarchyValue = new CachedID[Identifier](_ => FreshIdentifier("value"))
+  private def hierarchy(root: Identifier) = T(hierarchyID(root))()
+
   // Boxing of the values of type parameters that are not encoded, see `wrap` and `unwrap`
   private val boxID = FreshIdentifier("box")
   private val unboxID = FreshIdentifier("unbox")
@@ -83,7 +90,7 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
    * ==================================== */
 
   private def isObject(tpe: s.Type)(using scope: Scope): Boolean = tpe match {
-    case _: s.ClassType => true
+    case ct: s.ClassType => scope.context.hierarchyOf(ct.id).isEmpty
     case s.NothingType() | s.AnyType() => true
     case s.UnknownType(_) => true
     case s.TypeBounds(_, _, _) => true
@@ -93,6 +100,14 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
   }
 
   private def isSimple(tpe: s.Type)(using Scope): Boolean = !s.typeOps.exists(isObject)(tpe)
+
+  /** The root of the hierarchy whose sort encodes the values of `tpe`, if any. */
+  private def hierarchyOf(tpe: s.Type)(using scope: Scope): Option[Identifier] = tpe match {
+    case ct: s.ClassType => scope.context.hierarchyOf(ct.id)
+    case s.RefinementType(vd, _) => hierarchyOf(vd.tpe)
+    case ta: s.TypeApply if !ta.isAbstract(using scope.symbols) => hierarchyOf(ta.resolve(using scope.symbols))
+    case _ => None
+  }
 
 
   private def simplify(lambda: t.Lambda): t.Expr = lambda match {
@@ -124,7 +139,10 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
 
   private def wrap(e: t.Expr, tpe: s.Type)(using scope: Scope): t.Expr = (tpe match {
     case s.AnyType() => e
-    case s.ClassType(id, tps) => e
+    case s.ClassType(id, tps) => scope.context.hierarchyOf(id) match {
+      case Some(root) => C(hierarchyBox(root))(e)
+      case None => e
+    }
     // Values of the type parameters of sort invariants are boxed into uninterpreted objects, see `Scope.empty`
     case tp: s.TypeParameter if scope.boxed(tp) && !scope.tparams.contains(tp) =>
       t.FunctionInvocation(boxID, Seq(scope.transform(tp)), Seq(e))
@@ -315,7 +333,10 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
 
   private def unwrap(e: t.Expr, tpe: s.Type)(using scope: Scope): t.Expr = (tpe match {
     case s.AnyType() => e
-    case s.ClassType(id, tps) => e
+    case s.ClassType(id, tps) => scope.context.hierarchyOf(id) match {
+      case Some(root) => getRefField(e, hierarchyValue(root))
+      case None => e
+    }
     case tp: s.TypeParameter if scope.boxed(tp) && !scope.tparams.contains(tp) =>
       t.FunctionInvocation(unboxID, Seq(scope.transform(tp)), Seq(e))
     case tp: s.TypeParameter => e
@@ -349,7 +370,8 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
   private def sameEncoding(tpe: s.Type, expected: s.Type)(using scope: Scope): Boolean = {
     val t1 = tpe.getType(using scope.symbols)
     val t2 = expected.getType(using scope.symbols)
-    erasedBy(t1) == erasedBy(t2) || isObject(t1) && isObject(t2)
+    erasedBy(t1) == erasedBy(t2) || isObject(t1) && isObject(t2) ||
+      hierarchyOf(t1).isDefined && hierarchyOf(t1) == hierarchyOf(t2)
   }
 
   private def convert(e: t.Expr, tpe: s.Type, expected: s.Type)(using scope: Scope): t.Expr = {
@@ -553,6 +575,17 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
           scope.transform(pred, s.BooleanType().copiedFrom(pred))
         ).copiedFrom(e)
 
+      case (_, s.ClassType(id, tps)) if scope.context.hierarchyOf(id).isDefined =>
+        val root = scope.context.hierarchyOf(id).get
+        def test(e: t.Expr) = t.FunctionInvocation(instanceID(id), Seq(), e +: tps.map(tp => typeCode(tp)))
+        if (isObject(in)) {
+          (e `is` hierarchyBox(root)).copiedFrom(e) && test(getRefField(e, hierarchyValue(root)))
+        } else if (hierarchyOf(in) == Some(root)) {
+          test(e)
+        } else {
+          t.BooleanLiteral(false)
+        }
+
       case (_, s.ClassType(id, tps)) if isObject(in) =>
         t.FunctionInvocation(
           instanceID(id), Seq(),
@@ -733,7 +766,7 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
     val cd = symbols.getClass(id)
     classInstanceCache.cached(cd, context) {
       mkFunDef(instanceID(id), t.DropVCs, t.Synthetic)() { _ =>
-        (("x" :: ref) +: cd.typeArgs.map(_.id.name :: code), BooleanType(), {
+        (("x" :: context.encodedClass(id)) +: cd.typeArgs.map(_.id.name :: code), BooleanType(), {
           case x +: tps =>
             given scope: Scope = context.emptyScope.testing(cd.typeArgs zip tps)
             if (cd.children.nonEmpty) {
@@ -778,7 +811,7 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
 
         val scope = context.emptyScope.in(cd.id)
         val returnType = t.tupleTypeWrap(cd.fields.map(vd => scope.transform(vd.tpe)))
-        (Seq("x" :: ref), T(option)(returnType), { case Seq(x) =>
+        (Seq("x" :: context.encodedClass(cd.id)), T(option)(returnType), { case Seq(x) =>
           if_ (condition(x)) {
             val r = t.tupleWrap(cd.fields.map(vd => t.ADTSelector(x, vd.id)))
             C(some)(returnType)(r)
@@ -1107,6 +1140,13 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
 
       case s.UnknownType(_) => transform(s.AnyType().copiedFrom(tp))
 
+      case ct: s.ClassType if context.hierarchyOf(ct.id).isDefined =>
+        val root = context.hierarchyOf(ct.id).get
+        val rootType = erased(s.ClassType(root, symbols.getClass(root).typeArgs).copiedFrom(tp))
+        refinement(("x" :: hierarchy(root).copiedFrom(tp)).copiedFrom(tp)) {
+          x => t.Annotated(instanceOf(x, rootType, ct), Seq(t.DropConjunct)).copiedFrom(tp)
+        }.copiedFrom(tp)
+
       case ct: s.ClassType =>
         refinement(("x" :: ref.copiedFrom(tp)).copiedFrom(tp)) {
           x => t.Annotated(instanceOf(x, s.AnyType().copiedFrom(tp), ct), Seq(t.DropConjunct)).copiedFrom(tp)
@@ -1148,9 +1188,9 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
 
     override def transform(e: s.Expr, inType: s.Type): t.Expr = e match {
       case s.ClassConstructor(ct, args) =>
-        t.ADT(ct.id, Seq(), (erased(ct).tcd.fields zip args).map {
+        convert(t.ADT(ct.id, Seq(), (erased(ct).tcd.fields zip args).map {
           case (vd, arg) => convert(transform(arg), arg.getType, vd.tpe)
-        }).copiedFrom(e)
+        }).copiedFrom(e), ct, inType)
 
       case s.ClassSelector(expr, id) =>
         val field = erased(expr.getType).asInstanceOf[s.ClassType].tcd.fields.find(_.id == id).get
@@ -1163,13 +1203,13 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
         val vd = t.ValDef.fresh("x", transform(expr.getType)).copiedFrom(e)
         val cond = instanceOf(vd.toVariable, expr.getType, tpe).copiedFrom(e)
         if (cond == BooleanLiteral(true))
-          transform(expr)
+          convert(transform(expr), expr.getType, inType)
         else
-          t.Let(vd, transform(expr), t.Assert(
+          convert(t.Let(vd, transform(expr), t.Assert(
             cond,
             Some("Cast error"),
             convert(vd.toVariable, expr.getType, tpe).copiedFrom(e)
-          ).copiedFrom(e)).copiedFrom(e)
+          ).copiedFrom(e)).copiedFrom(e), tpe, inType)
 
       case fi @ s.FunctionInvocation(id, tps, args) =>
         val funScope = this `in` id
@@ -1613,21 +1653,67 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
       (tplSizes, funSizes, bvSizes, fpSizes)
     }
 
-    val refSort = new t.ADTSort(refID, Seq(),
-      symbols.classes.values.toSeq.filterNot(_.flags contains s.IsAbstract).map { cd =>
-        val anys = cd.typeArgs.map(tp => s.AnyType().copiedFrom(tp))
-        // Fields whose types mention type parameters of the class aren't refined by their type tests: the type
-        // test of the class already covers them, and refinements of `Object` fields are unrolled for every
-        // `Object` value. The type test of the class skips the other fields, which keep their refinements.
-        val fields = (cd.fields zip cd.typed(anys).fields.map(emptyScope.transform)).map { case (field, vd) =>
-          vd.tpe match {
-            case t.RefinementType(v, t.Annotated(_, Seq(t.DropConjunct)))
-                if v.tpe == ref && s.typeOps.typeParamsOf(field.tpe).exists(cd.typeArgs.contains) =>
-              vd.copy(tpe = ref).copiedFrom(vd)
-            case _ => vd
-          }
+    private val hierarchies = scala.collection.concurrent.TrieMap.empty[Identifier, Option[Identifier]]
+
+    /** The root of the hierarchy of class `id`, when the values of the hierarchy are encoded by a sort of
+     *  their own instead of `Object`: the root is sealed, every class of the hierarchy has it as only root,
+     *  and the classes with children are sealed. Conversions to `Any` box these values into `Object`. */
+    def hierarchyOf(id: Identifier): Option[Identifier] = hierarchies.getOrElseUpdate(id, {
+      val cd = symbols.getClass(id)
+      def roots(cd: s.ClassDef): Seq[Identifier] = (cd +: cd.ancestors.map(_.cd)).filter(_.parents.isEmpty).map(_.id).distinct
+      roots(cd) match {
+        case Seq(root) =>
+          val rcd = symbols.getClass(root)
+          val classes = rcd +: rcd.descendants
+          val eligible = (rcd.flags contains s.IsSealed) && (rcd.flags contains s.IsAbstract) &&
+            classes.forall { cd =>
+              roots(cd) == Seq(root) && cd.typeMembers.isEmpty &&
+              (cd.children.isEmpty || (cd.flags contains s.IsSealed)) &&
+              !(cd.flags contains s.IsExtensible)
+            }
+          if (eligible) Some(root) else None
+        case _ => None
+      }
+    })
+
+    /** The type of the encoded values of class `id`, without the refinement of their type test. */
+    def encodedClass(id: Identifier): t.Type = hierarchyOf(id) match {
+      case Some(root) => hierarchy(root)
+      case None => ref
+    }
+
+    private def constructor(cd: s.ClassDef, sort: Identifier): t.ADTConstructor = {
+      val anys = cd.typeArgs.map(tp => s.AnyType().copiedFrom(tp))
+      // Fields whose types mention type parameters of the class aren't refined by their type tests: the type
+      // test of the class already covers them, and refinements of the fields of a sort are unrolled for every
+      // value of the sort. The type test of the class skips the other fields, which keep their refinements.
+      val fields = (cd.fields zip cd.typed(anys).fields.map(emptyScope.transform)).map { case (field, vd) =>
+        vd.tpe match {
+          case t.RefinementType(v, t.Annotated(_, Seq(t.DropConjunct)))
+              if s.typeOps.typeParamsOf(field.tpe).exists(cd.typeArgs.contains) =>
+            vd.copy(tpe = v.tpe).copiedFrom(vd)
+          case _ => vd
         }
-        new t.ADTConstructor(cd.id, refID, fields).copiedFrom(cd)
+      }
+      new t.ADTConstructor(cd.id, sort, fields).copiedFrom(cd)
+    }
+
+    private val concreteClasses = symbols.classes.values.toSeq.filterNot(_.flags contains s.IsAbstract)
+
+    private val hierarchyRoots: Seq[Identifier] = concreteClasses.flatMap(cd => hierarchyOf(cd.id)).distinct
+
+    val hierarchySorts: Seq[t.ADTSort] = hierarchyRoots.map { root =>
+      val rcd = symbols.getClass(root)
+      new t.ADTSort(hierarchyID(root), Seq(),
+        concreteClasses.filter(cd => hierarchyOf(cd.id) == Some(root)).map(constructor(_, hierarchyID(root))),
+        Seq(t.Synthetic)
+      ).copiedFrom(rcd)
+    }
+
+    val refSort = new t.ADTSort(refID, Seq(),
+      concreteClasses.filter(cd => hierarchyOf(cd.id).isEmpty).map(constructor(_, refID)) ++
+      hierarchyRoots.map { root =>
+        new t.ADTConstructor(hierarchyBox(root), refID, Seq(t.ValDef(hierarchyValue(root), hierarchy(root))))
       } ++ symbols.sorts.values.toSeq.map { sort =>
         new t.ADTConstructor(adt(sort.id), refID, Seq(t.ValDef(
           adtValue(sort.id),
@@ -1678,7 +1764,7 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
     }
 
     def sorts: Seq[t.ADTSort] =
-      OptionSort.sorts :+ refSort
+      OptionSort.sorts ++ hierarchySorts :+ refSort
 
     /** Duplicate function [[encoded]] that was derived from [[original]] into
      *  another function without the reified type parameters and an empty body.
