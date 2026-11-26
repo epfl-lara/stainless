@@ -4,7 +4,5 @@
 // The Stainless library, as a binary dependency, and Stainless itself, as a compiler plugin
 //> using dep ch.epfl.lara::stainless-library:0.10.6
 //> using plugin ch.epfl.lara:::stainless-dotty-plugin:0.10.6
-// -Yretain-trees lets Stainless extract the definitions of the library from its TASTy files
-//> using options -Yretain-trees -language:experimental.qualifiedTypes
-//> using options -language:experimental.qualifiedTypes.silent -Yqualified-types-anf
-//> using options -P:stainless:verify:true -P:stainless:ghost-elim:true
+// The plugin verifies the program and removes its ghost code, and enables the compiler options
+// Stainless needs. Programs with qualified types may also need `//> using options -Yqualified-types-anf`.

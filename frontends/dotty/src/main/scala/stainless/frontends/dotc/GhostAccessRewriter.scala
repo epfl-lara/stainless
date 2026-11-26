@@ -18,6 +18,8 @@ class GhostAccessRewriter(afterPhase: String) extends PluginPhase { self =>
   override val runsAfter = Set(afterPhase)
   override val runsBefore = Set(FirstTransform.name)
 
+  override def initContext(ctx: Contexts.FreshContext): Unit = StainlessPlugin.enableRequiredSettings(ctx)
+
   override def run(using dottyCtx: DottyContext): Unit = (new GhostAccessMacroTransform).run
 
   // GhostAccessRewriter needs to extend PluginPhase (because we would like to return it in StainlessPlugin.init)

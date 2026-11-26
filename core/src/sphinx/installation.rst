@@ -329,9 +329,6 @@ Scala version it is built with:
   //> using scala <scala-version>
   //> using dep ch.epfl.lara::stainless-library:<stainless-version>
   //> using plugin ch.epfl.lara:::stainless-dotty-plugin:<stainless-version>
-  //> using options -Yretain-trees -language:experimental.qualifiedTypes
-  //> using options -language:experimental.qualifiedTypes.silent -Yqualified-types-anf
-  //> using options -P:stainless:verify:true -P:stainless:ghost-elim:true
 
 Then ``scala --power compile .`` verifies and compiles the program, and
 ``scala --power run .`` runs it (``--power`` is needed for the
@@ -347,19 +344,23 @@ With sbt, the same configuration is, in ``build.sbt``:
   libraryDependencies += "ch.epfl.lara" %% "stainless-library" % "<stainless-version>"
   addCompilerPlugin(("ch.epfl.lara" % "stainless-dotty-plugin" % "<stainless-version>").cross(CrossVersion.full))
 
-  scalacOptions ++= Seq(
-    "-Yretain-trees",
-    "-language:experimental.qualifiedTypes",
-    "-language:experimental.qualifiedTypes.silent",
-    "-Yqualified-types-anf",
-    "-P:stainless:verify:true",
-    "-P:stainless:ghost-elim:true",
-  )
+The plugin enables the compiler options that Stainless needs:
+``-Yretain-trees``, so that Stainless can read the definitions of the library
+from its TASTy files, and the language features of qualified types, which the
+library uses. Verification and ghost code elimination are on by default; the
+options ``-P:stainless:verify:false`` and ``-P:stainless:ghost-elim:false``
+turn them off (e.g. ``//> using options -P:stainless:verify:false`` to only
+compile and run the program). The verification conditions that don't hold are
+reported as warnings, which don't fail the compilation.
 
-The option ``-Yretain-trees`` is required: without it, Stainless can't read
-the definitions of the library and reports them as missing dependencies. The
-verification conditions that don't hold are reported as warnings, which don't
-fail the compilation. ``-P:stainless:verify:false`` turns verification off.
+.. note::
+
+  Programs with qualified types may need the compiler option
+  ``-Yqualified-types-anf`` (``//> using options -Yqualified-types-anf``, or
+  ``scalacOptions += "-Yqualified-types-anf"``), for instance when Stainless
+  reports that it does not support a type with a refinement on a parameter. The
+  plugin can't enable it: the compiler decides whether to run the phases of this
+  option before loading the plugin.
 
 .. _running-code:
 

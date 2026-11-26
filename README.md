@@ -71,12 +71,14 @@ plugin artifact on Maven Central, `stainless-dotty-plugin_<scala-version>`):
 //> using scala <scala-version>
 //> using dep ch.epfl.lara::stainless-library:<stainless-version>
 //> using plugin ch.epfl.lara:::stainless-dotty-plugin:<stainless-version>
-//> using options -Yretain-trees -language:experimental.qualifiedTypes
-//> using options -language:experimental.qualifiedTypes.silent -Yqualified-types-anf
-//> using options -P:stainless:verify:true -P:stainless:ghost-elim:true
 ```
-and run `scala --power run .` (the `scalaOrganization` directive needs `--power`). To run the program
-without verifying it, use `-P:stainless:verify:false`.
+and run `scala --power run .` (the `scalaOrganization` directive needs `--power`). The plugin verifies
+the program, removes its ghost code, and enables the compiler options Stainless needs. To run the
+program without verifying it, add `//> using options -P:stainless:verify:false`.
+
+Note that programs with qualified types may need the compiler option `-Yqualified-types-anf`
+(`//> using options -Yqualified-types-anf`), for instance when Stainless reports that it does not
+support a type with a refinement on a parameter. The plugin can't enable this option itself.
 
 Note that verification failures are reported as warnings: they do not stop the compilation, so check the
 verification summary before trusting a run.
