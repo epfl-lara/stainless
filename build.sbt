@@ -246,10 +246,7 @@ Global / concurrentRestrictions := Seq(
   Tags.limit(Tags.Test, nTestSuiteParallelism)
 )
 
-def ghProject(repo: String, version: String) = RootProject(uri(s"${repo}#${version}"))
-
 lazy val inox = RootProject(file("./inox"))
-lazy val cafebabe = ghProject("https://git:git@github.com/epfl-lara/cafebabe.git", "d55cd3fb2e5194a57766d585370a7c7790abff4d")
 
 // Allow integration test to use facilities from regular tests
 lazy val IntegrationTest = config("it") extend(Test)
@@ -260,9 +257,12 @@ lazy val `stainless-core` = (project in file("core"))
   //.enablePlugins(SphinxPlugin)
   .settings(name := "stainless-core")
   .settings(commonSettings, publishMavenSettings)
+  .settings(
+    // The JVM bytecode library of the code generation evaluator (CodeGenEvaluator)
+    libraryDependencies += "ch.epfl.lara" %% "cafebabe" % "1.3.0",
+  )
   //.settings(site.settings)
   .dependsOn(inox % "compile->compile;test->test")
-  .dependsOn(cafebabe % "compile->compile")
 
 lazy val `stainless-library` = (project in file("frontends") / "library")
   .disablePlugins(AssemblyPlugin)
