@@ -237,7 +237,7 @@ It is also possible to call methods of a superclass with the ``super`` keyword.
   }
 
 Abstract methods may have contracts in terms of pre- and postconditions. The
-syntax uses ``???`` and is as follows:
+syntax uses ``AbstractMethodBody()`` from ``stainless.lang`` and is as follows:
 
 .. code-block:: scala
 
@@ -246,9 +246,19 @@ syntax uses ``???`` and is as follows:
 
     def add[T](t: T): Set[T] = {
       require(!this.contains(t))
-      (??? : Set[T])
+      AbstractMethodBody[Set[T]]()
    }.ensuring(res => res.contains(t))
   }
+
+``AbstractMethodBody()`` can only be the body of a method of an abstract class or
+of a trait. Stainless rejects the concrete classes that do not implement such a
+method, as well as the calls to it through ``super``, so that it never runs.
+
+A missing implementation ``???``, on the other hand, throws an exception when
+Scala evaluates it. Stainless treats it as ``assert(false)`` wherever it is
+written, ghost code included: it generates a verification condition stating that
+the ``???`` is unreachable. Only the bodies of ``@extern`` definitions, which
+Stainless does not analyse, are exempt.
 
 You can then extend such abstract classes by concrete implementations, and
 Stainless will generate verification conditions to make sure that the
@@ -349,8 +359,8 @@ Here are a few examples that are rejected by Stainless:
       def f: BigInt
     }
 
-    // Error: "because abstract methods BadOverride3.AAA.f were not overridden by
-    //         a method, a lazy val, or a constructor parameter"
+    // Error: "Class BBB does not implement the abstract methods BadOverride3.AAA.f
+    //         with a method, a lazy val, or a constructor parameter"
     case class BBB() extends AAA {
       val f: BigInt = 0
     }
@@ -685,9 +695,9 @@ extension to Scala which is meant to write programs closer to their true semanti
 
   .. code-block:: scala
 
-    def associativity(x: Real, y: Real, z: Real): Boolean = {
-      (x + y) + z == x + (y + z)
-    } holds
+    def associativity(x: Real, y: Real, z: Real): Unit = {
+      ()
+    }.ensuring(_ => (x + y) + z == x + (y + z))
 
   While it does not hold with floating point arithmetic.
 

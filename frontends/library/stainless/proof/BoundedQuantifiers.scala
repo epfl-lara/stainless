@@ -5,8 +5,6 @@ import stainless.lang._
 import stainless.annotation._
 import stainless.lang.StaticChecks._
 
-import scala.language.postfixOps
-
 @library
 object BoundedQuantifiers {
 
@@ -41,15 +39,16 @@ object BoundedQuantifiers {
 
  }.ensuring(_ => p(i))
 
-  def elimForall2(n: BigInt, m: BigInt, p: (BigInt, BigInt) => Boolean, i: BigInt, j: BigInt): Boolean = {
+  @opaque
+  def elimForall2(n: BigInt, m: BigInt, p: (BigInt, BigInt) => Boolean, i: BigInt, j: BigInt): Unit = {
     require(0 <= i && i < n && 0 <= j && j < m && intForall2(n, m, p))
     decreases(n + m)
 
-    if (i == n-1 && j == m-1) p(i,j)
-    else if (i < n-1) elimForall2(n-1, m, p, i, j) && p(i,j)
-    else elimForall2(n, m-1, p, i, j) && p(i,j)
+    if (i == n-1 && j == m-1) ()
+    else if (i < n-1) elimForall2(n-1, m, p, i, j)
+    else elimForall2(n, m-1, p, i, j)
 
-  } holds
+ }.ensuring(_ => p(i, j))
 
 
   def elimExists(n: BigInt, p: BigInt => Boolean): BigInt = {
@@ -63,40 +62,36 @@ object BoundedQuantifiers {
 
 
 
-  def notExistsImpliesForall(n: BigInt, p: BigInt => Boolean): Boolean = {
+  @opaque
+  def notExistsImpliesForall(n: BigInt, p: BigInt => Boolean): Unit = {
     require(n >= 0 && !intExists(n,p))
     decreases(n)
 
-    if (n <= 0)
-      intForall(n,(i: BigInt) => !p(i))
-    else
-      notExistsImpliesForall(n-1, p) &&
-      intForall(n,(i: BigInt) => !p(i))
-  } holds
+    if (n > 0)
+      notExistsImpliesForall(n-1, p)
+
+ }.ensuring(_ => intForall(n,(i: BigInt) => !p(i)))
 
 
-  def notForallImpliesExists(n: BigInt, p: BigInt => Boolean): Boolean = {
+  @opaque
+  def notForallImpliesExists(n: BigInt, p: BigInt => Boolean): Unit = {
     require(n >= 0 && !intForall(n,p))
     decreases(n)
 
-    if (n <= 0) false
-    else if (!p(n-1))
-      intExists(n, (i: BigInt) => !p(i))
-    else
-      notForallImpliesExists(n-1,p) &&
-      intExists(n, (i: BigInt) => !p(i))
-  } holds
+    if (n > 0 && p(n-1))
+      notForallImpliesExists(n-1,p)
 
-  def witnessImpliesExists(n: BigInt, p: BigInt => Boolean, i: BigInt): Boolean = {
+ }.ensuring(_ => intExists(n, (i: BigInt) => !p(i)))
+
+  @opaque
+  def witnessImpliesExists(n: BigInt, p: BigInt => Boolean, i: BigInt): Unit = {
     require(0 <= i && i < n && p(i))
     decreases(n)
 
-    if (i == n-1)
-      intExists(n,p)
-    else
-      witnessImpliesExists(n-1, p, i) &&
-      intExists(n, p)
-  } holds
+    if (i < n-1)
+      witnessImpliesExists(n-1, p, i)
+
+ }.ensuring(_ => intExists(n, p))
 
   def increment(i: BigInt, n: BigInt): BigInt = {
     require(0 <= i && i < n)

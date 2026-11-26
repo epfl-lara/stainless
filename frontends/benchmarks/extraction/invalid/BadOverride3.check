@@ -1,4 +1,3 @@
-[ Error  ] BadOverride3.scala:6:14: Not well formed definition case class BBB extends AAA
-[ Error  ] 	because abstract methods BadOverride3.AAA.f were not overridden by a method, a lazy val, or a constructor parameter
+[ Error  ] BadOverride3.scala:6:14: Class BBB does not implement the abstract methods BadOverride3.AAA.f with a method, a lazy val, or a constructor parameter
              case class BBB() extends AAA {
                         ^

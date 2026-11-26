@@ -149,7 +149,8 @@ class SuperCalls(override val s: Trees, override val t: Trees)
 
     if (context.mustDuplicate(fd)) {
       val sid = superID(fd.id.unsafeToSymbolIdentifier)
-      val flags = fd.flags.filterNot(_ == IsInvariant) ++ Seq(Final, Synthetic)
+      // The duplicate holds the body of the method, which is verified as a part of the method
+      val flags = fd.flags.filterNot(_ == IsInvariant) ++ Seq(Final, Synthetic, Derived(Some(fd.id)))
       val superFd = exprOps.freshenSignature(
         new s.FunDef(sid, fd.tparams, fd.params, fd.returnType, fd.fullBody, flags.distinct).setPos(fd)
       )

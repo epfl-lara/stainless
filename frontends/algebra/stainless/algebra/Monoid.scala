@@ -56,14 +56,13 @@ object Monoid {
     def combine(x: List[T], y: List[T]): List[T] = x ++ y
 
     override def law_associativity(x: List[T], y: List[T], z: List[T]): Boolean = {
-      super.law_associativity(x, y, z) because lemma_associativity(x, y, z)
+      super.law_associativity(x, y, z).because { lemma_associativity(x, y, z); true }
     }
   }
 
   @induct
-  private def lemma_associativity[T](x: List[T], y: List[T], z: List[T]): Boolean = {
-    x ++ (y ++ z) == (x ++ y) ++ z
-  }.holds
+  private def lemma_associativity[T](x: List[T], y: List[T], z: List[T]): Unit = {
+  }.ensuring(_ => x ++ (y ++ z) == (x ++ y) ++ z)
 
   // Monoid of options
   /* Termination doesn't work yet on this instance, if uncommented, termination checks of other instances fail as well

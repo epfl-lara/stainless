@@ -12,17 +12,39 @@ package object lang {
   @library
   def ghost[A](@ghost value: => A): Unit = ()
 
-  @library
+  // A placeholder that SizedADTExtraction replaces, hence its body is not analysed
+  @library @extern @pure
   def indexedAt[T](n: BigInt, t: T): T = (??? : T)
 
   @ignore
   implicit class BooleanDecorations(val underlying: Boolean) {
+    /** Ensures that this Boolean is `true`; equivalent to `.ensuring(res => res)`.
+      *
+      * @deprecated Write lemmas as functions returning `Unit` with the statement in
+      *   the postcondition instead, for example
+      *   {{{
+      *   def lemma(l: List[BigInt]): Unit = {
+      *     // proof
+      *   }.ensuring(_ => l ++ Nil() == l)
+      *   }}}
+      *   With `.holds`, the statement is the body of the function, so every caller
+      *   has to unfold the body (proof included) to learn the statement, and the
+      *   lemma cannot be `@opaque`. Call such a lemma as a statement (`lemma(l)`),
+      *   or as `{ lemma(l); true }` where a Boolean is expected.
+      */
+    @deprecated("write the lemma as a Unit function with the statement in `.ensuring(_ => ...)`", "0.10.6")
     def holds : Boolean = {
       underlying
    }.ensuring {
       (res: Boolean) => res
     }
 
+    /** Ensures that `becauseOfThat` and this Boolean are `true`.
+      *
+      * @deprecated See [[holds]]: write the lemma as a Unit function with the
+      *   statement in the postcondition, and call the proof in its body.
+      */
+    @deprecated("write the lemma as a Unit function with the statement in `.ensuring(_ => ...)`", "0.10.6")
     def holds(becauseOfThat: Boolean) = {
       underlying
    }.ensuring {
@@ -124,6 +146,22 @@ package object lang {
 
   @ignore @ghost
   def snapshot[T](value: T): T = value
+
+  /** The body of an abstract method that has a specification:
+    *
+    * {{{
+    * abstract class Shape {
+    *   def area: BigInt = { AbstractMethodBody[BigInt]() }.ensuring(_ >= 0)
+    * }
+    * }}}
+    *
+    * It can only be the body of a method of an abstract class or of a trait. Stainless checks that
+    * the concrete subclasses override such a method, and that it is not called through `super`, so
+    * that it never runs. Use `???` for the code that is not written yet: Stainless then requires it
+    * to be unreachable.
+    */
+  @ignore
+  def AbstractMethodBody[T](): T = throw new NotImplementedError("the body of an abstract method")
 
   /** @note for internal and testing use only */
   @ignore

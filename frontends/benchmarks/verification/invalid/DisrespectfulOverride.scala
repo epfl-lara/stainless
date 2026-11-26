@@ -1,7 +1,7 @@
 object DisrespectfulOverride {
   abstract class A {
     def f(): BigInt = {
-      ??? : BigInt
+      stainless.lang.AbstractMethodBody[BigInt]()
     }.ensuring(_ > 0)
   }
 

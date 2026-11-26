@@ -241,17 +241,17 @@ We note that, because we are essentially doing a proof by induction over executi
   )
 
   @ghost
-  def initialInv = invariant(initialSystem).holds
+  def initialInv: Unit = {
+    ()
+  }.ensuring(_ => invariant(initialSystem))
 
   @ghost
   def validRef(ref: ActorRef): Boolean = ref == Primary || ref == Backup
 
   @ghost
-  def theorem(s: ActorSystem, from: ActorRef, to: ActorRef): Boolean = {
+  def theorem(s: ActorSystem, from: ActorRef, to: ActorRef): Unit = {
     require(invariant(s) && validRef(from) && validRef(to))
-    val newSystem = s.step(from, to)
-    invariant(newSystem)
-  }.holds
+  }.ensuring(_ => invariant(s.step(from, to)))
 
 Running the system with Akka
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~

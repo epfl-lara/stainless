@@ -52,7 +52,9 @@ package object equations {
     }
 
     @inline
-    def qed: Boolean = (x() == y()).holds
+    def qed: Boolean = {
+      x() == y()
+    }.ensuring(res => res)
   }
 
   @library @inline

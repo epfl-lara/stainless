@@ -630,10 +630,16 @@ class CodeExtraction(inoxCtx: inox.Context,
 
     val filteredVds = vds.filter(vd => !isIgnoredParameterType(vd.tpe))
 
+    // The fields of an @extern class are @extern: their types may be unknown to Stainless, and
+    // they are mutable unless the class or the field is @pure. The class is then opaque.
+    val isExternClass = flags contains xt.Extern
+    val inheritedFieldFlags = if (isExternClass) Seq(xt.Extern) ++ flags.filter(_ == xt.IsPure) else Seq()
+
     val fields = filteredVds map { case vd =>
       val vdSym = vd.symbol
       val id = getIdentifier(vdSym)
-      val flags = annotationsOf(vdSym, ignoreOwner = true)
+      val ownFlags = annotationsOf(vdSym, ignoreOwner = true)
+      val flags = ownFlags ++ inheritedFieldFlags.filterNot(ownFlags.contains)
       if (flags.contains(xt.IsInternallyMutable) && !(vdSym `is` Private))
         outOfSubsetError(vd, "Fields annotated with @internallyMutable must be private")
       val tpe = stainlessType(vd.tpt.tpe)(using tpCtx, vd.tpt.sourcePos)
@@ -907,11 +913,13 @@ class CodeExtraction(inoxCtx: inox.Context,
       case ExNonCtorMutableFieldDef(_, _, rhs) if rhs != tpd.EmptyTree =>
         outOfSubsetError(vd, "Mutable fields in traits or abstract classes cannot have default values")
 
-      case ExNonCtorFieldDef(_, _, _) if vd.rhs != tpd.EmptyTree && !isAbstractClass =>
+      case ExNonCtorFieldDef(_, _, _) if vd.rhs != tpd.EmptyTree =>
         if annotationsOf(vdSym).contains(xt.Ignore) then Seq.empty // ignore such field. This helps build wrappers
         else
-          // Non-constructor fields (for concrete classes) are not mapped to an xt.Field
-          // Instead, they are mapped to a @field-annotated function.
+          // Non-constructor fields are not mapped to an xt.Field
+          // Instead, they are mapped to a @field-annotated function, which holds their initialiser.
+          // This is the case for abstract classes and traits too: a subclass may override the accessor,
+          // but the initialiser still runs when an instance is created, so it is verified on its own.
           val fieldId = getIdentifier(vdSym)
           val flags = commonFunctionFlags(vdSym, isAbstract = false)
           val fieldFnDef = new xt.FunDef(
@@ -920,7 +928,8 @@ class CodeExtraction(inoxCtx: inox.Context,
             Seq.empty,
             retType,
             extractTree(vd.rhs),
-            flags ++ Seq(xt.IsField(vd.symbol `is` Lazy), xt.FieldDefPosition(fieldPos))
+            // The initialiser is final: a subclass may only override the accessor
+            (flags ++ Seq(xt.IsField(vd.symbol `is` Lazy), xt.FieldDefPosition(fieldPos), xt.Final)).distinct
           ).setPos(vdSym.sourcePos)
           // Like for constructor fields, however, we still need to create an @accessor-annotated function.
           val accessorFnId = getFieldAccessorIdentifier(vdSym)
@@ -933,22 +942,6 @@ class CodeExtraction(inoxCtx: inox.Context,
             flags ++ Seq(xt.IsAccessor(Some(fieldId)))
           ).setPos(vdSym.sourcePos)
           Seq(fieldFnDef, accessorFnDef)
-
-      case ExNonCtorFieldDef(_, _, _) if vd.rhs != tpd.EmptyTree && isAbstractClass =>
-        // Non-constructor fields with a default value for traits and abstract classes are only mapped to a function
-        // that is annoted as field, fieldDefPosition and accessor.
-        val accessorFnId = getFieldAccessorIdentifier(vdSym)
-        val accessorFnDef = new xt.FunDef(
-          accessorFnId,
-          Seq.empty,
-          Seq.empty,
-          retType,
-          extractTree(vd.rhs),
-          // Normally, the accessed symbol should be fieldId (from getIdentifier(vdSym)), but the Scalac frontend
-          // annotate such accessor function as an accessor of itself, so we blindly do the same here.
-          commonFunctionFlags(vdSym, isAbstract = false) ++ Seq(xt.IsField(false), xt.IsAccessor(Some(accessorFnId)), xt.FieldDefPosition(fieldPos))
-        ).setPos(vdSym.sourcePos)
-        Seq(accessorFnDef)
 
       case ExLazyFieldDef(_, _, _) if vd.rhs != tpd.EmptyTree =>
         // Lazy fields follow a special treatment. We blindly follow what is done by the Scalac frontend.
@@ -1426,6 +1419,18 @@ class CodeExtraction(inoxCtx: inox.Context,
     }
   }
 
+  /** Scala throws an exception when it evaluates `???`, so it is an `assert(false)`: it must be unreachable.
+    * The bodies of `@extern` definitions are not analysed, there it stays an unknown value. */
+  private def missingImplementation(tpe: xt.Type, tr: tpd.Tree)(using dctx: DefContext): xt.Expr = {
+    val nt = xt.NoTree(tpe).setPos(tr.sourcePos)
+    if (dctx.isExtern) nt
+    else xt.Assert(
+      xt.BooleanLiteral(false).setPos(tr.sourcePos),
+      Some(extraction.methods.AbstractMethods.missingImplementation),
+      nt
+    ).setPos(tr.sourcePos)
+  }
+
   private def extractTreeOrNoTree(tr: tpd.Tree)(using dctx: DefContext): xt.Expr = {
     try {
       extractTree(tr)
@@ -1619,10 +1624,12 @@ class CodeExtraction(inoxCtx: inox.Context,
         }
 
       case (v @ ValDef(name, tpt, _)) :: xs =>
+        // The value of an `@extern` variable is not analysed
+        val vctx = cctx.withExtern(vds(v.symbol).flags contains xt.Extern)
         if (v.symbol `is` Mutable) {
-          xt.LetVar(vds(v.symbol), extractTree(v.rhs)(using cctx), recOrNoTree(xs)).setPos(v.sourcePos)
+          xt.LetVar(vds(v.symbol), extractTree(v.rhs)(using vctx), recOrNoTree(xs)).setPos(v.sourcePos)
         } else {
-          xt.Let(vds(v.symbol), extractTree(v.rhs)(using cctx), recOrNoTree(xs)).setPos(v.sourcePos)
+          xt.Let(vds(v.symbol), extractTree(v.rhs)(using vctx), recOrNoTree(xs)).setPos(v.sourcePos)
         }
 
       case x :: Nil =>
@@ -2022,9 +2029,15 @@ class CodeExtraction(inoxCtx: inox.Context,
       extractTree(body)
 
     case ExTyped(ExSymbol("scala", "Predef$", "$qmark$qmark$qmark" | "???"), tpe) =>
-      xt.NoTree(extractType(tpe))
+      missingImplementation(extractType(tpe), tr)
 
-    case ExSymbol("scala", "Predef$", "$qmark$qmark$qmark" | "???") => xt.NoTree(extractType(tr))
+    case ExSymbol("scala", "Predef$", "$qmark$qmark$qmark" | "???") =>
+      missingImplementation(extractType(tr), tr)
+
+    // The body of an abstract method that has a specification. The `AbstractMethods` phase checks that
+    // it is the body of a method of an abstract class, which the concrete subclasses must then override.
+    case Apply(TypeApply(ExSymbol("stainless", "lang", "package$", "AbstractMethodBody"), Seq(tpt)), Seq()) =>
+      xt.NoTree(extractType(tpt)).setPos(tr.sourcePos)
 
     case ExSkolemTerm(name) => skolemError(tr.sourcePos)
 
@@ -3152,8 +3165,18 @@ class CodeExtraction(inoxCtx: inox.Context,
           case None => xt.ClassType(id, params)
         }
 
+      // The type of `super` in a class with a single parent that Stainless extracts may still be an
+      // intersection: `Object & T` for a class extending a trait `T` (with `Product & Serializable` for a
+      // case class). It is then the type of that parent.
       case st @ SuperType(thisTpe, superTpe) =>
-        extractType(superTpe)
+        def components(tp: Type): Seq[Type] = tp match {
+          case AndType(l, r) => components(l) ++ components(r)
+          case _ => Seq(tp)
+        }
+        components(superTpe).filter(isValidParentType(_)) match {
+          case Seq(parent) => extractType(parent)
+          case _ => extractType(superTpe)
+        }
 
       /////////////
 
