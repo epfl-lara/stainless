@@ -1,66 +1,101 @@
 name: Stainless Release
-# Triggered manually from the Actions UI (or `gh workflow run`), run from the
-# branch/commit you want to release (usually `main`). Given a version number,
-# it:
-#   1. Creates an annotated `vX.Y.Z` tag on the current commit and pushes it.
-#      The tag is what `sbt-git`/`git describe` use as the version for the build
-#      (the project is built with `git.useGitDescribe`).
+# Triggered manually from the Actions UI (or `gh workflow run stainless-release.yml -f
+# version=v0.11.0`), run from the branch/commit you want to release (usually `main`).
+# Given a version vX.Y.Z, it:
+#   1. Creates an annotated tag vX.Y.Z on the current commit, locally: the tag is
+#      what `sbt-git`/`git describe` use as the version for the build (the project
+#      is built with `git.useGitDescribe`).
 #   2. Builds the standalone and sbt-plugin archives.
-#   3. Publishes a GitHub release with auto-generated notes and the archives
+#   3. Signs and publishes the Stainless library (ch.epfl.lara:stainless-library_3)
+#      and the compiler plugin (ch.epfl.lara:stainless-dotty-plugin_<Scala version>)
+#      to Maven Central, through the Central Portal.
+#   4. Pushes the tag.
+#   5. Publishes a GitHub release with auto-generated notes and the archives
 #      attached.
-#   4. When releasing from `main`, re-runs the documentation workflow so the
+#   6. When releasing from `main`, re-runs the documentation workflow so the
 #      published docs show the new version.
 #
-# Note: the tag is annotated but NOT GPG-signed; signing in CI would require
-# importing a GPG key from a secret.
+# With mode `upload`, it only uploads the artifacts to the Central Portal
+# (https://central.sonatype.com/publishing/deployments), to inspect them and
+# publish or drop them there; it then builds no archive, pushes no tag and
+# creates no release.
+#
+# A version can't be published twice: when it is already on Maven Central, the
+# workflow skips publishing, and only pushes the tag and creates the release if
+# they are missing (e.g. when a previous run failed after publishing).
+#
+# Note: the tag is annotated but NOT GPG-signed.
+#
+# Needs, in the `release` environment of the repository:
+# - secrets PGP_SECRET (the ASCII-armored secret key that signs the artifacts,
+#   `gpg --armor --export-secret-keys <fingerprint>`) and PGP_PASSPHRASE,
+# - secrets SONATYPE_USERNAME and SONATYPE_PASSWORD (a user token of the
+#   Central Portal, for an account that can publish to ch.epfl.lara).
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Three-component version to release, with leading v (e.g. v0.10.0).'
+        description: 'Three-component version to release, with leading v (e.g. v0.11.0).'
         required: true
+      mode:
+        description: 'release: publish, push the tag and create the GitHub release; upload: only upload to the Central Portal, to inspect it there'
+        type: choice
+        options: [release, upload]
+        default: release
 
 permissions:
   contents: write # required to push the tag and create the release
   actions: write # required to trigger the documentation workflow
 
+# Never two publications at once
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
   release:
+    name: Release ${{ inputs.version }} (${{ inputs.mode }})
     runs-on:
       labels: [self-hosted, linux]
+    environment: release
     env:
       JAVA_OPTS: -Dsbt.io.implicit.relative.glob.conversion=allow -Xss512M -Xms1024M -Xmx12G -XX:MaxMetaspaceSize=2G -XX:+UseCodeCacheFlushing -XX:ReservedCodeCacheSize=768M
       JAVA_OPTS_TMP_DIR: /tmp/tmp_${{ github.run_id }}_${{ github.run_attempt }}
       GH_TOKEN: ${{ github.token }}
-      VERSION: ${{ github.event.inputs.version }}
+      TAG: ${{ inputs.version }}
+      MODE: ${{ inputs.mode }}
     steps:
     - name: Checkout
       uses: actions/checkout@v7
       with:
         # Full history and tags are required for `git describe` to compute the
-        # version string the packaging scripts rely on.
+        # version string the build and the packaging scripts rely on.
         fetch-depth: 0
         fetch-tags: true
         submodules: recursive
-    - name: Validate version
+    - name: Validate the version and tag the current commit
       run: |
         # Expect a three-component tag of the form vX.Y.Z.
-        if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-          echo "::error::Version must look like vX.Y.Z (got '$VERSION')."
+        if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "::error::The version must look like vX.Y.Z (got '$TAG')."
           exit 1
         fi
-        if git rev-parse -q --verify "refs/tags/$VERSION" >/dev/null; then
-          echo "::error::Tag $VERSION already exists."
-          exit 1
+        if git rev-parse -q --verify "refs/tags/$TAG" > /dev/null; then
+          # The tag of a previous run must be on this commit
+          tagged=$(git rev-list -n 1 "$TAG")
+          if [ "$tagged" != "$(git rev-parse HEAD)" ]; then
+            echo "::error::Tag $TAG already exists, on another commit ($tagged)"
+            exit 1
+          fi
+          echo "Tag $TAG already exists on this commit"
+        else
+          # Tag the checked-out commit as-is (no version bump / no commit). The tag
+          # is pushed only once the version is published.
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release $TAG"
         fi
-    - name: Tag the current commit and push the tag
-      run: |
-        git config user.name "github-actions[bot]"
-        git config user.email "github-actions[bot]@users.noreply.github.com"
-        # Tag the checked-out commit as-is (no version bump / no commit). The tag
-        # is what `sbt-git`/`git describe` use as the version for the build.
-        git tag -a "$VERSION" -m "Release $VERSION"
-        git push origin "refs/tags/$VERSION"
+        echo "VERSION=${TAG#v}" >> "$GITHUB_ENV"
     - name: Setup JDK
       uses: actions/setup-java@v6
       with:
@@ -76,21 +111,90 @@ jobs:
           echo "SBT_OPTS=-Djava.io.tmpdir=$JAVA_OPTS_TMP_DIR --sbt-dir $JAVA_OPTS_TMP_DIR" >> "$GITHUB_ENV"
     - name: Creating temp folder
       run: rm -rf $JAVA_OPTS_TMP_DIR && mkdir -p $JAVA_OPTS_TMP_DIR && chmod 777 $JAVA_OPTS_TMP_DIR
+    - name: Check the version of the build
+      run: |
+        version=$(sbt -batch -no-colors "print stainless-library/version" | tail -n 1 | tr -d '[:space:]')
+        if [ "$version" != "$VERSION" ]; then
+          echo "::error::The build's version is $version instead of $VERSION (e.g. -SNAPSHOT when the working tree has changes)"
+          exit 1
+        fi
+        echo "SCALA_VERSION=$(sbt -batch -no-colors "print stainless-dotty-plugin/scalaVersion" | tail -n 1 | tr -d '[:space:]')" >> "$GITHUB_ENV"
+    - name: Check whether the version is already published
+      id: published
+      run: |
+        base="https://repo1.maven.org/maven2/ch/epfl/lara"
+        library="$base/stainless-library_3/$VERSION/stainless-library_3-$VERSION.pom"
+        plugin="$base/stainless-dotty-plugin_$SCALA_VERSION/$VERSION/stainless-dotty-plugin_$SCALA_VERSION-$VERSION.pom"
+        if curl -sfI "$library" > /dev/null && curl -sfI "$plugin" > /dev/null; then
+          echo "::notice::Stainless $VERSION is already on Maven Central, skipping publishing"
+          echo "already=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "already=false" >> "$GITHUB_OUTPUT"
+        fi
+    # Built before publishing, so that a build failure leaves nothing published.
     - name: Build standalone archives
+      if: inputs.mode == 'release'
       run: ./bin/package-standalone.sh
     - name: Build sbt plugin archive
+      if: inputs.mode == 'release'
       run: ./bin/package-sbt-plugin.sh
-    - name: Create GitHub release
+    - name: Import the signing key
+      if: steps.published.outputs.already == 'false'
+      id: gpg
+      uses: crazy-max/ghaction-import-gpg@v7
+      with:
+        gpg_private_key: ${{ secrets.PGP_SECRET }}
+        passphrase: ${{ secrets.PGP_PASSPHRASE }}
+    - name: Publish to Maven Central
+      if: steps.published.outputs.already == 'false'
       run: |
+        # Only what this run stages is uploaded
+        rm -rf target/sona-staging
+        sbt -batch stainless-library/publishSigned stainless-dotty-plugin/publishSigned
+        # Publishing can't be undone: check that exactly the expected version is staged
+        staged=$(cd target/sona-staging/ch/epfl/lara && echo */*)
+        expected="stainless-dotty-plugin_$SCALA_VERSION/$VERSION stainless-library_3/$VERSION"
+        if [ "$staged" != "$expected" ]; then
+          echo "::error::Staged '$staged' instead of '$expected'"
+          exit 1
+        fi
+        if [ "$MODE" = "upload" ]; then
+          sbt -batch sonaUpload
+          echo "::notice::Stainless $VERSION uploaded: publish or drop it in the Central Portal. No tag was pushed and no release created."
+        else
+          sbt -batch sonaRelease
+          echo "::notice::Stainless $VERSION released; it shows up on Maven Central within about 30 minutes"
+        fi
+      env:
+        PGP_FINGERPRINT: ${{ steps.gpg.outputs.fingerprint }}
+        PGP_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}
+        SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
+        SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
+    - name: Push the tag
+      if: inputs.mode == 'release'
+      run: |
+        if git ls-remote --exit-code --tags origin "refs/tags/$TAG" > /dev/null; then
+          echo "Tag $TAG is already pushed"
+        else
+          git push origin "refs/tags/$TAG"
+        fi
+    - name: Create GitHub release
+      if: inputs.mode == 'release'
+      run: |
+        if gh release view "$TAG" > /dev/null 2>&1; then
+          echo "Release $TAG already exists"
+          exit 0
+        fi
         # Let GitHub auto-generate the release notes from merged PRs, and attach
         # the archives without renaming them.
-        gh release create "$VERSION" \
-          --title "$VERSION" \
+        gh release create "$TAG" \
+          --title "$TAG" \
           --generate-notes \
+          --verify-tag \
           stainless-dotty-standalone-*.zip \
           sbt-stainless.zip
     - name: Republish the documentation
-      if: github.ref == 'refs/heads/main'
+      if: inputs.mode == 'release' && github.ref == 'refs/heads/main'
       # The tag pushed above uses GITHUB_TOKEN, which does not trigger other
       # workflows, so the documentation workflow is dispatched explicitly.
       run: gh workflow run stainless-docs.yml --ref main

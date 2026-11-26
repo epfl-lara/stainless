@@ -256,7 +256,9 @@ lazy val `stainless-core` = (project in file("core"))
   .enablePlugins(BuildInfoPlugin)
   //.enablePlugins(SphinxPlugin)
   .settings(name := "stainless-core")
-  .settings(commonSettings, publishMavenSettings)
+  // Not published to Maven Central (no `publishTo`): it depends on Inox, which is built from
+  // source. The compiler plugin, which is published, bundles it.
+  .settings(commonSettings)
   .settings(
     // The JVM bytecode library of the code generation evaluator (CodeGenEvaluator)
     libraryDependencies += "ch.epfl.lara" %% "cafebabe" % "1.3.0",
@@ -269,6 +271,7 @@ lazy val `stainless-library` = (project in file("frontends") / "library")
   .settings(stainlessLibSettings, publishMavenSettings)
   .settings(
     name := "stainless-library",
+    description := "The Stainless library: the specification constructs, annotations and verified data structures of the Stainless verification framework",
     scalaVersion := stainlessScalaVersion,
     crossVersion := CrossVersion.binary,
     Compile / scalaSource := baseDirectory.value / "stainless"
@@ -276,7 +279,7 @@ lazy val `stainless-library` = (project in file("frontends") / "library")
 
 lazy val `stainless-algebra` = (project in file("frontends") / "algebra")
   .disablePlugins(AssemblyPlugin)
-  .settings(stainlessLibSettings, publishMavenSettings)
+  .settings(stainlessLibSettings)
   .settings(
     name := "stainless-algebra",
     version := "0.1.2",
@@ -327,6 +330,7 @@ lazy val `stainless-dotty-plugin` = (project in file("frontends") / "stainless-d
   .settings(artifactSettings, publishMavenSettings, assemblySettings)
   .settings(
     name := "stainless-dotty-plugin",
+    description := "The Stainless verification framework, as a plugin of the Scala 3 compiler",
     crossVersion := CrossVersion.full, // because compiler api is not binary compatible
     Compile / packageBin := (`stainless-dotty` / Compile / assembly).value
   )
@@ -350,7 +354,6 @@ lazy val `sbt-stainless` = (project in file("sbt-plugin"))
   .enablePlugins(BuildInfoPlugin)
   .enablePlugins(SbtPlugin)
   .settings(baseSettings)
-  .settings(publishSbtSettings)
   .settings(
     // Note: sbt-stainless is itself compiled with Scala 2.12 (as is SBT 1.x)
     description := "Plugin integrating Stainless in sbt",
@@ -392,18 +395,30 @@ lazy val root = (project in file("."))
   .dependsOn(`stainless-library`, `stainless-dotty`, `sbt-stainless`)
   .aggregate(`stainless-core`, `stainless-library`, `stainless-dotty`, `sbt-stainless`, `stainless-dotty-plugin`)
 
-def commonPublishSettings = Seq(
-  bintrayOrganization := Some("epfl-lara")
-)
-
-// by default sbt-bintray publishes all sbt plugins in Ivy style
-def publishSbtSettings = commonPublishSettings ++ Seq(
-  bintrayRepository := "sbt-plugins"
-)
-
-// by default sbt-bintray publishes all artifacts but sbt plugins in Maven style
-def publishMavenSettings = commonPublishSettings ++ Seq(
-  bintrayRepository := "maven"
+// Publishing to Maven Central (see .github/workflows/stainless-release.yml). Only the Stainless
+// library (ch.epfl.lara:stainless-library_3) and the compiler plugin
+// (ch.epfl.lara:stainless-dotty-plugin_<Scala version>) are published there. The version comes
+// from the latest tag, through `git describe` (sbt-git): v0.11.0 gives 0.11.0, and -SNAPSHOT is
+// appended when the working tree has uncommitted changes.
+// `sbt stainless-library/publishSigned stainless-dotty-plugin/publishSigned` signs the artifacts
+// and stages them locally (in target/sona-staging), `sbt sonaRelease` uploads them to the Central
+// Portal and releases them (`sbt sonaUpload` only uploads them, to inspect them in the Portal
+// first). Both read the Portal token from SONATYPE_USERNAME and SONATYPE_PASSWORD.
+def publishMavenSettings: Seq[Setting[_]] = Seq(
+  homepage := Some(url("https://epfl-lara.github.io/stainless/")),
+  scmInfo := Some(ScmInfo(
+    url("https://github.com/epfl-lara/stainless"),
+    "scm:git:git@github.com:epfl-lara/stainless.git",
+  )),
+  developers := List(
+    Developer("epfl-lara", "EPFL Lab for Automated Reasoning and Analysis", "lara.maven@epfl.ch", url("https://lara.epfl.ch")),
+  ),
+  publishMavenStyle := true,
+  Test / publishArtifact := false,
+  pomIncludeRepository := { _ => false },
+  publishTo := localStaging.value,
+  // The key that signs the artifacts, when the keyring holds several
+  pgpSigningKey := sys.env.get("PGP_FINGERPRINT"),
 )
 
 // FIXME assembly should be disabled at the top level, but isn't
