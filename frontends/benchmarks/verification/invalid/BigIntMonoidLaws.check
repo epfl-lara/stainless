@@ -1,9 +1,5 @@
 9:9;empty;precondition;valid
 9:9;empty;precondition;valid
-9:9;empty;precondition;valid
-9:9;empty;precondition;valid
-10:9;append;precondition;valid
-10:9;append;precondition;valid
 10:9;append;precondition;valid
 10:9;append;precondition;valid
 13:9;law_leftIdentity;law;invalid

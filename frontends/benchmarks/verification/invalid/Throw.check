@@ -1,4 +1,3 @@
-3:53;msg;precondition;valid
 8:7;f_throw_reachable;body assertion: throw IllegalArgumentException("x should not be negative") unreachable;invalid
 14:5;g_throw_unreachable_in_while;precondition;valid
 14:5;g_throw_unreachable_in_while;precondition;valid

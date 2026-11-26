@@ -111,9 +111,58 @@ class MethodLifting(override val s: Trees, override val t: oo.Trees)
         }
         val cid = symbols.getFunction(id).flags.collectFirst { case s.IsMethodOf(cid) => cid }.get
         val tcd = (ct.tcd +: ct.tcd.ancestors).find(_.id == cid).get
-        t.FunctionInvocation(id, (tcd.tps ++ tps) map transform, (rec +: args) map transform).copiedFrom(e)
+        rootCall(e, rec, id, tps, args, ct).getOrElse(
+          t.FunctionInvocation(id, (tcd.tps ++ tps) map transform, (rec +: args) map transform).copiedFrom(e))
 
       case _ => super.transform(e)
+    }
+
+    /** The call of the method `id` on `rec` through the root declaration of its symbol, which dispatches to
+      * the same override, so that the calls on a value share one term whatever the static type of the receiver.
+      * Abstract classes redeclare methods to narrow their types, such as the outer accessors of
+      * [[xlang.MemberClasses]], and a call through each redeclaration would be its own term, unfolded on its own.
+      *
+      * The call only goes through the root when the redeclarations between the static class of `rec` and the
+      * root have no contract of their own and take the same parameters, so that the call checks and assumes
+      * the same contract. Their return types may narrow that of the root to a class type, to which the result
+      * is cast. */
+    private def rootCall(e: s.Expr, rec: s.Expr, id: Identifier, tps: Seq[s.Type], args: Seq[s.Expr],
+                         ct: s.ClassType)(using s.Symbols): Option[t.Expr] = id match {
+      case sid: SymbolIdentifier =>
+        val tcds = ct.tcd +: ct.tcd.ancestors
+        val defining = tcds.flatMap(tcd => tcd.cd.methods.find(_.symbol == sid.symbol).map(tcd -> symbols.getFunction(_)))
+        val roots = defining.filter { case (tcd, _) => !tcd.ancestors.exists(a => defining.exists(_._1.id == a.id)) }
+        roots match {
+          case Seq((rtcd, rfd)) if rfd.id != id =>
+            val fd = symbols.getFunction(id)
+            val tcd = tcds.find(tcd => fd.flags.contains(s.IsMethodOf(tcd.id))).get
+            // the redeclarations between the static class and the root
+            val between = defining.filter { case (dtcd, dfd) =>
+              dfd.id != rfd.id && (dtcd.id == tcd.id || tcd.ancestors.exists(_.id == dtcd.id))
+            }
+            def signature(dtcd: s.TypedClassDef, dfd: s.FunDef): (Seq[s.Type], s.Type) = {
+              val subst = dtcd.tpSubst ++ (dfd.typeArgs zip rfd.typeArgs)
+              val paramSubst = (dfd.params zip rfd.params).map { case (vd, rvd) => vd -> rvd.toVariable }.toMap
+              def tpe(tp: s.Type) = s.typeOps.instantiateType(s.typeOps.replaceFromSymbols(paramSubst, tp), subst)
+              (dfd.params.map(vd => tpe(vd.tpe)), tpe(dfd.returnType))
+            }
+            val (rparams, rret) = signature(rtcd, rfd)
+            val compatible = between.forall { case (dtcd, dfd) =>
+              val (params, ret) = signature(dtcd, dfd)
+              dfd.tparams.size == rfd.tparams.size && dfd.params.size == rfd.params.size &&
+                exprOps.deconstructSpecs(dfd.fullBody)._1.isEmpty && params == rparams &&
+                (ret == rret || ret.isInstanceOf[s.ClassType])
+            }
+            if (!compatible) None else {
+              val call = t.FunctionInvocation(rfd.id, (rtcd.tps ++ tps) map transform,
+                (rec +: args) map transform).copiedFrom(e)
+              val (_, expected) = signature(tcd, fd)
+              Some(if (expected == rret) call else
+                t.Annotated(t.AsInstanceOf(call, transform(expected)).copiedFrom(e), Seq(t.DropVCs)).copiedFrom(e))
+            }
+          case _ => None
+        }
+      case _ => None
     }
   }
 
