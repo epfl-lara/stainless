@@ -51,6 +51,42 @@ Princess (branch compiled for Scala 3). It includes the Z3 native API for Linux
 Stainless falls back to the Z3 executable; use the option `--solvers=smt-z3` to
 rely on the executable explicitly.
 
+## Using Stainless as a compiler plugin (to verify and run programs)
+
+The `stainless` script only verifies programs. To also compile and **run** a Stainless program, use
+Stainless as a plugin of the Scala 3 compiler: Stainless verifies the program during compilation,
+then the compiler produces the class files as usual. The Stainless library
+(`ch.epfl.lara::stainless-library`) and the compiler plugin (`ch.epfl.lara:::stainless-dotty-plugin`)
+are published on Maven Central (for releases after 0.10.5), so this works with any build tool and needs
+no installation besides it. The plugin includes the Z3 native API and Princess, so no solver has to be
+installed either.
+
+With [Scala CLI](https://scala-cli.virtuslab.org/), put this `project.scala` next to your sources,
+replacing `<stainless-version>` with the [latest release](https://github.com/epfl-lara/stainless/releases)
+and `<scala-version>` with the version of Scala it is built with (the one of
+[`examples/scala-cli/project.scala`](examples/scala-cli/project.scala), which is also in the name of the
+plugin artifact on Maven Central, `stainless-dotty-plugin_<scala-version>`):
+```scala
+//> using scalaOrganization ch.epfl.lara
+//> using scala <scala-version>
+//> using dep ch.epfl.lara::stainless-library:<stainless-version>
+//> using plugin ch.epfl.lara:::stainless-dotty-plugin:<stainless-version>
+```
+and run `scala --power run .` (the `scalaOrganization` directive needs `--power`). The plugin verifies
+the program, removes its ghost code, and enables the compiler options Stainless needs. To run the
+program without verifying it, add `//> using options -P:stainless:verify:false`.
+
+Note that programs with qualified types may need the compiler option `-Yqualified-types-anf`
+(`//> using options -Yqualified-types-anf`), for instance when Stainless reports that it does not
+support a type with a refinement on a parameter. The plugin can't enable this option itself.
+
+Note that verification failures are reported as warnings: they do not stop the compilation, so check the
+verification summary before trusting a run.
+
+The [`examples`](examples/) directory has minimal projects for Scala CLI and sbt, and the
+[installation documentation](https://epfl-lara.github.io/stainless/installation.html#maven-central)
+has the sbt configuration and more details.
+
 ## Build and Installation Instructions
 
 Please refer to the [installation documentation here](https://epfl-lara.github.io/stainless/installation.html).

@@ -22,6 +22,33 @@ object StainlessPlugin {
   val PluginDescription                = "Inject Stainless verification pipeline"
   val EnableVerificationOptionName     = "verify:"
   val EnableGhostEliminationOptionName = "ghost-elim:"
+
+  /** The language features that programs using the Stainless library need: the library is compiled
+   *  with qualified types, which marks all its definitions as experimental. */
+  val RequiredLanguageFeatures = Seq("experimental.qualifiedTypes", "experimental.qualifiedTypes.silent")
+
+  /** Enables the compiler settings that Stainless needs, so that users don't have to pass them:
+   *  -Yretain-trees and the language features of qualified types.
+   *
+   *  It is called from the `initContext` of the phases of the plugin, which receives the context
+   *  the compiler then runs all the phases with: the settings it changes apply to the whole run.
+   *  Settings read before that point keep the value of the command line. In particular, the
+   *  phases that are disabled by a setting are already dropped from the phase plan, so
+   *  -Yqualified-types-anf can't be enabled this way: programs that need it must pass it.
+   */
+  def enableRequiredSettings(ctx: Contexts.FreshContext): Unit = {
+    given DottyContext = ctx
+    val settings = ctx.settings
+    // Stainless extracts the definitions of binary dependencies (such as the Stainless library)
+    // from the trees of their Tasty files, which the compiler keeps only with -Yretain-trees.
+    if (!settings.YretainTrees.value)
+      ctx.setSetting(settings.YretainTrees, true)
+    // The values of -language are compared to strings by `Feature.enabledBySetting`
+    val enabled = settings.language.value.asInstanceOf[List[Any]]
+    val missing = RequiredLanguageFeatures.filterNot(feature => enabled.exists(_ == feature))
+    if (missing.nonEmpty)
+      ctx.setSetting(settings.language, (enabled ++ missing).asInstanceOf[List[config.Settings.Setting.ChoiceWithHelp[String]]])
+  }
 }
 
 case class PluginOptions(enableVerification: Boolean, enableGhostElimination: Boolean)
@@ -57,8 +84,9 @@ class StainlessPlugin extends StandardPlugin {
 //  }
 
   private def parseOptions(options: List[String]): PluginOptions = {
-    var enableVerification = false
-    var enableGhostElimination = false
+    // Both are enabled by default
+    var enableVerification = true
+    var enableGhostElimination = true
     for (option <- options) {
       if (option.startsWith(EnableVerificationOptionName)) {
         val value = option.substring(EnableVerificationOptionName.length)
@@ -87,6 +115,8 @@ class StainlessPlugin extends StandardPlugin {
     override val phaseName = "stainless"
     override val runsAfter = Set(Pickler.name)
     override val runsBefore = Set(FirstTransform.name)
+
+    override def initContext(ctx: Contexts.FreshContext): Unit = enableRequiredSettings(ctx)
 
     private var extraction: Option[StainlessExtraction] = None
     private var callback: Option[CallBack] = None
@@ -124,6 +154,11 @@ class StainlessPlugin extends StandardPlugin {
 
       cb.beginExtractions()
       val unitRes = super.runOn(units)
+      // The definitions of binary dependencies (e.g. the Stainless library, when it is on the
+      // classpath rather than compiled along with the project) are extracted from their Tasty files.
+      // The trees of these files are only available with -Yretain-trees, which `initContext` enables.
+      extraction.get.extractTastyUnits(exportedSymsMapping, inoxCtx).foreach(extracted =>
+        cb(extracted.file, extracted.unit, extracted.classes, extracted.functions, extracted.typeDefs))
       cb.endExtractions()
       cb.join()
 

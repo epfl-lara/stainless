@@ -22,6 +22,8 @@ You can obtain Stainless:
 2. via a standalone release (see Section :ref:`standalone-release`) 
 3. by building it from source (see Section :ref:`build-from-source`) 
 4. by using it via the SBT plugin (see Section :ref:`sbt-project`)
+5. by using it as a compiler plugin from Maven Central, e.g. with Scala CLI
+   (see Section :ref:`maven-central`)
 
 .. _distribution-install:
 
@@ -293,6 +295,72 @@ take `args: Array[String]` as parameter.
 
 .. Note that the dependencies specified in ``stainlessExtraDeps`` must be available
 .. as a source JAR from any of the resolvers configured in the build.
+
+.. _maven-central:
+
+Usage As A Compiler Plugin From Maven Central
+---------------------------------------------
+
+The releases of Stainless after 0.10.5 are published on Maven Central, under
+``ch.epfl.lara``, as two artifacts:
+
+- ``stainless-library_3``: the Stainless library, to use as a regular binary
+  dependency. Stainless extracts the definitions it needs from the TASTy files
+  of the JAR;
+- ``stainless-dotty-plugin_<Scala version>``: Stainless itself, as a plugin of
+  the Scala 3 compiler. It verifies the program each time it is compiled, and
+  removes its ghost code.
+
+They work with the Scala 3 compiler that Stainless is built with, which is
+also on Maven Central under ``ch.epfl.lara``. The plugin includes the native Z3
+interface (the default solver, ``nativez3``), so no solver has to be installed
+on the platforms it supports; elsewhere, Stainless falls back to an external
+solver (see Section ":ref:`smt-solvers`"). The directory `examples
+<https://github.com/epfl-lara/stainless/tree/main/examples>`__ of the
+repository has a minimal project for Scala CLI and one for sbt.
+
+With `Scala CLI <https://scala-cli.virtuslab.org>`__, add the following
+``project.scala`` next to the sources, with the version of Stainless and the
+Scala version it is built with:
+
+.. code-block:: scala
+
+  //> using scalaOrganization ch.epfl.lara
+  //> using scala <scala-version>
+  //> using dep ch.epfl.lara::stainless-library:<stainless-version>
+  //> using plugin ch.epfl.lara:::stainless-dotty-plugin:<stainless-version>
+
+Then ``scala --power compile .`` verifies and compiles the program, and
+``scala --power run .`` runs it (``--power`` is needed for the
+``scalaOrganization`` directive).
+
+With sbt, the same configuration is, in ``build.sbt``:
+
+.. code-block:: scala
+
+  scalaOrganization := "ch.epfl.lara"
+  scalaVersion := "<scala-version>"
+
+  libraryDependencies += "ch.epfl.lara" %% "stainless-library" % "<stainless-version>"
+  addCompilerPlugin(("ch.epfl.lara" % "stainless-dotty-plugin" % "<stainless-version>").cross(CrossVersion.full))
+
+The plugin enables the compiler options that Stainless needs:
+``-Yretain-trees``, so that Stainless can read the definitions of the library
+from its TASTy files, and the language features of qualified types, which the
+library uses. Verification and ghost code elimination are on by default; the
+options ``-P:stainless:verify:false`` and ``-P:stainless:ghost-elim:false``
+turn them off (e.g. ``//> using options -P:stainless:verify:false`` to only
+compile and run the program). The verification conditions that don't hold are
+reported as warnings, which don't fail the compilation.
+
+.. note::
+
+  Programs with qualified types may need the compiler option
+  ``-Yqualified-types-anf`` (``//> using options -Yqualified-types-anf``, or
+  ``scalacOptions += "-Yqualified-types-anf"``), for instance when Stainless
+  reports that it does not support a type with a refinement on a parameter. The
+  plugin can't enable it: the compiler decides whether to run the phases of this
+  option before loading the plugin.
 
 .. _running-code:
 
