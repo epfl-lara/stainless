@@ -17,25 +17,29 @@ case class VCResultMessage[T <: ast.Trees, +M](
   }
 
   override def emit(reporter: inox.Reporter): Unit = {
-    result.status match {
-      case VCStatus.Valid =>
-        reporter.warning(vc.getPos, title)
+    if (result.isValid) {
+      reporter.info(vc.getPos, title)
+    } else {
+        result.status match {
+        // case VCStatus.Valid =>
+        //   reporter.warning(vc.getPos, title)
 
-      case VCStatus.Invalid(reason) =>
-        val reasonStr = reason match {
-          case VCStatus.CounterExample(cex) =>
-            s"$condition\nFound counter-example:\n  ${cex.toString.replaceAll("\n", "\n  ")}"
+        case VCStatus.Invalid(reason) =>
+          val reasonStr = reason match {
+            case VCStatus.CounterExample(cex) =>
+              s"$condition\nFound counter-example:\n  ${cex.toString.replaceAll("\n", "\n  ")}"
 
-          case VCStatus.Unsatisfiable =>
-            s"$condition\nProperty wasn't satisfiable"
-        }
+            case VCStatus.Unsatisfiable =>
+              s"$condition\nProperty wasn't satisfiable"
+          }
 
-        val msg = s"$title\n$reasonStr"
-        reporter.error(vc.getPos, msg)
+          val msg = s"$title\n$reasonStr"
+          reporter.error(vc.getPos, msg)
 
-      case status =>
-        val msg = s"$title\n => ${result.status.name.toUpperCase}"
-        reporter.error(vc.getPos, msg)
+        case status =>
+          val msg = s"$title\n => ${result.status.name.toUpperCase}"
+          reporter.error(vc.getPos, msg)
+      }
     }
   }
 }

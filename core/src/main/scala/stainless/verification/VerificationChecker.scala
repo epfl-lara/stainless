@@ -154,6 +154,12 @@ trait VerificationChecker { self =>
         val sf = getFactoryForVC(vc)
         val res = checkVC(simplifiedVC, vc, sf)
 
+        if (!options.findOptionOrDefault(optSilent) && res.isValid) {
+          // VCResultMessage are ReportMessage with sbtPluginOnly at true
+          reporter.info(vc.getPos,
+          VCResultMessage(simplifiedVC, res, prettify(simplifiedVC.condition).asString))
+        }
+
         val shouldStop = stopWhen(res)
         val verif =
           if (res.isValid) VerificationChecker.verified.incrementAndGet()
@@ -370,6 +376,8 @@ trait VerificationChecker { self =>
             case VCStatus.Valid =>
               reporter.debug(descr)
               reporter.debug(" => VALID")
+              // VCResultMessage are ReportMessage with sbtPluginOnly at true
+              reporter.info(vc.getPos, vcResultMsg)
 
             case VCStatus.Invalid(reason) =>
               reporter.warning(descr)
