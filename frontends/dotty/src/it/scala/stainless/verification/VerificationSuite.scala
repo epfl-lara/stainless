@@ -123,6 +123,7 @@ class VerificationSuite extends VerificationComponentTestSuite {
       "verification/valid/i1379f",
       "verification/valid/i1379g",
       "verification/valid/i1549",
+      "verification/valid/IndependentHierarchies", // Princess times out
       "verification/valid/InnerClasses4",
       "verification/valid/InnerClassesInvariants",
       "verification/valid/InsertionSort",
