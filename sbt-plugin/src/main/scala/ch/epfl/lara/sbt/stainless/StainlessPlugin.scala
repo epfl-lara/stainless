@@ -246,6 +246,8 @@ object StainlessPlugin extends sbt.AutoPlugin {
               "-language:experimental.qualifiedTypes",
               "-language:experimental.qualifiedTypes.silent",
               "-Yqualified-types-anf",
+              // Lets the compiler plugin extract the definitions of binary dependencies from their Tasty files
+              "-Yretain-trees",
             )
           else
             Seq.empty

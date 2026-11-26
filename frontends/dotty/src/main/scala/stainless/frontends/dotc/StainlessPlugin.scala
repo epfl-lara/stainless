@@ -124,6 +124,16 @@ class StainlessPlugin extends StandardPlugin {
 
       cb.beginExtractions()
       val unitRes = super.runOn(units)
+      // The definitions of binary dependencies (e.g. the Stainless library, when it is on the
+      // classpath rather than compiled along with the project) are extracted from their Tasty files.
+      // The trees of these files are only available with -Yretain-trees.
+      if (dottyCtx.settings.YretainTrees.value)
+        extraction.get.extractTastyUnits(exportedSymsMapping, inoxCtx).foreach(extracted =>
+          cb(extracted.file, extracted.unit, extracted.classes, extracted.functions, extracted.typeDefs))
+      else
+        inoxCtx.reporter.warning(
+          "The Stainless plugin needs the compiler option -Yretain-trees to extract the definitions of binary " +
+          "dependencies, such as the Stainless library: without it, they are reported as missing dependencies.")
       cb.endExtractions()
       cb.join()
 
