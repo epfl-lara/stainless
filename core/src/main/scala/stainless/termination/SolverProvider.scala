@@ -46,20 +46,35 @@ trait SolverProvider { self =>
         extends ProgramEncoder(t, sourceProgram, encoder, decoder)()
       val programEncoder = new ProgramEncoderImpl(stainless.trees, p, self.encoder, new DecoderImpl(stainless.trees, trees))
 
-      val timeout = options.findOption(inox.optTimeout) match {
-        case Some(to) => to / 100
-        case None     => 2.5.seconds
-      }
+      // With a resource limit for each solver, a query is bounded by that limit and by an unrolling
+      // bound, which don't depend on the load of the machine. The timeout then only bounds the time
+      // outside of the solver. Otherwise, a query gets a small part of the timeout.
+      val (timeout, limits) =
+        if (SolverProvider.resourceLimited(options)) {
+          import inox.solvers.smtlib.{optZ3Rlimit, optCVC5Rlimit}
+          val bound = inox.solvers.unrolling.optUnrollBound(options.findOptionOrDefault(optTerminationUnrollBound))
+          val rlimit = options.findOptionOrDefault(optTerminationRlimit)
+          def lower(opt: inox.IntOptionDef) = {
+            val current = options.findOptionOrDefault(opt)
+            opt(if (current > 0) current min rlimit else current)
+          }
+          (options.findOption(inox.optTimeout), Seq(bound, lower(optZ3Rlimit), lower(optCVC5Rlimit)))
+        } else {
+          (Some(options.findOption(inox.optTimeout).map(_ / 100).getOrElse(2.5.seconds)), Seq())
+        }
 
-      solvers.SolverFactory
+      val factory = solvers.SolverFactory
         .getFromSettings(
           p,
-          context.withOpts(
+          context.withOpts(Seq(
             inox.solvers.optSilentErrors(true),
             inox.solvers.optCheckModels(true)
-          )
+          ) ++ limits*)
         )(programEncoder)(using p.getSemantics)
-        .withTimeout(timeout)
+      timeout match {
+        case Some(to) => factory.withTimeout(to)
+        case None => factory
+      }
     }
 
   private def solverAPI(transformer: SymbolTransformer { val s: trees.type; val t: trees.type }) = {
@@ -104,6 +119,20 @@ trait SolverProvider { self =>
       )
 
       NoSymbols.withSorts(newSorts).withFunctions(newFunctions)
+    }
+  }
+}
+
+object SolverProvider {
+  /** Whether each selected solver has a resource limit for its checks. */
+  def resourceLimited(options: inox.Options): Boolean = {
+    import inox.solvers.smtlib.{optZ3Rlimit, optCVC5Rlimit}
+    def limited(opt: inox.IntOptionDef) = options.findOptionOrDefault(opt) > 0
+    val solvers = options.findOptionOrDefault(inox.optSelectedSolvers)
+    solvers.nonEmpty && solvers.forall { name =>
+      if (name == "smt-cvc5") limited(optCVC5Rlimit)
+      else if (name.contains("z3")) limited(optZ3Rlimit)
+      else false
     }
   }
 }

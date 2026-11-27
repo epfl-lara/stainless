@@ -64,6 +64,8 @@ trait MainHelpers extends inox.MainHelpers { self =>
       "  bland (experimental) : Common simplification logic to OL and OCBSL, but without any boolean algebra flavor"),
     termination.optCheckMeasures -> Description(Termination, "Check that measures are valid (both inferred and user-defined)"),
     termination.optInferMeasures -> Description(Termination, "Automatically infer measures for recursive functions"),
+    termination.optTerminationRlimit -> Description(Termination, "Set the resource limit of each check of the termination checker's queries, in millions of units,\nwhen it is lower than --z3-rlimit or --cvc5-rlimit (see --termination-unroll-bound)"),
+    termination.optTerminationUnrollBound -> Description(Termination, "Set the unrolling bound of the termination checker's queries when each solver has a resource limit\n(--z3-rlimit, --cvc5-rlimit), which then replace the small part of the timeout that each query gets otherwise"),
     inox.optTimeout -> Description(General, "Set a timeout n (in sec) such that\n" +
       "  - verification: each proof attempt takes at most n seconds\n" +
       "  - termination: each solver call takes at most n / 100 seconds"),

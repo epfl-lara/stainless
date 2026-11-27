@@ -18,6 +18,14 @@ package object termination {
     val usageRhs = "yes | no | only"
   }
 
+  /** The unrolling bound of the queries of the termination checker when the solvers have a
+    * resource limit (`--z3-rlimit`, `--cvc5-rlimit`), see [[SolverProvider]]. */
+  object optTerminationUnrollBound extends inox.IntOptionDef("termination-unroll-bound", 16, "<PosInt>")
+
+  /** The resource limit of each check of the termination checker's queries, in millions of units,
+    * when it is lower than that of the solvers (`--z3-rlimit`, `--cvc5-rlimit`), see [[SolverProvider]]. */
+  object optTerminationRlimit extends inox.IntOptionDef("termination-rlimit", 5, "<PosInt>")
+
   object DebugSectionTermination extends inox.DebugSection("termination")
 
   case class FailedMeasureInference(fd: inox.ast.Trees#FunDef, msg: String)

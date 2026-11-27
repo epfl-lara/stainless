@@ -20,6 +20,10 @@ class TerminationSuite extends VerificationComponentTestSuite {
     Seq(
       optInferMeasures(true),
       optCheckMeasures(YesNoOnly.Only),
+      // With a resource limit, the queries of measure inference are bounded by
+      // `--termination-rlimit` and `--termination-unroll-bound` rather than by a small part of the
+      // timeout, so that how loaded the machine is doesn't decide which measure is found.
+      inox.solvers.smtlib.optZ3Rlimit(20),
     ) ++ seq
   }
 
