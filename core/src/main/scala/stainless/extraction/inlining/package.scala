@@ -21,6 +21,7 @@ package object inlining {
   }
 
   def extractor(using inox.Context) = {
+    utils.NamedPipeline("DispatchFlattening", DispatchFlattening(trees)) `andThen`
     utils.NamedPipeline("FunctionSpecialization", FunctionSpecialization(trees)) `andThen`
     utils.NamedPipeline("UnfoldOpaque", UnfoldOpaque(trees)) `andThen`
     utils.NamedPipeline("CallSiteInline", CallSiteInline(trees)) `andThen`

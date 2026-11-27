@@ -62,6 +62,7 @@ package object extraction {
     "AdtSpecialization"         -> "Specialize classes into ADTs (when possible)",
     "TypeEncoding"              -> "Encode non-ADT types",
     "FunctionClosure"           -> "Lift inner functions",
+    "DispatchFlattening"        -> "Flatten method dispatches",
     "FunctionSpecialization"    -> "Specialize functions",
     "UnfoldOpaque"              -> "Injects equality assumption with inlined call for calls wrapped in unfold keyword",
     "CallSiteInline"            -> "Call-side inline for calls wrapped in inline keyword",
