@@ -119,7 +119,7 @@ class Sealing(override val s: Trees)(override val t: s.type)
     import symbols.{given, _}
 
     if (context.mustAddSubclass(cd)) {
-      val newCd = cd.copy(flags = (cd.flags :+ IsSealed).distinct).copiedFrom(cd)
+      val newCd = cd.copy(flags = (cd.flags :+ IsSealed :+ IsOpen).distinct).copiedFrom(cd)
 
       val typeArgs = freshenTypeParams(cd.typeArgs)
       val classSubst = (cd.typeArgs zip typeArgs).toMap

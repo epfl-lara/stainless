@@ -503,6 +503,7 @@ trait TreeDeconstructor extends innerfuns.TreeDeconstructor {
     case s.IsInvariant => (Seq(), Seq(), Seq(), (_, _, _) => t.IsInvariant)
     case s.IsAbstract => (Seq(), Seq(), Seq() ,(_, _, _) => t.IsAbstract)
     case s.IsSealed => (Seq(), Seq(), Seq(), (_, _, _) => t.IsSealed)
+    case s.IsOpen => (Seq(), Seq(), Seq(), (_, _, _) => t.IsOpen)
     case s.Bounds(lo, hi) => (Seq(), Seq(), Seq(lo, hi), (_, _, tps) => t.Bounds(tps(0), tps(1)))
     case s.Variance(v) => (Seq(), Seq(), Seq(), (_, _, _) => t.Variance(v))
     case s.IsTypeMemberOf(id) => (Seq(id), Seq(), Seq(), (ids, _, _) => t.IsTypeMemberOf(ids(0)))

@@ -586,6 +586,10 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
           t.BooleanLiteral(false)
         }
 
+      // A class outside the hierarchy of `in`, such as a marker trait, is tested on the boxed value
+      case (_, ct: s.ClassType) if hierarchyOf(in).isDefined =>
+        instanceOf(wrap(e, in), s.AnyType().copiedFrom(in), ct)
+
       case (_, s.ClassType(id, tps)) if isObject(in) =>
         t.FunctionInvocation(
           instanceID(id), Seq(),
@@ -1337,7 +1341,8 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
       case s.ClassPattern(ob, ct, subs) => tpe match {
         case cti: s.ClassType if (
           (cti +: cti.tcd.descendants.map(_.toType)).exists(isSubtypeOf(_, ct)) &&
-          (!(ct.tcd.cd.flags contains s.IsAbstract) && ct.tcd.children.isEmpty)
+          (!(ct.tcd.cd.flags contains s.IsAbstract) && ct.tcd.children.isEmpty) &&
+          sameEncoding(cti, ct)
         ) =>
           val erasedTps = ct.tps.map(tp => if (isObject(tp)) tp else s.AnyType().copiedFrom(tp))
           val semiErased = ct.copy(tps = erasedTps).copiedFrom(ct)
@@ -1654,38 +1659,54 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
     }
 
     /** The hierarchies whose values are encoded by sorts of their own instead of `Object`, by class, as the
-     *  representative of the roots of the hierarchy. The sealed roots that a class extends are the roots of its
-     *  hierarchy, and unsealed roots (markers) stay encoded by `Object`. A hierarchy has its own sort when its
-     *  roots are abstract, and its classes with children are sealed. Conversions to `Any` (and to markers) box
-     *  the values of a hierarchy into `Object`. */
+     *  representative of the roots of the hierarchy.
+     *
+     *  The roots of the hierarchy of a class are the roots it extends that were sealed in the program, or the
+     *  root of its first parents if it extends none (an open root, see [[methods.Sealing]]). The other roots it
+     *  extends are markers, which stay encoded by `Object` with all their classes. The roots that a class shares
+     *  are in the same hierarchy. A hierarchy has its own sort when its roots are abstract, and its classes with
+     *  children are sealed. Conversions to `Any` (and to markers) box the values of a hierarchy into `Object`. */
     private lazy val hierarchies: Map[Identifier, Identifier] = {
-      def isSealed(id: Identifier) = symbols.getClass(id).flags contains s.IsSealed
-      def sealedRoots(cd: s.ClassDef): Seq[Identifier] =
-        (cd +: cd.ancestors.map(_.cd)).filter(_.parents.isEmpty).map(_.id).distinct.filter(isSealed)
+      def isOpen(id: Identifier) = symbols.getClass(id).flags contains s.IsOpen
+      def allRoots(cd: s.ClassDef): Seq[Identifier] =
+        (cd +: cd.ancestors.map(_.cd)).filter(_.parents.isEmpty).map(_.id).distinct
+      def firstRoot(cd: s.ClassDef): Identifier = cd.parents.headOption match {
+        case Some(ct) => firstRoot(symbols.getClass(ct.id))
+        case None => cd.id
+      }
+      def classRoots(cd: s.ClassDef): Seq[Identifier] = allRoots(cd).filterNot(isOpen) match {
+        case Seq() => Seq(firstRoot(cd))
+        case rs => rs
+      }
 
-      // The sealed roots that a class shares are in the same hierarchy
+      val classes = symbols.classes.values.toSeq
+      val markers = classes.flatMap(cd => allRoots(cd).filterNot(classRoots(cd).contains)).toSet
+
+      // The roots that a class shares are in the same hierarchy
       val parent = scala.collection.mutable.Map.empty[Identifier, Identifier]
       def find(id: Identifier): Identifier = parent.get(id) match {
         case Some(p) if p != id => val r = find(p); parent(id) = r; r
         case _ => id
       }
-      for (cd <- symbols.classes.values; rs = sealedRoots(cd); r <- rs.drop(1)) {
+      for (cd <- classes; rs = classRoots(cd); r <- rs.drop(1)) {
         val (r1, r2) = (find(rs.head), find(r))
         if (r1 != r2) parent(r2) = r1
       }
 
-      val roots = symbols.classes.values.filter(cd => cd.parents.isEmpty && isSealed(cd.id)).map(_.id).toSeq
+      val roots = classes.filter(_.parents.isEmpty).map(_.id)
       roots.groupBy(find).values.toSeq.flatMap { rs =>
-        val classes = rs.flatMap(r => symbols.getClass(r) +: symbols.getClass(r).descendants).distinct
-        val eligible = rs.forall(r => symbols.getClass(r).flags contains s.IsAbstract) &&
-          classes.forall { cd =>
+        val members = rs.flatMap(r => symbols.getClass(r) +: symbols.getClass(r).descendants).distinct
+        val eligible = rs.forall { r =>
+            val rcd = symbols.getClass(r)
+            !markers(r) && (rcd.flags contains s.IsAbstract) && (rcd.flags contains s.IsSealed)
+          } && members.forall { cd =>
             cd.typeMembers.isEmpty &&
             (cd.children.isEmpty || (cd.flags contains s.IsSealed)) &&
             !(cd.flags contains s.IsExtensible)
           }
         if (eligible) {
           val rep = rs.minBy(_.globalId)
-          classes.map(_.id -> rep)
+          members.map(_.id -> rep)
         } else Seq.empty
       }.toMap
     }
