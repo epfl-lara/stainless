@@ -275,6 +275,16 @@ Verification
 
   Aborts verification as soon as an invalid VC is found.
 
+* ``--sat-precond=[none|all|annotated] (default: none)``
+
+  Check that the preconditions of functions are satisfiable, so that their
+  postconditions don't hold only vacuously: Stainless generates an additional
+  verification condition, of kind "precondition satisfiability", which is
+  invalid when the precondition is unsatisfiable. With ``all``, it checks the
+  preconditions of all functions; with ``annotated``, only those of the
+  functions annotated with ``@checkSatPrecondition``. ``--sat-precond`` alone
+  means ``--sat-precond=all``.
+
 
 
 Termination

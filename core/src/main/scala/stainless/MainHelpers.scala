@@ -92,7 +92,7 @@ trait MainHelpers extends inox.MainHelpers { self =>
     equivchk.optMaxPerm -> Description(EquivChk, "Maximum number of permutations to be tested when matching auxiliary functions"),
     equivchk.optMaxCtex -> Description(EquivChk, "Maximum number of counter-examples to collect"),
     equivchk.optMeasureTransfer -> Description(EquivChk, "Enable measure transfer for candidate functions"),
-    optSatPrecond -> Description(General, "Generate VCs to check that preconditions are SAT"),
+    optSatPrecond -> Description(General, "Generate VCs to check that the preconditions of functions are SAT: of none, all functions, or the functions annotated with @checkSatPrecondition"),
   ) ++ MainHelpers.components.map { component =>
     val option = inox.FlagOptionDef(component.name, default = false)
     option -> Description(Pipelines, component.description)
