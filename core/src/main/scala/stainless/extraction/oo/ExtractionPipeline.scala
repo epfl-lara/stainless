@@ -35,11 +35,11 @@ trait CachingPhase extends ExtractionContext with extraction.CachingPhase with E
   override protected def extractSymbols(context: TransformerContext, symbols: s.Symbols): (t.Symbols, OOAllSummaries) = {
     val (superSyms, superSummaries) = super.extractSymbols(context, symbols)
 
-    val (classes, classesSummaries) = symbols.classes.values.map { cd =>
+    val (classes, classesSummaries) = symbols.classes.values.toSeq.sortBy(_.id).map { cd =>
       classCache.cached(cd, context)(extractClass(context, cd))
     }.toSeq.unzip
     val withClasses = registerClasses(superSyms, classes)
-    val (typeDefs, typeDefsSummaries) = symbols.typeDefs.values.map { td =>
+    val (typeDefs, typeDefsSummaries) = symbols.typeDefs.values.toSeq.sortBy(_.id).map { td =>
       typeDefCache.cached(td, context)(extractTypeDef(context, td))
     }.toSeq.unzip
     val withTypeDefs = registerTypeDefs(withClasses, typeDefs)

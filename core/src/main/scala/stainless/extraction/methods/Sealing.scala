@@ -125,8 +125,9 @@ class Sealing(override val s: Trees)(override val t: s.type)
       val classSubst = (cd.typeArgs zip typeArgs).toMap
 
       // We lookup the latest non-final methods, and split them in three groups:
-      // normal methods, setters, and getters
-      val lnfm = context.lnfm(cd).toSeq
+      // normal methods, setters, and getters (by identifier, so that the order of the fields doesn't depend on
+      // the hashes of identifiers)
+      val lnfm = context.lnfm(cd).toSeq.sortBy(id => id: Identifier)
       // The accessors may be inherited, so `this` is that of `cd` or of one of its ancestors
       val selfIds = cd.ancestors.map(_.id).toSet + cd.id
       val (accessors, methods) = lnfm.partition { id =>

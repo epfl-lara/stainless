@@ -128,12 +128,14 @@ trait CachingPhase extends ExtractionContext with ExtractionCaches { self =>
     (exSyms, exSummary)
   }
 
+  // The definitions are extracted in the order of their identifiers rather than of their hash codes, so that the
+  // identifiers that the extraction creates are created in the same order whatever the global numbering of identifiers
   protected def extractSymbols(context: TransformerContext, symbols: s.Symbols): (t.Symbols, AllSummaries) = {
-    val (functions, fnsSummary) = symbols.functions.values.map { fd =>
+    val (functions, fnsSummary) = symbols.functions.values.toSeq.sortBy(_.id).map { fd =>
       funCache.cached(fd, context)(extractFunction(context, fd))
     }.toSeq.unzip
 
-    val (sorts, sortsSummary) = symbols.sorts.values.map { sort =>
+    val (sorts, sortsSummary) = symbols.sorts.values.toSeq.sortBy(_.id).map { sort =>
       sortCache.cached(sort, context)(extractSort(context, sort))
     }.toSeq.unzip
 
