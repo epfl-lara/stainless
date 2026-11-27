@@ -18,13 +18,23 @@ package object termination {
     val usageRhs = "yes | no | only"
   }
 
-  /** The unrolling bound of the queries of the termination checker when the solvers have a
-    * resource limit (`--z3-rlimit`, `--cvc5-rlimit`), see [[SolverProvider]]. */
-  object optTerminationUnrollBound extends inox.IntOptionDef("termination-unroll-bound", 16, "<PosInt>")
+  /** How much work the termination checker's queries may each do when the solvers have a resource
+    * limit (`--z3-rlimit`, `--cvc5-rlimit`), as a factor of [[TerminationWork.baseRlimit]] millions of
+    * resource units per check and of [[TerminationWork.baseUnrollBound]] unrollings, see [[SolverProvider]]. */
+  object optTerminationWork extends inox.DoubleOptionDef("termination-work", 1.0, "<PosDouble>")
 
-  /** The resource limit of each check of the termination checker's queries, in millions of units,
-    * when it is lower than that of the solvers (`--z3-rlimit`, `--cvc5-rlimit`), see [[SolverProvider]]. */
-  object optTerminationRlimit extends inox.IntOptionDef("termination-rlimit", 5, "<PosInt>")
+  object TerminationWork {
+    val baseRlimit: Int = 5
+    val baseUnrollBound: Int = 16
+
+    private def scaled(base: Int, work: Double): Int = (base * work).round.toInt max 1
+
+    /** The resource limit of each check, in millions of units, for the given work factor. */
+    def rlimit(work: Double): Int = scaled(baseRlimit, work)
+
+    /** The unrolling bound of each query for the given work factor. */
+    def unrollBound(work: Double): Int = scaled(baseUnrollBound, work)
+  }
 
   object DebugSectionTermination extends inox.DebugSection("termination")
 

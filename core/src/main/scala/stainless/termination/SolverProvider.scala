@@ -52,8 +52,9 @@ trait SolverProvider { self =>
       val (timeout, limits) =
         if (SolverProvider.resourceLimited(options)) {
           import inox.solvers.smtlib.{optZ3Rlimit, optCVC5Rlimit}
-          val bound = inox.solvers.unrolling.optUnrollBound(options.findOptionOrDefault(optTerminationUnrollBound))
-          val rlimit = options.findOptionOrDefault(optTerminationRlimit)
+          val work = options.findOptionOrDefault(optTerminationWork)
+          val bound = inox.solvers.unrolling.optUnrollBound(TerminationWork.unrollBound(work))
+          val rlimit = TerminationWork.rlimit(work)
           def lower(opt: inox.IntOptionDef) = {
             val current = options.findOptionOrDefault(opt)
             opt(if (current > 0) current min rlimit else current)
