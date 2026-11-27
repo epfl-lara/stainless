@@ -165,7 +165,7 @@ class AdtSpecialization(override val s: Trees, override val t: Trees)
   }
 
   private def keepSortFlag(flag: s.Flag): Boolean = flag match {
-    case s.IsAbstract | s.IsSealed | s.IsCaseObject | s.IsExtensible => false
+    case s.IsAbstract | s.IsSealed | s.IsOpen | s.IsCaseObject | s.IsExtensible => false
     case _ => true
   }
 

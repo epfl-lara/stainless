@@ -181,6 +181,7 @@ class XLangSerializer(override val trees: extraction.xlang.Trees, serializeProdu
       stainlessClassSerializer[Variance]         (227),
       stainlessClassSerializer[IsCaseObject.type](229),
       stainlessClassSerializer[IsExtensible.type](274),
+      stainlessClassSerializer[IsOpen.type]      (275),
       stainlessClassSerializer[TypeSelect]       (237),
       stainlessClassSerializer[TypeApply]        (254),
       stainlessClassSerializer[TypeDef]          (255),

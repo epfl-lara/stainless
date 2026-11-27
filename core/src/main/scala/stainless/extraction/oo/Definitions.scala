@@ -350,6 +350,9 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
   /** A concrete class that may be extended (see [[xlang.ConcreteParents]]). */
   case object IsExtensible extends Flag("extensible", Seq.empty)
   case object IsSealed extends Flag("sealed", Seq.empty)
+  /** An abstract class that [[methods.Sealing]] sealed by adding a subclass for the subclasses unknown to the
+   *  program, as its subclasses aren't all known. */
+  case object IsOpen extends Flag("open", Seq.empty)
   case object IsCaseObject extends Flag("caseObject", Seq.empty)
   case class Bounds(lo: Type, hi: Type) extends Flag("bounds", Seq(lo, hi))
   case class Variance(variance: Boolean) extends Flag("variance", Seq.empty)
