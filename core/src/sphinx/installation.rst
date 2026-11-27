@@ -544,6 +544,16 @@ project lives in ``core`` while the Scala 3 frontend can be found in
 ``frontends/dotty``.  From a user's point of view, this should be largely
 transparent, and the build command should take care of everything.
 
+On x86_64 Linux with `Nix <https://nixos.org>`__ (flakes enabled), the
+repository provides a development shell with the exact JDK, sbt and solver
+versions (Z3, cvc5, CVC4) of the CI, and the Java options of the CI in
+``JAVA_OPTS``. It also works on NixOS:
+
+.. code-block:: bash
+
+  $ nix develop
+  $ sbt Universal/stage
+
 Build from Source on Windows
 ----------------------------
 
