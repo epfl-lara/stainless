@@ -28,7 +28,7 @@ class ChainProcessor(override val checker: ProcessingPipeline)
   import checker.program.symbols.{given, _}
 
   private def lessThan(e1s: Seq[(Path, Expr)], e2: Expr): Seq[(Expr, Expr, Expr => Expr)] =
-    flatTypesPowerset(e2.getType).toSeq.map(recons => (andJoin(e1s.map {
+    flatTypesPowerset(e2.getType).map(recons => (andJoin(e1s.map {
       case (path, e1) => path `implies` ordering.lessThan(Seq(recons(e1)), Seq(recons(e2)))
     }), recons(e2), recons))
 

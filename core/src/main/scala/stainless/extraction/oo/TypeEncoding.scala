@@ -1736,7 +1736,7 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
       new t.ADTConstructor(cd.id, sort, fields).copiedFrom(cd)
     }
 
-    private val concreteClasses = symbols.classes.values.toSeq.filterNot(_.flags contains s.IsAbstract)
+    private val concreteClasses = symbols.classes.values.toSeq.sortBy(_.id).filterNot(_.flags contains s.IsAbstract)
 
     private val hierarchyRoots: Seq[Identifier] = concreteClasses.flatMap(cd => hierarchyOf(cd.id)).distinct
 
@@ -1752,7 +1752,7 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
       concreteClasses.filter(cd => hierarchyOf(cd.id).isEmpty).map(constructor(_, refID)) ++
       hierarchyRoots.map { root =>
         new t.ADTConstructor(hierarchyBox(root), refID, Seq(t.ValDef(hierarchyValue(root), hierarchy(root))))
-      } ++ symbols.sorts.values.toSeq.map { sort =>
+      } ++ symbols.sorts.values.toSeq.sortBy(_.id).map { sort =>
         new t.ADTConstructor(adt(sort.id), refID, Seq(t.ValDef(
           adtValue(sort.id),
           t.ADTType(sort.id, sort.typeArgs.map(tp => ref.copiedFrom(tp))).copiedFrom(sort)

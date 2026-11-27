@@ -24,7 +24,7 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
   object Problem {
     def apply(fds: Set[FunDef]): Problem = new Problem {
       val funSet = fds
-      lazy val funDefs = funSet.toSeq
+      lazy val funDefs = funSet.toSeq.sortBy(_.id)
     }
 
     def apply(fds: Seq[FunDef]): Problem = new Problem {

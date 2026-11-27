@@ -104,7 +104,8 @@ trait RelationBuilder { self: Strengthener & OrderingRelation =>
 
       val collector = new Collector(self.checker.program.trees, self.checker.program.trees)(using self.checker.program.symbols)
       collector.transform(funDef)
-      val relations = collector.relations.toSet
+      // In the order of the calls in the body, as the queries about them are made in that order
+      val relations: Set[Relation] = scala.collection.immutable.ListSet.from(collector.relations)
       relationCache(funDef) = (relations, funDefRelationSignature(funDef))
       relations
     }
