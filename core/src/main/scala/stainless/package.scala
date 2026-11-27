@@ -16,8 +16,30 @@ package object stainless {
     val usageRhs = "file"
   }
   
-  object optSatPrecond extends inox.FlagOptionDef("sat-precond", false)
-  def isoptSatPrecondOn(using ctx: inox.Context): Boolean = ctx.options.findOptionOrDefault(optSatPrecond)
+  /** The functions whose precondition is checked to be satisfiable, with an additional verification
+   *  condition: none, all of them, or those annotated with @checkSatPrecondition. */
+  enum SatPrecondMode(val name: String) {
+    case Off       extends SatPrecondMode("none")
+    case All       extends SatPrecondMode("all")
+    case Annotated extends SatPrecondMode("annotated")
+
+    override def toString: String = name
+  }
+
+  object optSatPrecond extends inox.OptionDef[SatPrecondMode] {
+    val name     = "sat-precond"
+    val default  = SatPrecondMode.Off
+    val parser   = {
+      case "all" => Some(SatPrecondMode.All)
+      case "annotated" => Some(SatPrecondMode.Annotated)
+      case "none" => Some(SatPrecondMode.Off)
+      // The values of the former flag option
+      case "" | "true" | "yes" | "on" => Some(SatPrecondMode.All)
+      case "false" | "no" | "off" => Some(SatPrecondMode.Off)
+      case _ => None
+    }
+    val usageRhs = "none | all | annotated"
+  }
 
   object optWatch extends inox.FlagOptionDef("watch", false)
   def isWatchModeOn(using ctx: inox.Context): Boolean = ctx.options.findOptionOrDefault(optWatch)

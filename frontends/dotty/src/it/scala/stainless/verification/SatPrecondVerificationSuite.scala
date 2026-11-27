@@ -7,7 +7,9 @@ import scala.concurrent.duration._
 
 import org.scalatest._
 
-class SatPrecondVerificationSuite extends VerificationComponentTestSuite {
+/** Checks the satisfiability of preconditions with the given mode of `--sat-precond`, on the
+ *  benchmarks of `directory`. */
+abstract class AbstractSatPrecondVerificationSuite(mode: SatPrecondMode, directory: String) extends VerificationComponentTestSuite {
   private val solvers = Seq("smt-z3", "smt-cvc5", "princess")
 
   private val ignoreCommon: Set[String] = Set()
@@ -19,7 +21,7 @@ class SatPrecondVerificationSuite extends VerificationComponentTestSuite {
     Set()
 
   private val ignorePrincess: Set[String] = ignoreCommon ++
-    Set("sat-precondition/valid/SATPrecond4") ++ 
+    Set("sat-precondition/valid/SATPrecond4") ++
     Set("sat-precondition/valid/SATPrecond5")
 
   private val ignoreCodegen: Set[String] = Set()
@@ -43,7 +45,7 @@ class SatPrecondVerificationSuite extends VerificationComponentTestSuite {
       conf <- super.configurations.map {
         seq =>
           Seq(
-            stainless.optSatPrecond(true),
+            stainless.optSatPrecond(mode),
             inox.optSelectedSolvers(Set(solver)),
             inox.solvers.optCheckModels(true),
             evaluators.optCodeGen(codeGen),
@@ -67,14 +69,22 @@ class SatPrecondVerificationSuite extends VerificationComponentTestSuite {
     if (ignoredSolver || ignoredCodegen) Ignore else super.filter(ctx, name)
   }
 
-  import SatPrecondVerificationSuite._
+  private lazy val valid = ComponentTestSuite.loadPrograms(s"$directory/valid", recursive = true)
+  private lazy val invalid = ComponentTestSuite.loadPrograms(s"$directory/invalid")
 
   testPosAll(s"$directory/valid", valid)
 
   testNegAll(s"$directory/invalid", invalid)
 }
-object SatPrecondVerificationSuite {
-  private val directory = "sat-precondition"
-  private lazy val valid = ComponentTestSuite.loadPrograms(s"$directory/valid", recursive = true)
-  private lazy val invalid = ComponentTestSuite.loadPrograms(s"$directory/invalid")
-}
+
+/** `--sat-precond=all`: the preconditions of all functions */
+class SatPrecondVerificationSuite extends AbstractSatPrecondVerificationSuite(SatPrecondMode.All, "sat-precondition")
+
+/** `--sat-precond=annotated`: only the preconditions of the functions annotated with
+ *  @checkSatPrecondition */
+class SatPrecondAnnotatedVerificationSuite extends AbstractSatPrecondVerificationSuite(SatPrecondMode.Annotated, "sat-precondition-annotated")
+
+/** The witnesses of the satisfiability of preconditions, given by `precondWitness`. They are checked
+ *  whatever the mode of `--sat-precond`; with `annotated`, they replace the satisfiability check of
+ *  the preconditions of the annotated functions. */
+class PrecondWitnessVerificationSuite extends AbstractSatPrecondVerificationSuite(SatPrecondMode.Annotated, "precond-witness")

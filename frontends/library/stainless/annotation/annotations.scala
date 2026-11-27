@@ -34,6 +34,12 @@ class extern extends Annotation
 @ignore
 class dropVCs extends Annotation
 
+/** Check that the precondition of the annotated function is satisfiable, with an additional
+  * verification condition, when Stainless runs with `--sat-precond=annotated`
+  * (`--sat-precond=all` checks it for all functions). */
+@ignore
+class checkSatPrecondition extends Annotation
+
 /** Don't unfold the function's body during verification. */
 @ignore
 class opaque extends Annotation

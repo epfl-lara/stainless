@@ -61,7 +61,14 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
   given givenDebugSection: DebugSectionTypeChecker.type = DebugSectionTypeChecker
 
   val checkMeasures = options.findOptionOrDefault(optCheckMeasures)
-  val checkSatPrecond = options.findOptionOrDefault(optSatPrecond)
+  val satPrecondMode = options.findOptionOrDefault(optSatPrecond)
+
+  /** Whether to check that the precondition of `fd` is satisfiable (see [[optSatPrecond]]) */
+  def checkSatPrecond(fd: FunDef): Boolean = satPrecondMode match {
+    case SatPrecondMode.Off => false
+    case SatPrecondMode.All => true
+    case SatPrecondMode.Annotated => fd.flags.contains(CheckSatPrecondition)
+  }
 
   /* ====================================
    *     Polarity in ADT definitions
@@ -1495,7 +1502,13 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
     // We check that the specification is SAT to avoid false => P(body(x)) type of proofs
     // To do so, we create a VC phi(x) => false, where phi(x) is the precondition. This will be checked as phi(x) => not false
     // Then we check in VerificationChecker that this VC should be SAT
-    val trPreSat: Option[TyperResult] = if checkSatPrecond then Some(buildVC(tcWithPre.withCheckSAT(false).withVCKind(VCKind.SATPrecondCheck), BooleanLiteral(false))) else None
+    // A witness of the satisfiability of the precondition (see `checkPrecondWitness`) replaces this check
+    val witnesses = fd.flags.collect { case PrecondWitness(call) => call }
+    val trWitnesses = witnesses.foldLeft(TyperResult.valid) { (tr, witness) =>
+      tr ++ checkPrecondWitness(nonMutuallyRecursiveContext.withIdentifiers(deps), fd, witness)
+    }
+
+    val trPreSat: Option[TyperResult] = if checkSatPrecond(fd) && witnesses.isEmpty then Some(buildVC(tcWithPre.withCheckSAT(false).withVCKind(VCKind.SATPrecondCheck), BooleanLiteral(false))) else None
 
     val measureOpt = specced.getSpec(MeasureKind).map(measure => freshener.transform(measure.expr))
 
@@ -1533,7 +1546,50 @@ class TypeChecker(val program: StainlessProgram, val context: inox.Context, val 
         }
     }
 
-    (measureType, (trArgs ++ trPre ++ trPreSat.getOrElse(TyperResult.valid) ++ trMeasure ++ trBody).root(OKFunction(id)))
+    (measureType, (trArgs ++ trPre ++ trPreSat.getOrElse(TyperResult.valid) ++ trWitnesses ++ trMeasure ++ trBody).root(OKFunction(id)))
+  }
+
+  /** The VCs of a witness of the satisfiability of the precondition of `fd`, given by
+   *  `precondWitness(witness)` in its body: `witness` is a call to `fd`, possibly preceded by let
+   *  bindings. They check that the arguments of the call satisfy the precondition of `fd`
+   *  ("precondition witness"), with the specification of `fd` only (never its body).
+   */
+  def checkPrecondWitness(tc: TypingContext, fd: FunDef, witness: Expr): TyperResult = {
+    import exprOps._
+
+    val free = variablesOf(witness)
+    if (free.nonEmpty)
+      reporter.fatalError(witness.getPos,
+        s"The witness of precondWitness can't refer to ${free.map(_.asString).mkString(", ")}: " +
+        s"its call to ${fd.id.asString} must only depend on values defined in the witness")
+
+    def rec(tc: TypingContext, e: Expr): TyperResult = e match {
+      case Let(vd, value, rest) =>
+        checkType(tc, value, vd.tpe) ++ rec(tc.bindWithValue(vd, value), rest)
+
+      case FunctionInvocation(fd.id, tps, args) =>
+        val tfd = fd.typed(tps)
+        // The arguments are well-typed (including their refinements)
+        val trArgs = checkDependentTypes(tc.withVCKind(VCKind.PrecondWitness), args, tfd.params)
+
+        val (tcArgs, freshener) = tc.freshBindWithValues(tfd.params, args)
+        val specced = BodyWithSpecs(freshener.transform(freshenLocals(tfd.fullBody)))
+        // The preconditions hold for the arguments
+        val trPre = specced.letsAndSpecs(PreconditionKind).foldLeft((tcArgs, TyperResult.valid)) {
+          case ((tcAcc, trAcc), LetInSpec(vd, value)) =>
+            (tcAcc.bindWithValue(vd, value), trAcc)
+          case ((tcAcc, trAcc), Precondition(cond)) =>
+            (tcAcc.withTruth(cond), trAcc ++ buildVC(tcAcc.withVCKind(VCKind.PrecondWitness).setPos(witness), cond))
+          case _ => sys.error("not possible due to filtering")
+        }._2
+        trArgs ++ trPre
+
+      case _ =>
+        reporter.fatalError(witness.getPos,
+          s"precondWitness expects a call to ${fd.id.asString}, possibly preceded by val definitions")
+    }
+
+    rec(tc.setPos(witness), witness)
   }
 
   def checkType(fids: Seq[Identifier]): Seq[StainlessVC] = {

@@ -10,6 +10,19 @@ trait CallGraph extends inox.ast.CallGraph { self =>
   import trees._
 
   protected trait StainlessFunctionCollector extends StainlessSelfTreeTraverser with FunctionCollector {
+    // The witness of a function (`PrecondWitness`) calls the function, but is never evaluated: this
+    // call doesn't make the function recursive. Its other calls are dependencies of the function.
+    private var currentFunction: Option[Identifier] = None
+    private var inWitness: Boolean = false
+
+    override protected def register(id: Identifier): Unit =
+      if (!(inWitness && currentFunction.contains(id))) super.register(id)
+
+    override def traverse(fd: FunDef): Unit = {
+      currentFunction = Some(fd.id)
+      super.traverse(fd)
+    }
+
     override def traverse(pat: Pattern): Unit = pat match {
       case UnapplyPattern(_, _, id, _, _) =>
         register(id)
@@ -23,6 +36,9 @@ trait CallGraph extends inox.ast.CallGraph { self =>
         register(isEmpty)
         register(get)
         super.traverse(flag)
+      case PrecondWitness(_) =>
+        inWitness = true
+        try super.traverse(flag) finally inWitness = false
       case _ =>
         super.traverse(flag)
     }

@@ -74,6 +74,7 @@ object VCKind {
   case class  Error(err: String)            extends VCKind(s"error: $err", "error")
   case class  AdtInvariant(inv: Identifier) extends VCKind(s"class invariant: ${inv.name}", "class inv.")
   case object SATPrecondCheck               extends VCKind("precondition satisfiability", "sat precond.")
+  case object PrecondWitness                extends VCKind("precondition witness", "witness")
 
   def fromErr(optErr: Option[String]) = {
     optErr.map { err =>

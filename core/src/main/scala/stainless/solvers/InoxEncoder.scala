@@ -68,7 +68,7 @@ private def keepFlag(sourceProgram: Program)(flag: sourceProgram.trees.Flag): Bo
     case Opaque | Private | Final | Law | Ghost | Erasable | Wrapping | Lazy => false
     case Derived(_) | IsField(_) | IsUnapply(_, _) | IndexedAt(_) | ClassParamInit(_) => false
     case TerminationStatus(_) => false
-    case InlineInvariant | Template => false
+    case InlineInvariant | Template | CheckSatPrecondition | PrecondWitness(_) => false
     case _ => true
   }
 }

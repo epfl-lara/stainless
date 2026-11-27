@@ -1350,6 +1350,15 @@ trait ASTExtractors {
       }
     }
 
+    /** Matches `precondWitness(call)` and returns `call` */
+    object ExPrecondWitnessExpression {
+      def unapply(tree: tpd.Tree): Option[tpd.Tree] = tree match {
+        case Apply(TypeApply(ExSymbol("stainless", "lang", "package$", "precondWitness"), _), List(call)) => Some(call)
+        case Apply(ExSymbol("stainless", "lang", "package$", "precondWitness"), List(call)) => Some(call)
+        case _ => None
+      }
+    }
+
     object ExAssertExpression {
       def unapply(tree: tpd.Tree): Option[(tpd.Tree, Option[String], Boolean)] = tree match {
         // Inlined assert call, due to Scala assert being an inline function.
