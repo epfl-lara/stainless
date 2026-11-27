@@ -54,12 +54,13 @@ trait SolverProvider { self =>
           import inox.solvers.smtlib.{optZ3Rlimit, optCVC5Rlimit}
           val work = options.findOptionOrDefault(optTerminationWork)
           val bound = inox.solvers.unrolling.optUnrollBound(TerminationWork.unrollBound(work))
-          val rlimit = TerminationWork.rlimit(work)
-          def lower(opt: inox.IntOptionDef) = {
+          def lower(opt: inox.IntOptionDef, rlimit: Int) = {
             val current = options.findOptionOrDefault(opt)
             opt(if (current > 0) current min rlimit else current)
           }
-          (options.findOption(inox.optTimeout), Seq(bound, lower(optZ3Rlimit), lower(optCVC5Rlimit)))
+          (options.findOption(inox.optTimeout), Seq(bound,
+            lower(optZ3Rlimit, TerminationWork.z3Rlimit(work)),
+            lower(optCVC5Rlimit, TerminationWork.cvc5Rlimit(work))))
         } else {
           (Some(options.findOption(inox.optTimeout).map(_ / 100).getOrElse(2.5.seconds)), Seq())
         }
