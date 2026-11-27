@@ -4,9 +4,15 @@ package stainless
 package extraction
 package inlining
 
+/** Hides each `choose` of a function body under a fresh function of the variables in its scope, whose body is the
+  * `choose`. Unless the `choose` is marked with `DropVCs`, its call asserts that its predicate is satisfiable.
+  *
+  * A `choose` in a type (as in the refinement of a field, a parameter or a result) is rejected: a type can't assert
+  * the satisfiability of its predicate. It can be moved into a function that the type calls.
+  */
 class ChooseEncoder(override val s: ast.Trees, override val t: ast.Trees)
                    (using override val context: inox.Context)
-  extends CachingPhase with NoSummaryPhase with SimplyCachedFunctions with IdentitySorts { self =>
+  extends CachingPhase with NoSummaryPhase with SimplyCachedFunctions with SimpleSorts with SimplyCachedSorts { self =>
 
   type TransformerContext = s.Symbols
   override def getContext(symbols: s.Symbols) = symbols
@@ -14,6 +20,28 @@ class ChooseEncoder(override val s: ast.Trees, override val t: ast.Trees)
   override protected type FunctionResult = Seq[t.FunDef]
   override protected def registerFunctions(symbols: t.Symbols, functions: Seq[Seq[t.FunDef]]): t.Symbols =
     symbols.withFunctions(functions.flatten)
+
+  private def rejectChoose(c: s.Choose, defn: s.Definition): Nothing =
+    context.reporter.fatalError(if (c.getPos == inox.utils.NoPosition) defn.getPos else c.getPos,
+      s"`choose` is not supported in the types of ${defn.id.asString}, since types can't check that its predicate " +
+      "is satisfiable: move it into a function and call that function instead")
+
+  private class IdentitySortsImpl(override val s: self.s.type, override val t: self.t.type)
+    extends stainless.transformers.ConcreteTreeTransformer(s, t)
+  private val identity = new IdentitySortsImpl(self.s, self.t)
+
+  override protected def extractSort(context: TransformerContext, sort: s.ADTSort): (t.ADTSort, Unit) = {
+    for (cons <- sort.constructors; vd <- cons.fields) {
+      s.typeOps.preTraversal {
+        case s.RefinementType(_, pred) => s.exprOps.preTraversal {
+          case c: s.Choose => rejectChoose(c, sort)
+          case _ =>
+        } (pred)
+        case _ =>
+      } (vd.tpe)
+    }
+    (identity.transform(sort), ())
+  }
 
   protected def extractFunction(context: TransformerContext, fd: s.FunDef): (Seq[t.FunDef], Unit) = {
     var fdChooses = Seq[t.FunDef]()
@@ -25,6 +53,15 @@ class ChooseEncoder(override val s: ast.Trees, override val t: ast.Trees)
       type Env = Seq[t.ValDef]
 
       import t._ // for implicit `VariableConverter`, required for `replaceFromSymbols`
+
+      private var inType = false
+
+      override def transform(tpe: s.Type, env: Seq[t.ValDef]): t.Type = {
+        val wasInType = inType
+        inType = true
+        try super.transform(tpe, env)
+        finally inType = wasInType
+      }
 
       def transform(fd: s.FunDef): t.FunDef = {
         val params2 = fd.params.map(transform(_, Seq()))
@@ -52,6 +89,16 @@ class ChooseEncoder(override val s: ast.Trees, override val t: ast.Trees)
               (accParams :+ newVd, accEnv :+ newVd)
           }
           t.Lambda(newParams, transform(body, newEnv)).copiedFrom(e)
+
+        case s.Forall(params, body) =>
+          val (newParams, newEnv) = params.foldLeft((Seq[t.ValDef](), env)) {
+            case ((accParams, accEnv), vd) =>
+              val newVd = transform(vd, accEnv)
+              (accParams :+ newVd, accEnv :+ newVd)
+          }
+          t.Forall(newParams, transform(body, newEnv)).copiedFrom(e)
+
+        case c: s.Choose if inType => rejectChoose(c, fd)
 
         case c @ s.Choose(vd, pred) =>
           val (substMap, freshParams) = env.foldLeft((Map[t.ValDef, t.Expr](), Seq[t.ValDef]())) {

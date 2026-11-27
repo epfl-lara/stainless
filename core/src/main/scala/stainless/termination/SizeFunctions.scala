@@ -166,7 +166,12 @@ class SizeFunctions(val trees: Trees) {
       Seq(v.toVal),
       IntegerType(),
       Ensuring(MatchExpr(v, sort.typed(tparams).constructors.map { cons =>
-        val arguments = cons.fields.map(_.freshen).toList
+        // Field types may refer to the previous fields
+        val arguments = cons.fields.foldLeft((Map.empty[ValDef, Expr], List.empty[ValDef])) {
+          case ((subst, acc), vd) =>
+            val nvd = vd.freshen.copy(tpe = typeOps.replaceFromSymbols(subst, vd.tpe))
+            (subst + (vd -> nvd.toVariable), acc :+ nvd)
+        }._2
         val argumentPatterns = arguments.map(vd => WildcardPattern(Some(vd)))
         val base: Expr = if (cons.fields.nonEmpty) IntegerLiteral(1) else IntegerLiteral(0)
         val rhs = arguments.map(vd => fullSize(vd.toVariable)).foldLeft(base)(_ + _)

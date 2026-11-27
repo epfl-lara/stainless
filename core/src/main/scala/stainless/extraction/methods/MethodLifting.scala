@@ -64,8 +64,9 @@ class MethodLifting(override val s: Trees, override val t: oo.Trees)
 
   private val identity = new IdentityImpl(self.s, self.t)
 
+  // Field types may refer to `this`, as in `{ x: C | x.outer eq this.outer }` (see `xlang.MemberClasses`)
   private class AdtTransformer(override val s: self.s.type, override val t: self.t.type, symbols: s.Symbols)
-    extends oo.ConcreteTreeTransformer(s, t) {
+    extends BaseTransformer(s, t, symbols) {
       def this(symbols: self.s.Symbols) = this(self.s, self.t, symbols)
       var fieldsMap: Map[Identifier, (t.ValDef, Int)] = Map.empty
 

@@ -37,7 +37,11 @@ import scala.collection.mutable.{Map => MutableMap}
  *    patterns on `p.C` (as emitted by the frontend for `case _: p.C`, but not for `isInstanceOf[p.C]`,
  *    which doesn't test the outer instance in Scala),
  *  - replaces a field type `p.C` where `p` refers to `this` with `C`, and constrains the field in
- *    the class invariant instead (or drops the constraint when nested, as in `List[p.C]`).
+ *    the class invariant instead,
+ *  - refers to the outer field in the nested field types `p.C` where `p` refers to `O.this`, as in
+ *    `List[O.this.C]`, which becomes `List[{ x: C | x.outer eq $outer }]` (field types may refer to
+ *    the previous fields, and the type checker allows the outer accessors in them, since they only
+ *    inspect their arguments, see `TypeChecker.checkADTRefinementRecursion`).
  *
  *  The example becomes
  *
@@ -172,6 +176,52 @@ class MemberClasses(override val s: Trees)(override val t: s.type)
 
     def mentionsThis(e: Expr): Boolean = exprOps.exists { case _: This => true case _ => false } (e)
 
+    def outerFieldOf(cd: ClassDef): Option[ValDef] =
+      if (!isMember(cd.id) || isAbstract(cd.id)) None
+      else Some(ValDef(outerFieldId(cd.id), outerType(cd.id).copiedFrom(cd)).copiedFrom(cd))
+
+    /** The type of the field `vd` of `cd` where `O.this` refers to the outer field instead, if `vd` only refers
+      * to `this` through its previous fields: the field types of a class may refer to its previous fields.
+      */
+    def dependentFieldType(cd: ClassDef, vd: ValDef): Option[Type] = {
+      val outer = outerFieldOf(cd)
+      val previous = (outer.toSeq ++ cd.fields.takeWhile(_.id != vd.id)).map(_.id).toSet
+      val ct = ClassType(cd.id, cd.typeArgs).copiedFrom(cd)
+      val classes = enclosing(cd.id)
+      var ok = true
+      def outerIndex(tct: ClassType): Int =
+        if (outer.isEmpty || derivesFrom(cd.id, tct.id)) -1
+        else classes.indexWhere(c => derivesFrom(c, tct.id) || derivesFrom(thisType(c).id, tct.id))
+      def path(e: Expr): Expr = {
+        // The selections of previous fields are kept as is
+        val kept = MutableMap[Variable, Expr]()
+        val e1 = exprOps.preMap {
+          case cs @ ClassSelector(This(tct), fid) if tct.id == cd.id && previous(fid) =>
+            val v = Variable.fresh("field", cs.getType).copiedFrom(cs)
+            kept(v) = cs
+            Some(v)
+          case _ => None
+        } (e)
+        if (exprOps.exists { case This(tct) => outerIndex(tct) < 1 case _ => false } (e1)) ok = false
+        val e2 = exprOps.preMap {
+          case This(tct) if outerIndex(tct) >= 1 =>
+            var res: Expr = ClassSelector(This(ct).copiedFrom(e), outer.get.id).copiedFrom(e)
+            for (i <- 1 until outerIndex(tct)) {
+              val (o, tpe) = selectOuter(res, classes(i))
+              res = if (tpe == thisType(classes(i + 1))) o else AsInstanceOf(o, thisType(classes(i + 1))).copiedFrom(o)
+            }
+            Some(res)
+          case _ => None
+        } (e1)
+        exprOps.replace(kept.toMap.map { case (v, cs) => (v: Expr) -> cs }, e2)
+      }
+      val res = typeOps.postMap {
+        case PathType(p, pct) if mentionsThis(p) => Some(PathType(path(p), pct).copiedFrom(vd))
+        case _ => None
+      } (vd.tpe)
+      if (ok) Some(res) else None
+    }
+
     /** Fields of type `p.C` where `p` refers to `this` (or `O.this`) are constrained by the class invariant. */
     val fieldInvariants: Map[Identifier, Seq[Expr]] = symbols.classes.values.map { cd =>
       val ct = ClassType(cd.id, cd.typeArgs).copiedFrom(cd)
@@ -179,10 +229,20 @@ class MemberClasses(override val s: Trees)(override val t: s.type)
         vd.tpe match {
           case pt @ PathType(path, _) if mentionsThis(path) =>
             Some(IsInstanceOf(ClassSelector(This(ct).copiedFrom(vd), vd.id).copiedFrom(vd), pt).copiedFrom(vd))
+          // The VCs of the refined field types are those of the class invariant (see `TypeChecker.wellFormedADT`)
+          case tpe if typeOps.exists { case PathType(p, _) => mentionsThis(p) case _ => false } (tpe) =>
+            Some(BooleanLiteral(true).copiedFrom(vd))
           case _ => None
         }
       }
     }.filter(_._2.nonEmpty).toMap
+
+    def freshenRefinements(tpe: Type): Type = typeOps.postMap {
+      case rt @ RefinementType(vd, pred) =>
+        val nvd = vd.freshen
+        Some(RefinementType(nvd, exprOps.replaceFromSymbols(Map(vd -> nvd.toVariable), pred)).copiedFrom(rt))
+      case _ => None
+    } (tpe)
 
     def stripThisPaths(tpe: Type): Type = typeOps.postMap {
       case PathType(path, ct) if mentionsThis(path) => Some(ct)
@@ -357,11 +417,16 @@ class MemberClasses(override val s: Trees)(override val t: s.type)
     }
 
     val classes = symbols.classes.values.map { cd =>
-      val fields = cd.fields.map(vd => vd.copy(tpe = stripThisPaths(vd.tpe)).copiedFrom(vd))
-      val outerField =
-        if (!isMember(cd.id) || isAbstract(cd.id)) None
-        else Some(ValDef(outerFieldId(cd.id), outerType(cd.id).copiedFrom(cd)).copiedFrom(cd))
-      new Transformer(Some(cd.id)).transform(cd.copy(tparams = liftedTypeParams(cd.id), fields = outerField.toSeq ++ fields).copiedFrom(cd))
+      val fields = cd.fields.map { vd =>
+        // A field type `p.C` is constrained by the class invariant instead, which is cheaper to unroll
+        val tpe = if (vd.tpe.isInstanceOf[PathType]) None else dependentFieldType(cd, vd)
+        vd.copy(tpe = tpe.getOrElse(stripThisPaths(vd.tpe))).copiedFrom(vd)
+      }
+      val outerField = outerFieldOf(cd)
+      val tcd = new Transformer(Some(cd.id)).transform(cd.copy(tparams = liftedTypeParams(cd.id), fields = outerField.toSeq ++ fields).copiedFrom(cd))
+      // The refinements of field types get their own binders: substitutions in the unrolling of the field types
+      // don't avoid capture within the types of variables, which share the binders of `p.C` types
+      tcd.copy(fields = tcd.fields.map(vd => vd.copy(tpe = freshenRefinements(vd.tpe)).copiedFrom(vd))).copiedFrom(tcd)
     }
 
     val typeDefs = symbols.typeDefs.values.map(td => new Transformer(ownerClass(td.flags)).transform(td))
