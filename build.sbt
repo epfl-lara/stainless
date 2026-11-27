@@ -4,6 +4,23 @@ enablePlugins(GitVersioning)
 enablePlugins(GitBranchPrompt)
 
 git.useGitDescribe := true
+// sbt-git 3 scopes the public alias to the project; inherited versions need this too.
+ThisBuild / git.useGitDescribe := true
+useJGitOnlyForReads
+
+// Keep the seven-character descriptions used by the packaging scripts instead of
+// modern JGit's adaptive abbreviation length.
+ThisBuild / git.gitDescribedVersion := {
+  val patterns = (ThisBuild / git.gitDescribePatterns).value
+  val tagToVersion = (ThisBuild / git.gitTagToVersionNumber).value
+  val repo = new org.eclipse.jgit.storage.file.FileRepositoryBuilder()
+    .findGitDir((ThisBuild / baseDirectory).value).build()
+  try {
+    scala.util.Try(Option(new org.eclipse.jgit.api.Git(repo).describe()
+      .setTags(true).setAbbrev(7).setMatch(patterns: _*).call()))
+      .toOption.flatten.map(v => tagToVersion(v).getOrElse(v))
+  } finally repo.close()
+}
 
 Global / excludeLintKeys += buildInfoKeys
 Global / excludeLintKeys += buildInfoOptions
