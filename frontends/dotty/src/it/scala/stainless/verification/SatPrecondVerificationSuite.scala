@@ -21,7 +21,7 @@ abstract class AbstractSatPrecondVerificationSuite(mode: SatPrecondMode, directo
     Set()
 
   private val ignorePrincess: Set[String] = ignoreCommon ++
-    Set("sat-precondition/valid/SATPrecond4") ++ 
+    Set("sat-precondition/valid/SATPrecond4") ++
     Set("sat-precondition/valid/SATPrecond5")
 
   private val ignoreCodegen: Set[String] = Set()
@@ -83,3 +83,8 @@ class SatPrecondVerificationSuite extends AbstractSatPrecondVerificationSuite(Sa
 /** `--sat-precond=annotated`: only the preconditions of the functions annotated with
  *  @checkSatPrecondition */
 class SatPrecondAnnotatedVerificationSuite extends AbstractSatPrecondVerificationSuite(SatPrecondMode.Annotated, "sat-precondition-annotated")
+
+/** The witnesses of the satisfiability of preconditions, given by `precondWitness`. They are checked
+ *  whatever the mode of `--sat-precond`; with `annotated`, they replace the satisfiability check of
+ *  the preconditions of the annotated functions. */
+class PrecondWitnessVerificationSuite extends AbstractSatPrecondVerificationSuite(SatPrecondMode.Annotated, "precond-witness")

@@ -283,7 +283,8 @@ Verification
   invalid when the precondition is unsatisfiable. With ``all``, it checks the
   preconditions of all functions; with ``annotated``, only those of the
   functions annotated with ``@checkSatPrecondition``. ``--sat-precond`` alone
-  means ``--sat-precond=all``.
+  means ``--sat-precond=all``. A witness given with ``precondWitness`` replaces
+  this check, see :doc:`verification`.
 
 
 

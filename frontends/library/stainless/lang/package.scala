@@ -122,6 +122,19 @@ package object lang {
   @ignore def decreases(@ghost r1: Any, @ghost r2: Any, @ghost r3: Any, @ghost r4: Any): Unit = ()
   @ignore def decreases(@ghost r1: Any, @ghost r2: Any, @ghost r3: Any, @ghost r4: Any, @ghost r5: Any): Unit = ()
 
+  /** Gives a witness that the precondition of the enclosing function is satisfiable: `call` is a call
+   *  to this function, possibly preceded by `val` definitions in a block, e.g.
+   *  {{{
+   *  def f(x: BigInt): BigInt = {
+   *    require(x >= 0)
+   *    precondWitness(f(2))
+   *    2 * x
+   *  }.ensuring(res => res == 2 * x)
+   *  }}}
+   *  Stainless checks that the arguments of the call satisfy the precondition of the function.
+   *  The call is not part of the body: it is never evaluated. */
+  @ignore def precondWitness[T](@ghost call: => T): Unit = ()
+
   @ignore
   implicit class WhileDecorations(val u: Unit) {
     def invariant(x: Boolean): Unit = {

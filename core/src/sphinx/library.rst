@@ -90,7 +90,8 @@ which instruct Stainless to handle some functions or objects in a specialized wa
 | ``@checkSatPrecondition`` | Check that the precondition of this function is satisfiable,   |
 |                           | with an additional verification condition, when Stainless      |
 |                           | runs with ``--sat-precond=annotated`` (see                     |
-|                           | :ref:`cmdlineoptions`).                                        |
+|                           | :ref:`cmdlineoptions`). ``precondWitness`` can give arguments  |
+|                           | that satisfy the precondition, see :doc:`verification`.        |
 +---------------------------+----------------------------------------------------------------+
 | ``@pure``                 | Specify that this function is pure, which will then            |
 |                           | be checked. If the function is also annotated with             |

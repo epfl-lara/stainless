@@ -152,6 +152,45 @@ a precondition.
    of a function.
 
 
+Satisfiability of preconditions
+-------------------------------
+
+A function whose precondition can never hold verifies vacuously: its postcondition
+is proven for no input at all. With the option ``--sat-precond``, Stainless also
+checks that preconditions are satisfiable, with an additional verification
+condition (of kind "precondition satisfiability"):
+
+- ``--sat-precond=all`` checks the preconditions of all functions,
+- ``--sat-precond=annotated`` checks the preconditions of the functions annotated
+  with ``@checkSatPrecondition`` (from ``stainless.annotation``) only.
+
+Instead of letting the solver look for inputs satisfying the precondition, one
+can give them with ``precondWitness`` (from ``stainless.lang``), in the body of
+the function, as a call to the function itself:
+
+.. code-block:: scala
+
+  def f(x: BigInt): BigInt = {
+    require(x >= 0)
+    precondWitness(f(2))
+    2 * x
+  }.ensuring(res => res == x * 2)
+
+The arguments of the call can be computed in a block before it, e.g.
+``precondWitness({ val z = 2 * 2; f(z) })``, but cannot refer to the parameters of
+the function. A function can have several witnesses. For each of them, Stainless
+checks that the arguments satisfy the precondition (VC of kind "precondition
+witness"), whatever the value of ``--sat-precond``. When the
+satisfiability of the precondition of a function is checked (with ``all``, or
+``annotated`` and ``@checkSatPrecondition``), its witnesses replace that check.
+The call of a witness is not part of the body of the function: it is never
+evaluated, and does not make the function recursive. Witnesses are not supported
+in local functions.
+
+This check is particularly interesting for ghost functions that are never called, 
+i.e., lemmas and theorems.
+
+
 Sharing bindings between specifications and function body
 ---------------------------------------------------------
 

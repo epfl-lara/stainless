@@ -106,6 +106,7 @@ class GhostAccessRewriter(afterPhase: String) extends PluginPhase { self =>
 
         case ExRequiredExpression(_, true) => tpd.Literal(Constant(()))
         case ExDecreasesExpression(_) => tpd.Literal(Constant(()))
+        case ExPrecondWitnessExpression(_) => tpd.Literal(Constant(()))
         case ExAssertExpression(_, _, true) => tpd.Literal(Constant(()))
         case ExEnsuredExpression(body, _, true) =>
           transform(body) match {

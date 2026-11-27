@@ -31,6 +31,9 @@ trait Definitions extends inox.ast.Definitions { self: Trees =>
   case object Wrapping extends Flag("wrapping", Seq.empty)
   case object Template extends Flag("template", Seq.empty)
   case object CheckSatPrecondition extends Flag("checkSatPrecondition", Seq.empty)
+  /** A call to the function, possibly preceded by let bindings, that witnesses the satisfiability of
+   *  its precondition (`precondWitness(call)` in the body of the function) */
+  case class PrecondWitness(call: Expr) extends Flag("precondWitness", Seq(call))
 
   case class Derived(idOpt: Option[Identifier]) extends Flag("derived", idOpt.toSeq)
   case class IsField(isLazy: Boolean) extends Flag("field", Seq.empty)

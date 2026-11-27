@@ -1136,14 +1136,35 @@ class CodeExtraction(inoxCtx: inox.Context,
 
     val obsPureFlag = if (isObservationallyPure(fullBody)) Seq(xt.IsObservationallyPure) else Seq.empty
 
+    val witnessFlags = if (isAbstract) Seq.empty else extractPrecondWitnesses(rhs)(using fctx)
+    // Local functions are lifted later on, with additional parameters for the variables they capture
+    if (witnessFlags.nonEmpty && sym.owner.isTerm)
+      outOfSubsetError(sym.sourcePos, "precondWitness is not supported in local functions")
+
     new xt.FunDef(
       id,
       ntparams.map(tp => xt.TypeParameterDef(tp)),
       newParams,
       returnType,
       fullBody,
-      (flags ++ obsPureFlag).distinct
+      (flags ++ obsPureFlag ++ witnessFlags).distinct
     ).setPos(sym.sourcePos)
+  }
+
+  /** Extracts the `precondWitness(call)` statements of the body of a function as `PrecondWitness`
+    * flags of the function. They are not part of its body, which drops them: the calls they give
+    * as witnesses are never evaluated, and are not recursive calls of the function.
+    * Nested local functions and local classes are skipped: they are handled by their own `extractFunction` call.
+    */
+  private def extractPrecondWitnesses(rhs: tpd.Tree)(using dctx: DefContext): Seq[xt.Flag] = {
+    val witnesses = new tpd.TreeAccumulator[List[tpd.Tree]] {
+      override def apply(acc: List[tpd.Tree], tree: tpd.Tree)(using DottyContext): List[tpd.Tree] = tree match {
+        case ExPrecondWitnessExpression(call) => call :: acc
+        case _: tpd.DefDef | _: tpd.TypeDef => acc
+        case _ => foldOver(acc, tree)
+      }
+    }.apply(Nil, rhs).reverse
+    witnesses.map(call => xt.PrecondWitness(extractTree(call)))
   }
 
   /** Returns whether the function with the given (extracted) full body is observationally pure, that is,
@@ -1592,6 +1613,9 @@ class CodeExtraction(inoxCtx: inox.Context,
         val b   = recOrNoTree(xs)
         xt.Require(wrap(pre), b).setPos(e.sourcePos)
 
+      // Extracted as flags of the enclosing function, see `extractPrecondWitnesses`
+      case ExPrecondWitnessExpression(_) :: xs => recOrNoTree(xs)
+
       case (e @ ExDecreasesExpression(ranks)) :: xs =>
         val measure = xt.tupleWrap(ranks.map(extractTree(_)(using cctx)))
         val b       = recOrNoTree(xs)
@@ -1811,6 +1835,10 @@ class CodeExtraction(inoxCtx: inox.Context,
     case ExRequiredExpression(contract, isStatic) =>
       def wrap(x: xt.Expr) = if (isStatic) xt.Annotated(x, Seq(xt.Ghost)).setPos(x) else x
       xt.Require(wrap(extractTree(contract)), xt.UnitLiteral().setPos(tr.sourcePos))
+
+    // Extracted as flags of the enclosing function, see `extractPrecondWitnesses`
+    case ExPrecondWitnessExpression(_) =>
+      xt.UnitLiteral().setPos(tr.sourcePos)
 
     case ExReadsExpression(objs) =>
       xt.Reads(extractTree(objs), xt.UnitLiteral().setPos(tr.sourcePos))
