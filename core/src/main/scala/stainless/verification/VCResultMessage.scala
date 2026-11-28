@@ -6,6 +6,7 @@ package verification
 case class VCResultMessage[T <: ast.Trees, +M](
   vc: VC[T],
   result: VCResult[M]
+  //condition: String // Might be too much burden
 ) extends ReportMessage {
 
   override val sbtPluginOnly: Boolean = true
@@ -16,25 +17,29 @@ case class VCResultMessage[T <: ast.Trees, +M](
   }
 
   override def emit(reporter: inox.Reporter): Unit = {
-    result.status match {
-      case VCStatus.Valid =>
-        reporter.warning(vc.getPos, title)
+    if (result.isValid) {
+      reporter.info(vc.getPos, title)
+    } else {
+        result.status match {
+        // case VCStatus.Valid =>
+        //   reporter.warning(vc.getPos, title)
 
-      case VCStatus.Invalid(reason) =>
-        val reasonStr = reason match {
-          case VCStatus.CounterExample(cex) =>
-            s"Found counter-example:\n  ${cex.toString.replaceAll("\n", "\n  ")}"
+        case VCStatus.Invalid(reason) =>
+          val reasonStr = reason match {
+            case VCStatus.CounterExample(cex) =>
+              s"Found counter-example:\n  ${cex.toString.replaceAll("\n", "\n  ")}"
 
-          case VCStatus.Unsatisfiable =>
-            "Property wasn't satisfiable"
-        }
+            case VCStatus.Unsatisfiable =>
+              "Property wasn't satisfiable"
+          }
 
-        val msg = s"$title\n$reasonStr"
-        reporter.error(vc.getPos, msg)
+          val msg = s"$title\n$reasonStr"
+          reporter.error(vc.getPos, msg)
 
-      case status =>
-        val msg = s"$title\n => ${result.status.name.toUpperCase}"
-        reporter.error(vc.getPos, msg)
+        case status =>
+          val msg = s"$title\n => ${result.status.name.toUpperCase}"
+          reporter.error(vc.getPos, msg)
+      }
     }
   }
 }
