@@ -297,7 +297,9 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
       todo = todo.tail ++ (codesIn(_.traverse(definition._2.rhs)) -- definitions.keySet)
     }
 
-    val sorted = definitions.toSeq.sortBy(_._1.globalId).map(_._2)
+    // By name and type rather than by identifier, since the codes are created in the order in which
+    // functions are encoded, which depends on the order of the transformation of the program
+    val sorted = definitions.toSeq.sortBy { case (id, _) => (id.name, codeKeys.get(id).toString, id.globalId) }.map(_._2)
     val sort = new t.ADTSort(codeID, Seq(), sorted.map(_._1), Seq(t.Synthetic))
     val c = t.ValDef(isOfC, code)
     val isOf = new t.FunDef(isOfID, Seq(), Seq(t.ValDef(isOfX, ref), c), t.BooleanType(),
@@ -1736,7 +1738,7 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
       new t.ADTConstructor(cd.id, sort, fields).copiedFrom(cd)
     }
 
-    private val concreteClasses = symbols.classes.values.toSeq.filterNot(_.flags contains s.IsAbstract)
+    private val concreteClasses = symbols.classes.values.toSeq.sortBy(_.id).filterNot(_.flags contains s.IsAbstract)
 
     private val hierarchyRoots: Seq[Identifier] = concreteClasses.flatMap(cd => hierarchyOf(cd.id)).distinct
 
@@ -1752,7 +1754,7 @@ class TypeEncoding(override val s: Trees, override val t: Trees)
       concreteClasses.filter(cd => hierarchyOf(cd.id).isEmpty).map(constructor(_, refID)) ++
       hierarchyRoots.map { root =>
         new t.ADTConstructor(hierarchyBox(root), refID, Seq(t.ValDef(hierarchyValue(root), hierarchy(root))))
-      } ++ symbols.sorts.values.toSeq.map { sort =>
+      } ++ symbols.sorts.values.toSeq.sortBy(_.id).map { sort =>
         new t.ADTConstructor(adt(sort.id), refID, Seq(t.ValDef(
           adtValue(sort.id),
           t.ADTType(sort.id, sort.typeArgs.map(tp => ref.copiedFrom(tp))).copiedFrom(sort)

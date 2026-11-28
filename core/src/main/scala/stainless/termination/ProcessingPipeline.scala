@@ -4,7 +4,7 @@ package stainless
 package termination
 
 import scala.concurrent.duration._
-import scala.collection.mutable.{PriorityQueue, Map => MutableMap, Set => MutableSet}
+import scala.collection.mutable.{PriorityQueue, Map => MutableMap, LinkedHashSet => MutableSet}
 
 trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptible { self =>
   import context.{given, _}
@@ -24,7 +24,7 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
   object Problem {
     def apply(fds: Set[FunDef]): Problem = new Problem {
       val funSet = fds
-      lazy val funDefs = funSet.toSeq
+      lazy val funDefs = funSet.toSeq.sortBy(_.id)
     }
 
     def apply(fds: Seq[FunDef]): Problem = new Problem {
@@ -80,7 +80,14 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
           val largerImpact = aCallers.size compare bCallers.size
           if (largerImpact != 0) largerImpact
           else {
-            bIndex compare aIndex
+            val laterProcessor = bIndex compare aIndex
+            if (laterProcessor != 0) laterProcessor
+            else {
+              // the problem with the smallest identifiers first, so that the order doesn't depend on
+              // the order in which problems are enqueued
+              import scala.math.Ordering.Implicits.seqOrdering
+              summon[Ordering[Seq[Identifier]]].compare(bProblem.funDefs.map(_.id), aProblem.funDefs.map(_.id))
+            }
           }
         }
       }
@@ -213,7 +220,7 @@ trait ProcessingPipeline extends TerminationChecker with inox.utils.Interruptibl
       processResult(Cleared(fd, None, None), "Unchecked")
     }
 
-    toCheck.map(fds => Problem(fds.toSeq))
+    toCheck.map(fds => Problem(fds))
   }
 
   private def runPipeline(fd: FunDef): TerminationGuarantee = {

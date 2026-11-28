@@ -43,28 +43,29 @@ trait StructuralSize { self: SolverProvider =>
     }
   }
 
-  def flatTypesPowerset(tpe: Type): Set[Expr => Expr] = {
-    def powerSetToFunSet(l: IterableOnce[Expr => Expr]): Set[Expr => Expr] = {
-      l.iterator.to(Set).subsets().filter(_.nonEmpty).map{
-        (reconss: Set[Expr => Expr]) => (e : Expr) =>
-          tupleWrap(reconss.toSeq map { f => f(e) })
-      }.toSet
+  /** The tuples of the non-empty subsets of the components of `tpe` (see [[flatTypes]]), the
+    * smaller subsets first, each in the order of the components. Functions don't have a stable
+    * order in a set, and the termination checker tries them in this order. */
+  def flatTypesPowerset(tpe: Type): Seq[Expr => Expr] = {
+    val components = flatTypes(tpe)
+    (1 to components.size).flatMap(components.indices.combinations).map {
+      (indices: Seq[Int]) => (e: Expr) => tupleWrap(indices.map(i => components(i)(e)))
     }
-
-    powerSetToFunSet(flatTypes(tpe))
   }
 
-  def flatTypes(tpe: Type): Set[Expr => Expr] = {
-    def rec(tpe: Type): Set[Expr => Expr] = tpe match {
+  /** Reconstructions of the components of `tpe`, through the fields of containers and tuples, in
+    * the order of the fields. */
+  def flatTypes(tpe: Type): Seq[Expr => Expr] = {
+    def rec(tpe: Type): Seq[Expr => Expr] = tpe match {
       case ContainerType(fields) =>
         fields.flatMap {
           vd => rec(vd.tpe).map(recons => (e: Expr) => recons(adtSelector(e, vd.id)))
-        }.toSet
+        }
       case TupleType(tpes) =>
         tpes.indices.flatMap {
           index => rec(tpes(index)).map(recons => (e: Expr) => recons(tupleSelect(e, index + 1, true)))
-        }.toSet
-      case _ => Set((e: Expr) => e)
+        }
+      case _ => Seq((e: Expr) => e)
     }
 
     rec(tpe)

@@ -75,7 +75,7 @@ class ImperativeCodeElimination(override val s: Trees)(override val t: s.type)
           val (tRes, tScope, tFun) = toFunction(tExpr)
           val (eRes, eScope, eFun) = toFunction(eExpr)
 
-          val modifiedVars: Seq[Variable] = (tFun.keys ++ eFun.keys).toSet.intersect(varsInScope).toSeq
+          val modifiedVars: Seq[Variable] = (tFun.keys ++ eFun.keys).toSet.intersect(varsInScope).toSeq.sortBy(_.id)
           val res = ValDef.fresh("res", ite.getType)
           val freshVars = modifiedVars.map(_.freshen)
           val freshResultVars = modifiedVars.map(_.freshen)
@@ -103,7 +103,7 @@ class ImperativeCodeElimination(override val s: Trees)(override val t: s.type)
           val (csesRes, csesScope, csesFun) = csesRhs.map(toFunction).unzip3
           val (scrutRes, scrutScope, scrutFun) = toFunction(scrut)
 
-          val modifiedVars: Seq[Variable] = csesFun.flatMap(_.keys).toSet.intersect(varsInScope).toSeq
+          val modifiedVars: Seq[Variable] = csesFun.flatMap(_.keys).toSet.intersect(varsInScope).toSeq.sortBy(_.id)
           val res = ValDef.fresh("res", m.getType).setPos(m)
           val freshVars = modifiedVars.map(_.freshen)
           val freshResultVars = modifiedVars.map(_.freshen)
@@ -235,7 +235,7 @@ class ImperativeCodeElimination(override val s: Trees)(override val t: s.type)
                   case _ => Set()
                 } (inner.fullBody)
 
-                (freeVars ++ transitiveVars).intersect(state.varsInScope).toSeq
+                (freeVars ++ transitiveVars).intersect(state.varsInScope).toSeq.sortBy(_.id)
               }
 
               if (modifiedVars.isEmpty) fdWithoutSideEffects else {

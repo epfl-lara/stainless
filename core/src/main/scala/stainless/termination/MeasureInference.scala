@@ -196,9 +196,11 @@ class MeasureInference(override val s: Trees, override val t: Trees)(using overr
     // Note: fnsSummaries is just a Seq of Unit as of now, but is still combined with sortSummaries (Seq of () as well)
     // for possible future extension
     val (results, fnsSummaries) =
-      symbols.functions.values.map(fd =>
+      // In the order of the identifiers: a measure inferred for a function is reused for the
+      // functions that are mutually recursive with it (see `measureCache`)
+      symbols.functions.values.toSeq.sortBy(_.id).map(fd =>
         funCache.cached(fd, context)(extractFunction(context,fd))
-      ).toSeq.unzip
+      ).unzip
 
     val posts: Map[Identifier, s.Lambda] = results.flatMap{ case (tfd,post) => post }.toMap
 

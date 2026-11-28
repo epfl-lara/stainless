@@ -202,9 +202,9 @@ trait Definitions extends innerfuns.Trees { self: Trees =>
     val classes: Map[Identifier, ClassDef]
     val typeDefs: Map[Identifier, TypeDef]
 
-    // The children of each class, in the order of `classes`, see `ClassDef.children`
+    // The children of each class, in the order of their identifiers, see `ClassDef.children`
     private lazy val childrenMap: Map[Identifier, Seq[ClassDef]] =
-      classes.values.toSeq
+      classes.values.toSeq.sortBy(_.id)
         .flatMap(cd => cd.parents.map(_.id).distinct.map(_ -> cd))
         .groupMap(_._1)(_._2)
 
